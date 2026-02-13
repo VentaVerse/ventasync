@@ -17,6 +17,10 @@ use App\Http\Controllers\ErrorLogController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
+// Lazada OAuth callback must be publicly accessible so Lazada can redirect back with `code`.
+// Keeping it outside auth/perm middleware prevents losing the code behind login redirects.
+Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -88,11 +92,21 @@ Route::middleware(['auth'])->group(function () {
         // Lazada (POC)
         Route::get('/lazada', [LazadaController::class, 'index'])->name('lazada.index');
         Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('lazada.authorize');
-        Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
+        // NOTE: /lazada/callback is declared above (public route)
         Route::post('/lazada/save', [LazadaController::class, 'save'])->name('lazada.save');
         Route::post('/lazada/token/create', [LazadaController::class, 'tokenCreate'])->name('lazada.token_create');
         Route::post('/lazada/token/refresh', [LazadaController::class, 'tokenRefresh'])->name('lazada.token_refresh');
         Route::post('/lazada/call', [LazadaController::class, 'callApi'])->name('lazada.call_api');
+
+        // Lazada Catalog POC
+        Route::post('/lazada/category/tree', [LazadaController::class, 'categoryTree'])->name('lazada.category_tree');
+        Route::post('/lazada/category/attributes', [LazadaController::class, 'categoryAttributes'])->name('lazada.category_attributes');
+        Route::post('/lazada/category/brands', [LazadaController::class, 'brandsQuery'])->name('lazada.brands_query');
+        Route::post('/lazada/products/get', [LazadaController::class, 'productsGet'])->name('lazada.products_get');
+
+        // POC: Build payload + create product (variants/options)
+        Route::post('/lazada/product/payload-preview', [LazadaController::class, 'productPayloadPreview'])->name('lazada.product_payload_preview');
+        Route::post('/lazada/product/create', [LazadaController::class, 'productCreate'])->name('lazada.product_create');
     });
 
     // Settings (parent permission)

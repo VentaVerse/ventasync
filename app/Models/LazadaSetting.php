@@ -13,6 +13,7 @@ class LazadaSetting extends Model
         'app_key',
         'app_secret',
         'redirect_uri',
+        'auth_code',
         'access_token',
         'refresh_token',
         'expires_at',
