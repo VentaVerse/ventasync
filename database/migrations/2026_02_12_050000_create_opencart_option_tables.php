@@ -73,10 +73,6 @@ return new class extends Migration
                 $table->integer('quantity');
                 $table->boolean('subtract');
                 $table->decimal('price', 15, 4);
-                $table->decimal('cost', 15, 4)->default(0.0000);
-                $table->integer('costing_method')->default(0);
-                $table->decimal('cost_amount', 15, 4)->default(0.0000);
-                $table->string('cost_prefix', 1)->default('+');
                 $table->string('price_prefix', 1);
                 $table->integer('points');
                 $table->string('points_prefix', 1);

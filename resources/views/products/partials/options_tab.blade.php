@@ -74,23 +74,15 @@
                 <input class="input js-row-price" type="number" step="0.0001" value="0">
             </div>
             <div style="width:120px;">
-                <label>Cost Prefix</label>
-                <select class="input js-row-cost-prefix">
                     <option value="+">+</option>
                     <option value="-">-</option>
                 </select>
             </div>
             <div style="width:140px;">
-                <label>Cost</label>
-                <input class="input js-row-cost" type="number" step="0.0001" value="0">
             </div>
             <div style="width:140px;">
-                <label>Cost Method</label>
-                <input class="input js-row-costing-method" type="number" value="0">
             </div>
             <div style="width:140px;">
-                <label>Cost Amount</label>
-                <input class="input js-row-cost-amount" type="number" step="0.0001" value="0">
             </div>
             <div style="width:140px; margin-left:auto;">
                 <button class="btn danger" type="button" data-action="remove-value" style="width:100%;">Remove</button>
@@ -178,10 +170,6 @@ function buildValueRow(valuesList, seed){
   row.querySelector('.js-row-qty').value = seed?.quantity ?? 0;
   row.querySelector('.js-row-price-prefix').value = seed?.price_prefix ?? '+';
   row.querySelector('.js-row-price').value = seed?.price ?? 0;
-  row.querySelector('.js-row-cost-prefix').value = seed?.cost_prefix ?? '+';
-  row.querySelector('.js-row-cost').value = seed?.cost ?? 0;
-  row.querySelector('.js-row-costing-method').value = seed?.costing_method ?? 0;
-  row.querySelector('.js-row-cost-amount').value = seed?.cost_amount ?? 0;
 
   row.querySelector('[data-action="remove-value"]').addEventListener('click', () => row.remove());
 
@@ -282,10 +270,6 @@ function beforeSubmit(e){
       const qty = r.querySelector('.js-row-qty').value || '0';
       const pp = r.querySelector('.js-row-price-prefix').value || '+';
       const price = r.querySelector('.js-row-price').value || '0';
-      const cp = r.querySelector('.js-row-cost-prefix').value || '+';
-      const cost = r.querySelector('.js-row-cost').value || '0';
-      const cm = r.querySelector('.js-row-costing-method').value || '0';
-      const ca = r.querySelector('.js-row-cost-amount').value || '0';
 
       const add = (n,v) => {
         const el = document.createElement('input');
@@ -298,10 +282,6 @@ function beforeSubmit(e){
       add(`options[${idx}][values][${vIdx}][quantity]`, qty);
       add(`options[${idx}][values][${vIdx}][price_prefix]`, pp);
       add(`options[${idx}][values][${vIdx}][price]`, price);
-      add(`options[${idx}][values][${vIdx}][cost_prefix]`, cp);
-      add(`options[${idx}][values][${vIdx}][cost]`, cost);
-      add(`options[${idx}][values][${vIdx}][costing_method]`, cm);
-      add(`options[${idx}][values][${vIdx}][cost_amount]`, ca);
 
       vIdx++;
     }

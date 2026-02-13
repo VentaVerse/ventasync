@@ -4,7 +4,10 @@
 <div class="card">
     <div class="page-header">
         <h2>Add Option</h2>
-        <a class="btn secondary" href="{{ route('options.index') }}">Back</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn secondary" href="{{ route('options.index') }}">Back</a>
+            <button class="btn" type="submit" form="option-form">Save</button>
+        </div>
     </div>
 
     @if(session('success'))
@@ -25,7 +28,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('options.store') }}">
+    <form id="option-form" method="POST" action="{{ route('options.store') }}">
         @csrf
 
         <div class="form-grid">
@@ -143,9 +146,7 @@
 
 </div>
 
-        <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-            <button class="btn" type="submit">Create</button>
-        </div>
+        {{-- Save button moved to page header (top-right) --}}
     </form>
 </div>
 @endsection

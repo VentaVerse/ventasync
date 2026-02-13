@@ -4,10 +4,13 @@
 <div class="card">
     <div class="page-header">
         <h2>Add Category</h2>
-        <a class="btn secondary" href="{{ route('categories.index') }}">Back</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn secondary" href="{{ route('categories.index') }}">Back</a>
+            <button class="btn" type="submit" form="category-form">Save</button>
+        </div>
     </div>
 
-    <form method="POST" action="{{ route('categories.store') }}">
+    <form id="category-form" method="POST" action="{{ route('categories.store') }}">
         @csrf
 
         <div class="form-grid">
@@ -47,9 +50,7 @@
             </div>
         </div>
 
-        <div style="margin-top:16px;">
-            <button class="btn" type="submit">Save</button>
-        </div>
+        {{-- Save button moved to page header (top-right) --}}
     </form>
 </div>
 @endsection

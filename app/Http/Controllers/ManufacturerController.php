@@ -112,6 +112,23 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
         return redirect()->route('manufacturers.index')->with('status','Saved');
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
+
+        if (empty($ids)) {
+            return redirect()->route('manufacturers.index')->with('status', 'No items selected.');
+        }
+
+        Manufacturer::whereIn('manufacturer_id', $ids)->delete();
+
+        return redirect()->route('manufacturers.index')->with('status', 'Deleted selected manufacturers.');
+    }
+
     public function lookup(Request $request)
     {
         $q = trim((string) $request->get('q', ''));

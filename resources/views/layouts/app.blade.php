@@ -619,5 +619,107 @@ nav[role="navigation"] svg { display:none !important; }
   document.addEventListener('DOMContentLoaded', setupManufacturerSearch);
 })();
 </script>
+
+<script>
+(function(){
+  // Product forms use a simpler typeahead (manufacturer_search/category_search).
+  // Keep this logic in the layout so Add/Edit behave the same and require no page-specific scripts.
+  function setupTypeahead(opts){
+    var input = document.getElementById(opts.inputId);
+    var hidden = document.getElementById(opts.hiddenId);
+    var list = document.getElementById(opts.listId);
+    if(!input || !hidden || !list) return;
+
+    var last = '';
+    var timer = null;
+
+    function clearList(){ list.innerHTML = ''; list.style.display='none'; }
+    function showList(){ list.style.display='block'; }
+    function hideList(){ list.style.display='none'; }
+
+    // If user types/clears manually, assume it's not selected -> reset id.
+    input.addEventListener('input', function(){
+      hidden.value = '0';
+    });
+
+    function render(items){
+      list.innerHTML = '';
+      if(!items || !items.length){ hideList(); return; }
+      items.forEach(function(it){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = it.name;
+        btn.addEventListener('mousedown', function(e){
+          // mousedown so it triggers before input loses focus
+          e.preventDefault();
+          input.value = it.name;
+          hidden.value = String(it.id);
+          clearList();
+        });
+        list.appendChild(btn);
+      });
+      showList();
+    }
+
+    async function fetchItems(q){
+      try{
+        var res = await fetch(opts.url + encodeURIComponent(q), {headers:{'Accept':'application/json'}, credentials:'same-origin'});
+        if(!res.ok) return [];
+        var data = await res.json();
+        // Normalize to {id,name}
+        // manufacturers() returns {manufacturer_id,name}
+        // categories() returns {category_id,path}
+        // optionValues() returns {option_value_id,name}
+        return (data || []).map(function(r){
+          return {
+            id: r.id ?? r.manufacturer_id ?? r.category_id ?? r.option_id ?? r.value_id ?? r.option_value_id,
+            name: r.name ?? r.path
+          };
+        }).filter(function(r){ return r.id !== undefined && r.name; });
+      }catch(e){ return []; }
+    }
+
+    input.addEventListener('focus', function(){
+      var q = (input.value || '').trim();
+      if(q.length >= 1){
+        // trigger a refresh when focusing back
+        last = '';
+        input.dispatchEvent(new Event('keyup'));
+      }
+    });
+
+    input.addEventListener('keyup', function(){
+      var q = (input.value || '').trim();
+      if(q.length < 1){ hideList(); return; }
+      if(q === last) return;
+      last = q;
+      clearTimeout(timer);
+      timer = setTimeout(async function(){
+        var items = await fetchItems(q);
+        render(items);
+      }, 120);
+    });
+
+    document.addEventListener('click', function(e){
+      if(e.target !== input && !list.contains(e.target)) hideList();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setupTypeahead({
+      inputId: 'manufacturer_search',
+      hiddenId: 'manufacturer_id',
+      listId: 'manufacturer_list',
+      url: '/api/catalog/manufacturers?term=',
+    });
+    setupTypeahead({
+      inputId: 'category_search',
+      hiddenId: 'category_id',
+      listId: 'category_list',
+      url: '/api/catalog/categories?term=',
+    });
+  });
+})();
+</script>
 </body>
 </html>

@@ -26,6 +26,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::post('/products/bulk', [ProductController::class, 'bulkAction'])->name('products.bulk');
         Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
         Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
@@ -41,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/options/{id}/edit', [OptionController::class, 'edit'])->name('options.edit');
         Route::put('/options/{id}', [OptionController::class, 'update'])->name('options.update');
         Route::delete('/options/{id}', [OptionController::class, 'destroy'])->name('options.destroy');
+        Route::post('/options/bulk-delete', [OptionController::class, 'bulkDestroy'])->name('options.bulk_delete');
         Route::delete('/options/{optionId}/values/{valueId}', [OptionController::class, 'destroyValue'])->name('options.values.destroy');
 
         // Manufacturers
@@ -50,11 +52,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/manufacturers/{id}/edit', [ManufacturerController::class, 'edit'])->name('manufacturers.edit');
         Route::put('/manufacturers/{id}', [ManufacturerController::class, 'update'])->name('manufacturers.update');
         Route::delete('/manufacturers/{id}', [ManufacturerController::class, 'destroy'])->name('manufacturers.destroy');
+        Route::post('/manufacturers/bulk-delete', [ManufacturerController::class, 'bulkDestroy'])->name('manufacturers.bulk_delete');
 
         // Categories
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+        Route::post('/categories/bulk', [CategoryController::class, 'bulkAction'])->name('categories.bulk');
         Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
         Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');

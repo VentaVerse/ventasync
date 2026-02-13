@@ -4,10 +4,13 @@
 <div class="card">
     <div class="page-header">
         <h2>Add Manufacturer</h2>
-        <a class="btn secondary" href="{{ route('manufacturers.index') }}">Back</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn secondary" href="{{ route('manufacturers.index') }}">Back</a>
+            <button class="btn" type="submit" form="manufacturer-form">Save</button>
+        </div>
     </div>
 
-    <form method="POST" action="{{ route('manufacturers.store') }}">
+    <form id="manufacturer-form" method="POST" action="{{ route('manufacturers.store') }}">
         @csrf
 
         <div class="form-grid">
@@ -26,10 +29,7 @@
                 <textarea class="input wysiwyg" name="description">{!! old('description', '') !!}</textarea>
             </div>
         </div>
-
-        <div style="margin-top:16px;">
-            <button class="btn" type="submit">Save</button>
-        </div>
+        {{-- Save button moved to page header (top-right) --}}
     </form>
 </div>
 @endsection

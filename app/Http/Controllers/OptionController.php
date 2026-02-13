@@ -237,6 +237,51 @@ class OptionController extends Controller
         return redirect()->route('options.index')->with('success', 'Option deleted.');
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        $p = config('catalog.prefix');
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
+
+        if (empty($ids)) {
+            return redirect()->route('options.index')->with('error', 'No items selected.');
+        }
+
+        $blocked = [];
+        $deleted = 0;
+
+        DB::transaction(function () use ($p, $ids, &$blocked, &$deleted) {
+            foreach ($ids as $id) {
+                $inUse = DB::table($p.'product_option')->where('option_id', $id)->exists();
+                if ($inUse) {
+                    $blocked[] = (int) $id;
+                    continue;
+                }
+
+                DB::table($p.'option_value_description')->where('option_id', $id)->delete();
+                DB::table($p.'option_value')->where('option_id', $id)->delete();
+                DB::table($p.'option_description')->where('option_id', $id)->delete();
+                DB::table($p.'option')->where('option_id', $id)->delete();
+                $deleted++;
+            }
+        });
+
+        if ($deleted > 0 && !empty($blocked)) {
+            return redirect()->route('options.index')->with('success', 'Deleted selected options (except those in use).')
+                ->with('error', 'Cannot delete options in use (IDs: '.implode(', ', $blocked).').');
+        }
+
+        if (!empty($blocked) && $deleted === 0) {
+            return redirect()->route('options.index')->with('error', 'Cannot delete: selected options are used by products (IDs: '.implode(', ', $blocked).').');
+        }
+
+        return redirect()->route('options.index')->with('success', 'Deleted selected options.');
+    }
+
     public function destroyValue(int $optionId, int $valueId)
     {
         $p = config('catalog.prefix');

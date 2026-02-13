@@ -182,7 +182,6 @@ $table->integer('points')->default(0);
             $table->integer('quantity')->default(0);
             $table->tinyInteger('subtract')->default(1);
             $table->decimal('price',15,4)->default(0);
-$table->string('cost_prefix',1)->default('+');
             $table->string('price_prefix',1)->default('+');
             $table->integer('points')->default(0);
             $table->string('points_prefix',1)->default('+');

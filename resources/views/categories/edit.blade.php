@@ -4,10 +4,13 @@
 <div class="card">
     <div class="page-header">
         <h2>Edit Category #{{ $category->category_id }}</h2>
-        <a class="btn secondary" href="{{ route('categories.index') }}">Back</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn secondary" href="{{ route('categories.index') }}">Back</a>
+            <button class="btn" type="submit" form="category-form">Update</button>
+        </div>
     </div>
 
-    <form method="POST" action="{{ route('categories.update', $category->category_id) }}">
+    <form id="category-form" method="POST" action="{{ route('categories.update', $category->category_id) }}">
         @csrf
         @method('PUT')
 
@@ -48,16 +51,17 @@
             </div>
         </div>
 
-            <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-        <button class="btn" type="submit">Update</button>
-        <button class="btn danger" type="button" onclick="if(confirm('Delete this item?')) document.getElementById('delete-form').submit();">Delete</button>
-    </div>
+        {{-- Update button moved to page header (top-right) --}}
 </form>
 
 <form id="delete-form" method="POST" action="{{ route('categories.destroy', $category->category_id) }}" style="display:none;">
     @csrf
     @method('DELETE')
 </form>
+
+<div style="margin-top:16px; display:flex; justify-content:flex-start;">
+    <button class="btn danger" type="button" onclick="if(confirm('Delete this item?')) document.getElementById('delete-form').submit();">Delete</button>
+</div>
 
 </div>
 @endsection

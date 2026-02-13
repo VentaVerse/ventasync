@@ -4,7 +4,17 @@
 <div class="card">
     <div class="page-header">
         <h2>Products</h2>
-        <a class="btn" href="{{ route('products.create') }}">Add Product</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn" href="{{ route('products.create') }}">Add Product</a>
+
+            <select class="input" name="action" form="product-bulk-form" style="width:180px;">
+                <option value="">-- Action --</option>
+                <option value="enable">Enable</option>
+                <option value="disable">Disable</option>
+                <option value="delete">Delete</option>
+            </select>
+            <button class="btn" type="submit" form="product-bulk-form" id="product-apply-btn">Apply To Selected</button>
+        </div>
     </div>
 
     <div class="toolbar">
@@ -13,6 +23,10 @@
             <button class="btn secondary" type="submit">Search</button>
         </form>
     </div>
+
+    <form id="product-bulk-form" method="POST" action="{{ route('products.bulk') }}" onsubmit="return window.__confirmProductBulkAction();">
+        @csrf
+    </form>
 
     <table>
         <thead>
@@ -34,6 +48,9 @@
     }
 @endphp
 <tr>
+    <th style="width:36px;">
+        <input type="checkbox" id="product-select-all" title="Select all">
+    </th>
     <th style="width:90px;">{!! sort_link('product_id','ID',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th>{!! sort_link('name','Name',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:180px;">{!! sort_link('manufacturer','Manufacturer',$currentSort,$currentDir,$q ?? '') !!}</th>
@@ -48,6 +65,9 @@
         <tbody>
         @foreach($products as $p)
             <tr>
+                <td>
+                    <input type="checkbox" class="product-row-check" name="ids[]" value="{{ (int)$p->product_id }}" form="product-bulk-form">
+                </td>
                 <td>{{ $p->product_id }}</td>
                 <td>{{ $p->name ?? '-' }}</td>
                 <td>{{ $p->manufacturer ?? '-' }}</td>
@@ -73,4 +93,57 @@
         {{ $products->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>
+
+<script>
+    (function () {
+        var selectAll = document.getElementById('product-select-all');
+        var checks = function () { return Array.prototype.slice.call(document.querySelectorAll('.product-row-check')); };
+        var applyBtn = document.getElementById('product-apply-btn');
+
+        function updateSelectAllState() {
+            var boxes = checks();
+            if (!selectAll) return;
+            if (boxes.length === 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+                return;
+            }
+            var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
+            selectAll.checked = checkedCount === boxes.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                checks().forEach(function (b) { b.checked = selectAll.checked; });
+                updateSelectAllState();
+            });
+        }
+
+        checks().forEach(function (b) {
+            b.addEventListener('change', updateSelectAllState);
+        });
+
+        window.__confirmProductBulkAction = function () {
+            var actionEl = document.querySelector('select[name="action"][form="product-bulk-form"]');
+            var action = actionEl ? actionEl.value : '';
+            var selected = checks().filter(function (b) { return b.checked; }).length;
+
+            if (!action) {
+                alert('Please choose an action first.');
+                return false;
+            }
+            if (selected === 0) {
+                alert('Please select at least one product.');
+                return false;
+            }
+            if (action === 'delete') {
+                return confirm('Delete selected products? This cannot be undone.');
+            }
+            return true;
+        };
+
+        updateSelectAllState();
+    })();
+</script>
 @endsection

@@ -176,6 +176,32 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
         return redirect()->route('categories.index')->with('status','Saved');
     }
 
+    public function bulkAction(Request $request)
+    {
+        $action = (string) $request->input('action', '');
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
+
+        if (empty($ids)) {
+            return redirect()->route('categories.index')->with('status', 'No items selected.');
+        }
+
+        if (!in_array($action, ['enable', 'disable'], true)) {
+            return redirect()->route('categories.index')->with('status', 'Invalid action.');
+        }
+
+        $pfx = config('catalog.prefix');
+        $newStatus = $action === 'enable' ? 1 : 0;
+        DB::table($pfx.'category')->whereIn('category_id', $ids)->update(['status' => $newStatus]);
+
+        return redirect()->route('categories.index')->with('status', $newStatus === 1 ? 'Enabled selected categories.' : 'Disabled selected categories.');
+    }
+
     // AJAX lookup used by Product form typeahead
     public function lookup(Request $request)
     {

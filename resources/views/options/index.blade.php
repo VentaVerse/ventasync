@@ -4,7 +4,10 @@
 <div class="card">
     <div class="page-header">
         <h2>Options</h2>
-        <a class="btn" href="{{ route('options.create') }}">Add Option</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn" href="{{ route('options.create') }}">Add Option</a>
+            <button class="btn danger" type="submit" form="option-bulk-form" id="option-bulk-delete-btn">Delete Selected</button>
+        </div>
     </div>
 
     <div class="toolbar">
@@ -21,9 +24,14 @@
         <div class="alert error">{{ session('error') }}</div>
     @endif
 
+    <form id="option-bulk-form" method="POST" action="{{ route('options.bulk_delete') }}" onsubmit="return window.__confirmOptionBulkDelete();">
+        @csrf
+    </form>
+
     <table>
         <thead>
         <tr>
+            <th style="width:36px;"><input type="checkbox" id="option-select-all" title="Select all"></th>
             <th style="width:90px;">ID</th>
             <th>Name</th>
             <th style="width:160px;">Type</th>
@@ -34,6 +42,7 @@
         <tbody>
         @foreach($options as $o)
             <tr>
+                <td><input type="checkbox" class="option-row-check" name="ids[]" value="{{ (int)$o->option_id }}" form="option-bulk-form"></td>
                 <td>{{ (int)$o->option_id }}</td>
                 <td>{{ $o->name }}</td>
                 <td>{{ $o->type }}</td>
@@ -52,7 +61,55 @@
     </table>
 
     <div style="margin-top:14px;">
-        {{ $options->links() }}
+        {{ $options->onEachSide(1)->links('vendor.pagination.simple') }}
+
+        @if(method_exists($options, 'total') && $options->total() > 0)
+            <div style="margin-top:8px; font-size:13px; opacity:.85;">
+                Showing {{ $options->firstItem() }} to {{ $options->lastItem() }} of {{ $options->total() }} results
+            </div>
+        @endif
     </div>
 </div>
+
+<script>
+    (function () {
+        var selectAll = document.getElementById('option-select-all');
+        var checks = function () { return Array.prototype.slice.call(document.querySelectorAll('.option-row-check')); };
+
+        function updateSelectAllState() {
+            var boxes = checks();
+            if (!selectAll) return;
+            if (boxes.length === 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+                return;
+            }
+            var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
+            selectAll.checked = checkedCount === boxes.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                checks().forEach(function (b) { b.checked = selectAll.checked; });
+                updateSelectAllState();
+            });
+        }
+
+        checks().forEach(function (b) {
+            b.addEventListener('change', updateSelectAllState);
+        });
+
+        window.__confirmOptionBulkDelete = function () {
+            var selected = checks().filter(function (b) { return b.checked; }).length;
+            if (selected === 0) {
+                alert('Please select at least one option.');
+                return false;
+            }
+            return confirm('Delete selected options? This cannot be undone.');
+        };
+
+        updateSelectAllState();
+    })();
+</script>
 @endsection

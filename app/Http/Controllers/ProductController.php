@@ -9,10 +9,9 @@ use App\Models\Catalog\ProductToCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+
 class ProductController extends Controller
 {
-
-
     private function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
     {
         $manufacturerId = (int) ($manufacturerId ?? 0);
@@ -144,8 +143,27 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
 
     public function create()
     {
-        return view('products.create');
+        $pfx = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        // Option master list (needed for client-side tab switching like OpenCart)
+        $allOptions = DB::table($pfx.'option as o')
+            ->join($pfx.'option_description as od', function ($j) use ($langId) {
+                $j->on('o.option_id', '=', 'od.option_id')
+                  ->where('od.language_id', '=', $langId);
+            })
+            ->orderBy('od.name')
+            ->get(['o.option_id', 'o.type', 'od.name']);
+
+        foreach ($allOptions as $o) {
+            $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        $existingOptions = collect();
+
+        return view('products.create', compact('allOptions', 'existingOptions'));
     }
+
 
     public function store(Request $request)
     {
@@ -161,11 +179,34 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
             'description' => 'nullable|string',
+
+            'options' => 'array',
+            'options.*.option_id' => 'required|integer|min:1',
+            'options.*.required' => 'nullable|in:0,1',
+            'options.*.values' => 'array',
+            'options.*.values.*.option_value_id' => 'required|integer|min:1',
+            'options.*.values.*.sku' => 'nullable|string|max:64',
+            'options.*.values.*.quantity' => 'nullable|integer|min:0',
+            'options.*.values.*.subtract' => 'nullable|in:0,1',
+            'options.*.values.*.price' => 'nullable|numeric',
+            'options.*.values.*.price_prefix' => 'nullable|in:+,-',
+            'options.*.values.*.weight' => 'nullable|numeric',
+            'options.*.values.*.weight_prefix' => 'nullable|in:+,-',
         ]);
 
         $langId = (int) config('catalog.default_language_id');
 
-        DB::transaction(function () use ($request, $langId) {
+        $resolvedManufacturerId = $this->resolveManufacturerId(
+            (int) $request->input('manufacturer_id', 0),
+            (string) $request->input('manufacturer_name', '')
+        );
+
+        $resolvedCategoryId = $this->resolveCategoryId(
+            (int) $request->input('category_id', 0),
+            (string) $request->input('category_name', '')
+        );
+
+        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $resolvedCategoryId) {
             $p = new Product();
 
             $p->model = $request->model ?? ($request->sku ?? '');
@@ -181,19 +222,19 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             $p->stock_status_id = 0;
             $p->image = null;
             $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
-$p->shipping = 1;
+            $p->shipping = 1;
 
             $p->price = (float) $request->price;
-$p->points = 0;
+            $p->points = 0;
             $p->tax_class_id = 0;
 
             // Ensure strict-mode safe date_available (OpenCart sets it automatically)
-$da = $p->date_available;
-if (!$da || $da === '0000-00-00') {
-    $p->date_available = now()->toDateString();
-}
+            $da = $p->date_available;
+            if (!$da || $da === '0000-00-00') {
+                $p->date_available = now()->toDateString();
+            }
 
-$p->save();
+            $p->save();
 
             $d = new ProductDescription();
             $d->product_id = $p->product_id;
@@ -213,9 +254,16 @@ $p->save();
                     'category_id' => $catId,
                 ]);
             }
+
+            // Save product options (OpenCart-like: options can be set during Add/Edit)
+            $options = $request->input('options', []);
+            $this->saveProductOptions((int) $p->product_id, $options);
+
+            return (int) $p->product_id;
         });
 
-        return redirect()->route('products.index')->with('status','Saved');
+        return redirect()->route('products.edit', ['id' => $productId])
+            ->with('status','Saved');
     }
 
     public function edit($id)
@@ -256,12 +304,10 @@ $p->save();
 
         $manufacturerName = $product->manufacturer_name ?? null;
 
-        $tab = (string) request()->query('tab', 'general');
-
         $allOptions = [];
         $existingOptions = collect();
 
-        if ($tab === 'options') {
+        if (true) {
             // Option master list
             $allOptions = DB::table($pfx.'option as o')
                 ->join($pfx.'option_description as od', function ($j) use ($langId) {
@@ -311,12 +357,11 @@ $p->save();
                         'ovd.name as option_value_name',
                         'pov.sku',
                         'pov.quantity',
+                        'pov.subtract',
                         'pov.price_prefix',
                         'pov.price',
-                        'pov.cost',
-                        'pov.costing_method',
-                        'pov.cost_amount',
-                        'pov.cost_prefix',
+                        'pov.weight_prefix',
+                        'pov.weight',
                     ]);
 
                 foreach ($rows as $r) {
@@ -325,13 +370,12 @@ $p->save();
                         'option_value_id' => (int)$r->option_value_id,
                         'name' => $r->option_value_name,
                         'quantity' => (int)$r->quantity,
+                        'subtract' => (int)($r->subtract ?? 1),
                         'price_prefix' => (string)$r->price_prefix,
                         'price' => (string)$r->price,
+                        'weight_prefix' => (string)($r->weight_prefix ?? '+'),
+                        'weight' => (string)($r->weight ?? 0),
                         'sku' => (string)($r->sku ?? ''),
-                        'cost' => (string)($r->cost ?? 0),
-                        'costing_method' => (int)($r->costing_method ?? 0),
-                        'cost_amount' => (string)($r->cost_amount ?? 0),
-                        'cost_prefix' => (string)($r->cost_prefix ?? '+'),
                     ];
                 }
             }
@@ -342,7 +386,7 @@ $p->save();
             }
         }
 
-        return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'tab', 'allOptions', 'existingOptions'));
+        return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'allOptions', 'existingOptions'));
     }
 
     public function update(Request $request, $id)
@@ -359,6 +403,19 @@ $p->save();
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
             'description' => 'nullable|string',
+
+            'options' => 'array',
+            'options.*.option_id' => 'required|integer|min:1',
+            'options.*.required' => 'nullable|in:0,1',
+            'options.*.values' => 'array',
+            'options.*.values.*.option_value_id' => 'required|integer|min:1',
+            'options.*.values.*.sku' => 'nullable|string|max:64',
+            'options.*.values.*.quantity' => 'nullable|integer|min:0',
+            'options.*.values.*.subtract' => 'nullable|in:0,1',
+            'options.*.values.*.price' => 'nullable|numeric',
+            'options.*.values.*.price_prefix' => 'nullable|in:+,-',
+            'options.*.values.*.weight' => 'nullable|numeric',
+            'options.*.values.*.weight_prefix' => 'nullable|in:+,-',
         ]);
 
         $langId = (int) config('catalog.default_language_id');
@@ -419,6 +476,10 @@ $p->date_modified = now();
                     'category_id' => $catId,
                 ]);
             }
+
+            // Save product options (OpenCart-like: options can be set during Add/Edit)
+            $options = $request->input('options', []);
+            $this->saveProductOptions((int) $id, $options);
         });
 
         return redirect()->route('products.index')->with('status','Saved');
@@ -436,4 +497,141 @@ $p->date_modified = now();
 
         return redirect()->route('products.index')->with('status','Saved');
     }
+
+    public function bulkAction(Request $request)
+    {
+        $action = (string) $request->input('action', '');
+        $ids = $request->input('ids', []);
+
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
+
+        if (empty($ids)) {
+            return redirect()->route('products.index')->with('status', 'No items selected.');
+        }
+
+        if (!in_array($action, ['delete', 'enable', 'disable'], true)) {
+            return redirect()->route('products.index')->with('status', 'Invalid action.');
+        }
+
+        $pfx = config('catalog.prefix');
+
+        if ($action === 'delete') {
+            DB::transaction(function () use ($ids, $pfx) {
+                DB::table($pfx.'product_to_category')->whereIn('product_id', $ids)->delete();
+                DB::table($pfx.'product_description')->whereIn('product_id', $ids)->delete();
+                DB::table($pfx.'product')->whereIn('product_id', $ids)->delete();
+            });
+
+            return redirect()->route('products.index')->with('status', 'Deleted selected products.');
+        }
+
+        $newStatus = $action === 'enable' ? 1 : 0;
+        DB::table($pfx.'product')->whereIn('product_id', $ids)->update(['status' => $newStatus]);
+
+        return redirect()->route('products.index')->with('status', $newStatus === 1 ? 'Enabled selected products.' : 'Disabled selected products.');
+    }
+
+    
+
+/**
+     * Persist product options in OpenCart tables (product_option / product_option_value).
+     * Safe to call from Add/Edit; replace strategy (idempotent).
+     */
+    private function saveProductOptions(int $productId, array $options): void
+    {
+        $p = config('catalog.prefix');
+
+        // Normalize
+        $options = array_values(array_filter($options ?? [], fn ($o) => is_array($o)));
+
+        // Replace strategy: clear existing first
+        $existingPoIds = DB::table($p.'product_option')
+            ->where('product_id', $productId)
+            ->pluck('product_option_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        if (!empty($existingPoIds)) {
+            DB::table($p.'product_option_value')->whereIn('product_option_id', $existingPoIds)->delete();
+        }
+        DB::table($p.'product_option')->where('product_id', $productId)->delete();
+
+        if (empty($options)) {
+            return;
+        }
+
+        // Guard supported option types (same as current UI)
+        $supportedTypes = ['select', 'radio', 'checkbox', 'image'];
+
+        $optionIds = collect($options)->pluck('option_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+
+        $types = DB::table($p.'option')
+            ->whereIn('option_id', $optionIds)
+            ->pluck('type', 'option_id');
+
+        foreach ($optionIds as $oid) {
+            if (!isset($types[$oid])) {
+                abort(422, 'Invalid option_id: '.$oid);
+            }
+            if (!in_array((string) $types[$oid], $supportedTypes, true)) {
+                abort(422, 'Unsupported option type for option_id '.$oid);
+            }
+        }
+
+        foreach ($options as $opt) {
+            $optionId = (int) ($opt['option_id'] ?? 0);
+            if ($optionId < 1) {
+                continue;
+            }
+
+            $required = (int) ($opt['required'] ?? 0);
+
+            $productOptionId = DB::table($p.'product_option')->insertGetId([
+                'product_id' => $productId,
+                'option_id' => $optionId,
+                'value' => '', // not used for select/radio/checkbox/image
+                'required' => $required,
+            ]);
+
+            $vals = $opt['values'] ?? [];
+            if (!is_array($vals)) {
+                $vals = [];
+            }
+
+            foreach ($vals as $v) {
+                if (!is_array($v)) {
+                    continue;
+                }
+                $ovId = (int) ($v['option_value_id'] ?? 0);
+                if ($ovId < 1) {
+                    continue;
+                }
+
+
+                $row = [
+                    'product_option_id' => (int) $productOptionId,
+                    'product_id' => $productId,
+                    'option_id' => $optionId,
+                    'option_value_id' => $ovId,
+                    'sku' => (string) ($v['sku'] ?? ''),
+                    'quantity' => (int) ($v['quantity'] ?? 0),
+                    'subtract' => (int) ($v['subtract'] ?? 1),
+                    'price' => (float) ($v['price'] ?? 0),
+                    'price_prefix' => (string) ($v['price_prefix'] ?? '+'),
+                    // Points kept in DB schema, but not used in UI
+                    'points' => 0,
+                    'points_prefix' => '+',
+                    'weight' => (float) ($v['weight'] ?? 0),
+                    'weight_prefix' => (string) ($v['weight_prefix'] ?? '+'),
+                ];
+
+                DB::table($p.'product_option_value')->insert($row);
+            }
+        }
+    }
+
+
 }

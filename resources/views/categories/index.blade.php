@@ -4,7 +4,16 @@
 <div class="card">
     <div class="page-header">
         <h2>Categories</h2>
-        <a class="btn" href="{{ route('categories.create') }}">Add Category</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn" href="{{ route('categories.create') }}">Add Category</a>
+
+            <select class="input" name="action" form="category-bulk-form" style="width:180px;">
+                <option value="">-- Action --</option>
+                <option value="enable">Enable</option>
+                <option value="disable">Disable</option>
+            </select>
+            <button class="btn" type="submit" form="category-bulk-form" id="category-apply-btn">Apply To Selected</button>
+        </div>
     </div>
 
     <div class="toolbar">
@@ -14,9 +23,14 @@
         </form>
     </div>
 
+    <form id="category-bulk-form" method="POST" action="{{ route('categories.bulk') }}" onsubmit="return window.__confirmCategoryBulkAction();">
+        @csrf
+    </form>
+
     <table>
         <thead>
         <tr>
+            <th style="width:36px;"><input type="checkbox" id="category-select-all" title="Select all"></th>
             <th style="width:90px;">ID</th>
             <th>Name</th>
             <th style="width:220px;">Parent</th>
@@ -28,6 +42,9 @@
         <tbody>
         @foreach($categories as $c)
             <tr>
+                <td>
+                    <input type="checkbox" class="category-row-check" name="ids[]" value="{{ (int)$c->category_id }}" form="category-bulk-form">
+                </td>
                 <td>{{ $c->category_id }}</td>
                 <td>{{ $c->name ?? '-' }}</td>
                 <td>{{ $c->parent_name ?? '-' }}</td>
@@ -45,6 +62,54 @@
         @endforeach
         </tbody>
     </table>
+
+    <script>
+        (function () {
+            var selectAll = document.getElementById('category-select-all');
+            var checks = function () { return Array.prototype.slice.call(document.querySelectorAll('.category-row-check')); };
+            var actionSelect = document.querySelector('select[name="action"][form="category-bulk-form"]');
+
+            function updateSelectAllState() {
+                var boxes = checks();
+                if (!selectAll) return;
+                if (boxes.length === 0) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                    return;
+                }
+                var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
+                selectAll.checked = checkedCount === boxes.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+            }
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    checks().forEach(function (b) { b.checked = selectAll.checked; });
+                    updateSelectAllState();
+                });
+            }
+
+            checks().forEach(function (b) {
+                b.addEventListener('change', updateSelectAllState);
+            });
+
+            window.__confirmCategoryBulkAction = function () {
+                var selected = checks().filter(function (b) { return b.checked; }).length;
+                if (selected === 0) {
+                    alert('Please select at least one category.');
+                    return false;
+                }
+                var action = actionSelect ? (actionSelect.value || '') : '';
+                if (!action) {
+                    alert('Please choose an action.');
+                    return false;
+                }
+                return confirm('Apply "' + action + '" to selected categories?');
+            };
+
+            updateSelectAllState();
+        })();
+    </script>
 
     <div style="margin-top:14px;">
         {{ $categories->onEachSide(1)->links('vendor.pagination.simple') }}

@@ -4,7 +4,10 @@
 <div class="card">
     <div class="page-header">
         <h2>Edit Option #{{ (int)$option->option_id }}</h2>
-        <a class="btn secondary" href="{{ route('options.index') }}">Back</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a class="btn secondary" href="{{ route('options.index') }}">Back</a>
+            <button class="btn" type="submit" form="option-form">Save</button>
+        </div>
     </div>
 
     @if(session('success'))
@@ -24,7 +27,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('options.update', $option->option_id) }}">
+    <form id="option-form" method="POST" action="{{ route('options.update', $option->option_id) }}">
         @csrf
         @method('PUT')
 
@@ -167,9 +170,7 @@
 
 </div>
 
-        <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-            <button class="btn" type="submit">Save</button>
-        </div>
+        {{-- Save button moved to page header (top-right) --}}
     </form>
 </div>
 @endsection

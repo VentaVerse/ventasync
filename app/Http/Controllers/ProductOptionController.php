@@ -34,9 +34,6 @@ class ProductOptionController extends Controller
             'options.*.values.*.price' => 'nullable|numeric',
             'options.*.values.*.price_prefix' => 'nullable|in:+,-',
             'options.*.values.*.cost' => 'nullable|numeric',
-            'options.*.values.*.costing_method' => 'nullable|integer',
-            'options.*.values.*.cost_amount' => 'nullable|numeric',
-            'options.*.values.*.cost_prefix' => 'nullable|in:+,-',
         ]);
 
         $options = $validated['options'] ?? [];
@@ -95,10 +92,6 @@ class ProductOptionController extends Controller
                         'quantity' => (int)($v['quantity'] ?? 0),
                         'subtract' => 1,
                         'price' => (float)($v['price'] ?? 0),
-                        'cost' => (float)($v['cost'] ?? 0),
-                        'costing_method' => (int)($v['costing_method'] ?? 0),
-                        'cost_amount' => (float)($v['cost_amount'] ?? 0),
-                        'cost_prefix' => (string)($v['cost_prefix'] ?? '+'),
                         'price_prefix' => (string)($v['price_prefix'] ?? '+'),
                         'points' => 0,
                         'points_prefix' => '+',
