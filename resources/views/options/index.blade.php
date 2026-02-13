@@ -38,12 +38,12 @@
                 <td>{{ $o->name }}</td>
                 <td>{{ $o->type }}</td>
                 <td>{{ (int)$o->sort_order }}</td>
-                <td class="actions">
-                    <a class="btn secondary" href="{{ route('options.edit', $o->option_id) }}">Edit</a>
+                <td style="display:flex; gap:8px; align-items:center;">
+                    <a class="btn small" href="{{ route('options.edit', $o->option_id) }}">Edit</a>
                     <form method="POST" action="{{ route('options.destroy', $o->option_id) }}" onsubmit="return confirm('Delete this option? This cannot be undone.');" style="display:inline;">
                         @csrf
                         @method('DELETE')
-                        <button class="btn danger" type="submit">Delete</button>
+                        <button class="btn danger small" type="submit">Delete</button>
                     </form>
                 </td>
             </tr>

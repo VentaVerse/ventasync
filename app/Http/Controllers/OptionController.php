@@ -50,6 +50,9 @@ class OptionController extends Controller
             'name' => ['required','string','max:128'],
             'type' => ['required','string','max:32'],
             'sort_order' => ['required','integer'],
+            'new_values' => ['array'],
+            'new_values.*.name' => ['nullable','string','max:128'],
+            'new_values.*.sort_order' => ['nullable','integer'],
         ]);
 
         $name = trim($data['name']);
@@ -65,6 +68,28 @@ class OptionController extends Controller
                 'language_id' => $langId,
                 'name' => $name,
             ]);
+
+            // Insert new values (OpenCart-like) for types that support values
+            if (in_array($data['type'], ['select','radio','checkbox'], true)) {
+                $new = $data['new_values'] ?? [];
+                foreach ($new as $row) {
+                    $vName = trim((string)($row['name'] ?? ''));
+                    if ($vName === '') continue;
+
+                    $newId = DB::table($p.'option_value')->insertGetId([
+                        'option_id' => $id,
+                        'image' => '',
+                        'sort_order' => (int)($row['sort_order'] ?? 0),
+                    ]);
+
+                    DB::table($p.'option_value_description')->insert([
+                        'option_value_id' => $newId,
+                        'language_id' => $langId,
+                        'option_id' => $id,
+                        'name' => $vName,
+                    ]);
+                }
+            }
         });
 
         return redirect()->route('options.index')->with('success', 'Option created.');
@@ -144,8 +169,9 @@ class OptionController extends Controller
                 ->where('language_id', $langId)
                 ->update(['name' => $name]);
 
-            // Update existing values
-            $values = $data['values'] ?? [];
+            // Update existing values / insert new ones only for types that support values
+            if (in_array($data['type'], ['select','radio','checkbox'], true)) {
+                $values = $data['values'] ?? [];
             foreach ($values as $row) {
                 $ovId = (int) ($row['option_value_id'] ?? 0);
                 if ($ovId <= 0) continue;
@@ -184,6 +210,7 @@ class OptionController extends Controller
                     'option_id' => $id,
                     'name' => $vName,
                 ]);
+            }
             }
         });
 

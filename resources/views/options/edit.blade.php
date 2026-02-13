@@ -51,48 +51,121 @@
 
         <hr style="margin:18px 0; opacity:.25;">
 
-        <h3 style="margin:0 0 10px 0;">Values</h3>
+        
+<div id="values-section">
 
-        <table>
-            <thead>
+    <h3 style="margin:0 0 10px 0;">Values</h3>
+
+    <table>
+        <thead>
+        <tr>
+            <th style="width:90px;">ID</th>
+            <th>Name</th>
+            <th style="width:140px;">Sort</th>
+            <th style="width:140px;">Actions</th>
+        </tr>
+        </thead>
+        <tbody id="option-values-body">
+        @foreach($values as $i => $v)
             <tr>
-                <th style="width:90px;">ID</th>
-                <th>Name</th>
-                <th style="width:140px;">Sort</th>
-                <th style="width:140px;">Actions</th>
+                <td>{{ (int)$v->option_value_id }}</td>
+                <td>
+                    <input type="hidden" name="values[{{ $i }}][option_value_id]" value="{{ (int)$v->option_value_id }}">
+                    <input class="input" name="values[{{ $i }}][name]" value="{{ old('values.'.$i.'.name', $v->name) }}">
+                </td>
+                <td>
+                    <input class="input" type="number" name="values[{{ $i }}][sort_order]" value="{{ old('values.'.$i.'.sort_order', (int)$v->sort_order) }}">
+                </td>
+                <td class="actions">
+                    <button class="btn danger small" type="submit" form="del-ov-{{ (int)$v->option_value_id }}" onclick="return confirm('Delete this value?');">Delete</button>
+                </td>
             </tr>
-            </thead>
-            <tbody>
-            @foreach($values as $i => $v)
-                <tr>
-                    <td>{{ (int)$v->option_value_id }}</td>
-                    <td>
-                        <input type="hidden" name="values[{{ $i }}][option_value_id]" value="{{ (int)$v->option_value_id }}">
-                        <input class="input" name="values[{{ $i }}][name]" value="{{ old('values.'.$i.'.name', $v->name) }}">
-                    </td>
-                    <td>
-                        <input class="input" type="number" name="values[{{ $i }}][sort_order]" value="{{ old('values.'.$i.'.sort_order', (int)$v->sort_order) }}">
-                    </td>
-                    <td class="actions">
-                        <form method="POST" action="{{ route('options.values.destroy', [$option->option_id, $v->option_value_id]) }}" onsubmit="return confirm('Delete this value?');" style="display:inline;">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn danger" type="submit">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-            @endforeach
+        @endforeach
 
-            @for($n=0; $n<3; $n++)
-                <tr>
-                    <td>new</td>
-                    <td><input class="input" name="new_values[{{ $n }}][name]" value="{{ old('new_values.'.$n.'.name') }}" placeholder="Add new value"></td>
-                    <td><input class="input" type="number" name="new_values[{{ $n }}][sort_order]" value="{{ old('new_values.'.$n.'.sort_order', 0) }}"></td>
-                    <td></td>
-                </tr>
-            @endfor
-            </tbody>
-        </table>
+        @php($oldNew = old('new_values', []))
+        @foreach($oldNew as $i => $row)
+            <tr data-new-row="1">
+                <td>new</td>
+                <td><input class="input" name="new_values[{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" placeholder="Add new value"></td>
+                <td><input class="input" type="number" name="new_values[{{ $i }}][sort_order]" value="{{ $row['sort_order'] ?? 0 }}"></td>
+                <td>
+                    <button class="btn danger small" type="button" data-remove-row="1">Remove</button>
+                </td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
+
+    {{-- Separate forms for deleting existing values (avoid nested forms) --}}
+    @foreach($values as $v)
+        <form id="del-ov-{{ (int)$v->option_value_id }}" method="POST" action="{{ route('options.values.destroy', [$option->option_id, $v->option_value_id]) }}" style="display:none;">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endforeach
+
+    <div id="option-values-controls" style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+        <button class="btn secondary small" type="button" id="add-option-value-btn">Add Value</button>
+        <span style="color:#64748b; font-size:13px;">Add as many values as you need.</span>
+    </div>
+
+    <script>
+    (function() {
+        const supports = new Set(['select','radio','checkbox']);
+        const typeEl = document.querySelector('select[name="type"]');
+        const valuesSection = document.getElementById('values-section');
+        const body = document.getElementById('option-values-body');
+        const addBtn = document.getElementById('add-option-value-btn');
+
+        function updateVisibility() {
+            const t = (typeEl && typeEl.value) ? typeEl.value : '';
+            if (!valuesSection) return;
+            valuesSection.style.display = supports.has(t) ? 'block' : 'none';
+        }
+
+        function rowHtml(i, nameVal = '', sortVal = 0) {
+            const esc = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+            return `
+            <tr data-new-row="1">
+                <td>new</td>
+                <td><input class="input" name="new_values[${i}][name]" value="${esc(nameVal)}" placeholder="Add new value"></td>
+                <td><input class="input" type="number" name="new_values[${i}][sort_order]" value="${esc(sortVal)}"></td>
+                <td>
+                    <button class="btn danger small" type="button" data-remove-row="1">Remove</button>
+                </td>
+            </tr>`;
+        }
+
+        function nextIndex() {
+            let max = -1;
+            document.querySelectorAll('input[name^="new_values["]').forEach(inp => {
+                const m = inp.name.match(/^new_values\[(\d+)\]\[name\]$/);
+                if (m) max = Math.max(max, parseInt(m[1], 10));
+            });
+            return max + 1;
+        }
+
+        function addRow(nameVal = '', sortVal = 0) {
+            const i = nextIndex();
+            body.insertAdjacentHTML('beforeend', rowHtml(i, nameVal, sortVal));
+        }
+
+        if (addBtn) addBtn.addEventListener('click', () => addRow());
+
+        if (body) body.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-remove-row="1"]');
+            if (!btn) return;
+            const tr = btn.closest('tr');
+            if (tr) tr.remove();
+        });
+
+        if (typeEl) typeEl.addEventListener('change', updateVisibility);
+
+        updateVisibility();
+    })();
+    </script>
+
+</div>
 
         <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
             <button class="btn" type="submit">Save</button>
