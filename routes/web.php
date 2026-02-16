@@ -152,6 +152,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/listings/{id}/attributes', [LazadaListingController::class, 'saveAttributes'])->name('lazada.listings.attributes_save');
         Route::post('/lazada/listings/{id}/variants', [LazadaListingController::class, 'saveVariants'])->name('lazada.listings.variants_save');
         Route::post('/lazada/listings/{id}/brands/sync', [LazadaListingController::class, 'syncBrands'])->name('lazada.listings.brands_sync');
+        Route::post('/lazada/listings/{id}/sync/quantity', [LazadaListingController::class, 'syncQuantity'])->name('lazada.listings.sync_quantity');
+        Route::post('/lazada/listings/{id}/sync/price', [LazadaListingController::class, 'syncPrice'])->name('lazada.listings.sync_price');
+        Route::post('/lazada/listings/{id}/upload', [LazadaListingController::class, 'uploadToLazada'])->name('lazada.listings.upload');
+        Route::post('/lazada/listings/{id}/delete/lazada', [LazadaListingController::class, 'deleteFromLazada'])->name('lazada.listings.delete_lazada');
+
+        Route::post('/lazada/listings/bulk/upload', [LazadaListingController::class, 'bulkUploadToLazada'])->name('lazada.listings.bulk_upload');
+        Route::post('/lazada/listings/bulk/sync/quantity', [LazadaListingController::class, 'bulkSyncQuantity'])->name('lazada.listings.bulk_sync_quantity');
+        Route::post('/lazada/listings/bulk/sync/price', [LazadaListingController::class, 'bulkSyncPrice'])->name('lazada.listings.bulk_sync_price');
         // Allows syncing brands even before a listing exists (e.g., on Create Listing screen)
         Route::post('/lazada/brands/sync', [LazadaListingController::class, 'syncBrandsGlobal'])->name('lazada.brands_sync');
 
