@@ -230,7 +230,8 @@
 
                 <div class="field">
                     <label>Params JSON</label>
-                    <textarea class="input lz-code" name="params_json" id="lazada-explorer-params" rows="10" placeholder='{"limit":10,"offset":0}'>{{ old('params_json', "{\n  \"payload\": \"<xml_or_json_payload_here>\"\n}") }}</textarea>
+                    <textarea class="input lz-code" name="params_json_pretty" id="lazada-explorer-params" rows="10" placeholder='{"limit":10,"offset":0}'>{{ old('params_json_pretty', "{\n  \"payload\": {\n    \"Request\": {}\n  }\n}") }}</textarea>
+                    <input type="hidden" name="params_json" id="lazada-explorer-params-hidden" value="{{ e(old('params_json', '{"payload":"<xml_or_json_payload_here>"}')) }}" />
                     <div class="lz-mini">If you prefer, edit JSON directly. The table can be rebuilt from JSON using “Update JSON”.</div>
                 </div>
 
@@ -251,7 +252,8 @@
         var authChk   = qs('#lazada-explorer-auth');
         var pathInp   = qs('#lazada-explorer-path');
         var paramsTa  = qs('#lazada-explorer-params');
-        var kvBody    = qs('#lz-kv-body');
+                var paramsHidden = qs('#lazada-explorer-params-hidden');
+var kvBody    = qs('#lz-kv-body');
         var epName    = qs('#lz-ep-name');
         var epDesc    = qs('#lz-ep-desc');
         var epSearch  = qs('#lz-endpoint-search');
@@ -260,20 +262,75 @@
         var btnSample = qs('#lz-use-sample-payload');
 
         function safeJsonParse(str){
-            try { return JSON.parse(str); } catch(e){
-                // Some values may have been pasted/saved with literal "\\n" sequences.
-                // Try a second pass by converting common escaped whitespace into real whitespace.
-                try {
-                    var fixed = String(str || '')
-                        .replace(/\\r/g, '\r')
-                        .replace(/\\n/g, '\n')
-                        .replace(/\\t/g, '\t');
-                    return JSON.parse(fixed);
-                } catch(e2){
-                    return null;
+            try { return JSON.parse(str); } catch(e){ return null; }
+        }
+
+        function tryParsePayloadString(pv){
+            if (typeof pv !== 'string') return null;
+
+            // 1) Parse as-is
+            var parsed = safeJsonParse(pv);
+            if (parsed !== null) return { parsed: parsed, normalized: pv };
+
+            // 2) Handle common double-escaped JSON payload strings
+            // Example: "{\n  \"Request\": {\n    ...\n  }\n}"
+            if (
+                pv.indexOf('\\n') >= 0 ||
+                pv.indexOf('\\t') >= 0 ||
+                pv.indexOf('\\r') >= 0 ||
+                pv.indexOf('\\"') >= 0 ||
+                pv.indexOf('\\\\') >= 0
+            ) {
+                var unescaped = pv
+                    .replace(/\\r/g, '\r')
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\t/g, '\t')
+                    .replace(/\\"/g, '"')
+                    .replace(/\\\\/g, '\\');
+
+                var parsed2 = safeJsonParse(unescaped);
+                if (parsed2 !== null) return { parsed: parsed2, normalized: unescaped };
+            }
+
+            return null;
+        }
+
+        function buildPrettyAndHiddenParams(obj){
+            var pretty = JSON.parse(JSON.stringify(obj || {}));
+            var hidden = JSON.parse(JSON.stringify(obj || {}));
+
+            if (obj && Object.prototype.hasOwnProperty.call(obj, 'payload')) {
+                var pv = obj.payload;
+
+                if (isObject(pv) || Array.isArray(pv)) {
+                    hidden.payload = JSON.stringify(pv, null, 2);
+                    pretty.payload = pv;
+                    return { pretty: pretty, hidden: hidden };
+                }
+
+                if (typeof pv === 'string') {
+                    var attempt = tryParsePayloadString(pv);
+                    if (attempt && attempt.parsed !== null && (isObject(attempt.parsed) || Array.isArray(attempt.parsed))) {
+                        pretty.payload = attempt.parsed;
+                        // Submit payload as a STRING to Lazada, but normalize if it was double-escaped.
+                        hidden.payload = attempt.normalized;
+                        return { pretty: pretty, hidden: hidden };
+                    }
                 }
             }
+
+            return { pretty: pretty, hidden: hidden };
         }
+
+        function syncHiddenFromPretty(){
+            if(!paramsTa || !paramsHidden) return;
+            var obj = safeJsonParse(paramsTa.value || '');
+            if(!obj || typeof obj !== 'object') return;
+            var conv = buildPrettyAndHiddenParams(obj);
+            paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+            paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
+        }
+
 
         function isObject(val){
             return val !== null && typeof val === 'object';
@@ -355,16 +412,28 @@
 
         function syncToJson(){
             if(!paramsTa) return;
-            paramsTa.value = JSON.stringify(tableToObject(), null, 2);
+            var obj = tableToObject();
+            var conv = buildPrettyAndHiddenParams(obj);
+            paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+            if (paramsHidden) {
+                paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
+            }
         }
 
         function rebuildTableFromJson(){
             if(!paramsTa) return;
             var obj = safeJsonParse(paramsTa.value || '');
             if(!obj || typeof obj !== 'object') return;
+
+            var conv = buildPrettyAndHiddenParams(obj);
+            paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+            if (paramsHidden) {
+                paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
+            }
+
             clearRows();
-            Object.keys(obj).forEach(function(k){
-                buildRow(k, obj[k]);
+            Object.keys(conv.pretty).forEach(function(k){
+                buildRow(k, conv.pretty[k]);
             });
         }
 
@@ -405,9 +474,25 @@
                 }, null, 2);
             }
             if (path === '/images/migrate') {
-                // Lazada image migrate expects XML in `payload`.
-                return '<' + '?xml version="1.0" encoding="UTF-8" ?>\n' +
-                    '<Request>\n  <Images>\n    <Url>https://<your-domain>/path/to/image1.jpg</Url>\n  </Images>\n</Request>';
+                // Use JSON-style sample for consistency in this ERP UI.
+                // NOTE: The backend will normalize common JSON payload shapes into the required XML string
+                // for Lazada image migrate endpoints (to match Lazada API Explorer requirements).
+                return JSON.stringify({
+                    Request: {
+                        Images: {
+                            Url: ["https://<your-domain>/path/to/image1.jpg"]
+                        }
+                    }
+                }, null, 2);
+            }
+            if (path === '/image/migrate') {
+                return JSON.stringify({
+                    Request: {
+                        Image: {
+                            Url: "https://<your-domain>/path/to/image1.jpg"
+                        }
+                    }
+                }, null, 2);
             }
             return '{\n  "Request": {}\n}';
         }
@@ -447,23 +532,47 @@
             });
         }
 
-        // initial load
-        try { rebuildTableFromJson(); } catch(e) {}
+        // Track which editor the user touched last.
+        // If the user edits the Key/Value table, that must be the source of truth.
+        // If the user edits Params JSON directly, then JSON is the source of truth.
+        var lastEdited = 'table';
 
-        // On submit: prefer whatever is currently in the JSON textarea.
-        // The previous behavior always overwrote the textarea from the table,
-        // which made it easy to accidentally submit placeholder values like "<batch_id>".
+        // initial load
+        try {
+            // If Params JSON contains valid JSON (e.g., from old sessions), use it to rebuild.
+        syncHiddenFromPretty();
+        rebuildTableFromJson();
+            syncToJson();
+        } catch(e) {}
+
+        // Live sync: when user edits Key/Value, update Params JSON immediately.
+        var kvBody = qs('#lz-kv-body');
+        if (kvBody) {
+            kvBody.addEventListener('input', function(e){
+                var t = e && e.target ? e.target : null;
+                if (!t) return;
+                if (!kvBody.contains(t)) return;
+                lastEdited = 'table';
+                try { syncToJson(); } catch(err) {}
+            });
+        }
+
+        // When user edits Params JSON, mark JSON as source of truth.
+        if (paramsTa) {
+            paramsTa.addEventListener('input', function(){
+                lastEdited = 'json';
+            });
+        }
+
+        // On submit: do NOT overwrite user-edited table values from stale JSON.
+        // - If user edited JSON last, rebuild table from JSON (if valid).
+        // - Otherwise, submit table values and keep JSON in sync.
         var form = qs('#lazada-api-explorer-form');
         if (form) form.addEventListener('submit', function(){
-            try {
-                // If textarea contains valid JSON, rebuild table from it first, then sync back.
-                // This keeps table+textarea consistent and ensures pasted JSON is respected.
-                rebuildTableFromJson();
-                syncToJson();
-            } catch(e) {
-                // If JSON is invalid, fall back to current table values.
-                try { syncToJson(); } catch(e2) {}
+            if (lastEdited === 'json') {
+                try { rebuildTableFromJson(); } catch(e) {}
             }
+            try { syncToJson(); } catch(e2) {}
         });
     })();
     </script>

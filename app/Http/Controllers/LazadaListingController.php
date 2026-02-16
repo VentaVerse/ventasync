@@ -124,9 +124,47 @@ class LazadaListingController extends Controller
 
         $base = $this->imageBaseUrl();
         $path = ltrim($imagePath, '/');
-        // Most ERP/OpenCart-style schemas store paths like "catalog/...". Those are typically
-        // served directly by the web server from the public directory.
-        return $base . '/' . $path;
+
+        // Many ERP installs store uploaded product images on the Laravel "public" disk
+        // (public/storage -> storage/app/public). In that case, the publicly reachable URL
+        // is typically "/storage/{path}" (e.g. /storage/catalog/Brand/file.jpg).
+        //
+        // Historically, some code assumed OpenCart-style "/image/{path}". Lazada requires
+        // these URLs to return HTTP 200, so we must generate the correct public prefix.
+
+        // If the stored path already includes a known public prefix, keep it.
+        if (Str::startsWith($path, ['storage/', 'image/'])) {
+            return $base . '/' . $this->encodeUrlPath($path);
+        }
+
+        // Prefer Laravel public disk if the file exists there: public/storage/{path}
+        $storageCandidate = 'storage/' . $path;
+        try {
+            if (file_exists(public_path($storageCandidate))) {
+                return $base . '/' . $this->encodeUrlPath($storageCandidate);
+            }
+        } catch (\Throwable $e) {
+            // Ignore filesystem errors; fall back below.
+        }
+
+        // Fall back to configured prefix (default: "image").
+        $prefix = trim((string) config('catalog.image_prefix', 'image'), '/');
+        if ($prefix === '') {
+            $prefix = 'image';
+        }
+        $prefixed = $prefix . '/' . $path;
+
+        return $base . '/' . $this->encodeUrlPath($prefixed);
+    }
+
+    /**
+     * Encode a relative URL path safely (encode each segment, preserve slashes).
+     */
+    private function encodeUrlPath(string $path): string
+    {
+        $path = ltrim($path, '/');
+        $parts = array_map('rawurlencode', array_filter(explode('/', $path), fn($p) => $p !== ''));
+        return implode('/', $parts);
     }
 
     /**
@@ -137,7 +175,8 @@ class LazadaListingController extends Controller
      */
     private function imageBaseUrl(): string
     {
-        $base = rtrim((string) config('app.url'), '/');
+        // Prefer the storefront/public catalog URL. The ERP may run on a different subdomain.
+        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
         $host = strtolower((string) (parse_url($base, PHP_URL_HOST) ?? ''));
 
         if ($base === '' || $host === '' || in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
@@ -1470,8 +1509,16 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
     }
 
     if (!empty($needs)) {
+        // Prefer batch migration first (faster for multiple images). If it fails or partially succeeds,
+        // fall back to the proven single-image migrate call.
+        $batchMap = $this->tryMigrateBatchImagesXml($region, $needs, $appKey, $appSecret, $accessToken, $client);
+
         foreach ($needs as $originalUrl) {
-            $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
+            $newUrl = $batchMap[$originalUrl] ?? null;
+            if (!is_string($newUrl) || trim($newUrl) === '') {
+                $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
+            }
+
             if (!$newUrl) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'images' => 'Failed to migrate image to Lazada inlink. Please ensure the image URL is public and reachable.'
