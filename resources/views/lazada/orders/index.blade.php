@@ -1,878 +1,708 @@
 @extends('layouts.app')
 
 @section('content')
-<div style="padding:16px;">
-    <h2 style="margin:0 0 12px 0;">Lazada Orders <span style="color:#64748b; font-size:14px;">({{ $orders->total() }})</span></h2>
-
-    @if($last_result)
-        <div style="padding:10px 12px; border-radius:8px; margin-bottom:12px; background: {{ $last_result['ok'] ? '#ecfdf5' : '#fef2f2' }}; border:1px solid {{ $last_result['ok'] ? '#a7f3d0' : '#fecaca' }};">
-            <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
-            @if(!empty($last_result['message']))
-                <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
-            @endif
+<div class="page-header">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <h1 style="margin:0;">Lazada</h1>
+        <div style="display:flex; gap:8px;">
+            <a class="btn" href="{{ route('lazada.listings.index') }}">Go to Listings</a>
         </div>
-@endif
+    </div>
+</div>
 
-<form method="POST" action="{{ route('lazada.orders.fetch') }}" id="formFetchLazadaOrders" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end; background:#fff; padding:12px; border-radius:10px; border:1px solid #e5e7eb; margin-bottom:14px;">
+<div class="card">
+    <h2>Connection Settings</h2>
+
+    <form method="POST" action="{{ route('lazada.save') }}">
         @csrf
-        <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from', request('date_from')) }}" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px;">
-        </div>
-        <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px;">
-        </div>
-        <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Status (optional)</label>
-            <input type="text" name="status" value="{{ old('status', request('status')) }}" placeholder="e.g. ready_to_ship" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px;">
-            @error('status')<div style="color:#dc2626; font-size:12px;">{{ $message }}</div>@enderror
-        </div>
-        <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn" id="btnFetchOrders" style="padding:10px 14px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
-                <span>Fetch Orders</span>
-                <span id="fetchInlineSpinner" aria-hidden="true" style="display:none; width:14px; height:14px; border:2px solid rgba(255,255,255,.55); border-top-color:#fff; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
-            </button>
 
-            <button type="submit" class="btn" id="btnUpdateOrders" formaction="{{ route('lazada.orders.update_statuses') }}" style="padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
-                <span>Update Orders</span>
-                <span id="updateInlineSpinner" aria-hidden="true" style="display:none; width:14px; height:14px; border:2px solid rgba(15,23,42,.25); border-top-color:#0f172a; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
-            </button>
+        <div class="grid-2">
+            <div class="field">
+                <label>Region</label>
+                <select name="region" class="input">
+                    <option value="">(not set)</option>
+                    <option value="ph" {{ ($setting->region ?? '') === 'ph' ? 'selected' : '' }}>Philippines (ph)</option>
+                    <option value="sg" {{ ($setting->region ?? '') === 'sg' ? 'selected' : '' }}>Singapore (sg)</option>
+                    <option value="my" {{ ($setting->region ?? '') === 'my' ? 'selected' : '' }}>Malaysia (my)</option>
+                    <option value="id" {{ ($setting->region ?? '') === 'id' ? 'selected' : '' }}>Indonesia (id)</option>
+                    <option value="th" {{ ($setting->region ?? '') === 'th' ? 'selected' : '' }}>Thailand (th)</option>
+                    <option value="vn" {{ ($setting->region ?? '') === 'vn' ? 'selected' : '' }}>Vietnam (vn)</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Redirect URI</label>
+                <input class="input" name="redirect_uri" value="{{ old('redirect_uri', $setting->redirect_uri ?? $defaultRedirect) }}">
+                <div class="help">Use this as the app callback URL in Lazada Open Platform.</div>
+            </div>
+
+            <div class="field">
+                <label>App Key</label>
+                <input class="input" name="app_key" value="{{ old('app_key', $setting->app_key ?? '') }}">
+            </div>
+
+            <div class="field">
+                <label>App Secret</label>
+                <input class="input" name="app_secret" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
+                <div class="help">Stored encrypted.</div>
+            </div>
         </div>
-<div>
-            <button type="button" class="btn" id="btnResetLazadaOrders" style="padding:10px 14px; border-radius:8px; border:1px solid #ef4444; background:#fff; color:#b91c1c; cursor:pointer;">Reset Orders</button>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Save Settings</button>
         </div>
-        <div style="color:#64748b; font-size:12px;">
-	        Leave <strong>From/To</strong> empty for <strong>automatic sync</strong> (maximum <strong>14 days</strong> lookback). Use dates only when you need a specific range (max <strong>14 days</strong> per fetch).
+    </form>
+</div>
+
+<div class="card">
+    <h2>OAuth Proof of Concept</h2>
+
+    <div class="actions">
+        <a class="btn" href="{{ route('lazada.authorize') }}" target="_blank" rel="noopener">Authorize with Lazada</a>
+    </div>
+
+    <div class="divider"></div>
+
+    <form method="POST" action="{{ route('lazada.token_create') }}">
+        @csrf
+        <div class="field">
+            <label>Auth Code (from callback)</label>
+            <input class="input" name="code" value="{{ old('code', $setting->auth_code ?? session('lazada_last_auth_code') ?? '') }}" placeholder="Will auto-fill after a successful callback, or paste code=... here">
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Exchange Code → Token</button>
         </div>
     </form>
 
-    @php
-        $tabs = $tabs ?? [];
-        $active_tab = $active_tab ?? 'ALL';
-        $tab_counts = $tab_counts ?? [];
-        $pending_sub_counts = $pending_sub_counts ?? [];
-    @endphp
+    <div class="divider"></div>
 
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px 0;">
-        @foreach($tabs as $key => $label)
-            @php
-                $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
-                $count = $tab_counts[$key] ?? null;
-                $qs = array_merge(request()->query(), ['tab' => $key]);
-            @endphp
-            <a href="{{ route('lazada.orders.index', $qs) }}"
-               style="display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px; text-decoration:none;
-                      border:1px solid {{ $isActive ? '#2563eb' : '#e5e7eb' }};
-                      background: {{ $isActive ? '#eff6ff' : '#fff' }};
-                      color: {{ $isActive ? '#1d4ed8' : '#0f172a' }};
-                      font-size:13px;">
-                <span>{{ $label }}</span>
-                @if($count !== null)
-                    <span style="display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:20px; padding:0 6px; border-radius:999px; font-size:12px;
-                                 background: {{ $isActive ? '#1d4ed8' : '#f1f5f9' }};
-                                 color: {{ $isActive ? '#fff' : '#334155' }};">
-                        {{ $count }}
-                    </span>
-                @endif
-            </a>
-        @endforeach
+    <div class="actions">
+        <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline">
+            @csrf
+            <button class="btn" type="submit">Refresh Access Token</button>
+        </form>
     </div>
 
-    {{-- Lazada workflow: PENDING has sub steps (To Pack / To Arrange / To Handover) --}}
-    @if(strtoupper((string)($active_tab ?? 'ALL')) === 'PENDING')
-        @php
-            $ps = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
-            $pendingNav = [
-                'to_pack' => 'To Pack',
-                'to_arrange' => 'To Arrange',
-                'to_handover' => 'To Handover',
-            ];
-        @endphp
-        <div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; margin:0 0 12px 0;">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
-                <div style="font-weight:600; color:#0f172a;">Pending workflow</div>
-                <div style="font-size:12px; color:#64748b;">Choose the step you are working on</div>
-            </div>
+    <div class="divider"></div>
 
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                @foreach($pendingNav as $k => $lbl)
-                    @php
-                        $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                        $qs = array_merge(request()->query(), ['tab' => 'PENDING', 'pending_sub' => $k]);
-                        $count = $pending_sub_counts[$k] ?? null;
-                    @endphp
-                    <a href="{{ route('lazada.orders.index', $qs) }}"
-                       style="display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:12px; text-decoration:none;
-                              border:1px solid {{ $isActive ? '#2563eb' : '#e5e7eb' }};
-                              background: {{ $isActive ? '#eff6ff' : '#fff' }};
-                              color: {{ $isActive ? '#1d4ed8' : '#0f172a' }};
-                              font-size:13px; font-weight:600;">                        <span>{{ $lbl }}</span>
-                        @if($count !== null)
-                            <span style="display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:22px; padding:0 8px; border-radius:999px; font-size:12px;
-                                         background: {{ $isActive ? '#1d4ed8' : '#f1f5f9' }};
-                                         color: {{ $isActive ? '#fff' : '#334155' }};">
-                                {{ $count }}
-                            </span>
-                        @endif
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    @endif
+    <h3>API Explorer</h3>
 
-    <form method="GET" action="{{ route('lazada.orders.index') }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:0 0 12px 0;">
-        <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
-        <input type="hidden" name="per_page" value="{{ (int)($per_page ?? request()->query('per_page', 10)) }}">
-
-        <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Order Number</label>
-            <input type="text" name="order_number" value="{{ old('order_number', $filters['order_number'] ?? request()->query('order_number', '')) }}" placeholder="Order ID" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px;">
-        </div>
-
-        <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Buyer Name</label>
-            <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? request()->query('buyer_name', '')) }}" placeholder="Customer" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px;">
-        </div>
-
-        <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn" style="padding:10px 14px; border-radius:8px; border:0; background:#0f172a; color:#fff; cursor:pointer;">Search</button>
-            <a href="{{ route('lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn" style="display:inline-block; padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; text-decoration:none;">Reset</a>
-        </div>
-    </form>
-
-
-
-    <form method="GET" action="{{ route('lazada.orders.index') }}" style="display:flex; gap:10px; align-items:end; margin:0 0 12px 0;">
-    <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
-    <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? request()->query('order_number', '') }}">
-    <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? request()->query('buyer_name', '') }}">
-    <div>
-        <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Orders per page</label>
-        <select name="per_page" onchange="this.form.submit()" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px;">
-            <option value="10" {{ (int)($per_page ?? 10)===10 ? 'selected' : '' }}>10</option>
-            <option value="20" {{ (int)($per_page ?? 10)===20 ? 'selected' : '' }}>20</option>
-            <option value="50" {{ (int)($per_page ?? 10)===50 ? 'selected' : '' }}>50</option>
-        </select>
+    <div class="help" style="margin-top:6px;">
+        Pick an endpoint, fill parameters in a friendly table, and run. Base signing fields are generated automatically.
+        <br><span class="lz-code">E005: Invalid Request Format</span> usually means the endpoint expects a specific payload format (e.g., <span class="lz-code">payload</span> as a JSON/XML string).
     </div>
-    <noscript><button type="submit" class="btn" style="padding:10px 14px; border-radius:8px; border:0; background:#0f172a; color:#fff; cursor:pointer;">Apply</button></noscript>
-</form>
 
-<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-        <div style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:700;">
-            Orders ({{ method_exists($orders,'total') ? $orders->total() : $orders->count() }})
+    <style>
+        .lz-code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+        .lz-explorer{display:grid;grid-template-columns: 360px 1fr;gap:14px;margin-top:12px;}
+        @media (max-width: 1100px){.lz-explorer{grid-template-columns:1fr;}}
+        .lz-panel{border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#fff;}
+        .lz-search{display:flex;gap:8px;align-items:center;}
+        .lz-search input{width:100%;}
+        .lz-list{margin-top:10px;max-height:520px;overflow:auto;padding-right:4px;}
+        .lz-cat{margin:10px 0 6px;font-weight:700;color:#111827;font-size:13px;text-transform:uppercase;letter-spacing:.03em;}
+        .lz-endpoint{width:100%;text-align:left;border:1px solid #e5e7eb;border-radius:10px;padding:10px 10px;margin-bottom:8px;background:#fafafa;cursor:pointer;}
+        .lz-endpoint:hover{background:#f3f4f6;}
+        .lz-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;margin-right:8px;}
+        .lz-badge.get{border-color:#bfdbfe;background:#eff6ff;}
+        .lz-badge.post{border-color:#bbf7d0;background:#f0fdf4;}
+        .lz-hint{color:#6b7280;font-size:12px;margin-top:4px;}
+        .lz-kv{width:100%;border-collapse:collapse;}
+        .lz-kv th,.lz-kv td{border-bottom:1px solid #eef2f7;padding:8px 6px;vertical-align:top;}
+        .lz-kv th{color:#374151;font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
+        .lz-kv input,.lz-kv textarea{width:100%;}
+        .lz-row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+        .lz-mini{font-size:12px;color:#6b7280;}
+        .lz-note{border:1px dashed #e5e7eb;border-radius:10px;padding:10px;background:#fcfcfd;color:#374151;}
+        .lz-split{display:grid;grid-template-columns: 1fr 1fr;gap:10px;}
+        @media (max-width: 900px){.lz-split{grid-template-columns:1fr;}}
+    </style>
+
+    <div class="lz-explorer">
+        <div class="lz-panel">
+            <div class="lz-search">
+                <input class="input" id="lz-endpoint-search" placeholder="Search endpoints (e.g. product/create, orders/get)">
+            </div>
+            <div class="lz-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
+
+            <div class="lz-list" id="lz-endpoint-list">
+                <div class="lz-cat">Seller</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Get Seller","method":"GET","auth":true,"path":"/seller/get","desc":"Fetch seller/account info.","params":[]}'><span class="lz-badge get">GET</span><span class="lz-code">/seller/get</span><div class="lz-hint">Seller/account info</div></button>
+
+                <div class="lz-cat">Catalog</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Category Tree","method":"GET","auth":false,"path":"/category/tree/get","desc":"Fetch category tree.","params":[]}'><span class="lz-badge get">GET</span><span class="lz-code">/category/tree/get</span><div class="lz-hint">Public</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Category Attributes","method":"GET","auth":false,"path":"/category/attributes/get","desc":"Get attributes for a primary category.","params":[{"k":"primary_category_id","req":true,"ph":"9257"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/category/attributes/get</span><div class="lz-hint">Requires primary_category_id</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Brands Query","method":"GET","auth":false,"path":"/category/brands/query","desc":"Brands list (uses startRow/pageSize internally).","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"50"},{"k":"brand_name","req":false,"ph":"Morley"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/category/brands/query</span><div class="lz-hint">Paging + optional brand_name</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Products (List)","method":"GET","auth":true,"path":"/products/get","desc":"List products.","params":[{"k":"filter","req":false,"ph":"all"},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/products/get</span><div class="lz-hint">Auth required</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"QC Status","method":"GET","auth":true,"path":"/product/qc/status/get","desc":"QC status by seller_sku.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/product/qc/status/get</span><div class="lz-hint">seller_sku</div></button>
+
+                <div class="lz-cat">Products</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Create Product","method":"POST","auth":true,"path":"/product/create","desc":"Create product. Lazada expects payload as a JSON/XML string (depends on API).","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/create</span><div class="lz-hint">payload required</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Update Product","method":"POST","auth":true,"path":"/product/update","desc":"Update product. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/update</span><div class="lz-hint">payload required</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Update Price/Qty","method":"POST","auth":true,"path":"/product/price_quantity/update","desc":"Update price + quantity.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"},{"k":"price","req":true,"ph":"999"},{"k":"quantity","req":true,"ph":"10"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/price_quantity/update</span><div class="lz-hint">seller_sku, price, quantity</div></button>
+
+                <div class="lz-cat">Orders</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Orders (Range)","method":"GET","auth":true,"path":"/orders/get","desc":"Orders list.","params":[{"k":"update_after","req":false,"ph":""},{"k":"sort_direction","req":false,"ph":"DESC"},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/orders/get</span><div class="lz-hint">update_after, limit, offset</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Order (Single)","method":"GET","auth":true,"path":"/order/get","desc":"Fetch one order.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/get</span><div class="lz-hint">order_id</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Order Items","method":"GET","auth":true,"path":"/order/items/get","desc":"Items for an order.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/items/get</span><div class="lz-hint">order_id</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Pack Order","method":"POST","auth":true,"path":"/order/pack","desc":"Pack order items.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"order_item_ids","req":true,"ph":"<comma-separated>"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/order/pack</span><div class="lz-hint">delivery_type, shipping_provider, order_item_ids</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Ready To Ship (RTS)","method":"POST","auth":true,"path":"/order/rts","desc":"Mark packed items as ready to ship.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"tracking_number","req":false,"ph":""},{"k":"order_item_ids","req":true,"ph":"<comma-separated>"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/order/rts</span><div class="lz-hint">delivery_type, shipping_provider, order_item_ids</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Get Shipping Label (AWB)","method":"GET","auth":true,"path":"/order/package/document/get","desc":"Fetch shipping label/document for an order.","params":[{"k":"order_id","req":true,"ph":"123"},{"k":"doc_type","req":false,"ph":"shippingLabel"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/package/document/get</span><div class="lz-hint">order_id, doc_type</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Cancel Order Item","method":"POST","auth":true,"path":"/order/cancel","desc":"Cancel an order item.","params":[{"k":"reason_id","req":true,"ph":""},{"k":"order_item_id","req":true,"ph":""},{"k":"reason_detail","req":false,"ph":""}]}'><span class="lz-badge post">POST</span><span class="lz-code">/order/cancel</span><div class="lz-hint">reason_id, order_item_id</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Validate Cancel","method":"GET","auth":true,"path":"/order/reverse/cancel/validate","desc":"Validate whether an order can be cancelled.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/reverse/cancel/validate</span><div class="lz-hint">order_id</div></button>
+
+                <div class="lz-cat">Images</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Image Upload (Base64)","method":"POST","auth":true,"path":"/image/upload","desc":"Upload base64 image (returns Lazada inlink).","params":[{"k":"image","req":true,"ph":"<base64>"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/image/upload</span><div class="lz-hint">image (base64)</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Images Migrate","method":"POST","auth":true,"path":"/images/migrate","desc":"Migrate public URLs to Lazada-hosted images. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/images/migrate</span><div class="lz-hint">payload required</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Image Response Get","method":"GET","auth":true,"path":"/image/response/get","desc":"Fetch migrate results by batch_id.","params":[{"k":"batch_id","req":true,"ph":"<batch_id>"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/image/response/get</span><div class="lz-hint">batch_id</div></button>
+
+                <div class="lz-cat">Finance</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Transaction Details","method":"GET","auth":true,"path":"/finance/transaction/details/get","desc":"Transaction/fees details.","params":[{"k":"start_time","req":true,"ph":""},{"k":"end_time","req":true,"ph":""},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/finance/transaction/details/get</span><div class="lz-hint">start_time, end_time</div></button>
+            </div>
         </div>
 
-        @if($orders->count() === 0)
-            <div style="padding:12px; color:#64748b;">No orders loaded yet.</div>
-        @else
-            <table style="width:100%; border-collapse:collapse;">
+        <div class="lz-panel">
+            <div class="lz-split" style="margin-bottom:10px;">
+                <div>
+                    <div class="field" style="margin-bottom:0;">
+                        <label>Selected Endpoint</label>
+                        <div class="lz-mini" id="lz-ep-name">None selected</div>
+                        <div class="lz-hint" id="lz-ep-desc"></div>
+                    </div>
+                </div>
+                <div class="lz-note">
+                    <div style="font-weight:700; margin-bottom:6px;">Common pitfalls</div>
+                    <div class="lz-mini">
+                        <div>• <span class="lz-code">payload</span> must be a single string. If you paste JSON object/array, the server will encode it, but Lazada may require a specific structure.</div>
+                        <div>• If you see repeated timestamps, you’re reading an old log entry. Always check the newest row.</div>
+                    </div>
+                </div>
+            </div>
+
+            <form id="lazada-api-explorer-form" method="POST" action="{{ route('lazada.explorer_run') }}">
+                @csrf
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label>Method</label>
+                        <select name="method" class="input" id="lazada-explorer-method">
+                            <option value="GET" {{ old('method', 'GET') === 'GET' ? 'selected' : '' }}>GET</option>
+                            <option value="POST" {{ old('method') === 'POST' ? 'selected' : '' }}>POST</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Auth</label>
+                        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                            <input type="checkbox" name="auth_required" value="1" id="lazada-explorer-auth" {{ old('auth_required') ? 'checked' : '' }}>
+                            Use Access Token
+                        </label>
+                        <div class="lz-mini">Enable for seller/product/order/finance endpoints.</div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>API Path</label>
+                    <input class="input" name="api_path" id="lazada-explorer-path" value="{{ old('api_path', '/seller/get') }}" placeholder="/seller/get">
+                    <div class="lz-mini">Leading slash will be added automatically.</div>
+                </div>
+
+                <div class="field">
+                    <label>Parameters</label>
+                    <div class="lz-mini" style="margin-bottom:8px;">Use this table for most calls. It will generate JSON automatically.</div>
+                    <table class="lz-kv" id="lz-kv-table">
+                        <thead>
+                            <tr>
+                                <th style="width:34%;">Key</th>
+                                <th>Value</th>
+                                <th style="width:70px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="lz-kv-body"></tbody>
+                    </table>
+                    <div class="lz-row-actions" style="margin-top:10px;">
+                        <button class="btn" type="button" id="lz-add-row">Add Param</button>
+                        <button class="btn" type="button" id="lz-use-sample-payload" style="display:none;">Insert Sample Payload</button>
+                        <button class="btn" type="button" id="lz-sync-to-json">Update JSON</button>
+                        <span class="lz-mini">(Auto updates before submit)</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Params JSON</label>
+                    <textarea class="input lz-code" name="params_json" id="lazada-explorer-params" rows="10" placeholder='{"limit":10,"offset":0}'>{{ old('params_json', '{\n  "payload": "<xml_or_json_payload_here>"\n}') }}</textarea>
+                    <div class="lz-mini">If you prefer, edit JSON directly. The table can be rebuilt from JSON using “Update JSON”.</div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" type="submit">Run</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+    (function(){
+        function qs(sel){ return document.querySelector(sel); }
+        function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+        var methodSel = qs('#lazada-explorer-method');
+        var authChk   = qs('#lazada-explorer-auth');
+        var pathInp   = qs('#lazada-explorer-path');
+        var paramsTa  = qs('#lazada-explorer-params');
+        var kvBody    = qs('#lz-kv-body');
+        var epName    = qs('#lz-ep-name');
+        var epDesc    = qs('#lz-ep-desc');
+        var epSearch  = qs('#lz-endpoint-search');
+        var btnAddRow = qs('#lz-add-row');
+        var btnSync   = qs('#lz-sync-to-json');
+        var btnSample = qs('#lz-use-sample-payload');
+
+        // Keep table (Key/Value) and Params JSON in sync without losing user edits.
+        // Source-of-truth is whichever the user edited last.
+        var tableDirty = false;
+        var jsonDirty  = false;
+        var syncTimer  = null;
+
+        function markTableDirty(){
+            tableDirty = true;
+            jsonDirty = false;
+            if (syncTimer) clearTimeout(syncTimer);
+            syncTimer = setTimeout(function(){
+                try { syncToJson(); } catch(e) {}
+            }, 150);
+        }
+
+        function markJsonDirty(){
+            jsonDirty = true;
+            tableDirty = false;
+        }
+
+
+        function safeJsonParse(str){
+            try { return JSON.parse(str); } catch(e){ return null; }
+        }
+
+        function isObject(val){
+            return val !== null && typeof val === 'object';
+        }
+
+        function buildRow(key, value){
+            var tr = document.createElement('tr');
+            var tdK = document.createElement('td');
+            var tdV = document.createElement('td');
+            var tdA = document.createElement('td');
+
+            var k = document.createElement('input');
+            k.className = 'input';
+            k.placeholder = 'key';
+            k.value = key || '';
+
+            var v;
+            if ((key || '').toLowerCase() === 'payload') {
+                v = document.createElement('textarea');
+                v.className = 'input lz-code';
+                v.rows = 6;
+                v.placeholder = 'payload (JSON/XML string)';
+                // Payload must be submitted as a STRING to Lazada.
+                // If JSON is provided in Params JSON (as an object/array), stringify it so we never end up with "[object Object]".
+                if (isObject(value)) {
+                    v.value = JSON.stringify(value, null, 2);
+                } else {
+                    v.value = value || '';
+                }
+            } else {
+                v = document.createElement('input');
+                v.className = 'input';
+                v.placeholder = 'value';
+                v.value = (value === null || typeof value === 'undefined') ? '' : String(value);
+            }
+
+            // Any change in the table should update Params JSON.
+            k.addEventListener('input', markTableDirty);
+            k.addEventListener('change', markTableDirty);
+            v.addEventListener('input', markTableDirty);
+            v.addEventListener('change', markTableDirty);
+
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'btn';
+            del.textContent = 'Remove';
+            del.addEventListener('click', function(){
+                tr.remove();
+                syncToJson();
+            });
+
+            tdK.appendChild(k);
+            tdV.appendChild(v);
+            tdA.appendChild(del);
+            tr.appendChild(tdK);
+            tr.appendChild(tdV);
+            tr.appendChild(tdA);
+            kvBody.appendChild(tr);
+        }
+
+        function clearRows(){
+            while(kvBody.firstChild){ kvBody.removeChild(kvBody.firstChild); }
+        }
+
+        function tableToObject(){
+            var obj = {};
+            qsa('#lz-kv-body tr').forEach(function(tr){
+                var keyEl = tr.querySelector('td:nth-child(1) .input');
+                var valEl = tr.querySelector('td:nth-child(2) .input, td:nth-child(2) textarea');
+                var k = keyEl ? String(keyEl.value || '').trim() : '';
+                if(!k) return;
+                var vRaw = valEl ? valEl.value : '';
+                // IMPORTANT:
+                // Lazada expects `payload` to be a single string parameter (usually XML; sometimes JSON-encoded string).
+                // Do NOT auto-parse payload into an object, otherwise it will round-trip as [object Object].
+                if (String(k).toLowerCase() === 'payload') {
+                    obj[k] = vRaw;
+                } else {
+                    var parsed = safeJsonParse(vRaw);
+                    obj[k] = parsed !== null ? parsed : vRaw;
+                }
+            });
+            return obj;
+        }
+
+        function syncToJson(){
+            if(!paramsTa) return;
+            paramsTa.value = JSON.stringify(tableToObject(), null, 2);
+            // JSON now matches the table.
+            jsonDirty = false;
+            tableDirty = false;
+        }
+
+        function rebuildTableFromJson(){
+            if(!paramsTa) return;
+            var obj = safeJsonParse(paramsTa.value || '');
+            if(!obj || typeof obj !== 'object') return;
+            clearRows();
+            Object.keys(obj).forEach(function(k){
+                buildRow(k, obj[k]);
+            });
+            jsonDirty = false;
+            tableDirty = false;
+        }
+
+        function selectEndpoint(ep){
+            if (methodSel) methodSel.value = (ep.method || 'GET').toUpperCase();
+            if (authChk) authChk.checked = !!ep.auth;
+            if (pathInp) pathInp.value = ep.path || '';
+            if (epName) epName.textContent = ep.name || 'Selected';
+            if (epDesc) epDesc.textContent = ep.desc || '';
+
+            clearRows();
+            (ep.params || []).forEach(function(p){ buildRow(p.k, p.ph || ''); });
+            var hasPayload = (ep.params || []).some(function(p){ return String(p.k).toLowerCase() === 'payload'; });
+            if (btnSample) btnSample.style.display = hasPayload ? '' : 'none';
+            syncToJson();
+        }
+
+        function getSamplePayloadFor(path){
+            if (path === '/product/create' || path === '/product/update') {
+                return JSON.stringify({
+                    Request: {
+                        Product: {
+                            PrimaryCategory: 0,
+                            Images: { Image: ["https://<your-domain>/path/to/image.jpg"] },
+                            Attributes: {
+                                name: "Sample Product Name",
+                                description: "Sample description",
+                                brand: "No Brand",
+                                model: "MODEL-001",
+                                package_height: "10",
+                                package_length: "10",
+                                package_width: "10",
+                                package_weight: "1"
+                            },
+                            Skus: { Sku: [ { SellerSku: "SAMPLE-SKU", price: 100, quantity: 1 } ] }
+                        }
+                    }
+                }, null, 2);
+            }
+            if (path === '/images/migrate') {
+                // Lazada image migrate expects XML in `payload`.
+                return '<' + '?xml version="1.0" encoding="UTF-8" ?>\n' +
+                    '<Request>\n  <Images>\n    <Url>https://<your-domain>/path/to/image1.jpg</Url>\n  </Images>\n</Request>';
+            }
+            return '{\n  "Request": {}\n}';
+        }
+
+        qsa('.lz-endpoint').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                var ep = safeJsonParse(btn.getAttribute('data-ep') || '{}') || {};
+                selectEndpoint(ep);
+            });
+        });
+
+        if (epSearch) {
+            epSearch.addEventListener('input', function(){
+                var q = String(epSearch.value || '').toLowerCase();
+                qsa('.lz-endpoint').forEach(function(btn){
+                    var raw = (btn.getAttribute('data-ep') || '').toLowerCase();
+                    var t = (btn.textContent || '').toLowerCase() + ' ' + raw;
+                    btn.style.display = t.indexOf(q) >= 0 ? '' : 'none';
+                });
+            });
+        }
+
+        if (btnAddRow) btnAddRow.addEventListener('click', function(){ buildRow('', ''); });
+        if (btnSync) btnSync.addEventListener('click', function(){
+            // If user edited JSON, rebuild table; otherwise just update JSON from table.
+            if (jsonDirty) {
+                rebuildTableFromJson();
+            }
+            syncToJson();
+        });
+
+        
+
+        if (paramsTa) {
+            paramsTa.addEventListener('input', markJsonDirty);
+            paramsTa.addEventListener('change', markJsonDirty);
+        }
+if (btnSample) {
+            btnSample.addEventListener('click', function(){
+                var p = (pathInp && pathInp.value) ? String(pathInp.value) : '';
+                qsa('#lz-kv-body tr').forEach(function(tr){
+                    var keyEl = tr.querySelector('td:nth-child(1) .input');
+                    if (!keyEl) return;
+                    if (String(keyEl.value || '').trim().toLowerCase() !== 'payload') return;
+                    var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
+                    if (valEl) valEl.value = getSamplePayloadFor(p);
+                });
+                syncToJson();
+            });
+        }
+
+        // initial load
+        try { rebuildTableFromJson(); } catch(e) {}
+
+        // On submit: prefer whatever is currently in the JSON textarea.
+        // The previous behavior always overwrote the textarea from the table,
+        // which made it easy to accidentally submit placeholder values like "<batch_id>".
+        var form = qs('#lazada-api-explorer-form');
+        if (form) form.addEventListener('submit', function(){
+            try {
+                // If the user edited Params JSON last, honor it by rebuilding the table.
+                // Otherwise, keep the table as source-of-truth and just sync JSON from table.
+                if (jsonDirty) {
+                    rebuildTableFromJson();
+                }
+                syncToJson();
+            } catch(e) {
+                // If JSON is invalid, fall back to current table values.
+                try { syncToJson(); } catch(e2) {}
+            }
+        });
+        })();
+    </script>
+    @endpush
+
+    @if(!empty($logs) && count($logs) > 0)
+        <div class="divider"></div>
+        <h3>Recent API Logs</h3>
+        <div class="table-wrap">
+            <table class="table">
                 <thead>
-                    <tr style="background:#f8fafc; text-align:left;">
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:42px;">
-                            <input type="checkbox" aria-label="Select all" disabled>
-                        </th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; min-width:360px;">Products</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:110px;">Quantity</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:140px;">Product Price</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Amount</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Shipping</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Status</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:360px;">Actions</th>
+                    <tr>
+                        <th style="width:140px;">Time</th>
+                        <th style="width:80px;">Method</th>
+                        <th>API Path</th>
+                        <th style="width:90px;">Auth</th>
+                        <th style="width:90px;">Status</th>
+                        <th style="width:70px;">OK</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($orders as $o)
-                        @php
-                            $raw = $o->raw ?? [];
-
-                            $orderId = $o->order_id ?? ($raw['order_number'] ?? $raw['order_id'] ?? $raw['orderId'] ?? $raw['id'] ?? null);
-
-                            $status = $o->status ?? ($raw['statuses'] ?? $raw['status'] ?? null);
-                            $liveStatus = $orderId ? ($live_statuses[$orderId] ?? null) : null;
-                            if ($liveStatus !== null && $liveStatus !== '') { $status = $liveStatus; }
-                            if (is_array($status)) $status = implode(', ', $status);
-                            $statusStr = is_string($status) ? $status : '';
-
-                            $statusNorm = strtolower(trim($statusStr));
-                            $isUnpaid = ($statusNorm === 'unpaid');
-                            $isCancelled = in_array($statusNorm, ['canceled','cancelled'], true);
-                            $isToPack = ($statusNorm === 'pending');
-                            $isToArrange = ($statusNorm === 'packed');
-                            $isToHandover = ($statusNorm === 'ready_to_ship');
-                            $canSelect = !($isUnpaid || $isCancelled);
-
-                            $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : ($raw['created_at'] ?? $raw['createdAt'] ?? $raw['created_time'] ?? null);
-
-                            $buyer = (string)($raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '');
-
-                            // Products: prefer persisted products; fall back to common raw nodes.
-                            $items = [];
-                            if (method_exists($o, 'products') && $o->relationLoaded('products')) {
-                                $items = $o->products ? $o->products->toArray() : [];
-                            }
-                            if (empty($items)) {
-                                $items = $raw['order_items'] ?? $raw['items'] ?? $raw['orderItems'] ?? [];
-                                if (!is_array($items)) $items = [];
-                            }
-
-                            
-                            // Group identical products (same SKU + name + variation) and sum quantities
-                            $grouped = [];
-                            if (is_array($items)) {
-                                foreach ($items as $row) {
-                                    $rowRaw = $row['raw'] ?? $row;
-
-                                    $gName = $row['name'] ?? $rowRaw['name'] ?? $rowRaw['item_name'] ?? $rowRaw['product_name'] ?? '';
-                                    $gSku = $row['sku'] ?? $rowRaw['sku'] ?? $rowRaw['seller_sku'] ?? $rowRaw['SellerSku'] ?? $rowRaw['SellerSKU'] ?? $rowRaw['SellerSku'] ?? $rowRaw['Sku'] ?? '';
-                                    $gVariation = $row['variation'] ?? $rowRaw['variation'] ?? $rowRaw['Variation'] ?? $rowRaw['variant'] ?? '';
-
-                                    $gQty = (int)($row['quantity'] ?? $rowRaw['quantity'] ?? $rowRaw['qty'] ?? 1);
-                                    if ($gQty < 1) { $gQty = 1; }
-
-                                    $gImg = $row['image'] ?? $rowRaw['image'] ?? $rowRaw['product_main_image'] ?? $rowRaw['product_image'] ?? '';
-
-                                    $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
-                                    if (!isset($grouped[$key])) {
-                                        $grouped[$key] = [
-                                            'raw' => $rowRaw,
-                                            'name' => $gName,
-                                            'sku' => $gSku,
-                                            'variation' => $gVariation,
-                                            'quantity' => $gQty,
-                                            'image' => $gImg,
-                                        ];
-                                    } else {
-                                        $grouped[$key]['quantity'] += $gQty;
-                                        if (($grouped[$key]['image'] ?? '') === '' && $gImg !== '') {
-                                            $grouped[$key]['image'] = $gImg;
-                                        }
-                                    }
-                                }
-                            }
-                            $groupedItems = array_values($grouped);
-
-                            $itemCount = !empty($groupedItems) ? count($groupedItems) : (is_array($items) ? count($items) : 0);
-                            $totalQty = 0;
-
-                            // Amount & payment method
-                            $totalAmount = $raw['price'] ?? $raw['total_amount'] ?? $raw['total_price'] ?? $raw['order_amount'] ?? $raw['amount'] ?? null;
-                            $currency = $raw['currency'] ?? '₱';
-
-                            $paymentMethod = $raw['payment_method'] ?? $raw['payment_method_type'] ?? $raw['paymentMethod'] ?? $raw['payment_method_name'] ?? null;
-                            if (is_array($paymentMethod)) $paymentMethod = implode(', ', $paymentMethod);
-                            $paymentMethod = is_string($paymentMethod) ? trim($paymentMethod) : null;
-                            $paymentBadge = $paymentMethod;
-                            if (!$paymentBadge) {
-                                $isCod = $raw['is_cod'] ?? $raw['cod'] ?? $raw['cash_on_delivery'] ?? null;
-                                if ($isCod === true || (string)$isCod === '1') {
-                                    $paymentBadge = 'COD';
-                                }
-                            }
-
-                            // Shipping / courier / tracking
-                            $courier = $raw['shipping_provider'] ?? $raw['shipping_provider_type'] ?? $raw['shipping_provider_name'] ?? $raw['shipment_provider'] ?? $raw['shippingCompany'] ?? null;
-                            if (is_array($courier)) $courier = implode(', ', $courier);
-                            $courier = is_string($courier) ? trim($courier) : null;
-
-                            $deliveryMethod = $raw['delivery_type'] ?? $raw['deliveryType'] ?? $raw['shipping_type'] ?? null;
-                            if (is_array($deliveryMethod)) $deliveryMethod = implode(', ', $deliveryMethod);
-                            $deliveryMethod = is_string($deliveryMethod) ? trim($deliveryMethod) : null;
-
-                            $trackingNo = $raw['tracking_code'] ?? $raw['tracking_number'] ?? $raw['trackingNo'] ?? $raw['tracking'] ?? null;
-                            if (is_array($trackingNo)) $trackingNo = implode(', ', $trackingNo);
-                            $trackingNo = is_string($trackingNo) ? trim($trackingNo) : null;
-
-                            // SLA / urgency: show only if present in API (we'll standardize later)
-                            $sla = $raw['sla_time'] ?? $raw['shipping_sla'] ?? $raw['sla'] ?? $raw['ship_by_date'] ?? null;
-                            if (is_array($sla)) $sla = implode(', ', $sla);
-                            $sla = is_string($sla) ? trim($sla) : null;
-                        @endphp
-
-                        @if($orderId)
-                            <tr>
-                                <td colspan="8" style="padding:10px 12px 6px 12px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-                                        <div style="font-size:12px; color:#64748b; text-align:left; line-height:1.35;">
-                                            <span>Buyer:</span> <span style="color:#334155; font-weight:600;">{{ $buyer !== '' ? $buyer : '—' }}</span>
-                                            @if($itemCount > 0)
-                                                <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
-                                            @endif
-                                        </div>
-                                        <div style="font-size:12px; color:#64748b; text-align:right; line-height:1.35;">
-                                            <span>Order Number:</span>
-                                            <a href="{{ route('lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" style="color:#334155; font-weight:600; text-decoration:underline; text-underline-offset:2px;">
-                                                {{ $orderId }}
-                                            </a>
-                                            @if($created)
-                                                <span style="margin-left:8px;">Create Time:</span> <span style="color:#334155; font-weight:600;">{{ $created }}</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endif
-
-         
-                        @php
-                            $displayItems = !empty($groupedItems) ? $groupedItems : $items;
-                            if (!is_array($displayItems)) { $displayItems = []; }
-                            if (empty($displayItems)) { $displayItems = [ [] ]; }
-                            $lineCount = count($displayItems);
-                        @endphp
-
-                        @foreach($displayItems as $idx => $it)
+                    @foreach($logs as $log)
                         <tr>
-                            @if($idx === 0)
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                @if(!$orderId || !$canSelect)
-                                    <span style="color:#94a3b8;">—</span>
-                                @else
-                                    <input type="checkbox" name="select_order[]" value="{{ $orderId }}">
+                            <td>{{ $log->created_at }}</td>
+                            <td>{{ $log->method }}</td>
+                            <td>
+                                @if(!empty($log->pack))
+                                    <div class="help" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
                                 @endif
-                            </td>
-                            @endif
-
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                @php
-                                    $itRaw = $it['raw'] ?? $it;
-                                    $name = (string)($it['name'] ?? $itRaw['name'] ?? $itRaw['item_name'] ?? $itRaw['product_name'] ?? '');
-                                    $sku = (string)($it['sku'] ?? $itRaw['sku'] ?? $itRaw['seller_sku'] ?? $itRaw['SellerSku'] ?? $itRaw['SellerSKU'] ?? $itRaw['Sku'] ?? '');
-                                    $variation = (string)($it['variation'] ?? $itRaw['variation'] ?? $itRaw['Variation'] ?? $itRaw['variant'] ?? '');
-                                    $img = (string)($it['image'] ?? $itRaw['image'] ?? $itRaw['product_main_image'] ?? $itRaw['product_image'] ?? '');
-                                @endphp
-
-                                <div style="display:flex; gap:10px;">
-                                    <div style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
-                                        @if($img)
-                                            <img src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
-                                        @else
-                                            <span style="font-size:11px; color:#94a3b8;">No image</span>
-                                        @endif
+                                <div><code>{{ $log->api_path }}</code></div>
+                                <details style="margin-top:6px;">
+                                    <summary>View</summary>
+                                    <div style="margin-top:8px;">
+                                        <div class="help" style="margin-bottom:6px;">Request Params</div>
+                                        <pre class="pre" style="max-height:220px; overflow:auto;">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                        <div class="help" style="margin:10px 0 6px;">Response</div>
+                                        <pre class="pre" style="max-height:220px; overflow:auto;">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                     </div>
-                                    <div style="min-width:0;">
-                                        <div style="font-weight:600; color:#0f172a; white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word;">{{ $name !== '' ? $name : '—' }}</div>
-                                        <div style="margin-top:3px; font-size:12px; color:#334155;">
-                                            <span style="color:#64748b;">Seller SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
-                                        </div>
-                                        @if($variation !== '')
-                                            <div style="margin-top:3px; font-size:12px; color:#64748b;">{{ $variation }}</div>
-                                        @endif
-                                    </div>
-                                </div>
+                                </details>
                             </td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                @php
-                                    $itRaw = $it['raw'] ?? $it;
-                                    $qty = (int)($it['quantity'] ?? $itRaw['quantity'] ?? $itRaw['qty'] ?? 1);
-                                    if ($qty < 1) { $qty = 1; }
-                                @endphp
-                                <div style="font-weight:800; color:#0f172a;">x{{ $qty }}</div>
-                            </td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                @php
-                                    $itRaw = $it['raw'] ?? $it;
-                                    $unitPrice = $itRaw['item_price'] ?? $itRaw['paid_price'] ?? $itRaw['price'] ?? $itRaw['unit_price'] ?? null;
-                                    $unitCurrency = $itRaw['currency'] ?? ($raw['currency'] ?? '₱');
-                                @endphp
-                                <div style="font-weight:800; color:#0f172a;">
-                                    @if($unitPrice !== null && $unitPrice !== '')
-                                        {{ is_numeric($unitPrice) ? $unitCurrency . number_format((float)$unitPrice, 2) : $unitPrice }}
-                                    @else
-                                        —
-                                    @endif
-                                </div>
-                            </td>
-
-                            @if($idx === 0)
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:700; color:#0f172a;">
-                                    @if($totalAmount !== null && $totalAmount !== '')
-                                        {{ is_numeric($totalAmount) ? $currency . number_format((float)$totalAmount, 2) : $totalAmount }}
-                                    @else
-                                        —
-                                    @endif
-                                </div>
-                                @if($paymentBadge)
-                                    <div style="margin-top:6px; display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #e5e7eb; background:#f8fafc; color:#334155;">
-                                        {{ $paymentBadge }}
-                                    </div>
-                                @endif
-                            </td>
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:600; color:#0f172a;">{{ $courier ?: '—' }}</div>
-                                @if($deliveryMethod)
-                                    <div style="margin-top:4px; font-size:12px; color:#64748b;">{{ $deliveryMethod }}</div>
-                                @endif
-                                @if($trackingNo)
-                                    <div style="margin-top:4px; font-size:12px; color:#64748b;">Tracking: <span style="color:#334155;">{{ $trackingNo }}</span></div>
-                                @endif
-                            </td>
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:700; color:#0f172a;">{{ $statusStr !== '' ? $statusStr : '—' }}</div>
-                                @if($sla)
-                                    <div style="margin-top:6px; display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #e5e7eb; background:#fff7ed; color:#9a3412;">
-                                        {{ $sla }}
-                                    </div>
-                                @endif
-                            </td>
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                @if(!$orderId)
-                                    <span style="color:#94a3b8;">N/A</span>
-                                @elseif($isUnpaid)
-                                    <span style="color:#94a3b8;">—</span>
-                                @else
-                                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                                        {{-- TO PACK (pending): only Pack & Print --}}
-                                        @if($isToPack)
-                                            <form method="POST" action="{{ route('lazada.orders.pack_print', ['orderId' => $orderId]) }}" onsubmit="return confirm('Pack this order now? This will create packages and make AWB available.');">
-                                                @csrf
-                                                <button type="submit" style="padding:8px 10px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer;">Pack &amp; Print</button>
-                                            </form>
-                                        @endif
-
-                                        {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
-                                        @if($isToArrange)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="display:inline-block; padding:8px 10px; border-radius:8px; background:#0f172a; color:#fff; text-decoration:none;">Print AWB</a>
-
-                                            <form method="POST" action="{{ route('lazada.orders.rts', ['orderId' => $orderId]) }}" onsubmit="return confirm('Arrange Shipment (Ready To Ship) for this order?');">
-                                                @csrf
-                                                <button type="submit" style="padding:8px 10px; border-radius:8px; border:0; background:#16a34a; color:#fff; cursor:pointer;">Arrange Shipment</button>
-                                            </form>
-
-                                            <form method="POST" action="{{ route('lazada.orders.recreate_package', ['orderId' => $orderId]) }}" onsubmit="return confirm('Recreate Package (local)? Lazada may still keep the original package. Continue?');">
-                                                @csrf
-                                                <button type="submit" style="padding:8px 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Recreate Package</button>
-                                            </form>
-                                        @endif
-
-                                        {{-- TO HANDOVER (ready_to_ship): Print only --}}
-                                        @if($isToHandover)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="display:inline-block; padding:8px 10px; border-radius:8px; background:#0f172a; color:#fff; text-decoration:none;">Print AWB</a>
-                                        @endif
-
-                                        {{-- Cancel available in these workflow statuses --}}
-                                        @if($isToPack || $isToArrange || $isToHandover)
-                                            <button type="button"
-                                                    class="btnCancelOrder"
-                                                    data-order-id="{{ $orderId }}"
-                                                    data-reasons-url="{{ route('lazada.orders.cancel_reasons', ['orderId' => $orderId]) }}"
-                                                    data-submit-url="{{ route('lazada.orders.cancel', ['orderId' => $orderId]) }}"
-                                                    style="padding:8px 10px; border-radius:8px; border:1px solid #ef4444; background:#fff; color:#b91c1c; cursor:pointer;">
-                                                Cancel
-                                            </button>
-                                        @endif
-                                    </div>
-
-                                    {{-- Print quick-links (only when AWB exists) --}}
-                                    @if($isToArrange || $isToHandover)
-                                        <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; font-size:12px;">
-                                            <span style="color:#64748b;">Print:</span>
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:#2563eb; text-decoration:none;">AWB</a>
-                                            <span style="color:#cbd5e1;">|</span>
-                                            <a href="{{ route('lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:#2563eb; text-decoration:none;">Packing List</a>
-                                            <span style="color:#cbd5e1;">|</span>
-                                            <a href="{{ route('lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:#2563eb; text-decoration:none;">Pick List</a>
-
-                                            <span style="color:#cbd5e1;">|</span>
-                                            <button type="button"
-                                                    class="btnLzLogistics"
-                                                    data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
-                                                    style="border:0; padding:0; background:transparent; color:#2563eb; cursor:pointer; font-size:12px;">
-                                                Logistics Status
-                                            </button>
-                                        </div>
-                                    @endif
-                                @endif
-                            </td>
-                            @endif
+                            <td>{{ $log->auth_required ? 'Yes' : 'No' }}</td>
+                            <td>{{ $log->response_status }}</td>
+                            <td>{{ $log->ok ? 'Yes' : 'No' }}</td>
                         </tr>
-                        @endforeach
-               @endforeach
+                    @endforeach
                 </tbody>
             </table>
-            <div style="padding:12px; border-top:1px solid #e5e7eb;">{{ $orders->links() }}</div>
-        @endif
-    </div>
-</div>
-<form method="POST" action="{{ route('lazada.orders.reset') }}" id="formResetLazadaOrders" style="display:none;">
-    @csrf
-    <input type="hidden" name="confirm" id="resetConfirmInput" value="">
-</form>
-
-{{-- Loading overlay for long-running fetch/reset actions --}}
-<div id="lzLoadingOverlay" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:9999;">
-    <div style="background:#fff; border-radius:14px; padding:18px 18px; width:min(420px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div aria-hidden="true" style="width:18px; height:18px; border:3px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></div>
-            <div>
-                <div id="lzLoadingTitle" style="font-weight:700; color:#0f172a;">Fetching orders…</div>
-                <div style="font-size:12px; color:#64748b; margin-top:2px;">Please keep this tab open. This may take a while depending on Lazada API response.</div>
-            </div>
         </div>
-    </div>
+    @endif
 </div>
 
-{{-- Pack & Print follow-up modal --}}
-<div id="lzPackPrintModal" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:10000;">
-    <div style="background:#fff; border-radius:14px; padding:16px; width:min(520px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-            <div>
-                <div style="font-weight:800; color:#0f172a;">Pack &amp; Print</div>
-                <div style="font-size:12px; color:#64748b; margin-top:2px;">Choose what to do next. If you close this, the order stays in <strong>To Arrange</strong>.</div>
-            </div>
-            <button type="button" id="btnClosePackPrint" style="border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; color:#64748b;">×</button>
-        </div>
-        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-            <form method="POST" id="formRecreatePackage" action="#" style="margin:0;">
-                @csrf
-                <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Recreate Package</button>
-            </form>
+<div class="card">
+    <h2>Catalog Proof of Concept</h2>
 
-            <form method="POST" id="formShipPrint" action="#" style="margin:0;">
-                @csrf
-                <button type="submit" style="padding:10px 12px; border-radius:10px; border:0; background:#16a34a; color:#fff; cursor:pointer;">Ship &amp; Print</button>
-            </form>
-
-            <a href="#" id="linkPrintOnly" target="_blank" style="display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; text-decoration:none;">Print Only</a>
-        </div>
-    </div>
-</div>
-
-{{-- Cancel order modal --}}
-<div id="lzCancelModal" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:10000;">
-    <div style="background:#fff; border-radius:14px; padding:16px; width:min(560px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-            <div>
-                <div style="font-weight:800; color:#0f172a;">Cancel Order</div>
-                <div id="lzCancelModalSub" style="font-size:12px; color:#64748b; margin-top:2px;"></div>
-            </div>
-            <button type="button" id="btnCloseCancel" style="border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; color:#64748b;">×</button>
-        </div>
-
-        <form method="POST" id="lzCancelForm" action="#" style="margin-top:14px;">
+    <div class="actions">
+        <form method="POST" action="{{ route('lazada.category_tree') }}" style="display:inline">
             @csrf
-            <div>
-                <label style="display:block; font-size:12px; color:#64748b; margin-bottom:6px;">Reason</label>
-                <select name="reason_id" id="lzCancelReason" required style="width:100%; padding:10px 10px; border:1px solid #cbd5e1; border-radius:10px;">
-                    <option value="" selected disabled>Loading reasons…</option>
-                </select>
-                <div id="lzCancelReasonErr" style="display:none; margin-top:6px; color:#dc2626; font-size:12px;"></div>
-            </div>
-            <div style="margin-top:12px;">
-                <label style="display:block; font-size:12px; color:#64748b; margin-bottom:6px;">Details (optional)</label>
-                <textarea name="reason_detail" rows="2" style="width:100%; padding:10px 10px; border:1px solid #cbd5e1; border-radius:10px; resize:vertical;" placeholder="Add extra details if needed"></textarea>
-            </div>
-            <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
-                <button type="button" id="btnCancelClose2" style="padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Close</button>
-                <button type="submit" style="padding:10px 12px; border-radius:10px; border:0; background:#ef4444; color:#fff; cursor:pointer;">Confirm Cancel</button>
-            </div>
+            <button class="btn btn-primary" type="submit">Get Category Tree</button>
         </form>
     </div>
+
+    <div class="divider"></div>
+
+    <form method="POST" action="{{ route('lazada.category_attributes') }}">
+        @csrf
+        <div class="field">
+            <label>Category Attributes (Primary Category ID)</label>
+            <input class="input" name="category_id" value="{{ old('category_id', '') }}" placeholder="e.g. 10000000">
+            <div class="help">Calls <code>/category/attributes/get</code> (no auth required).</div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Get Attributes</button>
+        </div>
+    </form>
+
+    <div class="divider"></div>
+
+    <form method="POST" action="{{ route('lazada.brands_query') }}">
+        @csrf
+        <div class="grid-2">
+            <div class="field">
+                <label>Brands Page No</label>
+                <input class="input" name="page_no" value="{{ old('page_no', 1) }}">
+            </div>
+            <div class="field">
+                <label>Brands Page Size</label>
+                <input class="input" name="page_size" value="{{ old('page_size', 50) }}">
+            </div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Get Brands</button>
+        </div>
+        <div class="help">Calls <code>/category/brands/query</code> (no auth required).</div>
+    </form>
+
+    <div class="divider"></div>
+
+    <form method="POST" action="{{ route('lazada.products_get') }}">
+        @csrf
+        <div class="field">
+            <label>Get Products (Seller SKU)</label>
+            <input class="input" name="seller_sku" value="{{ old('seller_sku', '') }}" placeholder="e.g. MY-SKU-001">
+            <div class="help">Calls <code>/products/get</code> (auth required). Uses stored Access Token.</div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Get Product</button>
+        </div>
+    </form>
 </div>
 
-{{-- Logistics status modal --}}
-<div id="lzLogisticsModal" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:10000;">
-    <div style="background:#fff; border-radius:14px; padding:16px; width:min(720px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-            <div>
-                <div style="font-weight:800; color:#0f172a;">Logistics Status</div>
-                <div id="lzLogisticsSub" style="font-size:12px; color:#64748b; margin-top:2px;"></div>
+<div class="card">
+    <h2>Variants / Options Proof of Concept</h2>
+
+    <form method="POST" action="{{ route('lazada.product_payload_preview') }}">
+        @csrf
+        <div class="grid-2">
+            <div class="field">
+                <label>ERP Product</label>
+                <select name="product_id" class="input" required>
+                    <option value="">(select)</option>
+                    @foreach(($products ?? []) as $p)
+                        <option value="{{ $p->product_id }}" {{ (string)old('product_id') === (string)$p->product_id ? 'selected' : '' }}>
+                            #{{ $p->product_id }} — {{ $p->name ?: '(no name)' }} {{ ($p->sku || $p->model) ? ('(' . ($p->sku ?: $p->model) . ')') : '' }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
-            <button type="button" id="btnCloseLogistics" style="border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; color:#64748b;">×</button>
+
+            <div class="field">
+                <label>Primary Category ID (Lazada)</label>
+                <input class="input" name="primary_category_id" value="{{ old('primary_category_id', '') }}" placeholder="e.g. 10000000" required>
+                <div class="help">Use the Category Tree button above to find the correct ID.</div>
+            </div>
         </div>
-        <div id="lzLogisticsBody" style="margin-top:14px; font-size:12px; color:#0f172a;">
-            <div style="color:#64748b;">Loading…</div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Brand ID (Lazada, optional)</label>
+                <input class="input" name="brand_id" value="{{ old('brand_id', '') }}" placeholder="e.g. 12345">
+                <div class="help">Optional for preview. Some categories require it.</div>
+            </div>
+            <div class="field">
+                <label>Images (comma-separated URLs, optional)</label>
+                <input class="input" name="images" value="{{ old('images', '') }}" placeholder="https://.../1.jpg, https://.../2.jpg">
+            </div>
         </div>
-        <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
-            <button type="button" id="btnLogisticsClose2" style="padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Close</button>
+
+        <div class="field">
+            <label>Description Override (optional)</label>
+            <textarea class="input" name="description" rows="4" placeholder="Leave blank to use ERP product description">{{ old('description', '') }}</textarea>
         </div>
-    </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Preview Payload</button>
+        </div>
+        <div class="help">This will build SKU variants from your ERP options. Single option = 1 SKU per value; multiple options = SKU combinations (cartesian product).</div>
+    </form>
+
+    <div class="divider"></div>
+
+    <form method="POST" action="{{ route('lazada.product_create') }}" onsubmit="return confirm('This will call Lazada /product/create using the generated payload. Continue?')">
+        @csrf
+        <input type="hidden" name="product_id" value="{{ old('product_id', '') }}">
+        <input type="hidden" name="primary_category_id" value="{{ old('primary_category_id', '') }}">
+        <input type="hidden" name="brand_id" value="{{ old('brand_id', '') }}">
+        <input type="hidden" name="images" value="{{ old('images', '') }}">
+        <input type="hidden" name="description" value="{{ old('description', '') }}">
+
+        <div class="actions">
+            <button class="btn" type="submit">Create Product in Lazada</button>
+        </div>
+        <div class="help">Start with Preview first. Lazada often requires category-specific attributes, so this call may return validation errors—that’s normal for POC.</div>
+    </form>
 </div>
+
+@if($result)
+    <div class="card">
+        <h2>Last Result</h2>
+
+        @php
+            $ok = (bool)($result['ok'] ?? false);
+        @endphp
+
+        <div class="{{ $ok ? 'notice ok' : 'notice bad' }}">
+            <strong>{{ $result['title'] ?? 'Result' }}</strong>
+        </div>
+
+        <pre class="pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+    </div>
+@endif
 
 <style>
-@keyframes lzSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .card { background:#fff; border-radius:16px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+    .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field label { font-weight:600; display:block; margin-bottom:6px; }
+    .help { font-size:12px; color:#64748b; margin-top:4px; }
+    .actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { border:1px solid #e2e8f0; background:#fff; color:#0f172a; padding:10px 14px; border-radius:10px; cursor:pointer; }
+    .btn-primary { background:#2563eb; border-color:#2563eb; color:#fff; }
+    .divider { height:1px; background:#e2e8f0; margin:14px 0; }
+    .notice { padding:10px 12px; border-radius:12px; margin-bottom:10px; }
+    .notice.ok { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+    .notice.bad { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    .pre { background:#0b1220; color:#e2e8f0; padding:12px; border-radius:12px; overflow:auto; }
 </style>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var awbUrlToOpen = @json(session('lazada_awb_url'));
-    if (awbUrlToOpen) {
-        try { window.open(String(awbUrlToOpen), '_blank'); } catch (e) {}
-    }
-
-    var btn = document.getElementById('btnResetLazadaOrders');
-    var form = document.getElementById('formResetLazadaOrders');
-    var input = document.getElementById('resetConfirmInput');
-    if (btn && form && input) {
-        btn.addEventListener('click', function () {
-            var v = prompt('Type RESET to delete Lazada orders and re-sync:');
-            if (!v) return;
-            input.value = v.trim();
-            // Show loading overlay for reset
-            var ov = document.getElementById('lzLoadingOverlay');
-            var tt = document.getElementById('lzLoadingTitle');
-            if (ov) {
-                if (tt) tt.textContent = 'Resetting orders…';
-                ov.style.display = 'flex';
-            }
-            form.submit();
-        });
-    }
-
-    // Show loading overlay for fetch/update
-    var fetchForm = document.getElementById('formFetchLazadaOrders');
-    var fetchBtn = document.getElementById('btnFetchOrders');
-    var updateBtn = document.getElementById('btnUpdateOrders');
-    var inlineSp = document.getElementById('fetchInlineSpinner');
-    var inlineUpSp = document.getElementById('updateInlineSpinner');
-    var nextTitle = 'Fetching orders…';
-
-    if (fetchBtn) {
-        fetchBtn.addEventListener('click', function () {
-            nextTitle = 'Fetching orders…';
-        });
-    }
-    if (updateBtn) {
-        updateBtn.addEventListener('click', function () {
-            nextTitle = 'Updating orders…';
-        });
-    }
-
-    if (fetchForm) {
-        fetchForm.addEventListener('submit', function () {
-            if (fetchBtn) {
-                fetchBtn.disabled = true;
-                fetchBtn.style.opacity = '0.85';
-            }
-            if (updateBtn) {
-                updateBtn.disabled = true;
-                updateBtn.style.opacity = '0.85';
-            }
-            // Show the right inline spinner
-            if (nextTitle === 'Updating orders…') {
-                if (inlineUpSp) inlineUpSp.style.display = 'inline-block';
-            } else {
-                if (inlineSp) inlineSp.style.display = 'inline-block';
-            }
-            var ov = document.getElementById('lzLoadingOverlay');
-            var tt = document.getElementById('lzLoadingTitle');
-            if (ov) {
-                if (tt) tt.textContent = nextTitle;
-                ov.style.display = 'flex';
-            }
-        });
-    }
-
-    // --- Pack & Print follow-up modal ---
-    var openPackPrintOrderId = @json(session('open_pack_print_modal_order_id'));
-    var packPrintModal = document.getElementById('lzPackPrintModal');
-    var closePackPrint = document.getElementById('btnClosePackPrint');
-    var linkPrintOnly = document.getElementById('linkPrintOnly');
-    var formShipPrint = document.getElementById('formShipPrint');
-    var formRecreate = document.getElementById('formRecreatePackage');
-
-    function showPackPrintModal(orderId) {
-        if (!packPrintModal) return;
-        var awbTpl = @json(route('lazada.orders.awb', ['orderId' => '__OID__']));
-        var shipTpl = @json(route('lazada.orders.ship_print_post', ['orderId' => '__OID__']));
-        var recreateTpl = @json(route('lazada.orders.recreate_package', ['orderId' => '__OID__']));
-
-        if (linkPrintOnly) linkPrintOnly.href = awbTpl.replace('__OID__', orderId);
-        if (formShipPrint) formShipPrint.action = shipTpl.replace('__OID__', orderId);
-        if (formRecreate) formRecreate.action = recreateTpl.replace('__OID__', orderId);
-
-        packPrintModal.style.display = 'flex';
-    }
-
-    function hidePackPrintModal() {
-        if (!packPrintModal) return;
-        packPrintModal.style.display = 'none';
-    }
-
-    if (closePackPrint) closePackPrint.addEventListener('click', hidePackPrintModal);
-    if (packPrintModal) {
-        packPrintModal.addEventListener('click', function (e) {
-            if (e.target === packPrintModal) hidePackPrintModal();
-        });
-    }
-    if (openPackPrintOrderId) {
-        showPackPrintModal(String(openPackPrintOrderId));
-    }
-
-    // --- Cancel modal (fetch reasons on demand) ---
-    var cancelModal = document.getElementById('lzCancelModal');
-    var cancelForm = document.getElementById('lzCancelForm');
-    var cancelReason = document.getElementById('lzCancelReason');
-    var cancelErr = document.getElementById('lzCancelReasonErr');
-    var cancelSub = document.getElementById('lzCancelModalSub');
-    var closeCancel = document.getElementById('btnCloseCancel');
-    var closeCancel2 = document.getElementById('btnCancelClose2');
-
-    function showCancelModal() {
-        if (!cancelModal) return;
-        cancelModal.style.display = 'flex';
-    }
-    function hideCancelModal() {
-        if (!cancelModal) return;
-        cancelModal.style.display = 'none';
-    }
-
-    if (closeCancel) closeCancel.addEventListener('click', hideCancelModal);
-    if (closeCancel2) closeCancel2.addEventListener('click', hideCancelModal);
-    if (cancelModal) {
-        cancelModal.addEventListener('click', function (e) {
-            if (e.target === cancelModal) hideCancelModal();
-        });
-    }
-
-    function setCancelReasonLoading() {
-        if (!cancelReason) return;
-        cancelReason.innerHTML = '<option value="" selected disabled>Loading reasons…</option>';
-        if (cancelErr) { cancelErr.style.display = 'none'; cancelErr.textContent = ''; }
-    }
-
-    async function loadCancelReasons(url) {
-        setCancelReasonLoading();
-        try {
-            var r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            var j = await r.json();
-            if (!r.ok || !j || j.ok !== true) {
-                throw new Error((j && j.message) ? j.message : 'Failed to fetch reasons');
-            }
-            var data = j.data;
-            var list = [];
-            if (Array.isArray(data)) {
-                list = data;
-            } else if (data && Array.isArray(data.reasons)) {
-                list = data.reasons;
-            } else if (data && Array.isArray(data.data)) {
-                list = data.data;
-            }
-
-            if (!cancelReason) return;
-            cancelReason.innerHTML = '<option value="" selected disabled>Select a reason</option>';
-            list.forEach(function (it) {
-                var id = it.reason_id || it.reasonId || it.id || it.ReasonId;
-                var name = it.reason_name || it.reasonName || it.name || it.ReasonName;
-                if (!id || !name) return;
-                var opt = document.createElement('option');
-                opt.value = String(id);
-                opt.textContent = String(name);
-                cancelReason.appendChild(opt);
-            });
-        } catch (e) {
-            if (cancelErr) {
-                cancelErr.style.display = 'block';
-                cancelErr.textContent = e && e.message ? e.message : 'Failed to fetch reasons.';
-            }
-            if (cancelReason) {
-                cancelReason.innerHTML = '<option value="" selected disabled>Unable to load reasons</option>';
-            }
-        }
-    }
-
-    document.querySelectorAll('.btnCancelOrder').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var orderId = btn.getAttribute('data-order-id') || '';
-            var reasonsUrl = btn.getAttribute('data-reasons-url') || '';
-            var submitUrl = btn.getAttribute('data-submit-url') || '';
-            if (!orderId || !reasonsUrl || !submitUrl || !cancelForm) return;
-
-            cancelForm.action = submitUrl;
-            if (cancelSub) cancelSub.textContent = 'Order Number: ' + orderId;
-            showCancelModal();
-            loadCancelReasons(reasonsUrl);
-        });
-    });
-
-    // --- Logistics trace modal ---
-    var logisticsModal = document.getElementById('lzLogisticsModal');
-    var logisticsBody = document.getElementById('lzLogisticsBody');
-    var logisticsSub = document.getElementById('lzLogisticsSub');
-    var closeLogistics = document.getElementById('btnCloseLogistics');
-    var closeLogistics2 = document.getElementById('btnLogisticsClose2');
-
-    function showLogisticsModal() {
-        if (!logisticsModal) return;
-        logisticsModal.style.display = 'flex';
-    }
-    function hideLogisticsModal() {
-        if (!logisticsModal) return;
-        logisticsModal.style.display = 'none';
-    }
-    if (closeLogistics) closeLogistics.addEventListener('click', hideLogisticsModal);
-    if (closeLogistics2) closeLogistics2.addEventListener('click', hideLogisticsModal);
-    if (logisticsModal) {
-        logisticsModal.addEventListener('click', function (e) {
-            if (e.target === logisticsModal) hideLogisticsModal();
-        });
-    }
-
-    function esc(s) {
-        return String(s || '').replace(/[&<>\"']/g, function (c) {
-            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[c] || c;
-        });
-    }
-
-    function renderTrace(body) {
-        // Attempt to normalize common structures
-        var data = (body && body.data) ? body.data : body;
-        var traces = (data && (data.traces || data.trace_list || data.traceList || data.events)) || [];
-        if (!Array.isArray(traces)) traces = [];
-        if (!logisticsBody) return;
-
-        if (traces.length === 0) {
-            logisticsBody.innerHTML = '<div style="color:#64748b;">No logistics events returned by Lazada for this order.</div>';
-            return;
-        }
-
-        var html = '<div style="border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">';
-        html += '<table style="width:100%; border-collapse:collapse;">';
-        html += '<thead><tr style="background:#f8fafc;">'
-            + '<th style="text-align:left; padding:10px; font-size:12px; border-bottom:1px solid #e5e7eb; width:160px;">Time</th>'
-            + '<th style="text-align:left; padding:10px; font-size:12px; border-bottom:1px solid #e5e7eb;">Status</th>'
-            + '<th style="text-align:left; padding:10px; font-size:12px; border-bottom:1px solid #e5e7eb;">Details</th>'
-            + '</tr></thead><tbody>';
-        traces.forEach(function (t) {
-            var time = t.event_time || t.time || t.timestamp || t.update_time || '';
-            var status = t.status || t.event || t.action || t.title || '';
-            var detail = t.description || t.desc || t.detail || t.message || '';
-            html += '<tr>'
-                + '<td style="padding:10px; border-bottom:1px solid #e5e7eb; color:#0f172a;">' + esc(time) + '</td>'
-                + '<td style="padding:10px; border-bottom:1px solid #e5e7eb; font-weight:700;">' + esc(status) + '</td>'
-                + '<td style="padding:10px; border-bottom:1px solid #e5e7eb; color:#334155;">' + esc(detail) + '</td>'
-                + '</tr>';
-        });
-        html += '</tbody></table></div>';
-        logisticsBody.innerHTML = html;
-    }
-
-    async function fetchLogistics(url) {
-        if (!logisticsBody) return;
-        logisticsBody.innerHTML = '<div style="color:#64748b;">Loading…</div>';
-        try {
-            var r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            var j = await r.json();
-            if (!r.ok || !j || j.ok !== true) {
-                var msg = (j && j.body && j.body.message) ? j.body.message : ((j && j.message) ? j.message : 'Failed to fetch logistics trace');
-                throw new Error(msg);
-            }
-            renderTrace(j.body);
-        } catch (e) {
-            logisticsBody.innerHTML = '<div style="color:#dc2626;">' + esc(e && e.message ? e.message : 'Failed to fetch logistics trace') + '</div>';
-        }
-    }
-
-    document.querySelectorAll('.btnLzLogistics').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var url = btn.getAttribute('data-url') || '';
-            if (!url) return;
-            if (logisticsSub) logisticsSub.textContent = '';
-            showLogisticsModal();
-            fetchLogistics(url);
-        });
-    });
-});
-</script>
-
 @endsection

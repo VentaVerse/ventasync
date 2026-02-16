@@ -11,6 +11,77 @@ use Illuminate\Support\Str;
 
 class LazadaController extends Controller
 {
+    /**
+     * Lazada Open Platform image migrate endpoints require the "payload" parameter
+     * to be an XML string (NOT JSON). This normalizes common JSON shapes into
+     * the exact XML format shown in Lazada API Explorer.
+     */
+    private function normalizeImageMigratePayload(string $apiPath, $payload): ?string
+    {
+        if (!in_array($apiPath, ['/images/migrate', '/image/migrate'], true)) {
+            return null;
+        }
+
+        // If already XML string, keep it.
+        if (is_string($payload)) {
+            $trim = trim($payload);
+            if ($trim === '') return null;
+            if (str_starts_with($trim, '<?xml') || str_starts_with($trim, '<Request')) {
+                return $trim;
+            }
+
+            // If user pasted JSON, decode and rebuild.
+            if (str_starts_with($trim, '{') || str_starts_with($trim, '[')) {
+                try {
+                    $payload = json_decode($trim, true, 512, JSON_THROW_ON_ERROR);
+                } catch (\Throwable $e) {
+                    return $trim;
+                }
+            } else {
+                return $trim;
+            }
+        }
+
+        if (!is_array($payload)) return null;
+        $req = $payload['Request'] ?? $payload['request'] ?? null;
+        if (!is_array($req)) return null;
+
+        $urls = [];
+        $extract = function ($node) use (&$urls) {
+            if (!is_array($node)) return;
+            $u = $node['Url'] ?? $node['url'] ?? null;
+            if (is_string($u)) {
+                $u = trim($u);
+                if ($u !== '') $urls[] = $u;
+                return;
+            }
+            if (is_array($u)) {
+                foreach ($u as $it) {
+                    if (is_string($it)) {
+                        $it = trim($it);
+                        if ($it !== '') $urls[] = $it;
+                    }
+                }
+            }
+        };
+
+        $images = $req['Images'] ?? $req['images'] ?? null;
+        $image = $req['Image'] ?? $req['image'] ?? null;
+        if (is_array($images)) $extract($images);
+        if (is_array($image)) $extract($image);
+
+        $urls = array_values(array_unique(array_filter(array_map(fn($u) => trim((string)$u), $urls), fn($u) => $u !== '')));
+        if (empty($urls)) return null;
+
+        $header = '<?xml version="1.0" encoding="UTF-8" ?>';
+        if ($apiPath === '/image/migrate') {
+            return $header . '<Request><Image><Url>' . htmlspecialchars($urls[0], ENT_XML1) . '</Url></Image></Request>';
+        }
+        return $header . '<Request><Images>'
+            . implode('', array_map(fn($u) => '<Url>' . htmlspecialchars($u, ENT_XML1) . '</Url>', $urls))
+            . '</Images></Request>';
+    }
+
     public function index()
     {
         $setting = LazadaSetting::query()->first();
@@ -133,6 +204,16 @@ class LazadaController extends Controller
             if (!is_string($k) || $k === '' || in_array($k, ['sign', 'app_key', 'sign_method', 'timestamp'], true)) {
                 continue;
             }
+
+            // Critical: /images/migrate and /image/migrate REQUIRE XML in payload.
+            if ($k === 'payload') {
+                $maybeXml = $this->normalizeImageMigratePayload($apiPath, $v);
+                if (is_string($maybeXml) && $maybeXml !== '') {
+                    $params[$k] = $maybeXml;
+                    continue;
+                }
+            }
+
             $params[$k] = is_scalar($v) || $v === null ? $v : json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
@@ -157,11 +238,8 @@ class LazadaController extends Controller
                 $params['access_token'] = (string)$setting->access_token;
             }
 
-            // Some gateways mention "requestId" in error text, but still require batch_id.
-            // Including request_id in addition to batch_id is harmless (ignored if not used)
-            // and increases compatibility.
+            // Some gateways reject unknown params; only send batch_id by default.
             $params['batch_id'] = $batchId;
-            $params['request_id'] = $batchId;
         }
 
 
@@ -228,8 +306,8 @@ class LazadaController extends Controller
             // Ensure we don't accidentally carry a stale payload from UI.
             unset($base['payload']);
 
-            // Attempt A: GET + flat batch_id (+ request_id mirror)
-            [$resA, $codeA, $paramsA, $labelA, $mA] = $runAttempt('GET', $base, 'GET flat batch_id');
+            // Attempt A: POST as form (most compatible) + flat batch_id
+            [$resA, $codeA, $paramsA, $labelA, $mA] = $runAttempt('POST', $base, 'POST flat batch_id');
             $attempts[] = ['label' => $labelA, 'method' => $mA, 'code' => $codeA, 'result' => $resA];
 
             $isSuccess = function (array $res, ?string $code): bool {
@@ -241,7 +319,7 @@ class LazadaController extends Controller
             if ($isSuccess($resA, $codeA)) {
                 $result = $resA;
                 $params = $paramsA;
-                $method = 'GET';
+                $method = 'POST';
                 $result['meta'] = ['attempts' => $attempts, 'selected' => $labelA];
             } else {
                 // If E208 (empty response), poll a few times using the same format.
@@ -250,14 +328,14 @@ class LazadaController extends Controller
                     $pollCode = $codeA;
                     for ($i = 0; $i < 3; $i++) {
                         usleep(400000); // 400ms
-                        [$tmpRes, $tmpCode, $tmpParams, $tmpLabel, $tmpMethod] = $runAttempt('GET', $base, 'GET flat batch_id (poll ' . ($i + 1) . ')');
+                        [$tmpRes, $tmpCode, $tmpParams, $tmpLabel, $tmpMethod] = $runAttempt('POST', $base, 'POST flat batch_id (poll ' . ($i + 1) . ')');
                         $attempts[] = ['label' => $tmpLabel, 'method' => $tmpMethod, 'code' => $tmpCode, 'result' => $tmpRes];
                         $polled = $tmpRes;
                         $pollCode = $tmpCode;
                         if ($isSuccess($tmpRes, $tmpCode)) {
                             $result = $tmpRes;
                             $params = $tmpParams;
-                            $method = 'GET';
+                            $method = 'POST';
                             $result['meta'] = ['attempts' => $attempts, 'selected' => $tmpLabel];
                             break;
                         }
@@ -265,7 +343,7 @@ class LazadaController extends Controller
                     if (!isset($result)) {
                         $result = $polled;
                         $params = $base;
-                        $method = 'GET';
+                        $method = 'POST';
                         $result['meta'] = [
                             'attempts' => $attempts,
                             'selected' => $labelA,
@@ -277,24 +355,31 @@ class LazadaController extends Controller
                     // Keep batch_id present (to satisfy gateways that strictly require it).
                     $b = $base;
                     $b['payload'] = json_encode(['batch_id' => (string)$base['batch_id']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                    [$resB, $codeB, $paramsB, $labelB, $mB] = $runAttempt('GET', $b, 'GET batch_id + payload');
+                    [$resB, $codeB, $paramsB, $labelB, $mB] = $runAttempt('POST', $b, 'POST batch_id + payload');
                     $attempts[] = ['label' => $labelB, 'method' => $mB, 'code' => $codeB, 'result' => $resB];
 
                     if ($isSuccess($resB, $codeB)) {
                         $result = $resB;
                         $params = $paramsB;
-                        $method = 'GET';
+                        $method = 'POST';
                         $result['meta'] = ['attempts' => $attempts, 'selected' => $labelB];
                     } else {
-                        // Attempt C: POST (only if gateway supports it). This surfaces UnsupportedHTTPMethod deterministically.
-                        [$resC, $codeC, $paramsC, $labelC, $mC] = $runAttempt('POST', $base, 'POST flat batch_id');
+                        // Attempt C: GET (docs) + flat batch_id.
+                        [$resC, $codeC, $paramsC, $labelC, $mC] = $runAttempt('GET', $base, 'GET flat batch_id');
                         $attempts[] = ['label' => $labelC, 'method' => $mC, 'code' => $codeC, 'result' => $resC];
+
+                        // Attempt D: include request_id mirror (only if some gateways require it)
+                        $d = $base;
+                        $d['request_id'] = (string)($base['batch_id'] ?? '');
+                        [$resD, $codeD, $paramsD, $labelD, $mD] = $runAttempt('POST', $d, 'POST batch_id + request_id');
+                        $attempts[] = ['label' => $labelD, 'method' => $mD, 'code' => $codeD, 'result' => $resD];
 
                         // Pick best candidate deterministically.
                         $candidates = [
-                            ['label' => $labelA, 'res' => $resA, 'code' => $codeA, 'params' => $paramsA, 'method' => 'GET'],
-                            ['label' => $labelB, 'res' => $resB, 'code' => $codeB, 'params' => $paramsB, 'method' => 'GET'],
-                            ['label' => $labelC, 'res' => $resC, 'code' => $codeC, 'params' => $paramsC, 'method' => 'POST'],
+                            ['label' => $labelA, 'res' => $resA, 'code' => $codeA, 'params' => $paramsA, 'method' => 'POST'],
+                            ['label' => $labelB, 'res' => $resB, 'code' => $codeB, 'params' => $paramsB, 'method' => 'POST'],
+                            ['label' => $labelC, 'res' => $resC, 'code' => $codeC, 'params' => $paramsC, 'method' => 'GET'],
+                            ['label' => $labelD, 'res' => $resD, 'code' => $codeD, 'params' => $paramsD, 'method' => 'POST'],
                         ];
 
                         $score = function (?string $code, array $res): int {

@@ -1470,8 +1470,16 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
     }
 
     if (!empty($needs)) {
+        // Prefer batch migration first (faster for multiple images). If it fails or partially succeeds,
+        // fall back to the proven single-image migrate call.
+        $batchMap = $this->tryMigrateBatchImagesXml($region, $needs, $appKey, $appSecret, $accessToken, $client);
+
         foreach ($needs as $originalUrl) {
-            $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
+            $newUrl = $batchMap[$originalUrl] ?? null;
+            if (!is_string($newUrl) || trim($newUrl) === '') {
+                $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
+            }
+
             if (!$newUrl) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'images' => 'Failed to migrate image to Lazada inlink. Please ensure the image URL is public and reachable.'
@@ -1544,7 +1552,8 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     $candidates = [];
 
     // A) XML payload under "payload"
-    $xml = '<Request><Images>'
+    $xml = '<?xml version="1.0" encoding="UTF-8" ?>'
+        . '<Request><Images>'
         . implode('', array_map(fn($u) => '<Url>' . htmlspecialchars($u, ENT_XML1) . '</Url>', $urls))
         . '</Images></Request>';
     $candidates[] = ['payload' => $xml];
@@ -1585,9 +1594,11 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         usleep(650000);
 
         $apiPath2 = '/image/response/get';
-        $timestamp2 = (string) round(microtime(true) * 1000);
 
+        // Lazada docs often show GET, but in production some gateways are strict.
+        // Try POST (form) first, then GET as fallback.
         foreach (['batch_id', 'request_id'] as $idKey) {
+            $timestamp2 = (string) round(microtime(true) * 1000);
             $params2 = [
                 'app_key' => $appKey,
                 'sign_method' => 'sha256',
@@ -1597,8 +1608,15 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             ];
             $params2['sign'] = $client->sign($apiPath2, $params2, $appSecret);
 
-            $resp2 = $client->get($region, $apiPath2, $params2);
+            $resp2 = $client->post($region, $apiPath2, $params2);
             $body2 = $resp2['body'] ?? [];
+
+            $code2 = is_array($body2) ? (string)($body2['code'] ?? '') : '';
+            if (!($resp2['ok'] ?? false) || ($code2 !== '' && $code2 !== '0')) {
+                $params2['sign'] = $client->sign($apiPath2, $params2, $appSecret);
+                $resp2 = $client->get($region, $apiPath2, $params2);
+                $body2 = $resp2['body'] ?? [];
+            }
 
             $items = data_get($body2, 'data.images')
                 ?? data_get($body2, 'data.image')

@@ -263,6 +263,10 @@
             try { return JSON.parse(str); } catch(e){ return null; }
         }
 
+        function isObject(val){
+            return val !== null && typeof val === 'object';
+        }
+
         function buildRow(key, value){
             var tr = document.createElement('tr');
             var tdK = document.createElement('td');
@@ -280,7 +284,13 @@
                 v.className = 'input lz-code';
                 v.rows = 6;
                 v.placeholder = 'payload (JSON/XML string)';
-                v.value = value || '';
+                // Payload must be submitted as a STRING to Lazada.
+                // If JSON is provided in Params JSON (as an object/array), stringify it so we never end up with "[object Object]".
+                if (isObject(value)) {
+                    v.value = JSON.stringify(value, null, 2);
+                } else {
+                    v.value = value || '';
+                }
             } else {
                 v = document.createElement('input');
                 v.className = 'input';
@@ -318,8 +328,15 @@
                 var k = keyEl ? String(keyEl.value || '').trim() : '';
                 if(!k) return;
                 var vRaw = valEl ? valEl.value : '';
-                var parsed = safeJsonParse(vRaw);
-                obj[k] = parsed !== null ? parsed : vRaw;
+                // IMPORTANT:
+                // Lazada expects `payload` to be a single string parameter (usually XML; sometimes JSON-encoded string).
+                // Do NOT auto-parse payload into an object, otherwise it will round-trip as [object Object].
+                if (String(k).toLowerCase() === 'payload') {
+                    obj[k] = vRaw;
+                } else {
+                    var parsed = safeJsonParse(vRaw);
+                    obj[k] = parsed !== null ? parsed : vRaw;
+                }
             });
             return obj;
         }
@@ -376,7 +393,25 @@
                 }, null, 2);
             }
             if (path === '/images/migrate') {
-                return JSON.stringify({ Request: { Image: ["https://<your-domain>/path/to/image1.jpg"] } }, null, 2);
+                // Use JSON-style sample for consistency in this ERP UI.
+                // NOTE: The backend will normalize common JSON payload shapes into the required XML string
+                // for Lazada image migrate endpoints (to match Lazada API Explorer requirements).
+                return JSON.stringify({
+                    Request: {
+                        Images: {
+                            Url: ["https://<your-domain>/path/to/image1.jpg"]
+                        }
+                    }
+                }, null, 2);
+            }
+            if (path === '/image/migrate') {
+                return JSON.stringify({
+                    Request: {
+                        Image: {
+                            Url: "https://<your-domain>/path/to/image1.jpg"
+                        }
+                    }
+                }, null, 2);
             }
             return '{\n  "Request": {}\n}';
         }
@@ -416,23 +451,46 @@
             });
         }
 
-        // initial load
-        try { rebuildTableFromJson(); } catch(e) {}
+        // Track which editor the user touched last.
+        // If the user edits the Key/Value table, that must be the source of truth.
+        // If the user edits Params JSON directly, then JSON is the source of truth.
+        var lastEdited = 'table';
 
-        // On submit: prefer whatever is currently in the JSON textarea.
-        // The previous behavior always overwrote the textarea from the table,
-        // which made it easy to accidentally submit placeholder values like "<batch_id>".
+        // initial load
+        try {
+            // If Params JSON contains valid JSON (e.g., from old sessions), use it to rebuild.
+            rebuildTableFromJson();
+            syncToJson();
+        } catch(e) {}
+
+        // Live sync: when user edits Key/Value, update Params JSON immediately.
+        var kvBody = qs('#lz-kv-body');
+        if (kvBody) {
+            kvBody.addEventListener('input', function(e){
+                var t = e && e.target ? e.target : null;
+                if (!t) return;
+                if (!kvBody.contains(t)) return;
+                lastEdited = 'table';
+                try { syncToJson(); } catch(err) {}
+            });
+        }
+
+        // When user edits Params JSON, mark JSON as source of truth.
+        if (paramsTa) {
+            paramsTa.addEventListener('input', function(){
+                lastEdited = 'json';
+            });
+        }
+
+        // On submit: do NOT overwrite user-edited table values from stale JSON.
+        // - If user edited JSON last, rebuild table from JSON (if valid).
+        // - Otherwise, submit table values and keep JSON in sync.
         var form = qs('#lazada-api-explorer-form');
         if (form) form.addEventListener('submit', function(){
-            try {
-                // If textarea contains valid JSON, rebuild table from it first, then sync back.
-                // This keeps table+textarea consistent and ensures pasted JSON is respected.
-                rebuildTableFromJson();
-                syncToJson();
-            } catch(e) {
-                // If JSON is invalid, fall back to current table values.
-                try { syncToJson(); } catch(e2) {}
+            if (lastEdited === 'json') {
+                try { rebuildTableFromJson(); } catch(e) {}
             }
+            try { syncToJson(); } catch(e2) {}
         });
     })();
     </script>
