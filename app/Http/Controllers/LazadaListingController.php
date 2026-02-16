@@ -67,7 +67,20 @@ class LazadaListingController extends Controller
     private function isSkuLevelRequiredKey(string $key): bool
     {
         $k = strtolower(trim($key));
-        return in_array($k, ['sellersku', 'seller_sku', 'price', 'quantity'], true);
+        // Lazada mixes "product"-level and "sku"-level fields.
+        // Many category templates mark packaging & promo fields as mandatory at SKU level.
+        // If we send these under Attributes, Lazada QC may still treat them as blank.
+        // Keep this whitelist strict and explicit.
+        return in_array($k, [
+            'sellersku', 'seller_sku',
+            'price', 'quantity',
+            // Packaging (common QC requirements)
+            'package_height', 'package_length', 'package_width', 'package_weight',
+            'package_content',
+            // Promotions / scheduling
+            'special_price', 'special_from_date', 'special_to_date',
+            'coming_soon', 'delay_delivery_days',
+        ], true);
     }
 
     private function computeVariantPrice(float $basePrice, float $delta, ?string $prefix): float
@@ -266,6 +279,23 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
             $key = strtolower((string)($a['key'] ?? ''));
             $name = strtolower((string)($a['name'] ?? ''));
             $hay = $key.' '.$name;
+
+            // Product core textual fields
+            // Lazada often reports missing title as "field: title" even though the request uses Attributes.name.
+            if (!empty($productRow->name) && (str_contains($hay, 'name') || str_contains($hay, 'title'))) {
+                $out[(string)$a['key']] = (string)$productRow->name;
+                continue;
+            }
+            if (!empty($productRow->description) && str_contains($hay, 'description')) {
+                // Some ERP descriptions are stored HTML-escaped; Lazada expects HTML.
+                $desc = (string)$productRow->description;
+                if (str_contains($desc, '&lt;') || str_contains($desc, '&gt;') || str_contains($desc, '&amp;')) {
+                    $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                }
+                $out[(string)$a['key']] = $desc;
+                continue;
+            }
+
 
             // Common Lazada PH physical fields.
             if (($weight !== null) && (str_contains($hay, 'weight') || str_contains($hay, 'package_weight'))) {
@@ -1145,6 +1175,9 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
             unset($attrs['brand_id']);
         }
 
+        // Remove present-but-null values for cleaner preview and to avoid QC failures when used for push.
+        $attrs = (array) $this->compactPayloadValue($attrs);
+
         // Validate mandatory attributes before building payload
         $requiredKeys = [];
         $requiredNames = [];
@@ -1341,7 +1374,7 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
                     'height' => $product->height ?? null,
                 ],
             ] : null,
-            'attributes' => $attrs,
+            'attributes' => $attrFinal ?? $attrs,
             'skus' => $skus,
         ];
 
@@ -1734,6 +1767,9 @@ private function buildLazadaProductCreatePayload(LazadaListing $listing): array
         // Internal/legacy key - do not send to Lazada as it does not satisfy QC.
         unset($attrs['__images__']);
 
+        // Remove present-but-null values early; Lazada treats them as blank (C004).
+        $attrs = (array) $this->compactPayloadValue($attrs);
+
         // Ensure Brand attributes are present.
         // Lazada examples show using brand name ("No Brand") and/or brand_id for registered brands.
         // We keep this logic defensive for sandbox testing where brand libraries may be incomplete.
@@ -1830,10 +1866,49 @@ private function buildLazadaProductCreatePayload(LazadaListing $listing): array
             ];
         }
 
-        // Remove SKU-level keys from Attributes to avoid mixing SKU fields into Attributes.
+        // Move SKU-level keys out of Attributes into each SKU row.
+        // Lazada QC expects these at SKU level; sending them under Attributes can be treated as "blank".
+        $skuDefaults = [];
         foreach (array_keys($attrs) as $k) {
             if ($this->isSkuLevelRequiredKey($k)) {
+                $val = $attrs[$k];
+                // Keep only meaningful values.
+                if ($val !== null && trim((string)$val) !== '') {
+                    $skuDefaults[$k] = $val;
+                }
                 unset($attrs[$k]);
+            }
+        }
+
+        // If packaging defaults are still missing, try ERP core fields.
+        // These are the common causes of Lazada QC errors: "Package Weight (kg) cannot be blank".
+        if (!array_key_exists('package_weight', $skuDefaults) && $product && $product->weight !== null) {
+            $w = (string)$product->weight;
+            if (trim($w) !== '') {
+                $skuDefaults['package_weight'] = $w;
+            }
+        }
+        if (!array_key_exists('package_length', $skuDefaults) && $product && $product->length !== null) {
+            $v = (string)$product->length;
+            if (trim($v) !== '') $skuDefaults['package_length'] = $v;
+        }
+        if (!array_key_exists('package_width', $skuDefaults) && $product && $product->width !== null) {
+            $v = (string)$product->width;
+            if (trim($v) !== '') $skuDefaults['package_width'] = $v;
+        }
+        if (!array_key_exists('package_height', $skuDefaults) && $product && $product->height !== null) {
+            $v = (string)$product->height;
+            if (trim($v) !== '') $skuDefaults['package_height'] = $v;
+        }
+
+        if (!empty($skuDefaults)) {
+            foreach ($skus as $i => $row) {
+                foreach ($skuDefaults as $k => $v) {
+                    if (!array_key_exists($k, $row) || $row[$k] === null || trim((string)$row[$k]) === '') {
+                        $row[$k] = $v;
+                    }
+                }
+                $skus[$i] = $row;
             }
         }
 
@@ -1910,6 +1985,23 @@ private function buildLazadaProductCreatePayload(LazadaListing $listing): array
         }
 
         // Lazada payload (best-effort). We'll adjust based on QC responses.
+        // IMPORTANT: Do NOT send present-but-null attributes; Lazada treats them as "blank" (C004).
+        $attrFinal = is_array($attrs) ? $attrs : [];
+
+        if ((!isset($attrFinal['name']) || trim((string)$attrFinal['name']) === '') && $product && !empty($product->name)) {
+            $attrFinal['name'] = (string)$product->name;
+        }
+        if ((!isset($attrFinal['description']) || trim((string)$attrFinal['description']) === '') && $product && !empty($product->description)) {
+            $desc = (string)$product->description;
+            if (str_contains($desc, '&lt;') || str_contains($desc, '&gt;') || str_contains($desc, '&amp;')) {
+                $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+            $attrFinal['description'] = $desc;
+        }
+
+        // Clean null/blank values before sending to Lazada.
+        $attrFinal = (array) $this->compactPayloadValue($attrFinal);
+
         $payload = [
             'Request' => [
                 'Product' => [
@@ -1917,10 +2009,7 @@ private function buildLazadaProductCreatePayload(LazadaListing $listing): array
                     'Images' => [
                         'Image' => $imageUrls,
                     ],
-                    'Attributes' => array_merge([
-                        'name' => $product->name ?? null,
-                        'description' => $product->description ?? null,
-                    ], $attrs),
+                    'Attributes' => $attrFinal,
                     'Skus' => [
                         'Sku' => $skus,
                     ],
@@ -1947,6 +2036,37 @@ private function buildLazadaProductCreatePayload(LazadaListing $listing): array
         ];
 
         return [$payload, $preview];
+    }
+
+    /**
+     * Remove null/blank values recursively from an array.
+     *
+     * Lazada treats present-but-null fields as "blank" and may fail QC (C004).
+     * We only remove: null, empty strings, and empty arrays. We keep numeric 0 and string "0".
+     *
+     *  mixed $value
+     *  mixed
+     */
+    private function compactPayloadValue($value)
+    {
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $k => $v) {
+                $v2 = $this->compactPayloadValue($v);
+                if (is_array($v2) && empty($v2)) {
+                    continue;
+                }
+                if ($v2 === null) {
+                    continue;
+                }
+                if (is_string($v2) && trim($v2) === '') {
+                    continue;
+                }
+                $out[$k] = $v2;
+            }
+            return $out;
+        }
+        return $value;
     }
 
     private function region(): string
