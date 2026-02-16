@@ -1470,16 +1470,8 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
     }
 
     if (!empty($needs)) {
-        // Prefer batch migration first (faster for multiple images). If it fails or partially succeeds,
-        // fall back to the proven single-image migrate call.
-        $batchMap = $this->tryMigrateBatchImagesXml($region, $needs, $appKey, $appSecret, $accessToken, $client);
-
         foreach ($needs as $originalUrl) {
-            $newUrl = $batchMap[$originalUrl] ?? null;
-            if (!is_string($newUrl) || trim($newUrl) === '') {
-                $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
-            }
-
+            $newUrl = $this->migrateSingleImageXml($region, $originalUrl, $appKey, $appSecret, $accessToken, $client);
             if (!$newUrl) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'images' => 'Failed to migrate image to Lazada inlink. Please ensure the image URL is public and reachable.'
