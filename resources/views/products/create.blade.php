@@ -1,3 +1,4 @@
+@php $pimToken = (string) \Illuminate\Support\Str::uuid(); @endphp
 @extends('layouts.app')
 
 @section('content')
@@ -13,6 +14,10 @@
 
 
     <form method="POST" action="{{ route('products.store') }}">
+
+    @include('products.partials.image_manager', ['pimToken' => $pimToken, 'pimProductId' => 0])
+
+
         @csrf
 
         <h3 style="margin-top:14px; margin-bottom:8px;">General</h3>
@@ -60,6 +65,38 @@
                 @enderror
             </div>
 
+            <div>
+                <label>Weight</label>
+                <input class="input" name="weight" value="{{ old('weight', '0') }}" placeholder="e.g. 0.5">
+                @error('weight')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div>
+                <label>Length</label>
+                <input class="input" name="length" value="{{ old('length', '0') }}" placeholder="e.g. 10">
+                @error('length')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div>
+                <label>Width</label>
+                <input class="input" name="width" value="{{ old('width', '0') }}" placeholder="e.g. 5">
+                @error('width')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div>
+                <label>Height</label>
+                <input class="input" name="height" value="{{ old('height', '0') }}" placeholder="e.g. 3">
+                @error('height')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
             <div class="typeahead">
                 <label>Manufacturer</label>
                 <input class="input" id="manufacturer_search" placeholder="Type to search..." autocomplete="off" value="{{ old('manufacturer_name','') }}" name="manufacturer_name">
@@ -102,7 +139,6 @@
             </div>
         </div>
         </div>
-
         <h3 style="margin-top:22px; margin-bottom:8px;">Options</h3>
         <div style="height:1px; background:rgba(255,255,255,0.08); margin-bottom:14px;"></div>
 

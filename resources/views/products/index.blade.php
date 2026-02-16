@@ -1,6 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    .thumb{width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,0.08);display:block;background:#fff;}
+    .thumb--variant{width:42px;height:42px;border-radius:10px;}
+    .variant-row td{background:#f8fafc;}
+    .variant-name{font-size:13px; font-weight:600; line-height:1.15;}
+    .variant-meta{font-size:12px; opacity:0.75; margin-top:2px;}
+    .indent{padding-left:14px;}
+</style>
 <div class="card">
     <div class="page-header">
         <h2>Products</h2>
@@ -19,7 +27,7 @@
 
     <div class="toolbar">
         <form method="GET" action="{{ route('products.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name / SKU / model">
+            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name">
             <button class="btn secondary" type="submit">Search</button>
         </form>
     </div>
@@ -52,12 +60,10 @@
         <input type="checkbox" id="product-select-all" title="Select all">
     </th>
     <th style="width:90px;">{!! sort_link('product_id','ID',$currentSort,$currentDir,$q ?? '') !!}</th>
+    <th style="width:70px;">Image</th>
     <th>{!! sort_link('name','Name',$currentSort,$currentDir,$q ?? '') !!}</th>
-    <th style="width:180px;">{!! sort_link('manufacturer','Manufacturer',$currentSort,$currentDir,$q ?? '') !!}</th>
-    <th style="width:140px;">{!! sort_link('model','Model',$currentSort,$currentDir,$q ?? '') !!}</th>
-    <th style="width:140px;">{!! sort_link('sku','SKU',$currentSort,$currentDir,$q ?? '') !!}</th>
+    <th style="width:130px;">{!! sort_link('quantity','Quantity',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:120px;">{!! sort_link('price','Price',$currentSort,$currentDir,$q ?? '') !!}</th>
-    <th style="width:120px;">{!! sort_link('quantity','Qty',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:110px;">{!! sort_link('status','Status',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:150px;">Actions</th>
 </tr>
@@ -69,12 +75,32 @@
                     <input type="checkbox" class="product-row-check" name="ids[]" value="{{ (int)$p->product_id }}" form="product-bulk-form">
                 </td>
                 <td>{{ $p->product_id }}</td>
-                <td>{{ $p->name ?? '-' }}</td>
-                <td>{{ $p->manufacturer ?? '-' }}</td>
-                <td>{{ $p->model }}</td>
-                <td>{{ $p->sku }}</td>
-                <td>{{ number_format((float)$p->price, 2) }}</td>
-                <td>{{ (int)$p->quantity }}</td>
+                <td>
+                    @php
+                        $img = trim((string)($p->image ?? ''));
+                        $src = '';
+                        if ($img !== '') {
+                            $src = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+                        }
+                    @endphp
+                    @if($src)
+                        <img src="{{ $src }}" alt="" class="thumb" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                    @else
+                        <span style="opacity:0.6;">—</span>
+                    @endif
+                </td>
+                <td>
+                    <div style="font-weight:600; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $p->name ?? '-' }}</div>
+                    @php
+                        $optRows = is_array($p->option_rows ?? null) ? $p->option_rows : (is_iterable($p->option_rows ?? null) ? $p->option_rows : []);
+                    @endphp
+                </td>
+                <td>
+                    <div>{{ (int)$p->quantity }}</div>
+                </td>
+                <td>
+                    <div>{{ number_format((float)$p->price, 2) }}</div>
+                </td>
                 <td>{{ (int)$p->status === 1 ? 'Enabled' : 'Disabled' }}</td>
                 <td style="display:flex; gap:8px; align-items:center;">
                     <a class="btn small" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
@@ -85,6 +111,39 @@
                     </form>
                 </td>
             </tr>
+
+            @if(!empty($optRows))
+                @foreach($optRows as $or)
+                    @php
+                        $ovImg = trim((string)($or->option_image ?? ''));
+                        $ovSrc = $ovImg !== '' ? asset('storage/' . ltrim($ovImg, '/')) : '';
+
+                        $base = (float)($p->price ?? 0);
+                        $adj  = (float)($or->price ?? 0);
+                        $pp   = (string)($or->price_prefix ?? '+');
+                        $final = $base + (($pp === '-') ? (-1 * $adj) : $adj);
+                    @endphp
+                    <tr class="variant-row">
+                        <td></td>
+                        <td></td>
+                        <td>
+                            @if($ovSrc)
+                                <img src="{{ $ovSrc }}" alt="" class="thumb thumb--variant" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                            @else
+                                <span style="opacity:0.55;">—</span>
+                            @endif
+                        </td>
+                        <td class="indent">
+                            <div class="variant-name">{{ $or->option_value_name ?? '' }}</div>
+                            <div class="variant-meta">{{ $or->option_name ?? '' }}</div>
+                        </td>
+                        <td><span style="font-weight:600;">{{ (int)($or->quantity ?? 0) }}</span></td>
+                        <td>{{ number_format($final, 2) }}</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                @endforeach
+            @endif
         @endforeach
         </tbody>
     </table>

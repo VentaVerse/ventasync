@@ -18,6 +18,8 @@
         @csrf
         @method('PUT')
 
+        @include('products.partials.image_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
+
         <h3 style="margin-top:14px; margin-bottom:8px;">General</h3>
         <div style="height:1px; background:rgba(255,255,255,0.08); margin-bottom:14px;"></div>
 
@@ -54,6 +56,38 @@
                 <input class="input" name="quantity" value="{{ old('quantity', $product->quantity) }}" required>
             </div>
 
+            <div>
+                <label>Weight</label>
+                <input class="input" name="weight" value="{{ old('weight', $product->weight ?? '0') }}" placeholder="e.g. 0.5">
+                @error('weight')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div>
+                <label>Length</label>
+                <input class="input" name="length" value="{{ old('length', $product->length ?? '0') }}" placeholder="e.g. 10">
+                @error('length')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div>
+                <label>Width</label>
+                <input class="input" name="width" value="{{ old('width', $product->width ?? '0') }}" placeholder="e.g. 5">
+                @error('width')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div>
+                <label>Height</label>
+                <input class="input" name="height" value="{{ old('height', $product->height ?? '0') }}" placeholder="e.g. 3">
+                @error('height')
+                    <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
+                @enderror
+            </div>
+
             <div class="typeahead">
                 <label>Manufacturer</label>
                 <input class="input" id="manufacturer_search" placeholder="Type to search..." autocomplete="off" value="{{ old('manufacturer_name', $manufacturerName ?? '') }}" name="manufacturer_name">
@@ -84,7 +118,6 @@
             </div>
         </div>
         </div>
-
         <h3 style="margin-top:22px; margin-bottom:8px;">Options</h3>
         <div style="height:1px; background:rgba(255,255,255,0.08); margin-bottom:14px;"></div>
 

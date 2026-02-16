@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class LazadaOrder extends Model
+{
+    protected $table = 'lazada_orders';
+
+    protected $fillable = [
+        'region',
+        'order_id',
+        'status',
+        'order_created_at',
+        'order_updated_at',
+        'raw',
+    ];
+
+    protected $casts = [
+        'raw' => 'array',
+        'order_created_at' => 'datetime',
+        'order_updated_at' => 'datetime',
+    ];
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(LazadaOrderProduct::class, 'lazada_order_id');
+    }
+}

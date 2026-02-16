@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LazadaSetting;
+use App\Models\LazadaApiLog;
 use App\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,11 @@ class LazadaController extends Controller
     public function index()
     {
         $setting = LazadaSetting::query()->first();
+
+        $logs = LazadaApiLog::query()
+            ->orderByDesc('id')
+            ->limit(25)
+            ->get();
 
         // Lightweight list for dropdowns (kept small for production safety)
         $pfx = (string) config('catalog.prefix');
@@ -38,7 +44,618 @@ class LazadaController extends Controller
             'defaultRedirect' => route('lazada.callback'),
             'result' => session('lazada_result'),
             'products' => $products,
+            'logs' => $logs,
         ]);
+    }
+
+    /**
+     * Phase 1: API Explorer runner for testing arbitrary endpoints.
+     * Supports GET/POST and optional auth (access_token).
+     */
+    public function explorerRun(Request $request, LazadaClient $client)
+    {
+        $data = $request->validate([
+            'method' => 'required|in:GET,POST',
+            'api_path' => 'required|string|max:255',
+            'auth_required' => 'nullable|boolean',
+            'params_json' => 'nullable|string|max:20000',
+        ]);
+
+        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Missing settings',
+                'data' => ['message' => 'Region, App Key, and App Secret are required.'],
+            ]);
+        }
+
+        $authRequired = (bool)($data['auth_required'] ?? false);
+        if ($authRequired && !$setting->access_token) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Missing Access Token',
+                'data' => ['message' => 'Access Token is required for auth-required calls. Please authorize and refresh token.'],
+            ]);
+        }
+
+        $apiPath = (string)$data['api_path'];
+        if (!str_starts_with($apiPath, '/')) {
+            $apiPath = '/' . $apiPath;
+        }
+
+        $customParams = [];
+        $jsonRaw = trim((string)($data['params_json'] ?? ''));
+        if ($jsonRaw !== '') {
+            try {
+                $decoded = json_decode($jsonRaw, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $customParams = $decoded;
+                }
+            } catch (\Throwable $e) {
+                return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+                    'ok' => false,
+                    'title' => 'Invalid JSON',
+                    'data' => ['message' => $e->getMessage()],
+                ]);
+            }
+        }
+
+        // Base params required by Lazada signing.
+        $timestamp = (string)round(microtime(true) * 1000);
+        $params = [
+            'app_key' => (string)$setting->app_key,
+            'sign_method' => 'sha256',
+            'timestamp' => $timestamp,
+        ];
+
+        if ($authRequired) {
+            $params['access_token'] = (string)$setting->access_token;
+        }
+
+        // Merge custom params (but never allow overriding of required base/sign fields)
+
+        // Special-case: Lazada GetBrandByPages uses startRow + pageSize (NOT page_no/page_size).
+        // Some UI forms may still send page_no/page_size, so normalize to what Lazada expects.
+        if ($apiPath === '/category/brands/query') {
+            $pn = $customParams['page_no'] ?? null;
+            $ps = $customParams['page_size'] ?? null;
+            if (($customParams['startRow'] ?? null) === null && $pn !== null) {
+                $pnInt = max(1, (int)$pn);
+                $psInt = $ps !== null ? max(1, (int)$ps) : 50;
+                $customParams['startRow'] = (string)(($pnInt - 1) * $psInt);
+                $customParams['pageSize'] = (string)$psInt;
+                unset($customParams['page_no'], $customParams['page_size']);
+            }
+        }
+
+        foreach ($customParams as $k => $v) {
+            if (!is_string($k) || $k === '' || in_array($k, ['sign', 'app_key', 'sign_method', 'timestamp'], true)) {
+                continue;
+            }
+            $params[$k] = is_scalar($v) || $v === null ? $v : json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        // Lazada ImageResponseGet:
+        // Lazada documentation says GET + auth required + batch_id.
+        // In practice, some gateways are strict about parameter placement/encoding.
+        // We will validate inputs, then run a deterministic multi-attempt strategy
+        // and surface a single consolidated result + all attempts (for transparency).
+        if ($apiPath === '/image/response/get') {
+            $batchId = isset($params['batch_id']) ? trim((string)$params['batch_id']) : '';
+            if ($batchId === '') {
+                return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+                    'ok' => false,
+                    'title' => 'Missing batch_id',
+                    'data' => ['message' => 'batch_id is required for /image/response/get. Paste the batch_id returned by /images/migrate.'],
+                ]);
+            }
+
+            // Safety: ensure access_token is present (docs say authorization required).
+            // If user forgot to enable Auth checkbox, enforce it for this endpoint.
+            if (!isset($params['access_token']) || trim((string)$params['access_token']) === '') {
+                $params['access_token'] = (string)$setting->access_token;
+            }
+
+            // Some gateways mention "requestId" in error text, but still require batch_id.
+            // Including request_id in addition to batch_id is harmless (ignored if not used)
+            // and increases compatibility.
+            $params['batch_id'] = $batchId;
+            $params['request_id'] = $batchId;
+        }
+
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
+
+        $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
+
+        $method = (string)$data['method'];
+
+        // Special robust runner for /image/response/get to stop the "back and forth" loop.
+        // We will:
+        // - always try the doc method (GET)
+        // - if unsupported, try POST once
+        // - if E005, try a strict "payload" encoding variant
+        // - if E208, poll a few times (the migrate job may not be ready yet)
+        // - never mask the real root error; return consolidated diagnostics
+        if ($apiPath === '/image/response/get') {
+            $attempts = [];
+
+            $extractCode = function ($body): ?string {
+                if (is_array($body) && array_key_exists('code', $body)) {
+                    return (string)$body['code'];
+                }
+                if (is_string($body)) {
+                    $maybe = json_decode($body, true);
+                    if (is_array($maybe) && array_key_exists('code', $maybe)) {
+                        return (string)$maybe['code'];
+                    }
+                }
+                // Some errors use string codes like "UnsupportedHTTPMethod" (ISV)
+                if (is_array($body) && array_key_exists('code', $body) && is_string($body['code'])) {
+                    return (string)$body['code'];
+                }
+                return null;
+            };
+
+            $runAttempt = function (string $m, array $p, string $label) use ($client, $setting, $apiPath, $extractCode) {
+                $p['sign'] = $client->sign($apiPath, $p, (string)$setting->app_secret);
+                $res = $m === 'POST'
+                    ? $client->post((string)$setting->region, $apiPath, $p)
+                    : $client->get((string)$setting->region, $apiPath, $p);
+                $code = $extractCode($res['body'] ?? null);
+                return [$res, $code, $p, $label, $m];
+            };
+
+            $base = $params;
+            // Ensure we don't accidentally carry a stale payload from UI.
+            unset($base['payload']);
+
+            // Attempt A: GET + flat batch_id (+ request_id mirror)
+            [$resA, $codeA, $paramsA, $labelA, $mA] = $runAttempt('GET', $base, 'GET flat batch_id');
+            $attempts[] = ['label' => $labelA, 'method' => $mA, 'code' => $codeA, 'result' => $resA];
+
+            $isSuccess = function (array $res, ?string $code): bool {
+                if (!($res['ok'] ?? false)) return false;
+                if ($code === null) return true;
+                return $code === '0';
+            };
+
+            if ($isSuccess($resA, $codeA)) {
+                $result = $resA;
+                $params = $paramsA;
+                $method = 'GET';
+                $result['meta'] = ['attempts' => $attempts, 'selected' => $labelA];
+            } else {
+                // If E208 (empty response), poll a few times using the same format.
+                if ($codeA === '208') {
+                    $polled = $resA;
+                    $pollCode = $codeA;
+                    for ($i = 0; $i < 3; $i++) {
+                        usleep(400000); // 400ms
+                        [$tmpRes, $tmpCode, $tmpParams, $tmpLabel, $tmpMethod] = $runAttempt('GET', $base, 'GET flat batch_id (poll ' . ($i + 1) . ')');
+                        $attempts[] = ['label' => $tmpLabel, 'method' => $tmpMethod, 'code' => $tmpCode, 'result' => $tmpRes];
+                        $polled = $tmpRes;
+                        $pollCode = $tmpCode;
+                        if ($isSuccess($tmpRes, $tmpCode)) {
+                            $result = $tmpRes;
+                            $params = $tmpParams;
+                            $method = 'GET';
+                            $result['meta'] = ['attempts' => $attempts, 'selected' => $tmpLabel];
+                            break;
+                        }
+                    }
+                    if (!isset($result)) {
+                        $result = $polled;
+                        $params = $base;
+                        $method = 'GET';
+                        $result['meta'] = [
+                            'attempts' => $attempts,
+                            'selected' => $labelA,
+                            'note' => 'E208 usually means the migrate job is not ready yet. Try again after a few seconds using the same batch_id.',
+                        ];
+                    }
+                } else {
+                    // Attempt B: Some gateways reject flat params but accept a JSON-string payload.
+                    // Keep batch_id present (to satisfy gateways that strictly require it).
+                    $b = $base;
+                    $b['payload'] = json_encode(['batch_id' => (string)$base['batch_id']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    [$resB, $codeB, $paramsB, $labelB, $mB] = $runAttempt('GET', $b, 'GET batch_id + payload');
+                    $attempts[] = ['label' => $labelB, 'method' => $mB, 'code' => $codeB, 'result' => $resB];
+
+                    if ($isSuccess($resB, $codeB)) {
+                        $result = $resB;
+                        $params = $paramsB;
+                        $method = 'GET';
+                        $result['meta'] = ['attempts' => $attempts, 'selected' => $labelB];
+                    } else {
+                        // Attempt C: POST (only if gateway supports it). This surfaces UnsupportedHTTPMethod deterministically.
+                        [$resC, $codeC, $paramsC, $labelC, $mC] = $runAttempt('POST', $base, 'POST flat batch_id');
+                        $attempts[] = ['label' => $labelC, 'method' => $mC, 'code' => $codeC, 'result' => $resC];
+
+                        // Pick best candidate deterministically.
+                        $candidates = [
+                            ['label' => $labelA, 'res' => $resA, 'code' => $codeA, 'params' => $paramsA, 'method' => 'GET'],
+                            ['label' => $labelB, 'res' => $resB, 'code' => $codeB, 'params' => $paramsB, 'method' => 'GET'],
+                            ['label' => $labelC, 'res' => $resC, 'code' => $codeC, 'params' => $paramsC, 'method' => 'POST'],
+                        ];
+
+                        $score = function (?string $code, array $res): int {
+                            if (($res['ok'] ?? false) && ($code === null || $code === '0')) return 100;
+                            if ($code === null) return 50;
+                            if ($code === '208') return 40;
+                            if ($code === '5') return 10;
+                            if (is_array($res['body'] ?? null) && (($res['body']['code'] ?? null) === 'UnsupportedHTTPMethod')) return 0;
+                            return 20;
+                        };
+
+                        usort($candidates, function ($a, $b) use ($score) {
+                            return $score($b['code'], $b['res']) <=> $score($a['code'], $a['res']);
+                        });
+
+                        $best = $candidates[0];
+                        $result = $best['res'];
+                        $params = $best['params'];
+                        $method = $best['method'];
+                        $result['meta'] = [
+                            'attempts' => $attempts,
+                            'selected' => $best['label'],
+                            'hint' => 'The Explorer automatically tried the supported formats for this endpoint. Check meta.attempts in the latest API log for full details.',
+                        ];
+                    }
+                }
+            }
+        } else {
+            $result = $method === 'POST'
+                ? $client->post((string)$setting->region, $apiPath, $params)
+                : $client->get((string)$setting->region, $apiPath, $params);
+        }
+
+// Log request+response for debugging (must never block UI)
+        LazadaApiLog::safeCreate([
+            'pack' => 'lazada.api.explorer',
+            'method' => $method,
+            'api_path' => $apiPath,
+            'auth_required' => $authRequired,
+            'request_params' => $params,
+            'response_status' => (int)($result['status'] ?? 0),
+            'ok' => (bool)($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+
+        return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+            'ok' => (bool)$result['ok'],
+            'title' => 'API Explorer: ' . $method . ' ' . $apiPath,
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * Phase 1: Preset Packs runner.
+     * Runs a curated sequence of API calls in order and logs each call.
+     */
+    public function packsRun(Request $request, LazadaClient $client)
+    {
+        $data = $request->validate([
+            'pack' => 'required|in:catalog,orders,shipping,reverse,finance,full',
+            'params_json' => 'nullable|string|max:20000',
+        ]);
+
+        $pack = (string)$data['pack'];
+        $params = [];
+        $jsonRaw = trim((string)($data['params_json'] ?? ''));
+        if ($jsonRaw !== '') {
+            try {
+                $decoded = json_decode($jsonRaw, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $params = $decoded;
+                }
+            } catch (\Throwable $e) {
+                return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+                    'ok' => false,
+                    'title' => 'Invalid JSON (Preset Pack)',
+                    'data' => ['message' => $e->getMessage()],
+                ]);
+            }
+        }
+
+        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Missing settings',
+                'data' => ['message' => 'Region, App Key, and App Secret are required.'],
+            ]);
+        }
+
+        $steps = $this->buildPackSteps($pack, $params);
+        if (empty($steps)) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Preset Pack',
+                'data' => ['message' => 'No steps were generated for this pack.'],
+            ]);
+        }
+
+        $results = [];
+        $allOk = true;
+
+        foreach ($steps as $step) {
+            $res = $this->runSignedApiCall(
+                $client,
+                (string)$setting->region,
+                (string)$setting->app_key,
+                (string)$setting->app_secret,
+                (string)($setting->access_token ?? ''),
+                (string)$step['method'],
+                (string)$step['api_path'],
+                (bool)$step['auth_required'],
+                (array)($step['params'] ?? []),
+                $pack
+            );
+
+            $results[] = [
+                'title' => $step['title'] ?? ($step['method'] . ' ' . $step['api_path']),
+                'method' => $step['method'],
+                'api_path' => $step['api_path'],
+                'auth_required' => (bool)$step['auth_required'],
+                'result' => $res,
+            ];
+
+            if (!($res['ok'] ?? false)) {
+                $allOk = false;
+            }
+        }
+
+        return redirect()->route('lazada.index')->with('lazada_result', [
+            'ok' => $allOk,
+            'title' => 'Preset Pack: ' . strtoupper($pack),
+            'data' => ['pack' => $pack, 'steps' => $results],
+        ]);
+    }
+
+    private function buildPackSteps(string $pack, array $input): array
+    {
+        $primaryCategoryId = isset($input['primary_category_id']) ? trim((string)$input['primary_category_id']) : '';
+        $sellerSku = isset($input['seller_sku']) ? trim((string)$input['seller_sku']) : '';
+        $orderId = isset($input['order_id']) ? trim((string)$input['order_id']) : '';
+
+        $startTime = isset($input['start_time']) ? trim((string)$input['start_time']) : '';
+        $endTime = isset($input['end_time']) ? trim((string)$input['end_time']) : '';
+        $updateAfter = isset($input['update_after']) ? trim((string)$input['update_after']) : '';
+
+        $limit = isset($input['limit']) ? (int)$input['limit'] : 10;
+        $offset = isset($input['offset']) ? (int)$input['offset'] : 0;
+
+        $catalog = [
+            [
+                'title' => 'Category Tree',
+                'method' => 'GET',
+                'api_path' => '/category/tree/get',
+                'auth_required' => false,
+                'params' => [],
+            ],
+        ];
+        if ($primaryCategoryId !== '') {
+            $catalog[] = [
+                'title' => 'Category Attributes',
+                'method' => 'GET',
+                'api_path' => '/category/attributes/get',
+                'auth_required' => false,
+                'params' => ['primary_category_id' => $primaryCategoryId],
+            ];
+        }
+        $catalog[] = [
+            'title' => 'Brands (page 1)',
+            'method' => 'GET',
+            'api_path' => '/category/brands/query',
+            'auth_required' => false,
+            'params' => ['startRow' => 0, 'pageSize' => 50],
+        ];
+        $catalog[] = [
+            'title' => 'Products List',
+            'method' => 'GET',
+            'api_path' => '/products/get',
+            'auth_required' => true,
+            'params' => ['filter' => 'all', 'limit' => max(1, min(100, $limit)), 'offset' => max(0, $offset)],
+        ];
+        if ($sellerSku !== '') {
+            $catalog[] = [
+                'title' => 'QC Status',
+                'method' => 'GET',
+                'api_path' => '/product/qc/status/get',
+                'auth_required' => true,
+                'params' => ['seller_sku' => $sellerSku],
+            ];
+        }
+
+        $orders = [
+            [
+                'title' => 'Orders (range)',
+                'method' => 'GET',
+                'api_path' => '/orders/get',
+                'auth_required' => true,
+                'params' => array_filter([
+                    'update_after' => $updateAfter !== '' ? $updateAfter : null,
+                    'sort_direction' => 'DESC',
+                    'limit' => max(1, min(100, $limit)),
+                    'offset' => max(0, $offset),
+                ], fn($v) => $v !== null && $v !== ''),
+            ],
+        ];
+        if ($orderId !== '') {
+            $orders[] = [
+                'title' => 'Order (single)',
+                'method' => 'GET',
+                'api_path' => '/order/get',
+                'auth_required' => true,
+                'params' => ['order_id' => $orderId],
+            ];
+            $orders[] = [
+                'title' => 'Order Items',
+                'method' => 'GET',
+                'api_path' => '/order/items/get',
+                'auth_required' => true,
+                'params' => ['order_id' => $orderId],
+            ];
+        }
+
+        $shipping = [
+            [
+                'title' => 'Shipment Providers',
+                'method' => 'GET',
+                'api_path' => '/shipment/providers/get',
+                'auth_required' => true,
+                'params' => [],
+            ],
+            [
+                'title' => 'Order Shipment Providers (dropship)',
+                'method' => 'GET',
+                'api_path' => '/order/shipment/providers/get',
+                'auth_required' => true,
+                'params' => ['shipping_type' => 'dropship'],
+            ],
+        ];
+
+        $reverse = [
+            [
+                'title' => 'Reverse Orders (range)',
+                'method' => 'GET',
+                'api_path' => '/reverse/getreverseordersforseller',
+                'auth_required' => true,
+                'params' => array_filter([
+                    'update_after' => $updateAfter !== '' ? $updateAfter : null,
+                    'limit' => max(1, min(100, $limit)),
+                    'offset' => max(0, $offset),
+                ], fn($v) => $v !== null && $v !== ''),
+            ],
+        ];
+
+        $finance = [
+            [
+                'title' => 'Finance Transaction Details',
+                'method' => 'GET',
+                'api_path' => '/finance/transaction/details/get',
+                'auth_required' => true,
+                'params' => array_filter([
+                    'start_time' => $startTime !== '' ? $startTime : null,
+                    'end_time' => $endTime !== '' ? $endTime : null,
+                    'limit' => max(1, min(100, $limit)),
+                    'offset' => max(0, $offset),
+                ], fn($v) => $v !== null && $v !== ''),
+            ],
+        ];
+
+        return match ($pack) {
+            'catalog' => $catalog,
+            'orders' => $orders,
+            'shipping' => $shipping,
+            'reverse' => $reverse,
+            'finance' => $finance,
+            'full' => array_merge($catalog, $orders, $shipping, $reverse, $finance),
+            default => [],
+        };
+    }
+
+    private function runSignedApiCall(
+        LazadaClient $client,
+        string $region,
+        string $appKey,
+        string $appSecret,
+        string $accessToken,
+        string $method,
+        string $apiPath,
+        bool $authRequired,
+        array $customParams,
+        ?string $pack = null
+    ): array {
+        $apiPath = trim($apiPath);
+        if ($apiPath === '') {
+            return ['status' => 0, 'ok' => false, 'body' => ['message' => 'Missing api_path']];
+        }
+        if (!str_starts_with($apiPath, '/')) {
+            $apiPath = '/' . $apiPath;
+        }
+
+        if ($authRequired && $accessToken === '') {
+            return ['status' => 0, 'ok' => false, 'body' => ['message' => 'Missing access_token for auth-required call']];
+        }
+
+        $timestamp = (string)round(microtime(true) * 1000);
+        $params = [
+            'app_key' => $appKey,
+            'sign_method' => 'sha256',
+            'timestamp' => $timestamp,
+        ];
+        if ($authRequired) {
+            $params['access_token'] = $accessToken;
+        }
+
+        foreach ($customParams as $k => $v) {
+            if (!is_string($k) || $k === '' || in_array($k, ['sign', 'app_key', 'sign_method', 'timestamp'], true)) {
+                continue;
+            }
+            $params[$k] = is_scalar($v) || $v === null ? $v : json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
+
+        $params['sign'] = $client->sign($apiPath, $params, $appSecret);
+
+        $method = strtoupper($method);
+        $result = $method === 'POST'
+            ? $client->post($region, $apiPath, $params)
+            : $client->get($region, $apiPath, $params);
+
+        LazadaApiLog::safeCreate([
+            'pack' => $pack,
+            'method' => $method,
+            'api_path' => $apiPath,
+            'auth_required' => $authRequired,
+            'request_params' => $params,
+            'response_status' => (int)($result['status'] ?? 0),
+            'ok' => (bool)($result['ok'] ?? false),
+            'response_body' => $result['body'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+
+        return $result;
     }
 
     public function save(Request $request)
@@ -232,6 +849,26 @@ class LazadaController extends Controller
             'grant_type' => 'refresh_token',
         ];
 
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
+
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
 
         $result = $client->post((string)$setting->region, $apiPath, $params);
@@ -282,6 +919,26 @@ class LazadaController extends Controller
             'access_token' => (string)$setting->access_token,
         ];
 
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
+
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
 
         $result = $client->get((string)$setting->region, $apiPath, $params);
@@ -316,6 +973,26 @@ class LazadaController extends Controller
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
         ];
+
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
@@ -355,6 +1032,26 @@ class LazadaController extends Controller
             'timestamp' => $timestamp,
             'primary_category_id' => (string)$request->input('category_id'),
         ];
+
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
@@ -397,6 +1094,26 @@ class LazadaController extends Controller
             'page_size' => (string)($request->input('page_size', 50)),
         ];
 
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
+
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
@@ -435,6 +1152,26 @@ class LazadaController extends Controller
             'access_token' => (string)$setting->access_token,
             'seller_sku' => (string)$request->input('seller_sku'),
         ];
+
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
@@ -519,6 +1256,26 @@ class LazadaController extends Controller
             'access_token' => (string)$setting->access_token,
             'payload' => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ];
+
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
 
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->post((string)$setting->region, $apiPath, $params);
@@ -733,12 +1490,217 @@ class LazadaController extends Controller
             'grant_type' => 'authorization_code',
         ];
 
+
+        // Normalize pagination params for specific Lazada endpoints
+        if ($apiPath === '/category/brands/query') {
+            // Lazada requires startRow + pageSize (not page_no/page_size)
+            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
+            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
+
+            if ($pageNo !== null && $pageSize !== null) {
+                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
+                $params['pageSize'] = max(1, $pageSize);
+                unset($params['page_no'], $params['page_size']);
+            } else {
+                // if client already provided correct keys, ensure casing matches Lazada
+                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
+                    $params['pageSize'] = (int)$params['page_size'];
+                    unset($params['page_size']);
+                }
+            }
+        }
+
         $params['sign'] = $client->sign($apiPath, $params, trim($appSecret));
 
         return $client->post($region, $apiPath, $params);
     }
 
-    private function decryptSetting(?LazadaSetting $setting): ?object
+    
+    // ------------------------------
+    // POC: Orders + Waybill (PDF)
+    // ------------------------------
+    public function ordersGet(Request $request, LazadaClient $client)
+    {
+        $data = $request->validate([
+            'update_after' => 'nullable|string|max:64',
+            'limit' => 'nullable|integer|min:1|max:100',
+            'offset' => 'nullable|integer|min:0|max:5000',
+        ]);
+
+        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Missing settings',
+                'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
+            ]);
+        }
+
+        $params = array_filter([
+            'update_after' => trim((string)($data['update_after'] ?? '')) !== '' ? trim((string)$data['update_after']) : null,
+            'sort_direction' => 'DESC',
+            'limit' => (int)($data['limit'] ?? 20),
+            'offset' => (int)($data['offset'] ?? 0),
+        ], fn($v) => $v !== null && $v !== '');
+
+        $res = $this->runSignedApiCall(
+            $client,
+            (string)$setting->region,
+            (string)$setting->app_key,
+            (string)$setting->app_secret,
+            (string)$setting->access_token,
+            'GET',
+            '/orders/get',
+            true,
+            $params,
+            'poc'
+        );
+
+        return redirect()->route('lazada.index')->with('lazada_result', [
+            'ok' => (bool)($res['ok'] ?? false),
+            'title' => 'GetOrders',
+            'data' => $res,
+        ]);
+    }
+
+    public function orderItemsGet(Request $request, LazadaClient $client)
+    {
+        $data = $request->validate([
+            'order_id' => 'required|string|max:64',
+        ]);
+
+        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Missing settings',
+                'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
+            ]);
+        }
+
+        $res = $this->runSignedApiCall(
+            $client,
+            (string)$setting->region,
+            (string)$setting->app_key,
+            (string)$setting->app_secret,
+            (string)$setting->access_token,
+            'GET',
+            '/order/items/get',
+            true,
+            ['order_id' => (string)$data['order_id']],
+            'poc'
+        );
+
+        return redirect()->route('lazada.index')->with('lazada_result', [
+            'ok' => (bool)($res['ok'] ?? false),
+            'title' => 'GetOrderItems',
+            'data' => $res,
+        ]);
+    }
+
+    public function awbPdfGet(Request $request, LazadaClient $client)
+    {
+        $data = $request->validate([
+            'order_item_ids' => 'required|string|max:2000', // comma-separated
+        ]);
+
+        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Missing settings',
+                'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
+            ]);
+        }
+
+        $res = $this->runSignedApiCall(
+            $client,
+            (string)$setting->region,
+            (string)$setting->app_key,
+            (string)$setting->app_secret,
+            (string)$setting->access_token,
+            'GET',
+            '/order/document/awb/pdf/get',
+            true,
+            ['order_item_ids' => trim((string)$data['order_item_ids'])],
+            'poc'
+        );
+
+        if (!($res['ok'] ?? false)) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Get AWB PDF',
+                'data' => $res,
+            ]);
+        }
+
+        $body = $res['body'] ?? null;
+        $b64 = $this->findBase64Document($body);
+        if (!$b64) {
+            // If Lazada returns a URL or non-base64 structure, just show raw response.
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => true,
+                'title' => 'Get AWB PDF (response)',
+                'data' => $res,
+            ]);
+        }
+
+        $bin = base64_decode($b64, true);
+        if ($bin === false) {
+            return redirect()->route('lazada.index')->with('lazada_result', [
+                'ok' => false,
+                'title' => 'Get AWB PDF',
+                'data' => ['message' => 'Failed to decode PDF from response.', 'response' => $res],
+            ]);
+        }
+
+        $filename = 'lazada_awb_' . date('Ymd_His') . '.pdf';
+        return response($bin, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
+    }
+
+    private function findBase64Document($body): ?string
+    {
+        // Common patterns observed across Lazada document APIs
+        $candidates = [];
+
+        if (is_string($body)) {
+            $candidates[] = $body;
+        } elseif (is_array($body)) {
+            // direct keys
+            foreach (['data', 'document', 'pdf', 'content'] as $k) {
+                if (isset($body[$k]) && is_string($body[$k])) {
+                    $candidates[] = $body[$k];
+                }
+            }
+            // nested common
+            foreach (['result', 'module', 'body'] as $k) {
+                if (isset($body[$k]) && is_array($body[$k])) {
+                    foreach (['data', 'document', 'pdf', 'content'] as $kk) {
+                        if (isset($body[$k][$kk]) && is_string($body[$k][$kk])) {
+                            $candidates[] = $body[$k][$kk];
+                        }
+                    }
+                }
+            }
+        }
+
+        foreach ($candidates as $v) {
+            $v = trim($v);
+            if ($v === '') continue;
+            // very loose base64 check (avoid false positives)
+            if (preg_match('/^[A-Za-z0-9+\/=\r\n]+$/', $v) && strlen($v) > 200) {
+                return $v;
+            }
+        }
+
+        return null;
+    }
+
+
+private function decryptSetting(?LazadaSetting $setting): ?object
     {
         if (!$setting) {
             return null;

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\ManufacturerController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
@@ -13,6 +14,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\LazadaController;
+use App\Http\Controllers\LazadaListingController;
+use App\Http\Controllers\LazadaCategoryController;
+use App\Http\Controllers\LazadaCategoryAttributeController;
+use App\Http\Controllers\LazadaOrderController;
 use App\Http\Controllers\ErrorLogController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
@@ -34,6 +39,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
         Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+        // Product images (Image Manager)
+        Route::post('/products/images/upload', [ProductImageController::class, 'upload'])->name('products.images.upload');
+        Route::post('/products/images/import-url', [ProductImageController::class, 'importUrl'])->name('products.images.import_url');
+        Route::get('/products/images/browse', [ProductImageController::class, 'browse'])->name('products.images.browse');
+        Route::post('/products/images/upload-to-catalog', [ProductImageController::class, 'uploadToCatalog'])->name('products.images.upload_to_catalog');
+
 
         // Product options
         Route::get('/products/{id}/options', [ProductOptionController::class, 'edit'])->name('products.options.edit');
@@ -97,6 +109,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/token/create', [LazadaController::class, 'tokenCreate'])->name('lazada.token_create');
         Route::post('/lazada/token/refresh', [LazadaController::class, 'tokenRefresh'])->name('lazada.token_refresh');
         Route::post('/lazada/call', [LazadaController::class, 'callApi'])->name('lazada.call_api');
+        Route::post('/lazada/explorer/run', [LazadaController::class, 'explorerRun'])->name('lazada.explorer_run');
+        Route::post('/lazada/packs/run', [LazadaController::class, 'packsRun'])->name('lazada.packs_run');
 
         // Lazada Catalog POC
         Route::post('/lazada/category/tree', [LazadaController::class, 'categoryTree'])->name('lazada.category_tree');
@@ -107,6 +121,58 @@ Route::middleware(['auth'])->group(function () {
         // POC: Build payload + create product (variants/options)
         Route::post('/lazada/product/payload-preview', [LazadaController::class, 'productPayloadPreview'])->name('lazada.product_payload_preview');
         Route::post('/lazada/product/create', [LazadaController::class, 'productCreate'])->name('lazada.product_create');
+        Route::post('/lazada/orders/get', [LazadaController::class, 'ordersGet'])->name('lazada.orders_get');
+        Route::post('/lazada/order/items/get', [LazadaController::class, 'orderItemsGet'])->name('lazada.order_items_get');
+        Route::post('/lazada/order/awb/pdf', [LazadaController::class, 'awbPdfGet'])->name('lazada.awb_pdf_get');
+        Route::get('/lazada/orders', [LazadaOrderController::class, 'index'])->name('lazada.orders.index');
+        Route::get('/lazada/orders/{orderId}', [LazadaOrderController::class, 'show'])->name('lazada.orders.show');
+        Route::post('/lazada/orders/fetch', [LazadaOrderController::class, 'fetch'])->name('lazada.orders.fetch');
+        Route::post('/lazada/orders/update-statuses', [LazadaOrderController::class, 'updateStatuses'])->name('lazada.orders.update_statuses');
+        Route::post('/lazada/orders/reset', [LazadaOrderController::class, 'reset'])->name('lazada.orders.reset');
+        Route::post('/lazada/orders/{orderId}/pack', [LazadaOrderController::class, 'pack'])->name('lazada.orders.pack');
+        Route::post('/lazada/orders/{orderId}/pack-print', [LazadaOrderController::class, 'packAndPrint'])->name('lazada.orders.pack_print');
+        Route::post('/lazada/orders/{orderId}/recreate-package', [LazadaOrderController::class, 'recreatePackage'])->name('lazada.orders.recreate_package');
+        Route::post('/lazada/orders/{orderId}/rts', [LazadaOrderController::class, 'rts'])->name('lazada.orders.rts');
+        Route::get('/lazada/orders/{orderId}/ship-print', [LazadaOrderController::class, 'shipAndPrint'])->name('lazada.orders.ship_print');
+        Route::post('/lazada/orders/{orderId}/ship-print', [LazadaOrderController::class, 'shipAndPrintPost'])->name('lazada.orders.ship_print_post');
+        Route::get('/lazada/orders/{orderId}/awb', [LazadaOrderController::class, 'awbPdf'])->name('lazada.orders.awb');
+        Route::get('/lazada/orders/{orderId}/packing-list', [LazadaOrderController::class, 'packingList'])->name('lazada.orders.packing_list');
+        Route::get('/lazada/orders/{orderId}/pick-list', [LazadaOrderController::class, 'pickList'])->name('lazada.orders.pick_list');
+        Route::get('/lazada/orders/{orderId}/logistics-trace', [LazadaOrderController::class, 'logisticsTrace'])->name('lazada.orders.logistics_trace');
+        Route::get('/lazada/orders/{orderId}/cancel-reasons', [LazadaOrderController::class, 'cancelReasons'])->name('lazada.orders.cancel_reasons');
+        Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('lazada.orders.cancel');
+
+        // Lazada Phase 2: Listings + Category attribute mapping
+        Route::get('/lazada/listings', [LazadaListingController::class, 'index'])->name('lazada.listings.index');
+        Route::get('/lazada/listings/create', [LazadaListingController::class, 'create'])->name('lazada.listings.create');
+        Route::post('/lazada/listings', [LazadaListingController::class, 'store'])->name('lazada.listings.store');
+        Route::get('/lazada/listings/{id}/edit', [LazadaListingController::class, 'edit'])->name('lazada.listings.edit');
+        Route::put('/lazada/listings/{id}', [LazadaListingController::class, 'update'])->name('lazada.listings.update');
+        Route::post('/lazada/listings/{id}/template/sync', [LazadaListingController::class, 'syncTemplate'])->name('lazada.listings.template_sync');
+        Route::post('/lazada/listings/{id}/attributes', [LazadaListingController::class, 'saveAttributes'])->name('lazada.listings.attributes_save');
+        Route::post('/lazada/listings/{id}/variants', [LazadaListingController::class, 'saveVariants'])->name('lazada.listings.variants_save');
+        Route::post('/lazada/listings/{id}/brands/sync', [LazadaListingController::class, 'syncBrands'])->name('lazada.listings.brands_sync');
+        // Allows syncing brands even before a listing exists (e.g., on Create Listing screen)
+        Route::post('/lazada/brands/sync', [LazadaListingController::class, 'syncBrandsGlobal'])->name('lazada.brands_sync');
+
+        // Brands cache (similar to Categories list)
+        Route::get('/lazada/brands', [\App\Http\Controllers\LazadaBrandController::class, 'index'])->name('lazada.brands.index');
+        Route::post('/lazada/brands/fetch', [\App\Http\Controllers\LazadaBrandController::class, 'fetch'])->name('lazada.brands.fetch');
+        Route::get('/lazada/brands/autocomplete', [\App\Http\Controllers\LazadaBrandController::class, 'autocomplete'])->name('lazada.brands.autocomplete');
+        Route::post('/lazada/listings/{id}/payload/build', [LazadaListingController::class, 'buildPayload'])->name('lazada.listings.payload_build');
+        Route::post('/lazada/listings/{id}/push/sample', [LazadaListingController::class, 'pushSample'])->name('lazada.listings.push_sample');
+
+        // Lazada Phase 2: Category list (cached locally for search + mapping)
+        Route::get('/lazada/categories', [LazadaCategoryController::class, 'index'])->name('lazada.categories.index');
+        Route::post('/lazada/categories/fetch', [LazadaCategoryController::class, 'fetch'])->name('lazada.categories.fetch');
+
+        Route::get('/lazada/categories/{category_id}/attributes', [LazadaCategoryAttributeController::class, 'show'])
+            ->whereNumber('category_id')
+            ->name('lazada.categories.attributes.show');
+
+        Route::post('/lazada/categories/{category_id}/attributes/fetch', [LazadaCategoryAttributeController::class, 'fetch'])
+            ->whereNumber('category_id')
+            ->name('lazada.categories.attributes.fetch');
     });
 
     // Settings (parent permission)

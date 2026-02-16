@@ -6,8 +6,11 @@ use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductDescription;
 use App\Models\Catalog\ProductToCategory;
+use App\Models\Catalog\ProductImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 
 class ProductController extends Controller
@@ -59,12 +62,90 @@ private function isWordStartMatch(string $haystack, string $term): bool
     return (bool) preg_match('/(^|[^a-z0-9])' . preg_quote($t, '/') . '/i', $h);
 }
 
-    public function index(Request $request)
+    
+
+    private function imagesFromRequest(?string $json): array
+    {
+        $json = trim((string) ($json ?? ''));
+        if ($json === '') return [];
+
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) return [];
+
+        $out = [];
+        foreach ($decoded as $item) {
+            if (is_array($item) && isset($item['path'])) {
+                $path = (string) $item['path'];
+            } else {
+                $path = (string) $item;
+            }
+
+            $path = trim($path);
+            if ($path === '') continue;
+
+            // Accept only catalog/* and jpg/png
+            if (!Str::startsWith($path, 'catalog/')) continue;
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) continue;
+
+            $out[] = $path;
+        }
+
+        // de-dup while preserving order
+        $uniq = [];
+        foreach ($out as $p) {
+            if (!in_array($p, $uniq, true)) $uniq[] = $p;
+        }
+
+        return $uniq;
+    }
+
+    private function imagePathsFromItems(array $items): array
+    {
+        $out = [];
+        foreach ($items as $it) {
+            if (is_array($it) && isset($it['path'])) {
+                $out[] = (string) $it['path'];
+            } elseif (is_string($it)) {
+                $out[] = (string) $it;
+            }
+        }
+        return $out;
+    }
+
+private function saveProductImages(int $productId, array $paths): void
+    {
+        $pfx = config('catalog.prefix');
+
+        // Update main image
+        $main = $paths[0] ?? '';
+        DB::table($pfx.'product')->where('product_id', (int)$productId)->update([
+            'image' => $main,
+        ]);
+
+        // Rebuild additional images (OpenCart behavior: exclude main)
+        DB::table($pfx.'product_image')->where('product_id', (int)$productId)->delete();
+
+        $additional = array_slice($paths, 1);
+        $sort = 0;
+        foreach ($additional as $img) {
+            DB::table($pfx.'product_image')->insert([
+                'product_id' => (int)$productId,
+                'image' => $img,
+                'sort_order' => $sort,
+            ]);
+            $sort++;
+        }
+    }
+
+public function index(Request $request)
 {
     $p = config('catalog.prefix');
     $langId = (int) config('catalog.default_language_id');
 
     
+
+        $pfx = config('catalog.prefix');
 $q = trim((string) $request->get('q', ''));
 
     // Sorting
@@ -74,11 +155,8 @@ $q = trim((string) $request->get('q', ''));
     $allowedSort = [
         'product_id'   => 'p.product_id',
         'name'         => 'pd.name',
-        'manufacturer' => 'm.name',
-        'model'        => 'p.model',
-        'sku'          => 'p.sku',
-        'price'        => 'p.price',
         'quantity'     => 'p.quantity',
+        'price'        => 'p.price',
         'status'       => 'p.status',
     ];
 
@@ -86,21 +164,26 @@ $q = trim((string) $request->get('q', ''));
         $sort = 'product_id';
     }
 
+    $optQtySub = DB::table($p.'product_option_value as pov')
+        ->select('pov.product_id', DB::raw('SUM(pov.quantity) as options_quantity'))
+        ->groupBy('pov.product_id');
+
     $query = DB::table($p.'product as p')
         ->leftJoin($p.'product_description as pd', function ($j) use ($langId) {
             $j->on('p.product_id', '=', 'pd.product_id')
               ->where('pd.language_id', '=', $langId);
         })
-        ->leftJoin($p.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+        ->leftJoinSub($optQtySub, 'povsum', function ($j) {
+            $j->on('p.product_id', '=', 'povsum.product_id');
+        })
         ->select(
             'p.product_id',
             'pd.name as name',
-            'p.model',
-            'p.sku',
+            'p.image',
             'p.quantity',
+            DB::raw('COALESCE(povsum.options_quantity, 0) as options_quantity'),
             'p.price',
-            'p.status',
-            'm.name as manufacturer'
+            'p.status'
         );
 
     if ($q !== '') {
@@ -132,18 +215,63 @@ $q = trim((string) $request->get('q', ''));
     $products = $query->paginate(50)->withQueryString();
 
     foreach ($products as $row) {
-    if (isset($row->name)) $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    if (isset($row->manufacturer)) $row->manufacturer = html_entity_decode($row->manufacturer, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            if (isset($row->model)) $row->model = html_entity_decode($row->model, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            if (isset($row->sku)) $row->sku = html_entity_decode($row->sku, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (isset($row->name)) $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    // Fetch option value rows for products on this page (for list display)
+    $pageIds = $products->pluck('product_id')->map(fn($v) => (int)$v)->all();
+    $optionRowsByProduct = [];
+    if (!empty($pageIds)) {
+        $optRows = DB::table($p.'product_option_value as pov')
+            ->join($p.'option_description as od', function ($j) use ($langId) {
+                $j->on('pov.option_id', '=', 'od.option_id')
+                  ->where('od.language_id', '=', $langId);
+            })
+            ->join($p.'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                  ->where('ovd.language_id', '=', $langId);
+            })
+            ->leftJoin($p.'option_value as ov', 'pov.option_value_id', '=', 'ov.option_value_id')
+            ->whereIn('pov.product_id', $pageIds)
+            ->orderBy('pov.product_id')
+            ->orderBy('od.name')
+            ->orderBy('ovd.name')
+            ->get([
+                'pov.product_id',
+                'od.name as option_name',
+                'ovd.name as option_value_name',
+                'ov.image as option_image',
+                'pov.quantity',
+                'pov.price',
+                'pov.price_prefix',
+            ]);
+
+        foreach ($optRows as $r) {
+            $pid = (int) $r->product_id;
+            $r->option_name = html_entity_decode((string)$r->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $r->option_value_name = html_entity_decode((string)$r->option_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $optionRowsByProduct[$pid] ??= [];
+            $optionRowsByProduct[$pid][] = $r;
+        }
+
+        foreach ($products as $row) {
+            $pid = (int) $row->product_id;
+            $row->option_rows = $optionRowsByProduct[$pid] ?? [];
+        }
+    } else {
+        foreach ($products as $row) {
+            $row->option_rows = [];
+        }
+    }
+    return view('products.index', compact('products', 'q', 'sort', 'dir'));
 }
 
-return view('products.index', compact('products', 'q', 'sort', 'dir'));
-}
 
     public function create()
     {
-        $pfx = config('catalog.prefix');
+        
+        $productImages = [];
+$pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         // Option master list (needed for client-side tab switching like OpenCart)
@@ -165,7 +293,153 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
     }
 
 
-    public function store(Request $request)
+    
+    private function manufacturerSlugFromId(int $manufacturerId): string
+    {
+        $manufacturerId = (int) $manufacturerId;
+        if ($manufacturerId <= 0) {
+            return '_no_manufacturer_';
+        }
+
+        $m = \App\Models\Catalog\Manufacturer::query()
+            ->where('manufacturer_id', $manufacturerId)
+            ->first(['name']);
+        if (!$m) {
+            return '_no_manufacturer_';
+        }
+
+        $slug = Str::slug((string) $m->name);
+        return $slug !== '' ? $slug : '_no_manufacturer_';
+    }
+
+    private function uniqueTargetPath(string $dir, string $filename): string
+    {
+        $dir = trim($dir, '/');
+        $filename = trim(basename($filename));
+        $disk = Storage::disk('public');
+
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        $candidate = $dir . '/' . $base . '.' . $ext;
+        if (!$disk->exists($candidate)) return $candidate;
+
+        $i = 1;
+        while (true) {
+            $candidate = $dir . '/' . $base . '_' . $i . '.' . $ext;
+            if (!$disk->exists($candidate)) return $candidate;
+            $i++;
+            if ($i > 9999) abort(500, 'Unable to generate unique image filename.');
+        }
+    }
+
+    private function finalizeTempImages(string $token, string $manufacturerSlug, int $productId, array $items): array
+    {
+        $disk = Storage::disk('public');
+        $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $token);
+        $tmpBase = 'tmp/product-images/' . ($token ?: 'default');
+
+        $finalDir = 'catalog/_products_' . date('Y');
+        $disk->makeDirectory($finalDir);
+
+        $out = [];
+        foreach ($items as $it) {
+            $path = (string) ($it['path'] ?? '');
+            if ($path === '') continue;
+
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg','jpeg','png'], true)) continue;
+
+            if (Str::startsWith($path, $tmpBase . '/') && $disk->exists($path)) {
+                $origName = (string) ($it['name'] ?? basename($path));
+                $target = $this->uniqueTargetPath($finalDir, $origName);
+                $disk->move($path, $target);
+                $out[] = ['path' => $target];
+            } else {
+                $out[] = ['path' => $path];
+            }
+        }
+
+        if ($token && $disk->exists($tmpBase)) {
+            $disk->deleteDirectory($tmpBase);
+        }
+
+        return $out;
+    }
+
+    
+    private function normalizeLegacyImages(string $slug, int $productId, array $paths): array
+    {
+        $disk = Storage::disk('public');
+
+        $targetDir = 'catalog/_products_' . date('Y');
+        $targetPrefix = $targetDir . '/';
+
+        $disk->makeDirectory($targetDir);
+
+        $out = [];
+        foreach ($paths as $p) {
+            $p = trim((string) $p);
+            if ($p === '') continue;
+
+            // Only normalize local catalog paths (not temp, not remote)
+            if (!Str::startsWith($p, 'catalog/')) {
+                $out[] = $p;
+                continue;
+            }
+
+            // Already in correct folder
+            if (Str::startsWith($p, $targetPrefix)) {
+                $out[] = $p;
+                continue;
+            }
+
+            // If file doesn't exist, keep path (avoid breaking)
+            if (!$disk->exists($p)) {
+                $out[] = $p;
+                continue;
+            }
+
+            $dest = $this->uniqueTargetPath($targetDir, basename($p));
+            $disk->move($p, $dest);
+            $out[] = $dest;
+        }
+
+        // de-dup
+        $uniq = [];
+        foreach ($out as $p) {
+            if (!in_array($p, $uniq, true)) $uniq[] = $p;
+        }
+        return $uniq;
+    }
+
+    private function moveProductImageFolder(string $oldSlug, string $newSlug, int $productId): void
+    {
+        $disk = Storage::disk('public');
+        $oldDir = 'catalog/' . $oldSlug . '/' . $productId;
+        $newDir = 'catalog/' . $newSlug . '/' . $productId;
+
+        if ($oldSlug === '' || $newSlug === '' || $oldSlug === $newSlug) return;
+        if (!$disk->exists($oldDir)) return;
+
+        $disk->makeDirectory('catalog/' . $newSlug);
+        $disk->makeDirectory($newDir);
+
+        foreach ($disk->allFiles($oldDir) as $file) {
+            $rel = substr($file, strlen($oldDir) + 1);
+            $target = $newDir . '/' . $rel;
+            $disk->makeDirectory(dirname($target));
+            if ($disk->exists($target)) {
+                $target = $this->uniqueTargetPath(dirname($target), basename($target));
+            }
+            $disk->move($file, $target);
+        }
+
+        $disk->deleteDirectory($oldDir);
+    }
+
+
+public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
@@ -173,12 +447,18 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             'sku' => 'nullable|string|max:64',
             'price' => 'required|numeric',
             'quantity' => 'required|integer',
+            // Physical attributes (needed for marketplace payloads e.g. Lazada)
+            'weight' => 'nullable|numeric',
+            'length' => 'nullable|numeric',
+            'width'  => 'nullable|numeric',
+            'height' => 'nullable|numeric',
             'status' => 'required|in:0,1',
             'manufacturer_id' => 'nullable|integer',
             'manufacturer_name' => 'nullable|string|max:255',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
             'description' => 'nullable|string',
+            'images_json' => 'nullable|string',
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -206,7 +486,7 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             (string) $request->input('category_name', '')
         );
 
-        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $resolvedCategoryId) {
+        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $resolvedCategoryId, $pfx) {
             $p = new Product();
 
             $p->model = $request->model ?? ($request->sku ?? '');
@@ -219,6 +499,10 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             $p->location = '';
 
             $p->quantity = (int) $request->quantity;
+            $p->weight = (float) ($request->input('weight', 0) ?? 0);
+            $p->length = (float) ($request->input('length', 0) ?? 0);
+            $p->width  = (float) ($request->input('width', 0) ?? 0);
+            $p->height = (float) ($request->input('height', 0) ?? 0);
             $p->stock_status_id = 0;
             $p->image = null;
             $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
@@ -236,18 +520,17 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
 
             $p->save();
 
-            $d = new ProductDescription();
-            $d->product_id = $p->product_id;
-            $d->language_id = $langId;
-            $d->name = $request->name;
-            $d->description = $request->description ?? '';
-            $d->meta_title = $request->name;
-            $d->meta_description = '';
-            $d->meta_keyword = '';
-            $d->tag = '';
-            $d->save();
-
-            $catId = (int) ($resolvedCategoryId ?? 0);
+                        DB::table($pfx.'product_description')->insert([
+                'product_id' => (int) $p->product_id,
+                'language_id' => (int) $langId,
+                'name' => (string) $request->name,
+                'description' => (string) ($request->description ?? ''),
+                'meta_title' => (string) $request->name,
+                'meta_description' => '',
+                'meta_keyword' => '',
+                'tag' => '',
+            ]);
+$catId = (int) ($resolvedCategoryId ?? 0);
             if ($catId > 0) {
                 ProductToCategory::create([
                     'product_id' => $p->product_id,
@@ -258,6 +541,13 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             // Save product options (OpenCart-like: options can be set during Add/Edit)
             $options = $request->input('options', []);
             $this->saveProductOptions((int) $p->product_id, $options);
+
+            // Save product images (main + additional)
+            if ($request->has('images_json')) {
+                $items = $this->imagesFromRequest($request->input('images_json'));
+                $paths = $this->imagePathsFromItems($items);
+                $this->saveProductImages((int) $id, $paths);
+            }
 
             return (int) $p->product_id;
         });
@@ -386,7 +676,26 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             }
         }
 
-        return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'allOptions', 'existingOptions'));
+        
+        // Images (main + additional)
+        $productImages = [];
+        if (!empty($product->image)) {
+            $productImages[] = (string) $product->image;
+        }
+        $additionalImgs = DB::table($pfx.'product_image')
+            ->where('product_id', (int) $id)
+            ->orderBy('sort_order')
+            ->pluck('image')
+            ->toArray();
+
+        foreach ($additionalImgs as $img) {
+            $img = (string) $img;
+            if ($img !== '' && !in_array($img, $productImages, true)) {
+                $productImages[] = $img;
+            }
+        }
+
+return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages'));
     }
 
     public function update(Request $request, $id)
@@ -397,12 +706,18 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             'sku' => 'nullable|string|max:64',
             'price' => 'required|numeric',
             'quantity' => 'required|integer',
+            // Physical attributes (needed for marketplace payloads e.g. Lazada)
+            'weight' => 'nullable|numeric',
+            'length' => 'nullable|numeric',
+            'width'  => 'nullable|numeric',
+            'height' => 'nullable|numeric',
             'status' => 'required|in:0,1',
             'manufacturer_id' => 'nullable|integer',
             'manufacturer_name' => 'nullable|string|max:255',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
             'description' => 'nullable|string',
+            'images_json' => 'nullable|string',
 
             'options' => 'array',
             'options.*.option_id' => 'required|integer|min:1',
@@ -429,45 +744,60 @@ return view('products.index', compact('products', 'q', 'sort', 'dir'));
             /** @var Product $p */
             $p = Product::where('product_id', (int) $id)->firstOrFail();
 
+            $oldManufacturerId = (int) ($p->manufacturer_id ?? 0);
+
             $p->model = $request->model ?? ($request->sku ?? '');
             $p->sku = $request->sku ?? '';
             $p->quantity = (int) $request->quantity;
+            $p->weight = (float) ($request->input('weight', $p->weight ?? 0) ?? 0);
+            $p->length = (float) ($request->input('length', $p->length ?? 0) ?? 0);
+            $p->width  = (float) ($request->input('width',  $p->width  ?? 0) ?? 0);
+            $p->height = (float) ($request->input('height', $p->height ?? 0) ?? 0);
             $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
             $p->price = (float) $request->price;
             $p->status = (int) $request->status;
             
             
             $p->date_modified = now();
-$p->date_added = now();
-            $p->date_modified = now();
-$p->date_modified = now();
-
-            // strict-mode safe
+// strict-mode safe
             if ($p->date_available === '0000-00-00') {
                 $p->date_available = now()->toDateString();
             }
 
             $p->save();
 
-            $d = ProductDescription::where('product_id', (int) $id)
-                ->where('language_id', $langId)
+
+            // Manufacturer no longer affects image folders (Option B: product-based folders)
+            $oldPrefix = null;
+            $newPrefix = null;
+
+
+
+
+
+
+
+            $d = DB::table($pfx.'product_description')
+                ->where('product_id', (int) $id)
+                ->where('language_id', (int) $langId)
                 ->first();
 
-            if (!$d) {
-                $d = new ProductDescription();
-                $d->product_id = (int) $id;
-                $d->language_id = $langId;
-                $d->meta_description = '';
-                $d->meta_keyword = '';
-                $d->tag = '';
-            }
+            DB::table($pfx.'product_description')->updateOrInsert(
+                [
+                    'product_id' => (int) $id,
+                    'language_id' => (int) $langId,
+                ],
+                [
+                    'name' => (string) $request->name,
+                    'description' => (string) ($request->description ?? ''),
+                    'meta_title' => (string) $request->name,
+                    'meta_description' => (string) ($d->meta_description ?? ''),
+                    'meta_keyword' => (string) ($d->meta_keyword ?? ''),
+                    'tag' => (string) ($d->tag ?? ''),
+                ]
+            );
 
-            $d->name = $request->name;
-            $d->description = $request->description ?? '';
-            $d->meta_title = $request->name;
-            $d->save();
-
-            DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
+DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
 
             $catId = (int) ($resolvedCategoryId ?? 0);
             if ($catId > 0) {
@@ -480,6 +810,12 @@ $p->date_modified = now();
             // Save product options (OpenCart-like: options can be set during Add/Edit)
             $options = $request->input('options', []);
             $this->saveProductOptions((int) $id, $options);
+            // Save product images (main + additional)
+            if ($request->has('images_json')) {
+                $items = $this->imagesFromRequest($request->input('images_json'));
+                $paths = $this->imagePathsFromItems($items);
+                $this->saveProductImages((int) $id, $paths);
+            }
         });
 
         return redirect()->route('products.index')->with('status','Saved');

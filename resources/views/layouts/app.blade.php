@@ -338,19 +338,18 @@ nav[role="navigation"] svg { display:none !important; }
 
     
         .nav-group { margin: 6px 0; }
-        .nav-group-summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding: 10px 12px; border-radius: 12px; color: var(--text); }
+        .nav-group-summary { list-style:none; cursor: default; display:flex; align-items:center; gap:10px; padding: 10px 12px; border-radius: 12px; color: var(--text); }
         .nav-group-summary::-webkit-details-marker { display:none; }
         .nav-group-summary:hover { background: rgba(255,255,255,.06); }
         .nav-group-summary.active { background: rgba(37,99,235,.22); }
 
-        /* Parent menu arrow indicators */
-        details.nav-group > summary.nav-group-summary { padding-right: 28px; }
-        details.nav-group > summary.nav-group-summary::after { content: '▸'; margin-left: auto; font-size: 12px; opacity: .85; transform-origin: center; transition: transform .28s cubic-bezier(.2,.8,.2,1); }
-        details.nav-group[open] > summary.nav-group-summary::after { transform: rotate(90deg); }
-
-                .nav-sub { padding-left: 6px; display:flex; flex-direction:column; gap:4px; margin-top: 6px; max-height: 0; overflow: hidden; opacity: 0; transform: translateY(-6px); transition: max-height .45s cubic-bezier(.2,.8,.2,1), opacity .30s ease, transform .45s cubic-bezier(.2,.8,.2,1); }
-        details.nav-group[open] .nav-sub { max-height: 600px; opacity: 1; transform: translateY(0); }
+                        .nav-sub { padding-left: 34px; display:flex; flex-direction:column; gap:4px; margin-top: 6px; }
+        
         .nav-sub a { padding: 10px 12px; border-radius: 12px; display:flex; gap:10px; align-items:center; color: var(--text); text-decoration:none; }
+        /* Child menu indentation */
+        .nav-sub { padding-left: 34px; }
+        .nav-sub a { padding: 9px 12px; border-radius: 10px; }
+
         .nav-sub a:hover { background: rgba(255,255,255,.06); }
         .nav-sub a.active { background: rgba(37,99,235,.22); }
 
@@ -420,10 +419,10 @@ nav[role="navigation"] svg { display:none !important; }
 	            </a>
 
             @if($canCatalog)
-            <details class="nav-group" {{ (request()->routeIs('products.*') || request()->routeIs('categories.*') || request()->routeIs('manufacturers.*') || request()->routeIs('options.*')) ? 'open' : '' }}>
-                <summary class="nav-group-summary {{ (request()->routeIs('products.*') || request()->routeIs('categories.*') || request()->routeIs('manufacturers.*') || request()->routeIs('options.*')) ? 'active' : '' }}">
+            <div class="nav-group">
+                <div class="nav-group-summary {{ (request()->routeIs('products.*') || request()->routeIs('categories.*') || request()->routeIs('manufacturers.*') || request()->routeIs('options.*')) ? 'active' : '' }}">
                     <span>🗃️</span><span class="label">Catalog</span>
-                </summary>
+                </div>
                 <div class="nav-sub">
                     <a href="{{ route('categories.index') }}" class="{{ request()->routeIs('categories.*') ? 'active' : '' }}">
                             <span>🗂️</span><span class="label">Categories</span>
@@ -438,30 +437,39 @@ nav[role="navigation"] svg { display:none !important; }
                             <span>🧩</span><span class="label">Options</span>
                         </a>
                 </div>
-            </details>
+            </div>
             @endif
 
             @if($canMarketplace)
-            <details class="nav-group" {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'open' : '' }}>
-                <summary class="nav-group-summary {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'active' : '' }}">
+            <div class="nav-group">
+                <div class="nav-group-summary {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'active' : '' }}">
                     <span>🛍️</span><span class="label">Marketplace API</span>
-                </summary>
+                </div>
                 <div class="nav-sub">
                     <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.*') ? 'active' : '' }}">
                         <span>🛒</span><span class="label">Shopee</span>
                     </a>
-                    <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.*') ? 'active' : '' }}">
-                        <span>🟦</span><span class="label">Lazada</span>
+                    <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
+                        <span>🟦</span><span class="label">Lazada API</span>
+                    </a>
+                    <a href="{{ route('lazada.listings.index') }}" class="{{ request()->routeIs('lazada.listings.*') ? 'active' : '' }}">
+                        <span>📄</span><span class="label">Lazada Listings</span>
+                    </a>
+                    <a href="{{ route('lazada.categories.index') }}" class="{{ request()->routeIs('lazada.categories.*') ? 'active' : '' }}">
+                        <span>🗂️</span><span class="label">Lazada Categories</span>
+                    </a>
+                    <a href="{{ route('lazada.orders.index') }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
+                        <span>🧾</span><span class="label">Lazada Orders</span>
                     </a>
                 </div>
-            </details>
+            </div>
             @endif
 
             @if($canSettingsParent)
-            <details class="nav-group" {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*')) ? 'open' : '' }}>
-                <summary class="nav-group-summary {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*')) ? 'active' : '' }}">
+            <div class="nav-group">
+                <div class="nav-group-summary {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*')) ? 'active' : '' }}">
                     <span>⚙️</span><span class="label">Settings</span>
-                </summary>
+                </div>
                 <div class="nav-sub">
                     <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
                         <span>👤</span><span class="label">Users</span>
@@ -477,7 +485,7 @@ nav[role="navigation"] svg { display:none !important; }
                         <span>🧾</span><span class="label">Error Log</span>
                     </a>
                 </div>
-            </details>
+            </div>
 	            @endif
             </nav>
     
