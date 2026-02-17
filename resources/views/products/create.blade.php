@@ -59,10 +59,11 @@
 
             <div>
                 <label>Quantity</label>
-                <input class="input" name="quantity" value="{{ old('quantity', '0') }}" required>
+                <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', '0') }}" required>
                 @error('quantity')
                     <div class="hint" style="color:#ff6b6b; margin-top:4px;">{{ $message }}</div>
                 @enderror
+                <div class="hint" id="qty_hint" style="display:none;">Quantity is auto-calculated from option quantities.</div>
             </div>
 
             <div>

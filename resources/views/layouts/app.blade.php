@@ -395,6 +395,7 @@ nav[role="navigation"] svg { display:none !important; }
 	
 	            // Parent-menu permissions
 	            $canCatalog = $u && $u->hasPermission('manage_catalog');
+	            $canSales = $u && $u->hasPermission('manage_sales');
 	            $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
 	            $canSettingsParent = $u && $u->hasPermission('manage_settings');
 	        @endphp
@@ -440,6 +441,22 @@ nav[role="navigation"] svg { display:none !important; }
             </div>
             @endif
 
+            @if($canSales)
+            <div class="nav-group">
+                <div class="nav-group-summary {{ (request()->routeIs('orders.*') || request()->routeIs('order_statuses.*')) ? 'active' : '' }}">
+                    <span>💰</span><span class="label">Sales</span>
+                </div>
+                <div class="nav-sub">
+                    <a href="{{ route('orders.index') }}" class="{{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                        <span>🧾</span><span class="label">Orders</span>
+                    </a>
+                    <a href="{{ route('order_statuses.index') }}" class="{{ request()->routeIs('order_statuses.*') ? 'active' : '' }}">
+                        <span>📋</span><span class="label">Order Statuses</span>
+                    </a>
+                </div>
+            </div>
+            @endif
+
             @if($canMarketplace)
             <div class="nav-group">
                 <div class="nav-group-summary {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'active' : '' }}">
@@ -452,8 +469,8 @@ nav[role="navigation"] svg { display:none !important; }
                     <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
                         <span>🟦</span><span class="label">Lazada API</span>
                     </a>
-                    <a href="{{ route('lazada.listings.index') }}" class="{{ request()->routeIs('lazada.listings.*') ? 'active' : '' }}">
-                        <span>📄</span><span class="label">Lazada Listings</span>
+                    <a href="{{ route('lazada.products.index') }}" class="{{ (request()->routeIs('lazada.products.*')) ? 'active' : '' }}">
+                        <span>📄</span><span class="label">Lazada Products</span>
                     </a>
                     <a href="{{ route('lazada.categories.index') }}" class="{{ request()->routeIs('lazada.categories.*') ? 'active' : '' }}">
                         <span>🗂️</span><span class="label">Lazada Categories</span>
@@ -480,7 +497,6 @@ nav[role="navigation"] svg { display:none !important; }
                     <a href="{{ route('settings.edit') }}" class="{{ request()->routeIs('settings.*') ? 'active' : '' }}">
                         <span>🧰</span><span class="label">Website Setting</span>
                     </a>
-
                     <a href="{{ route('error_log.index') }}" class="{{ request()->routeIs('error_log.*') ? 'active' : '' }}">
                         <span>🧾</span><span class="label">Error Log</span>
                     </a>

@@ -7,6 +7,7 @@ use App\Models\LazadaApiLog;
 use App\Models\LazadaOrder;
 use App\Models\LazadaOrderProduct;
 use App\Services\Lazada\LazadaClient;
+use App\Services\LazadaCatalogOrderSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -393,6 +394,8 @@ class LazadaOrderController extends Controller
             if ($st !== null) {
                 LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
             }
+            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
+            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
         } catch (\Throwable $e) {
             // ignore
         }
@@ -645,6 +648,8 @@ class LazadaOrderController extends Controller
             if ($st !== null) {
                 LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
             }
+            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
+            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
         } catch (\Throwable $e) {
             // ignore
         }
@@ -809,6 +814,11 @@ class LazadaOrderController extends Controller
         } catch (\Throwable $e) {
             LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => 'canceled']);
         }
+        // Sync to catalog
+        try {
+            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
+            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
+        } catch (\Throwable $e) {}
 
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
@@ -823,7 +833,13 @@ class LazadaOrderController extends Controller
     public function recreatePackage(Request $request, $orderId)
     {
         $setting = LazadaSetting::query()->first();
-        LazadaOrder::query()->where('region', $setting->region ?? 'ph')->where('order_id', (string)$orderId)->update(['status' => 'pending']);
+        $region = $setting->region ?? 'ph';
+        LazadaOrder::query()->where('region', $region)->where('order_id', (string)$orderId)->update(['status' => 'pending']);
+        // Sync to catalog
+        try {
+            $lo = LazadaOrder::query()->where('region', $region)->where('order_id', (string)$orderId)->first();
+            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
+        } catch (\Throwable $e) {}
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => 'Order moved back to To Pack (local). If Lazada does not reflect it, use Seller Center to repack/recreate.',
@@ -987,6 +1003,7 @@ if ($hasFrom && $hasTo) {
         // Persist orders so they remain after refresh
         $saved = 0;
         $updated = 0;
+        $skipped = 0;
 
         foreach ($orders as $o) {
             if (!is_array($o)) continue;
@@ -1019,21 +1036,15 @@ if ($hasFrom && $hasTo) {
                 ->first();
 
             if ($existing) {
-                $existing->fill($payload)->save();
-                $updated++;
-                // SAFE MODE (default): sync products ONLY when missing.
-                // This drastically reduces /order/items/get calls and avoids SellerCallLimit.
-                try {
-                    $hasProducts = $existing->products()->limit(1)->exists();
-                    if (!$hasProducts) {
-                        $this->syncOrderProductsFromApi($client, $setting, $existing);
-                    }
-                } catch (\Throwable $e) {}
+                $skipped++;
+                continue;
             } else {
                 $newOrder = LazadaOrder::query()->create($payload);
                 $saved++;
                 // Best-effort sync of products for this order.
                 try { $this->syncOrderProductsFromApi($client, $setting, $newOrder); } catch (\Throwable $e) {}
+                // Sync to catalog order tables
+                try { (new LazadaCatalogOrderSync)->sync($newOrder); } catch (\Throwable $e) {}
             }
         }
 
@@ -1047,7 +1058,7 @@ if (!empty($data['status'])) {
 }
 
         $finalMessage = ($res['ok'] ?? false)
-            ? ((($saved + $updated) > 0) ? 'Orders are now up to date.' : 'Orders are already up to date.')
+            ? (($saved > 0) ? "Fetched {$saved} new order(s)." . ($skipped > 0 ? " {$skipped} existing order(s) skipped." : '') : 'No new orders found.' . ($skipped > 0 ? " {$skipped} existing order(s) skipped." : ''))
             : ($body['message'] ?? null);
 
         if ($hitMaxOrdersCap) {
@@ -1059,7 +1070,7 @@ return redirect()->route('lazada.orders.index', $redirectParams)
                 'ok' => (bool)($res['ok'] ?? false),
                 'message' => $finalMessage,
                 'saved' => $saved,
-                'updated' => $updated,
+                'skipped' => $skipped,
                 'raw' => $res,
             ]);
     }
@@ -1177,6 +1188,8 @@ return redirect()->route('lazada.orders.index', $redirectParams)
 	        if ($existing) {
                 $existing->fill($payload)->save();
                 $updated++;
+                // Sync to catalog order tables
+                try { (new LazadaCatalogOrderSync)->sync($existing); } catch (\Throwable $e) {}
             } else {
                 // IMPORTANT: Update Orders is meant to update statuses of already-synced orders only.
                 // Creating header-only orders (without products) causes "empty" orders in the UI and breaks workflows.
@@ -1420,6 +1433,8 @@ public function reset(Request $request)
             if ($st !== null) {
                 LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
             }
+            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
+            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
         } catch (\Throwable $e) {}
 
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [

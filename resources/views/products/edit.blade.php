@@ -53,7 +53,8 @@
 
             <div>
                 <label>Quantity</label>
-                <input class="input" name="quantity" value="{{ old('quantity', $product->quantity) }}" required>
+                <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', $product->quantity) }}" required>
+                <div class="hint" id="qty_hint" style="display:none;">Quantity is auto-calculated from option quantities.</div>
             </div>
 
             <div>

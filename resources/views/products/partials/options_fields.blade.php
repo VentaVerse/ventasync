@@ -183,7 +183,10 @@ function buildValueRow(valuesList, seed){
   row.querySelector('.js-row-weight-prefix').value = seed?.weight_prefix ?? '+';
   row.querySelector('.js-row-weight').value = seed?.weight ?? 0;
 
-  row.querySelector('[data-action="remove-value"]').addEventListener('click', () => row.remove());
+  row.querySelector('[data-action="remove-value"]').addEventListener('click', () => {
+    row.remove();
+    recalcAndLockProductQuantity();
+  });
 
   return row;
 }
@@ -238,12 +241,23 @@ function buildOptionBlock(seed){
 
     block.querySelector('[data-action="add-value"]').onclick = () => {
       valuesRoot.appendChild(buildValueRow(valuesList, null));
+      recalcAndLockProductQuantity();
     };
+
+    // IMPORTANT:
+    // On Edit, the option value rows are populated asynchronously (fetchValues).
+    // If we calculate the total before these rows are rendered, Product Quantity
+    // will momentarily show 0 on refresh even though saved values exist.
+    // Recalculate after rendering to keep the UI consistent.
+    recalcAndLockProductQuantity();
   }
 
   sel.addEventListener('change', refreshValues);
 
-  block.querySelector('[data-action="remove-option"]').addEventListener('click', () => block.remove());
+  block.querySelector('[data-action="remove-option"]').addEventListener('click', () => {
+    block.remove();
+    recalcAndLockProductQuantity();
+  });
 
   refreshValues();
 
@@ -311,17 +325,88 @@ function beforeSubmit(e){
   }
 }
 
+function recalcAndLockProductQuantity(){
+  const root = document.getElementById('options-root');
+  if(!root) return;
+
+  const qtyInput = document.getElementById('product_quantity') || document.querySelector('input[name="quantity"]');
+  if(!qtyInput) return;
+
+  const hint = document.getElementById('qty_hint');
+
+  const optionBlocks = Array.from(root.querySelectorAll(':scope > .card'));
+  const hasAnyOptionBlock = optionBlocks.length > 0;
+
+  // Sum option quantities in real-time.
+  // Note: We intentionally do NOT require a value to be selected to count its quantity.
+  // This allows the Product Quantity to update immediately while the user is still filling out rows.
+  let total = 0;
+  for(const b of optionBlocks){
+    const optionId = b.querySelector('.js-option-select')?.value || '';
+    if(!optionId) continue;
+    const rows = Array.from(b.querySelectorAll('.js-values .card'));
+    for(const r of rows){
+      const v = parseInt(r.querySelector('.js-row-qty')?.value || '0', 10);
+      if(!Number.isNaN(v) && v > 0) total += v;
+    }
+  }
+
+  if(hasAnyOptionBlock){
+    qtyInput.readOnly = true;
+    qtyInput.value = String(total);
+    qtyInput.setAttribute('aria-readonly', 'true');
+    qtyInput.style.opacity = '0.85';
+    qtyInput.title = 'Auto-calculated from option quantities';
+    if(hint) hint.style.display = 'block';
+  } else {
+    qtyInput.readOnly = false;
+    qtyInput.removeAttribute('aria-readonly');
+    qtyInput.style.opacity = '';
+    qtyInput.title = '';
+    if(hint) hint.style.display = 'none';
+  }
+}
+
 // init
 const root = document.getElementById('options-root');
 if(root){
   EXISTING.forEach(seed => root.appendChild(buildOptionBlock(seed)));
   document.getElementById('add-option-btn')?.addEventListener('click', () => {
     root.appendChild(buildOptionBlock(null));
+    recalcAndLockProductQuantity();
   });
 
   // hook submit only for this tab's form
   const form = root.closest('form');
-  form?.addEventListener('submit', beforeSubmit);
+  form?.addEventListener('submit', (e) => {
+    recalcAndLockProductQuantity();
+    beforeSubmit(e);
+  });
+
+  // Live recalc when option qty changes
+  root.addEventListener('input', (e) => {
+    const t = e.target;
+    if(t && (t.classList?.contains('js-row-qty') || t.classList?.contains('js-row-sku') || t.classList?.contains('js-row-price') || t.classList?.contains('js-row-weight'))){
+      recalcAndLockProductQuantity();
+    }
+  });
+  // Some browsers/UI interactions (spinner buttons, autofill) may not reliably emit 'input'
+  // in all cases, so we also listen to 'change' and 'keyup' for quantity fields.
+  root.addEventListener('change', (e) => {
+    const t = e.target;
+    if(t && (t.classList?.contains('js-option-select') || t.classList?.contains('js-value-select') || t.classList?.contains('js-row-qty'))){
+      recalcAndLockProductQuantity();
+    }
+  });
+  root.addEventListener('keyup', (e) => {
+    const t = e.target;
+    if(t && t.classList?.contains('js-row-qty')){
+      recalcAndLockProductQuantity();
+    }
+  });
+
+  // Initial
+  recalcAndLockProductQuantity();
 }
 </script>
 @endpush

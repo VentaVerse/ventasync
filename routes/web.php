@@ -14,11 +14,13 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\LazadaController;
-use App\Http\Controllers\LazadaListingController;
+use App\Http\Controllers\LazadaProductController;
 use App\Http\Controllers\LazadaCategoryController;
 use App\Http\Controllers\LazadaCategoryAttributeController;
 use App\Http\Controllers\LazadaOrderController;
 use App\Http\Controllers\ErrorLogController;
+use App\Http\Controllers\OrderStatusController;
+use App\Http\Controllers\OrderController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
@@ -143,32 +145,38 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('lazada.orders.cancel');
 
         // Lazada Phase 2: Listings + Category attribute mapping
-        Route::get('/lazada/listings', [LazadaListingController::class, 'index'])->name('lazada.listings.index');
-        Route::get('/lazada/listings/create', [LazadaListingController::class, 'create'])->name('lazada.listings.create');
-        Route::post('/lazada/listings', [LazadaListingController::class, 'store'])->name('lazada.listings.store');
-        Route::get('/lazada/listings/{id}/edit', [LazadaListingController::class, 'edit'])->name('lazada.listings.edit');
-        Route::put('/lazada/listings/{id}', [LazadaListingController::class, 'update'])->name('lazada.listings.update');
-        Route::post('/lazada/listings/{id}/template/sync', [LazadaListingController::class, 'syncTemplate'])->name('lazada.listings.template_sync');
-        Route::post('/lazada/listings/{id}/attributes', [LazadaListingController::class, 'saveAttributes'])->name('lazada.listings.attributes_save');
-        Route::post('/lazada/listings/{id}/variants', [LazadaListingController::class, 'saveVariants'])->name('lazada.listings.variants_save');
-        Route::post('/lazada/listings/{id}/brands/sync', [LazadaListingController::class, 'syncBrands'])->name('lazada.listings.brands_sync');
-        Route::post('/lazada/listings/{id}/sync/quantity', [LazadaListingController::class, 'syncQuantity'])->name('lazada.listings.sync_quantity');
-        Route::post('/lazada/listings/{id}/sync/price', [LazadaListingController::class, 'syncPrice'])->name('lazada.listings.sync_price');
-        Route::post('/lazada/listings/{id}/upload', [LazadaListingController::class, 'uploadToLazada'])->name('lazada.listings.upload');
-        Route::post('/lazada/listings/{id}/delete/lazada', [LazadaListingController::class, 'deleteFromLazada'])->name('lazada.listings.delete_lazada');
+        // Lazada Products (new naming)
+        Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('lazada.products.index');
+        Route::get('/lazada/products/create', [LazadaProductController::class, 'create'])->name('lazada.products.create');
+        Route::post('/lazada/products', [LazadaProductController::class, 'store'])->name('lazada.products.store');
+        // IMPORTANT: constrain {id} to numeric so routes like /lazada/products/bulk/* won't match these.
+        Route::get('/lazada/products/{id}/edit', [LazadaProductController::class, 'edit'])->whereNumber('id')->name('lazada.products.edit');
+        Route::put('/lazada/products/{id}', [LazadaProductController::class, 'update'])->whereNumber('id')->name('lazada.products.update');
+        Route::post('/lazada/products/{id}/template/sync', [LazadaProductController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.products.template_sync');
+        Route::post('/lazada/products/{id}/attributes', [LazadaProductController::class, 'saveAttributes'])->whereNumber('id')->name('lazada.products.attributes_save');
+        Route::post('/lazada/products/{id}/variants', [LazadaProductController::class, 'saveVariants'])->whereNumber('id')->name('lazada.products.variants_save');
+        Route::post('/lazada/products/{id}/brands/sync', [LazadaProductController::class, 'syncBrands'])->whereNumber('id')->name('lazada.products.brands_sync');
+        Route::post('/lazada/products/{id}/sync/quantity', [LazadaProductController::class, 'syncQuantity'])->whereNumber('id')->name('lazada.products.sync_quantity');
+        Route::post('/lazada/products/{id}/sync/price', [LazadaProductController::class, 'syncPrice'])->whereNumber('id')->name('lazada.products.sync_price');
+        Route::post('/lazada/products/{id}/upload', [LazadaProductController::class, 'uploadToLazada'])->whereNumber('id')->name('lazada.products.upload');
+        Route::post('/lazada/products/{id}/delete/lazada', [LazadaProductController::class, 'deleteFromLazada'])->whereNumber('id')->name('lazada.products.delete_lazada');
+        Route::post('/lazada/products/{id}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('id')->name('lazada.products.sync_lazada_id');
 
-        Route::post('/lazada/listings/bulk/upload', [LazadaListingController::class, 'bulkUploadToLazada'])->name('lazada.listings.bulk_upload');
-        Route::post('/lazada/listings/bulk/sync/quantity', [LazadaListingController::class, 'bulkSyncQuantity'])->name('lazada.listings.bulk_sync_quantity');
-        Route::post('/lazada/listings/bulk/sync/price', [LazadaListingController::class, 'bulkSyncPrice'])->name('lazada.listings.bulk_sync_price');
+        Route::post('/lazada/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('lazada.products.bulk_upload');
+        Route::post('/lazada/products/bulk/sync/quantity', [LazadaProductController::class, 'bulkSyncQuantity'])->name('lazada.products.bulk_sync_quantity');
+        Route::post('/lazada/products/bulk/sync/price', [LazadaProductController::class, 'bulkSyncPrice'])->name('lazada.products.bulk_sync_price');
+        Route::post('/lazada/products/bulk/delete', [LazadaProductController::class, 'bulkDeleteFromLazada'])->name('lazada.products.bulk_delete');
+
+        Route::post('/lazada/products/{id}/payload/build', [LazadaProductController::class, 'buildPayload'])->whereNumber('id')->name('lazada.products.payload_build');
+        Route::post('/lazada/products/{id}/push/sample', [LazadaProductController::class, 'pushSample'])->whereNumber('id')->name('lazada.products.push_sample');
+
         // Allows syncing brands even before a listing exists (e.g., on Create Listing screen)
-        Route::post('/lazada/brands/sync', [LazadaListingController::class, 'syncBrandsGlobal'])->name('lazada.brands_sync');
+        Route::post('/lazada/brands/sync', [LazadaProductController::class, 'syncBrandsGlobal'])->name('lazada.brands_sync');
 
         // Brands cache (similar to Categories list)
         Route::get('/lazada/brands', [\App\Http\Controllers\LazadaBrandController::class, 'index'])->name('lazada.brands.index');
         Route::post('/lazada/brands/fetch', [\App\Http\Controllers\LazadaBrandController::class, 'fetch'])->name('lazada.brands.fetch');
         Route::get('/lazada/brands/autocomplete', [\App\Http\Controllers\LazadaBrandController::class, 'autocomplete'])->name('lazada.brands.autocomplete');
-        Route::post('/lazada/listings/{id}/payload/build', [LazadaListingController::class, 'buildPayload'])->name('lazada.listings.payload_build');
-        Route::post('/lazada/listings/{id}/push/sample', [LazadaListingController::class, 'pushSample'])->name('lazada.listings.push_sample');
 
         // Lazada Phase 2: Category list (cached locally for search + mapping)
         Route::get('/lazada/categories', [LazadaCategoryController::class, 'index'])->name('lazada.categories.index');
@@ -210,6 +218,29 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/error-log/clear', [ErrorLogController::class, 'clear'])->name('error_log.clear');
         Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+    });
+
+    // Sales (parent permission)
+    Route::middleware(['perm:manage_sales'])->group(function () {
+        // Orders
+        Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+        Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+        Route::post('/orders/bulk', [OrderController::class, 'bulkAction'])->name('orders.bulk');
+        Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+        Route::post('/orders/{id}/status', [OrderController::class, 'updateStatus'])->name('orders.update_status');
+        Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
+        Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
+        Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
+
+        // Order Statuses
+        Route::get('/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');
+        Route::get('/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create');
+        Route::post('/order-statuses', [OrderStatusController::class, 'store'])->name('order_statuses.store');
+        Route::post('/order-statuses/bulk', [OrderStatusController::class, 'bulkAction'])->name('order_statuses.bulk');
+        Route::get('/order-statuses/{id}/edit', [OrderStatusController::class, 'edit'])->name('order_statuses.edit');
+        Route::put('/order-statuses/{id}', [OrderStatusController::class, 'update'])->name('order_statuses.update');
+        Route::delete('/order-statuses/{id}', [OrderStatusController::class, 'destroy'])->name('order_statuses.destroy');
     });
 });
 

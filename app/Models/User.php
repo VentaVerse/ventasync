@@ -47,6 +47,7 @@ class User extends Authenticatable
             'manage_catalog' => ['manage_catalog','manage_products','manage_categories','manage_manufacturers','manage_options'],
             'manage_marketplace_api' => ['manage_marketplace_api','manage_shopee','manage_lazada'],
             'manage_settings' => ['manage_settings','manage_users','manage_user_groups','manage_users_groups'],
+            'manage_sales' => ['manage_sales'],
         ];
 
         $keysToCheck = $map[$key] ?? [$key];

@@ -15,6 +15,33 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    /**
+     * When options exist, OpenCart typically treats option quantities as the source of truth.
+     * We force product.quantity to be the sum of option value quantities.
+     */
+    private function totalOptionsQuantity($options): ?int
+    {
+        if (!is_array($options) || empty($options)) return null;
+
+        $sum = 0;
+        $hasAnyValue = false;
+
+        foreach ($options as $opt) {
+            if (!is_array($opt)) continue;
+            $values = $opt['values'] ?? [];
+            if (!is_array($values)) continue;
+            foreach ($values as $v) {
+                if (!is_array($v)) continue;
+                if (empty($v['option_value_id'])) continue;
+                $hasAnyValue = true;
+                $q = (int) ($v['quantity'] ?? 0);
+                if ($q < 0) $q = 0;
+                $sum += $q;
+            }
+        }
+
+        return $hasAnyValue ? $sum : null;
+    }
     private function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
     {
         $manufacturerId = (int) ($manufacturerId ?? 0);
@@ -486,7 +513,10 @@ public function store(Request $request)
             (string) $request->input('category_name', '')
         );
 
-        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $resolvedCategoryId, $pfx) {
+        // If options exist, quantity must be forced from option quantities (server-side enforcement).
+        $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
+
+        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $resolvedCategoryId, $pfx, $forcedQty) {
             $p = new Product();
 
             $p->model = $request->model ?? ($request->sku ?? '');
@@ -498,7 +528,7 @@ public function store(Request $request)
             $p->mpn = '';
             $p->location = '';
 
-            $p->quantity = (int) $request->quantity;
+            $p->quantity = $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity;
             $p->weight = (float) ($request->input('weight', 0) ?? 0);
             $p->length = (float) ($request->input('length', 0) ?? 0);
             $p->width  = (float) ($request->input('width', 0) ?? 0);
@@ -740,7 +770,10 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
 
         $pfx = config('catalog.prefix');
 
-        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $resolvedCategoryId) {
+        // If options exist, quantity must be forced from option quantities (server-side enforcement).
+        $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
+
+        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $resolvedCategoryId, $forcedQty) {
             /** @var Product $p */
             $p = Product::where('product_id', (int) $id)->firstOrFail();
 
@@ -748,7 +781,7 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
 
             $p->model = $request->model ?? ($request->sku ?? '');
             $p->sku = $request->sku ?? '';
-            $p->quantity = (int) $request->quantity;
+            $p->quantity = $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity;
             $p->weight = (float) ($request->input('weight', $p->weight ?? 0) ?? 0);
             $p->length = (float) ($request->input('length', $p->length ?? 0) ?? 0);
             $p->width  = (float) ($request->input('width',  $p->width  ?? 0) ?? 0);

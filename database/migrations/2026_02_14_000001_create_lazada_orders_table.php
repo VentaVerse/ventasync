@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->timestamp('order_created_at')->nullable()->index();
             $table->timestamp('order_updated_at')->nullable()->index();
             $table->json('raw')->nullable();
+            $table->unsignedInteger('catalog_order_id')->nullable()->index();
             $table->timestamps();
 
             $table->unique(['region', 'order_id']);

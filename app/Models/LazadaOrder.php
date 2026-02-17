@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Catalog\Order;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LazadaOrder extends Model
@@ -16,6 +18,7 @@ class LazadaOrder extends Model
         'order_created_at',
         'order_updated_at',
         'raw',
+        'catalog_order_id',
     ];
 
     protected $casts = [
@@ -27,5 +30,10 @@ class LazadaOrder extends Model
     public function products(): HasMany
     {
         return $this->hasMany(LazadaOrderProduct::class, 'lazada_order_id');
+    }
+
+    public function catalogOrder(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'catalog_order_id', 'order_id');
     }
 }

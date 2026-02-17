@@ -5,7 +5,7 @@
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
         <h1 style="margin:0;">Lazada</h1>
         <div style="display:flex; gap:8px;">
-            <a class="btn" href="{{ route('lazada.listings.index') }}">Go to Listings</a>
+            <a class="btn" href="{{ route('lazada.products.index') }}">Go to Products</a>
         </div>
     </div>
 </div>
@@ -140,6 +140,7 @@
                 <div class="lz-cat">Products</div>
                 <button type="button" class="lz-endpoint" data-ep='{"name":"Create Product","method":"POST","auth":true,"path":"/product/create","desc":"Create product. Lazada expects payload as a JSON/XML string (depends on API).","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/create</span><div class="lz-hint">payload required</div></button>
                 <button type="button" class="lz-endpoint" data-ep='{"name":"Update Product","method":"POST","auth":true,"path":"/product/update","desc":"Update product. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/update</span><div class="lz-hint">payload required</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Remove Product","method":"POST","auth":true,"path":"/product/remove","desc":"Remove product/SKUs. Lazada expects seller_sku_list and/or sku_id_list as JSON-array strings (max 50).","params":[{"k":"seller_sku_list","req":false,"ph":"[\\\"test00111\\\",\\\"test00222\\\"]"},{"k":"sku_id_list","req":false,"ph":"[\\\"SkuId_123_456\\\",\\\"SkuId_123_789\\\"]"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/remove</span><div class="lz-hint">seller_sku_list / sku_id_list</div></button>
                 <button type="button" class="lz-endpoint" data-ep='{"name":"Update Price/Qty","method":"POST","auth":true,"path":"/product/price_quantity/update","desc":"Update price + quantity.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"},{"k":"price","req":true,"ph":"999"},{"k":"quantity","req":true,"ph":"10"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/price_quantity/update</span><div class="lz-hint">seller_sku, price, quantity</div></button>
 
                 <div class="lz-cat">Orders</div>
@@ -414,7 +415,7 @@ var kvBody    = qs('#lz-kv-body');
             if(!paramsTa) return;
             var obj = tableToObject();
             var conv = buildPrettyAndHiddenParams(obj);
-            paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+            paramsTa.value = stringifyParamsForUi(conv.pretty);
             if (paramsHidden) {
                 paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
             }
@@ -426,7 +427,7 @@ var kvBody    = qs('#lz-kv-body');
             if(!obj || typeof obj !== 'object') return;
 
             var conv = buildPrettyAndHiddenParams(obj);
-            paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+            paramsTa.value = stringifyParamsForUi(conv.pretty);
             if (paramsHidden) {
                 paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
             }
@@ -447,8 +448,32 @@ var kvBody    = qs('#lz-kv-body');
             clearRows();
             (ep.params || []).forEach(function(p){ buildRow(p.k, p.ph || ''); });
             var hasPayload = (ep.params || []).some(function(p){ return String(p.k).toLowerCase() === 'payload'; });
-            if (btnSample) btnSample.style.display = hasPayload ? '' : 'none';
+            var hasSample = hasPayload || (String(ep.path || '') === '/product/remove');
+            if (btnSample) btnSample.style.display = hasSample ? '' : 'none';
             syncToJson();
+        }
+
+        // UI helper: keep "payload" readable when it contains multi-line XML.
+        // Strict JSON requires newlines inside strings to be escaped ("\\n"), but in this ERP API Explorer
+        // we intentionally render payload as a multi-line string for readability.
+        function stringifyParamsForUi(prettyObj){
+            var out = JSON.stringify(prettyObj, null, 2);
+            if (!prettyObj || typeof prettyObj !== 'object') return out;
+            if (!Object.prototype.hasOwnProperty.call(prettyObj, 'payload')) return out;
+            if (typeof prettyObj.payload !== 'string') return out;
+            if (prettyObj.payload.indexOf('\n') === -1) return out;
+
+            // Escape backslashes and quotes, but keep actual newlines.
+            var payloadEsc = String(prettyObj.payload)
+                .replace(/\\/g, '\\\\')
+                .replace(/\"/g, '\\"');
+
+            // Replace the JSON-stringified payload value with a multi-line value.
+            // This is best-effort and intentionally prioritizes readability in the UI.
+            out = out.replace(/\n(\s*)\"payload\"\s*:\s*\"(?:[^\"\\]|\\.)*\"/m, function(m, indent){
+                return "\n" + indent + "\"payload\": \"" + payloadEsc + "\"";
+            });
+            return out;
         }
 
         function getSamplePayloadFor(path){
@@ -473,6 +498,7 @@ var kvBody    = qs('#lz-kv-body');
                     }
                 }, null, 2);
             }
+            // /product/remove uses seller_sku_list and/or sku_id_list (NOT payload)
             if (path === '/images/migrate') {
                 // Use JSON-style sample for consistency in this ERP UI.
                 // NOTE: The backend will normalize common JSON payload shapes into the required XML string
@@ -521,13 +547,27 @@ var kvBody    = qs('#lz-kv-body');
         if (btnSample) {
             btnSample.addEventListener('click', function(){
                 var p = (pathInp && pathInp.value) ? String(pathInp.value) : '';
-                qsa('#lz-kv-body tr').forEach(function(tr){
-                    var keyEl = tr.querySelector('td:nth-child(1) .input');
-                    if (!keyEl) return;
-                    if (String(keyEl.value || '').trim().toLowerCase() !== 'payload') return;
-                    var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
-                    if (valEl) valEl.value = getSamplePayloadFor(p);
-                });
+                if (p === '/product/remove') {
+                    var sampleSellerSkuList = '["test00111","test00222","test00333"]';
+                    var sampleSkuIdList = '["SkuId_1269656765_5230534246","SkuId_1269656765_5230534247","SkuId_1269656765_5230534248"]';
+                    qsa('#lz-kv-body tr').forEach(function(tr){
+                        var keyEl = tr.querySelector('td:nth-child(1) .input');
+                        if (!keyEl) return;
+                        var k = String(keyEl.value || '').trim();
+                        var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
+                        if (!valEl) return;
+                        if (k === 'seller_sku_list') valEl.value = sampleSellerSkuList;
+                        if (k === 'sku_id_list') valEl.value = sampleSkuIdList;
+                    });
+                } else {
+                    qsa('#lz-kv-body tr').forEach(function(tr){
+                        var keyEl = tr.querySelector('td:nth-child(1) .input');
+                        if (!keyEl) return;
+                        if (String(keyEl.value || '').trim().toLowerCase() !== 'payload') return;
+                        var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
+                        if (valEl) valEl.value = getSamplePayloadFor(p);
+                    });
+                }
                 syncToJson();
             });
         }
