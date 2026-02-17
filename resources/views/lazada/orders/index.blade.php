@@ -64,13 +64,12 @@
                 $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
                 $count = $tab_counts[$key] ?? null;
                 $qs = array_merge(request()->query(), ['tab' => $key]);
+                $isPending = ($key === 'PENDING');
             @endphp
             <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                 <span>{{ $label }}</span>
-                @if($count !== null)
-                    <span class="badge {{ $isActive ? 'badge-blue' : 'badge-gray' }}" style="margin-left:6px;">
-                        {{ $count }}
-                    </span>
+                @if($isPending && $count !== null && $count > 0)
+                    <span style="margin-left:6px; color:#dc2626; font-weight:700; font-size:15px;">{{ $count }}</span>
                 @endif
             </a>
         @endforeach
@@ -101,10 +100,8 @@
                     @endphp
                     <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                         <span>{{ $lbl }}</span>
-                        @if($count !== null)
-                            <span class="badge {{ $isActive ? 'badge-blue' : 'badge-gray' }}" style="margin-left:6px;">
-                                {{ $count }}
-                            </span>
+                        @if($count !== null && $count > 0)
+                            <span style="margin-left:6px; color:#dc2626; font-weight:700; font-size:15px;">{{ $count }}</span>
                         @endif
                     </a>
                 @endforeach

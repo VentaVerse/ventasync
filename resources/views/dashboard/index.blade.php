@@ -6,35 +6,372 @@
     <h2>Dashboard</h2>
 </div>
 
-<div class="card mb-16">
-    <h3 class="section-title mt-0">Welcome back, {{ auth()->user()->name ?? 'User' }}</h3>
-    <p class="text-secondary">This is your inventory management system. Use the sidebar to navigate between sections.</p>
+{{-- Stat cards --}}
+<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:20px;">
+    <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#3b82f6; --stat-bg:rgba(59,130,246,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($totalOrders) }}</div>
+            <div class="dash-stat-label">Total Orders</div>
+        </div>
+    </a>
+    <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">&#8369;{{ number_format($totalRevenue, 2) }}</div>
+            <div class="dash-stat-label">Total Revenue</div>
+        </div>
+    </a>
+    <a href="{{ route('products.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($totalProducts) }}</div>
+            <div class="dash-stat-label">Products</div>
+        </div>
+    </a>
+    <a href="{{ route('lazada.orders.index', ['tab' => 'PENDING']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($lazadaPending) }}</div>
+            <div class="dash-stat-label">Lazada Pending</div>
+        </div>
+    </a>
+</div>
 
-    <div class="detail-grid mt-16">
-        <div class="detail-section">
-            <h4>Catalog</h4>
-            <div class="detail-body">
-                Manage your products, categories, manufacturers, and options from the Catalog section.
-            </div>
-        </div>
-        <div class="detail-section">
-            <h4>Sales</h4>
-            <div class="detail-body">
-                View and manage orders and order statuses from the Sales section.
-            </div>
-        </div>
-        <div class="detail-section">
-            <h4>Marketplace API</h4>
-            <div class="detail-body">
-                Connect to Shopee and Lazada to sync products and orders.
-            </div>
-        </div>
-        <div class="detail-section">
-            <h4>Settings</h4>
-            <div class="detail-body">
-                Configure users, user groups, and general website settings.
-            </div>
-        </div>
+{{-- Sales chart --}}
+<div class="card mb-16">
+    <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
+        <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;">Sales (Last 30 Days)</h3>
+        <div class="text-xs text-secondary">Revenue &amp; order count per day</div>
+    </div>
+    <div style="position:relative; width:100%; height:320px;">
+        <canvas id="salesChart"></canvas>
     </div>
 </div>
+
+{{-- Bottom row: Quick links + Recent orders --}}
+<div style="display:grid; grid-template-columns: 1fr 2fr; gap:16px;">
+    {{-- Quick links --}}
+    <div class="card">
+        <h3 class="section-title mt-0">Quick Links</h3>
+        <div class="dash-links">
+            <a href="{{ route('products.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                <span>Products</span>
+                <span class="dash-link-count">{{ number_format($totalProducts) }}</span>
+            </a>
+            <a href="{{ route('categories.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>Categories</span>
+                <span class="dash-link-count">{{ number_format($totalCategories) }}</span>
+            </a>
+            <a href="{{ route('manufacturers.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                <span>Manufacturers</span>
+                <span class="dash-link-count">{{ number_format($totalManufacturers) }}</span>
+            </a>
+            <a href="{{ route('orders.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                <span>Orders</span>
+                <span class="dash-link-count">{{ number_format($totalOrders) }}</span>
+            </a>
+            <a href="{{ route('lazada.products.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                <span>Lazada Products</span>
+                <span class="dash-link-count">{{ number_format($lazadaProducts) }}</span>
+            </a>
+            <a href="{{ route('lazada.orders.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Lazada Orders</span>
+                @if($lazadaPending > 0)
+                    <span class="dash-link-count" style="background:#dc2626; color:#fff;">{{ $lazadaPending }}</span>
+                @endif
+            </a>
+        </div>
+    </div>
+
+    {{-- Recent orders --}}
+    <div class="card">
+        <div class="d-flex justify-between items-center" style="margin-bottom:12px;">
+            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;">Recent Orders</h3>
+            <a href="{{ route('orders.index') }}" class="btn small">View All</a>
+        </div>
+        @if($recentOrders->isEmpty())
+            <div class="text-secondary" style="padding:12px 0;">No orders yet.</div>
+        @else
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Customer</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Source</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($recentOrders as $o)
+                            <tr>
+                                <td>
+                                    <a href="{{ route('orders.edit', $o->order_id) }}" class="font-bold" style="color:var(--accent);">
+                                        #{{ $o->order_id }}
+                                    </a>
+                                </td>
+                                <td>{{ trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')) ?: '-' }}</td>
+                                <td class="font-bold">&#8369;{{ number_format((float)$o->total, 2) }}</td>
+                                <td>
+                                    @if($o->status_name)
+                                        <span class="badge badge-blue">{{ $o->status_name }}</span>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($o->marketplace_source)
+                                        <span class="badge badge-gray">{{ ucfirst($o->marketplace_source) }}</span>
+                                    @else
+                                        <span class="text-muted">Direct</span>
+                                    @endif
+                                </td>
+                                <td class="text-secondary text-xs">{{ $o->date_added ? \Carbon\Carbon::parse($o->date_added)->format('M d, Y H:i') : '-' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+</div>
+
+<style>
+    .dash-stat {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-light);
+        border-radius: 12px;
+        text-decoration: none;
+        color: inherit;
+        transition: box-shadow .15s, border-color .15s;
+    }
+    .dash-stat:hover {
+        border-color: var(--stat-accent, var(--accent));
+        box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    }
+    .dash-stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: var(--stat-bg, rgba(59,130,246,.1));
+        color: var(--stat-accent, var(--accent));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .dash-stat-value {
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--text-primary);
+    }
+    .dash-stat-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+
+    .dash-links {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .dash-links a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-size: 14px;
+        font-weight: 500;
+        transition: background .12s;
+    }
+    .dash-links a:hover {
+        background: var(--surface-alt);
+    }
+    .dash-links a svg {
+        color: var(--text-secondary);
+        flex-shrink: 0;
+    }
+    .dash-link-count {
+        margin-left: auto;
+        font-size: 12px;
+        font-weight: 600;
+        background: var(--surface-alt);
+        padding: 2px 8px;
+        border-radius: 10px;
+        color: var(--text-secondary);
+    }
+
+    @media (max-width: 900px) {
+        .dash-stat { padding: 16px; }
+        .dash-stat-value { font-size: 18px; }
+    }
+    @media (max-width: 768px) {
+        div[style*="grid-template-columns: repeat(4"] {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
+        div[style*="grid-template-columns: 1fr 2fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var ctx = document.getElementById('salesChart');
+    if (!ctx) return;
+
+    var labels = @json($chartLabels);
+    var revenue = @json($chartRevenue);
+    var orders = @json($chartOrders);
+
+    // Detect dark mode
+    var cs = getComputedStyle(document.documentElement);
+    var textColor = cs.getPropertyValue('--text-secondary').trim() || '#64748b';
+    var borderColor = cs.getPropertyValue('--border-light').trim() || '#e2e8f0';
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revenue,
+                    backgroundColor: 'rgba(59,130,246,.65)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y',
+                    order: 2,
+                },
+                {
+                    label: 'Orders',
+                    data: orders,
+                    type: 'line',
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34,197,94,.12)',
+                    pointBackgroundColor: '#22c55e',
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    yAxisID: 'y1',
+                    order: 1,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: textColor,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 16,
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15,23,42,.9)',
+                    titleFont: { size: 12 },
+                    bodyFont: { size: 12 },
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) {
+                            if (ctx.dataset.label === 'Revenue') {
+                                return 'Revenue: \u20B1' + Number(ctx.parsed.y).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                            }
+                            return 'Orders: ' + ctx.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: textColor,
+                        font: { size: 11 },
+                        maxRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: 15,
+                    }
+                },
+                y: {
+                    position: 'left',
+                    beginAtZero: true,
+                    grid: { color: borderColor },
+                    ticks: {
+                        color: textColor,
+                        font: { size: 11 },
+                        callback: function(v) {
+                            if (v >= 1000000) return '\u20B1' + (v/1000000).toFixed(1) + 'M';
+                            if (v >= 1000) return '\u20B1' + (v/1000).toFixed(0) + 'K';
+                            return '\u20B1' + v;
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Revenue',
+                        color: textColor,
+                        font: { size: 12 }
+                    }
+                },
+                y1: {
+                    position: 'right',
+                    beginAtZero: true,
+                    grid: { drawOnChartArea: false },
+                    ticks: {
+                        color: textColor,
+                        font: { size: 11 },
+                        precision: 0,
+                    },
+                    title: {
+                        display: true,
+                        text: 'Orders',
+                        color: textColor,
+                        font: { size: 12 }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
 @endsection

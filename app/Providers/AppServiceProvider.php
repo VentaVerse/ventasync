@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\LazadaOrder;
+use App\Models\LazadaSetting;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
@@ -35,6 +37,27 @@ class AppServiceProvider extends ServiceProvider
             View::share('appSetting', $setting);
         }
 
+
+        // Share Lazada pending-orders count with the sidebar nav
+        View::composer('layouts.app', function ($view) {
+            try {
+                if (!Schema::hasTable('lazada_orders')) {
+                    $view->with('lazadaPendingCount', 0);
+                    return;
+                }
+                $region = 'ph';
+                if (Schema::hasTable('lazada_settings')) {
+                    $region = LazadaSetting::query()->value('region') ?? 'ph';
+                }
+                $count = LazadaOrder::query()
+                    ->where('region', $region)
+                    ->whereIn('status', ['pending', 'packed', 'ready_to_ship'])
+                    ->count();
+                $view->with('lazadaPendingCount', $count);
+            } catch (\Throwable $e) {
+                $view->with('lazadaPendingCount', 0);
+            }
+        });
 
         // Capture non-fatal PHP errors (warnings/notices/deprecations) into storage/logs/error.log
         // for cleanup/troubleshooting without exposing them to users.
