@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Pick List - {{ $orderId }}</title>
     <style>
-        /* Screen preview as a single "bond paper" page */
+        /* Print-only standalone page — styles are self-contained (not part of layout) */
         html, body { height: 100%; }
         body { font-family: Arial, sans-serif; color:#0f172a; margin:0; background:#e5e7eb; }
         .page {
@@ -18,7 +18,7 @@
             box-sizing: border-box;
         }
         .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
-        .muted { color:#64748b; font-size:12px; }
+        .text-muted { color:#64748b; font-size:12px; }
         h1 { font-size:20px; margin:0 0 4px 0; }
         .box { border:1px solid #e5e7eb; border-radius:10px; padding:12px; }
         table { width:100%; border-collapse:collapse; margin-top:12px; }
@@ -40,11 +40,11 @@
     <div class="top">
         <div>
             <h1>Pick List</h1>
-            <div class="muted">Order #{{ $orderId }}</div>
+            <div class="text-muted">Order #{{ $orderId }}</div>
         </div>
         <div class="box" style="min-width:260px;">
-            <div style="font-weight:700;">Summary</div>
-            <div class="muted" style="margin-top:6px;">
+            <div class="font-bold" style="font-weight:700;">Summary</div>
+            <div class="text-muted" style="margin-top:6px;">
                 <div><strong>Created:</strong> {{ optional($order)->order_created_at ?? '-' }}</div>
                 <div><strong>Buyer:</strong> {{ (string) (optional($order)->raw['customer_first_name'] ?? optional($order)->raw['customer_name'] ?? '-') }}</div>
                 <div><strong>Lines:</strong> {{ count($items) }}</div>
@@ -78,13 +78,13 @@
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="muted">No items found for this order.</td>
+                <td colspan="5" class="text-muted">No items found for this order.</td>
             </tr>
         @endforelse
         </tbody>
     </table>
 
-    <div class="muted" style="margin-top:12px;">Generated {{ now()->format('Y-m-d H:i') }}</div>
+    <div class="text-muted" style="margin-top:12px;">Generated {{ now()->format('Y-m-d H:i') }}</div>
     </div>
 </body>
 </html>

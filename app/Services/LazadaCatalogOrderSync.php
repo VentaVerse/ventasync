@@ -180,20 +180,42 @@ class LazadaCatalogOrderSync
             $shippingTotal = 0;
             $voucherTotal = 0;
 
+            // Group Lazada line items by SKU so qty 5 = one row with quantity 5
+            $grouped = [];
             foreach ($lazadaOrder->products as $lp) {
                 $lpRaw = is_array($lp->raw) ? $lp->raw : [];
-                $price = (float) ($lpRaw['item_price'] ?? ($lpRaw['paid_price'] ?? ($lpRaw['price'] ?? 0)));
-                $qty = max(1, (int) $lp->quantity);
-                $lineTotal = $price * $qty;
-                $subTotal += $lineTotal;
+                $key = trim((string) ($lp->sku ?? ''));
+                if ($key === '') $key = '_nosku_' . $lp->id;
+
+                $itemPrice = (float) ($lpRaw['item_price'] ?? ($lpRaw['paid_price'] ?? ($lpRaw['price'] ?? 0)));
+                $itemQty = max(1, (int) $lp->quantity);
 
                 $shippingTotal += (float) ($lpRaw['shipping_amount'] ?? ($lpRaw['shipping_fee_original'] ?? 0));
                 $voucherTotal += (float) ($lpRaw['voucher_amount'] ?? ($lpRaw['voucher_seller'] ?? 0));
 
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'sku'       => trim((string) ($lp->sku ?? '')),
+                        'name'      => $lp->name ?? '',
+                        'variation' => $lp->variation ?? '',
+                        'price'     => $itemPrice,
+                        'quantity'  => $itemQty,
+                    ];
+                } else {
+                    $grouped[$key]['quantity'] += $itemQty;
+                }
+            }
+
+            foreach ($grouped as $item) {
+                $price = $item['price'];
+                $qty = $item['quantity'];
+                $lineTotal = $price * $qty;
+                $subTotal += $lineTotal;
+
                 // Resolve catalog product_id and option value via seller SKU
                 $resolvedProductId = 0;
                 $resolvedOptionValueId = 0;
-                $sellerSku = trim((string) ($lp->sku ?? ''));
+                $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
                     // 1. Try Lazada variant chain
                     $variant = LazadaProductVariant::where('seller_sku', $sellerSku)->first();
@@ -221,8 +243,8 @@ class LazadaCatalogOrderSync
                 $op = OrderProduct::create([
                     'order_id'   => $catalogOrder->order_id,
                     'product_id' => $resolvedProductId,
-                    'name'       => $lp->name ?? '',
-                    'model'      => $lp->sku ?? '',
+                    'name'       => $item['name'],
+                    'model'      => $sellerSku,
                     'quantity'   => $qty,
                     'price'      => $price,
                     'total'      => $lineTotal,
@@ -234,14 +256,14 @@ class LazadaCatalogOrderSync
                 ]);
 
                 // Sync variation as order option
-                if ($lp->variation && trim($lp->variation) !== '') {
+                if ($item['variation'] && trim($item['variation']) !== '') {
                     OrderOption::create([
                         'order_id'                => $catalogOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
                         'product_option_id'       => 0,
                         'product_option_value_id' => $resolvedOptionValueId,
                         'name'                    => 'Variation',
-                        'value'                   => $lp->variation,
+                        'value'                   => $item['variation'],
                         'type'                    => 'text',
                     ]);
                 }

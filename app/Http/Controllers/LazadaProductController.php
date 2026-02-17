@@ -529,16 +529,66 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
+        // Search & filter params
+        $q = trim((string) $request->query('q', ''));
+        $lazadaStatus = (string) $request->query('lazada_status', 'all');
+        if (!in_array($lazadaStatus, ['all', 'not_uploaded', 'uploaded', 'deleted'], true)) {
+            $lazadaStatus = 'all';
+        }
+        $profileFilter = $request->query('profile', 'all');
+
         // Sorting (UI-driven). Keep this strict to avoid injection / unexpected behavior.
         $sort = (string) $request->query('sort', 'id');
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['id', 'product', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status'];
+        $allowedSorts = ['id', 'product', 'profile', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status'];
         if (!in_array($sort, $allowedSorts, true)) {
             $sort = 'id';
         }
 
-        // Load Lazada products first (sorting by ERP-derived fields is done in-memory below).
-        $listings = LazadaProduct::query()->get();
+        // Build filtered query
+        $query = LazadaProduct::query();
+
+        // Profile filter (applied at DB level)
+        if ($profileFilter !== 'all') {
+            if ($profileFilter === 'none') {
+                $query->whereNull('lazada_profile_id');
+            } else {
+                $query->where('lazada_profile_id', (int) $profileFilter);
+            }
+        }
+
+        // Status filter (applied at DB level)
+        if ($lazadaStatus === 'uploaded') {
+            $query->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '');
+        } elseif ($lazadaStatus === 'deleted') {
+            $query->whereNotNull('lazada_deleted_at');
+        } elseif ($lazadaStatus === 'not_uploaded') {
+            $query->where(function ($qb) {
+                $qb->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
+            })->whereNull('lazada_deleted_at');
+        }
+
+        // If search query, find matching product IDs first
+        $searchProductIds = null;
+        if ($q !== '') {
+            $searchProductIds = DB::table($pfx . 'product as p')
+                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                    $j->on('p.product_id', '=', 'pd.product_id')
+                        ->where('pd.language_id', '=', $langId);
+                })
+                ->where(function ($qb) use ($q) {
+                    $qb->where('pd.name', 'like', '%' . $q . '%')
+                        ->orWhere('p.sku', 'like', '%' . $q . '%')
+                        ->orWhere('p.model', 'like', '%' . $q . '%');
+                })
+                ->pluck('p.product_id')
+                ->toArray();
+
+            $query->whereIn('product_id', $searchProductIds);
+        }
+
+        // Load Lazada products (sorting by ERP-derived fields is done in-memory below).
+        $listings = $query->get();
 
         // Attach a small amount of product info for display
         $productIds = $listings->pluck('product_id')->filter()->unique()->values()->all();
@@ -592,8 +642,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         }
 
+        // All profiles for filter dropdown + names for display
+        $allProfiles = \App\Models\LazadaProfile::query()->orderBy('name')->pluck('name', 'id');
+        $profileNames = $allProfiles;
+
         // Apply sort in-memory using the attached ERP product info.
-        $listings = $listings->sortBy(function ($l) use ($sort, $productsById) {
+        $listings = $listings->sortBy(function ($l) use ($sort, $productsById, $profileNames) {
             $pid = (int)($l->product_id ?? 0);
             $p = $productsById->get($pid);
 
@@ -615,6 +669,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $sku = $p ? trim((string)($p->sku ?? '')) : '';
                 $isNull = ($name === '' && $sku === '') ? 1 : 0;
                 return sprintf('%d|%s|%s', $isNull, mb_strtolower($name), mb_strtolower($sku));
+            }
+
+            if ($sort === 'profile') {
+                $profId = $l->lazada_profile_id;
+                $profName = $profId ? mb_strtolower((string) $profileNames->get($profId, '')) : '';
+                $isNull = $profName === '' ? 1 : 0;
+                return sprintf('%d|%s', $isNull, $profName);
             }
 
             if ($sort === 'quantity') {
@@ -642,13 +703,29 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
         $listings = $listings->values();
 
+        // Paginate in-memory (50 per page)
+        $perPage = 50;
+        $page = max(1, (int) $request->query('page', 1));
+        $total = $listings->count();
+        $paged = $listings->slice(($page - 1) * $perPage, $perPage)->values();
+        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $paged, $total, $perPage, $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
         return view('lazada.products.index', [
-            'listings' => $listings,
+            'listings' => $paged,
             'productsById' => $productsById,
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
+            'profileNames' => $profileNames,
+            'allProfiles' => $allProfiles,
             'sort' => $sort,
             'dir' => $dir,
+            'q' => $q,
+            'lazadaStatus' => $lazadaStatus,
+            'profileFilter' => $profileFilter,
+            'paginator' => $paginator,
         ]);
     }
 
@@ -1149,6 +1226,19 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->with('status', 'Upload: Primary Category is required before uploading.');
         }
 
+        // Validate that the ERP product has a SKU (or model as fallback).
+        $pfx = (string) config('catalog.prefix');
+        $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model']);
+        $erpSku = trim((string) ($erpProduct->sku ?? ''));
+        if ($erpSku === '') {
+            $erpSku = trim((string) ($erpProduct->model ?? ''));
+        }
+        if ($erpSku === '') {
+            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required. Please set a SKU (or Model) in the ERP product first.']]);
+            return redirect()->route('lazada.products.index')
+                ->with('status', 'Upload: Product SKU is required. Please set a SKU (or Model) in the core product first.');
+        }
+
         // Build payload from listing mapping. If mapping is incomplete, we do not send an invalid payload.
         try {
             [$productPayload, $preview] = $this->buildLazadaProductCreatePayload($listing, $setting, $client);
@@ -1257,9 +1347,23 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $okCount = 0;
         $errCount = 0;
 
+        $pfx = (string) config('catalog.prefix');
+
         foreach ($listings as $listing) {
             if (empty($listing->primary_category_id)) {
                 $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
+                $errCount++;
+                continue;
+            }
+
+            // Validate SKU
+            $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model']);
+            $erpSku = trim((string) ($erpProduct->sku ?? ''));
+            if ($erpSku === '') {
+                $erpSku = trim((string) ($erpProduct->model ?? ''));
+            }
+            if ($erpSku === '') {
+                $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required.']]);
                 $errCount++;
                 continue;
             }
@@ -1808,6 +1912,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'primary_category_id' => 'nullable|integer|min:1',
             'brand_id' => 'nullable|integer|min:1',
             'no_brand' => 'nullable|boolean',
+            'markup_fixed' => 'nullable|numeric|min:0',
+            'markup_percent' => 'nullable|numeric|min:0',
         ]);
 
         $noBrand = (bool)($data['no_brand'] ?? false);
@@ -1819,8 +1925,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'product_id' => (int)$data['product_id'],
             'primary_category_id' => $data['primary_category_id'] ?? null,
             'brand_id' => $data['brand_id'] ?? null,
-            // We don't allow arbitrary brand override. We only keep a marker for "No Brand".
             'brand_name_override' => $noBrand ? 'No Brand' : null,
+            'markup_fixed' => $data['markup_fixed'] ?? null,
+            'markup_percent' => $data['markup_percent'] ?? null,
         ]);
 
         return redirect()->route('lazada.products.edit', $listing->id);
@@ -1968,6 +2075,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'primary_category_id' => 'nullable|integer|min:1',
             'brand_id' => 'nullable|integer|min:1',
             'no_brand' => 'nullable|boolean',
+            'markup_fixed' => 'nullable|numeric|min:0',
+            'markup_percent' => 'nullable|numeric|min:0',
         ]);
 
         $noBrand = (bool)($data['no_brand'] ?? false);
@@ -1978,8 +2087,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->product_id = (int)$data['product_id'];
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;
-        // Marker only (no custom override allowed)
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;
+        $listing->markup_fixed = $data['markup_fixed'] ?? null;
+        $listing->markup_percent = $data['markup_percent'] ?? null;
         $listing->save();
 
         return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Listing updated.');

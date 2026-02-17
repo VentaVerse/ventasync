@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Settings / Add User')
 
 @section('content')
 <div class="card">
@@ -6,20 +7,6 @@
         <h2>Add User</h2>
         <a class="btn secondary" href="{{ route('users.index') }}">Back</a>
     </div>
-
-@if(session('status'))
-    <div class="alert success" style="margin-bottom:12px;">{{ session('status') }}</div>
-@endif
-
-@if($errors->any())
-    <div class="alert danger" style="margin-bottom:12px;">
-        <ul style="margin:0; padding-left:18px;">
-            @foreach($errors->all() as $e)
-                <li>{{ $e }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
 
     <form method="POST" action="{{ route('users.store') }}">
         @csrf
@@ -60,7 +47,7 @@
             </div>
         </div>
 
-        <div style="margin-top:16px;">
+        <div class="mt-16">
             <button class="btn" type="submit">Save</button>
         </div>
     </form>

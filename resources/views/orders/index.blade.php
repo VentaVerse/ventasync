@@ -1,20 +1,18 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Sales / Orders')
 
 @section('content')
-<style>
-    .ord-thumb{width:42px;height:42px;object-fit:cover;border-radius:6px;border:1px solid rgba(0,0,0,0.08);display:block;background:#f8fafc;}
-</style>
 <div class="card">
     <div class="page-header">
         <h2>Orders</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('orders.create') }}">Add Order</a>
             <button class="btn danger" type="submit" form="ord-bulk-form" id="ord-bulk-delete-btn">Delete Selected</button>
         </div>
     </div>
 
     <div class="toolbar">
-        <form method="GET" action="{{ route('orders.index') }}" style="flex-wrap:wrap;">
+        <form method="GET" action="{{ route('orders.index') }}">
             <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name, email, order ID" style="min-width:220px;">
             <select class="input" name="status" style="min-width:140px;">
                 <option value="0">All Statuses</option>
@@ -35,6 +33,7 @@
         @csrf
     </form>
 
+    <div class="table-wrap">
     <table>
         <thead>
         <tr>
@@ -44,7 +43,7 @@
             <th>Customer</th>
             <th>Source</th>
             <th>Status</th>
-            <th style="text-align:right;">Total</th>
+            <th class="text-right">Total</th>
             <th>Date Added</th>
             <th style="width:200px;">Actions</th>
         </tr>
@@ -61,39 +60,42 @@
                 <td>{{ $o->order_id }}</td>
                 <td>
                     @if($imgSrc)
-                        <img src="{{ $imgSrc }}" alt="" class="ord-thumb" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                        <img src="{{ $imgSrc }}" alt="" class="thumb thumb-sm" loading="lazy" decoding="async" onerror="this.style.display='none';">
                     @else
-                        <span style="display:inline-block;width:42px;height:42px;border-radius:6px;background:#f1f5f9;border:1px solid #e2e8f0;"></span>
+                        <span class="thumb-placeholder" style="width:42px;height:42px;"></span>
                     @endif
                 </td>
                 <td>{{ $o->firstname }} {{ $o->lastname }}</td>
                 <td>
                     @if($o->marketplace_source === 'lazada')
-                        <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#0f1689;color:#fff;font-size:11px;font-weight:600;">Lazada</span>
+                        <span class="badge badge-indigo">Lazada</span>
                     @elseif($o->marketplace_source !== '')
-                        <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#64748b;color:#fff;font-size:11px;font-weight:600;">{{ ucfirst($o->marketplace_source) }}</span>
+                        <span class="badge badge-dark">{{ ucfirst($o->marketplace_source) }}</span>
                     @else
-                        <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#e2e8f0;color:#475569;font-size:11px;font-weight:600;">Manual</span>
+                        <span class="badge badge-default">Manual</span>
                     @endif
                 </td>
                 <td>{{ $o->status->name ?? '-' }}</td>
-                <td style="text-align:right;">{{ number_format($o->total, 2) }}</td>
-                <td style="white-space:nowrap;">{{ $o->date_added }}</td>
-                <td style="display:flex; gap:6px; align-items:center;">
-                    <a class="btn small" href="{{ route('orders.show', $o->order_id) }}">View</a>
-                    <a class="btn small secondary" href="{{ route('orders.edit', $o->order_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" onsubmit="return confirm('Delete this order?')">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn danger small" type="submit">Delete</button>
-                    </form>
+                <td class="text-right">{{ number_format($o->total, 2) }}</td>
+                <td class="text-nowrap">{{ $o->date_added }}</td>
+                <td>
+                    <div class="d-flex gap-6 items-center">
+                        <a class="btn small" href="{{ route('orders.show', $o->order_id) }}">View</a>
+                        <a class="btn small secondary" href="{{ route('orders.edit', $o->order_id) }}">Edit</a>
+                        <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" onsubmit="return confirm('Delete this order?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn danger small" type="submit">Delete</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
         @empty
-            <tr><td colspan="9" style="text-align:center; padding:24px; color:#94a3b8;">No orders found.</td></tr>
+            <tr><td colspan="9" class="text-center text-muted" style="padding:24px;">No orders found.</td></tr>
         @endforelse
         </tbody>
     </table>
+    </div>
 
     <script>
         (function () {
@@ -137,7 +139,7 @@
         })();
     </script>
 
-    <div style="margin-top:14px;">
+    <div class="mt-16">
         {{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>

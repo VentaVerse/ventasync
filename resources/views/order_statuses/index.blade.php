@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Sales / Order Statuses')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Order Statuses</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('order_statuses.create') }}">Add Order Status</a>
             <button class="btn danger" type="submit" form="os-bulk-form" id="os-bulk-delete-btn">Delete Selected</button>
         </div>
@@ -21,41 +22,43 @@
         @csrf
     </form>
 
-    <table>
-        <thead>
-        <tr>
-            <th style="width:36px;"><input type="checkbox" id="os-select-all" title="Select all"></th>
-            <th style="width:90px;">ID</th>
-            <th>Name</th>
-            <th style="width:120px;">Subtract Stock</th>
-            <th style="width:160px;">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach($statuses as $s)
+    <div class="table-wrap">
+        <table>
+            <thead>
             <tr>
-                <td><input type="checkbox" class="os-row-check" name="ids[]" value="{{ (int)$s->order_status_id }}" form="os-bulk-form"></td>
-                <td>{{ $s->order_status_id }}</td>
-                <td>{{ $s->name }}</td>
-                <td>
-                    @if($s->subtract_stock)
-                        <span class="badge success">Yes</span>
-                    @else
-                        <span class="badge secondary">No</span>
-                    @endif
-                </td>
-                <td style="display:flex; gap:8px; align-items:center;">
-                    <a class="btn small" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('order_statuses.destroy', $s->order_status_id) }}" onsubmit="return confirm('Delete this order status?')">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn danger small" type="submit">Delete</button>
-                    </form>
-                </td>
+                <th style="width:36px;"><input type="checkbox" id="os-select-all" title="Select all"></th>
+                <th style="width:90px;">ID</th>
+                <th>Name</th>
+                <th style="width:120px;">Subtract Stock</th>
+                <th style="width:160px;">Actions</th>
             </tr>
-        @endforeach
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+            @foreach($statuses as $s)
+                <tr>
+                    <td><input type="checkbox" class="os-row-check" name="ids[]" value="{{ (int)$s->order_status_id }}" form="os-bulk-form"></td>
+                    <td>{{ $s->order_status_id }}</td>
+                    <td>{{ $s->name }}</td>
+                    <td>
+                        @if($s->subtract_stock)
+                            <span class="badge success">Yes</span>
+                        @else
+                            <span class="badge secondary">No</span>
+                        @endif
+                    </td>
+                    <td class="d-flex gap-8 items-center">
+                        <a class="btn small" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
+                        <form method="POST" action="{{ route('order_statuses.destroy', $s->order_status_id) }}" onsubmit="return confirm('Delete this order status?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn danger small" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
 
     <script>
         (function () {
@@ -99,7 +102,7 @@
         })();
     </script>
 
-    <div style="margin-top:14px;">
+    <div class="mt-16">
         {{ $statuses->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>

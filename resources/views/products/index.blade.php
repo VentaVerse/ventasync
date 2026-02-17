@@ -1,20 +1,12 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Products')
 
 @section('content')
-<style>
-    .thumb{width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,0.08);display:block;background:#fff;}
-    .thumb--variant{width:42px;height:42px;border-radius:10px;}
-    .variant-row td{background:#f8fafc;}
-    .variant-name{font-size:13px; font-weight:600; line-height:1.15;}
-    .variant-meta{font-size:12px; opacity:0.75; margin-top:2px;}
-    .indent{padding-left:14px;}
-</style>
 <div class="card">
     <div class="page-header">
         <h2>Products</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('products.create') }}">Add Product</a>
-
             <select class="input" name="action" form="product-bulk-form" style="width:180px;">
                 <option value="">-- Action --</option>
                 <option value="enable">Enable</option>
@@ -27,7 +19,7 @@
 
     <div class="toolbar">
         <form method="GET" action="{{ route('products.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name">
+            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name" style="min-width:220px;">
             <button class="btn secondary" type="submit">Search</button>
         </form>
     </div>
@@ -36,6 +28,7 @@
         @csrf
     </form>
 
+    <div class="table-wrap">
     <table>
         <thead>
 @php
@@ -86,29 +79,27 @@
                     @if($src)
                         <img src="{{ $src }}" alt="" class="thumb" loading="lazy" decoding="async" onerror="this.style.display='none';">
                     @else
-                        <span style="opacity:0.6;">—</span>
+                        <span class="text-muted">—</span>
                     @endif
                 </td>
                 <td>
-                    <div style="font-weight:600; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $p->name ?? '-' }}</div>
+                    <div class="font-semibold truncate">{{ $p->name ?? '-' }}</div>
                     @php
                         $optRows = is_array($p->option_rows ?? null) ? $p->option_rows : (is_iterable($p->option_rows ?? null) ? $p->option_rows : []);
                     @endphp
                 </td>
-                <td>
-                    <div>{{ (int)$p->quantity }}</div>
-                </td>
-                <td>
-                    <div>{{ number_format((float)$p->price, 2) }}</div>
-                </td>
+                <td>{{ (int)$p->quantity }}</td>
+                <td>{{ number_format((float)$p->price, 2) }}</td>
                 <td>{{ (int)$p->status === 1 ? 'Enabled' : 'Disabled' }}</td>
-                <td style="display:flex; gap:8px; align-items:center;">
-                    <a class="btn small" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('products.destroy', $p->product_id) }}" onsubmit="return confirm('Delete this product?')">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn danger small" type="submit">Delete</button>
-                    </form>
+                <td>
+                    <div class="d-flex gap-8 items-center">
+                        <a class="btn small" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
+                        <form method="POST" action="{{ route('products.destroy', $p->product_id) }}" onsubmit="return confirm('Delete this product?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn danger small" type="submit">Delete</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
 
@@ -128,16 +119,16 @@
                         <td></td>
                         <td>
                             @if($ovSrc)
-                                <img src="{{ $ovSrc }}" alt="" class="thumb thumb--variant" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                                <img src="{{ $ovSrc }}" alt="" class="thumb thumb-sm" loading="lazy" decoding="async" onerror="this.style.display='none';">
                             @else
-                                <span style="opacity:0.55;">—</span>
+                                <span class="text-muted">—</span>
                             @endif
                         </td>
-                        <td class="indent">
-                            <div class="variant-name">{{ $or->option_value_name ?? '' }}</div>
-                            <div class="variant-meta">{{ $or->option_name ?? '' }}</div>
+                        <td style="padding-left:28px;">
+                            <div class="font-semibold text-sm">{{ $or->option_value_name ?? '' }}</div>
+                            <div class="text-xs text-muted" style="margin-top:2px;">{{ $or->option_name ?? '' }}</div>
                         </td>
-                        <td><span style="font-weight:600;">{{ (int)($or->quantity ?? 0) }}</span></td>
+                        <td class="font-semibold">{{ (int)($or->quantity ?? 0) }}</td>
                         <td>{{ number_format($final, 2) }}</td>
                         <td></td>
                         <td></td>
@@ -147,8 +138,9 @@
         @endforeach
         </tbody>
     </table>
+    </div>
 
-    <div style="margin-top:14px;">
+    <div class="mt-16">
         {{ $products->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>

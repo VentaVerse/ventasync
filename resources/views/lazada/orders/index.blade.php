@@ -1,11 +1,13 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Marketplace / Lazada / Orders')
 
 @section('content')
-<div style="padding:16px;">
-    <h2 style="margin:0 0 12px 0;">Lazada Orders <span style="color:#64748b; font-size:14px;">({{ $orders->total() }})</span></h2>
+<div class="page-header">
+    <h2>Lazada Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
+</div>
 
     @if($last_result)
-        <div style="padding:10px 12px; border-radius:8px; margin-bottom:12px; background: {{ $last_result['ok'] ? '#ecfdf5' : '#fef2f2' }}; border:1px solid {{ $last_result['ok'] ? '#a7f3d0' : '#fecaca' }};">
+        <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
             <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
             @if(!empty($last_result['message']))
                 <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
@@ -13,39 +15,41 @@
         </div>
 @endif
 
-<form method="POST" action="{{ route('lazada.orders.fetch') }}" id="formFetchLazadaOrders" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end; background:#fff; padding:12px; border-radius:10px; border:1px solid #e5e7eb; margin-bottom:14px;">
+<div class="card mb-16">
+<form method="POST" action="{{ route('lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="d-flex gap-12 flex-wrap items-center">
         @csrf
         <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from', request('date_from')) }}" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px;">
+            <label class="text-xs text-secondary">From</label>
+            <input type="date" name="date_from" value="{{ old('date_from', request('date_from')) }}" class="input" style="width:auto;">
         </div>
         <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px;">
+            <label class="text-xs text-secondary">To</label>
+            <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" class="input" style="width:auto;">
         </div>
         <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Status (optional)</label>
-            <input type="text" name="status" value="{{ old('status', request('status')) }}" placeholder="e.g. ready_to_ship" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px;">
-            @error('status')<div style="color:#dc2626; font-size:12px;">{{ $message }}</div>@enderror
+            <label class="text-xs text-secondary">Status (optional)</label>
+            <input type="text" name="status" value="{{ old('status', request('status')) }}" placeholder="e.g. ready_to_ship" class="input" style="min-width:220px;">
+            @error('status')<div class="field-error">{{ $message }}</div>@enderror
         </div>
-        <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn" id="btnFetchOrders" style="padding:10px 14px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+        <div class="d-flex gap-8">
+            <button type="submit" class="btn" id="btnFetchOrders">
                 <span>Fetch Orders</span>
-                <span id="fetchInlineSpinner" aria-hidden="true" style="display:none; width:14px; height:14px; border:2px solid rgba(255,255,255,.55); border-top-color:#fff; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
+                <span id="fetchInlineSpinner" aria-hidden="true" class="hidden" style="width:14px; height:14px; border:2px solid rgba(255,255,255,.55); border-top-color:#fff; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
             </button>
 
-            <button type="submit" class="btn" id="btnUpdateOrders" formaction="{{ route('lazada.orders.update_statuses') }}" style="padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('lazada.orders.update_statuses') }}">
                 <span>Update Orders</span>
-                <span id="updateInlineSpinner" aria-hidden="true" style="display:none; width:14px; height:14px; border:2px solid rgba(15,23,42,.25); border-top-color:#0f172a; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
+                <span id="updateInlineSpinner" aria-hidden="true" class="hidden" style="width:14px; height:14px; border:2px solid rgba(15,23,42,.25); border-top-color:#0f172a; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
             </button>
         </div>
-<div>
-            <button type="button" class="btn" id="btnResetLazadaOrders" style="padding:10px 14px; border-radius:8px; border:1px solid #ef4444; background:#fff; color:#b91c1c; cursor:pointer;">Reset Orders</button>
+        <div>
+            <button type="button" class="btn danger" id="btnResetLazadaOrders">Reset Orders</button>
         </div>
-        <div style="color:#64748b; font-size:12px;">
+        <div class="text-secondary text-xs">
 	        Leave <strong>From/To</strong> empty for <strong>automatic sync</strong> (maximum <strong>14 days</strong> lookback). Use dates only when you need a specific range (max <strong>14 days</strong> per fetch).
         </div>
     </form>
+</div>
 
     @php
         $tabs = $tabs ?? [];
@@ -54,24 +58,17 @@
         $pending_sub_counts = $pending_sub_counts ?? [];
     @endphp
 
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px 0;">
+    <div class="tabs mb-12">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
                 $count = $tab_counts[$key] ?? null;
                 $qs = array_merge(request()->query(), ['tab' => $key]);
             @endphp
-            <a href="{{ route('lazada.orders.index', $qs) }}"
-               style="display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px; text-decoration:none;
-                      border:1px solid {{ $isActive ? '#2563eb' : '#e5e7eb' }};
-                      background: {{ $isActive ? '#eff6ff' : '#fff' }};
-                      color: {{ $isActive ? '#1d4ed8' : '#0f172a' }};
-                      font-size:13px;">
+            <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                 <span>{{ $label }}</span>
                 @if($count !== null)
-                    <span style="display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:20px; padding:0 6px; border-radius:999px; font-size:12px;
-                                 background: {{ $isActive ? '#1d4ed8' : '#f1f5f9' }};
-                                 color: {{ $isActive ? '#fff' : '#334155' }};">
+                    <span class="badge {{ $isActive ? 'badge-blue' : 'badge-gray' }}" style="margin-left:6px;">
                         {{ $count }}
                     </span>
                 @endif
@@ -89,29 +86,23 @@
                 'to_handover' => 'To Handover',
             ];
         @endphp
-        <div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; margin:0 0 12px 0;">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
-                <div style="font-weight:600; color:#0f172a;">Pending workflow</div>
-                <div style="font-size:12px; color:#64748b;">Choose the step you are working on</div>
+        <div class="card mb-12" style="padding:12px 16px;">
+            <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
+                <div class="font-semibold">Pending workflow</div>
+                <div class="text-xs text-secondary">Choose the step you are working on</div>
             </div>
 
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div class="d-flex gap-10 flex-wrap">
                 @foreach($pendingNav as $k => $lbl)
                     @php
                         $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
                         $qs = array_merge(request()->query(), ['tab' => 'PENDING', 'pending_sub' => $k]);
                         $count = $pending_sub_counts[$k] ?? null;
                     @endphp
-                    <a href="{{ route('lazada.orders.index', $qs) }}"
-                       style="display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:12px; text-decoration:none;
-                              border:1px solid {{ $isActive ? '#2563eb' : '#e5e7eb' }};
-                              background: {{ $isActive ? '#eff6ff' : '#fff' }};
-                              color: {{ $isActive ? '#1d4ed8' : '#0f172a' }};
-                              font-size:13px; font-weight:600;">                        <span>{{ $lbl }}</span>
+                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+                        <span>{{ $lbl }}</span>
                         @if($count !== null)
-                            <span style="display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:22px; padding:0 8px; border-radius:999px; font-size:12px;
-                                         background: {{ $isActive ? '#1d4ed8' : '#f1f5f9' }};
-                                         color: {{ $isActive ? '#fff' : '#334155' }};">
+                            <span class="badge {{ $isActive ? 'badge-blue' : 'badge-gray' }}" style="margin-left:6px;">
                                 {{ $count }}
                             </span>
                         @endif
@@ -121,64 +112,67 @@
         </div>
     @endif
 
-    <form method="GET" action="{{ route('lazada.orders.index') }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:0 0 12px 0;">
+    <div class="card mb-12" style="padding:12px 16px;">
+    <form method="GET" action="{{ route('lazada.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
         <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
         <input type="hidden" name="per_page" value="{{ (int)($per_page ?? request()->query('per_page', 10)) }}">
 
         <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Order Number</label>
-            <input type="text" name="order_number" value="{{ old('order_number', $filters['order_number'] ?? request()->query('order_number', '')) }}" placeholder="Order ID" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px;">
+            <label class="text-xs text-secondary">Order Number</label>
+            <input type="text" name="order_number" value="{{ old('order_number', $filters['order_number'] ?? request()->query('order_number', '')) }}" placeholder="Order ID" class="input" style="min-width:220px;">
         </div>
 
         <div>
-            <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Buyer Name</label>
-            <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? request()->query('buyer_name', '')) }}" placeholder="Customer" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px;">
+            <label class="text-xs text-secondary">Buyer Name</label>
+            <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? request()->query('buyer_name', '')) }}" placeholder="Customer" class="input" style="min-width:220px;">
         </div>
 
-        <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn" style="padding:10px 14px; border-radius:8px; border:0; background:#0f172a; color:#fff; cursor:pointer;">Search</button>
-            <a href="{{ route('lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn" style="display:inline-block; padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; text-decoration:none;">Reset</a>
+        <div class="d-flex gap-8">
+            <button type="submit" class="btn secondary">Search</button>
+            <a href="{{ route('lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
         </div>
     </form>
+    </div>
 
-
-
-    <form method="GET" action="{{ route('lazada.orders.index') }}" style="display:flex; gap:10px; align-items:end; margin:0 0 12px 0;">
+    <div class="card mb-12" style="padding:12px 16px;">
+    <form method="GET" action="{{ route('lazada.orders.index') }}" class="d-flex gap-10 items-center">
     <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
     <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? request()->query('order_number', '') }}">
     <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? request()->query('buyer_name', '') }}">
     <div>
-        <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px;">Orders per page</label>
-        <select name="per_page" onchange="this.form.submit()" style="padding:8px; border:1px solid #cbd5e1; border-radius:8px;">
+        <label class="text-xs text-secondary">Orders per page</label>
+        <select name="per_page" onchange="this.form.submit()" class="input" style="width:auto;">
             <option value="10" {{ (int)($per_page ?? 10)===10 ? 'selected' : '' }}>10</option>
             <option value="20" {{ (int)($per_page ?? 10)===20 ? 'selected' : '' }}>20</option>
             <option value="50" {{ (int)($per_page ?? 10)===50 ? 'selected' : '' }}>50</option>
         </select>
     </div>
-    <noscript><button type="submit" class="btn" style="padding:10px 14px; border-radius:8px; border:0; background:#0f172a; color:#fff; cursor:pointer;">Apply</button></noscript>
+    <noscript><button type="submit" class="btn secondary">Apply</button></noscript>
 </form>
+    </div>
 
-<div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-        <div style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:700;">
-            Orders ({{ method_exists($orders,'total') ? $orders->total() : $orders->count() }})
-        </div>
+<div class="card">
+    <div class="font-bold" style="margin-bottom:12px;">
+        Orders ({{ method_exists($orders,'total') ? $orders->total() : $orders->count() }})
+    </div>
 
         @if($orders->count() === 0)
-            <div style="padding:12px; color:#64748b;">No orders loaded yet.</div>
+            <div class="text-secondary" style="padding:12px 0;">No orders loaded yet.</div>
         @else
-            <table style="width:100%; border-collapse:collapse;">
+            <div class="table-wrap">
+            <table class="table">
                 <thead>
-                    <tr style="background:#f8fafc; text-align:left;">
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:42px;">
+                    <tr>
+                        <th style="width:42px;">
                             <input type="checkbox" aria-label="Select all" disabled>
                         </th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; min-width:360px;">Products</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:110px;">Quantity</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:140px;">Product Price</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Amount</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Shipping</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Status</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:360px;">Actions</th>
+                        <th style="min-width:360px;">Products</th>
+                        <th style="width:110px;">Quantity</th>
+                        <th style="width:140px;">Product Price</th>
+                        <th>Amount</th>
+                        <th>Shipping</th>
+                        <th>Status</th>
+                        <th style="width:360px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -216,7 +210,7 @@
                                 if (!is_array($items)) $items = [];
                             }
 
-                            
+
                             // Group identical products (same SKU + name + variation) and sum quantities
                             $grouped = [];
                             if (is_array($items)) {
@@ -283,7 +277,7 @@
                             if (is_array($trackingNo)) $trackingNo = implode(', ', $trackingNo);
                             $trackingNo = is_string($trackingNo) ? trim($trackingNo) : null;
 
-                            // SLA / urgency: show only if present in API (we'll standardize later)
+                            // SLA / urgency
                             $sla = $raw['sla_time'] ?? $raw['shipping_sla'] ?? $raw['sla'] ?? $raw['ship_by_date'] ?? null;
                             if (is_array($sla)) $sla = implode(', ', $sla);
                             $sla = is_string($sla) ? trim($sla) : null;
@@ -292,20 +286,20 @@
                         @if($orderId)
                             <tr>
                                 <td colspan="8" style="padding:10px 12px 6px 12px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-                                        <div style="font-size:12px; color:#64748b; text-align:left; line-height:1.35;">
-                                            <span>Buyer:</span> <span style="color:#334155; font-weight:600;">{{ $buyer !== '' ? $buyer : '—' }}</span>
+                                    <div class="d-flex justify-between items-start gap-12">
+                                        <div class="text-xs text-secondary" style="line-height:1.35;">
+                                            <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
                                             @if($itemCount > 0)
                                                 <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                                             @endif
                                         </div>
-                                        <div style="font-size:12px; color:#64748b; text-align:right; line-height:1.35;">
+                                        <div class="text-xs text-secondary text-right" style="line-height:1.35;">
                                             <span>Order Number:</span>
-                                            <a href="{{ route('lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" style="color:#334155; font-weight:600; text-decoration:underline; text-underline-offset:2px;">
+                                            <a href="{{ route('lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" class="font-semibold" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
                                                 {{ $orderId }}
                                             </a>
                                             @if($created)
-                                                <span style="margin-left:8px;">Create Time:</span> <span style="color:#334155; font-weight:600;">{{ $created }}</span>
+                                                <span style="margin-left:8px;">Create Time:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
                                             @endif
                                         </div>
                                     </div>
@@ -313,7 +307,7 @@
                             </tr>
                         @endif
 
-         
+
                         @php
                             $displayItems = !empty($groupedItems) ? $groupedItems : $items;
                             if (!is_array($displayItems)) { $displayItems = []; }
@@ -324,16 +318,16 @@
                         @foreach($displayItems as $idx => $it)
                         <tr>
                             @if($idx === 0)
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                 @if(!$orderId || !$canSelect)
-                                    <span style="color:#94a3b8;">—</span>
+                                    <span class="text-muted">—</span>
                                 @else
                                     <input type="checkbox" name="select_order[]" value="{{ $orderId }}">
                                 @endif
                             </td>
                             @endif
 
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+                            <td style="vertical-align:top;">
                                 @php
                                     $itRaw = $it['raw'] ?? $it;
                                     $name = (string)($it['name'] ?? $itRaw['name'] ?? $itRaw['item_name'] ?? $itRaw['product_name'] ?? '');
@@ -342,40 +336,40 @@
                                     $img = (string)($it['image'] ?? $itRaw['image'] ?? $itRaw['product_main_image'] ?? $itRaw['product_image'] ?? '');
                                 @endphp
 
-                                <div style="display:flex; gap:10px;">
-                                    <div style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
+                                <div class="d-flex gap-10">
+                                    <div style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                         @if($img)
                                             <img src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
                                         @else
-                                            <span style="font-size:11px; color:#94a3b8;">No image</span>
+                                            <span class="text-xs text-muted">No image</span>
                                         @endif
                                     </div>
                                     <div style="min-width:0;">
-                                        <div style="font-weight:600; color:#0f172a; white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word;">{{ $name !== '' ? $name : '—' }}</div>
-                                        <div style="margin-top:3px; font-size:12px; color:#334155;">
-                                            <span style="color:#64748b;">Seller SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
+                                        <div class="font-semibold" style="word-break:break-word;">{{ $name !== '' ? $name : '—' }}</div>
+                                        <div class="text-xs" style="margin-top:3px;">
+                                            <span class="text-secondary">Seller SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
                                         </div>
                                         @if($variation !== '')
-                                            <div style="margin-top:3px; font-size:12px; color:#64748b;">{{ $variation }}</div>
+                                            <div class="text-xs text-secondary" style="margin-top:3px;">{{ $variation }}</div>
                                         @endif
                                     </div>
                                 </div>
                             </td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+                            <td style="vertical-align:top;">
                                 @php
                                     $itRaw = $it['raw'] ?? $it;
                                     $qty = (int)($it['quantity'] ?? $itRaw['quantity'] ?? $itRaw['qty'] ?? 1);
                                     if ($qty < 1) { $qty = 1; }
                                 @endphp
-                                <div style="font-weight:800; color:#0f172a;">x{{ $qty }}</div>
+                                <div class="font-bold">x{{ $qty }}</div>
                             </td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+                            <td style="vertical-align:top;">
                                 @php
                                     $itRaw = $it['raw'] ?? $it;
                                     $unitPrice = $itRaw['item_price'] ?? $itRaw['paid_price'] ?? $itRaw['price'] ?? $itRaw['unit_price'] ?? null;
                                     $unitCurrency = $itRaw['currency'] ?? ($raw['currency'] ?? '₱');
                                 @endphp
-                                <div style="font-weight:800; color:#0f172a;">
+                                <div class="font-bold">
                                     @if($unitPrice !== null && $unitPrice !== '')
                                         {{ is_numeric($unitPrice) ? $unitCurrency . number_format((float)$unitPrice, 2) : $unitPrice }}
                                     @else
@@ -385,8 +379,8 @@
                             </td>
 
                             @if($idx === 0)
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:700; color:#0f172a;">
+                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                <div class="font-bold">
                                     @if($totalAmount !== null && $totalAmount !== '')
                                         {{ is_numeric($totalAmount) ? $currency . number_format((float)$totalAmount, 2) : $totalAmount }}
                                     @else
@@ -394,71 +388,70 @@
                                     @endif
                                 </div>
                                 @if($paymentBadge)
-                                    <div style="margin-top:6px; display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #e5e7eb; background:#f8fafc; color:#334155;">
-                                        {{ $paymentBadge }}
+                                    <div style="margin-top:6px;">
+                                        <span class="badge badge-gray">{{ $paymentBadge }}</span>
                                     </div>
                                 @endif
                             </td>
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:600; color:#0f172a;">{{ $courier ?: '—' }}</div>
+                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                <div class="font-semibold">{{ $courier ?: '—' }}</div>
                                 @if($deliveryMethod)
-                                    <div style="margin-top:4px; font-size:12px; color:#64748b;">{{ $deliveryMethod }}</div>
+                                    <div class="text-xs text-secondary" style="margin-top:4px;">{{ $deliveryMethod }}</div>
                                 @endif
                                 @if($trackingNo)
-                                    <div style="margin-top:4px; font-size:12px; color:#64748b;">Tracking: <span style="color:#334155;">{{ $trackingNo }}</span></div>
+                                    <div class="text-xs text-secondary" style="margin-top:4px;">Tracking: <span style="color:var(--text-primary);">{{ $trackingNo }}</span></div>
                                 @endif
                             </td>
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:700; color:#0f172a;">{{ $statusStr !== '' ? $statusStr : '—' }}</div>
+                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                <div class="font-bold">{{ $statusStr !== '' ? $statusStr : '—' }}</div>
                                 @if($sla)
-                                    <div style="margin-top:6px; display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #e5e7eb; background:#fff7ed; color:#9a3412;">
-                                        {{ $sla }}
+                                    <div style="margin-top:6px;">
+                                        <span class="badge badge-yellow">{{ $sla }}</span>
                                     </div>
                                 @endif
                             </td>
-                            <td rowspan="{{ $lineCount }}" style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                 @if(!$orderId)
-                                    <span style="color:#94a3b8;">N/A</span>
+                                    <span class="text-muted">N/A</span>
                                 @elseif($isUnpaid)
-                                    <span style="color:#94a3b8;">—</span>
+                                    <span class="text-muted">—</span>
                                 @else
-                                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                    <div class="d-flex gap-8 flex-wrap items-center">
                                         {{-- TO PACK (pending): only Pack & Print --}}
                                         @if($isToPack)
                                             <form method="POST" action="{{ route('lazada.orders.pack_print', ['orderId' => $orderId]) }}" onsubmit="return confirm('Pack this order now? This will create packages and make AWB available.');">
                                                 @csrf
-                                                <button type="submit" style="padding:8px 10px; border-radius:8px; border:0; background:#2563eb; color:#fff; cursor:pointer;">Pack &amp; Print</button>
+                                                <button type="submit" class="btn small">Pack &amp; Print</button>
                                             </form>
                                         @endif
 
                                         {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
                                         @if($isToArrange)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="display:inline-block; padding:8px 10px; border-radius:8px; background:#0f172a; color:#fff; text-decoration:none;">Print AWB</a>
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
 
                                             <form method="POST" action="{{ route('lazada.orders.rts', ['orderId' => $orderId]) }}" onsubmit="return confirm('Arrange Shipment (Ready To Ship) for this order?');">
                                                 @csrf
-                                                <button type="submit" style="padding:8px 10px; border-radius:8px; border:0; background:#16a34a; color:#fff; cursor:pointer;">Arrange Shipment</button>
+                                                <button type="submit" class="btn small" style="background:#16a34a; border-color:#16a34a; color:#fff;">Arrange Shipment</button>
                                             </form>
 
                                             <form method="POST" action="{{ route('lazada.orders.recreate_package', ['orderId' => $orderId]) }}" onsubmit="return confirm('Recreate Package (local)? Lazada may still keep the original package. Continue?');">
                                                 @csrf
-                                                <button type="submit" style="padding:8px 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Recreate Package</button>
+                                                <button type="submit" class="btn small secondary">Recreate Package</button>
                                             </form>
                                         @endif
 
                                         {{-- TO HANDOVER (ready_to_ship): Print only --}}
                                         @if($isToHandover)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="display:inline-block; padding:8px 10px; border-radius:8px; background:#0f172a; color:#fff; text-decoration:none;">Print AWB</a>
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
                                         @endif
 
                                         {{-- Cancel available in these workflow statuses --}}
                                         @if($isToPack || $isToArrange || $isToHandover)
                                             <button type="button"
-                                                    class="btnCancelOrder"
+                                                    class="btnCancelOrder btn small danger"
                                                     data-order-id="{{ $orderId }}"
                                                     data-reasons-url="{{ route('lazada.orders.cancel_reasons', ['orderId' => $orderId]) }}"
-                                                    data-submit-url="{{ route('lazada.orders.cancel', ['orderId' => $orderId]) }}"
-                                                    style="padding:8px 10px; border-radius:8px; border:1px solid #ef4444; background:#fff; color:#b91c1c; cursor:pointer;">
+                                                    data-submit-url="{{ route('lazada.orders.cancel', ['orderId' => $orderId]) }}">
                                                 Cancel
                                             </button>
                                         @endif
@@ -466,19 +459,19 @@
 
                                     {{-- Print quick-links (only when AWB exists) --}}
                                     @if($isToArrange || $isToHandover)
-                                        <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; font-size:12px;">
-                                            <span style="color:#64748b;">Print:</span>
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:#2563eb; text-decoration:none;">AWB</a>
-                                            <span style="color:#cbd5e1;">|</span>
-                                            <a href="{{ route('lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:#2563eb; text-decoration:none;">Packing List</a>
-                                            <span style="color:#cbd5e1;">|</span>
-                                            <a href="{{ route('lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:#2563eb; text-decoration:none;">Pick List</a>
+                                        <div class="d-flex gap-10 flex-wrap text-xs" style="margin-top:8px;">
+                                            <span class="text-secondary">Print:</span>
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
+                                            <span class="text-muted">|</span>
+                                            <a href="{{ route('lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Packing List</a>
+                                            <span class="text-muted">|</span>
+                                            <a href="{{ route('lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Pick List</a>
 
-                                            <span style="color:#cbd5e1;">|</span>
+                                            <span class="text-muted">|</span>
                                             <button type="button"
                                                     class="btnLzLogistics"
                                                     data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
-                                                    style="border:0; padding:0; background:transparent; color:#2563eb; cursor:pointer; font-size:12px;">
+                                                    style="border:0; padding:0; background:transparent; color:var(--accent); cursor:pointer; font-size:12px;">
                                                 Logistics Status
                                             </button>
                                         </div>
@@ -491,101 +484,102 @@
                @endforeach
                 </tbody>
             </table>
-            <div style="padding:12px; border-top:1px solid #e5e7eb;">{{ $orders->links() }}</div>
+            </div>
+            <div style="padding:12px 0 0;">{{ $orders->links() }}</div>
         @endif
     </div>
-</div>
-<form method="POST" action="{{ route('lazada.orders.reset') }}" id="formResetLazadaOrders" style="display:none;">
+
+<form method="POST" action="{{ route('lazada.orders.reset') }}" id="formResetLazadaOrders" class="hidden">
     @csrf
     <input type="hidden" name="confirm" id="resetConfirmInput" value="">
 </form>
 
 {{-- Loading overlay for long-running fetch/reset actions --}}
-<div id="lzLoadingOverlay" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:9999;">
-    <div style="background:#fff; border-radius:14px; padding:18px 18px; width:min(420px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div aria-hidden="true" style="width:18px; height:18px; border:3px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></div>
+<div id="lzLoadingOverlay" class="modal-backdrop">
+    <div class="modal" style="max-width:420px;">
+        <div class="d-flex items-center gap-12">
+            <div aria-hidden="true" style="width:18px; height:18px; border:3px solid #cbd5e1; border-top-color:var(--accent); border-radius:50%; animation:lzSpin 0.8s linear infinite;"></div>
             <div>
-                <div id="lzLoadingTitle" style="font-weight:700; color:#0f172a;">Fetching orders…</div>
-                <div style="font-size:12px; color:#64748b; margin-top:2px;">Please keep this tab open. This may take a while depending on Lazada API response.</div>
+                <div id="lzLoadingTitle" class="font-bold">Fetching orders…</div>
+                <div class="text-xs text-secondary" style="margin-top:2px;">Please keep this tab open. This may take a while depending on Lazada API response.</div>
             </div>
         </div>
     </div>
 </div>
 
 {{-- Pack & Print follow-up modal --}}
-<div id="lzPackPrintModal" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:10000;">
-    <div style="background:#fff; border-radius:14px; padding:16px; width:min(520px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+<div id="lzPackPrintModal" class="modal-backdrop">
+    <div class="modal" style="max-width:520px;">
+        <div class="modal-header">
             <div>
-                <div style="font-weight:800; color:#0f172a;">Pack &amp; Print</div>
-                <div style="font-size:12px; color:#64748b; margin-top:2px;">Choose what to do next. If you close this, the order stays in <strong>To Arrange</strong>.</div>
+                <h3>Pack &amp; Print</h3>
+                <div class="text-xs text-secondary" style="margin-top:2px;">Choose what to do next. If you close this, the order stays in <strong>To Arrange</strong>.</div>
             </div>
-            <button type="button" id="btnClosePackPrint" style="border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; color:#64748b;">×</button>
+            <button type="button" id="btnClosePackPrint" class="modal-close">&times;</button>
         </div>
-        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+        <div class="d-flex gap-10 flex-wrap justify-end mt-16">
             <form method="POST" id="formRecreatePackage" action="#" style="margin:0;">
                 @csrf
-                <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Recreate Package</button>
+                <button type="submit" class="btn secondary">Recreate Package</button>
             </form>
 
             <form method="POST" id="formShipPrint" action="#" style="margin:0;">
                 @csrf
-                <button type="submit" style="padding:10px 12px; border-radius:10px; border:0; background:#16a34a; color:#fff; cursor:pointer;">Ship &amp; Print</button>
+                <button type="submit" class="btn" style="background:#16a34a; border-color:#16a34a;">Ship &amp; Print</button>
             </form>
 
-            <a href="#" id="linkPrintOnly" target="_blank" style="display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; text-decoration:none;">Print Only</a>
+            <a href="#" id="linkPrintOnly" target="_blank" class="btn secondary">Print Only</a>
         </div>
     </div>
 </div>
 
 {{-- Cancel order modal --}}
-<div id="lzCancelModal" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:10000;">
-    <div style="background:#fff; border-radius:14px; padding:16px; width:min(560px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+<div id="lzCancelModal" class="modal-backdrop">
+    <div class="modal" style="max-width:560px;">
+        <div class="modal-header">
             <div>
-                <div style="font-weight:800; color:#0f172a;">Cancel Order</div>
-                <div id="lzCancelModalSub" style="font-size:12px; color:#64748b; margin-top:2px;"></div>
+                <h3>Cancel Order</h3>
+                <div id="lzCancelModalSub" class="text-xs text-secondary" style="margin-top:2px;"></div>
             </div>
-            <button type="button" id="btnCloseCancel" style="border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; color:#64748b;">×</button>
+            <button type="button" id="btnCloseCancel" class="modal-close">&times;</button>
         </div>
 
-        <form method="POST" id="lzCancelForm" action="#" style="margin-top:14px;">
+        <form method="POST" id="lzCancelForm" action="#" class="mt-16">
             @csrf
             <div>
-                <label style="display:block; font-size:12px; color:#64748b; margin-bottom:6px;">Reason</label>
-                <select name="reason_id" id="lzCancelReason" required style="width:100%; padding:10px 10px; border:1px solid #cbd5e1; border-radius:10px;">
+                <label>Reason</label>
+                <select name="reason_id" id="lzCancelReason" required class="input">
                     <option value="" selected disabled>Loading reasons…</option>
                 </select>
-                <div id="lzCancelReasonErr" style="display:none; margin-top:6px; color:#dc2626; font-size:12px;"></div>
+                <div id="lzCancelReasonErr" class="field-error hidden"></div>
             </div>
-            <div style="margin-top:12px;">
-                <label style="display:block; font-size:12px; color:#64748b; margin-bottom:6px;">Details (optional)</label>
-                <textarea name="reason_detail" rows="2" style="width:100%; padding:10px 10px; border:1px solid #cbd5e1; border-radius:10px; resize:vertical;" placeholder="Add extra details if needed"></textarea>
+            <div class="mt-12">
+                <label>Details (optional)</label>
+                <textarea name="reason_detail" rows="2" class="input" placeholder="Add extra details if needed" style="resize:vertical;"></textarea>
             </div>
-            <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
-                <button type="button" id="btnCancelClose2" style="padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Close</button>
-                <button type="submit" style="padding:10px 12px; border-radius:10px; border:0; background:#ef4444; color:#fff; cursor:pointer;">Confirm Cancel</button>
+            <div class="d-flex gap-10 justify-end mt-16">
+                <button type="button" id="btnCancelClose2" class="btn secondary">Close</button>
+                <button type="submit" class="btn danger">Confirm Cancel</button>
             </div>
         </form>
     </div>
 </div>
 
 {{-- Logistics status modal --}}
-<div id="lzLogisticsModal" style="position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:10000;">
-    <div style="background:#fff; border-radius:14px; padding:16px; width:min(720px, calc(100% - 32px)); box-shadow:0 10px 35px rgba(0,0,0,.22);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+<div id="lzLogisticsModal" class="modal-backdrop">
+    <div class="modal" style="max-width:720px;">
+        <div class="modal-header">
             <div>
-                <div style="font-weight:800; color:#0f172a;">Logistics Status</div>
-                <div id="lzLogisticsSub" style="font-size:12px; color:#64748b; margin-top:2px;"></div>
+                <h3>Logistics Status</h3>
+                <div id="lzLogisticsSub" class="text-xs text-secondary" style="margin-top:2px;"></div>
             </div>
-            <button type="button" id="btnCloseLogistics" style="border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; color:#64748b;">×</button>
+            <button type="button" id="btnCloseLogistics" class="modal-close">&times;</button>
         </div>
-        <div id="lzLogisticsBody" style="margin-top:14px; font-size:12px; color:#0f172a;">
-            <div style="color:#64748b;">Loading…</div>
+        <div id="lzLogisticsBody" class="text-xs mt-16">
+            <div class="text-secondary">Loading…</div>
         </div>
-        <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
-            <button type="button" id="btnLogisticsClose2" style="padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer;">Close</button>
+        <div class="d-flex gap-10 justify-end mt-16">
+            <button type="button" id="btnLogisticsClose2" class="btn secondary">Close</button>
         </div>
     </div>
 </div>
@@ -608,12 +602,11 @@ document.addEventListener('DOMContentLoaded', function () {
             var v = prompt('Type RESET to delete Lazada orders and re-sync:');
             if (!v) return;
             input.value = v.trim();
-            // Show loading overlay for reset
             var ov = document.getElementById('lzLoadingOverlay');
             var tt = document.getElementById('lzLoadingTitle');
             if (ov) {
                 if (tt) tt.textContent = 'Resetting orders…';
-                ov.style.display = 'flex';
+                ov.classList.add('active');
             }
             form.submit();
         });
@@ -648,17 +641,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateBtn.disabled = true;
                 updateBtn.style.opacity = '0.85';
             }
-            // Show the right inline spinner
             if (nextTitle === 'Updating orders…') {
-                if (inlineUpSp) inlineUpSp.style.display = 'inline-block';
+                if (inlineUpSp) inlineUpSp.classList.remove('hidden');
             } else {
-                if (inlineSp) inlineSp.style.display = 'inline-block';
+                if (inlineSp) inlineSp.classList.remove('hidden');
             }
             var ov = document.getElementById('lzLoadingOverlay');
             var tt = document.getElementById('lzLoadingTitle');
             if (ov) {
                 if (tt) tt.textContent = nextTitle;
-                ov.style.display = 'flex';
+                ov.classList.add('active');
             }
         });
     }
@@ -681,12 +673,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (formShipPrint) formShipPrint.action = shipTpl.replace('__OID__', orderId);
         if (formRecreate) formRecreate.action = recreateTpl.replace('__OID__', orderId);
 
-        packPrintModal.style.display = 'flex';
+        packPrintModal.classList.add('active');
     }
 
     function hidePackPrintModal() {
         if (!packPrintModal) return;
-        packPrintModal.style.display = 'none';
+        packPrintModal.classList.remove('active');
     }
 
     if (closePackPrint) closePackPrint.addEventListener('click', hidePackPrintModal);
@@ -710,11 +702,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function showCancelModal() {
         if (!cancelModal) return;
-        cancelModal.style.display = 'flex';
+        cancelModal.classList.add('active');
     }
     function hideCancelModal() {
         if (!cancelModal) return;
-        cancelModal.style.display = 'none';
+        cancelModal.classList.remove('active');
     }
 
     if (closeCancel) closeCancel.addEventListener('click', hideCancelModal);
@@ -728,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function setCancelReasonLoading() {
         if (!cancelReason) return;
         cancelReason.innerHTML = '<option value="" selected disabled>Loading reasons…</option>';
-        if (cancelErr) { cancelErr.style.display = 'none'; cancelErr.textContent = ''; }
+        if (cancelErr) { cancelErr.classList.add('hidden'); cancelErr.textContent = ''; }
     }
 
     async function loadCancelReasons(url) {
@@ -762,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         } catch (e) {
             if (cancelErr) {
-                cancelErr.style.display = 'block';
+                cancelErr.classList.remove('hidden');
                 cancelErr.textContent = e && e.message ? e.message : 'Failed to fetch reasons.';
             }
             if (cancelReason) {
@@ -794,11 +786,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function showLogisticsModal() {
         if (!logisticsModal) return;
-        logisticsModal.style.display = 'flex';
+        logisticsModal.classList.add('active');
     }
     function hideLogisticsModal() {
         if (!logisticsModal) return;
-        logisticsModal.style.display = 'none';
+        logisticsModal.classList.remove('active');
     }
     if (closeLogistics) closeLogistics.addEventListener('click', hideLogisticsModal);
     if (closeLogistics2) closeLogistics2.addEventListener('click', hideLogisticsModal);
@@ -815,32 +807,31 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function renderTrace(body) {
-        // Attempt to normalize common structures
         var data = (body && body.data) ? body.data : body;
         var traces = (data && (data.traces || data.trace_list || data.traceList || data.events)) || [];
         if (!Array.isArray(traces)) traces = [];
         if (!logisticsBody) return;
 
         if (traces.length === 0) {
-            logisticsBody.innerHTML = '<div style="color:#64748b;">No logistics events returned by Lazada for this order.</div>';
+            logisticsBody.innerHTML = '<div class="text-secondary">No logistics events returned by Lazada for this order.</div>';
             return;
         }
 
-        var html = '<div style="border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">';
-        html += '<table style="width:100%; border-collapse:collapse;">';
-        html += '<thead><tr style="background:#f8fafc;">'
-            + '<th style="text-align:left; padding:10px; font-size:12px; border-bottom:1px solid #e5e7eb; width:160px;">Time</th>'
-            + '<th style="text-align:left; padding:10px; font-size:12px; border-bottom:1px solid #e5e7eb;">Status</th>'
-            + '<th style="text-align:left; padding:10px; font-size:12px; border-bottom:1px solid #e5e7eb;">Details</th>'
+        var html = '<div class="table-wrap">';
+        html += '<table class="table">';
+        html += '<thead><tr>'
+            + '<th style="width:160px;">Time</th>'
+            + '<th>Status</th>'
+            + '<th>Details</th>'
             + '</tr></thead><tbody>';
         traces.forEach(function (t) {
             var time = t.event_time || t.time || t.timestamp || t.update_time || '';
             var status = t.status || t.event || t.action || t.title || '';
             var detail = t.description || t.desc || t.detail || t.message || '';
             html += '<tr>'
-                + '<td style="padding:10px; border-bottom:1px solid #e5e7eb; color:#0f172a;">' + esc(time) + '</td>'
-                + '<td style="padding:10px; border-bottom:1px solid #e5e7eb; font-weight:700;">' + esc(status) + '</td>'
-                + '<td style="padding:10px; border-bottom:1px solid #e5e7eb; color:#334155;">' + esc(detail) + '</td>'
+                + '<td>' + esc(time) + '</td>'
+                + '<td class="font-bold">' + esc(status) + '</td>'
+                + '<td>' + esc(detail) + '</td>'
                 + '</tr>';
         });
         html += '</tbody></table></div>';
@@ -849,7 +840,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function fetchLogistics(url) {
         if (!logisticsBody) return;
-        logisticsBody.innerHTML = '<div style="color:#64748b;">Loading…</div>';
+        logisticsBody.innerHTML = '<div class="text-secondary">Loading…</div>';
         try {
             var r = await fetch(url, { headers: { 'Accept': 'application/json' } });
             var j = await r.json();
@@ -859,7 +850,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             renderTrace(j.body);
         } catch (e) {
-            logisticsBody.innerHTML = '<div style="color:#dc2626;">' + esc(e && e.message ? e.message : 'Failed to fetch logistics trace') + '</div>';
+            logisticsBody.innerHTML = '<div style="color:var(--danger);">' + esc(e && e.message ? e.message : 'Failed to fetch logistics trace') + '</div>';
         }
     }
 

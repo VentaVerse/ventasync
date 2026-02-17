@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Categories')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Categories</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('categories.create') }}">Add Category</a>
 
             <select class="input" name="action" form="category-bulk-form" style="width:180px;">
@@ -27,6 +28,7 @@
         @csrf
     </form>
 
+    <div class="table-wrap">
     <table>
         <thead>
         <tr>
@@ -50,7 +52,7 @@
                 <td>{{ $c->parent_name ?? '-' }}</td>
                 <td>{{ (int)$c->sort_order }}</td>
                 <td>{{ (int)$c->status === 1 ? 'Enabled' : 'Disabled' }}</td>
-                <td style="display:flex; gap:8px; align-items:center;">
+                <td class="d-flex gap-8 items-center">
                     <a class="btn small" href="{{ route('categories.edit', $c->category_id) }}">Edit</a>
                     <form method="POST" action="{{ route('categories.destroy', $c->category_id) }}" onsubmit="return confirm('Delete this category?')">
                         @csrf
@@ -62,6 +64,7 @@
         @endforeach
         </tbody>
     </table>
+    </div>
 
     <script>
         (function () {
@@ -111,7 +114,7 @@
         })();
     </script>
 
-    <div style="margin-top:14px;">
+    <div class="mt-16">
         {{ $categories->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>

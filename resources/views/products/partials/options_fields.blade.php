@@ -14,13 +14,13 @@
 
 <div id="options-root"></div>
 
-<div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+<div class="d-flex gap-10 items-center mt-12">
     <button class="btn secondary" type="button" id="add-option-btn">Add Option</button>
 </div>
 
 <template id="tpl-option">
-    <div class="card" style="margin-top:14px; padding:14px; border:1px solid rgba(255,255,255,0.08);">
-        <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+    <div class="card mt-16" style="padding:14px;">
+        <div class="d-flex gap-10 flex-wrap" style="align-items:end;">
             <div style="min-width:260px; flex:1;">
                 <label class="required">Option</label>
                 <select class="input js-option-select"></select>
@@ -38,19 +38,19 @@
             </div>
         </div>
 
-        <div class="hint" style="margin-top:8px;">For select/radio/checkbox: add values below. For text/date/time/file: the value is stored in OpenCart's product_option.value.</div>
+        <div class="hint mt-12">For select/radio/checkbox: add values below. For text/date/time/file: the value is stored in OpenCart's product_option.value.</div>
 
-        <div class="js-values" style="margin-top:10px;"></div>
+        <div class="js-values mt-12"></div>
 
-        <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+        <div class="d-flex gap-10 items-center mt-12">
             <button class="btn secondary" type="button" data-action="add-value">Add Value</button>
         </div>
     </div>
 </template>
 
 <template id="tpl-value-row">
-    <div class="card" style="margin-top:10px; padding:12px; border:1px solid rgba(255,255,255,0.08);">
-        <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+    <div class="card mt-12" style="padding:12px;">
+        <div class="d-flex gap-10 flex-wrap" style="align-items:end;">
             <div style="min-width:240px; flex:1;">
                 <label class="required">Value</label>
                 <select class="input js-value-select"></select>

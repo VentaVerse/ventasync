@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Settings / Edit User Group')
 
 @section('content')
 <div class="card">
@@ -18,30 +19,30 @@
             </div>
 
             <div class="full">
-    <label>Permissions</label>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
-        @foreach($permissions as $perm)
-            <label style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #e5e7eb; border-radius:12px;">
-                <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
-                    {{ in_array($perm->id, $selected) ? 'checked' : '' }}>
-                <div>
-                    <div style="font-weight:700;">{{ $perm->label }}</div>
-                    <div class="hint">{{ $perm->key }}</div>
+                <label>Permissions</label>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+                    @foreach($permissions as $perm)
+                        <label style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #e5e7eb; border-radius:12px;">
+                            <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
+                                {{ in_array($perm->id, $selected) ? 'checked' : '' }}>
+                            <div>
+                                <div class="font-bold">{{ $perm->label }}</div>
+                                <div class="hint">{{ $perm->key }}</div>
+                            </div>
+                        </label>
+                    @endforeach
                 </div>
-            </label>
-        @endforeach
-    </div>
-</div>
+            </div>
         </div>
 
     </form>
 
-    <form id="user-group-delete-form" method="POST" action="{{ route('user_groups.destroy', $group->id) }}" onsubmit="return confirm('Delete this group?')" style="display:none;">
+    <form id="user-group-delete-form" method="POST" action="{{ route('user_groups.destroy', $group->id) }}" onsubmit="return confirm('Delete this group?')" class="hidden">
         @csrf
         @method('DELETE')
     </form>
 
-    <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+    <div class="mt-16 d-flex gap-10 items-center">
         <button class="btn" type="submit" form="user-group-update-form">Update</button>
         <button class="btn danger" type="submit" form="user-group-delete-form">Delete</button>
     </div>

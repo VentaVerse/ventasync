@@ -1,12 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Marketplace / Lazada')
 
 @section('content')
 <div class="page-header">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <h1 style="margin:0;">Lazada</h1>
-        <div style="display:flex; gap:8px;">
-            <a class="btn" href="{{ route('lazada.products.index') }}">Go to Products</a>
-        </div>
+    <h2>Lazada</h2>
+    <div class="page-header-actions">
+        <a class="btn" href="{{ route('lazada.products.index') }}">Go to Products</a>
     </div>
 </div>
 
@@ -16,8 +15,8 @@
     <form method="POST" action="{{ route('lazada.save') }}">
         @csrf
 
-        <div class="grid-2">
-            <div class="field">
+        <div class="form-grid">
+            <div>
                 <label>Region</label>
                 <select name="region" class="input">
                     <option value="">(not set)</option>
@@ -30,65 +29,65 @@
                 </select>
             </div>
 
-            <div class="field">
+            <div>
                 <label>Redirect URI</label>
                 <input class="input" name="redirect_uri" value="{{ old('redirect_uri', $setting->redirect_uri ?? $defaultRedirect) }}">
-                <div class="help">Use this as the app callback URL in Lazada Open Platform.</div>
+                <div class="hint">Use this as the app callback URL in Lazada Open Platform.</div>
             </div>
 
-            <div class="field">
+            <div>
                 <label>App Key</label>
                 <input class="input" name="app_key" value="{{ old('app_key', $setting->app_key ?? '') }}">
             </div>
 
-            <div class="field">
+            <div>
                 <label>App Secret</label>
                 <input class="input" name="app_secret" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
-                <div class="help">Stored encrypted.</div>
+                <div class="hint">Stored encrypted.</div>
             </div>
         </div>
 
-        <div class="actions">
-            <button class="btn btn-primary" type="submit">Save Settings</button>
+        <div class="d-flex gap-8 mt-12">
+            <button class="btn" type="submit">Save Settings</button>
         </div>
     </form>
 </div>
 
-<div class="card">
+<div class="card mt-16">
     <h2>OAuth Proof of Concept</h2>
 
-    <div class="actions">
+    <div class="d-flex gap-8">
         <a class="btn" href="{{ route('lazada.authorize') }}" target="_blank" rel="noopener">Authorize with Lazada</a>
     </div>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
     <form method="POST" action="{{ route('lazada.token_create') }}">
         @csrf
-        <div class="field">
+        <div>
             <label>Auth Code (from callback)</label>
             <input class="input" name="code" value="{{ old('code', $setting->auth_code ?? session('lazada_last_auth_code') ?? '') }}" placeholder="Will auto-fill after a successful callback, or paste code=... here">
         </div>
 
-        <div class="actions">
-            <button class="btn btn-primary" type="submit">Exchange Code → Token</button>
+        <div class="d-flex gap-8 mt-12">
+            <button class="btn" type="submit">Exchange Code → Token</button>
         </div>
     </form>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
-    <div class="actions">
+    <div class="d-flex gap-8">
         <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline">
             @csrf
             <button class="btn" type="submit">Refresh Access Token</button>
         </form>
     </div>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
-    <h3>API Explorer</h3>
+    <h3 class="section-title">API Explorer</h3>
 
-    <div class="help" style="margin-top:6px;">
+    <div class="hint" style="margin-top:6px;">
         Pick an endpoint, fill parameters in a friendly table, and run. Base signing fields are generated automatically.
         <br><span class="lz-code">E005: Invalid Request Format</span> usually means the endpoint expects a specific payload format (e.g., <span class="lz-code">payload</span> as a JSON/XML string).
     </div>
@@ -97,24 +96,22 @@
         .lz-code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
         .lz-explorer{display:grid;grid-template-columns: 360px 1fr;gap:14px;margin-top:12px;}
         @media (max-width: 1100px){.lz-explorer{grid-template-columns:1fr;}}
-        .lz-panel{border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#fff;}
+        .lz-panel{border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;background:var(--surface);}
         .lz-search{display:flex;gap:8px;align-items:center;}
-        .lz-search input{width:100%;}
         .lz-list{margin-top:10px;max-height:520px;overflow:auto;padding-right:4px;}
         .lz-cat{margin:10px 0 6px;font-weight:700;color:#111827;font-size:13px;text-transform:uppercase;letter-spacing:.03em;}
-        .lz-endpoint{width:100%;text-align:left;border:1px solid #e5e7eb;border-radius:10px;padding:10px 10px;margin-bottom:8px;background:#fafafa;cursor:pointer;}
-        .lz-endpoint:hover{background:#f3f4f6;}
-        .lz-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;margin-right:8px;}
+        .lz-endpoint{width:100%;text-align:left;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 10px;margin-bottom:8px;background:var(--surface-alt);cursor:pointer;}
+        .lz-endpoint:hover{background:var(--surface-hover);}
+        .lz-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface);margin-right:8px;}
         .lz-badge.get{border-color:#bfdbfe;background:#eff6ff;}
         .lz-badge.post{border-color:#bbf7d0;background:#f0fdf4;}
-        .lz-hint{color:#6b7280;font-size:12px;margin-top:4px;}
+        .lz-hint{color:var(--text-secondary);font-size:12px;margin-top:4px;}
         .lz-kv{width:100%;border-collapse:collapse;}
-        .lz-kv th,.lz-kv td{border-bottom:1px solid #eef2f7;padding:8px 6px;vertical-align:top;}
-        .lz-kv th{color:#374151;font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
-        .lz-kv input,.lz-kv textarea{width:100%;}
+        .lz-kv th,.lz-kv td{border-bottom:1px solid var(--border-light);padding:8px 6px;vertical-align:top;}
+        .lz-kv th{color:var(--text-primary);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
         .lz-row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-        .lz-mini{font-size:12px;color:#6b7280;}
-        .lz-note{border:1px dashed #e5e7eb;border-radius:10px;padding:10px;background:#fcfcfd;color:#374151;}
+        .lz-mini{font-size:12px;color:var(--text-secondary);}
+        .lz-note{border:1px dashed var(--border);border-radius:var(--radius-md);padding:10px;background:var(--surface-alt);color:var(--text-primary);}
         .lz-split{display:grid;grid-template-columns: 1fr 1fr;gap:10px;}
         @media (max-width: 900px){.lz-split{grid-template-columns:1fr;}}
     </style>
@@ -166,17 +163,17 @@
         <div class="lz-panel">
             <div class="lz-split" style="margin-bottom:10px;">
                 <div>
-                    <div class="field" style="margin-bottom:0;">
+                    <div style="margin-bottom:0;">
                         <label>Selected Endpoint</label>
                         <div class="lz-mini" id="lz-ep-name">None selected</div>
                         <div class="lz-hint" id="lz-ep-desc"></div>
                     </div>
                 </div>
                 <div class="lz-note">
-                    <div style="font-weight:700; margin-bottom:6px;">Common pitfalls</div>
+                    <div class="font-bold" style="margin-bottom:6px;">Common pitfalls</div>
                     <div class="lz-mini">
                         <div>• <span class="lz-code">payload</span> must be a single string. If you paste JSON object/array, the server will encode it, but Lazada may require a specific structure.</div>
-                        <div>• If you see repeated timestamps, you’re reading an old log entry. Always check the newest row.</div>
+                        <div>• If you see repeated timestamps, you're reading an old log entry. Always check the newest row.</div>
                     </div>
                 </div>
             </div>
@@ -184,17 +181,17 @@
             <form id="lazada-api-explorer-form" method="POST" action="{{ route('lazada.explorer_run') }}">
                 @csrf
 
-                <div class="grid-2">
-                    <div class="field">
+                <div class="form-grid">
+                    <div>
                         <label>Method</label>
                         <select name="method" class="input" id="lazada-explorer-method">
                             <option value="GET" {{ old('method', 'GET') === 'GET' ? 'selected' : '' }}>GET</option>
                             <option value="POST" {{ old('method') === 'POST' ? 'selected' : '' }}>POST</option>
                         </select>
                     </div>
-                    <div class="field">
+                    <div>
                         <label>Auth</label>
-                        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                        <label class="d-flex items-center gap-8" style="margin-top:6px;">
                             <input type="checkbox" name="auth_required" value="1" id="lazada-explorer-auth" {{ old('auth_required') ? 'checked' : '' }}>
                             Use Access Token
                         </label>
@@ -202,13 +199,13 @@
                     </div>
                 </div>
 
-                <div class="field">
+                <div style="margin-top:12px;">
                     <label>API Path</label>
                     <input class="input" name="api_path" id="lazada-explorer-path" value="{{ old('api_path', '/seller/get') }}" placeholder="/seller/get">
                     <div class="lz-mini">Leading slash will be added automatically.</div>
                 </div>
 
-                <div class="field">
+                <div style="margin-top:12px;">
                     <label>Parameters</label>
                     <div class="lz-mini" style="margin-bottom:8px;">Use this table for most calls. It will generate JSON automatically.</div>
                     <table class="lz-kv" id="lz-kv-table">
@@ -222,22 +219,22 @@
                         <tbody id="lz-kv-body"></tbody>
                     </table>
                     <div class="lz-row-actions" style="margin-top:10px;">
-                        <button class="btn" type="button" id="lz-add-row">Add Param</button>
-                        <button class="btn" type="button" id="lz-use-sample-payload" style="display:none;">Insert Sample Payload</button>
-                        <button class="btn" type="button" id="lz-sync-to-json">Update JSON</button>
+                        <button class="btn small" type="button" id="lz-add-row">Add Param</button>
+                        <button class="btn small hidden" type="button" id="lz-use-sample-payload">Insert Sample Payload</button>
+                        <button class="btn small" type="button" id="lz-sync-to-json">Update JSON</button>
                         <span class="lz-mini">(Auto updates before submit)</span>
                     </div>
                 </div>
 
-                <div class="field">
+                <div style="margin-top:12px;">
                     <label>Params JSON</label>
                     <textarea class="input lz-code" name="params_json_pretty" id="lazada-explorer-params" rows="10" placeholder='{"limit":10,"offset":0}'>{{ old('params_json_pretty', "{\n  \"payload\": {\n    \"Request\": {}\n  }\n}") }}</textarea>
                     <input type="hidden" name="params_json" id="lazada-explorer-params-hidden" value="{{ e(old('params_json', '{"payload":"<xml_or_json_payload_here>"}')) }}" />
-                    <div class="lz-mini">If you prefer, edit JSON directly. The table can be rebuilt from JSON using “Update JSON”.</div>
+                    <div class="lz-mini">If you prefer, edit JSON directly. The table can be rebuilt from JSON using "Update JSON".</div>
                 </div>
 
-                <div class="actions">
-                    <button class="btn btn-primary" type="submit">Run</button>
+                <div class="d-flex gap-8 mt-12">
+                    <button class="btn" type="submit">Run</button>
                 </div>
             </form>
         </div>
@@ -269,12 +266,9 @@ var kvBody    = qs('#lz-kv-body');
         function tryParsePayloadString(pv){
             if (typeof pv !== 'string') return null;
 
-            // 1) Parse as-is
             var parsed = safeJsonParse(pv);
             if (parsed !== null) return { parsed: parsed, normalized: pv };
 
-            // 2) Handle common double-escaped JSON payload strings
-            // Example: "{\n  \"Request\": {\n    ...\n  }\n}"
             if (
                 pv.indexOf('\\n') >= 0 ||
                 pv.indexOf('\\t') >= 0 ||
@@ -313,7 +307,6 @@ var kvBody    = qs('#lz-kv-body');
                     var attempt = tryParsePayloadString(pv);
                     if (attempt && attempt.parsed !== null && (isObject(attempt.parsed) || Array.isArray(attempt.parsed))) {
                         pretty.payload = attempt.parsed;
-                        // Submit payload as a STRING to Lazada, but normalize if it was double-escaped.
                         hidden.payload = attempt.normalized;
                         return { pretty: pretty, hidden: hidden };
                     }
@@ -354,8 +347,6 @@ var kvBody    = qs('#lz-kv-body');
                 v.className = 'input lz-code';
                 v.rows = 6;
                 v.placeholder = 'payload (JSON/XML string)';
-                // Payload must be submitted as a STRING to Lazada.
-                // If JSON is provided in Params JSON (as an object/array), stringify it so we never end up with "[object Object]".
                 if (isObject(value)) {
                     v.value = JSON.stringify(value, null, 2);
                 } else {
@@ -370,7 +361,7 @@ var kvBody    = qs('#lz-kv-body');
 
             var del = document.createElement('button');
             del.type = 'button';
-            del.className = 'btn';
+            del.className = 'btn small';
             del.textContent = 'Remove';
             del.addEventListener('click', function(){
                 tr.remove();
@@ -398,9 +389,6 @@ var kvBody    = qs('#lz-kv-body');
                 var k = keyEl ? String(keyEl.value || '').trim() : '';
                 if(!k) return;
                 var vRaw = valEl ? valEl.value : '';
-                // IMPORTANT:
-                // Lazada expects `payload` to be a single string parameter (usually XML; sometimes JSON-encoded string).
-                // Do NOT auto-parse payload into an object, otherwise it will round-trip as [object Object].
                 if (String(k).toLowerCase() === 'payload') {
                     obj[k] = vRaw;
                 } else {
@@ -449,13 +437,12 @@ var kvBody    = qs('#lz-kv-body');
             (ep.params || []).forEach(function(p){ buildRow(p.k, p.ph || ''); });
             var hasPayload = (ep.params || []).some(function(p){ return String(p.k).toLowerCase() === 'payload'; });
             var hasSample = hasPayload || (String(ep.path || '') === '/product/remove');
-            if (btnSample) btnSample.style.display = hasSample ? '' : 'none';
+            if (btnSample) {
+                if (hasSample) { btnSample.classList.remove('hidden'); } else { btnSample.classList.add('hidden'); }
+            }
             syncToJson();
         }
 
-        // UI helper: keep "payload" readable when it contains multi-line XML.
-        // Strict JSON requires newlines inside strings to be escaped ("\\n"), but in this ERP API Explorer
-        // we intentionally render payload as a multi-line string for readability.
         function stringifyParamsForUi(prettyObj){
             var out = JSON.stringify(prettyObj, null, 2);
             if (!prettyObj || typeof prettyObj !== 'object') return out;
@@ -463,13 +450,10 @@ var kvBody    = qs('#lz-kv-body');
             if (typeof prettyObj.payload !== 'string') return out;
             if (prettyObj.payload.indexOf('\n') === -1) return out;
 
-            // Escape backslashes and quotes, but keep actual newlines.
             var payloadEsc = String(prettyObj.payload)
                 .replace(/\\/g, '\\\\')
                 .replace(/\"/g, '\\"');
 
-            // Replace the JSON-stringified payload value with a multi-line value.
-            // This is best-effort and intentionally prioritizes readability in the UI.
             out = out.replace(/\n(\s*)\"payload\"\s*:\s*\"(?:[^\"\\]|\\.)*\"/m, function(m, indent){
                 return "\n" + indent + "\"payload\": \"" + payloadEsc + "\"";
             });
@@ -498,11 +482,7 @@ var kvBody    = qs('#lz-kv-body');
                     }
                 }, null, 2);
             }
-            // /product/remove uses seller_sku_list and/or sku_id_list (NOT payload)
             if (path === '/images/migrate') {
-                // Use JSON-style sample for consistency in this ERP UI.
-                // NOTE: The backend will normalize common JSON payload shapes into the required XML string
-                // for Lazada image migrate endpoints (to match Lazada API Explorer requirements).
                 return JSON.stringify({
                     Request: {
                         Images: {
@@ -572,20 +552,14 @@ var kvBody    = qs('#lz-kv-body');
             });
         }
 
-        // Track which editor the user touched last.
-        // If the user edits the Key/Value table, that must be the source of truth.
-        // If the user edits Params JSON directly, then JSON is the source of truth.
         var lastEdited = 'table';
 
-        // initial load
         try {
-            // If Params JSON contains valid JSON (e.g., from old sessions), use it to rebuild.
         syncHiddenFromPretty();
         rebuildTableFromJson();
             syncToJson();
         } catch(e) {}
 
-        // Live sync: when user edits Key/Value, update Params JSON immediately.
         var kvBody = qs('#lz-kv-body');
         if (kvBody) {
             kvBody.addEventListener('input', function(e){
@@ -597,16 +571,12 @@ var kvBody    = qs('#lz-kv-body');
             });
         }
 
-        // When user edits Params JSON, mark JSON as source of truth.
         if (paramsTa) {
             paramsTa.addEventListener('input', function(){
                 lastEdited = 'json';
             });
         }
 
-        // On submit: do NOT overwrite user-edited table values from stale JSON.
-        // - If user edited JSON last, rebuild table from JSON (if valid).
-        // - Otherwise, submit table values and keep JSON in sync.
         var form = qs('#lazada-api-explorer-form');
         if (form) form.addEventListener('submit', function(){
             if (lastEdited === 'json') {
@@ -619,8 +589,8 @@ var kvBody    = qs('#lz-kv-body');
     @endpush
 
     @if(!empty($logs) && count($logs) > 0)
-        <div class="divider"></div>
-        <h3>Recent API Logs</h3>
+        <div style="height:1px; background:var(--border); margin:14px 0;"></div>
+        <h3 class="section-title">Recent API Logs</h3>
         <div class="table-wrap">
             <table class="table">
                 <thead>
@@ -640,15 +610,15 @@ var kvBody    = qs('#lz-kv-body');
                             <td>{{ $log->method }}</td>
                             <td>
                                 @if(!empty($log->pack))
-                                    <div class="help" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
+                                    <div class="hint" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
                                 @endif
                                 <div><code>{{ $log->api_path }}</code></div>
                                 <details style="margin-top:6px;">
                                     <summary>View</summary>
                                     <div style="margin-top:8px;">
-                                        <div class="help" style="margin-bottom:6px;">Request Params</div>
+                                        <div class="hint" style="margin-bottom:6px;">Request Params</div>
                                         <pre class="pre" style="max-height:220px; overflow:auto;">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                        <div class="help" style="margin:10px 0 6px;">Response</div>
+                                        <div class="hint" style="margin:10px 0 6px;">Response</div>
                                         <pre class="pre" style="max-height:220px; overflow:auto;">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                     </div>
                                 </details>
@@ -664,73 +634,73 @@ var kvBody    = qs('#lz-kv-body');
     @endif
 </div>
 
-<div class="card">
+<div class="card mt-16">
     <h2>Catalog Proof of Concept</h2>
 
-    <div class="actions">
+    <div class="d-flex gap-8">
         <form method="POST" action="{{ route('lazada.category_tree') }}" style="display:inline">
             @csrf
-            <button class="btn btn-primary" type="submit">Get Category Tree</button>
+            <button class="btn" type="submit">Get Category Tree</button>
         </form>
     </div>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
     <form method="POST" action="{{ route('lazada.category_attributes') }}">
         @csrf
-        <div class="field">
+        <div>
             <label>Category Attributes (Primary Category ID)</label>
             <input class="input" name="category_id" value="{{ old('category_id', '') }}" placeholder="e.g. 10000000">
-            <div class="help">Calls <code>/category/attributes/get</code> (no auth required).</div>
+            <div class="hint">Calls <code>/category/attributes/get</code> (no auth required).</div>
         </div>
-        <div class="actions">
-            <button class="btn btn-primary" type="submit">Get Attributes</button>
+        <div class="d-flex gap-8 mt-12">
+            <button class="btn" type="submit">Get Attributes</button>
         </div>
     </form>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
     <form method="POST" action="{{ route('lazada.brands_query') }}">
         @csrf
-        <div class="grid-2">
-            <div class="field">
+        <div class="form-grid">
+            <div>
                 <label>Brands Page No</label>
                 <input class="input" name="page_no" value="{{ old('page_no', 1) }}">
             </div>
-            <div class="field">
+            <div>
                 <label>Brands Page Size</label>
                 <input class="input" name="page_size" value="{{ old('page_size', 50) }}">
             </div>
         </div>
-        <div class="actions">
-            <button class="btn btn-primary" type="submit">Get Brands</button>
+        <div class="d-flex gap-8 mt-12">
+            <button class="btn" type="submit">Get Brands</button>
         </div>
-        <div class="help">Calls <code>/category/brands/query</code> (no auth required).</div>
+        <div class="hint">Calls <code>/category/brands/query</code> (no auth required).</div>
     </form>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
     <form method="POST" action="{{ route('lazada.products_get') }}">
         @csrf
-        <div class="field">
+        <div>
             <label>Get Products (Seller SKU)</label>
             <input class="input" name="seller_sku" value="{{ old('seller_sku', '') }}" placeholder="e.g. MY-SKU-001">
-            <div class="help">Calls <code>/products/get</code> (auth required). Uses stored Access Token.</div>
+            <div class="hint">Calls <code>/products/get</code> (auth required). Uses stored Access Token.</div>
         </div>
 
-        <div class="actions">
-            <button class="btn btn-primary" type="submit">Get Product</button>
+        <div class="d-flex gap-8 mt-12">
+            <button class="btn" type="submit">Get Product</button>
         </div>
     </form>
 </div>
 
-<div class="card">
+<div class="card mt-16">
     <h2>Variants / Options Proof of Concept</h2>
 
     <form method="POST" action="{{ route('lazada.product_payload_preview') }}">
         @csrf
-        <div class="grid-2">
-            <div class="field">
+        <div class="form-grid">
+            <div>
                 <label>ERP Product</label>
                 <select name="product_id" class="input" required>
                     <option value="">(select)</option>
@@ -742,37 +712,37 @@ var kvBody    = qs('#lz-kv-body');
                 </select>
             </div>
 
-            <div class="field">
+            <div>
                 <label>Primary Category ID (Lazada)</label>
                 <input class="input" name="primary_category_id" value="{{ old('primary_category_id', '') }}" placeholder="e.g. 10000000" required>
-                <div class="help">Use the Category Tree button above to find the correct ID.</div>
+                <div class="hint">Use the Category Tree button above to find the correct ID.</div>
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="field">
+        <div class="form-grid mt-12">
+            <div>
                 <label>Brand ID (Lazada, optional)</label>
                 <input class="input" name="brand_id" value="{{ old('brand_id', '') }}" placeholder="e.g. 12345">
-                <div class="help">Optional for preview. Some categories require it.</div>
+                <div class="hint">Optional for preview. Some categories require it.</div>
             </div>
-            <div class="field">
+            <div>
                 <label>Images (comma-separated URLs, optional)</label>
                 <input class="input" name="images" value="{{ old('images', '') }}" placeholder="https://.../1.jpg, https://.../2.jpg">
             </div>
         </div>
 
-        <div class="field">
+        <div class="mt-12">
             <label>Description Override (optional)</label>
             <textarea class="input" name="description" rows="4" placeholder="Leave blank to use ERP product description">{{ old('description', '') }}</textarea>
         </div>
 
-        <div class="actions">
-            <button class="btn btn-primary" type="submit">Preview Payload</button>
+        <div class="d-flex gap-8 mt-12">
+            <button class="btn" type="submit">Preview Payload</button>
         </div>
-        <div class="help">This will build SKU variants from your ERP options. Single option = 1 SKU per value; multiple options = SKU combinations (cartesian product).</div>
+        <div class="hint">This will build SKU variants from your ERP options. Single option = 1 SKU per value; multiple options = SKU combinations (cartesian product).</div>
     </form>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
     <form method="POST" action="{{ route('lazada.product_create') }}" onsubmit="return confirm('This will call Lazada /product/create using the generated payload. Continue?')">
         @csrf
@@ -782,42 +752,26 @@ var kvBody    = qs('#lz-kv-body');
         <input type="hidden" name="images" value="{{ old('images', '') }}">
         <input type="hidden" name="description" value="{{ old('description', '') }}">
 
-        <div class="actions">
-            <button class="btn" type="submit">Create Product in Lazada</button>
+        <div class="d-flex gap-8">
+            <button class="btn secondary" type="submit">Create Product in Lazada</button>
         </div>
-        <div class="help">Start with Preview first. Lazada often requires category-specific attributes, so this call may return validation errors—that’s normal for POC.</div>
+        <div class="hint">Start with Preview first. Lazada often requires category-specific attributes, so this call may return validation errors—that's normal for POC.</div>
     </form>
 </div>
 
 @if($result)
-    <div class="card">
+    <div class="card mt-16">
         <h2>Last Result</h2>
 
         @php
             $ok = (bool)($result['ok'] ?? false);
         @endphp
 
-        <div class="{{ $ok ? 'notice ok' : 'notice bad' }}">
+        <div class="alert {{ $ok ? 'success' : 'danger' }}">
             <strong>{{ $result['title'] ?? 'Result' }}</strong>
         </div>
 
         <pre class="pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
     </div>
 @endif
-
-<style>
-    .card { background:#fff; border-radius:16px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,.06); }
-    .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .field label { font-weight:600; display:block; margin-bottom:6px; }
-    .help { font-size:12px; color:#64748b; margin-top:4px; }
-    .actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .btn { border:1px solid #e2e8f0; background:#fff; color:#0f172a; padding:10px 14px; border-radius:10px; cursor:pointer; }
-    .btn-primary { background:#2563eb; border-color:#2563eb; color:#fff; }
-    .divider { height:1px; background:#e2e8f0; margin:14px 0; }
-    .notice { padding:10px 12px; border-radius:12px; margin-bottom:10px; }
-    .notice.ok { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
-    .notice.bad { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-    .pre { background:#0b1220; color:#e2e8f0; padding:12px; border-radius:12px; overflow:auto; }
-</style>
 @endsection

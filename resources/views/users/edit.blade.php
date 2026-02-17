@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Settings / Edit User')
 
 @section('content')
 <div class="card">
@@ -6,20 +7,6 @@
         <h2>Edit User #{{ $user->id }}</h2>
         <a class="btn secondary" href="{{ route('users.index') }}">Back</a>
     </div>
-
-    @if(session('status'))
-        <div class="alert success" style="margin-bottom:12px;">{{ session('status') }}</div>
-    @endif
-
-    @if($errors->any())
-        <div class="alert danger" style="margin-bottom:12px;">
-            <ul style="margin:0; padding-left:18px;">
-                @foreach($errors->all() as $e)
-                    <li>{{ $e }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
 
     <form method="POST" action="{{ route('users.update', $user->id) }}">
         @csrf
@@ -63,7 +50,7 @@
             </div>
         </div>
 
-        <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+        <div class="mt-16 d-flex gap-10 items-center">
             <button class="btn" type="submit">Update</button>
             <button class="btn danger" type="button"
                 onclick="if(confirm('Delete this user?')) document.getElementById('delete-user-form').submit();">
@@ -72,7 +59,7 @@
         </div>
     </form>
 
-    <form id="delete-user-form" method="POST" action="{{ route('users.destroy', $user->id) }}" style="display:none;">
+    <form id="delete-user-form" method="POST" action="{{ route('users.destroy', $user->id) }}" class="hidden">
         @csrf
         @method('DELETE')
     </form>

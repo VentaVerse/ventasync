@@ -1,11 +1,12 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Settings / Error Log')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Error Log</h2>
 
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <div class="page-header-actions">
             <form method="POST" action="{{ route('error_log.clear') }}" style="margin:0;">
                 @csrf
                 <button type="submit" class="btn danger" onclick="return confirm('Clear error.log? This cannot be undone.');">Clear error.log</button>
@@ -18,17 +19,17 @@
         </div>
     </div>
 
-    <div class="toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px;; flex-wrap:wrap;">
+    <div class="toolbar" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
         <div style="min-width:0;">
-            <div style="font-weight:600;">File:</div>
+            <div class="font-semibold">File:</div>
             <div style="font-family:monospace; word-break:break-all; overflow-wrap:anywhere;">{{ $logPath }}</div>
         </div>
 
-        <div style="text-align:right; min-width:120px;">
-            <div style="font-weight:600;">Size:</div>
+        <div class="text-right" style="min-width:120px;">
+            <div class="font-semibold">Size:</div>
             <div>{{ $sizeHuman }} ({{ number_format($sizeBytes) }} bytes)</div>
-            <div style="margin-top:6px; font-size:12px;">
-                <span style="font-weight:600;">Writable:</span>
+            <div class="mt-0" style="margin-top:6px; font-size:12px;">
+                <span class="font-semibold">Writable:</span>
                 @if($writable)
                     <span style="color:#2ecc71;">Yes</span>
                 @else
@@ -39,13 +40,13 @@
     </div>
 
     @if(!$logExists)
-        <div class="alert danger" style="margin-top:12px;">
+        <div class="alert danger mt-12">
             error.log not found. It will be created automatically when the first PHP error is logged.
         </div>
     @endif
 
-    <div style="margin-top:12px;">
-        <div style="font-weight:600; margin-bottom:8px;">Latest entries (last {{ count($lines) }} lines)</div>
+    <div class="mt-12">
+        <div class="font-semibold mb-0" style="margin-bottom:8px;">Latest entries (last {{ count($lines) }} lines)</div>
 
         <div style="background:#0b1220; border:1px solid rgba(255,255,255,.10); border-radius:10px; padding:12px; overflow:auto; max-height:520px; max-width:100%;">
             @if(empty($lines))
@@ -57,7 +58,7 @@
         </div>
     </div>
 
-    <div style="margin-top:14px; opacity:.75; font-size:13px;">
+    <div class="mt-16 text-muted text-sm">
         This view shows non-fatal PHP errors captured by the application error handler (warnings/notices/deprecations). Fatal errors and exceptions may still appear in standard Laravel logs and server logs.
     </div>
 </div>

@@ -3,126 +3,301 @@
 <head>
     <title>Shop A Inventory</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* ============================================================
+           DESIGN SYSTEM — Shop A Admin
+           Modern SaaS admin panel (mid-2020s)
+           ============================================================ */
+
+        /* --- CSS Custom Properties --- */
         :root {
-            --sidebar-w: 240px;
-            --sidebar-w-collapsed: 72px;
-            --bg: #0b1220;
-            --bg2: #0f172a;
-            --text: #e2e8f0;
-            --text2: #94a3b8;
-            --accent: #2563eb;
+            --sidebar-w: 260px;
+            --bg: #0b1120;
+            --bg2: #101827;
+            --bg3: #1e293b;
+            --surface: #ffffff;
+            --surface-hover: #f8fafc;
+            --surface-alt: #f8fafc;
+            --border: #e2e8f0;
+            --border-light: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-light: rgba(59,130,246,.08);
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,.12);
+            --transition-fast: 150ms ease;
+            --transition-normal: 250ms ease;
+            --transition-slow: 400ms cubic-bezier(.4,0,.2,1);
         }
 
-        body { margin:0; font-family: Arial, sans-serif; background:#f4f6f9; color:#0f172a; }
-        .layout { display:flex; min-height:100vh; }
+        /* --- Reset & Base --- */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #f1f5f9;
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
+        /* --- Animations --- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInLeft {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        @keyframes slideInDown {
+            from { opacity: 0; transform: translateY(-16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* --- Layout --- */
+        .layout { display: flex; min-height: 100vh; }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
         .sidebar {
             width: var(--sidebar-w);
             background: var(--bg2);
-            color: var(--text);
+            color: #e2e8f0;
             position: fixed;
-            top:0; left:0;
+            top: 0; left: 0;
             height: 100vh;
-            padding: 16px 10px;
-            box-sizing: border-box;
-            overflow: hidden; /* prevents hover bleed */
+            display: flex;
+            flex-direction: column;
             z-index: 1200;
-            transition: transform .45s cubic-bezier(.2,.8,.2,1); will-change: transform;
+            transition: transform var(--transition-slow);
+            will-change: transform;
         }
-        /* When collapsed, hide the sidebar completely off-canvas */
         .sidebar.collapsed { transform: translateX(calc(-1 * var(--sidebar-w))); }
 
-        .brand {
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:10px;
-            padding: 8px 10px 18px 10px;
-            border-bottom: 1px solid rgba(148,163,184,.2);
-            margin-bottom: 10px;
+        .sidebar-inner {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0 12px 20px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
-        .brand .title { font-weight:700; letter-spacing:.5px; }
-        .sidebar.collapsed .brand .title { display:none; }
+        .sidebar-inner::-webkit-scrollbar { display: none; }
 
-        .brand-stack { display:flex; flex-direction:column; gap:4px; min-width:0; }
-        .brand-logo { height:40px; width:auto; object-fit:contain; display:block; }
-        .brand-company { font-weight:700; letter-spacing:.5px; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .brand-user { font-size:12px; opacity:.85; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* Brand */
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 20px 16px 16px;
+            border-bottom: 1px solid rgba(148,163,184,.12);
+            margin-bottom: 8px;
+        }
+        .brand-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .brand-logo { height: 40px; width: auto; object-fit: contain; display: block; }
+        .brand-company { font-weight: 700; font-size: 15px; letter-spacing: .3px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f1f5f9; }
+        .brand-user { font-size: 12px; color: #94a3b8; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-
-        .sidebar.collapsed .brand-stack { align-items:center; }
-        .sidebar.collapsed .brand-company,
-        .sidebar.collapsed .brand-user { display:none; }
-
-
+        /* Toggle / Hamburger */
         .toggle-btn {
-            border: 1px solid rgba(148,163,184,.3);
+            border: 1px solid rgba(148,163,184,.2);
             background: transparent;
-            color: var(--text);
-            border-radius: 8px;
-            padding: 6px 10px;
-            cursor:pointer;
-                    display:flex;
-            align-items:center;
-            gap:8px;
-}
-.toggle-hamburger { display:inline-block; }
+            color: #e2e8f0;
+            border-radius: var(--radius-sm);
+            padding: 6px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background var(--transition-fast);
+        }
+        .toggle-btn:hover { background: rgba(148,163,184,.1); }
+        .toggle-hamburger { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
+        .toggle-hamburger svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-        .sidebar-fab{
+        /* Sidebar FAB (mobile) */
+        .sidebar-fab {
             position: fixed;
-            top: 14px;
-            left: 14px;
+            top: 14px; left: 14px;
             z-index: 1300;
-            border: 1px solid rgba(148,163,184,.35);
+            border: 1px solid rgba(148,163,184,.2);
             background: var(--bg2);
-            color: var(--text);
-            border-radius: 10px;
-            padding: 8px 10px;
+            color: #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
             cursor: pointer;
             display: none;
             align-items: center;
             gap: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 20px rgba(0,0,0,.3);
+            transition: background var(--transition-fast);
         }
-        .sidebar-fab:hover{ background: rgba(148,163,184,.10); }
-        .sidebar-fab .toggle-hamburger{ font-size: 16px; line-height: 1; }
+        .sidebar-fab:hover { background: rgba(148,163,184,.1); }
+        .sidebar-fab.show { display: flex; }
+        .sidebar-fab svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
+        /* Sidebar backdrop (mobile) */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 1199;
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+        .sidebar-backdrop.visible { opacity: 1; }
 
+        /* --- Nav groups (animated details/summary) --- */
         .sidebar-nav {
-            margin-top: 8px;
-            display:flex;
-            flex-direction:column;
-            gap:6px;
-                    padding-bottom: 78px;
-        }
-        .sidebar-nav a {
-            display:flex;
-            align-items:center;
-            gap:10px;
-            color: var(--text2);
-            padding: 10px 12px;
-            border-radius: 10px;
-            text-decoration:none;
-            white-space: nowrap;
-            transition: background .15s ease, color .15s ease;
-        }
-        .sidebar-nav a:hover {
-            background: rgba(148,163,184,.15);
-            color: var(--text);
-        }
-        .sidebar-nav a.active {
-            background: rgba(37,99,235,.22);
-            color: #fff;
-            border: 1px solid rgba(37,99,235,.35);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding-top: 8px;
         }
 
-        .nav .label { flex:1; }
-        .sidebar-footer {
+        /* Top-level link (Dashboard) */
+        .sidebar-nav > a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: background var(--transition-fast), color var(--transition-fast);
+        }
+        .sidebar-nav > a:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
+        .sidebar-nav > a.active {
+            background: rgba(59,130,246,.12);
+            color: #fff;
+            position: relative;
+        }
+        .sidebar-nav > a.active::before {
+            content: '';
             position: absolute;
-            left: 10px;
-            right: 10px;
-            bottom: 14px;
+            left: 0; top: 6px; bottom: 6px;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 0 3px 3px 0;
+        }
+        .sidebar-nav > a .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
+        .sidebar-nav > a .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Nav group (details/summary) */
+        .nav-group { margin: 2px 0; }
+        .nav-group details { /* no default styling */ }
+        .nav-group summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            color: #94a3b8;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: background var(--transition-fast), color var(--transition-fast);
+            user-select: none;
+        }
+        .nav-group summary::-webkit-details-marker { display: none; }
+        .nav-group summary::marker { display: none; content: ''; }
+        .nav-group summary:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
+        .nav-group summary.active { color: #e2e8f0; }
+
+        .nav-group summary .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
+        .nav-group summary .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+        .nav-group summary .label { flex: 1; }
+
+        /* Chevron rotation */
+        .nav-group summary .chevron {
+            display: flex;
+            align-items: center;
+            transition: transform var(--transition-normal);
+        }
+        .nav-group summary .chevron svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .nav-group details[open] > summary .chevron { transform: rotate(90deg); }
+
+        /* Animated sub-menu using grid trick */
+        .nav-sub-wrap {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows var(--transition-normal);
+        }
+        .nav-group details[open] > .nav-sub-wrap { grid-template-rows: 1fr; }
+        .nav-sub {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            padding-left: 20px;
+            margin-top: 2px;
+        }
+        .nav-sub a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 400;
+            transition: background var(--transition-fast), color var(--transition-fast);
+            position: relative;
+        }
+        .nav-sub a:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
+        .nav-sub a.active {
+            background: rgba(59,130,246,.12);
+            color: #fff;
+        }
+        .nav-sub a.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 6px; bottom: 6px;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 0 3px 3px 0;
+        }
+        .nav-sub a .nav-icon { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
+        .nav-sub a .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Sidebar footer */
+        .sidebar-footer {
+            padding: 12px 12px 16px;
+            border-top: 1px solid rgba(148,163,184,.12);
         }
         .sidebar-footer form { margin: 0; }
         .sidebar-footer .logout-btn {
@@ -131,447 +306,869 @@
             border: none;
             cursor: pointer;
             text-align: left;
-
             display: flex;
             align-items: center;
             gap: 10px;
-            color: var(--text2);
+            color: #94a3b8;
             padding: 10px 12px;
-            border-radius: 10px;
+            border-radius: var(--radius-sm);
             white-space: nowrap;
-            transition: background .15s ease, color .15s ease;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: background var(--transition-fast), color var(--transition-fast);
         }
-        .sidebar-footer .logout-btn:hover {
-            background: rgba(148,163,184,.15);
-            color: var(--text);
-        }
+        .sidebar-footer .logout-btn:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
+        .sidebar-footer .logout-btn .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
+        .sidebar-footer .logout-btn .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
-        .sidebar.collapsed .nav .label { display:none; }
-
+        /* ============================================================
+           CONTENT AREA
+           ============================================================ */
         .content {
             margin-left: var(--sidebar-w);
-            padding: 26px;
+            padding: 0 32px 32px;
             width: 100%;
-            box-sizing:border-box;
-            transition: margin-left .45s cubic-bezier(.2,.8,.2,1); will-change: margin-left;
+            min-height: 100vh;
+            transition: margin-left var(--transition-slow);
+            will-change: margin-left;
+            animation: fadeIn .3s ease;
         }
-        
+        .content.collapsed { margin-left: 0; }
 
+        /* Topbar / Breadcrumb bar */
         .topbar {
-            display:flex;
-            justify-content: flex-end;
-            align-items:center;
-            padding: 10px 18px;
-            margin-left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 0 14px;
+            margin-bottom: 4px;
         }
-        .topbar form { margin: 0; }
-        .topbar .btn { border-radius: 10px; padding: 8px 12px; }
-.content.collapsed { margin-left: 0; }
-
-        .card {
-            background:#fff;
-            padding: 18px;
-            border-radius: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        .topbar-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: .03em;
+            text-transform: uppercase;
         }
 
-        .page-header {
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
+        /* ============================================================
+           ALERTS / TOAST
+           ============================================================ */
+        .alert {
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            font-size: 13.5px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
             gap: 10px;
-            margin-bottom: 12px;
+            animation: slideInDown .3s ease;
+            position: relative;
         }
-        .page-header h2 { margin:0; }
-
-        .btn {
-            display:inline-block;
-            background: var(--accent);
-            color:#fff;
-            padding: 8px 12px;
-            text-decoration:none;
-            border-radius:10px;
+        .alert .alert-close {
+            position: absolute;
+            top: 10px; right: 12px;
+            background: none;
             border: none;
             cursor: pointer;
+            color: inherit;
+            opacity: .6;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+            transition: opacity var(--transition-fast);
         }
-        .btn.secondary { background: #334155; }
-        .btn.danger { background: #dc2626; }
-        .btn.small { padding: 6px 10px; border-radius: 10px; font-size: 13px; }
+        .alert .alert-close:hover { opacity: 1; }
+        .alert.success {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .alert.danger {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .alert.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
 
+        /* ============================================================
+           CARDS
+           ============================================================ */
+        .card {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        /* ============================================================
+           PAGE HEADER
+           ============================================================ */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .page-header h2 {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -.01em;
+        }
+        .page-header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 40px;
+            padding: 0 18px;
+            background: var(--accent);
+            color: #fff;
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+            box-shadow: 0 1px 2px rgba(0,0,0,.06);
+        }
+        .btn:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 12px rgba(59,130,246,.25);
+            transform: translateY(-1px);
+        }
+        .btn:active { transform: translateY(0) scale(.98); }
+        .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .btn.secondary {
+            background: #1e293b;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.08);
+        }
+        .btn.secondary:hover { background: #334155; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+
+        .btn.danger {
+            background: var(--danger);
+            color: #fff;
+        }
+        .btn.danger:hover { background: var(--danger-hover); box-shadow: 0 4px 12px rgba(239,68,68,.25); }
+
+        .btn.small {
+            height: 34px;
+            padding: 0 12px;
+            font-size: 12.5px;
+            border-radius: var(--radius-sm);
+        }
+        .btn-sm { height: 32px; padding: 0 12px; font-size: 12px; border-radius: var(--radius-sm); }
+        .btn-lg { height: 48px; padding: 0 24px; font-size: 15px; border-radius: var(--radius-md); }
+
+        /* ============================================================
+           TABLES
+           ============================================================ */
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+        }
         table {
-            width:100%;
+            width: 100%;
             border-collapse: collapse;
         }
         th, td {
-            padding: 12px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align:left;
-            vertical-align: top;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-light);
+            text-align: left;
+            vertical-align: middle;
         }
-        th { color:#334155; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+        th {
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            background: var(--surface-alt);
+            white-space: nowrap;
+        }
+        tbody tr { transition: background var(--transition-fast); }
+        tbody tr:hover { background: rgba(59,130,246,.02); }
+        tbody tr:last-child td { border-bottom: none; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .text-nowrap { white-space: nowrap; }
+        .text-muted { color: var(--text-muted); }
+        .text-secondary { color: var(--text-secondary); }
+        .font-semibold { font-weight: 600; }
+        .font-bold { font-weight: 700; }
 
+        /* ============================================================
+           TOOLBAR
+           ============================================================ */
         .toolbar {
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             gap: 10px;
-            margin: 10px 0 14px;
+            margin: 0 0 16px;
         }
-        .toolbar form { display:flex; gap:8px; align-items:center; margin:0; }
-        .input {
-            padding: 8px 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            min-width: 220px;
-        }
+        .toolbar form { display: flex; gap: 8px; align-items: center; margin: 0; flex-wrap: wrap; }
 
-        /* Ensure focus ring/border renders above adjacent fields (prevents visual underlap in tight rows) */
+        /* ============================================================
+           FORMS
+           ============================================================ */
+        .input {
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: var(--surface);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            width: 100%;
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
         .input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59,130,246,.12);
             position: relative;
             z-index: 20;
         }
+        .input::placeholder { color: var(--text-muted); }
+        select.input { cursor: pointer; appearance: auto; }
+        textarea.input { min-height: 110px; height: auto; padding: 10px 12px; resize: vertical; }
 
-        .form-grid { display:grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+        .form-grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
         .form-grid .full { grid-column: 1 / -1; }
-        label { font-size: 13px; color:#334155; display:block; margin-bottom: 6px; }
-        textarea.input { min-height: 110px; }
-        .hint { font-size: 12px; color:#64748b; margin-top: 6px; }
+        label { font-size: 13px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px; }
+        label.required::after { content: ' *'; color: var(--danger); font-weight: 700; }
+        .hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+        .field-error { font-size: 12px; color: var(--danger); margin-top: 4px; }
 
-        .typeahead {
-            position: relative;
+        /* Section heading (inside forms) */
+        .section-title {
+            margin: 24px 0 12px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-light);
         }
+        .section-title:first-child { margin-top: 0; }
+
+        /* ============================================================
+           TYPEAHEAD / AUTOCOMPLETE
+           ============================================================ */
+        .typeahead { position: relative; }
         .typeahead-list {
-            position:absolute;
-            top: 100%;
-            left:0;
-            right:0;
-            background:#fff;
-            border:1px solid #e5e7eb;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            position: absolute;
+            top: 100%; left: 0; right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
             max-height: 240px;
-            overflow:auto;
+            overflow: auto;
             z-index: 50;
-            display:none;
+            display: none;
         }
         .typeahead-list button {
-            width:100%;
-            text-align:left;
-            padding: 10px 12px;
-            border:0;
+            width: 100%;
+            text-align: left;
+            padding: 10px 14px;
+            border: 0;
             background: transparent;
-            cursor:pointer;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13.5px;
+            color: var(--text-primary);
+            transition: background var(--transition-fast);
         }
-        .typeahead-list button:hover { background:#f1f5f9; }
+        .typeahead-list button:hover { background: var(--surface-hover); }
 
-        
-/* Pagination (custom, no giant SVG arrows) */
-.pagination-nav { margin-top: 14px; }
-.pagination { list-style:none; display:flex; flex-wrap:wrap; gap:8px; padding:0; margin:0; align-items:center; }
-.pagination li a, .pagination li span {
-    display:inline-block;
-    padding: 8px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    background: #fff;
-    color: #0f172a;
-    text-decoration:none;
-    font-size: 14px;
-}
-.pagination li a:hover { background:#f1f5f9; }
-.pagination li.active span {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-}
-.pagination li.disabled span { color:#94a3b8; background:#f8fafc; }
-nav[role="navigation"] svg { display:none !important; }
+        .ac-dd {
+            position: absolute;
+            left: 0; right: 0;
+            top: 100%;
+            margin-top: 6px;
+            background: #111827;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: var(--radius-md);
+            box-shadow: 0 12px 30px rgba(0,0,0,.35);
+            z-index: 50;
+            max-height: 260px;
+            overflow: auto;
+        }
+        .ac-dd ul { list-style: none; margin: 0; padding: 6px; }
+        .ac-dd li {
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: #e5e7eb;
+            font-size: 14px;
+            transition: background var(--transition-fast);
+        }
+        .ac-dd li:hover { background: rgba(255,255,255,.08); }
 
-        @media (max-width: 900px) {
-            .sidebar { position: fixed; z-index: 100; }
-            .content { padding: 18px; }
+        /* ============================================================
+           BADGES
+           ============================================================ */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: .02em;
+            white-space: nowrap;
+        }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-yellow { background: #fef3c7; color: #92400e; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+        .badge-indigo { background: #0f1689; color: #fff; }
+        .badge-dark { background: #64748b; color: #fff; }
+        .badge-default { background: #e2e8f0; color: #475569; }
+
+        /* ============================================================
+           PAGINATION
+           ============================================================ */
+        .pagination-nav { margin-top: 16px; }
+        .pagination { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 0; align-items: center; }
+        .pagination li a, .pagination li span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+        }
+        .pagination li a:hover { background: var(--surface-hover); border-color: #cbd5e1; transform: translateY(-1px); }
+        .pagination li.active span {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(59,130,246,.25);
+        }
+        .pagination li.disabled span { color: var(--text-muted); background: var(--surface-alt); cursor: default; }
+        nav[role="navigation"] svg { display: none !important; }
+
+        /* ============================================================
+           TABS
+           ============================================================ */
+        .tabs { display: flex; gap: 6px; padding: 8px 0 2px 0; flex-wrap: wrap; }
+        .tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: var(--surface-alt);
+            font-weight: 600;
+            font-size: 13px;
+            transition: all var(--transition-fast);
+        }
+        .tab:hover { background: #e2e8f0; color: var(--text-primary); }
+        .tab.active { background: var(--accent); color: #fff; }
+        .tab.disabled { opacity: .55; cursor: not-allowed; }
+
+        /* ============================================================
+           ORDER SHOW / DETAIL PAGES
+           ============================================================ */
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .detail-section {
+            background: var(--surface-alt);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 18px;
+        }
+        .detail-section h4 {
+            margin: 0 0 12px;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .detail-body { font-size: 13.5px; line-height: 1.8; color: var(--text-secondary); }
+        .detail-body strong { color: var(--text-primary); }
+
+        .meta-bar {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: var(--surface-alt);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+        }
+        .meta-item { font-size: 13px; color: var(--text-secondary); }
+        .meta-label { font-weight: 600; color: var(--text-primary); margin-right: 4px; }
+
+        /* Thumbnails */
+        .thumb { width: 52px; height: 52px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid rgba(0,0,0,.06); display: block; background: var(--surface-alt); }
+        .thumb-sm { width: 42px; height: 42px; border-radius: 6px; }
+        .thumb-placeholder { display: inline-block; border-radius: var(--radius-sm); background: var(--surface-alt); border: 1px solid var(--border-light); }
+
+        /* History timeline */
+        .history-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border-light); }
+        .history-item:last-child { border-bottom: none; }
+        .history-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; min-width: 140px; }
+        .history-status { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+        .history-comment { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+        /* ============================================================
+           MODAL
+           ============================================================ */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .modal-backdrop.active { display: flex; }
+        .modal {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 24px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideInDown .25s ease;
+        }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .modal-header h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+        .modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 20px;
+            padding: 4px;
+            line-height: 1;
+            transition: color var(--transition-fast);
+        }
+        .modal-close:hover { color: var(--text-primary); }
+
+        /* ============================================================
+           UTILITIES
+           ============================================================ */
+        .d-flex { display: flex; }
+        .d-none { display: none; }
+        .flex-wrap { flex-wrap: wrap; }
+        .items-center { align-items: center; }
+        .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; }
+        .justify-end { justify-content: flex-end; }
+        .justify-start { justify-content: flex-start; }
+        .gap-4 { gap: 4px; }
+        .gap-6 { gap: 6px; }
+        .gap-8 { gap: 8px; }
+        .gap-10 { gap: 10px; }
+        .gap-12 { gap: 12px; }
+        .gap-16 { gap: 16px; }
+        .gap-20 { gap: 20px; }
+        .mt-0 { margin-top: 0; }
+        .mt-12 { margin-top: 12px; }
+        .mt-16 { margin-top: 16px; }
+        .mt-20 { margin-top: 20px; }
+        .mt-24 { margin-top: 24px; }
+        .mb-0 { margin-bottom: 0; }
+        .mb-12 { margin-bottom: 12px; }
+        .mb-16 { margin-bottom: 16px; }
+        .p-0 { padding: 0; }
+        .w-full { width: 100%; }
+        .max-w-300 { max-width: 300px; }
+        .hidden { display: none !important; }
+        .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .text-sm { font-size: 13px; }
+        .text-xs { font-size: 12px; }
+
+        /* Variant row (products) */
+        .variant-row td { background: var(--surface-alt); }
+
+        /* Print */
+        @media print {
+            .sidebar, .sidebar-fab, .sidebar-backdrop, .topbar { display: none !important; }
+            .content { margin-left: 0 !important; padding: 0 !important; }
+        }
+
+        /* ============================================================
+           RESPONSIVE BREAKPOINTS
+           ============================================================ */
+        @media (max-width: 1280px) {
+            .content { padding: 0 24px 24px; }
+        }
+        @media (max-width: 1024px) {
+            .content { padding: 0 20px 20px; }
+            .card { padding: 20px; }
+            .detail-grid { gap: 16px; }
+        }
+        @media (max-width: 768px) {
+            /* Sidebar becomes overlay */
+            .sidebar {
+                box-shadow: 4px 0 24px rgba(0,0,0,.3);
+            }
+            .content { margin-left: 0 !important; padding: 0 16px 24px; }
+            .content.collapsed { margin-left: 0; }
+            .topbar { padding: 16px 0 10px; }
+            .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .page-header-actions { width: 100%; }
             .form-grid { grid-template-columns: 1fr; }
+            .detail-grid { grid-template-columns: 1fr; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar form { flex-wrap: wrap; }
+            .card { padding: 16px; border-radius: var(--radius-md); }
+            .meta-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
         }
-    
-.alert { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
-.alert.success { background: #e8fff3; color: #065f46; border: 1px solid #a7f3d0; }
-.alert.danger { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
-
-
-/* UI fixes: keep buttons readable on dark scheme */
-.btn.secondary{
-    background:#2b2f36 !important;
-    color:#ffffff !important;
-    border:1px solid rgba(255,255,255,.14) !important;
-}
-.btn.secondary:hover{
-    background:#343a44 !important;
-    color:#ffffff !important;
-}
-
-/* Autocomplete dropdown */
-.ac-dd{
-    position:absolute;
-    left:0;
-    right:0;
-    top:100%;
-    margin-top:6px;
-    background:#111827;
-    border:1px solid rgba(255,255,255,.12);
-    border-radius:10px;
-    box-shadow:0 12px 30px rgba(0,0,0,.35);
-    z-index:50;
-    max-height:260px;
-    overflow:auto;
-}
-.ac-dd ul{ list-style:none; margin:0; padding:6px; }
-.ac-dd li{
-    padding:8px 10px;
-    border-radius:8px;
-    cursor:pointer;
-    color:#e5e7eb;
-    font-size:14px;
-}
-.ac-dd li:hover{ background:rgba(255,255,255,.08); }
-
-        label.required::after { content: ' *'; color: #ef4444; font-weight: 700; }
-
-    
-        .nav-group { margin: 6px 0; }
-        .nav-group-summary { list-style:none; cursor: default; display:flex; align-items:center; gap:10px; padding: 10px 12px; border-radius: 12px; color: var(--text); }
-        .nav-group-summary::-webkit-details-marker { display:none; }
-        .nav-group-summary:hover { background: rgba(255,255,255,.06); }
-        .nav-group-summary.active { background: rgba(37,99,235,.22); }
-
-                        .nav-sub { padding-left: 34px; display:flex; flex-direction:column; gap:4px; margin-top: 6px; }
-        
-        .nav-sub a { padding: 10px 12px; border-radius: 12px; display:flex; gap:10px; align-items:center; color: var(--text); text-decoration:none; }
-        /* Child menu indentation */
-        .nav-sub { padding-left: 34px; }
-        .nav-sub a { padding: 9px 12px; border-radius: 10px; }
-
-        .nav-sub a:hover { background: rgba(255,255,255,.06); }
-        .nav-sub a.active { background: rgba(37,99,235,.22); }
-
-        .tabs { display:flex; gap:10px; padding: 8px 0 2px 0; }
-        .tab { display:inline-flex; align-items:center; justify-content:center; padding: 8px 12px; border-radius: 10px; text-decoration:none; color:#0f172a; background:#e2e8f0; font-weight:600; font-size:14px; }
-        .tab.active { background: #2563eb; color: #fff; }
-        .tab.disabled { opacity:.55; cursor:not-allowed; }
-</style>
+        @media (max-width: 480px) {
+            .content { padding: 0 12px 20px; }
+            .card { padding: 14px; }
+            .page-header h2 { font-size: 1.15rem; }
+            .btn { height: 38px; padding: 0 14px; font-size: 13px; }
+            .btn.small { height: 32px; padding: 0 10px; }
+            .input { height: 38px; font-size: 13px; }
+            table th, table td { padding: 10px 10px; font-size: 13px; }
+            .pagination li a, .pagination li span { min-width: 32px; height: 32px; padding: 0 8px; font-size: 12px; }
+        }
+    </style>
 
     <!-- WYSIWYG (Summernote) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css">
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    if (window.jQuery && jQuery.fn && jQuery.fn.summernote) {
-      jQuery('textarea.wysiwyg').summernote({
-        height: 420,
-        toolbar: [
-          ['style', ['style']],
-          ['font', ['bold', 'italic', 'underline', 'clear']],
-          ['para', ['ul', 'ol', 'paragraph']],
-          ['insert', ['link', 'table']],
-          ['view', ['codeview']]
-        ]
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (window.jQuery && jQuery.fn && jQuery.fn.summernote) {
+          jQuery('textarea.wysiwyg').summernote({
+            height: 420,
+            toolbar: [
+              ['style', ['style']],
+              ['font', ['bold', 'italic', 'underline', 'clear']],
+              ['para', ['ul', 'ol', 'paragraph']],
+              ['insert', ['link', 'table']],
+              ['view', ['codeview']]
+            ]
+          });
+        }
       });
-    }
-  });
-</script>
+    </script>
 
 </head>
 <body>
     <button id="sidebar-fab" class="sidebar-fab" type="button" aria-label="Open menu" title="Open menu">
-        <span class="toggle-hamburger">☰</span>
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
 <div class="layout">
     <aside id="sidebar" class="sidebar">
-	        @php
-	            $u = auth()->user();
-	            $s = $appSetting ?? null;
-	            $companyName = $s->company_name ?? 'Company';
-	            $logoPath = $s->logo_path ?? null;
-	
-	            // Parent-menu permissions
-	            $canCatalog = $u && $u->hasPermission('manage_catalog');
-	            $canSales = $u && $u->hasPermission('manage_sales');
-	            $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
-	            $canSettingsParent = $u && $u->hasPermission('manage_settings');
-	        @endphp
+        @php
+            $u = auth()->user();
+            $s = $appSetting ?? null;
+            $companyName = $s->company_name ?? 'Company';
+            $logoPath = $s->logo_path ?? null;
 
-	        <div class="brand">
-	            <div class="brand-stack">
-	                @if($logoPath)
-	                    <img class="brand-logo" src="{{ asset('storage/'.$logoPath) }}" alt="Company Logo" style="background:transparent;">
-	                @else
-	                    <div class="brand-company">{{ $companyName }}</div>
-	                @endif
-	
-	                <div class="brand-user">@if($u) Welcome Back, {{ $u->name }}! @endif</div>
-	            </div>
+            $canCatalog = $u && $u->hasPermission('manage_catalog');
+            $canSales = $u && $u->hasPermission('manage_sales');
+            $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
+            $canSettingsParent = $u && $u->hasPermission('manage_settings');
+        @endphp
 
-	            <button class="toggle-btn" id="sidebarToggle" type="button" aria-label="Toggle Sidebar" title="Toggle Sidebar"><span class="toggle-hamburger" aria-hidden="true">☰</span></button>
-	        </div>
-
-	        <nav class="sidebar-nav">
-	            <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
-	                <span>🏠</span><span class="label">Dashboard</span>
-	            </a>
-
-            @if($canCatalog)
-            <div class="nav-group">
-                <div class="nav-group-summary {{ (request()->routeIs('products.*') || request()->routeIs('categories.*') || request()->routeIs('manufacturers.*') || request()->routeIs('options.*')) ? 'active' : '' }}">
-                    <span>🗃️</span><span class="label">Catalog</span>
-                </div>
-                <div class="nav-sub">
-                    <a href="{{ route('categories.index') }}" class="{{ request()->routeIs('categories.*') ? 'active' : '' }}">
-                            <span>🗂️</span><span class="label">Categories</span>
-                        </a>
-                    <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}">
-                            <span>📦</span><span class="label">Products</span>
-                        </a>
-                    <a href="{{ route('manufacturers.index') }}" class="{{ request()->routeIs('manufacturers.*') ? 'active' : '' }}">
-                            <span>🏷️</span><span class="label">Manufacturers</span>
-                        </a>
-                    <a href="{{ route('options.index') }}" class="{{ request()->routeIs('options.*') ? 'active' : '' }}">
-                            <span>🧩</span><span class="label">Options</span>
-                        </a>
-                </div>
+        <div class="brand">
+            <div class="brand-stack">
+                @if($logoPath)
+                    <img class="brand-logo" src="{{ asset('storage/'.$logoPath) }}" alt="Company Logo">
+                @else
+                    <div class="brand-company">{{ $companyName }}</div>
+                @endif
+                <div class="brand-user">@if($u) Welcome, {{ $u->name }} @endif</div>
             </div>
-            @endif
+            <button class="toggle-btn" id="sidebarToggle" type="button" aria-label="Toggle Sidebar" title="Toggle Sidebar">
+                <span class="toggle-hamburger"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span>
+            </button>
+        </div>
 
-            @if($canSales)
-            <div class="nav-group">
-                <div class="nav-group-summary {{ (request()->routeIs('orders.*') || request()->routeIs('order_statuses.*')) ? 'active' : '' }}">
-                    <span>💰</span><span class="label">Sales</span>
-                </div>
-                <div class="nav-sub">
-                    <a href="{{ route('orders.index') }}" class="{{ request()->routeIs('orders.*') ? 'active' : '' }}">
-                        <span>🧾</span><span class="label">Orders</span>
-                    </a>
-                    <a href="{{ route('order_statuses.index') }}" class="{{ request()->routeIs('order_statuses.*') ? 'active' : '' }}">
-                        <span>📋</span><span class="label">Order Statuses</span>
-                    </a>
-                </div>
-            </div>
-            @endif
+        <div class="sidebar-inner">
+            <nav class="sidebar-nav">
+                <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                    <span class="label">Dashboard</span>
+                </a>
 
-            @if($canMarketplace)
-            <div class="nav-group">
-                <div class="nav-group-summary {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'active' : '' }}">
-                    <span>🛍️</span><span class="label">Marketplace API</span>
+                @if($canCatalog)
+                <div class="nav-group">
+                    <details {{ (request()->routeIs('products.*') || request()->routeIs('categories.*') || request()->routeIs('manufacturers.*') || request()->routeIs('options.*')) ? 'open' : '' }}>
+                        <summary class="{{ (request()->routeIs('products.*') || request()->routeIs('categories.*') || request()->routeIs('manufacturers.*') || request()->routeIs('options.*')) ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+                            <span class="label">Catalog</span>
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('categories.index') }}" class="{{ request()->routeIs('categories.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+                                    <span class="label">Categories</span>
+                                </a>
+                                <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+                                    <span class="label">Products</span>
+                                </a>
+                                <a href="{{ route('manufacturers.index') }}" class="{{ request()->routeIs('manufacturers.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+                                    <span class="label">Manufacturers</span>
+                                </a>
+                                <a href="{{ route('options.index') }}" class="{{ request()->routeIs('options.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                                    <span class="label">Options</span>
+                                </a>
+                            </div>
+                        </div>
+                    </details>
                 </div>
-                <div class="nav-sub">
-                    <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.*') ? 'active' : '' }}">
-                        <span>🛒</span><span class="label">Shopee</span>
-                    </a>
-                    <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
-                        <span>🟦</span><span class="label">Lazada API</span>
-                    </a>
-                    <a href="{{ route('lazada.products.index') }}" class="{{ (request()->routeIs('lazada.products.*')) ? 'active' : '' }}">
-                        <span>📄</span><span class="label">Lazada Products</span>
-                    </a>
-                    <a href="{{ route('lazada.categories.index') }}" class="{{ request()->routeIs('lazada.categories.*') ? 'active' : '' }}">
-                        <span>🗂️</span><span class="label">Lazada Categories</span>
-                    </a>
-                    <a href="{{ route('lazada.orders.index') }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
-                        <span>🧾</span><span class="label">Lazada Orders</span>
-                    </a>
-                </div>
-            </div>
-            @endif
+                @endif
 
-            @if($canSettingsParent)
-            <div class="nav-group">
-                <div class="nav-group-summary {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*')) ? 'active' : '' }}">
-                    <span>⚙️</span><span class="label">Settings</span>
+                @if($canSales)
+                <div class="nav-group">
+                    <details {{ (request()->routeIs('orders.*') || request()->routeIs('order_statuses.*')) ? 'open' : '' }}>
+                        <summary class="{{ (request()->routeIs('orders.*') || request()->routeIs('order_statuses.*')) ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                            <span class="label">Sales</span>
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('orders.index') }}" class="{{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+                                    <span class="label">Orders</span>
+                                </a>
+                                <a href="{{ route('order_statuses.index') }}" class="{{ request()->routeIs('order_statuses.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
+                                    <span class="label">Order Statuses</span>
+                                </a>
+                            </div>
+                        </div>
+                    </details>
                 </div>
-                <div class="nav-sub">
-                    <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
-                        <span>👤</span><span class="label">Users</span>
-                    </a>
-                    <a href="{{ route('user_groups.index') }}" class="{{ request()->routeIs('user_groups.*') ? 'active' : '' }}">
-                        <span>🔐</span><span class="label">User Groups</span>
-                    </a>
-                    <a href="{{ route('settings.edit') }}" class="{{ request()->routeIs('settings.*') ? 'active' : '' }}">
-                        <span>🧰</span><span class="label">Website Setting</span>
-                    </a>
-                    <a href="{{ route('error_log.index') }}" class="{{ request()->routeIs('error_log.*') ? 'active' : '' }}">
-                        <span>🧾</span><span class="label">Error Log</span>
-                    </a>
+                @endif
+
+                @if($canMarketplace)
+                <div class="nav-group">
+                    <details {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'open' : '' }}>
+                        <summary class="{{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+                            <span class="label">Marketplace API</span>
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+                                    <span class="label">Shopee</span>
+                                </a>
+                                <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                                    <span class="label">Lazada API</span>
+                                </a>
+                                <a href="{{ route('lazada.profiles.index') }}" class="{{ request()->routeIs('lazada.profiles.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
+                                    <span class="label">Lazada Profiles</span>
+                                </a>
+                                <a href="{{ route('lazada.products.index') }}" class="{{ (request()->routeIs('lazada.products.*')) ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
+                                    <span class="label">Lazada Products</span>
+                                </a>
+                                <a href="{{ route('lazada.categories.index') }}" class="{{ request()->routeIs('lazada.categories.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+                                    <span class="label">Lazada Categories</span>
+                                </a>
+                                <a href="{{ route('lazada.orders.index') }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                                    <span class="label">Lazada Orders</span>
+                                </a>
+                            </div>
+                        </div>
+                    </details>
                 </div>
-            </div>
-	            @endif
+                @endif
+
+                @if($canSettingsParent)
+                <div class="nav-group">
+                    <details {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('error_log.*')) ? 'open' : '' }}>
+                        <summary class="{{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('error_log.*')) ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                            <span class="label">Settings</span>
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                                    <span class="label">Users</span>
+                                </a>
+                                <a href="{{ route('user_groups.index') }}" class="{{ request()->routeIs('user_groups.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                                    <span class="label">User Groups</span>
+                                </a>
+                                <a href="{{ route('settings.edit') }}" class="{{ request()->routeIs('settings.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+                                    <span class="label">Website Setting</span>
+                                </a>
+                                <a href="{{ route('error_log.index') }}" class="{{ request()->routeIs('error_log.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                                    <span class="label">Error Log</span>
+                                </a>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                @endif
             </nav>
-    
+        </div>
+
         @auth
             <div class="sidebar-footer">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="logout-btn nav">
-                        <span>🚪</span><span class="label">Logout</span>
+                    <button type="submit" class="logout-btn">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+                        <span class="label">Logout</span>
                     </button>
                 </form>
             </div>
         @endauth
-
-</aside>
+    </aside>
 
     <main id="content" class="content">
-        
         <div class="topbar">
-            <div></div>
+            <div class="topbar-title">@yield('breadcrumb', 'Dashboard')</div>
             <div></div>
         </div>
-@if(session('status'))
-            <div class="alert success" style="margin-bottom:12px;">{{ session('status') }}</div>
+
+        @if(session('status'))
+            <div class="alert success">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>{{ session('status') }}</span>
+                <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+            </div>
         @endif
 
         @if(session('error'))
-            <div class="alert danger" style="margin-bottom:12px;">{{ session('error') }}</div>
+            <div class="alert danger">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span>{{ session('error') }}</span>
+                <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+            </div>
         @endif
 
         @if($errors->any())
-            <div class="alert danger" style="margin-bottom:12px;">
-                <ul style="margin:0; padding-left:18px;">
-                    @foreach($errors->all() as $e)
-                        <li>{{ $e }}</li>
-                    @endforeach
-                </ul>
+            <div class="alert danger">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <div>
+                    <ul style="margin:0; padding-left:18px;">
+                        @foreach($errors->all() as $e)
+                            <li>{{ $e }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+                <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
             </div>
         @endif
 
         @yield('content')
-
 
     </main>
 </div>
 
 <script>
 (function () {
-    const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('content');
-    const btn = document.getElementById('sidebarToggle');
-    const fab = document.getElementById('sidebar-fab');
-
+    var sidebar = document.getElementById('sidebar');
+    var content = document.getElementById('content');
+    var btn = document.getElementById('sidebarToggle');
+    var fab = document.getElementById('sidebar-fab');
+    var backdrop = document.getElementById('sidebar-backdrop');
     if (!sidebar || !content || !btn) return;
 
-    const key = 'ngd_sidebar_collapsed';
+    var key = 'ngd_sidebar_collapsed';
+    var mobileBreak = 768;
+
+    function isMobile() { return window.innerWidth <= mobileBreak; }
 
     function applyState(isCollapsed) {
         sidebar.classList.toggle('collapsed', isCollapsed);
         content.classList.toggle('collapsed', isCollapsed);
 
-        if (fab) {
-            fab.style.display = isCollapsed ? 'flex' : 'none';
+        if (isMobile()) {
+            fab.classList.toggle('show', isCollapsed);
+            backdrop.style.display = isCollapsed ? 'none' : 'block';
+            setTimeout(function(){ backdrop.classList.toggle('visible', !isCollapsed); }, 10);
+            document.body.style.overflow = isCollapsed ? '' : 'hidden';
+        } else {
+            fab.classList.toggle('show', isCollapsed);
+            backdrop.style.display = 'none';
+            backdrop.classList.remove('visible');
+            document.body.style.overflow = '';
         }
 
-        localStorage.setItem(key, isCollapsed ? '1' : '0');
+        if (!isMobile()) {
+            localStorage.setItem(key, isCollapsed ? '1' : '0');
+        }
     }
 
-    const collapsed = localStorage.getItem(key) === '1';
-    applyState(collapsed);
+    function initLayout() {
+        if (isMobile()) {
+            applyState(true);
+        } else {
+            var saved = localStorage.getItem(key) === '1';
+            applyState(saved);
+        }
+    }
+
+    initLayout();
 
     btn.addEventListener('click', function () {
         applyState(!sidebar.classList.contains('collapsed'));
@@ -582,6 +1179,28 @@ nav[role="navigation"] svg { display:none !important; }
             applyState(false);
         });
     }
+
+    if (backdrop) {
+        backdrop.addEventListener('click', function () {
+            applyState(true);
+        });
+    }
+
+    var resizeTimer;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(initLayout, 150);
+    });
+
+    // Auto-dismiss alerts after 5s
+    document.querySelectorAll('.alert').forEach(function(el) {
+        setTimeout(function() {
+            el.style.transition = 'opacity .3s ease, transform .3s ease';
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-8px)';
+            setTimeout(function(){ el.remove(); }, 300);
+        }, 5000);
+    });
 })();
 </script>
 
@@ -646,8 +1265,6 @@ nav[role="navigation"] svg { display:none !important; }
 
 <script>
 (function(){
-  // Product forms use a simpler typeahead (manufacturer_search/category_search).
-  // Keep this logic in the layout so Add/Edit behave the same and require no page-specific scripts.
   function setupTypeahead(opts){
     var input = document.getElementById(opts.inputId);
     var hidden = document.getElementById(opts.hiddenId);
@@ -661,7 +1278,6 @@ nav[role="navigation"] svg { display:none !important; }
     function showList(){ list.style.display='block'; }
     function hideList(){ list.style.display='none'; }
 
-    // If user types/clears manually, assume it's not selected -> reset id.
     input.addEventListener('input', function(){
       hidden.value = '0';
     });
@@ -674,7 +1290,6 @@ nav[role="navigation"] svg { display:none !important; }
         btn.type = 'button';
         btn.textContent = it.name;
         btn.addEventListener('mousedown', function(e){
-          // mousedown so it triggers before input loses focus
           e.preventDefault();
           input.value = it.name;
           hidden.value = String(it.id);
@@ -690,10 +1305,6 @@ nav[role="navigation"] svg { display:none !important; }
         var res = await fetch(opts.url + encodeURIComponent(q), {headers:{'Accept':'application/json'}, credentials:'same-origin'});
         if(!res.ok) return [];
         var data = await res.json();
-        // Normalize to {id,name}
-        // manufacturers() returns {manufacturer_id,name}
-        // categories() returns {category_id,path}
-        // optionValues() returns {option_value_id,name}
         return (data || []).map(function(r){
           return {
             id: r.id ?? r.manufacturer_id ?? r.category_id ?? r.option_id ?? r.value_id ?? r.option_value_id,
@@ -706,7 +1317,6 @@ nav[role="navigation"] svg { display:none !important; }
     input.addEventListener('focus', function(){
       var q = (input.value || '').trim();
       if(q.length >= 1){
-        // trigger a refresh when focusing back
         last = '';
         input.dispatchEvent(new Event('keyup'));
       }

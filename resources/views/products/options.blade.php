@@ -7,7 +7,7 @@
             <h2>Product Options: {{ $product->name }}</h2>
             <div class="hint">Product #{{ $product->product_id }} @if(!empty($product->sku)) • SKU {{ $product->sku }} @endif</div>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('products.edit', $product->product_id) }}">Back to Product</a>
             <a class="btn secondary" href="{{ route('products.index') }}">Products</a>
         </div>
@@ -22,7 +22,7 @@
 
         <div id="options-root"></div>
 
-        <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+        <div class="d-flex gap-10 items-center mt-12">
             <button class="btn secondary" type="button" id="add-option-btn">Add Option</button>
             <button class="btn" type="submit">Save Options</button>
         </div>

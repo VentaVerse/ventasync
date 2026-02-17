@@ -4,8 +4,7 @@
   $pimProductId = (int) ($pimProductId ?? 0);
 @endphp
 
-<h3 style="margin-top:0; margin-bottom:8px;">Images</h3>
-<div style="height:1px; background:rgba(255,255,255,0.08); margin-bottom:14px;"></div>
+<h3 class="section-title mt-0">Images</h3>
 
 <div class="pim-wrap">
   <input type="hidden" name="pim_token" value="{{ $pimToken }}">
@@ -13,7 +12,7 @@
     <button class="btn secondary" type="button" id="pimAddLocalBtn">Upload (Drag/Drop or Browse)</button>
     <button class="btn secondary" type="button" id="pimAddUrlBtn">Upload from URL</button>
     <button class="btn secondary" type="button" id="pimAddServerBtn">Upload from Server</button>
-    <div class="hint" style="margin-left:auto; opacity:.85;">Drag to reorder. First image becomes the main image.</div>
+    <div class="hint" style="margin-left:auto;">Drag to reorder. First image becomes the main image.</div>
 </div>
 
   <input type="file" id="pimFileInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" multiple style="display:none;">
@@ -63,11 +62,11 @@
 <style>
 .pim-wrap {
   margin-top: 10px;
-  border: 2px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.05);
-  border-radius: 18px;
+  border: 1px solid var(--border-light, #f1f5f9);
+  background: var(--surface-alt, #f8fafc);
+  border-radius: var(--radius-lg, 16px);
   padding: 16px;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.06));
 }
 .pim-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
 

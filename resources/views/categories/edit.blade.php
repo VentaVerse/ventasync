@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Categories / Edit')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Edit Category #{{ $category->category_id }}</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('categories.index') }}">Back</a>
             <button class="btn" type="submit" form="category-form">Update</button>
         </div>
@@ -54,12 +55,12 @@
         {{-- Update button moved to page header (top-right) --}}
 </form>
 
-<form id="delete-form" method="POST" action="{{ route('categories.destroy', $category->category_id) }}" style="display:none;">
+<form id="delete-form" method="POST" action="{{ route('categories.destroy', $category->category_id) }}" class="hidden">
     @csrf
     @method('DELETE')
 </form>
 
-<div style="margin-top:16px; display:flex; justify-content:flex-start;">
+<div class="mt-16 d-flex justify-start">
     <button class="btn danger" type="button" onclick="if(confirm('Delete this item?')) document.getElementById('delete-form').submit();">Delete</button>
 </div>
 

@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Manufacturers / Edit')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Edit Manufacturer #{{ $manufacturer->manufacturer_id }}</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('manufacturers.index') }}">Back</a>
             <button class="btn" type="submit" form="manufacturer-form">Update</button>
         </div>
@@ -34,12 +35,12 @@
         {{-- Update button moved to page header (top-right) --}}
     </form>
 
-    <form id="delete-manufacturer-form" method="POST" action="{{ route('manufacturers.destroy', $manufacturer->manufacturer_id) }}" style="display:none;">
+    <form id="delete-manufacturer-form" method="POST" action="{{ route('manufacturers.destroy', $manufacturer->manufacturer_id) }}" class="hidden">
         @csrf
         @method('DELETE')
     </form>
 
-    <div style="margin-top:16px; display:flex; justify-content:flex-start;">
+    <div class="mt-16 d-flex justify-start">
         <button class="btn danger" type="button"
             onclick="if(confirm('Delete this manufacturer?')) document.getElementById('delete-manufacturer-form').submit();">
             Delete

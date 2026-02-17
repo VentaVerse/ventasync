@@ -3,25 +3,23 @@
         <ul class="pagination">
             {{-- Previous Page Link --}}
             @if ($paginator->onFirstPage())
-                <li class="disabled" aria-disabled="true"><span>&laquo; Previous</span></li>
+                <li class="disabled" aria-disabled="true"><span aria-hidden="true">&lsaquo; Prev</span></li>
             @else
-                <li><a href="{{ $paginator->previousPageUrl() }}" rel="prev">&laquo; Previous</a></li>
+                <li><a href="{{ $paginator->previousPageUrl() }}" rel="prev" aria-label="Previous page">&lsaquo; Prev</a></li>
             @endif
 
             {{-- Pagination Elements --}}
             @foreach ($elements as $element)
-                {{-- "Three Dots" Separator --}}
                 @if (is_string($element))
                     <li class="disabled" aria-disabled="true"><span>{{ $element }}</span></li>
                 @endif
 
-                {{-- Array Of Links --}}
                 @if (is_array($element))
                     @foreach ($element as $page => $url)
                         @if ($page == $paginator->currentPage())
                             <li class="active" aria-current="page"><span>{{ $page }}</span></li>
                         @else
-                            <li><a href="{{ $url }}">{{ $page }}</a></li>
+                            <li><a href="{{ $url }}" aria-label="Go to page {{ $page }}">{{ $page }}</a></li>
                         @endif
                     @endforeach
                 @endif
@@ -29,9 +27,9 @@
 
             {{-- Next Page Link --}}
             @if ($paginator->hasMorePages())
-                <li><a href="{{ $paginator->nextPageUrl() }}" rel="next">Next &raquo;</a></li>
+                <li><a href="{{ $paginator->nextPageUrl() }}" rel="next" aria-label="Next page">Next &rsaquo;</a></li>
             @else
-                <li class="disabled" aria-disabled="true"><span>Next &raquo;</span></li>
+                <li class="disabled" aria-disabled="true"><span>Next &rsaquo;</span></li>
             @endif
         </ul>
     </nav>

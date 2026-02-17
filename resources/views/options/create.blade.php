@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Options / Add')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Add Option</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('options.index') }}">Back</a>
             <button class="btn" type="submit" form="option-form">Save</button>
         </div>
@@ -54,11 +55,12 @@
 
         <hr style="margin:18px 0; opacity:.25;">
 
-        
+
 <div id="values-section">
 
-    <h3 style="margin:0 0 10px 0;">Values</h3>
+    <h3 class="section-title">Values</h3>
 
+    <div class="table-wrap">
     <table>
         <thead>
         <tr>
@@ -82,10 +84,11 @@
         @endforeach
         </tbody>
     </table>
+    </div>
 
-    <div id="option-values-controls" style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+    <div id="option-values-controls" class="mt-12 d-flex gap-10 items-center">
         <button class="btn secondary small" type="button" id="add-option-value-btn">Add Value</button>
-        <span style="color:#64748b; font-size:13px;">Add as many values as you need.</span>
+        <span class="text-secondary text-sm">Add as many values as you need.</span>
     </div>
 
     <script>

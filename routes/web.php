@@ -18,6 +18,7 @@ use App\Http\Controllers\LazadaProductController;
 use App\Http\Controllers\LazadaCategoryController;
 use App\Http\Controllers\LazadaCategoryAttributeController;
 use App\Http\Controllers\LazadaOrderController;
+use App\Http\Controllers\LazadaProfileController;
 use App\Http\Controllers\ErrorLogController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
@@ -143,6 +144,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lazada/orders/{orderId}/logistics-trace', [LazadaOrderController::class, 'logisticsTrace'])->name('lazada.orders.logistics_trace');
         Route::get('/lazada/orders/{orderId}/cancel-reasons', [LazadaOrderController::class, 'cancelReasons'])->name('lazada.orders.cancel_reasons');
         Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('lazada.orders.cancel');
+
+        // Lazada Profiles (mass-map category + brand + attributes by catalog category)
+        Route::get('/lazada/profiles', [LazadaProfileController::class, 'index'])->name('lazada.profiles.index');
+        Route::get('/lazada/profiles/create', [LazadaProfileController::class, 'create'])->name('lazada.profiles.create');
+        Route::post('/lazada/profiles', [LazadaProfileController::class, 'store'])->name('lazada.profiles.store');
+        Route::get('/lazada/profiles/{id}/edit', [LazadaProfileController::class, 'edit'])->whereNumber('id')->name('lazada.profiles.edit');
+        Route::put('/lazada/profiles/{id}', [LazadaProfileController::class, 'update'])->whereNumber('id')->name('lazada.profiles.update');
+        Route::delete('/lazada/profiles/{id}', [LazadaProfileController::class, 'destroy'])->whereNumber('id')->name('lazada.profiles.destroy');
+        Route::post('/lazada/profiles/{id}/sync-products', [LazadaProfileController::class, 'syncProducts'])->whereNumber('id')->name('lazada.profiles.sync_products');
+        Route::post('/lazada/profiles/{id}/template/sync', [LazadaProfileController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.profiles.template_sync');
 
         // Lazada Phase 2: Listings + Category attribute mapping
         // Lazada Products (new naming)

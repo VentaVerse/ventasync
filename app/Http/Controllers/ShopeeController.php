@@ -183,7 +183,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
     public function tokenGet(Request $request, ShopeeClient $client)
     {
-        $request->validate([
+        $data = $request->validate([
             'code' => 'required|string',
         ]);
 
@@ -200,7 +200,7 @@ public function buildAuthUrl(ShopeeClient $client)
             $setting->mode ?? 'sandbox',
             (int)$setting->partner_id,
             (string)$setting->partner_key,
-            (string)$code,
+            (string)$data['code'],
             (int)$setting->shop_id
         );
 
@@ -241,7 +241,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
         $path = '/api/v2/auth/access_token/get';
         $timestamp = time();
-        $sign = $client->sign((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp);
+        $sign = $client->signAuth((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp);
 
         $query = [
             'partner_id' => (int)$setting->partner_id,
@@ -306,7 +306,11 @@ public function buildAuthUrl(ShopeeClient $client)
         $accessToken = (!empty($data['use_access_token']) && $setting->access_token) ? (string)$setting->access_token : null;
         $shopId = (!empty($data['use_shop_id']) && $setting->shop_id) ? (int)$setting->shop_id : null;
 
-        $sign = $client->sign((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp, $accessToken, $shopId);
+        if ($accessToken && $shopId) {
+            $sign = $client->signShop((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp, $accessToken, $shopId);
+        } else {
+            $sign = $client->signAuth((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp);
+        }
 
         $query = [
             'partner_id' => (int)$setting->partner_id,

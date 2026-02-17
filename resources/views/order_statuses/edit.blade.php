@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Sales / Edit Order Status')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Edit Order Status #{{ $orderStatus->order_status_id }}</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('order_statuses.index') }}">Back</a>
             <button class="btn" type="submit" form="os-form">Update</button>
         </div>
@@ -24,17 +25,17 @@
                     <input type="checkbox" name="subtract_stock" value="1" {{ old('subtract_stock', $orderStatus->subtract_stock) ? 'checked' : '' }}>
                     Subtract Stock
                 </label>
-                <small style="display:block; color:#888;">When enabled, product stock will be deducted when an order enters this status.</small>
+                <small class="hint">When enabled, product stock will be deducted when an order enters this status.</small>
             </div>
         </div>
     </form>
 
-    <form id="delete-os-form" method="POST" action="{{ route('order_statuses.destroy', $orderStatus->order_status_id) }}" style="display:none;">
+    <form id="delete-os-form" method="POST" action="{{ route('order_statuses.destroy', $orderStatus->order_status_id) }}" class="hidden">
         @csrf
         @method('DELETE')
     </form>
 
-    <div style="margin-top:16px; display:flex; justify-content:flex-start;">
+    <div class="mt-16 d-flex">
         <button class="btn danger" type="button"
             onclick="if(confirm('Delete this order status?')) document.getElementById('delete-os-form').submit();">
             Delete

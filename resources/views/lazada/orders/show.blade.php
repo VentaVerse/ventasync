@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Marketplace / Lazada / Orders / Detail')
 
 @section('content')
 @php
@@ -14,7 +15,6 @@
 
     $buyer = (string)($detail['customer_name'] ?? $detail['customer_first_name'] ?? $detail['buyer_name'] ?? $raw['customer_name'] ?? $raw['customer_first_name'] ?? $raw['buyer_name'] ?? '');
 
-    // Shipping / receiver fields (names differ by venture)
     $receiverName = (string)($detail['address_shipping']['first_name'] ?? $detail['address_shipping']['customer_name'] ?? $detail['receiver_name'] ?? $detail['shipping_address']['name'] ?? '');
     if ($receiverName === '') { $receiverName = $buyer; }
 
@@ -37,90 +37,90 @@
     $items = $order->products ?? collect();
 @endphp
 
-<div style="padding:16px;">
-    <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
-        <div>
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <h2 style="margin:0;">Lazada Order</h2>
-                <span style="font-size:12px; color:#64748b;">Order #</span>
-                <span style="font-weight:800; color:#0f172a;">{{ $order->order_id }}</span>
-                @if($status !== '')
-                    <span style="margin-left:6px; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #e5e7eb; background:#f8fafc; color:#0f172a;">{{ $status }}</span>
-                @endif
-            </div>
-            <div style="margin-top:6px; font-size:12px; color:#64748b; line-height:1.5;">
-                @if($created) <span>Create Time:</span> <span style="color:#334155; font-weight:600;">{{ $created }}</span> @endif
-                @if($updated) <span style="margin-left:10px;">Update Time:</span> <span style="color:#334155; font-weight:600;">{{ $updated }}</span> @endif
-            </div>
+<div class="page-header">
+    <div>
+        <div class="d-flex gap-10 items-center flex-wrap">
+            <h2 style="margin:0;">Lazada Order</h2>
+            <span class="text-secondary text-xs">Order #</span>
+            <span class="font-bold">{{ $order->order_id }}</span>
+            @if($status !== '')
+                <span class="badge badge-default" style="margin-left:6px;">{{ $status }}</span>
+            @endif
         </div>
-
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <a href="{{ route('lazada.orders.index') }}" class="btn" style="padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; text-decoration:none;">← Back to Orders</a>
-            <a href="{{ route('lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]) }}" class="btn" style="padding:10px 14px; border-radius:8px; border:0; background:#2563eb; color:#fff; text-decoration:none;">Refresh from Lazada</a>
+        <div class="meta-bar" style="margin-top:8px; margin-bottom:0; padding:8px 0; background:transparent; border:none;">
+            @if($created) <div class="meta-item"><span class="meta-label">Create Time:</span> {{ $created }}</div> @endif
+            @if($updated) <div class="meta-item"><span class="meta-label">Update Time:</span> {{ $updated }}</div> @endif
         </div>
     </div>
 
-    @if($api_error)
-        <div style="padding:10px 12px; border-radius:8px; margin-top:12px; background:#fef2f2; border:1px solid #fecaca;">
-            <strong>Error</strong>
-            <div style="margin-top:6px; color:#7f1d1d;">Unable to refresh order details from Lazada. Showing cached data.</div>
-        </div>
-    @endif
+    <div class="page-header-actions">
+        <a href="{{ route('lazada.orders.index') }}" class="btn secondary">← Back to Orders</a>
+        <a href="{{ route('lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]) }}" class="btn">Refresh from Lazada</a>
+    </div>
+</div>
 
-    @if($api_items_synced)
-        <div style="padding:10px 12px; border-radius:8px; margin-top:12px; background:#ecfdf5; border:1px solid #a7f3d0;">
-            <strong>OK</strong>
-            <div style="margin-top:6px;">Order items refreshed.</div>
-        </div>
-    @endif
+@if($api_error)
+    <div class="alert danger">
+        <strong>Error</strong>
+        <div style="margin-top:6px;">Unable to refresh order details from Lazada. Showing cached data.</div>
+    </div>
+@endif
 
-    <div style="display:grid; grid-template-columns: 1.1fr 0.9fr; gap:14px; margin-top:14px; align-items:start;">
-        <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-            <div style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:800;">Customer & Shipping</div>
-            <div style="padding:12px; font-size:13px; color:#0f172a; line-height:1.6;">
-                <div><span style="color:#64748b;">Buyer:</span> <span style="font-weight:700;">{{ $buyer !== '' ? $buyer : '—' }}</span></div>
-                <div style="margin-top:8px;"><span style="color:#64748b;">Receiver:</span> <span style="font-weight:700;">{{ $receiverName !== '' ? $receiverName : '—' }}</span></div>
-                <div><span style="color:#64748b;">Phone:</span> <span style="font-weight:700;">{{ $phone !== '' ? $phone : '—' }}</span></div>
+@if($api_items_synced)
+    <div class="alert success">
+        <strong>OK</strong>
+        <div style="margin-top:6px;">Order items refreshed.</div>
+    </div>
+@endif
 
-                <div style="margin-top:10px;">
-                    <div style="color:#64748b; font-size:12px; font-weight:700;">Address</div>
-                    <div style="margin-top:4px;">
-                        {{ $address1 !== '' ? $address1 : '—' }}
-                        @if($address2 !== '')<br>{{ $address2 }}@endif
-                        @if($city !== '' || $province !== '' || $postcode !== '' || $country !== '')
-                            <br>{{ trim($city . ' ' . $province) }} {{ $postcode }} {{ $country }}
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
+<div class="detail-grid">
+    <div class="detail-section">
+        <h4>Customer & Shipping</h4>
+        <div class="detail-body">
+            <div><span class="text-secondary">Buyer:</span> <strong>{{ $buyer !== '' ? $buyer : '—' }}</strong></div>
+            <div style="margin-top:8px;"><span class="text-secondary">Receiver:</span> <strong>{{ $receiverName !== '' ? $receiverName : '—' }}</strong></div>
+            <div><span class="text-secondary">Phone:</span> <strong>{{ $phone !== '' ? $phone : '—' }}</strong></div>
 
-        <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-            <div style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:800;">Logistics</div>
-            <div style="padding:12px; font-size:13px; color:#0f172a; line-height:1.6;">
-                <div><span style="color:#64748b;">Courier:</span> <span style="font-weight:700;">{{ $courier !== '' ? $courier : '—' }}</span></div>
-                <div><span style="color:#64748b;">Tracking #:</span> <span style="font-weight:700;">{{ $tracking !== '' ? $tracking : '—' }}</span></div>
-                <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a href="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}" target="_blank" rel="noopener" class="btn" style="padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; text-decoration:none;">View Logistics Trace</a>
-                    <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" target="_blank" rel="noopener" class="btn" style="padding:10px 12px; border-radius:8px; border:0; background:#0f172a; color:#fff; text-decoration:none;">AWB PDF</a>
+            <div style="margin-top:10px;">
+                <div class="text-secondary text-xs font-bold">Address</div>
+                <div style="margin-top:4px;">
+                    {{ $address1 !== '' ? $address1 : '—' }}
+                    @if($address2 !== '')<br>{{ $address2 }}@endif
+                    @if($city !== '' || $province !== '' || $postcode !== '' || $country !== '')
+                        <br>{{ trim($city . ' ' . $province) }} {{ $postcode }} {{ $country }}
+                    @endif
                 </div>
             </div>
         </div>
     </div>
 
-    <div style="margin-top:14px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-        <div style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:800;">Items</div>
-        @if($items->count() === 0)
-            <div style="padding:12px; color:#64748b;">No items cached yet. Click <strong>Refresh from Lazada</strong>.</div>
-        @else
-            <table style="width:100%; border-collapse:collapse;">
+    <div class="detail-section">
+        <h4>Logistics</h4>
+        <div class="detail-body">
+            <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
+            <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
+            <div class="d-flex gap-10 flex-wrap mt-12">
+                <a href="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}" target="_blank" rel="noopener" class="btn secondary">View Logistics Trace</a>
+                <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" target="_blank" rel="noopener" class="btn">AWB PDF</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="section-title mt-0">Items</h3>
+    @if($items->count() === 0)
+        <div class="text-secondary">No items cached yet. Click <strong>Refresh from Lazada</strong>.</div>
+    @else
+        <div class="table-wrap">
+            <table class="table">
                 <thead>
-                    <tr style="background:#f8fafc; text-align:left;">
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:90px;">Image</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">Product</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:130px;">SKU</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:100px;">Qty</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #e5e7eb; width:190px;">Order Item ID</th>
+                    <tr>
+                        <th style="width:90px;">Image</th>
+                        <th>Product</th>
+                        <th style="width:130px;">SKU</th>
+                        <th style="width:100px;">Qty</th>
+                        <th style="width:190px;">Order Item ID</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -136,37 +136,35 @@
                             $orderItemId = (string)($it->order_item_id ?? ($ir['order_item_id'] ?? $ir['orderItemId'] ?? ''));
                         @endphp
                         <tr>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+                            <td>
                                 @if($img !== '')
-                                    <img src="{{ $img }}" alt="" style="width:64px; height:64px; object-fit:cover; border:1px solid #e5e7eb; border-radius:8px;" onerror="this.style.display='none'">
+                                    <img src="{{ $img }}" alt="" class="thumb" style="width:64px; height:64px;" onerror="this.style.display='none'">
                                 @else
-                                    <span style="color:#94a3b8;">—</span>
+                                    <span class="text-muted">—</span>
                                 @endif
                             </td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
-                                <div style="font-weight:700; color:#0f172a;">{{ $name !== '' ? $name : '—' }}</div>
+                            <td>
+                                <div class="font-bold">{{ $name !== '' ? $name : '—' }}</div>
                                 @if($variation !== '')
-                                    <div style="margin-top:4px; font-size:12px; color:#64748b;">{{ $variation }}</div>
+                                    <div class="text-secondary text-xs" style="margin-top:4px;">{{ $variation }}</div>
                                 @endif
                             </td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">{{ $sku !== '' ? $sku : '—' }}</td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">{{ $qty }}</td>
-                            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">{{ $orderItemId !== '' ? $orderItemId : '—' }}</td>
+                            <td>{{ $sku !== '' ? $sku : '—' }}</td>
+                            <td>{{ $qty }}</td>
+                            <td>{{ $orderItemId !== '' ? $orderItemId : '—' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
-        @endif
-    </div>
-
-    <div style="margin-top:14px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-        <div style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:800;">Raw Payload (debug)</div>
-        <div style="padding:12px;">
-            <details>
-                <summary style="cursor:pointer; color:#0f172a; font-weight:700;">Show raw JSON</summary>
-                <pre style="margin-top:10px; white-space:pre-wrap; word-break:break-word; background:#0b1020; color:#e2e8f0; padding:12px; border-radius:10px; overflow:auto;">{{ json_encode(['order' => $raw, 'detail' => $detail], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
-            </details>
         </div>
-    </div>
+    @endif
+</div>
+
+<div class="card mt-16">
+    <h3 class="section-title mt-0">Raw Payload (debug)</h3>
+    <details>
+        <summary style="cursor:pointer;" class="font-bold">Show raw JSON</summary>
+        <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode(['order' => $raw, 'detail' => $detail], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+    </details>
 </div>
 @endsection

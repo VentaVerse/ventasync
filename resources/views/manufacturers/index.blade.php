@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Manufacturers')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Manufacturers</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('manufacturers.create') }}">Add Manufacturer</a>
             <button class="btn danger" type="submit" form="manufacturer-bulk-form" id="manufacturer-bulk-delete-btn">Delete Selected</button>
         </div>
@@ -14,7 +15,7 @@
         <form method="GET" action="{{ route('manufacturers.index') }}">
             <div class="ac-wrap" style="position:relative; max-width:420px; width:100%;">
     <input id="manufacturer-search" class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search manufacturer">
-    <div id="manufacturer-search-dd" class="ac-dd" style="display:none;">
+    <div id="manufacturer-search-dd" class="ac-dd hidden">
         <ul id="manufacturer-search-list"></ul>
     </div>
 </div>
@@ -26,6 +27,7 @@
         @csrf
     </form>
 
+    <div class="table-wrap">
     <table>
         <thead>
         <tr>
@@ -43,7 +45,7 @@
                 <td>{{ $m->manufacturer_id }}</td>
                 <td>{{ $m->name ?? '' }}</td>
                 <td>{{ (int)$m->sort_order }}</td>
-                <td style="display:flex; gap:8px; align-items:center;">
+                <td class="d-flex gap-8 items-center">
                     <a class="btn small" href="{{ route('manufacturers.edit', $m->manufacturer_id) }}">Edit</a>
                     <form method="POST" action="{{ route('manufacturers.destroy', $m->manufacturer_id) }}" onsubmit="return confirm('Delete this manufacturer?')">
                         @csrf
@@ -55,6 +57,7 @@
         @endforeach
         </tbody>
     </table>
+    </div>
 
     <script>
         (function () {
@@ -98,7 +101,7 @@
         })();
     </script>
 
-    <div style="margin-top:14px;">
+    <div class="mt-16">
         {{ $manufacturers->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>

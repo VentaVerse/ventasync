@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Manufacturers / Add')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Add Manufacturer</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('manufacturers.index') }}">Back</a>
             <button class="btn" type="submit" form="manufacturer-form">Save</button>
         </div>

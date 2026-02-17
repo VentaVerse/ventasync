@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Catalog / Options')
 
 @section('content')
 <div class="card">
     <div class="page-header">
         <h2>Options</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('options.create') }}">Add Option</a>
             <button class="btn danger" type="submit" form="option-bulk-form" id="option-bulk-delete-btn">Delete Selected</button>
         </div>
@@ -28,6 +29,7 @@
         @csrf
     </form>
 
+    <div class="table-wrap">
     <table>
         <thead>
         <tr>
@@ -47,9 +49,9 @@
                 <td>{{ $o->name }}</td>
                 <td>{{ $o->type }}</td>
                 <td>{{ (int)$o->sort_order }}</td>
-                <td style="display:flex; gap:8px; align-items:center;">
+                <td class="d-flex gap-8 items-center">
                     <a class="btn small" href="{{ route('options.edit', $o->option_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('options.destroy', $o->option_id) }}" onsubmit="return confirm('Delete this option? This cannot be undone.');" style="display:inline;">
+                    <form method="POST" action="{{ route('options.destroy', $o->option_id) }}" onsubmit="return confirm('Delete this option? This cannot be undone.');">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>
@@ -59,12 +61,13 @@
         @endforeach
         </tbody>
     </table>
+    </div>
 
-    <div style="margin-top:14px;">
+    <div class="mt-16">
         {{ $options->onEachSide(1)->links('vendor.pagination.simple') }}
 
         @if(method_exists($options, 'total') && $options->total() > 0)
-            <div style="margin-top:8px; font-size:13px; opacity:.85;">
+            <div class="mt-12 text-sm text-muted">
                 Showing {{ $options->firstItem() }} to {{ $options->lastItem() }} of {{ $options->total() }} results
             </div>
         @endif

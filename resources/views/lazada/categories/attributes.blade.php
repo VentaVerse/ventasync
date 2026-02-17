@@ -1,14 +1,15 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Marketplace / Lazada / Categories / Attributes')
 
 @section('title', 'Lazada Category Attributes')
 
 @section('content')
-    <div class="page-head">
+    <div class="page-header">
         <div>
-            <h1>Lazada Category Attributes</h1>
-            <div class="muted">Category ID: <strong>{{ $category->category_id }}</strong> — {{ $category->name }}</div>
+            <h2>Lazada Category Attributes</h2>
+            <div class="text-muted text-sm">Category ID: <strong>{{ $category->category_id }}</strong> — {{ $category->name }}</div>
         </div>
-        <div class="page-actions" style="display:flex; gap:8px; align-items:center;">
+        <div class="page-header-actions">
             <a class="btn" href="{{ route('lazada.categories.index') }}">Back to Categories</a>
 
             <form method="POST" action="{{ route('lazada.categories.attributes.fetch', $category->category_id) }}" style="display:inline;">
@@ -18,31 +19,29 @@
         </div>
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="card-body">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-                <div>
-                    <div class="muted" style="font-size:12px;">Region</div>
-                    <div>{{ $region !== '' ? $region : '-' }}</div>
-                </div>
-                <div>
-                    <div class="muted" style="font-size:12px;">Last fetched</div>
-                    <div>{{ $template && $template->fetched_at ? $template->fetched_at : '-' }}</div>
-                </div>
-                <div>
-                    <div class="muted" style="font-size:12px;">Attributes cached</div>
-                    <div>{{ count($attributes) }}</div>
-                </div>
+    <div class="card mb-12">
+        <div class="meta-bar">
+            <div class="meta-item">
+                <span class="meta-label">Region</span>
+                {{ $region !== '' ? $region : '-' }}
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Last fetched</span>
+                {{ $template && $template->fetched_at ? $template->fetched_at : '-' }}
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Attributes cached</span>
+                {{ count($attributes) }}
             </div>
         </div>
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="card-body">
-            <h3 style="margin-top:0;">Attribute List</h3>
-            @if(empty($attributes))
-                <div class="muted">No cached attributes for this category yet. Click <strong>Fetch Attributes from Lazada</strong>.</div>
-            @else
+    <div class="card mb-12">
+        <h3 class="section-title mt-0">Attribute List</h3>
+        @if(empty($attributes))
+            <div class="text-muted">No cached attributes for this category yet. Click <strong>Fetch Attributes from Lazada</strong>.</div>
+        @else
+            <div class="table-wrap">
                 <table class="table">
                     <thead>
                     <tr>
@@ -57,48 +56,46 @@
                         <tr>
                             <td>
                                 @if($a['required'])
-                                    <span style="display:inline-block; padding:3px 8px; border-radius:999px; background:#ffe8e8; color:#b30000; font-weight:700; font-size:12px;">MANDATORY</span>
+                                    <span class="badge badge-red">MANDATORY</span>
                                 @else
-                                    <span style="display:inline-block; padding:3px 8px; border-radius:999px; background:#f3f4f6; color:#444; font-weight:600; font-size:12px;">Optional</span>
+                                    <span class="badge badge-gray">Optional</span>
                                 @endif
                             </td>
                             <td>
                                 <div><strong>{{ $a['name'] }}</strong></div>
-                                <div class="muted" style="font-size:12px;">Key: {{ $a['key'] }}</div>
+                                <div class="text-muted text-xs">Key: {{ $a['key'] }}</div>
                             </td>
                             <td>{{ $a['input_type'] }}</td>
                             <td>
                                 @if(!empty($a['options']))
-                                    <span class="muted">{{ count($a['options']) }} value(s)</span>
+                                    <span class="text-muted">{{ count($a['options']) }} value(s)</span>
                                 @else
-                                    <span class="muted">-</span>
+                                    <span class="text-muted">-</span>
                                 @endif
                             </td>
                         </tr>
                     @endforeach
                     </tbody>
                 </table>
-            @endif
-        </div>
+            </div>
+        @endif
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="card-body">
-            <h3 style="margin-top:0;">Raw Response (cached)</h3>
-            @if($template && $template->template_body)
-                <pre style="white-space:pre-wrap; word-break:break-word; margin:0;">{{ json_encode($template->template_body, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
-            @else
-                <div class="muted">No cached response yet.</div>
-            @endif
-        </div>
+    <div class="card mb-12">
+        <h3 class="section-title mt-0">Raw Response (cached)</h3>
+        @if($template && $template->template_body)
+            <pre class="pre" style="white-space:pre-wrap; word-break:break-word;">{{ json_encode($template->template_body, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+        @else
+            <div class="text-muted">No cached response yet.</div>
+        @endif
     </div>
 
     <div class="card">
-        <div class="card-body">
-            <h3 style="margin-top:0;">Recent Logs (GetCategoryAttributes)</h3>
-            @if($logs->isEmpty())
-                <div class="muted">No logs yet.</div>
-            @else
+        <h3 class="section-title mt-0">Recent Logs (GetCategoryAttributes)</h3>
+        @if($logs->isEmpty())
+            <div class="text-muted">No logs yet.</div>
+        @else
+            <div class="table-wrap">
                 <table class="table">
                     <thead>
                     <tr>
@@ -121,7 +118,7 @@
                     @endforeach
                     </tbody>
                 </table>
-            @endif
-        </div>
+            </div>
+        @endif
     </div>
 @endsection

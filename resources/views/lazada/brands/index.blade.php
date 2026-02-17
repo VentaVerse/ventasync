@@ -1,13 +1,12 @@
 @extends('layouts.app')
+@section('breadcrumb', 'Marketplace / Lazada / Brands')
 
 @section('content')
 <div class="page-header">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <h1 style="margin:0;">Lazada Brands</h1>
-        <div style="display:flex; gap:8px;">
-            <a class="btn" href="{{ route('lazada.index') }}">Lazada API</a>
-            <a class="btn" href="{{ route('lazada.listings.index') }}">Listings</a>
-        </div>
+    <h1>Lazada Brands</h1>
+    <div class="page-header-actions">
+        <a class="btn" href="{{ route('lazada.index') }}">Lazada API</a>
+        <a class="btn" href="{{ route('lazada.products.index') }}">Products</a>
     </div>
 </div>
 
@@ -19,10 +18,10 @@
 @endif
 
 <div class="card">
-    <div style="display:flex; align-items:end; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <form method="GET" action="{{ route('lazada.brands.index') }}" style="display:flex; gap:8px; align-items:end;">
+    <div class="d-flex items-center justify-between gap-12 flex-wrap">
+        <form method="GET" action="{{ route('lazada.brands.index') }}" class="d-flex gap-8 items-center">
             <div>
-                <label class="label" style="font-size:12px;">Search</label>
+                <label class="text-xs">Search</label>
                 <input class="input" name="q" value="{{ $q }}" placeholder="Brand name or ID" style="width:260px;">
             </div>
             <button class="btn" type="submit">Search</button>
@@ -30,13 +29,13 @@
 
         <form method="POST" action="{{ route('lazada.brands.fetch') }}">
             @csrf
-            <button class="btn btn-primary" type="submit">Fetch All Brands</button>
+            <button class="btn" type="submit">Fetch All Brands</button>
         </form>
     </div>
 
-    <div class="divider"></div>
+    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
 
-    <div style="overflow:auto;">
+    <div class="table-wrap">
         <table class="table">
             <thead>
                 <tr>
@@ -57,7 +56,7 @@
         </table>
     </div>
 
-    <div style="margin-top:10px;">
+    <div class="mt-12">
         {{ $brands->links() }}
     </div>
 </div>
