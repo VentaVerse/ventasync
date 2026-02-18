@@ -8,8 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('lazada_listings', function (Blueprint $table) {
-            if (!Schema::hasColumn('lazada_listings', 'lazada_deleted_at')) {
+        Schema::table('lazada_products', function (Blueprint $table) {
+            if (!Schema::hasColumn('lazada_products', 'lazada_deleted_at')) {
                 $table->timestamp('lazada_deleted_at')->nullable()->after('lazada_item_id');
             }
         });
@@ -17,8 +17,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('lazada_listings', function (Blueprint $table) {
-            if (Schema::hasColumn('lazada_listings', 'lazada_deleted_at')) {
+        Schema::table('lazada_products', function (Blueprint $table) {
+            if (Schema::hasColumn('lazada_products', 'lazada_deleted_at')) {
                 $table->dropColumn('lazada_deleted_at');
             }
         });

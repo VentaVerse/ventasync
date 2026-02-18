@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        if (Schema::hasTable('lazada_listing_variants')) {
+        if (Schema::hasTable('lazada_product_variants')) {
             return;
         }
 
-        Schema::create('lazada_listing_variants', function (Blueprint $table) {
+        Schema::create('lazada_product_variants', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('lazada_listing_id');
+            $table->unsignedBigInteger('lazada_product_id');
             $table->unsignedInteger('product_option_value_id')->nullable();
 
             // Mapping fields (Phase 2)
@@ -23,13 +23,13 @@ return new class extends Migration {
 
             $table->timestamps();
 
-            $table->unique(['lazada_listing_id', 'product_option_value_id'], 'lazada_listing_variant_unique');
-            $table->foreign('lazada_listing_id')->references('id')->on('lazada_listings')->onDelete('cascade');
+            $table->unique(['lazada_product_id', 'product_option_value_id'], 'lazada_product_variant_unique');
+            $table->foreign('lazada_product_id')->references('id')->on('lazada_products')->onDelete('cascade');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('lazada_listing_variants');
+        Schema::dropIfExists('lazada_product_variants');
     }
 };
