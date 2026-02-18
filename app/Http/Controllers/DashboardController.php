@@ -8,6 +8,7 @@ use App\Models\Catalog\Category;
 use App\Models\Catalog\Manufacturer;
 use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -38,27 +39,11 @@ class DashboardController extends Controller
                 ->count();
         }
 
-        // --- Sales chart: last 30 days ---
-        $chartDays = 30;
-        $startDate = now()->subDays($chartDays - 1)->startOfDay();
-
-        $dailySales = DB::table($pfx . 'order')
-            ->select(DB::raw('DATE(date_added) as day'), DB::raw('SUM(total) as revenue'), DB::raw('COUNT(*) as orders'))
-            ->where('date_added', '>=', $startDate)
-            ->groupBy(DB::raw('DATE(date_added)'))
-            ->orderBy('day')
-            ->get()
-            ->keyBy('day');
-
-        $chartLabels = [];
-        $chartRevenue = [];
-        $chartOrders = [];
-        for ($i = 0; $i < $chartDays; $i++) {
-            $day = now()->subDays($chartDays - 1 - $i)->format('Y-m-d');
-            $chartLabels[] = now()->subDays($chartDays - 1 - $i)->format('M d');
-            $chartRevenue[] = round((float) ($dailySales->get($day)->revenue ?? 0), 2);
-            $chartOrders[] = (int) ($dailySales->get($day)->orders ?? 0);
-        }
+        // --- Sales chart: default 30 days (loaded via JS) ---
+        $chart = $this->buildChartData('30d');
+        $chartLabels = $chart['labels'];
+        $chartRevenue = $chart['revenue'];
+        $chartOrders = $chart['orders'];
 
         // --- Recent orders (last 5) ---
         $recentOrders = DB::table($pfx . 'order as o')
@@ -83,5 +68,93 @@ class DashboardController extends Controller
             'chartOrders' => $chartOrders,
             'recentOrders' => $recentOrders,
         ]);
+    }
+
+    /**
+     * AJAX endpoint for switching chart range.
+     */
+    public function chartData(Request $request)
+    {
+        $range = $request->query('range', '30d');
+        return response()->json($this->buildChartData($range));
+    }
+
+    private function buildChartData(string $range): array
+    {
+        $pfx = (string) config('catalog.prefix');
+
+        if ($range === 'yearly') {
+            // Last 5 years, grouped by year
+            $startDate = now()->subYears(4)->startOfYear();
+
+            $rows = DB::table($pfx . 'order')
+                ->select(DB::raw('YEAR(date_added) as period'), DB::raw('SUM(total) as revenue'), DB::raw('COUNT(*) as orders'))
+                ->where('date_added', '>=', $startDate)
+                ->groupBy(DB::raw('YEAR(date_added)'))
+                ->orderBy('period')
+                ->get()
+                ->keyBy('period');
+
+            $labels = [];
+            $revenue = [];
+            $orders = [];
+            for ($i = 4; $i >= 0; $i--) {
+                $year = now()->subYears($i)->format('Y');
+                $labels[] = $year;
+                $revenue[] = round((float) ($rows->get($year)->revenue ?? 0), 2);
+                $orders[] = (int) ($rows->get($year)->orders ?? 0);
+            }
+        } elseif ($range === 'monthly') {
+            // Last 12 months, grouped by month
+            $startDate = now()->subMonths(11)->startOfMonth();
+
+            $rows = DB::table($pfx . 'order')
+                ->select(DB::raw("DATE_FORMAT(date_added, '%Y-%m') as period"), DB::raw('SUM(total) as revenue'), DB::raw('COUNT(*) as orders'))
+                ->where('date_added', '>=', $startDate)
+                ->groupBy(DB::raw("DATE_FORMAT(date_added, '%Y-%m')"))
+                ->orderBy('period')
+                ->get()
+                ->keyBy('period');
+
+            $labels = [];
+            $revenue = [];
+            $orders = [];
+            for ($i = 11; $i >= 0; $i--) {
+                $date = now()->subMonths($i);
+                $key = $date->format('Y-m');
+                $labels[] = $date->format('M Y');
+                $revenue[] = round((float) ($rows->get($key)->revenue ?? 0), 2);
+                $orders[] = (int) ($rows->get($key)->orders ?? 0);
+            }
+        } else {
+            // Last 30 days, grouped by day
+            $chartDays = 30;
+            $startDate = now()->subDays($chartDays - 1)->startOfDay();
+
+            $rows = DB::table($pfx . 'order')
+                ->select(DB::raw('DATE(date_added) as period'), DB::raw('SUM(total) as revenue'), DB::raw('COUNT(*) as orders'))
+                ->where('date_added', '>=', $startDate)
+                ->groupBy(DB::raw('DATE(date_added)'))
+                ->orderBy('period')
+                ->get()
+                ->keyBy('period');
+
+            $labels = [];
+            $revenue = [];
+            $orders = [];
+            for ($i = 0; $i < $chartDays; $i++) {
+                $date = now()->subDays($chartDays - 1 - $i);
+                $key = $date->format('Y-m-d');
+                $labels[] = $date->format('M d');
+                $revenue[] = round((float) ($rows->get($key)->revenue ?? 0), 2);
+                $orders[] = (int) ($rows->get($key)->orders ?? 0);
+            }
+        }
+
+        return [
+            'labels'  => $labels,
+            'revenue' => $revenue,
+            'orders'  => $orders,
+        ];
     }
 }

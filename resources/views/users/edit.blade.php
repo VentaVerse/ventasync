@@ -5,10 +5,13 @@
 <div class="card">
     <div class="page-header">
         <h2>Edit User #{{ $user->id }}</h2>
-        <a class="btn secondary" href="{{ route('users.index') }}">Back</a>
+        <div class="page-header-actions">
+            <button class="btn" type="submit" form="edit-user-form">Update</button>
+            <a class="btn secondary" href="{{ route('users.index') }}">Back</a>
+        </div>
     </div>
 
-    <form method="POST" action="{{ route('users.update', $user->id) }}">
+    <form id="edit-user-form" method="POST" action="{{ route('users.update', $user->id) }}">
         @csrf
         @method('PUT')
 
@@ -50,8 +53,7 @@
             </div>
         </div>
 
-        <div class="mt-16 d-flex gap-10 items-center">
-            <button class="btn" type="submit">Update</button>
+        <div class="mt-16">
             <button class="btn danger" type="button"
                 onclick="if(confirm('Delete this user?')) document.getElementById('delete-user-form').submit();">
                 Delete

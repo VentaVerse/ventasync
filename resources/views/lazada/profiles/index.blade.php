@@ -30,7 +30,7 @@
                     <th>Lazada Category</th>
                     <th style="width:100px;">Markup</th>
                     <th style="width:80px;">Products</th>
-                    <th style="width:280px;">Actions</th>
+                    <th style="width:180px;">Actions</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -72,11 +72,6 @@
                         <td>
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('lazada.profiles.edit', $p->id) }}">Edit</a>
-
-                                <form method="POST" action="{{ route('lazada.profiles.sync_products', $p->id) }}" style="margin:0;" onsubmit="return confirm('Sync products to Lazada listings?');">
-                                    @csrf
-                                    <button type="submit" class="btn small" {{ $p->lazada_category_id ? '' : 'disabled' }}>Sync</button>
-                                </form>
 
                                 <form method="POST" action="{{ route('lazada.profiles.destroy', $p->id) }}" style="margin:0;" onsubmit="return confirm('Delete profile? Products remain (unlinked).');">
                                     @csrf

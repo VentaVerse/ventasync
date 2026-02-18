@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\LazadaOrder;
 use App\Models\LazadaSetting;
+use App\Models\OpenCartSetting;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
@@ -56,6 +57,17 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('lazadaPendingCount', $count);
             } catch (\Throwable $e) {
                 $view->with('lazadaPendingCount', 0);
+            }
+
+            // Share enabled OpenCart stores for sidebar per-store links
+            try {
+                if (Schema::hasTable('opencart_settings')) {
+                    $view->with('opencartStores', OpenCartSetting::where('enabled', true)->get());
+                } else {
+                    $view->with('opencartStores', collect());
+                }
+            } catch (\Throwable $e) {
+                $view->with('opencartStores', collect());
             }
         });
 

@@ -319,12 +319,56 @@ $disk->makeDirectory($dir);
             'name' => basename($target),
         ]);
     }
+    /**
+     * Resolve the actual catalog folder name for a manufacturer (case-insensitive disk lookup).
+     */
+    private function resolveManufacturerFolder(int $manufacturerId): string
+    {
+        if ($manufacturerId <= 0) {
+            return '';
+        }
+
+        $m = Manufacturer::query()
+            ->where('manufacturer_id', $manufacturerId)
+            ->first(['name']);
+
+        if (!$m || !$m->name) {
+            return '';
+        }
+
+        $disk = Storage::disk('public');
+        $slug = Str::slug((string) $m->name);
+        $name = (string) $m->name;
+
+        // Check exact name first, then slug, then case-insensitive scan
+        if ($disk->exists('catalog/' . $name)) {
+            return $name;
+        }
+        if ($slug !== '' && $disk->exists('catalog/' . $slug)) {
+            return $slug;
+        }
+
+        // Case-insensitive scan of top-level catalog folders
+        $nameLower = mb_strtolower($name);
+        $slugLower = mb_strtolower($slug);
+        foreach ($disk->directories('catalog') as $dir) {
+            $folder = basename($dir);
+            $folderLower = mb_strtolower($folder);
+            if ($folderLower === $nameLower || $folderLower === $slugLower) {
+                return $folder;
+            }
+        }
+
+        return '';
+    }
+
     public function browse(Request $request)
     {
         $request->validate([
             'manufacturer_id' => 'nullable|integer|min:0',
             'product_id' => 'nullable|integer|min:0',
             'path' => 'nullable|string|max:255',
+            'start_at_manufacturer' => 'nullable|boolean',
         ]);
 
         // We always browse from the Laravel public disk under catalog/.
@@ -332,15 +376,27 @@ $disk->makeDirectory($dir);
         $disk = Storage::disk('public');
 
         $path = (string) ($request->path ?? '');
+        $serverResolved = false;
+
+        // If requested, resolve the manufacturer's actual folder on disk
+        if ($request->boolean('start_at_manufacturer') && $path === '') {
+            $mid = (int) ($request->manufacturer_id ?? 0);
+            $folder = $this->resolveManufacturerFolder($mid);
+            if ($folder !== '') {
+                $path = $folder;
+                $serverResolved = true;
+            }
+        }
+
         $path = str_replace('\\', '/', $path);
         $path = trim($path, '/');
 
-        // Prevent traversal or weird inputs.
-        if ($path !== '') {
+        // Prevent traversal or weird inputs (skip for server-resolved paths).
+        if ($path !== '' && !$serverResolved) {
             if (str_contains($path, '..')) {
                 abort(422, 'Invalid path.');
             }
-            if (!preg_match('#^[A-Za-z0-9/_\- ]+$#', $path)) {
+            if (!preg_match('#^[A-Za-z0-9/_\- .&\']+$#', $path)) {
                 abort(422, 'Invalid path.');
             }
         }

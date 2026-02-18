@@ -38,13 +38,29 @@
         <thead>
         <tr>
             <th style="width:36px;"><input type="checkbox" id="ord-select-all" title="Select all"></th>
-            <th style="width:70px;">ID</th>
+            <th style="width:70px;">
+                <a href="{{ route('orders.index', array_merge(request()->except('sort','dir'), ['sort' => 'order_id', 'dir' => ($sort === 'order_id' && $dir === 'asc') ? 'desc' : 'asc'])) }}">
+                    ID {!! $sort === 'order_id' ? ($dir === 'asc' ? '&#9650;' : '&#9660;') : '' !!}
+                </a>
+            </th>
             <th style="width:56px;">Image</th>
-            <th>Customer</th>
+            <th>
+                <a href="{{ route('orders.index', array_merge(request()->except('sort','dir'), ['sort' => 'firstname', 'dir' => ($sort === 'firstname' && $dir === 'asc') ? 'desc' : 'asc'])) }}">
+                    Customer {!! $sort === 'firstname' ? ($dir === 'asc' ? '&#9650;' : '&#9660;') : '' !!}
+                </a>
+            </th>
             <th>Source</th>
             <th>Status</th>
-            <th class="text-right">Total</th>
-            <th>Date Added</th>
+            <th class="text-right">
+                <a href="{{ route('orders.index', array_merge(request()->except('sort','dir'), ['sort' => 'total', 'dir' => ($sort === 'total' && $dir === 'asc') ? 'desc' : 'asc'])) }}">
+                    Total {!! $sort === 'total' ? ($dir === 'asc' ? '&#9650;' : '&#9660;') : '' !!}
+                </a>
+            </th>
+            <th>
+                <a href="{{ route('orders.index', array_merge(request()->except('sort','dir'), ['sort' => 'date_added', 'dir' => ($sort === 'date_added' && $dir === 'asc') ? 'desc' : 'asc'])) }}">
+                    Date Added {!! $sort === 'date_added' ? ($dir === 'asc' ? '&#9650;' : '&#9660;') : '' !!}
+                </a>
+            </th>
             <th style="width:200px;">Actions</th>
         </tr>
         </thead>

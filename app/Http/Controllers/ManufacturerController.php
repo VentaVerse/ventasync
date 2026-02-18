@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Catalog\Manufacturer;
-use App\Models\Catalog\ManufacturerDescription;
 use Illuminate\Http\Request;
 
 class ManufacturerController extends Controller
@@ -47,21 +46,13 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
     $request->validate([
         'name' => 'required|string|max:64',
         'sort_order' => 'nullable|integer',
-        'description' => 'nullable|string',
     ]);
 
-    $m = Manufacturer::create([
+    Manufacturer::create([
         'name' => $request->name,
         'image' => null,
         'sort_order' => (int) ($request->sort_order ?? 0),
     ]);
-
-    $languageId = (int) config('catalog.default_language_id');
-
-    ManufacturerDescription::updateOrCreate(
-        ['manufacturer_id' => (int) $m->manufacturer_id, 'language_id' => $languageId],
-        ['description' => $request->description ?? '']
-    );
 
     return redirect()->route('manufacturers.index')->with('status','Saved');
 }
@@ -70,15 +61,8 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
     public function edit($id)
 {
     $manufacturer = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
-    $languageId = (int) config('catalog.default_language_id');
 
-    $desc = ManufacturerDescription::where('manufacturer_id', (int) $id)
-        ->where('language_id', $languageId)
-        ->value('description');
-
-    $manufacturer_description = $desc ?? '';
-
-    return view('manufacturers.edit', compact('manufacturer', 'manufacturer_description'));
+    return view('manufacturers.edit', compact('manufacturer'));
 }
 
 
@@ -87,20 +71,12 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
     $request->validate([
         'name' => 'required|string|max:64',
         'sort_order' => 'nullable|integer',
-        'description' => 'nullable|string',
     ]);
 
     $m = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
     $m->name = $request->name;
     $m->sort_order = (int) ($request->sort_order ?? 0);
     $m->save();
-
-    $languageId = (int) config('catalog.default_language_id');
-
-    ManufacturerDescription::updateOrCreate(
-        ['manufacturer_id' => (int) $id, 'language_id' => $languageId],
-        ['description' => $request->description ?? '']
-    );
 
     return redirect()->route('manufacturers.index')->with('status','Saved');
 }

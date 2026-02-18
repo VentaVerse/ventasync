@@ -82,7 +82,7 @@
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         /* --- Layout --- */
-        .layout { display: flex; min-height: 100vh; }
+        .layout { display: flex; min-height: 100vh; min-height: 100dvh; }
 
         /* ============================================================
            SIDEBAR
@@ -92,8 +92,9 @@
             background: var(--bg2);
             color: #e2e8f0;
             position: fixed;
-            top: 0; left: 0;
+            top: 0; left: 0; bottom: 0;
             height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             z-index: 1200;
@@ -235,6 +236,7 @@
         .nav-group summary::marker { display: none; content: ''; }
         .nav-group summary:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
         .nav-group summary.active { color: #e2e8f0; }
+        .nav-group details[open] > summary { background: rgba(148,163,184,.06); color: #e2e8f0; }
 
         .nav-group summary .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
         .nav-group summary .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
@@ -250,20 +252,20 @@
         .nav-group summary .chevron svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .nav-group details[open] > summary .chevron { transform: rotate(90deg); }
 
-        /* Animated sub-menu using grid trick */
+        /* Animated sub-menu — height driven by JS */
         .nav-sub-wrap {
-            display: grid;
-            grid-template-rows: 0fr;
-            transition: grid-template-rows var(--transition-normal);
-        }
-        .nav-group details[open] > .nav-sub-wrap { grid-template-rows: 1fr; }
-        .nav-sub {
             overflow: hidden;
+            background: rgba(0,0,0,.12);
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+            transition: height 500ms cubic-bezier(.25,.1,.25,1);
+        }
+        .nav-sub {
             display: flex;
             flex-direction: column;
             gap: 1px;
             padding-left: 20px;
-            margin-top: 2px;
+            padding-top: 2px;
+            padding-bottom: 4px;
         }
         .nav-sub a {
             display: flex;
@@ -293,6 +295,26 @@
         }
         .nav-sub a .nav-icon { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
         .nav-sub a .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Section divider inside nav-sub */
+        .nav-sub-divider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 12px 4px;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #64748b;
+            user-select: none;
+        }
+        .nav-sub-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(148,163,184,.15);
+        }
 
         /* Sidebar footer */
         .sidebar-footer {
@@ -330,6 +352,7 @@
             padding: 0 32px 32px;
             width: 100%;
             min-height: 100vh;
+            min-height: 100dvh;
             transition: margin-left var(--transition-slow);
             will-change: margin-left;
             animation: fadeIn .3s ease;
@@ -395,6 +418,34 @@
             background: #fffbeb;
             color: #92400e;
             border: 1px solid #fde68a;
+        }
+
+        /* Toast container (fixed top-right) */
+        .toast-container {
+            position: fixed;
+            top: 20px; right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        .toast-container .alert {
+            margin-bottom: 0;
+            pointer-events: auto;
+            box-shadow: 0 8px 30px rgba(0,0,0,.12);
+            animation: toastIn .4s cubic-bezier(.21,1.02,.73,1);
+        }
+        .toast-container .alert.toast-out {
+            animation: toastOut .35s ease forwards;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(40px) scale(.95); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        @keyframes toastOut {
+            to { opacity: 0; transform: translateX(40px) scale(.95); }
         }
 
         /* ============================================================
@@ -485,6 +536,23 @@
         .btn-sm { height: 32px; padding: 0 12px; font-size: 12px; border-radius: var(--radius-sm); }
         .btn-lg { height: 48px; padding: 0 24px; font-size: 15px; border-radius: var(--radius-md); }
 
+        /* Loading state */
+        .btn.is-loading {
+            pointer-events: none;
+            opacity: .65;
+            position: relative;
+        }
+        .btn.is-loading::after {
+            content: '';
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.35);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .55s linear infinite;
+            margin-left: 6px;
+            flex-shrink: 0;
+        }
+
         /* ============================================================
            TABLES
            ============================================================ */
@@ -512,9 +580,12 @@
             letter-spacing: .05em;
             background: var(--surface-alt);
             white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
         tbody tr { transition: background var(--transition-fast); }
-        tbody tr:hover { background: rgba(59,130,246,.02); }
+        tbody tr:hover { background: rgba(59,130,246,.045); }
         tbody tr:last-child td { border-bottom: none; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
@@ -568,6 +639,7 @@
         label.required::after { content: ' *'; color: var(--danger); font-weight: 700; }
         .hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
         .field-error { font-size: 12px; color: var(--danger); margin-top: 4px; }
+        .input-error { border-color: var(--danger) !important; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
 
         /* Section heading (inside forms) */
         .section-title {
@@ -914,9 +986,25 @@
             $logoPath = $s->logo_path ?? null;
 
             $canCatalog = $u && $u->hasPermission('manage_catalog');
+            $canProducts = $u && $u->hasPermission('manage_products');
+            $canCategories = $u && $u->hasPermission('manage_categories');
+            $canManufacturers = $u && $u->hasPermission('manage_manufacturers');
+            $canOptions = $u && $u->hasPermission('manage_options');
+
             $canSales = $u && $u->hasPermission('manage_sales');
+            $canOrders = $u && $u->hasPermission('manage_orders');
+            $canOrderStatuses = $u && $u->hasPermission('manage_order_statuses');
+
             $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
+            $canShopee = $u && $u->hasPermission('manage_shopee');
+            $canLazada = $u && $u->hasPermission('manage_lazada');
+            $canOpencart = $u && $u->hasPermission('manage_opencart');
+
             $canSettingsParent = $u && $u->hasPermission('manage_settings');
+            $canUsers = $u && $u->hasPermission('manage_users');
+            $canUserGroups = $u && $u->hasPermission('manage_user_groups');
+            $canWebsiteSettings = $u && $u->hasPermission('manage_website_settings');
+            $canErrorLog = $u && $u->hasPermission('manage_error_log');
         @endphp
 
         <div class="brand">
@@ -950,22 +1038,30 @@
                         </summary>
                         <div class="nav-sub-wrap">
                             <div class="nav-sub">
+                                @if($canCategories)
                                 <a href="{{ route('categories.index') }}" class="{{ request()->routeIs('categories.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
                                     <span class="label">Categories</span>
                                 </a>
+                                @endif
+                                @if($canProducts)
                                 <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
                                     <span class="label">Products</span>
                                 </a>
+                                @endif
+                                @if($canManufacturers)
                                 <a href="{{ route('manufacturers.index') }}" class="{{ request()->routeIs('manufacturers.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
                                     <span class="label">Manufacturers</span>
                                 </a>
+                                @endif
+                                @if($canOptions)
                                 <a href="{{ route('options.index') }}" class="{{ request()->routeIs('options.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                                     <span class="label">Options</span>
                                 </a>
+                                @endif
                             </div>
                         </div>
                     </details>
@@ -982,14 +1078,18 @@
                         </summary>
                         <div class="nav-sub-wrap">
                             <div class="nav-sub">
+                                @if($canOrders)
                                 <a href="{{ route('orders.index') }}" class="{{ request()->routeIs('orders.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
                                     <span class="label">Orders</span>
                                 </a>
+                                @endif
+                                @if($canOrderStatuses)
                                 <a href="{{ route('order_statuses.index') }}" class="{{ request()->routeIs('order_statuses.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
                                     <span class="label">Order Statuses</span>
                                 </a>
+                                @endif
                             </div>
                         </div>
                     </details>
@@ -998,41 +1098,63 @@
 
                 @if($canMarketplace)
                 <div class="nav-group">
-                    <details {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'open' : '' }}>
-                        <summary class="{{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*')) ? 'active' : '' }}">
+                    <details {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*') || request()->routeIs('opencart.*')) ? 'open' : '' }}>
+                        <summary class="{{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*') || request()->routeIs('opencart.*')) ? 'active' : '' }}">
                             <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
                             <span class="label">Marketplace API</span>
                             <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
                         </summary>
                         <div class="nav-sub-wrap">
                             <div class="nav-sub">
+                                @if($canShopee)
                                 <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
                                     <span class="label">Shopee</span>
                                 </a>
+                                @endif
+
+                                @if($canLazada)
+                                {{-- ─── Lazada ─── --}}
+                                <div class="nav-sub-divider">Lazada</div>
                                 <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-                                    <span class="label">Lazada API</span>
-                                </a>
-                                <a href="{{ route('lazada.profiles.index') }}" class="{{ request()->routeIs('lazada.profiles.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
-                                    <span class="label">Lazada Profiles</span>
-                                </a>
-                                <a href="{{ route('lazada.products.index') }}" class="{{ (request()->routeIs('lazada.products.*')) ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
-                                    <span class="label">Lazada Products</span>
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                                    <span class="label">Settings</span>
                                 </a>
                                 <a href="{{ route('lazada.categories.index') }}" class="{{ request()->routeIs('lazada.categories.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
-                                    <span class="label">Lazada Categories</span>
+                                    <span class="label">Categories</span>
+                                </a>
+                                <a href="{{ route('lazada.profiles.index') }}" class="{{ request()->routeIs('lazada.profiles.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
+                                    <span class="label">Profiles</span>
+                                </a>
+                                <a href="{{ route('lazada.products.index') }}" class="{{ request()->routeIs('lazada.products.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
+                                    <span class="label">Products</span>
                                 </a>
                                 <a href="{{ route('lazada.orders.index') }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                                    <span class="label">Lazada Orders</span>
+                                    <span class="label">Orders</span>
                                     @if(($lazadaPendingCount ?? 0) > 0)
                                         <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $lazadaPendingCount }}</span>
                                     @endif
                                 </a>
+                                @endif
+
+                                @if($canOpencart)
+                                {{-- ─── OpenCart ─── --}}
+                                <div class="nav-sub-divider">OpenCart</div>
+                                <a href="{{ route('opencart.index') }}" class="{{ request()->routeIs('opencart.index') || request()->routeIs('opencart.save') || request()->routeIs('opencart.test') || request()->routeIs('opencart.sync') || request()->routeIs('opencart.push') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                                    <span class="label">Settings</span>
+                                </a>
+                                @foreach(($opencartStores ?? collect()) as $ocStore)
+                                    <a href="{{ route('opencart.profiles.index', $ocStore->id) }}" class="{{ request()->is('opencart/'.$ocStore->id.'/*') ? 'active' : '' }}">
+                                        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                                        <span class="label">{{ $ocStore->store_name }}</span>
+                                    </a>
+                                @endforeach
+                                @endif
                             </div>
                         </div>
                     </details>
@@ -1049,22 +1171,30 @@
                         </summary>
                         <div class="nav-sub-wrap">
                             <div class="nav-sub">
+                                @if($canUsers)
                                 <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                                     <span class="label">Users</span>
                                 </a>
+                                @endif
+                                @if($canUserGroups)
                                 <a href="{{ route('user_groups.index') }}" class="{{ request()->routeIs('user_groups.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
                                     <span class="label">User Groups</span>
                                 </a>
+                                @endif
+                                @if($canWebsiteSettings)
                                 <a href="{{ route('settings.edit') }}" class="{{ request()->routeIs('settings.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
                                     <span class="label">Website Setting</span>
                                 </a>
+                                @endif
+                                @if($canErrorLog)
                                 <a href="{{ route('error_log.index') }}" class="{{ request()->routeIs('error_log.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                                     <span class="label">Error Log</span>
                                 </a>
+                                @endif
                             </div>
                         </div>
                     </details>
@@ -1195,15 +1325,130 @@
         resizeTimer = setTimeout(initLayout, 150);
     });
 
-    // Auto-dismiss alerts after 5s
-    document.querySelectorAll('.alert').forEach(function(el) {
+    // ── Smooth slide for nav <details> (accordion — one open at a time) ──
+    var allNavDetails = Array.from(document.querySelectorAll('.nav-group details'));
+
+    function closeDetails(details) {
+        var wrap = details.querySelector('.nav-sub-wrap');
+        if (!wrap || !details.open) return;
+        var h = wrap.scrollHeight;
+        wrap.style.height = h + 'px';
+        wrap.offsetHeight;
+        wrap.style.height = '0px';
+        wrap.addEventListener('transitionend', function handler() {
+            wrap.removeEventListener('transitionend', handler);
+            details.open = false;
+            wrap.style.height = '0px';
+        });
+    }
+
+    allNavDetails.forEach(function (details) {
+        var wrap = details.querySelector('.nav-sub-wrap');
+        if (!wrap) return;
+
+        // Set initial state
+        if (details.open) {
+            wrap.style.height = 'auto';
+        } else {
+            wrap.style.height = '0px';
+        }
+
+        details.querySelector('summary').addEventListener('click', function (e) {
+            e.preventDefault();
+
+            if (details.open) {
+                // ── Closing ──
+                closeDetails(details);
+            } else {
+                // ── Close all others first ──
+                allNavDetails.forEach(function (other) {
+                    if (other !== details) closeDetails(other);
+                });
+
+                // ── Opening ──
+                details.open = true;
+                var h = wrap.scrollHeight;
+                wrap.style.height = '0px';
+                wrap.offsetHeight;
+                wrap.style.height = h + 'px';
+
+                wrap.addEventListener('transitionend', function handler() {
+                    wrap.removeEventListener('transitionend', handler);
+                    wrap.style.height = 'auto';
+                });
+            }
+        });
+    });
+
+    // ── Toast notifications (move inline alerts to fixed toast container) ──
+    var toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
+    document.body.appendChild(toastContainer);
+
+    document.querySelectorAll('.content .alert.success, .content .alert.warning').forEach(function(el) {
+        // Move to toast container
+        toastContainer.appendChild(el);
+        el.style.marginBottom = '0';
+
+        // Auto-dismiss after 5s
         setTimeout(function() {
-            el.style.transition = 'opacity .3s ease, transform .3s ease';
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(-8px)';
-            setTimeout(function(){ el.remove(); }, 300);
+            el.classList.add('toast-out');
+            setTimeout(function(){ el.remove(); }, 350);
         }, 5000);
     });
+
+    // ── Loading state on form submit buttons ──
+    document.querySelectorAll('form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            // Find the submit button (inside form or linked via form= attribute)
+            var formId = form.id;
+            var btns = Array.from(form.querySelectorAll('button[type="submit"], button:not([type])'));
+            if (formId) {
+                btns = btns.concat(Array.from(document.querySelectorAll('button[form="' + formId + '"]')));
+            }
+            btns.forEach(function(btn) {
+                btn.classList.add('is-loading');
+                btn.disabled = true;
+            });
+            // Safety: re-enable after 10s in case of network issues
+            setTimeout(function() {
+                btns.forEach(function(btn) {
+                    btn.classList.remove('is-loading');
+                    btn.disabled = false;
+                });
+            }, 10000);
+        });
+    });
+
+    // ── Swipe-to-open sidebar on mobile ──
+    (function () {
+        var touchStartX = 0;
+        var touchStartY = 0;
+        var edgeZone = 30; // px from left edge
+        var threshold = 60; // min swipe distance
+
+        document.addEventListener('touchstart', function(e) {
+            var t = e.touches[0];
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function(e) {
+            var t = e.changedTouches[0];
+            var dx = t.clientX - touchStartX;
+            var dy = Math.abs(t.clientY - touchStartY);
+            if (dy > Math.abs(dx)) return; // vertical scroll, ignore
+
+            // Swipe right from left edge → open sidebar
+            if (touchStartX < edgeZone && dx > threshold && sidebar.classList.contains('collapsed')) {
+                applyState(false);
+            }
+            // Swipe left anywhere on sidebar → close it
+            if (dx < -threshold && !sidebar.classList.contains('collapsed') && isMobile()) {
+                applyState(true);
+            }
+        }, { passive: true });
+    })();
 })();
 </script>
 
@@ -1253,7 +1498,7 @@
       clearTimeout(timer);
       timer = setTimeout(async function(){
         var items = await fetchItems(q);
-        render(items);
+        render(items, q);
       }, 120);
     });
 
@@ -1285,9 +1530,18 @@
       hidden.value = '0';
     });
 
-    function render(items){
+    function render(items, query){
       list.innerHTML = '';
-      if(!items || !items.length){ hideList(); return; }
+      if(!items || !items.length){
+        if(query && query.length >= 1){
+          var empty = document.createElement('div');
+          empty.style.cssText = 'padding:8px 12px;color:#94a3b8;font-size:13px;';
+          empty.textContent = 'No results found';
+          list.appendChild(empty);
+          showList();
+        } else { hideList(); }
+        return;
+      }
       items.forEach(function(it){
         var btn = document.createElement('button');
         btn.type = 'button';
@@ -1297,6 +1551,7 @@
           input.value = it.name;
           hidden.value = String(it.id);
           clearList();
+          input.classList.remove('input-error');
         });
         list.appendChild(btn);
       });
@@ -1333,7 +1588,7 @@
       clearTimeout(timer);
       timer = setTimeout(async function(){
         var items = await fetchItems(q);
-        render(items);
+        render(items, q);
       }, 120);
     });
 
@@ -1355,6 +1610,38 @@
       listId: 'category_list',
       url: '/api/catalog/categories?term=',
     });
+
+    // Require a valid manufacturer selection on product forms
+    var mfgHidden = document.getElementById('manufacturer_id');
+    var mfgInput = document.getElementById('manufacturer_search');
+    if(mfgHidden && mfgInput && mfgInput.closest('form')){
+      mfgInput.closest('form').addEventListener('submit', function(e){
+        var val = parseInt(mfgHidden.value, 10);
+        if(!val || val <= 0){
+          e.preventDefault();
+          mfgInput.classList.add('input-error');
+          mfgInput.focus();
+          mfgInput.scrollIntoView({behavior:'smooth', block:'center'});
+          // Show inline error if not already shown
+          var wrap = mfgInput.closest('.typeahead');
+          if(wrap && !wrap.querySelector('.field-error')){
+            var err = document.createElement('div');
+            err.className = 'field-error';
+            err.textContent = 'Please select a manufacturer from the list.';
+            wrap.appendChild(err);
+          }
+        }
+      });
+      // Clear error on valid selection
+      mfgInput.addEventListener('input', function(){
+        mfgInput.classList.remove('input-error');
+        var wrap = mfgInput.closest('.typeahead');
+        if(wrap){
+          var err = wrap.querySelector('.field-error');
+          if(err) err.remove();
+        }
+      });
+    }
   });
 })();
 </script>

@@ -22,6 +22,7 @@ use App\Http\Controllers\LazadaProfileController;
 use App\Http\Controllers\ErrorLogController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OpenCartProfileController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
@@ -31,10 +32,21 @@ Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('laz
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
 
-    // Catalog (parent permission)
+    // Catalog (parent permission or any child)
     Route::middleware(['perm:manage_catalog'])->group(function () {
-        // Products
+        // Lookups & API (needed by multiple sub-sections)
+        Route::get('/lookup/manufacturers', [ManufacturerController::class, 'lookup'])->name('manufacturers.lookup');
+        Route::get('/lookup/categories', [CategoryController::class, 'lookup'])->name('categories.lookup');
+        Route::get('/api/catalog/manufacturers', [ApiCatalogController::class, 'manufacturers'])->name('api.catalog.manufacturers');
+        Route::get('/api/catalog/categories', [ApiCatalogController::class, 'categories'])->name('api.catalog.categories');
+        Route::get('/api/catalog/options', [ApiCatalogController::class, 'options'])->name('api.catalog.options');
+        Route::get('/api/catalog/options/{optionId}/values', [ApiCatalogController::class, 'optionValues'])->name('api.catalog.option_values');
+    });
+
+    // Products
+    Route::middleware(['perm:manage_products'])->group(function () {
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
@@ -49,12 +61,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products/images/browse', [ProductImageController::class, 'browse'])->name('products.images.browse');
         Route::post('/products/images/upload-to-catalog', [ProductImageController::class, 'uploadToCatalog'])->name('products.images.upload_to_catalog');
 
-
         // Product options
         Route::get('/products/{id}/options', [ProductOptionController::class, 'edit'])->name('products.options.edit');
         Route::post('/products/{id}/options', [ProductOptionController::class, 'update'])->name('products.options.update');
+    });
 
-        // Option master
+    // Options
+    Route::middleware(['perm:manage_options'])->group(function () {
         Route::get('/options', [OptionController::class, 'index'])->name('options.index');
         Route::get('/options/create', [OptionController::class, 'create'])->name('options.create');
         Route::post('/options', [OptionController::class, 'store'])->name('options.store');
@@ -63,8 +76,10 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/options/{id}', [OptionController::class, 'destroy'])->name('options.destroy');
         Route::post('/options/bulk-delete', [OptionController::class, 'bulkDestroy'])->name('options.bulk_delete');
         Route::delete('/options/{optionId}/values/{valueId}', [OptionController::class, 'destroyValue'])->name('options.values.destroy');
+    });
 
-        // Manufacturers
+    // Manufacturers
+    Route::middleware(['perm:manage_manufacturers'])->group(function () {
         Route::get('/manufacturers', [ManufacturerController::class, 'index'])->name('manufacturers.index');
         Route::get('/manufacturers/create', [ManufacturerController::class, 'create'])->name('manufacturers.create');
         Route::post('/manufacturers', [ManufacturerController::class, 'store'])->name('manufacturers.store');
@@ -72,8 +87,10 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/manufacturers/{id}', [ManufacturerController::class, 'update'])->name('manufacturers.update');
         Route::delete('/manufacturers/{id}', [ManufacturerController::class, 'destroy'])->name('manufacturers.destroy');
         Route::post('/manufacturers/bulk-delete', [ManufacturerController::class, 'bulkDestroy'])->name('manufacturers.bulk_delete');
+    });
 
-        // Categories
+    // Categories
+    Route::middleware(['perm:manage_categories'])->group(function () {
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
@@ -81,21 +98,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
         Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');
-
-        // Lookups
-        Route::get('/lookup/manufacturers', [ManufacturerController::class, 'lookup'])->name('manufacturers.lookup');
-        Route::get('/lookup/categories', [CategoryController::class, 'lookup'])->name('categories.lookup');
-
-        // API endpoints used by product create/edit
-        Route::get('/api/catalog/manufacturers', [ApiCatalogController::class, 'manufacturers'])->name('api.catalog.manufacturers');
-        Route::get('/api/catalog/categories', [ApiCatalogController::class, 'categories'])->name('api.catalog.categories');
-        Route::get('/api/catalog/options', [ApiCatalogController::class, 'options'])->name('api.catalog.options');
-        Route::get('/api/catalog/options/{optionId}/values', [ApiCatalogController::class, 'optionValues'])->name('api.catalog.option_values');
     });
 
-    // Marketplace API (parent permission)
-    Route::middleware(['perm:manage_marketplace_api'])->group(function () {
-        // Shopee (POC)
+    // Shopee
+    Route::middleware(['perm:manage_shopee'])->group(function () {
         Route::get('/shopee', [ShopeeController::class, 'index'])->name('shopee.index');
         Route::get('/shopee/authorize', [ShopeeController::class, 'redirectToShopeeAuth'])->name('shopee.authorize');
         Route::post('/shopee/save', [ShopeeController::class, 'save'])->name('shopee.save');
@@ -103,8 +109,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shopee/token/get', [ShopeeController::class, 'tokenGet'])->name('shopee.token_get');
         Route::post('/shopee/token/refresh', [ShopeeController::class, 'tokenRefresh'])->name('shopee.token_refresh');
         Route::post('/shopee/call', [ShopeeController::class, 'callApi'])->name('shopee.call_api');
+    });
 
-        // Lazada (POC)
+    // Lazada
+    Route::middleware(['perm:manage_lazada'])->group(function () {
         Route::get('/lazada', [LazadaController::class, 'index'])->name('lazada.index');
         Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('lazada.authorize');
         // NOTE: /lazada/callback is declared above (public route)
@@ -145,7 +153,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lazada/orders/{orderId}/cancel-reasons', [LazadaOrderController::class, 'cancelReasons'])->name('lazada.orders.cancel_reasons');
         Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('lazada.orders.cancel');
 
-        // Lazada Profiles (mass-map category + brand + attributes by catalog category)
+        // Lazada Profiles
         Route::get('/lazada/profiles', [LazadaProfileController::class, 'index'])->name('lazada.profiles.index');
         Route::get('/lazada/profiles/create', [LazadaProfileController::class, 'create'])->name('lazada.profiles.create');
         Route::post('/lazada/profiles', [LazadaProfileController::class, 'store'])->name('lazada.profiles.store');
@@ -155,12 +163,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/profiles/{id}/sync-products', [LazadaProfileController::class, 'syncProducts'])->whereNumber('id')->name('lazada.profiles.sync_products');
         Route::post('/lazada/profiles/{id}/template/sync', [LazadaProfileController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.profiles.template_sync');
 
-        // Lazada Phase 2: Listings + Category attribute mapping
-        // Lazada Products (new naming)
+        // Lazada Products
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('lazada.products.index');
         Route::get('/lazada/products/create', [LazadaProductController::class, 'create'])->name('lazada.products.create');
         Route::post('/lazada/products', [LazadaProductController::class, 'store'])->name('lazada.products.store');
-        // IMPORTANT: constrain {id} to numeric so routes like /lazada/products/bulk/* won't match these.
         Route::get('/lazada/products/{id}/edit', [LazadaProductController::class, 'edit'])->whereNumber('id')->name('lazada.products.edit');
         Route::put('/lazada/products/{id}', [LazadaProductController::class, 'update'])->whereNumber('id')->name('lazada.products.update');
         Route::post('/lazada/products/{id}/template/sync', [LazadaProductController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.products.template_sync');
@@ -181,15 +187,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/products/{id}/payload/build', [LazadaProductController::class, 'buildPayload'])->whereNumber('id')->name('lazada.products.payload_build');
         Route::post('/lazada/products/{id}/push/sample', [LazadaProductController::class, 'pushSample'])->whereNumber('id')->name('lazada.products.push_sample');
 
-        // Allows syncing brands even before a listing exists (e.g., on Create Listing screen)
         Route::post('/lazada/brands/sync', [LazadaProductController::class, 'syncBrandsGlobal'])->name('lazada.brands_sync');
 
-        // Brands cache (similar to Categories list)
         Route::get('/lazada/brands', [\App\Http\Controllers\LazadaBrandController::class, 'index'])->name('lazada.brands.index');
         Route::post('/lazada/brands/fetch', [\App\Http\Controllers\LazadaBrandController::class, 'fetch'])->name('lazada.brands.fetch');
         Route::get('/lazada/brands/autocomplete', [\App\Http\Controllers\LazadaBrandController::class, 'autocomplete'])->name('lazada.brands.autocomplete');
 
-        // Lazada Phase 2: Category list (cached locally for search + mapping)
         Route::get('/lazada/categories', [LazadaCategoryController::class, 'index'])->name('lazada.categories.index');
         Route::post('/lazada/categories/fetch', [LazadaCategoryController::class, 'fetch'])->name('lazada.categories.fetch');
 
@@ -202,38 +205,64 @@ Route::middleware(['auth'])->group(function () {
             ->name('lazada.categories.attributes.fetch');
     });
 
-    // Settings (parent permission)
-    Route::middleware(['perm:manage_settings'])->group(function () {
-        // Users
+    // OpenCart
+    Route::middleware(['perm:manage_opencart'])->group(function () {
+        Route::get('/opencart', [\App\Http\Controllers\OpenCartController::class, 'index'])->name('opencart.index');
+        Route::post('/opencart/save', [\App\Http\Controllers\OpenCartController::class, 'save'])->name('opencart.save');
+        Route::delete('/opencart/{id}', [\App\Http\Controllers\OpenCartController::class, 'destroy'])->name('opencart.destroy');
+        Route::post('/opencart/test', [\App\Http\Controllers\OpenCartController::class, 'testConnection'])->name('opencart.test');
+        Route::post('/opencart/sync', [\App\Http\Controllers\OpenCartController::class, 'syncNow'])->name('opencart.sync');
+        Route::post('/opencart/push', [\App\Http\Controllers\OpenCartController::class, 'pushNow'])->name('opencart.push');
+
+        // OpenCart per-store profiles
+        Route::get('/opencart/{store}/profiles', [OpenCartProfileController::class, 'index'])->name('opencart.profiles.index');
+        Route::get('/opencart/{store}/profiles/create', [OpenCartProfileController::class, 'create'])->name('opencart.profiles.create');
+        Route::post('/opencart/{store}/profiles', [OpenCartProfileController::class, 'store'])->name('opencart.profiles.store');
+        Route::get('/opencart/{store}/profiles/{profile}/edit', [OpenCartProfileController::class, 'edit'])->name('opencart.profiles.edit');
+        Route::put('/opencart/{store}/profiles/{profile}', [OpenCartProfileController::class, 'update'])->name('opencart.profiles.update');
+        Route::delete('/opencart/{store}/profiles/{profile}', [OpenCartProfileController::class, 'destroy'])->name('opencart.profiles.destroy');
+        Route::get('/opencart/{store}/profiles/{profile}/products', [OpenCartProfileController::class, 'products'])->name('opencart.profiles.products');
+        Route::post('/opencart/{store}/profiles/{profile}/push', [OpenCartProfileController::class, 'push'])->name('opencart.profiles.push');
+        Route::post('/opencart/{store}/profiles/{profile}/add-products', [OpenCartProfileController::class, 'addProducts'])->name('opencart.profiles.addProducts');
+        Route::delete('/opencart/{store}/profiles/{profile}/products/{product}', [OpenCartProfileController::class, 'removeProduct'])->name('opencart.profiles.removeProduct');
+        Route::get('/opencart/{store}/profiles/search-products', [OpenCartProfileController::class, 'searchProducts'])->name('opencart.profiles.searchProducts');
+    });
+
+    // Users
+    Route::middleware(['perm:manage_users'])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+    });
 
-        // User groups
+    // User Groups
+    Route::middleware(['perm:manage_user_groups'])->group(function () {
         Route::get('/user-groups', [UserGroupController::class, 'index'])->name('user_groups.index');
         Route::get('/user-groups/create', [UserGroupController::class, 'create'])->name('user_groups.create');
         Route::post('/user-groups', [UserGroupController::class, 'store'])->name('user_groups.store');
         Route::get('/user-groups/{id}/edit', [UserGroupController::class, 'edit'])->name('user_groups.edit');
         Route::put('/user-groups/{id}', [UserGroupController::class, 'update'])->name('user_groups.update');
         Route::delete('/user-groups/{id}', [UserGroupController::class, 'destroy'])->name('user_groups.destroy');
+    });
 
-        // Website Setting
+    // Website Setting
+    Route::middleware(['perm:manage_website_settings'])->group(function () {
         Route::get('/settings', [SettingController::class, 'edit'])->name('settings.edit');
-
-
-        // Error Log
-        Route::get('/error-log', [ErrorLogController::class, 'index'])->name('error_log.index');
-        Route::post('/error-log/clear', [ErrorLogController::class, 'clear'])->name('error_log.clear');
-        Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
     });
 
-    // Sales (parent permission)
-    Route::middleware(['perm:manage_sales'])->group(function () {
-        // Orders
+    // Error Log
+    Route::middleware(['perm:manage_error_log'])->group(function () {
+        Route::get('/error-log', [ErrorLogController::class, 'index'])->name('error_log.index');
+        Route::post('/error-log/clear', [ErrorLogController::class, 'clear'])->name('error_log.clear');
+        Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
+    });
+
+    // Orders
+    Route::middleware(['perm:manage_orders'])->group(function () {
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
@@ -243,8 +272,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
+    });
 
-        // Order Statuses
+    // Order Statuses
+    Route::middleware(['perm:manage_order_statuses'])->group(function () {
         Route::get('/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');
         Route::get('/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create');
         Route::post('/order-statuses', [OrderStatusController::class, 'store'])->name('order_statuses.store');

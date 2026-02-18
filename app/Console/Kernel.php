@@ -17,7 +17,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // OpenCart: pull orders from all enabled stores (catches Lazada/Shopee sales)
+        $schedule->command('opencart:sync orders')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/opencart-sync.log'));
     }
 
     /**

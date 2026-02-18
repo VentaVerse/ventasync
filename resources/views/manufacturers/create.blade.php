@@ -25,10 +25,7 @@
                 <input class="input" name="sort_order" value="{{ old('sort_order', 0) }}">
             </div>
 
-            <div class="full">
-                <label>Description</label>
-                <textarea class="input wysiwyg" name="description">{!! old('description', '') !!}</textarea>
-            </div>
+
         </div>
         {{-- Save button moved to page header (top-right) --}}
     </form>

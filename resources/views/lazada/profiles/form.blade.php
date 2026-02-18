@@ -44,7 +44,7 @@
 
             {{-- Row 2: Product Filters --}}
             <h3 class="section-title" style="margin-top:20px;">Product Filter</h3>
-            <div class="hint" style="margin-bottom:8px;">Leave both empty to include <strong>all</strong> products. Select one or more to narrow down. Hold Ctrl/Cmd to select multiple.</div>
+            <div class="hint" style="margin-bottom:8px;">Leave both empty to include <strong>all</strong> products. Select one or more to narrow down. Hold <strong>CTRL</strong> to select multiple.</div>
 
             @php
                 $selectedCatIds = old('catalog_category_ids', $profile->catalog_category_ids ?? []) ?? [];
@@ -56,7 +56,7 @@
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
                     <label>Categories</label>
-                    <select name="catalog_category_ids[]" class="input" multiple size="6">
+                    <select name="catalog_category_ids[]" class="input" multiple size="12" style="height:auto; min-height:200px;">
                         @foreach($catalogCategories as $c)
                             <option value="{{ $c->category_id }}" {{ in_array((int)$c->category_id, $selectedCatIds) ? 'selected' : '' }}>
                                 {{ $c->name }}
@@ -66,7 +66,7 @@
                 </div>
                 <div>
                     <label>Manufacturers</label>
-                    <select name="manufacturer_ids[]" class="input" multiple size="6">
+                    <select name="manufacturer_ids[]" class="input" multiple size="12" style="height:auto; min-height:200px;">
                         @foreach(($manufacturers ?? collect()) as $m)
                             <option value="{{ $m->manufacturer_id }}" {{ in_array((int)$m->manufacturer_id, $selectedMfgIds) ? 'selected' : '' }}>
                                 {{ $m->name }}
@@ -79,7 +79,28 @@
                 Matching products: <strong>{{ $productCount }}</strong>
             </div>
 
-            {{-- Row 3: Lazada Mapping --}}
+            {{-- Row 3: Markup --}}
+            <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
+            <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Fixed Amount</label>
+                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
+                           value="{{ old('markup_fixed', $profile->markup_fixed) }}"
+                           placeholder="e.g. 100">
+                    <div class="hint">Flat amount added after percentage.</div>
+                </div>
+                <div>
+                    <label>Percentage (%)</label>
+                    <input type="number" name="markup_percent" class="input" step="0.01" min="0"
+                           value="{{ old('markup_percent', $profile->markup_percent) }}"
+                           placeholder="e.g. 5">
+                    <div class="hint">% of product price applied first.</div>
+                </div>
+            </div>
+
+            {{-- Row 4: Lazada Mapping --}}
             <h3 class="section-title" style="margin-top:20px;">Lazada Mapping</h3>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -117,40 +138,102 @@
                 </div>
             </div>
 
-            {{-- Row 4: Markup --}}
-            <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
-            <div class="hint" style="margin-bottom:8px;">Add markup to cover Lazada fees. Set one, both, or leave empty for no markup.</div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label>Fixed Amount</label>
-                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
-                           value="{{ old('markup_fixed', $profile->markup_fixed) }}"
-                           placeholder="e.g. 100">
-                    <div class="hint">Flat amount added to price.</div>
+            @if($mode === 'edit' && $template && !empty($attributes))
+                {{-- Category Attributes (inside main form) --}}
+                <h3 class="section-title" style="margin-top:20px;">Category Attributes</h3>
+                <div class="hint" style="margin-bottom:8px;">Map shared attribute values for this Lazada category.
+                    @if($template->fetched_at)
+                        Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}
+                    @endif
                 </div>
                 <div>
-                    <label>Percentage (%)</label>
-                    <input type="number" name="markup_percent" class="input" step="0.01" min="0"
-                           value="{{ old('markup_percent', $profile->markup_percent) }}"
-                           placeholder="e.g. 5">
-                    <div class="hint">% of product price added on top.</div>
+                    @foreach($attributes as $a)
+                        @php
+                            $key = (string)($a['key'] ?? '');
+                            if (strtolower(trim($key)) === 'brand') { continue; }
+                            $val = old('attributes.'.$key, $saved[$key] ?? '');
+                            $options = $a['options'] ?? [];
+                            $isSelect = is_array($options) && count($options) > 0;
+                        @endphp
+                        <div style="display:grid; grid-template-columns: 1fr 2fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); align-items:start;">
+                            <div>
+                                <div class="font-semibold">
+                                    {{ $a['name'] }}
+                                    @if(!empty($a['required']))
+                                        <span class="badge badge-red" style="margin-left:6px;">MANDATORY</span>
+                                    @endif
+                                </div>
+                                <div class="hint" style="margin-top:4px;">{{ $key }}</div>
+                            </div>
+                            <div>
+                                @if($isSelect)
+                                    <select class="input" name="attributes[{{ $key }}]">
+                                        <option value="">-- Select --</option>
+                                        @foreach($options as $opt)
+                                            @php
+                                                $optLabel = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
+                                                $optValue = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
+                                            @endphp
+                                            <option value="{{ $optValue }}" {{ (string)$val === (string)$optValue ? 'selected' : '' }}>{{ $optLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    @php
+                                        $isMapVal = str_starts_with((string)$val, '__map:');
+                                        $mapField = $isMapVal ? substr((string)$val, 6) : '';
+                                        $manualVal = $isMapVal ? '' : $val;
+                                    @endphp
+                                    <div class="attr-row" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <select class="input attr-mode-toggle">
+                                            <option value="manual" {{ !$isMapVal ? 'selected' : '' }}>Manual Input</option>
+                                            <option value="product_field" {{ $isMapVal ? 'selected' : '' }}>Product Field</option>
+                                        </select>
+                                        <input class="input attr-manual-input" value="{{ $manualVal }}" placeholder="Enter value" style="{{ $isMapVal ? 'display:none;' : '' }}">
+                                        <select class="input attr-field-select" style="{{ !$isMapVal ? 'display:none;' : '' }}">
+                                            <option value="">-- Select Product Field --</option>
+                                            @foreach($erpSourceFields as $erpKey => $erpLabel)
+                                                <option value="{{ $erpKey }}" {{ $isMapVal && $mapField === $erpKey ? 'selected' : '' }}>{{ $erpLabel }}</option>
+                                            @endforeach
+                                        </select>
+                                        <input type="hidden" name="attributes[{{ $key }}]" class="attr-hidden-value" value="{{ $val }}">
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
-            </div>
+            @endif
 
             <div class="d-flex justify-end gap-8 mt-16">
-                <button class="btn" type="submit">{{ $mode === 'create' ? 'Create Profile' : 'Save Profile' }}</button>
+                <button class="btn" type="submit">
+                    @if($mode === 'create')
+                        Create Profile
+                    @else
+                        Save Profile &amp; Sync {{ $productCount }} Product(s)
+                    @endif
+                </button>
             </div>
         </form>
     </div>
 
     @if($mode === 'edit')
-        {{-- Category Attributes --}}
+        @if(!$template && $profile->lazada_category_id)
+            <div class="alert warning mt-16">Template not yet synced. Click <strong>Sync Template</strong> below to fetch category attributes from Lazada.</div>
+        @endif
+
+        {{-- Re-Sync Template (bottom of page) --}}
         <div class="card mt-16">
             <div class="d-flex justify-between items-center gap-12 flex-wrap">
                 <div>
-                    <h3 class="section-title mt-0">Category Attributes</h3>
-                    <div class="hint">Sync the Lazada category template, then map shared attribute values.</div>
+                    <h3 class="section-title mt-0">{{ $template ? 'Re-Sync Template' : 'Sync Template' }}</h3>
+                    <div class="hint">
+                        @if($template)
+                            Only use this if Lazada has updated their attributes for this category.
+                            If everything is working fine, there is no need to re-sync.
+                        @else
+                            Fetch the category attribute template from Lazada so you can map attribute values above.
+                        @endif
+                    </div>
                     @if($template && $template->fetched_at)
                         <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
                     @endif
@@ -161,88 +244,6 @@
                     <button class="btn" type="submit" {{ empty($profile->lazada_category_id) ? 'disabled' : '' }}>
                         {{ $template ? 'Re-sync Template' : 'Sync Template' }}
                     </button>
-                </form>
-            </div>
-
-            @if(empty($profile->lazada_category_id))
-                <div class="alert warning mt-12">Set a <strong>Lazada Category</strong> and save the profile first, then sync template.</div>
-            @elseif(!$template)
-                <div class="alert warning mt-12">Template not yet synced. Click <strong>Sync Template</strong>.</div>
-            @else
-                <form method="POST" action="{{ route('lazada.profiles.update', $profile->id) }}" class="mt-12">
-                    @csrf
-                    @method('PUT')
-
-                    {{-- Carry over core fields --}}
-                    <input type="hidden" name="name" value="{{ $profile->name }}">
-                    @foreach(($profile->catalog_category_ids ?? []) as $cid)
-                        <input type="hidden" name="catalog_category_ids[]" value="{{ $cid }}">
-                    @endforeach
-                    @foreach(($profile->manufacturer_ids ?? []) as $mid)
-                        <input type="hidden" name="manufacturer_ids[]" value="{{ $mid }}">
-                    @endforeach
-                    <input type="hidden" name="lazada_category_id" value="{{ $profile->lazada_category_id }}">
-                    <input type="hidden" name="brand_id" value="{{ $profile->brand_id }}">
-                    <input type="hidden" name="no_brand" value="{{ $profile->brand_name_override ? 1 : 0 }}">
-                    <input type="hidden" name="markup_fixed" value="{{ $profile->markup_fixed }}">
-                    <input type="hidden" name="markup_percent" value="{{ $profile->markup_percent }}">
-
-                    <div style="margin-top:6px;">
-                        @foreach($attributes as $a)
-                            @php
-                                $key = (string)($a['key'] ?? '');
-                                if (strtolower(trim($key)) === 'brand') { continue; }
-                                $val = old('attributes.'.$key, $saved[$key] ?? '');
-                                $options = $a['options'] ?? [];
-                                $isSelect = is_array($options) && count($options) > 0;
-                            @endphp
-                            <div style="display:grid; grid-template-columns: 1fr 2fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); align-items:start;">
-                                <div>
-                                    <div class="font-semibold">
-                                        {{ $a['name'] }}
-                                        @if(!empty($a['required']))
-                                            <span class="badge badge-red" style="margin-left:6px;">MANDATORY</span>
-                                        @endif
-                                    </div>
-                                    <div class="hint" style="margin-top:4px;">{{ $key }}</div>
-                                </div>
-                                <div>
-                                    @if($isSelect)
-                                        <select class="input" name="attributes[{{ $key }}]">
-                                            <option value="">-- Select --</option>
-                                            @foreach($options as $opt)
-                                                @php
-                                                    $optLabel = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                                                    $optValue = is_array($opt) ? (string)($opt['value'] ?? $opt['id'] ?? $optLabel) : (string)$opt;
-                                                @endphp
-                                                <option value="{{ $optValue }}" {{ (string)$val === (string)$optValue ? 'selected' : '' }}>{{ $optLabel }}</option>
-                                            @endforeach
-                                        </select>
-                                    @else
-                                        <input class="input" name="attributes[{{ $key }}]" value="{{ $val }}" placeholder="Enter value">
-                                    @endif
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div class="d-flex justify-end gap-8 mt-16">
-                        <button class="btn" type="submit">Save Attributes</button>
-                    </div>
-                </form>
-            @endif
-        </div>
-
-        {{-- Sync Products --}}
-        <div class="card mt-16">
-            <div class="d-flex justify-between items-center gap-12 flex-wrap">
-                <div>
-                    <h3 class="section-title mt-0">Sync Products</h3>
-                    <div class="hint">Create Lazada listings for matching products. Already listed products are skipped. <strong>{{ $productCount }} product(s)</strong> match the filter.</div>
-                </div>
-                <form method="POST" action="{{ route('lazada.profiles.sync_products', $profile->id) }}" onsubmit="return confirm('Sync {{ $productCount }} matching product(s) to Lazada listings?');">
-                    @csrf
-                    <button class="btn" type="submit" {{ $profile->lazada_category_id ? '' : 'disabled' }}>Sync Products</button>
                 </form>
             </div>
         </div>
@@ -326,5 +327,37 @@
 
             setPicked(brandId.value);
         })();
+
+        // Attribute mode toggle (Manual Input ↔ Product Field)
+        document.querySelectorAll('.attr-row').forEach(function(row) {
+            var toggle = row.querySelector('.attr-mode-toggle');
+            var manual = row.querySelector('.attr-manual-input');
+            var fieldSelect = row.querySelector('.attr-field-select');
+            var hidden = row.querySelector('.attr-hidden-value');
+            if (!toggle || !manual || !fieldSelect || !hidden) return;
+
+            function updateHidden() {
+                if (toggle.value === 'product_field') {
+                    var f = fieldSelect.value;
+                    hidden.value = f ? '__map:' + f : '';
+                } else {
+                    hidden.value = manual.value;
+                }
+            }
+
+            toggle.addEventListener('change', function() {
+                if (this.value === 'product_field') {
+                    manual.style.display = 'none';
+                    fieldSelect.style.display = '';
+                } else {
+                    manual.style.display = '';
+                    fieldSelect.style.display = 'none';
+                }
+                updateHidden();
+            });
+
+            manual.addEventListener('input', updateHidden);
+            fieldSelect.addEventListener('change', updateHidden);
+        });
     </script>
 @endsection

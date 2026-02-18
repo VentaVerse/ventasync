@@ -468,10 +468,12 @@ $pfx = config('catalog.prefix');
 
 public function store(Request $request)
     {
+        $pfxProduct = config('catalog.prefix') . 'product';
+
         $request->validate([
             'name' => 'required|string|max:255',
             'model' => 'required|string|max:64',
-            'sku' => 'nullable|string|max:64',
+            'sku' => "required|string|max:64|unique:{$pfxProduct},sku",
             'price' => 'required|numeric',
             'quantity' => 'required|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
@@ -582,8 +584,8 @@ $catId = (int) ($resolvedCategoryId ?? 0);
             return (int) $p->product_id;
         });
 
-        return redirect()->route('products.edit', ['id' => $productId])
-            ->with('status','Saved');
+        return redirect()->route('products.index')
+            ->with('status','Product created.');
     }
 
     public function edit($id)
@@ -725,15 +727,23 @@ $catId = (int) ($resolvedCategoryId ?? 0);
             }
         }
 
-return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages'));
+        $returnUrl = url()->previous();
+        // Only keep return URL if it's a products list page (not the edit page itself)
+        if (!str_contains($returnUrl, '/products') || str_contains($returnUrl, '/products/' . $id)) {
+            $returnUrl = route('products.index');
+        }
+
+return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages', 'returnUrl'));
     }
 
     public function update(Request $request, $id)
     {
+        $pfxProduct = config('catalog.prefix') . 'product';
+
         $request->validate([
             'name' => 'required|string|max:255',
             'model' => 'required|string|max:64',
-            'sku' => 'nullable|string|max:64',
+            'sku' => "required|string|max:64|unique:{$pfxProduct},sku,{$id},product_id",
             'price' => 'required|numeric',
             'quantity' => 'required|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
@@ -850,6 +860,11 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
                 $this->saveProductImages((int) $id, $paths);
             }
         });
+
+        $returnUrl = $request->input('_return');
+        if ($returnUrl && str_starts_with($returnUrl, url('/'))) {
+            return redirect($returnUrl)->with('status', 'Saved');
+        }
 
         return redirect()->route('products.index')->with('status','Saved');
     }

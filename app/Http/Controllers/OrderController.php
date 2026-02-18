@@ -20,6 +20,10 @@ class OrderController extends Controller
         $statusId = (int) $request->get('status', 0);
         $source = trim((string) $request->get('source', ''));
 
+        $sortable = ['order_id', 'date_added', 'total', 'firstname'];
+        $sort = in_array($request->get('sort'), $sortable) ? $request->get('sort') : 'date_added';
+        $dir = $request->get('dir') === 'asc' ? 'asc' : 'desc';
+
         $orders = Order::query()
             ->with('products')
             ->when($q !== '', function ($query) use ($q) {
@@ -41,7 +45,7 @@ class OrderController extends Controller
                     $query->where('marketplace_source', $source);
                 }
             })
-            ->orderByDesc('order_id')
+            ->orderBy($sort, $dir)
             ->paginate(50)
             ->withQueryString();
 
@@ -50,7 +54,7 @@ class OrderController extends Controller
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages'));
+        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'sort', 'dir'));
     }
 
     public function create()

@@ -9,6 +9,36 @@ use Illuminate\Http\Request;
 
 class UserGroupController extends Controller
 {
+    /**
+     * Build grouped permissions for the form.
+     */
+    private function getGroupedPermissions(): array
+    {
+        $all = Permission::orderBy('label')->get()->keyBy('key');
+
+        $groups = [
+            'Catalog' => ['manage_catalog', 'manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options'],
+            'Sales' => ['manage_sales', 'manage_orders', 'manage_order_statuses'],
+            'Marketplace API' => ['manage_marketplace_api', 'manage_shopee', 'manage_lazada', 'manage_opencart'],
+            'Settings' => ['manage_settings', 'manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log'],
+        ];
+
+        $result = [];
+        foreach ($groups as $label => $keys) {
+            $perms = [];
+            foreach ($keys as $key) {
+                if ($all->has($key)) {
+                    $perms[] = $all->get($key);
+                }
+            }
+            if ($perms) {
+                $result[] = ['label' => $label, 'permissions' => $perms];
+            }
+        }
+
+        return $result;
+    }
+
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q',''));
@@ -23,8 +53,8 @@ class UserGroupController extends Controller
 
     public function create()
     {
-        $permissions = Permission::whereIn('key', ['manage_catalog','manage_marketplace_api','manage_settings'])->orderBy('label')->get();
-        return view('user_groups.create', compact('permissions'));
+        $permissionGroups = $this->getGroupedPermissions();
+        return view('user_groups.create', compact('permissionGroups'));
     }
 
     public function store(Request $request)
@@ -44,10 +74,10 @@ class UserGroupController extends Controller
     public function edit($id)
     {
         $group = UserGroup::findOrFail((int)$id);
-        $permissions = Permission::whereIn('key', ['manage_catalog','manage_marketplace_api','manage_settings'])->orderBy('label')->get();
+        $permissionGroups = $this->getGroupedPermissions();
         $selected = $group->permissions()->pluck('permissions.id')->all();
 
-        return view('user_groups.edit', compact('group','permissions','selected'));
+        return view('user_groups.edit', compact('group', 'permissionGroups', 'selected'));
     }
 
     public function update(Request $request, $id)

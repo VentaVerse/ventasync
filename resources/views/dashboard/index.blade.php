@@ -49,8 +49,14 @@
 {{-- Sales chart --}}
 <div class="card mb-16">
     <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
-        <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;">Sales (Last 30 Days)</h3>
-        <div class="text-xs text-secondary">Revenue &amp; order count per day</div>
+        <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales (Last 30 Days)</h3>
+        <div class="d-flex items-center gap-8">
+            <div class="chart-range-toggle">
+                <button class="chart-range-btn active" data-range="30d">30 Days</button>
+                <button class="chart-range-btn" data-range="monthly">Monthly</button>
+                <button class="chart-range-btn" data-range="yearly">Yearly</button>
+            </div>
+        </div>
     </div>
     <div style="position:relative; width:100%; height:320px;">
         <canvas id="salesChart"></canvas>
@@ -227,6 +233,33 @@
         color: var(--text-secondary);
     }
 
+    .chart-range-toggle {
+        display: inline-flex;
+        border: 1px solid var(--border-light);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .chart-range-btn {
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 500;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+    .chart-range-btn:not(:last-child) {
+        border-right: 1px solid var(--border-light);
+    }
+    .chart-range-btn:hover {
+        background: var(--surface-alt);
+    }
+    .chart-range-btn.active {
+        background: var(--accent);
+        color: #fff;
+    }
+
     @media (max-width: 900px) {
         .dash-stat { padding: 16px; }
         .dash-stat-value { font-size: 18px; }
@@ -256,7 +289,18 @@ document.addEventListener('DOMContentLoaded', function () {
     var textColor = cs.getPropertyValue('--text-secondary').trim() || '#64748b';
     var borderColor = cs.getPropertyValue('--border-light').trim() || '#e2e8f0';
 
-    new Chart(ctx, {
+    var titles = {
+        '30d': 'Sales (Last 30 Days)',
+        'monthly': 'Sales (Last 12 Months)',
+        'yearly': 'Sales (Last 5 Years)'
+    };
+    var subtitles = {
+        '30d': 'Revenue & order count per day',
+        'monthly': 'Revenue & order count per month',
+        'yearly': 'Revenue & order count per year'
+    };
+
+    var salesChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -371,6 +415,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         }
+    });
+
+    // Range toggle buttons
+    document.querySelectorAll('.chart-range-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var range = this.dataset.range;
+            document.querySelectorAll('.chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            document.getElementById('chartTitle').textContent = titles[range] || titles['30d'];
+
+            fetch('{{ route("dashboard.chart_data") }}?range=' + range)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    salesChart.data.labels = data.labels;
+                    salesChart.data.datasets[0].data = data.revenue;
+                    salesChart.data.datasets[1].data = data.orders;
+                    salesChart.update();
+                });
+        });
     });
 });
 </script>

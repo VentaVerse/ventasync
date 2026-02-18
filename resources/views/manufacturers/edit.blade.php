@@ -26,10 +26,7 @@
                 <input class="input" name="sort_order" value="{{ old('sort_order', $manufacturer->sort_order) }}">
             </div>
 
-            <div class="full">
-                <label>Description</label>
-                <textarea class="input wysiwyg" name="description">{!! old('description', $manufacturer_description ?? '') !!}</textarea>
-            </div>
+
         </div>
 
         {{-- Update button moved to page header (top-right) --}}

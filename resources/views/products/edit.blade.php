@@ -6,7 +6,7 @@
     <div class="page-header">
         <h2>Edit Product #{{ $product->product_id }}</h2>
         <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('products.index') }}">Back</a>
+            <a class="btn secondary" href="{{ $returnUrl ?? route('products.index') }}">Back</a>
         </div>
     </div>
 
@@ -17,6 +17,15 @@
     <form method="POST" action="{{ route('products.update', $product->product_id) }}">
         @csrf
         @method('PUT')
+        <input type="hidden" name="_return" value="{{ $returnUrl ?? route('products.index') }}">
+
+        <div class="typeahead mt-16">
+            <label>Manufacturer</label>
+            <input class="input" id="manufacturer_search" placeholder="Type to search..." autocomplete="off" value="{{ old('manufacturer_name', $manufacturerName ?? '') }}" name="manufacturer_name">
+            <input type="hidden" name="manufacturer_id" id="manufacturer_id" value="{{ old('manufacturer_id', $product->manufacturer_id) }}">
+            <div class="typeahead-list" id="manufacturer_list"></div>
+            <div class="hint">Start typing, then click a result. Required before uploading images.</div>
+        </div>
 
         @include('products.partials.image_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
 
@@ -40,8 +49,11 @@
             </div>
 
             <div>
-                <label>SKU</label>
-                <input class="input" name="sku" value="{{ old('sku', $product->sku) }}">
+                <label class="required">SKU</label>
+                <input class="input" name="sku" value="{{ old('sku', $product->sku) }}" required>
+                @error('sku')
+                    <div class="field-error">{{ $message }}</div>
+                @enderror
             </div>
 
             <div>
@@ -85,14 +97,6 @@
                 @error('height')
                     <div class="field-error">{{ $message }}</div>
                 @enderror
-            </div>
-
-            <div class="typeahead">
-                <label>Manufacturer</label>
-                <input class="input" id="manufacturer_search" placeholder="Type to search..." autocomplete="off" value="{{ old('manufacturer_name', $manufacturerName ?? '') }}" name="manufacturer_name">
-                <input type="hidden" name="manufacturer_id" id="manufacturer_id" value="{{ old('manufacturer_id', $product->manufacturer_id) }}">
-                <div class="typeahead-list" id="manufacturer_list"></div>
-                <div class="hint">Start typing, then click a result.</div>
             </div>
 
             <div class="typeahead">

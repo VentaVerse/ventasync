@@ -134,6 +134,7 @@ class LazadaProfileController extends Controller
             'attributes' => $attributes,
             'saved' => $saved,
             'selectedBrandName' => $selectedBrandName,
+            'erpSourceFields' => LazadaProductController::ERP_SOURCE_FIELDS,
         ]);
     }
 
@@ -168,8 +169,13 @@ class LazadaProfileController extends Controller
 
         $this->saveProfileAttributes($profile, (array) $request->input('attributes', []));
 
+        $syncMsg = '';
+        if ($profile->lazada_category_id) {
+            $syncMsg = ' ' . $this->autoSyncProducts($profile);
+        }
+
         return redirect()->route('lazada.profiles.edit', $profile->id)
-            ->with('status', 'Profile created.');
+            ->with('status', 'Profile created.' . $syncMsg);
     }
 
     public function update(Request $request, int $id)
@@ -205,8 +211,13 @@ class LazadaProfileController extends Controller
 
         $this->saveProfileAttributes($profile, (array) $request->input('attributes', []));
 
+        $syncMsg = '';
+        if ($profile->lazada_category_id) {
+            $syncMsg = ' ' . $this->autoSyncProducts($profile);
+        }
+
         return redirect()->route('lazada.profiles.edit', $profile->id)
-            ->with('status', 'Profile updated.');
+            ->with('status', 'Profile saved.' . $syncMsg);
     }
 
     public function destroy(int $id)
@@ -307,6 +318,93 @@ class LazadaProfileController extends Controller
     }
 
     // ── Helpers ──────────────────────────────────────────────────────
+
+    private function autoSyncProducts(LazadaProfile $profile): string
+    {
+        $matchingIds = $this->getMatchingProductIds($profile);
+
+        // Find products already linked to this profile
+        $profileProducts = LazadaProduct::query()
+            ->where('lazada_profile_id', $profile->id)
+            ->get(['id', 'product_id', 'lazada_item_id']);
+
+        // Remove/unlink products that no longer match the filter
+        $removed = 0;
+        $unlinked = 0;
+        foreach ($profileProducts as $lp) {
+            if (!in_array($lp->product_id, $matchingIds)) {
+                if (empty($lp->lazada_item_id)) {
+                    // Not uploaded to Lazada yet — safe to delete
+                    $lp->delete();
+                    $removed++;
+                } else {
+                    // Already uploaded — unlink from profile but keep the listing
+                    $lp->update(['lazada_profile_id' => null]);
+                    $unlinked++;
+                }
+            }
+        }
+
+        // Find all product_ids that already exist in lazada_products (any profile)
+        $existingProductIds = LazadaProduct::query()
+            ->whereIn('product_id', $matchingIds)
+            ->pluck('product_id')
+            ->toArray();
+
+        // Add new products
+        $added = 0;
+        $profileAttrs = LazadaProfileAttribute::query()
+            ->where('lazada_profile_id', $profile->id)
+            ->get();
+
+        // Batch-fetch ERP prices for new products
+        $pfx = (string) config('catalog.prefix');
+        $newProductIds = array_values(array_diff($matchingIds, $existingProductIds));
+        $erpPrices = [];
+        if (!empty($newProductIds)) {
+            $erpPrices = DB::table($pfx . 'product')
+                ->whereIn('product_id', $newProductIds)
+                ->pluck('price', 'product_id')
+                ->toArray();
+        }
+
+        foreach ($matchingIds as $pid) {
+            if (in_array($pid, $existingProductIds)) continue;
+
+            $basePrice = (float)($erpPrices[$pid] ?? 0);
+            $finalPrice = LazadaProductController::computeFinalPrice(
+                $basePrice, $profile->markup_fixed, $profile->markup_percent
+            );
+
+            $lp = LazadaProduct::create([
+                'product_id' => $pid,
+                'primary_category_id' => $profile->lazada_category_id,
+                'brand_id' => $profile->brand_id,
+                'brand_name_override' => $profile->brand_name_override,
+                'lazada_profile_id' => $profile->id,
+                'total_price' => $finalPrice,
+            ]);
+
+            foreach ($profileAttrs as $pa) {
+                LazadaProductAttribute::create([
+                    'lazada_product_id' => $lp->id,
+                    'attribute_key' => $pa->attribute_key,
+                    'value' => $pa->value,
+                ]);
+            }
+
+            $added++;
+        }
+
+        $skipped = count($matchingIds) - $added;
+        $parts = [];
+        if ($added > 0) $parts[] = "{$added} product(s) added";
+        if ($removed > 0) $parts[] = "{$removed} removed";
+        if ($unlinked > 0) $parts[] = "{$unlinked} unlinked (already uploaded)";
+        if ($skipped > 0) $parts[] = "{$skipped} skipped (already listed)";
+
+        return !empty($parts) ? implode(', ', $parts) . '.' : 'No product changes.';
+    }
 
     private function getMatchingProductIds(LazadaProfile $profile): array
     {

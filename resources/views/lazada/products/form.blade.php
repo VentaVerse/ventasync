@@ -30,14 +30,40 @@
         </div>
     @endif
 
-    <div class="card">
+    @if($mode === 'edit' && !empty($productRow))
+        <div class="card" style="margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0;">
+            <div class="d-flex items-center gap-12">
+                @if(!empty($productImageUrl))
+                    <img src="{{ $productImageUrl }}" alt="" class="thumb" style="width:72px; height:72px; flex-shrink:0;">
+                @else
+                    <div class="thumb" style="width:72px; height:72px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:12px;">No image</div>
+                @endif
+                <div style="min-width:0;">
+                    <div class="font-bold" style="font-size:16px;">{{ html_entity_decode((string)($productRow->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed Product' }}</div>
+                    <div class="text-muted text-sm" style="margin-top:4px;">
+                        @if(!empty($productRow->sku))SKU: <strong>{{ $productRow->sku }}</strong> @endif
+                        @if(!empty($productRow->model))&middot; Model: <strong>{{ $productRow->model }}</strong> @endif
+                        @if(isset($productRow->price))&middot; Price: <strong>{{ number_format((float)$productRow->price, 2) }}</strong> @endif
+                    </div>
+                    @if($listing->lazada_profile_id)
+                        @php $linkedProfile = \App\Models\LazadaProfile::find($listing->lazada_profile_id); @endphp
+                        @if($linkedProfile)
+                            <div class="text-muted text-sm" style="margin-top:2px;">Profile: <strong>{{ $linkedProfile->name }}</strong></div>
+                        @endif
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <div class="card" @if($mode === 'edit' && !empty($productRow)) style="border-top-left-radius:0; border-top-right-radius:0;" @endif>
         <form method="POST" action="{{ $mode === 'create' ? route('lazada.products.store') : route('lazada.products.update', $listing->id) }}">
             @csrf
             @if($mode === 'edit')
                 @method('PUT')
             @endif
 
-            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items:end;">
+            @if($mode === 'create')
                 <div>
                     <label>ERP Product</label>
                     <select name="product_id" class="input">
@@ -54,6 +80,9 @@
                     </select>
                     <div class="hint">This ERP product will be used later to generate Lazada payloads.</div>
                 </div>
+            @endif
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items:start;">
                 <div>
                     <label>Lazada Category <span style="color:#d11;">*</span></label>
                     <select name="primary_category_id" class="input">
@@ -98,90 +127,77 @@
                             @endif
                         </div>
                     @endif
-
-                    <div class="hint" style="margin-top:8px;">
-                        Tip: Click <strong>Fetch All Brands</strong> below to refresh the local brand cache.
-                    </div>
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top:16px;">
-                <div style="grid-column: span 1;">
-                    <label>Price Markup — Fixed Amount</label>
+            @php
+                $profileMarkup = $listing->lazada_profile_id ? \App\Models\LazadaProfile::find($listing->lazada_profile_id) : null;
+                $effectiveFixed = old('markup_fixed', $listing->markup_fixed ?? ($profileMarkup->markup_fixed ?? null));
+                $effectivePercent = old('markup_percent', $listing->markup_percent ?? ($profileMarkup->markup_percent ?? null));
+            @endphp
+
+            <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
+            <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Fixed Amount</label>
                     <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
-                           value="{{ old('markup_fixed', $listing->markup_fixed) }}"
+                           id="markupFixed"
+                           value="{{ $effectiveFixed }}"
                            placeholder="e.g. 100">
-                    <div class="hint">Flat amount added to price. Overrides profile markup if set.</div>
+                    <div class="hint">Flat amount added after percentage.</div>
                 </div>
-                <div style="grid-column: span 1;">
-                    <label>Price Markup — Percentage (%)</label>
+                <div>
+                    <label>Percentage (%)</label>
                     <input type="number" name="markup_percent" class="input" step="0.01" min="0"
-                           value="{{ old('markup_percent', $listing->markup_percent) }}"
+                           id="markupPercent"
+                           value="{{ $effectivePercent }}"
                            placeholder="e.g. 5">
-                    <div class="hint">% of product price added on top. Overrides profile markup if set.</div>
-                </div>
-                <div style="grid-column: span 1;">
-                    @if($listing->lazada_profile_id)
-                        @php
-                            $profileMarkup = \App\Models\LazadaProfile::find($listing->lazada_profile_id);
-                        @endphp
-                        @if($profileMarkup)
-                            <label>Profile Markup</label>
-                            <div class="hint" style="margin-top:8px;">
-                                @php
-                                    $parts = [];
-                                    if (!empty($profileMarkup->markup_fixed)) $parts[] = '+' . number_format((float)$profileMarkup->markup_fixed, 2);
-                                    if (!empty($profileMarkup->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$profileMarkup->markup_percent, 2), '0'), '.') . '%';
-                                @endphp
-                                @if(!empty($parts))
-                                    From profile <strong>{{ $profileMarkup->name }}</strong>: {{ implode(' & ', $parts) }}
-                                @else
-                                    Profile <strong>{{ $profileMarkup->name }}</strong> has no markup.
-                                @endif
-                                <br>Leave product markup empty to use profile markup.
-                            </div>
-                        @endif
-                    @else
-                        <label>&nbsp;</label>
-                        <div class="hint" style="margin-top:8px;">No profile linked. Set markup here or leave empty.</div>
-                    @endif
+                    <div class="hint">% of product price applied first.</div>
                 </div>
             </div>
+
+            @if($profileMarkup)
+                <div class="hint" style="margin-top:8px;">
+                    @php
+                        $parts = [];
+                        if (!empty($profileMarkup->markup_fixed)) $parts[] = '+' . number_format((float)$profileMarkup->markup_fixed, 2);
+                        if (!empty($profileMarkup->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$profileMarkup->markup_percent, 2), '0'), '.') . '%';
+                    @endphp
+                    @if(!empty($parts))
+                        From profile <strong>{{ $profileMarkup->name }}</strong>: {{ implode(' & ', $parts) }}.
+                    @endif
+                    Changing the values above overrides the profile.
+                </div>
+            @endif
+
+            @if($mode === 'edit' && isset($productRow->price))
+                <div id="totalPriceBox" style="margin-top:12px; padding:10px 14px; background:var(--bg-subtle, #f0f4f8); border-left:3px solid var(--accent, #3b82f6); border-radius:3px;">
+                    <span style="font-size:13px;">Total Price (base + markup):</span>
+                    <strong style="font-size:16px; margin-left:6px;" id="totalPriceValue">—</strong>
+                    <span class="hint" style="margin-left:8px;">Base: {{ number_format((float)$productRow->price, 2) }}</span>
+                </div>
+            @endif
 
             <div class="d-flex justify-end gap-8 mt-16">
                 <button class="btn" type="submit">{{ $mode === 'create' ? 'Create Listing' : 'Save Listing' }}</button>
             </div>
         </form>
-
-        <form method="POST" action="{{ route('lazada.brands.fetch') }}" class="d-flex gap-8 justify-end items-center" style="margin-top:10px;">
-            @csrf
-            <button class="btn" type="submit">Fetch All Brands</button>
-        </form>
     </div>
 
     @if($mode === 'edit')
         <div class="card mt-16">
-            <div class="d-flex justify-between items-center gap-12 flex-wrap">
-                <div>
-                    <h3 class="section-title mt-0">Category Attributes</h3>
-                    <div class="hint">Sync category attributes from Lazada, then fill values and save.</div>
-                    @if($template && $template->fetched_at)
-                        <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
-                    @endif
-                </div>
-                <form method="POST" action="{{ route('lazada.products.template_sync', $listing->id) }}">
-                    @csrf
-                    <input type="hidden" name="primary_category_id" value="{{ (int)($listing->primary_category_id ?? 0) }}">
-                    <button class="btn" type="submit" {{ empty($listing->primary_category_id) ? 'disabled' : '' }}>
-                        {{ $template ? 'Re-sync Template' : 'Sync Template' }}
-                    </button>
-                </form>
-            </div>
+            <h3 class="section-title mt-0">Category Attributes</h3>
+            <div class="hint">Sync category attributes from Lazada, then fill values and save.</div>
+            @if($template && $template->fetched_at)
+                <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
+            @endif
 
             @if(empty($listing->primary_category_id))
                 <div class="alert warning mt-12">Set a <strong>Primary Category ID</strong> and save listing first, then sync template.</div>
             @elseif(!$template)
-                <div class="alert warning mt-12">Template not yet synced. Click <strong>Sync Template</strong>.</div>
+                <div class="alert warning mt-12">Template not yet synced. Click <strong>Sync Template</strong> below.</div>
             @else
                 <form method="POST" action="{{ route('lazada.products.attributes_save', $listing->id) }}" class="mt-12">
                     @csrf
@@ -194,8 +210,9 @@
                             @php
                                 $key = (string)$a['key'];
                                 $suggest = $suggested[$key] ?? null;
+                                $rawSaved = $saved[$key] ?? '';
+                                $isFromProfile = !array_key_exists($key, ($productOwnAttrs ?? [])) && array_key_exists($key, ($profileAttrs ?? []));
                                 $val = old('attributes.'.$key, $saved[$key] ?? ($suggest ?? ''));
-                                $isLocked = !empty($lockedKeys[$key] ?? null);
                                 $options = $a['options'] ?? [];
                                 $isSelect = is_array($options) && count($options) > 0;
 
@@ -203,7 +220,7 @@
                                     $suggestMatch = false;
                                     foreach ($options as $opt) {
                                         $optLabel = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                                        $optValue = is_array($opt) ? (string)($opt['value'] ?? $opt['id'] ?? $optLabel) : (string)$opt;
+                                        $optValue = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
                                         if ((string)$suggest === (string)$optValue) { $suggestMatch = true; break; }
                                     }
                                     if (!$suggestMatch && !isset($saved[$key]) && !old('attributes.'.$key)) {
@@ -224,27 +241,48 @@
 
                                 <div>
                                     @if($isSelect)
-                                        <select class="input" name="attributes[{{ $key }}]" {{ $isLocked ? 'disabled' : '' }}>
+                                        <select class="input" name="attributes[{{ $key }}]">
                                             <option value="">-- Select --</option>
                                             @foreach($options as $opt)
                                                 @php
                                                     $optLabel = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                                                    $optValue = is_array($opt) ? (string)($opt['value'] ?? $opt['id'] ?? $optLabel) : (string)$opt;
+                                                    $optValue = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
                                                 @endphp
                                                 <option value="{{ $optValue }}" {{ (string)$val === (string)$optValue ? 'selected' : '' }}>{{ $optLabel }}</option>
                                             @endforeach
                                         </select>
                                     @else
-                                        <input class="input" name="attributes[{{ $key }}]" value="{{ $val }}" placeholder="Enter value" {{ $isLocked ? 'readonly' : '' }} {{ $isLocked ? 'disabled' : '' }}>
-                                    @endif
-
-                                    @if($isLocked)
-                                        <div class="hint" style="margin-top:4px;">
-                                            Sourced from ERP product details (edit in core Product page).
+                                        @php
+                                            $isMapVal = str_starts_with((string)$rawSaved, '__map:');
+                                            $mapField = $isMapVal ? substr((string)$rawSaved, 6) : '';
+                                            $manualVal = $isMapVal ? '' : $val;
+                                            $resolvedRaw = ($isMapVal && isset($suggested[$key])) ? $suggested[$key] : null;
+                                            $resolvedVal = $resolvedRaw !== null ? mb_substr(strip_tags(html_entity_decode((string)$resolvedRaw, ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 200) : null;
+                                        @endphp
+                                        <div class="attr-row" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                            <select class="input attr-mode-toggle">
+                                                <option value="manual" {{ !$isMapVal ? 'selected' : '' }}>Manual Input</option>
+                                                <option value="product_field" {{ $isMapVal ? 'selected' : '' }}>Product Field</option>
+                                            </select>
+                                            <input class="input attr-manual-input" value="{{ $manualVal }}" placeholder="Enter value" style="{{ $isMapVal ? 'display:none;' : '' }}">
+                                            <select class="input attr-field-select" style="{{ !$isMapVal ? 'display:none;' : '' }}">
+                                                <option value="">-- Select Product Field --</option>
+                                                @foreach($erpSourceFields as $erpKey => $erpLabel)
+                                                    <option value="{{ $erpKey }}" {{ $isMapVal && $mapField === $erpKey ? 'selected' : '' }}>{{ $erpLabel }}</option>
+                                                @endforeach
+                                            </select>
+                                            <input type="hidden" name="attributes[{{ $key }}]" class="attr-hidden-value" value="{{ $isMapVal ? $rawSaved : $val }}">
+                                            <div class="attr-resolved-value" style="grid-column: span 2; margin-top:4px; padding:6px 10px; background:var(--bg-subtle, #f0f4f8); border-left:3px solid var(--accent, #3b82f6); border-radius:3px; font-size:13px; {{ $isMapVal ? '' : 'display:none;' }}">
+                                                Current Value: <strong class="attr-resolved-text">{{ $resolvedVal ?? '' }}</strong>
+                                            </div>
                                         </div>
                                     @endif
 
-                                    @if(empty($saved[$key] ?? null) && empty(old('attributes.'.$key)) && !empty($suggest))
+                                    @if($isFromProfile)
+                                        <div class="hint" style="margin-top:4px; color: var(--accent);">Inherited from profile — save to override.</div>
+                                    @endif
+
+                                    @if(!$isSelect && !($isMapVal ?? false) && empty($saved[$key] ?? null) && empty(old('attributes.'.$key)) && !empty($suggest))
                                         <div class="hint" style="margin-top:4px;">
                                             Suggested from ERP: <strong>{{ $suggest }}</strong>
                                         </div>
@@ -265,6 +303,33 @@
                     </div>
                 </form>
             @endif
+        </div>
+
+        {{-- Re-Sync Template (bottom) --}}
+        <div class="card mt-16">
+            <div class="d-flex justify-between items-center gap-12 flex-wrap">
+                <div>
+                    <h3 class="section-title mt-0">{{ $template ? 'Re-Sync Template' : 'Sync Template' }}</h3>
+                    <div class="hint">
+                        @if($template)
+                            Only use this if Lazada has updated their attributes for this category.
+                            If everything is working fine, there is no need to re-sync.
+                        @else
+                            Fetch the category attribute template from Lazada so you can map attribute values above.
+                        @endif
+                    </div>
+                    @if($template && $template->fetched_at)
+                        <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
+                    @endif
+                </div>
+                <form method="POST" action="{{ route('lazada.products.template_sync', $listing->id) }}">
+                    @csrf
+                    <input type="hidden" name="primary_category_id" value="{{ (int)($listing->primary_category_id ?? 0) }}">
+                    <button class="btn" type="submit" {{ empty($listing->primary_category_id) ? 'disabled' : '' }}>
+                        {{ $template ? 'Re-sync Template' : 'Sync Template' }}
+                    </button>
+                </form>
+            </div>
         </div>
 
         <div class="card mt-16">
@@ -449,6 +514,101 @@
             }
 
             setPicked(brandId.value);
+        })();
+
+        // ERP product field values for live preview (plain text only — HTML stripped)
+        @php
+            $erpFieldValuesJson = $productRow ? [
+                'name' => $productRow->name ?? '',
+                'description' => $productRow->description ? strip_tags(html_entity_decode((string)$productRow->description, ENT_QUOTES | ENT_HTML5, 'UTF-8')) : '',
+                'meta_title' => $productRow->meta_title ?? '',
+                'meta_description' => $productRow->meta_description ?? '',
+                'model' => $productRow->model ?? '',
+                'sku' => $productRow->sku ?? '',
+                'upc' => $productRow->upc ?? '',
+                'ean' => $productRow->ean ?? '',
+                'jan' => $productRow->jan ?? '',
+                'isbn' => $productRow->isbn ?? '',
+                'mpn' => $productRow->mpn ?? '',
+                'weight' => (string)($productRow->weight ?? ''),
+                'length' => (string)($productRow->length ?? ''),
+                'width' => (string)($productRow->width ?? ''),
+                'height' => (string)($productRow->height ?? ''),
+                'price' => (string)($productRow->price ?? ''),
+                'quantity' => (string)($productRow->quantity ?? ''),
+            ] : [];
+        @endphp
+        var erpFieldValues = @json($erpFieldValuesJson);
+
+        // Attribute mode toggle (Manual Input ↔ Product Field)
+        document.querySelectorAll('.attr-row').forEach(function(row) {
+            var toggle = row.querySelector('.attr-mode-toggle');
+            var manual = row.querySelector('.attr-manual-input');
+            var fieldSelect = row.querySelector('.attr-field-select');
+            var hidden = row.querySelector('.attr-hidden-value');
+            var resolvedBox = row.querySelector('.attr-resolved-value');
+            var resolvedText = row.querySelector('.attr-resolved-text');
+            if (!toggle || !manual || !fieldSelect || !hidden) return;
+
+            function updateResolved() {
+                if (!resolvedBox || !resolvedText) return;
+                if (toggle.value === 'product_field' && fieldSelect.value) {
+                    var val = erpFieldValues[fieldSelect.value] || '';
+                    var display = val || '(empty)';
+                    if (display.length > 200) display = display.substring(0, 200) + '...';
+                    resolvedText.textContent = display;
+                    resolvedBox.style.display = '';
+                } else {
+                    resolvedBox.style.display = 'none';
+                }
+            }
+
+            function updateHidden() {
+                if (toggle.value === 'product_field') {
+                    var f = fieldSelect.value;
+                    hidden.value = f ? '__map:' + f : '';
+                } else {
+                    hidden.value = manual.value;
+                }
+                updateResolved();
+            }
+
+            toggle.addEventListener('change', function() {
+                if (this.value === 'product_field') {
+                    manual.style.display = 'none';
+                    fieldSelect.style.display = '';
+                } else {
+                    manual.style.display = '';
+                    fieldSelect.style.display = 'none';
+                }
+                updateHidden();
+            });
+
+            manual.addEventListener('input', updateHidden);
+            fieldSelect.addEventListener('change', updateHidden);
+        });
+
+        // Live total price calculation
+        (function() {
+            var fixedInput = document.getElementById('markupFixed');
+            var percentInput = document.getElementById('markupPercent');
+            var totalEl = document.getElementById('totalPriceValue');
+            var basePrice = {{ isset($productRow->price) ? (float)$productRow->price : 0 }};
+            if (!totalEl) return;
+
+            function recalc() {
+                var fixed = parseFloat(fixedInput ? fixedInput.value : 0) || 0;
+                var pct = parseFloat(percentInput ? percentInput.value : 0) || 0;
+                // Formula: (Price * %) + Fixed
+                var total = basePrice;
+                if (pct > 0) total += basePrice * pct / 100;
+                if (fixed > 0) total += fixed;
+                totalEl.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            if (fixedInput) fixedInput.addEventListener('input', recalc);
+            if (percentInput) percentInput.addEventListener('input', recalc);
+            recalc();
         })();
     </script>
 

@@ -370,7 +370,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     showToast('Image Added','info');
     }
 
-  async function loadServerDir(path){
+  async function loadServerDir(path, startAtManufacturer){
     const mid = getManufacturerId();
     if (!mid) { alert('Please select a Manufacturer first.'); return; }
     currentServerPath = String(path || '').replace(/\\/g,'/').replace(/^\/+|\/+$/g,'');
@@ -382,6 +382,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
     u.searchParams.set('manufacturer_id', mid);
     if (currentServerPath) u.searchParams.set('path', currentServerPath);
+    if (startAtManufacturer) u.searchParams.set('start_at_manufacturer', '1');
 
     const resp = await fetch(u.toString(), {headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
     const data = await resp.json().catch(() => ({}));
@@ -389,6 +390,11 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     const folders = (data && data.folders) ? data.folders : [];
     const files = (data && data.files) ? data.files : [];
     const parent = (data && Object.prototype.hasOwnProperty.call(data,'parent')) ? data.parent : null;
+
+    // Update currentServerPath from server response (may differ when start_at_manufacturer resolved a folder)
+    if (data && typeof data.path === 'string') {
+      currentServerPath = data.path;
+    }
 
     // Nav
     serverPath.textContent = '/' + (currentServerPath ? currentServerPath : '');
@@ -437,7 +443,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     const mid = getManufacturerId();
     if (!mid) { alert('Please select a Manufacturer first.'); return; }
     modal.setAttribute('aria-hidden','false');
-    await loadServerDir('');
+    await loadServerDir('', true);
   }
 
   // Buttons

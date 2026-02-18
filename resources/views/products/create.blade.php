@@ -15,11 +15,20 @@
 
 
     <form method="POST" action="{{ route('products.store') }}">
+        @csrf
+
+        <div class="typeahead mt-16">
+            <label>Manufacturer</label>
+            <input class="input" id="manufacturer_search" placeholder="Type to search..." autocomplete="off" value="{{ old('manufacturer_name','') }}" name="manufacturer_name">
+            <input type="hidden" name="manufacturer_id" id="manufacturer_id" value="{{ old('manufacturer_id', 0) }}">
+            <div class="typeahead-list" id="manufacturer_list"></div>
+            <div class="hint">Start typing, then click a result. Required before uploading images.</div>
+            @error('manufacturer_name')
+                <div class="field-error">{{ $message }}</div>
+            @enderror
+        </div>
 
     @include('products.partials.image_manager', ['pimToken' => $pimToken, 'pimProductId' => 0])
-
-
-        @csrf
 
         <h3 class="section-title">General</h3>
 
@@ -42,8 +51,8 @@
             </div>
 
             <div>
-                <label>SKU</label>
-                <input class="input" name="sku" value="{{ old('sku') }}">
+                <label class="required">SKU</label>
+                <input class="input" name="sku" value="{{ old('sku') }}" required>
                 @error('sku')
                     <div class="field-error">{{ $message }}</div>
                 @enderror
@@ -94,17 +103,6 @@
                 <label>Height</label>
                 <input class="input" name="height" value="{{ old('height', '0') }}" placeholder="e.g. 3">
                 @error('height')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div class="typeahead">
-                <label>Manufacturer</label>
-                <input class="input" id="manufacturer_search" placeholder="Type to search..." autocomplete="off" value="{{ old('manufacturer_name','') }}" name="manufacturer_name">
-                <input type="hidden" name="manufacturer_id" id="manufacturer_id" value="{{ old('manufacturer_id', 0) }}">
-                <div class="typeahead-list" id="manufacturer_list"></div>
-                <div class="hint">Start typing, then click a result.</div>
-                @error('manufacturer_name')
                     <div class="field-error">{{ $message }}</div>
                 @enderror
             </div>

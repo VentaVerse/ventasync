@@ -55,7 +55,7 @@
                 @endif
             </div>
 
-            <div class="full">
+            <div class="full" style="display:flex; justify-content:flex-end;">
                 <button class="btn primary" type="submit">Save Settings</button>
             </div>
         </div>

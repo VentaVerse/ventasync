@@ -47,7 +47,7 @@
             </div>
         </div>
 
-        <div class="mt-16">
+        <div class="mt-16" style="display:flex; justify-content:flex-end;">
             <button class="btn" type="submit">Save</button>
         </div>
     </form>

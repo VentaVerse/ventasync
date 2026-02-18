@@ -9,6 +9,7 @@ use App\Models\LazadaApiLog;
 use App\Models\LazadaImageLink;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductAttribute;
+use App\Models\LazadaProfileAttribute;
 use App\Models\LazadaProductVariant;
 use App\Models\LazadaSetting;
 use App\Services\Lazada\LazadaClient;
@@ -21,49 +22,114 @@ class LazadaProductController extends Controller
     // NOTE: We standardize on lazada_product_id (no legacy lazada_listing_id support).
 
     /**
-     * Lazada attributes that must always come from the ERP product core fields.
-     * Users should edit these in the core Product Edit page, not in Lazada Listing mapping.
+     * Prefix used to store "mapped to ERP field" attribute values.
+     * e.g. "__map:name" means "pull value from product_description.name".
      */
-    private function isLockedProductAttributeKey(string $key): bool
-    {
-        $k = strtolower(trim($key));
-        if ($k === '') return false;
+    public const MAP_PREFIX = '__map:';
 
-        // Common Lazada PH keys for product core information / physical data.
-        $locked = [
-            'name',
-            'model',
-            'description',
-            'short_description',
-            'package_weight',
-            'package_length',
-            'package_width',
-            'package_height',
-        ];
-        return in_array($k, $locked, true);
+    /**
+     * ERP product fields available as mapping sources (dropdown options).
+     */
+    public const ERP_SOURCE_FIELDS = [
+        'name'             => 'Product Name',
+        'description'      => 'Product Description',
+        'meta_title'       => 'Meta Title',
+        'meta_description' => 'Meta Description',
+        'model'            => 'Model',
+        'sku'              => 'SKU',
+        'upc'              => 'UPC',
+        'ean'              => 'EAN',
+        'jan'              => 'JAN',
+        'isbn'             => 'ISBN',
+        'mpn'              => 'MPN',
+        'weight'           => 'Weight',
+        'length'           => 'Length',
+        'width'            => 'Width',
+        'height'           => 'Height',
+        'price'            => 'Price',
+        'quantity'         => 'Quantity',
+    ];
+
+    /**
+     * Check if a stored attribute value is a mapping reference.
+     */
+    private function isMapValue(?string $value): bool
+    {
+        return $value !== null && str_starts_with($value, self::MAP_PREFIX);
     }
 
     /**
-     * Apply ERP-sourced values to locked Lazada attributes.
+     * Extract the ERP field name from a __map: prefixed value.
      */
-    private function applyLockedAttributeValues(array $templateAttrs, ?object $productRow, array $attrs): array
+    private function extractMapField(string $value): string
     {
-        if (!$productRow) {
-            return $attrs;
-        }
+        return substr($value, strlen(self::MAP_PREFIX));
+    }
 
-        $suggested = $this->suggestForAttributes($templateAttrs, $productRow);
+    /**
+     * Resolve an ERP field identifier to the actual value from a product row.
+     */
+    private function resolveMappedValue(string $erpField, ?object $productRow): ?string
+    {
+        if (!$productRow || $erpField === '') return null;
 
-        foreach ($templateAttrs as $a) {
-            $key = (string)($a['key'] ?? '');
-            if ($key === '') continue;
+        $val = match ($erpField) {
+            'name'             => $productRow->name ?? null,
+            'description'      => $productRow->description ?? null,
+            'meta_title'       => $productRow->meta_title ?? null,
+            'meta_description' => $productRow->meta_description ?? null,
+            'model'            => $productRow->model ?? null,
+            'sku'              => $productRow->sku ?? null,
+            'upc'              => $productRow->upc ?? null,
+            'ean'              => $productRow->ean ?? null,
+            'jan'              => $productRow->jan ?? null,
+            'isbn'             => $productRow->isbn ?? null,
+            'mpn'              => $productRow->mpn ?? null,
+            'weight'           => isset($productRow->weight) ? (string)$productRow->weight : null,
+            'length'           => isset($productRow->length) ? (string)$productRow->length : null,
+            'width'            => isset($productRow->width) ? (string)$productRow->width : null,
+            'height'           => isset($productRow->height) ? (string)$productRow->height : null,
+            'price'            => isset($productRow->price) ? (string)$productRow->price : null,
+            'quantity'         => isset($productRow->quantity) ? (string)$productRow->quantity : null,
+            default            => null,
+        };
 
-            if ($this->isLockedProductAttributeKey($key) && array_key_exists($key, $suggested)) {
-                $attrs[$key] = $suggested[$key];
+        // HTML-entity decode for description fields (ERP may store HTML-escaped)
+        if ($val !== null && in_array($erpField, ['description', 'name', 'meta_title', 'meta_description'], true)) {
+            if (str_contains($val, '&lt;') || str_contains($val, '&gt;') || str_contains($val, '&amp;')) {
+                $val = html_entity_decode($val, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
         }
 
+        return $val;
+    }
+
+    /**
+     * Resolve all __map: attribute values to actual product field values.
+     * Returns a new array with mappings replaced by resolved values.
+     */
+    private function resolveMapAttributes(array $attrs, ?object $productRow): array
+    {
+        foreach ($attrs as $key => $value) {
+            if ($this->isMapValue($value)) {
+                $erpField = $this->extractMapField($value);
+                $resolved = $this->resolveMappedValue($erpField, $productRow);
+                $attrs[$key] = $resolved ?? '';
+            }
+        }
         return $attrs;
+    }
+
+    /**
+     * Check if a Lazada attribute is mapped (auto-filled from ERP via __map: prefix).
+     */
+    private function isLockedProductAttributeKey(string $key, array $savedAttrs = []): bool
+    {
+        $k = trim($key);
+        if ($k === '') return false;
+
+        $value = $savedAttrs[$k] ?? null;
+        return $this->isMapValue($value);
     }
 
     private function isSkuLevelRequiredKey(string $key): bool
@@ -83,6 +149,19 @@ class LazadaProductController extends Controller
             'special_price', 'special_from_date', 'special_to_date',
             'coming_soon', 'delay_delivery_days',
         ], true);
+    }
+
+    public static function computeFinalPrice(float $basePrice, ?float $fixedMarkup, ?float $percentMarkup): float
+    {
+        // Formula: (Price * %) + Fixed
+        $price = $basePrice;
+        if ($percentMarkup !== null && $percentMarkup > 0) {
+            $price += $basePrice * $percentMarkup / 100;
+        }
+        if ($fixedMarkup !== null && $fixedMarkup > 0) {
+            $price += $fixedMarkup;
+        }
+        return round($price, 2);
     }
 
     private function computeVariantPrice(float $basePrice, float $delta, ?string $prefix): float
@@ -261,10 +340,10 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
         return $images;
     }
     /**
-     * Suggest Lazada attribute values based on existing ERP product fields.
-     * This is a convenience for Phase 2 mapping UI (no publishing yet).
+     * Resolve __map: attribute values to actual product field values for display/preview.
+     * Returns suggested values only for attributes that have __map: stored values.
      */
-    private function suggestForAttributes(array $attributes, ?object $productRow): array
+    private function suggestForAttributes(array $attributes, ?object $productRow, array $savedAttrs = []): array
     {
         if (!$productRow) {
             return [];
@@ -272,55 +351,17 @@ private function getProductImageUrls(int $productId, ?object $productRow): array
 
         $out = [];
 
-        $weight = $productRow->weight ?? null;
-        $length = $productRow->length ?? null;
-        $width  = $productRow->width ?? null;
-        $height = $productRow->height ?? null;
-
         foreach ($attributes as $a) {
-            $key = strtolower((string)($a['key'] ?? ''));
-            $name = strtolower((string)($a['name'] ?? ''));
-            $hay = $key.' '.$name;
+            $key = (string)($a['key'] ?? '');
+            if ($key === '') continue;
 
-            // Product core textual fields
-            // Lazada often reports missing title as "field: title" even though the request uses Attributes.name.
-            if (!empty($productRow->name) && (str_contains($hay, 'name') || str_contains($hay, 'title'))) {
-                $out[(string)$a['key']] = (string)$productRow->name;
-                continue;
-            }
-            if (!empty($productRow->description) && str_contains($hay, 'description')) {
-                // Some ERP descriptions are stored HTML-escaped; Lazada expects HTML.
-                $desc = (string)$productRow->description;
-                if (str_contains($desc, '&lt;') || str_contains($desc, '&gt;') || str_contains($desc, '&amp;')) {
-                    $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $savedVal = $savedAttrs[$key] ?? null;
+            if ($this->isMapValue($savedVal)) {
+                $erpField = $this->extractMapField($savedVal);
+                $resolved = $this->resolveMappedValue($erpField, $productRow);
+                if ($resolved !== null) {
+                    $out[$key] = $resolved;
                 }
-                $out[(string)$a['key']] = $desc;
-                continue;
-            }
-
-
-            // Common Lazada PH physical fields.
-            if (($weight !== null) && (str_contains($hay, 'weight') || str_contains($hay, 'package_weight'))) {
-                $out[(string)$a['key']] = (string)$weight;
-                continue;
-            }
-            if (($length !== null) && (str_contains($hay, 'length') || str_contains($hay, 'package_length'))) {
-                $out[(string)$a['key']] = (string)$length;
-                continue;
-            }
-            if (($width !== null) && (str_contains($hay, 'width') || str_contains($hay, 'package_width'))) {
-                $out[(string)$a['key']] = (string)$width;
-                continue;
-            }
-            if (($height !== null) && (str_contains($hay, 'height') || str_contains($hay, 'package_height'))) {
-                $out[(string)$a['key']] = (string)$height;
-                continue;
-            }
-
-            // Fallback suggestions (only if present in product row)
-            if (str_contains($hay, 'model') && !empty($productRow->model)) {
-                $out[(string)$a['key']] = (string)$productRow->model;
-                continue;
             }
         }
 
@@ -1899,9 +1940,13 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'attributes' => [],
             'saved' => [],
             'suggested' => [],
+            'profileAttrs' => [],
+            'productOwnAttrs' => [],
+            'productImageUrl' => null,
             'brands' => collect(),
             'brandSuggestion' => ['brand_id' => null, 'brand_name' => null],
             'selectedBrandName' => '',
+            'erpSourceFields' => self::ERP_SOURCE_FIELDS,
         ]);
     }
 
@@ -1981,10 +2026,22 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         }
 
-        $saved = LazadaProductAttribute::query()
+        $productOwnSaved = LazadaProductAttribute::query()
             ->where('lazada_product_id', $listing->id)
             ->pluck('value', 'attribute_key')
             ->toArray();
+
+        // Auto-populate from linked profile: profile values serve as defaults
+        $profileAttrs = [];
+        if ($listing->lazada_profile_id) {
+            $profileAttrs = LazadaProfileAttribute::query()
+                ->where('lazada_profile_id', $listing->lazada_profile_id)
+                ->pluck('value', 'attribute_key')
+                ->toArray();
+        }
+
+        // Merge: product's own values take priority over profile defaults
+        $saved = array_merge($profileAttrs, $productOwnSaved);
 
         // Variants: use OpenCart-style product_option_value rows
         $variants = DB::table($pfx.'product_option_value as pov')
@@ -2017,7 +2074,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
             });
 
-        // Base product info for payload preview
+        // Base product info for payload preview (includes extra fields for mapping)
         $productRow = DB::table($pfx.'product as p')
             ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
@@ -2025,18 +2082,19 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             })
             ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->where('p.product_id', (int)$listing->product_id)
-            ->first(['p.product_id','p.sku','p.model','p.image','p.price','p.quantity','p.weight','p.length','p.width','p.height','pd.name','pd.description','m.name as manufacturer_name']);
+            ->first([
+                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.weight','p.length','p.width','p.height',
+                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
+                'pd.name','pd.description','pd.meta_title','pd.meta_description',
+                'm.name as manufacturer_name',
+            ]);
 
-        $suggested = $this->suggestForAttributes($attributes, $productRow);
+        // Resolve __map: values to actual product field values for display
+        $suggested = $this->suggestForAttributes($attributes, $productRow, $saved);
 
-        // Keys that must be sourced from core product fields (not editable here).
-        $lockedKeys = [];
-        foreach ($attributes as $a) {
-            $k = (string)($a['key'] ?? '');
-            if ($k !== '' && $this->isLockedProductAttributeKey($k) && array_key_exists($k, $suggested)) {
-                $lockedKeys[$k] = true;
-            }
-        }
+        // Product image URL for display
+        $productImageUrl = $this->toPublicImageUrl($productRow->image ?? null);
 
         // Brand suggestions
         $brandSuggestion = $this->suggestBrandFromManufacturer($productRow->manufacturer_name ?? null);
@@ -2056,10 +2114,13 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variantMap' => $variantMap,
             'productRow' => $productRow,
             'suggested' => $suggested,
-            'lockedKeys' => $lockedKeys,
+            'profileAttrs' => $profileAttrs,
+            'productOwnAttrs' => $productOwnSaved,
+            'productImageUrl' => $productImageUrl,
             'brands' => collect(),
             'brandSuggestion' => $brandSuggestion,
             'selectedBrandName' => $selectedBrandName,
+            'erpSourceFields' => self::ERP_SOURCE_FIELDS,
             'payloadPreview' => session('payload_preview_json'),
             'pushRequest' => session('push_request_json'),
             'pushResponse' => session('push_response_json'),
@@ -2071,7 +2132,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $data = $request->validate([
-            'product_id' => 'required|integer|min:1',
             'primary_category_id' => 'nullable|integer|min:1',
             'brand_id' => 'nullable|integer|min:1',
             'no_brand' => 'nullable|boolean',
@@ -2084,12 +2144,29 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $data['brand_id'] = null;
         }
 
-        $listing->product_id = (int)$data['product_id'];
         $listing->primary_category_id = $data['primary_category_id'] ?? null;
         $listing->brand_id = $data['brand_id'] ?? null;
         $listing->brand_name_override = $noBrand ? 'No Brand' : null;
         $listing->markup_fixed = $data['markup_fixed'] ?? null;
         $listing->markup_percent = $data['markup_percent'] ?? null;
+
+        // Compute total_price from ERP base price + effective markup
+        $pfx = (string) config('catalog.prefix');
+        $erpPrice = (float) DB::table($pfx . 'product')->where('product_id', (int)$listing->product_id)->value('price');
+
+        $fixedMarkup = $listing->markup_fixed;
+        $percentMarkup = $listing->markup_percent;
+
+        // Fall back to profile markup if product has none
+        if ($fixedMarkup === null && $percentMarkup === null && $listing->lazada_profile_id) {
+            $profile = \App\Models\LazadaProfile::find($listing->lazada_profile_id);
+            if ($profile) {
+                $fixedMarkup = $profile->markup_fixed;
+                $percentMarkup = $profile->markup_percent;
+            }
+        }
+
+        $listing->total_price = self::computeFinalPrice($erpPrice, $fixedMarkup, $percentMarkup);
         $listing->save();
 
         return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Listing updated.');
@@ -2426,7 +2503,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             unset($attrs['brand']);
         }
 
-        // Force locked attributes (product core fields) to always use ERP values.
+        // Force mapped attributes to always use ERP values based on mappings.
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $productRow = DB::table($pfx.'product as p')
@@ -2436,11 +2513,15 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             })
             ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->where('p.product_id', (int)$listing->product_id)
-            ->first(['p.product_id','p.sku','p.model','p.image','p.price','p.quantity','p.weight','p.length','p.width','p.height','pd.name','pd.description','m.name as manufacturer_name']);
+            ->first([
+                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.weight','p.length','p.width','p.height',
+                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
+                'pd.name','pd.description','pd.meta_title','pd.meta_description',
+                'm.name as manufacturer_name',
+            ]);
 
         // Images are mandatory for Lazada product creation.
-        // Lazada expects Product.Images.Image to be an array (main image first).
-        // NOTE: use the ERP product row (includes p.image) to compute public image URLs.
         $imageUrls = $this->getProductImageUrls((int)$listing->product_id, $productRow);
         $imageUrls = array_values(array_filter(array_map(fn($u) => $this->normalizeImageUrl((string)$u), $imageUrls)));
         if (empty($imageUrls)) {
@@ -2460,15 +2541,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
             if ($template && $template->template_body) {
                 $templateAttrs = $this->extractAttributes($template->template_body);
-
-                // Apply ERP-sourced values for locked keys (non-editable in Lazada Listing UI).
-                $suggestedLocked = $this->suggestForAttributes($templateAttrs, $productRow);
-                foreach ($templateAttrs as $a) {
-                    $k = (string)($a['key'] ?? '');
-                    if ($k !== '' && $this->isLockedProductAttributeKey($k) && array_key_exists($k, $suggestedLocked)) {
-                        $attrs[$k] = (string)$suggestedLocked[$k];
-                    }
-                }
 
                 foreach ($templateAttrs as $a) {
                     if (!empty($a['required'])) {
@@ -2596,10 +2668,15 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             })
             ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->where('p.product_id', (int)$listing->product_id)
-            ->first(['p.product_id','p.sku','p.model','p.image','p.price','p.quantity','p.weight','p.length','p.width','p.height','pd.name','pd.description','m.name as manufacturer_name']);
+            ->first([
+                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.weight','p.length','p.width','p.height',
+                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
+                'pd.name','pd.description','pd.meta_title','pd.meta_description',
+                'm.name as manufacturer_name',
+            ]);
 
         // Images are mandatory for Lazada product creation.
-        // Lazada expects Request.Product.Images.Image to be an array (main image first).
         $imageUrls = $this->getProductImageUrls((int)$listing->product_id, $product);
         $imageUrls = array_values(array_filter(array_map(fn($u) => $this->normalizeImageUrl((string)$u), $imageUrls)));
         if (empty($imageUrls)) {
@@ -2614,8 +2691,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->toArray();
 
         // Ensure Brand exists in attributes before validating required template keys.
-        // Brand is handled by the top-level selector (listing.brand_id / No Brand button),
-        // but Lazada category templates often mark "brand" as required.
         $brandId = (int)($listing->brand_id ?? 0);
         $brandOverride = trim((string)($listing->brand_name_override ?? ''));
         $isNoBrand = $brandOverride !== '' && strtolower($brandOverride) === 'no brand';
@@ -2631,13 +2706,15 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             $attrs['brand'] = $brandName ? (string)$brandName : (string)$brandId;
             $attrs['brand_id'] = $brandId;
         } else {
-            // Default for payload build/preview so it won't block testing.
             $attrs['brand'] = 'No Brand';
             unset($attrs['brand_id']);
         }
 
-        // Remove present-but-null values for cleaner preview and to avoid QC failures when used for push.
+        // Remove present-but-null values for cleaner preview.
         $attrs = (array) $this->compactPayloadValue($attrs);
+
+        // Resolve __map: attribute values to actual product field values for payload.
+        $attrs = $this->resolveMapAttributes($attrs, $product);
 
         // Validate mandatory attributes before building payload
         $requiredKeys = [];
@@ -2649,15 +2726,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 ->first();
             if ($template && $template->template_body) {
                 $templateAttrs = $this->extractAttributes($template->template_body);
-
-                // Force ERP-sourced values for locked keys.
-                $suggestedLocked = $this->suggestForAttributes($templateAttrs, $product);
-                foreach ($templateAttrs as $a) {
-                    $k = (string)($a['key'] ?? '');
-                    if ($k !== '' && $this->isLockedProductAttributeKey($k) && array_key_exists($k, $suggestedLocked)) {
-                        $attrs[$k] = (string)$suggestedLocked[$k];
-                    }
-                }
 
                 foreach ($templateAttrs as $a) {
                     if (!empty($a['required'])) {
@@ -2700,21 +2768,22 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
             });
 
-        // Lazada requires a non-empty SellerSku. In OpenCart data, `sku` can be an empty string,
-        // so treat empty strings as missing and fallback to model.
-        $fallbackBaseSku = null;
-        if ($product) {
-            $fallbackBaseSku = trim((string)($product->sku ?? ''));
-            if ($fallbackBaseSku === '') {
-                $fallbackBaseSku = trim((string)($product->model ?? ''));
-            }
-        }
-
         $skus = [];
         $basePrice = (float)($product->price ?? 0);
         $usedSellerSkus = [];
 
-        // Lazada treats empty string SellerSku as missing. Prefer ERP SKU, else fallback to ERP model.
+        // Effective markup for variant price computation
+        $effectiveFixed = $listing->markup_fixed;
+        $effectivePercent = $listing->markup_percent;
+        if ($effectiveFixed === null && $effectivePercent === null && $listing->lazada_profile_id) {
+            $mkProfile = \App\Models\LazadaProfile::find($listing->lazada_profile_id);
+            if ($mkProfile) {
+                $effectiveFixed = $mkProfile->markup_fixed;
+                $effectivePercent = $mkProfile->markup_percent;
+            }
+        }
+
+        // SellerSku fallback: sku then model.
         $fallbackBaseSku = null;
         if ($product) {
             $fallbackBaseSku = trim((string)($product->sku ?? ''));
@@ -2750,6 +2819,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 // Lazada needs the final absolute price.
                 $erpPrice = $this->computeVariantPrice($basePrice, (float)$r->price, (string)($r->price_prefix ?? '+'));
                 $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
+                // Apply markup to variant price
+                $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
                 $skus[] = [
                     'product_option_value_id' => (int)$r->product_option_value_id,
                     'seller_sku' => $candidate,
@@ -2760,10 +2831,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         } else {
             // No variants in ERP; show a single base SKU in preview.
+            // Use stored total_price (base + markup) if available.
+            $singlePrice = $listing->total_price ?? (float)($product->price ?? 0);
             $skus[] = [
                 'product_option_value_id' => null,
                 'seller_sku' => $fallbackBaseSku,
-                'price' => (float)($product->price ?? 0),
+                'price' => (float)$singlePrice,
                 'quantity' => (int)($product->quantity ?? 0),
                 'price_prefix' => '+',
             ];
@@ -3319,7 +3392,13 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             })
             ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->where('p.product_id', (int)$listing->product_id)
-            ->first(['p.product_id','p.sku','p.model','p.image','p.price','p.quantity','p.weight','p.length','p.width','p.height','pd.name','pd.description','m.name as manufacturer_name']);
+            ->first([
+                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.weight','p.length','p.width','p.height',
+                'p.upc','p.ean','p.jan','p.isbn','p.mpn',
+                'pd.name','pd.description','pd.meta_title','pd.meta_description',
+                'm.name as manufacturer_name',
+            ]);
 
         // Images are mandatory for Lazada product creation.
         // Lazada checks Product.Images.Image (and sometimes Sku.Images.Image) for main image.
@@ -3402,8 +3481,10 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                 return $v->product_option_value_id === null ? 'base' : (string)$v->product_option_value_id;
             });
 
-        // Lazada requires a non-empty SellerSku. In OpenCart schema, p.sku can be an empty string.
-        // Fall back to model if sku is blank.
+        // Resolve __map: attribute values to actual product field values.
+        $attrs = $this->resolveMapAttributes($attrs, $product);
+
+        // SellerSku fallback: sku then model.
         $fallbackBaseSku = null;
         if ($product) {
             $fallbackBaseSku = trim((string)($product->sku ?? ''));
@@ -3418,6 +3499,17 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         $skus = [];
         $basePrice = (float)($product->price ?? 0);
         $usedSellerSkus = [];
+
+        // Effective markup for variant price computation
+        $effectiveFixed = $listing->markup_fixed;
+        $effectivePercent = $listing->markup_percent;
+        if ($effectiveFixed === null && $effectivePercent === null && $listing->lazada_profile_id) {
+            $mkProfile = \App\Models\LazadaProfile::find($listing->lazada_profile_id);
+            if ($mkProfile) {
+                $effectiveFixed = $mkProfile->markup_fixed;
+                $effectivePercent = $mkProfile->markup_percent;
+            }
+        }
 
         // If we have ERP option rows, Lazada requires *variation attributes* (aka sale props) per SKU.
         // Otherwise, Lazada will reject multi-SKU products with CHK_SKU_PROPS_DUPLICATE.
@@ -3476,6 +3568,8 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                 // Lazada needs the final absolute price.
                 $erpPrice = $this->computeVariantPrice($basePrice, (float)$r->price, (string)($r->price_prefix ?? '+'));
                 $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
+                // Apply markup to variant price
+                $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
                 $skuRow = [
                     'SellerSku' => $candidate,
                     'price' => $finalPrice,
@@ -3494,9 +3588,11 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             }
         } else {
             // No variants in ERP; create a single base SKU.
+            // Use stored total_price (base + markup) if available.
+            $singlePrice = $listing->total_price ?? (float)($product->price ?? 0);
             $skus[] = [
                 'SellerSku' => $fallbackBaseSku,
-                'price' => (float)($product->price ?? 0),
+                'price' => (float)$singlePrice,
                 'quantity' => (int)($product->quantity ?? 0),
             ];
         }
@@ -3516,12 +3612,9 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         }
 
         // If packaging defaults are still missing, try ERP core fields.
-        // These are the common causes of Lazada QC errors: "Package Weight (kg) cannot be blank".
         if (!array_key_exists('package_weight', $skuDefaults) && $product && $product->weight !== null) {
             $w = (string)$product->weight;
-            if (trim($w) !== '') {
-                $skuDefaults['package_weight'] = $w;
-            }
+            if (trim($w) !== '') $skuDefaults['package_weight'] = $w;
         }
         if (!array_key_exists('package_length', $skuDefaults) && $product && $product->length !== null) {
             $v = (string)$product->length;
@@ -3556,15 +3649,6 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             ->first();
         if ($template && $template->template_body) {
             $templateAttrs = $this->extractAttributes($template->template_body);
-
-            // Force ERP-sourced values for locked keys (core product fields).
-            $suggestedLocked = $this->suggestForAttributes($templateAttrs, $product);
-            foreach ($templateAttrs as $a) {
-                $k = (string)($a['key'] ?? '');
-                if ($k !== '' && $this->isLockedProductAttributeKey($k) && array_key_exists($k, $suggestedLocked)) {
-                    $attrs[$k] = (string)$suggestedLocked[$k];
-                }
-            }
 
             foreach ($templateAttrs as $a) {
                 if (!empty($a['required'])) {
