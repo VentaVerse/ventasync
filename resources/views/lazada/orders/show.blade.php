@@ -160,6 +160,104 @@
     @endif
 </div>
 
+@php
+    $fees = is_array($order->fees ?? null) ? $order->fees : [];
+    $hasFees = !empty($fees) && !empty(array_filter($fees, fn($v) => !is_array($v) && $v != 0));
+
+    $lSubtotal = (float)($fees['subtotal'] ?? 0);
+    $lPaidTotal = (float)($fees['paid_total'] ?? 0);
+    $lShipping = (float)($fees['shipping'] ?? 0);
+    $lVoucherSeller = (float)($fees['voucher_seller'] ?? 0);
+    $lVoucherPlatform = (float)($fees['voucher_platform'] ?? 0);
+    $lShipDiscountSeller = (float)($fees['shipping_discount_seller'] ?? 0);
+    $lShipDiscountPlatform = (float)($fees['shipping_discount_platform'] ?? 0);
+    $lWalletCredits = (float)($fees['wallet_credits'] ?? 0);
+    $lShippingServiceCost = (float)($fees['shipping_service_cost'] ?? 0);
+    $lCommission = (float)($fees['commission'] ?? 0);
+    $lPaymentFee = (float)($fees['payment_fee'] ?? 0);
+    $lOrderPrice = (float)($fees['order_price'] ?? 0);
+    $lOrderVoucher = (float)($fees['order_voucher'] ?? 0);
+    $lOtherFees = $fees['other_fees'] ?? [];
+
+    // Estimate net: paid - commission - payment fee - shipping service cost
+    $lNet = $lPaidTotal ?: $lSubtotal;
+    if ($lCommission) $lNet += $lCommission; // commission is typically negative
+    if ($lPaymentFee) $lNet += $lPaymentFee;
+    if ($lShippingServiceCost) $lNet -= $lShippingServiceCost;
+@endphp
+
+@if($hasFees)
+<div class="card mt-16">
+    <h3 class="section-title mt-0">Fees & Revenue Breakdown</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+        <div>
+            <table class="table" style="width:100%;">
+                <tbody>
+                    @if($lSubtotal)
+                    <tr><td class="text-secondary">Subtotal (Item Prices)</td><td class="text-right font-bold">{{ number_format($lSubtotal, 2) }}</td></tr>
+                    @endif
+                    @if($lPaidTotal && $lPaidTotal != $lSubtotal)
+                    <tr><td class="text-secondary">Paid Total</td><td class="text-right font-bold">{{ number_format($lPaidTotal, 2) }}</td></tr>
+                    @endif
+                    @if($lShipping)
+                    <tr><td class="text-secondary">Shipping</td><td class="text-right">{{ number_format($lShipping, 2) }}</td></tr>
+                    @endif
+                    @if($lVoucherSeller)
+                    <tr><td class="text-secondary">Voucher (Seller)</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lVoucherSeller), 2) }}</td></tr>
+                    @endif
+                    @if($lVoucherPlatform)
+                    <tr><td class="text-secondary">Voucher (Platform)</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lVoucherPlatform), 2) }}</td></tr>
+                    @endif
+                    @if($lWalletCredits)
+                    <tr><td class="text-secondary">Wallet Credits</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lWalletCredits), 2) }}</td></tr>
+                    @endif
+                    @if($lOrderVoucher && !$lVoucherSeller && !$lVoucherPlatform)
+                    <tr><td class="text-secondary">Order Voucher</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lOrderVoucher), 2) }}</td></tr>
+                    @endif
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <table class="table" style="width:100%;">
+                <tbody>
+                    @if($lCommission)
+                    <tr><td class="text-secondary">Commission</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lCommission), 2) }}</td></tr>
+                    @endif
+                    @if($lPaymentFee)
+                    <tr><td class="text-secondary">Payment Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lPaymentFee), 2) }}</td></tr>
+                    @endif
+                    @if($lShippingServiceCost)
+                    <tr><td class="text-secondary">Shipping Service Cost</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lShippingServiceCost), 2) }}</td></tr>
+                    @endif
+                    @if($lShipDiscountSeller)
+                    <tr><td class="text-secondary">Shipping Discount (Seller)</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($lShipDiscountSeller), 2) }}</td></tr>
+                    @endif
+                    @if($lShipDiscountPlatform)
+                    <tr><td class="text-secondary">Shipping Discount (Platform)</td><td class="text-right">{{ number_format(abs($lShipDiscountPlatform), 2) }}</td></tr>
+                    @endif
+                    @if(is_array($lOtherFees))
+                        @foreach($lOtherFees as $feeName => $feeAmt)
+                            @if($feeAmt != 0)
+                            <tr><td class="text-secondary">{{ ucwords(str_replace('_', ' ', $feeName)) }}</td><td class="text-right" style="{{ $feeAmt < 0 ? 'color:#dc2626;' : '' }}">{{ $feeAmt < 0 ? '-' : '' }}{{ number_format(abs($feeAmt), 2) }}</td></tr>
+                            @endif
+                        @endforeach
+                    @endif
+                    @if($lNet && ($lCommission || $lPaymentFee || $lShippingServiceCost))
+                    <tr style="border-top:2px solid var(--border);">
+                        <td class="font-bold">Estimated Net</td>
+                        <td class="text-right font-bold" style="font-size:1.1em; color:#16a34a;">{{ number_format($lNet, 2) }}</td>
+                    </tr>
+                    @endif
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @if(!$lCommission && !$lPaymentFee)
+        <div class="text-secondary text-xs mt-12" style="padding:0 4px;">Commission and payment fee data may not be available until the order is settled by Lazada.</div>
+    @endif
+</div>
+@endif
+
 <div class="card mt-16">
     <h3 class="section-title mt-0">Raw Payload (debug)</h3>
     <details>

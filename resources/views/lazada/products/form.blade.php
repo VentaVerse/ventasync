@@ -45,11 +45,11 @@
                         @if(!empty($productRow->model))&middot; Model: <strong>{{ $productRow->model }}</strong> @endif
                         @if(isset($productRow->price))&middot; Price: <strong>{{ number_format((float)$productRow->price, 2) }}</strong> @endif
                     </div>
-                    @if($listing->lazada_profile_id)
-                        @php $linkedProfile = \App\Models\LazadaProfile::find($listing->lazada_profile_id); @endphp
-                        @if($linkedProfile)
-                            <div class="text-muted text-sm" style="margin-top:2px;">Profile: <strong>{{ $linkedProfile->name }}</strong></div>
-                        @endif
+                    @php $linkedProfiles = $listing->profiles; @endphp
+                    @if($linkedProfiles->count() > 0)
+                        <div class="text-muted text-sm" style="margin-top:2px;">
+                            Profile: <strong>{{ $linkedProfiles->first()->name }}</strong>@if($linkedProfiles->count() > 1) <span class="text-muted">(+{{ $linkedProfiles->count() - 1 }})</span>@endif
+                        </div>
                     @endif
                 </div>
             </div>
@@ -131,7 +131,7 @@
             </div>
 
             @php
-                $profileMarkup = $listing->lazada_profile_id ? \App\Models\LazadaProfile::find($listing->lazada_profile_id) : null;
+                $profileMarkup = $listing->profiles->first();
                 $effectiveFixed = old('markup_fixed', $listing->markup_fixed ?? ($profileMarkup->markup_fixed ?? null));
                 $effectivePercent = old('markup_percent', $listing->markup_percent ?? ($profileMarkup->markup_percent ?? null));
             @endphp

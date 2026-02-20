@@ -36,9 +36,17 @@ class LazadaApiLog extends Model
      * ZIP deployments can miss a migration. If `pack` doesn't exist yet, omit it.
      * Logging must never block core flows (fetch/push/etc.).
      */
-    public static function safeCreate(array $attributes): void
+    public static function safeCreate(array $attributes, bool $force = false): void
     {
         try {
+            // Skip logging if disabled in settings (unless forced by sync commands)
+            if (!$force) {
+                $setting = LazadaSetting::query()->first();
+                if ($setting && $setting->api_logging === false) {
+                    return;
+                }
+            }
+
             if (array_key_exists('pack', $attributes) && !Schema::hasColumn('lazada_api_logs', 'pack')) {
                 unset($attributes['pack']);
             }

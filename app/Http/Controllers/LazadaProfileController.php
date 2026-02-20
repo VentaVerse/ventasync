@@ -50,9 +50,8 @@ class LazadaProfileController extends Controller
                 ->pluck('name', 'category_id');
         }
 
-        // Product counts per profile
-        $productCounts = LazadaProduct::query()
-            ->whereNotNull('lazada_profile_id')
+        // Product counts per profile (via pivot)
+        $productCounts = DB::table('lazada_product_profile')
             ->selectRaw('lazada_profile_id, COUNT(*) as cnt')
             ->groupBy('lazada_profile_id')
             ->pluck('cnt', 'lazada_profile_id');
@@ -223,10 +222,40 @@ class LazadaProfileController extends Controller
     public function destroy(int $id)
     {
         $profile = LazadaProfile::query()->findOrFail($id);
+
+        // Get product IDs linked to this profile before deletion
+        $linkedProductIds = DB::table('lazada_product_profile')
+            ->where('lazada_profile_id', $profile->id)
+            ->pluck('lazada_product_id')
+            ->toArray();
+
+        // Delete profile (CASCADE removes its pivot rows)
         $profile->delete();
 
+        // Check which products no longer have any profile links
+        $removed = 0;
+        $kept = 0;
+        if (!empty($linkedProductIds)) {
+            $stillLinked = DB::table('lazada_product_profile')
+                ->whereIn('lazada_product_id', $linkedProductIds)
+                ->pluck('lazada_product_id')
+                ->unique()
+                ->toArray();
+
+            $orphanIds = array_diff($linkedProductIds, $stillLinked);
+
+            if (!empty($orphanIds)) {
+                $removed = LazadaProduct::query()->whereIn('id', $orphanIds)->delete();
+            }
+            $kept = count($stillLinked);
+        }
+
+        $parts = ['Profile "' . e($profile->name) . '" deleted.'];
+        if ($removed > 0) $parts[] = "{$removed} product(s) removed.";
+        if ($kept > 0) $parts[] = "{$kept} product(s) still linked to other profiles.";
+
         return redirect()->route('lazada.profiles.index')
-            ->with('status', 'Profile "' . e($profile->name) . '" deleted. Existing products remain (unlinked).');
+            ->with('status', implode(' ', $parts));
     }
 
     public function syncProducts(int $id)
@@ -245,26 +274,48 @@ class LazadaProfileController extends Controller
                 ->with('status', 'No matching products found.');
         }
 
-        $existing = LazadaProduct::query()
+        // Find existing LazadaProducts for these catalog product IDs
+        $existingMap = LazadaProduct::query()
             ->whereIn('product_id', $productIds)
-            ->pluck('product_id')
-            ->toArray();
+            ->pluck('id', 'product_id');
 
         $added = 0;
-        $skipped = count($existing);
+        $linked = 0;
 
         $profileAttrs = LazadaProfileAttribute::query()
             ->where('lazada_profile_id', $profile->id)
             ->get();
 
+        // IDs already linked to THIS profile
+        $alreadyLinked = DB::table('lazada_product_profile')
+            ->where('lazada_profile_id', $profile->id)
+            ->pluck('lazada_product_id')
+            ->toArray();
+
         foreach ($productIds as $pid) {
-            if (in_array($pid, $existing)) continue;
+            if ($existingMap->has($pid)) {
+                // Product exists — link to this profile if not already
+                $lpId = $existingMap->get($pid);
+                if (!in_array($lpId, $alreadyLinked)) {
+                    DB::table('lazada_product_profile')->insert([
+                        'lazada_product_id' => $lpId,
+                        'lazada_profile_id' => $profile->id,
+                    ]);
+                    $linked++;
+                }
+                continue;
+            }
 
             $lp = LazadaProduct::create([
                 'product_id' => $pid,
                 'primary_category_id' => $profile->lazada_category_id,
                 'brand_id' => $profile->brand_id,
                 'brand_name_override' => $profile->brand_name_override,
+            ]);
+
+            // Create pivot link
+            DB::table('lazada_product_profile')->insert([
+                'lazada_product_id' => $lp->id,
                 'lazada_profile_id' => $profile->id,
             ]);
 
@@ -279,8 +330,14 @@ class LazadaProfileController extends Controller
             $added++;
         }
 
+        $skipped = count($productIds) - $added - $linked;
+        $parts = [];
+        if ($added > 0) $parts[] = "{$added} product(s) added";
+        if ($linked > 0) $parts[] = "{$linked} linked to this profile";
+        if ($skipped > 0) $parts[] = "{$skipped} already linked";
+
         return redirect()->route('lazada.profiles.edit', $profile->id)
-            ->with('status', "{$added} product(s) added, {$skipped} skipped (already listed).");
+            ->with('status', implode(', ', $parts) . '.');
     }
 
     public function syncTemplate(Request $request, int $id, LazadaClient $client)
@@ -323,9 +380,14 @@ class LazadaProfileController extends Controller
     {
         $matchingIds = $this->getMatchingProductIds($profile);
 
-        // Find products already linked to this profile
-        $profileProducts = LazadaProduct::query()
+        // Find products currently linked to this profile (via pivot)
+        $profileProductIds = DB::table('lazada_product_profile')
             ->where('lazada_profile_id', $profile->id)
+            ->pluck('lazada_product_id')
+            ->toArray();
+
+        $profileProducts = LazadaProduct::query()
+            ->whereIn('id', $profileProductIds)
             ->get(['id', 'product_id', 'lazada_item_id']);
 
         // Remove/unlink products that no longer match the filter
@@ -333,33 +395,48 @@ class LazadaProfileController extends Controller
         $unlinked = 0;
         foreach ($profileProducts as $lp) {
             if (!in_array($lp->product_id, $matchingIds)) {
-                if (empty($lp->lazada_item_id)) {
-                    // Not uploaded to Lazada yet — safe to delete
+                // Remove pivot link
+                DB::table('lazada_product_profile')
+                    ->where('lazada_product_id', $lp->id)
+                    ->where('lazada_profile_id', $profile->id)
+                    ->delete();
+
+                // Check if product still has other profile links
+                $otherLinks = DB::table('lazada_product_profile')
+                    ->where('lazada_product_id', $lp->id)
+                    ->exists();
+
+                if (!$otherLinks && empty($lp->lazada_item_id)) {
+                    // No other profiles and not uploaded — safe to delete
                     $lp->delete();
                     $removed++;
                 } else {
-                    // Already uploaded — unlink from profile but keep the listing
-                    $lp->update(['lazada_profile_id' => null]);
                     $unlinked++;
                 }
             }
         }
 
         // Find all product_ids that already exist in lazada_products (any profile)
-        $existingProductIds = LazadaProduct::query()
+        $existingMap = LazadaProduct::query()
             ->whereIn('product_id', $matchingIds)
-            ->pluck('product_id')
+            ->pluck('id', 'product_id');
+
+        // Refresh which IDs are already linked to this profile
+        $alreadyLinked = DB::table('lazada_product_profile')
+            ->where('lazada_profile_id', $profile->id)
+            ->pluck('lazada_product_id')
             ->toArray();
 
-        // Add new products
+        // Add new products / link existing ones
         $added = 0;
+        $linked = 0;
         $profileAttrs = LazadaProfileAttribute::query()
             ->where('lazada_profile_id', $profile->id)
             ->get();
 
-        // Batch-fetch ERP prices for new products
+        // Batch-fetch ERP prices for truly new products
         $pfx = (string) config('catalog.prefix');
-        $newProductIds = array_values(array_diff($matchingIds, $existingProductIds));
+        $newProductIds = array_values(array_diff($matchingIds, $existingMap->keys()->toArray()));
         $erpPrices = [];
         if (!empty($newProductIds)) {
             $erpPrices = DB::table($pfx . 'product')
@@ -369,7 +446,18 @@ class LazadaProfileController extends Controller
         }
 
         foreach ($matchingIds as $pid) {
-            if (in_array($pid, $existingProductIds)) continue;
+            if ($existingMap->has($pid)) {
+                // Product exists — link to this profile if not already
+                $lpId = $existingMap->get($pid);
+                if (!in_array($lpId, $alreadyLinked)) {
+                    DB::table('lazada_product_profile')->insert([
+                        'lazada_product_id' => $lpId,
+                        'lazada_profile_id' => $profile->id,
+                    ]);
+                    $linked++;
+                }
+                continue;
+            }
 
             $basePrice = (float)($erpPrices[$pid] ?? 0);
             $finalPrice = LazadaProductController::computeFinalPrice(
@@ -381,8 +469,13 @@ class LazadaProfileController extends Controller
                 'primary_category_id' => $profile->lazada_category_id,
                 'brand_id' => $profile->brand_id,
                 'brand_name_override' => $profile->brand_name_override,
-                'lazada_profile_id' => $profile->id,
                 'total_price' => $finalPrice,
+            ]);
+
+            // Create pivot link
+            DB::table('lazada_product_profile')->insert([
+                'lazada_product_id' => $lp->id,
+                'lazada_profile_id' => $profile->id,
             ]);
 
             foreach ($profileAttrs as $pa) {
@@ -396,12 +489,13 @@ class LazadaProfileController extends Controller
             $added++;
         }
 
-        $skipped = count($matchingIds) - $added;
+        $skipped = count($matchingIds) - $added - $linked;
         $parts = [];
         if ($added > 0) $parts[] = "{$added} product(s) added";
+        if ($linked > 0) $parts[] = "{$linked} linked to this profile";
         if ($removed > 0) $parts[] = "{$removed} removed";
         if ($unlinked > 0) $parts[] = "{$unlinked} unlinked (already uploaded)";
-        if ($skipped > 0) $parts[] = "{$skipped} skipped (already listed)";
+        if ($skipped > 0) $parts[] = "{$skipped} already linked";
 
         return !empty($parts) ? implode(', ', $parts) . '.' : 'No product changes.';
     }

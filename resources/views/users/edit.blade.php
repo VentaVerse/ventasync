@@ -53,7 +53,7 @@
             </div>
         </div>
 
-        <div class="mt-16">
+        <div class="mt-16" style="display:flex; justify-content:flex-end;">
             <button class="btn danger" type="button"
                 onclick="if(confirm('Delete this user?')) document.getElementById('delete-user-form').submit();">
                 Delete

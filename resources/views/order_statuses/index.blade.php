@@ -30,6 +30,7 @@
                 <th style="width:90px;">ID</th>
                 <th>Name</th>
                 <th style="width:120px;">Subtract Stock</th>
+                <th style="width:120px;">Add Revenue</th>
                 <th style="width:160px;">Actions</th>
             </tr>
             </thead>
@@ -41,6 +42,13 @@
                     <td>{{ $s->name }}</td>
                     <td>
                         @if($s->subtract_stock)
+                            <span class="badge success">Yes</span>
+                        @else
+                            <span class="badge secondary">No</span>
+                        @endif
+                    </td>
+                    <td>
+                        @if($s->add_revenue)
                             <span class="badge success">Yes</span>
                         @else
                             <span class="badge secondary">No</span>

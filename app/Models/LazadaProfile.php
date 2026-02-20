@@ -22,6 +22,6 @@ class LazadaProfile extends Model
 
     public function products()
     {
-        return $this->hasMany(LazadaProduct::class, 'lazada_profile_id');
+        return $this->belongsToMany(LazadaProduct::class, 'lazada_product_profile');
     }
 }

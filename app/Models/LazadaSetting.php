@@ -20,10 +20,14 @@ class LazadaSetting extends Model
         'refresh_expires_at',
         'account',
         'country',
+        'sync_last_days',
+        'api_logging',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
+        'sync_last_days' => 'integer',
+        'api_logging' => 'boolean',
     ];
 }

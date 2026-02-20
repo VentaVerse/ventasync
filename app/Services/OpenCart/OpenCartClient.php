@@ -101,20 +101,26 @@ class OpenCartClient
         return $this->get('api/erp/ping');
     }
 
-    public function getProducts(int $page = 1, int $limit = 100, ?string $modifiedSince = null): array
+    public function getProducts(int $page = 1, int $limit = 100, ?string $modifiedSince = null, ?int $productId = null): array
     {
         $params = ['page' => $page, 'limit' => $limit];
         if ($modifiedSince) {
             $params['modified_since'] = $modifiedSince;
         }
+        if ($productId) {
+            $params['product_id'] = $productId;
+        }
         return $this->get('api/erp/products', $params);
     }
 
-    public function getOrders(int $page = 1, int $limit = 100, ?string $modifiedSince = null): array
+    public function getOrders(int $page = 1, int $limit = 100, ?string $modifiedSince = null, ?string $modifiedBefore = null): array
     {
         $params = ['page' => $page, 'limit' => $limit];
         if ($modifiedSince) {
             $params['modified_since'] = $modifiedSince;
+        }
+        if ($modifiedBefore) {
+            $params['modified_before'] = $modifiedBefore;
         }
         return $this->get('api/erp/orders', $params);
     }
@@ -146,11 +152,16 @@ class OpenCartClient
     public function updateProduct(int $productId, array $data): array
     {
         $data['product_id'] = $productId;
-        return $this->post('api/erp/product/update', $data);
+        return $this->post('api/erp/product_update', $data);
     }
 
     public function bulkUpdateProducts(array $products): array
     {
-        return $this->post('api/erp/product/bulk_update', ['products' => $products]);
+        return $this->post('api/erp/product_bulk_update', ['products' => $products]);
+    }
+
+    public function getOrderStatuses(): array
+    {
+        return $this->get('api/erp/order_statuses');
     }
 }

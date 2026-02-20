@@ -3,92 +3,287 @@
 
 @section('content')
 <div class="page-header">
-    <h2>Lazada</h2>
+    <h2>Lazada Settings</h2>
     <div class="page-header-actions">
-        <a class="btn" href="{{ route('lazada.products.index') }}">Go to Products</a>
+        <a class="btn small" href="{{ route('lazada.orders.index') }}">Orders</a>
+        <a class="btn" href="{{ route('lazada.products.index') }}">Products</a>
     </div>
 </div>
 
-<div class="card">
-    <h2>Connection Settings</h2>
+@php
+    $hasCredentials = ($setting->region ?? '') !== '' && ($setting->app_key ?? '') !== '' && ($setting->app_secret ?? '') !== '';
+    $hasToken = !empty($setting->access_token ?? '');
+    $tokenExpired = $hasToken && ($setting->expires_at ?? null) && \Carbon\Carbon::parse($setting->expires_at)->lt(now());
+    $logCount = count($logs);
+    $hasResult = !empty($result);
+@endphp
 
-    <form method="POST" action="{{ route('lazada.save') }}">
-        @csrf
-
-        <div class="form-grid">
-            <div>
-                <label>Region</label>
-                <select name="region" class="input">
-                    <option value="">(not set)</option>
-                    <option value="ph" {{ ($setting->region ?? '') === 'ph' ? 'selected' : '' }}>Philippines (ph)</option>
-                    <option value="sg" {{ ($setting->region ?? '') === 'sg' ? 'selected' : '' }}>Singapore (sg)</option>
-                    <option value="my" {{ ($setting->region ?? '') === 'my' ? 'selected' : '' }}>Malaysia (my)</option>
-                    <option value="id" {{ ($setting->region ?? '') === 'id' ? 'selected' : '' }}>Indonesia (id)</option>
-                    <option value="th" {{ ($setting->region ?? '') === 'th' ? 'selected' : '' }}>Thailand (th)</option>
-                    <option value="vn" {{ ($setting->region ?? '') === 'vn' ? 'selected' : '' }}>Vietnam (vn)</option>
-                </select>
-            </div>
-
-            <div>
-                <label>Redirect URI</label>
-                <input class="input" name="redirect_uri" value="{{ old('redirect_uri', $setting->redirect_uri ?? $defaultRedirect) }}">
-                <div class="hint">Use this as the app callback URL in Lazada Open Platform.</div>
-            </div>
-
-            <div>
-                <label>App Key</label>
-                <input class="input" name="app_key" value="{{ old('app_key', $setting->app_key ?? '') }}">
-            </div>
-
-            <div>
-                <label>App Secret</label>
-                <input class="input" name="app_secret" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
-                <div class="hint">Stored encrypted.</div>
-            </div>
-        </div>
-
-        <div class="d-flex gap-8 mt-12">
-            <button class="btn" type="submit">Save Settings</button>
-        </div>
-    </form>
+{{-- ═══ Tabs ═══ --}}
+<div class="tabs mb-12" style="justify-content:flex-start;">
+    <button class="tab {{ !$hasResult ? 'active' : '' }}" data-tab="lz-tab-settings" type="button">Settings</button>
+    <button class="tab" data-tab="lz-tab-explorer" type="button">API Explorer</button>
+    <button class="tab {{ $hasResult ? 'active' : '' }}" data-tab="lz-tab-logs" type="button">
+        API Logs
+        @if($logCount > 0)
+            <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
+        @endif
+    </button>
 </div>
 
-<div class="card mt-16">
-    <h2>OAuth Proof of Concept</h2>
+{{-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  TAB 1 — SETTINGS                                              ║
+     ╚══════════════════════════════════════════════════════════════════╝ --}}
+<div id="lz-tab-settings" class="{{ $hasResult ? 'hidden' : '' }}">
 
-    <div class="d-flex gap-8">
-        <a class="btn" href="{{ route('lazada.authorize') }}" target="_blank" rel="noopener">Authorize with Lazada</a>
+    {{-- Connection + Auth side-by-side --}}
+    <style>.lz-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;} @media(max-width:1024px){.lz-settings-grid{grid-template-columns:1fr;}}</style>
+    <div class="lz-settings-grid">
+
+        {{-- Connection --}}
+        <div class="card" style="margin-bottom:0;">
+            <h3 class="section-title mt-0">Connection</h3>
+
+            @if($hasCredentials)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-green">Connected</span>
+                    <span class="text-xs text-muted">Region: {{ strtoupper($setting->region ?? '—') }}</span>
+                </div>
+            @else
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-gray">Not configured</span>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('lazada.save') }}">
+                @csrf
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label>Region</label>
+                        <select name="region" class="input">
+                            <option value="">(not set)</option>
+                            @foreach(['ph' => 'Philippines', 'sg' => 'Singapore', 'my' => 'Malaysia', 'id' => 'Indonesia', 'th' => 'Thailand', 'vn' => 'Vietnam'] as $code => $name)
+                                <option value="{{ $code }}" {{ ($setting->region ?? '') === $code ? 'selected' : '' }}>{{ $name }} ({{ $code }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label>App Key</label>
+                        <input class="input" name="app_key" value="{{ old('app_key', $setting->app_key ?? '') }}">
+                    </div>
+                    <div>
+                        <label>App Secret</label>
+                        <input class="input" name="app_secret" type="password" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
+                        <div class="hint">Stored encrypted.</div>
+                    </div>
+                    <div>
+                        <label>Redirect URI</label>
+                        <input class="input" name="redirect_uri" value="{{ old('redirect_uri', $setting->redirect_uri ?? $defaultRedirect) }}">
+                        <div class="hint">Callback URL for Lazada Open Platform app settings.</div>
+                    </div>
+                </div>
+                <div style="margin-top:14px;">
+                    <button class="btn" type="submit">Save Connection</button>
+                </div>
+            </form>
+        </div>
+
+        {{-- Authorization --}}
+        <div class="card" style="margin-bottom:0;">
+            <h3 class="section-title mt-0">Authorization</h3>
+
+            @if($hasToken && !$tokenExpired)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-green">Token Active</span>
+                    @if($setting->expires_at ?? null)
+                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
+                    @endif
+                </div>
+            @elseif($hasToken && $tokenExpired)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-red">Token Expired</span>
+                    <span class="text-xs text-muted">Use "Refresh Token" below to renew.</span>
+                </div>
+            @else
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-yellow">No Token</span>
+                    <span class="text-xs text-muted">Follow the steps below to authorize.</span>
+                </div>
+            @endif
+
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                {{-- Step 1 --}}
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
+                        <span class="font-semibold text-sm">Open Lazada authorization page</span>
+                    </div>
+                    <a class="btn small" href="{{ route('lazada.authorize') }}" target="_blank" rel="noopener">Authorize with Lazada</a>
+                    <div class="hint" style="margin-top:6px;">Opens Lazada login in a new tab. After granting access, you'll be redirected back with an auth code.</div>
+                </div>
+
+                {{-- Step 2 --}}
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
+                        <span class="font-semibold text-sm">Exchange auth code for access token</span>
+                    </div>
+                    <form method="POST" action="{{ route('lazada.token_create') }}">
+                        @csrf
+                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:200px;">
+                                <label class="text-xs text-muted">Auth Code</label>
+                                <input class="input" name="code" value="{{ old('code', $setting->auth_code ?? session('lazada_last_auth_code') ?? '') }}" placeholder="Auto-fills after callback, or paste here">
+                            </div>
+                            <button class="btn small" type="submit">Exchange Token</button>
+                        </div>
+                    </form>
+                </div>
+
+                {{-- Step 3 --}}
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
+                        <span class="font-semibold text-sm">Refresh token (when expired)</span>
+                    </div>
+                    <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline;">
+                        @csrf
+                        <button class="btn small secondary" type="submit">Refresh Access Token</button>
+                    </form>
+                    <div class="hint" style="margin-top:6px;">Lazada tokens expire periodically. Use this to renew without re-authorizing.</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-
-    <form method="POST" action="{{ route('lazada.token_create') }}">
-        @csrf
-        <div>
-            <label>Auth Code (from callback)</label>
-            <input class="input" name="code" value="{{ old('code', $setting->auth_code ?? session('lazada_last_auth_code') ?? '') }}" placeholder="Will auto-fill after a successful callback, or paste code=... here">
+    {{-- Order Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Order Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            When Lazada orders are synced, each Lazada status is mapped to an ERP order status below. Statuses marked with a dot trigger stock subtraction.
         </div>
 
-        <div class="d-flex gap-8 mt-12">
-            <button class="btn" type="submit">Exchange Code → Token</button>
-        </div>
-    </form>
-
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-
-    <div class="d-flex gap-8">
-        <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline">
+        <form method="POST" action="{{ route('lazada.order_status_map') }}">
             @csrf
-            <button class="btn" type="submit">Refresh Access Token</button>
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Lazada Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($lazadaStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
         </form>
     </div>
 
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
+    {{-- Order Sync & Cronjob Setup --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Order Sync & Cronjob Setup</h3>
 
-    <h3 class="section-title">API Explorer</h3>
+        <div class="detail-section" style="margin-bottom:16px;">
+            <label class="font-semibold text-sm" style="margin-bottom:8px; display:block;">Sync Last N Days</label>
+            <div class="hint" style="margin-bottom:10px;">
+                How far back the cronjob looks for orders. Defaults to 14 days.
+            </div>
+            <form method="POST" action="{{ route('lazada.sync_days') }}">
+                @csrf
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" name="sync_last_days" class="input"
+                           value="{{ $setting->sync_last_days ?? '' }}"
+                           placeholder="e.g. 7" min="1" max="365" style="width:100px;">
+                    <span class="text-muted text-xs">days</span>
+                    <button class="btn small" type="submit">Save</button>
+                </div>
+            </form>
+            @if(($setting->sync_last_days ?? null) > 0)
+                <div class="hint" style="margin-top:8px;">
+                    Fetching orders from the <strong>last {{ $setting->sync_last_days }} days</strong>.
+                </div>
+            @else
+                <div class="hint" style="margin-top:8px;">
+                    Using default window of <strong>14 days</strong>.
+                </div>
+            @endif
+        </div>
 
-    <div class="hint" style="margin-top:6px;">
-        Pick an endpoint, fill parameters in a friendly table, and run. Base signing fields are generated automatically.
+        <h3 class="section-title">Cronjob Commands</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            Add these commands to your hosting panel's scheduled tasks (HestiaCP, cPanel, etc.).
+        </div>
+
+        @php
+            $artisanPath = '/usr/bin/php ' . base_path('artisan');
+        @endphp
+
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+            <div>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Sync Orders</span>
+                    <span class="text-muted">— Fetch new orders + update existing statuses</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 1 min</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="laz-cron-sync" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:sync-orders --both</code>
+                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-sync', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Push Stock</span>
+                    <span class="text-muted">— Push ERP stock quantities to Lazada</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 30 min</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="laz-cron-push" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:push-stock</code>
+                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-push', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <details>
+            <summary style="cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-secondary); user-select:none;">How to set up cronjobs</summary>
+            <ol style="margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-secondary); line-height:1.8;">
+                <li>Go to your hosting panel (HestiaCP, cPanel, etc.)</li>
+                <li>Find <strong style="color:var(--text-primary);">Cron Jobs</strong> or <strong style="color:var(--text-primary);">Scheduled Tasks</strong></li>
+                <li>Set the interval (e.g. <code style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background:#f1f5f9; padding:1px 6px; border-radius:4px; color:#0f172a;">* * * * *</code> for every minute)</li>
+                <li>Paste the command into the command field</li>
+                <li>Save</li>
+            </ol>
+        </details>
+    </div>
+</div>
+
+{{-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  TAB 2 — API EXPLORER                                          ║
+     ╚══════════════════════════════════════════════════════════════════╝ --}}
+<div id="lz-tab-explorer" class="hidden">
+<div class="card">
+    <h3 class="section-title mt-0">API Explorer</h3>
+    <div class="hint" style="margin-bottom:10px;">
+        Pick an endpoint, fill parameters, and run. Base signing fields are generated automatically.
         <br><span class="lz-code">E005: Invalid Request Format</span> usually means the endpoint expects a specific payload format (e.g., <span class="lz-code">payload</span> as a JSON/XML string).
     </div>
 
@@ -172,8 +367,8 @@
                 <div class="lz-note">
                     <div class="font-bold" style="margin-bottom:6px;">Common pitfalls</div>
                     <div class="lz-mini">
-                        <div>• <span class="lz-code">payload</span> must be a single string. If you paste JSON object/array, the server will encode it, but Lazada may require a specific structure.</div>
-                        <div>• If you see repeated timestamps, you're reading an old log entry. Always check the newest row.</div>
+                        <div>&#8226; <span class="lz-code">payload</span> must be a single string. If you paste JSON object/array, the server will encode it, but Lazada may require a specific structure.</div>
+                        <div>&#8226; If you see repeated timestamps, you're reading an old log entry. Always check the newest row.</div>
                     </div>
                 </div>
             </div>
@@ -239,539 +434,367 @@
             </form>
         </div>
     </div>
-
-    @push('scripts')
-    <script>
-    (function(){
-        function qs(sel){ return document.querySelector(sel); }
-        function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
-
-        var methodSel = qs('#lazada-explorer-method');
-        var authChk   = qs('#lazada-explorer-auth');
-        var pathInp   = qs('#lazada-explorer-path');
-        var paramsTa  = qs('#lazada-explorer-params');
-                var paramsHidden = qs('#lazada-explorer-params-hidden');
-var kvBody    = qs('#lz-kv-body');
-        var epName    = qs('#lz-ep-name');
-        var epDesc    = qs('#lz-ep-desc');
-        var epSearch  = qs('#lz-endpoint-search');
-        var btnAddRow = qs('#lz-add-row');
-        var btnSync   = qs('#lz-sync-to-json');
-        var btnSample = qs('#lz-use-sample-payload');
-
-        function safeJsonParse(str){
-            try { return JSON.parse(str); } catch(e){ return null; }
-        }
-
-        function tryParsePayloadString(pv){
-            if (typeof pv !== 'string') return null;
-
-            var parsed = safeJsonParse(pv);
-            if (parsed !== null) return { parsed: parsed, normalized: pv };
-
-            if (
-                pv.indexOf('\\n') >= 0 ||
-                pv.indexOf('\\t') >= 0 ||
-                pv.indexOf('\\r') >= 0 ||
-                pv.indexOf('\\"') >= 0 ||
-                pv.indexOf('\\\\') >= 0
-            ) {
-                var unescaped = pv
-                    .replace(/\\r/g, '\r')
-                    .replace(/\\n/g, '\n')
-                    .replace(/\\t/g, '\t')
-                    .replace(/\\"/g, '"')
-                    .replace(/\\\\/g, '\\');
-
-                var parsed2 = safeJsonParse(unescaped);
-                if (parsed2 !== null) return { parsed: parsed2, normalized: unescaped };
-            }
-
-            return null;
-        }
-
-        function buildPrettyAndHiddenParams(obj){
-            var pretty = JSON.parse(JSON.stringify(obj || {}));
-            var hidden = JSON.parse(JSON.stringify(obj || {}));
-
-            if (obj && Object.prototype.hasOwnProperty.call(obj, 'payload')) {
-                var pv = obj.payload;
-
-                if (isObject(pv) || Array.isArray(pv)) {
-                    hidden.payload = JSON.stringify(pv, null, 2);
-                    pretty.payload = pv;
-                    return { pretty: pretty, hidden: hidden };
-                }
-
-                if (typeof pv === 'string') {
-                    var attempt = tryParsePayloadString(pv);
-                    if (attempt && attempt.parsed !== null && (isObject(attempt.parsed) || Array.isArray(attempt.parsed))) {
-                        pretty.payload = attempt.parsed;
-                        hidden.payload = attempt.normalized;
-                        return { pretty: pretty, hidden: hidden };
-                    }
-                }
-            }
-
-            return { pretty: pretty, hidden: hidden };
-        }
-
-        function syncHiddenFromPretty(){
-            if(!paramsTa || !paramsHidden) return;
-            var obj = safeJsonParse(paramsTa.value || '');
-            if(!obj || typeof obj !== 'object') return;
-            var conv = buildPrettyAndHiddenParams(obj);
-            paramsTa.value = JSON.stringify(conv.pretty, null, 2);
-            paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
-        }
-
-
-        function isObject(val){
-            return val !== null && typeof val === 'object';
-        }
-
-        function buildRow(key, value){
-            var tr = document.createElement('tr');
-            var tdK = document.createElement('td');
-            var tdV = document.createElement('td');
-            var tdA = document.createElement('td');
-
-            var k = document.createElement('input');
-            k.className = 'input';
-            k.placeholder = 'key';
-            k.value = key || '';
-
-            var v;
-            if ((key || '').toLowerCase() === 'payload') {
-                v = document.createElement('textarea');
-                v.className = 'input lz-code';
-                v.rows = 6;
-                v.placeholder = 'payload (JSON/XML string)';
-                if (isObject(value)) {
-                    v.value = JSON.stringify(value, null, 2);
-                } else {
-                    v.value = value || '';
-                }
-            } else {
-                v = document.createElement('input');
-                v.className = 'input';
-                v.placeholder = 'value';
-                v.value = (value === null || typeof value === 'undefined') ? '' : String(value);
-            }
-
-            var del = document.createElement('button');
-            del.type = 'button';
-            del.className = 'btn small';
-            del.textContent = 'Remove';
-            del.addEventListener('click', function(){
-                tr.remove();
-                syncToJson();
-            });
-
-            tdK.appendChild(k);
-            tdV.appendChild(v);
-            tdA.appendChild(del);
-            tr.appendChild(tdK);
-            tr.appendChild(tdV);
-            tr.appendChild(tdA);
-            kvBody.appendChild(tr);
-        }
-
-        function clearRows(){
-            while(kvBody.firstChild){ kvBody.removeChild(kvBody.firstChild); }
-        }
-
-        function tableToObject(){
-            var obj = {};
-            qsa('#lz-kv-body tr').forEach(function(tr){
-                var keyEl = tr.querySelector('td:nth-child(1) .input');
-                var valEl = tr.querySelector('td:nth-child(2) .input, td:nth-child(2) textarea');
-                var k = keyEl ? String(keyEl.value || '').trim() : '';
-                if(!k) return;
-                var vRaw = valEl ? valEl.value : '';
-                if (String(k).toLowerCase() === 'payload') {
-                    obj[k] = vRaw;
-                } else {
-                    var parsed = safeJsonParse(vRaw);
-                    obj[k] = parsed !== null ? parsed : vRaw;
-                }
-            });
-            return obj;
-        }
-
-        function syncToJson(){
-            if(!paramsTa) return;
-            var obj = tableToObject();
-            var conv = buildPrettyAndHiddenParams(obj);
-            paramsTa.value = stringifyParamsForUi(conv.pretty);
-            if (paramsHidden) {
-                paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
-            }
-        }
-
-        function rebuildTableFromJson(){
-            if(!paramsTa) return;
-            var obj = safeJsonParse(paramsTa.value || '');
-            if(!obj || typeof obj !== 'object') return;
-
-            var conv = buildPrettyAndHiddenParams(obj);
-            paramsTa.value = stringifyParamsForUi(conv.pretty);
-            if (paramsHidden) {
-                paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
-            }
-
-            clearRows();
-            Object.keys(conv.pretty).forEach(function(k){
-                buildRow(k, conv.pretty[k]);
-            });
-        }
-
-        function selectEndpoint(ep){
-            if (methodSel) methodSel.value = (ep.method || 'GET').toUpperCase();
-            if (authChk) authChk.checked = !!ep.auth;
-            if (pathInp) pathInp.value = ep.path || '';
-            if (epName) epName.textContent = ep.name || 'Selected';
-            if (epDesc) epDesc.textContent = ep.desc || '';
-
-            clearRows();
-            (ep.params || []).forEach(function(p){ buildRow(p.k, p.ph || ''); });
-            var hasPayload = (ep.params || []).some(function(p){ return String(p.k).toLowerCase() === 'payload'; });
-            var hasSample = hasPayload || (String(ep.path || '') === '/product/remove');
-            if (btnSample) {
-                if (hasSample) { btnSample.classList.remove('hidden'); } else { btnSample.classList.add('hidden'); }
-            }
-            syncToJson();
-        }
-
-        function stringifyParamsForUi(prettyObj){
-            var out = JSON.stringify(prettyObj, null, 2);
-            if (!prettyObj || typeof prettyObj !== 'object') return out;
-            if (!Object.prototype.hasOwnProperty.call(prettyObj, 'payload')) return out;
-            if (typeof prettyObj.payload !== 'string') return out;
-            if (prettyObj.payload.indexOf('\n') === -1) return out;
-
-            var payloadEsc = String(prettyObj.payload)
-                .replace(/\\/g, '\\\\')
-                .replace(/\"/g, '\\"');
-
-            out = out.replace(/\n(\s*)\"payload\"\s*:\s*\"(?:[^\"\\]|\\.)*\"/m, function(m, indent){
-                return "\n" + indent + "\"payload\": \"" + payloadEsc + "\"";
-            });
-            return out;
-        }
-
-        function getSamplePayloadFor(path){
-            if (path === '/product/create' || path === '/product/update') {
-                return JSON.stringify({
-                    Request: {
-                        Product: {
-                            PrimaryCategory: 0,
-                            Images: { Image: ["https://<your-domain>/path/to/image.jpg"] },
-                            Attributes: {
-                                name: "Sample Product Name",
-                                description: "Sample description",
-                                brand: "No Brand",
-                                model: "MODEL-001",
-                                package_height: "10",
-                                package_length: "10",
-                                package_width: "10",
-                                package_weight: "1"
-                            },
-                            Skus: { Sku: [ { SellerSku: "SAMPLE-SKU", price: 100, quantity: 1 } ] }
-                        }
-                    }
-                }, null, 2);
-            }
-            if (path === '/images/migrate') {
-                return JSON.stringify({
-                    Request: {
-                        Images: {
-                            Url: ["https://<your-domain>/path/to/image1.jpg"]
-                        }
-                    }
-                }, null, 2);
-            }
-            if (path === '/image/migrate') {
-                return JSON.stringify({
-                    Request: {
-                        Image: {
-                            Url: "https://<your-domain>/path/to/image1.jpg"
-                        }
-                    }
-                }, null, 2);
-            }
-            return '{\n  "Request": {}\n}';
-        }
-
-        qsa('.lz-endpoint').forEach(function(btn){
-            btn.addEventListener('click', function(){
-                var ep = safeJsonParse(btn.getAttribute('data-ep') || '{}') || {};
-                selectEndpoint(ep);
-            });
-        });
-
-        if (epSearch) {
-            epSearch.addEventListener('input', function(){
-                var q = String(epSearch.value || '').toLowerCase();
-                qsa('.lz-endpoint').forEach(function(btn){
-                    var raw = (btn.getAttribute('data-ep') || '').toLowerCase();
-                    var t = (btn.textContent || '').toLowerCase() + ' ' + raw;
-                    btn.style.display = t.indexOf(q) >= 0 ? '' : 'none';
-                });
-            });
-        }
-
-        if (btnAddRow) btnAddRow.addEventListener('click', function(){ buildRow('', ''); });
-        if (btnSync) btnSync.addEventListener('click', function(){ rebuildTableFromJson(); syncToJson(); });
-
-        if (btnSample) {
-            btnSample.addEventListener('click', function(){
-                var p = (pathInp && pathInp.value) ? String(pathInp.value) : '';
-                if (p === '/product/remove') {
-                    var sampleSellerSkuList = '["test00111","test00222","test00333"]';
-                    var sampleSkuIdList = '["SkuId_1269656765_5230534246","SkuId_1269656765_5230534247","SkuId_1269656765_5230534248"]';
-                    qsa('#lz-kv-body tr').forEach(function(tr){
-                        var keyEl = tr.querySelector('td:nth-child(1) .input');
-                        if (!keyEl) return;
-                        var k = String(keyEl.value || '').trim();
-                        var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
-                        if (!valEl) return;
-                        if (k === 'seller_sku_list') valEl.value = sampleSellerSkuList;
-                        if (k === 'sku_id_list') valEl.value = sampleSkuIdList;
-                    });
-                } else {
-                    qsa('#lz-kv-body tr').forEach(function(tr){
-                        var keyEl = tr.querySelector('td:nth-child(1) .input');
-                        if (!keyEl) return;
-                        if (String(keyEl.value || '').trim().toLowerCase() !== 'payload') return;
-                        var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
-                        if (valEl) valEl.value = getSamplePayloadFor(p);
-                    });
-                }
-                syncToJson();
-            });
-        }
-
-        var lastEdited = 'table';
-
-        try {
-        syncHiddenFromPretty();
-        rebuildTableFromJson();
-            syncToJson();
-        } catch(e) {}
-
-        var kvBody = qs('#lz-kv-body');
-        if (kvBody) {
-            kvBody.addEventListener('input', function(e){
-                var t = e && e.target ? e.target : null;
-                if (!t) return;
-                if (!kvBody.contains(t)) return;
-                lastEdited = 'table';
-                try { syncToJson(); } catch(err) {}
-            });
-        }
-
-        if (paramsTa) {
-            paramsTa.addEventListener('input', function(){
-                lastEdited = 'json';
-            });
-        }
-
-        var form = qs('#lazada-api-explorer-form');
-        if (form) form.addEventListener('submit', function(){
-            if (lastEdited === 'json') {
-                try { rebuildTableFromJson(); } catch(e) {}
-            }
-            try { syncToJson(); } catch(e2) {}
-        });
-    })();
-    </script>
-    @endpush
-
-    @if(!empty($logs) && count($logs) > 0)
-        <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-        <h3 class="section-title">Recent API Logs</h3>
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th style="width:140px;">Time</th>
-                        <th style="width:80px;">Method</th>
-                        <th>API Path</th>
-                        <th style="width:90px;">Auth</th>
-                        <th style="width:90px;">Status</th>
-                        <th style="width:70px;">OK</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($logs as $log)
-                        <tr>
-                            <td>{{ $log->created_at }}</td>
-                            <td>{{ $log->method }}</td>
-                            <td>
-                                @if(!empty($log->pack))
-                                    <div class="hint" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
-                                @endif
-                                <div><code>{{ $log->api_path }}</code></div>
-                                <details style="margin-top:6px;">
-                                    <summary>View</summary>
-                                    <div style="margin-top:8px;">
-                                        <div class="hint" style="margin-bottom:6px;">Request Params</div>
-                                        <pre class="pre" style="max-height:220px; overflow:auto;">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                        <div class="hint" style="margin:10px 0 6px;">Response</div>
-                                        <pre class="pre" style="max-height:220px; overflow:auto;">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                    </div>
-                                </details>
-                            </td>
-                            <td>{{ $log->auth_required ? 'Yes' : 'No' }}</td>
-                            <td>{{ $log->response_status }}</td>
-                            <td>{{ $log->ok ? 'Yes' : 'No' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
+</div>
 </div>
 
-<div class="card mt-16">
-    <h2>Catalog Proof of Concept</h2>
+{{-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  TAB 3 — API LOGS                                              ║
+     ╚══════════════════════════════════════════════════════════════════╝ --}}
+<div id="lz-tab-logs" class="{{ !$hasResult ? 'hidden' : '' }}">
 
-    <div class="d-flex gap-8">
-        <form method="POST" action="{{ route('lazada.category_tree') }}" style="display:inline">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div>
+            <span class="font-semibold text-sm">API Logging</span>
+            <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
+        </div>
+        <form method="POST" action="{{ route('lazada.toggle_logging') }}">
             @csrf
-            <button class="btn" type="submit">Get Category Tree</button>
+            <label class="d-flex items-center gap-10" style="cursor:pointer;">
+                <span style="position:relative; display:inline-block; width:44px; height:24px;">
+                    <input type="hidden" name="api_logging" value="0">
+                    <input type="checkbox" name="api_logging" value="1"
+                           {{ ($setting->api_logging ?? true) ? 'checked' : '' }}
+                           onchange="this.form.submit()"
+                           style="position:absolute; opacity:0; width:0; height:0;">
+                    <span style="position:absolute; inset:0; background:{{ ($setting->api_logging ?? true) ? 'var(--accent)' : 'var(--border)' }}; border-radius:12px; transition:background 0.2s;"></span>
+                    <span style="position:absolute; top:2px; left:{{ ($setting->api_logging ?? true) ? '22px' : '2px' }}; width:20px; height:20px; background:#fff; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+                </span>
+                <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
+                    {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
+                </span>
+            </label>
         </form>
     </div>
 
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-
-    <form method="POST" action="{{ route('lazada.category_attributes') }}">
-        @csrf
-        <div>
-            <label>Category Attributes (Primary Category ID)</label>
-            <input class="input" name="category_id" value="{{ old('category_id', '') }}" placeholder="e.g. 10000000">
-            <div class="hint">Calls <code>/category/attributes/get</code> (no auth required).</div>
-        </div>
-        <div class="d-flex gap-8 mt-12">
-            <button class="btn" type="submit">Get Attributes</button>
-        </div>
-    </form>
-
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-
-    <form method="POST" action="{{ route('lazada.brands_query') }}">
-        @csrf
-        <div class="form-grid">
-            <div>
-                <label>Brands Page No</label>
-                <input class="input" name="page_no" value="{{ old('page_no', 1) }}">
+    @if($result)
+        <div class="card mb-16">
+            <h3 class="section-title mt-0">Last Result</h3>
+            @php $ok = (bool)($result['ok'] ?? false); @endphp
+            <div class="alert {{ $ok ? 'success' : 'danger' }}">
+                <strong>{{ $result['title'] ?? 'Result' }}</strong>
             </div>
-            <div>
-                <label>Brands Page Size</label>
-                <input class="input" name="page_size" value="{{ old('page_size', 50) }}">
+            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:400px;">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+        </div>
+    @endif
+
+    <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
+            @if($logCount > 0)
+                <form method="POST" action="{{ route('lazada.clear_api_logs') }}" onsubmit="return confirm('Delete all Lazada API logs?')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn small danger">Delete All Logs</button>
+                </form>
+            @endif
+        </div>
+
+        @if($logCount > 0)
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width:140px;">Time</th>
+                            <th style="width:80px;">Method</th>
+                            <th>API Path</th>
+                            <th style="width:90px;">Auth</th>
+                            <th style="width:90px;">Status</th>
+                            <th style="width:70px;">OK</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($logs as $log)
+                            <tr>
+                                <td>{{ $log->created_at }}</td>
+                                <td>{{ $log->method }}</td>
+                                <td>
+                                    @if(!empty($log->pack))
+                                        <div class="hint" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
+                                    @endif
+                                    <div><code>{{ $log->api_path }}</code></div>
+                                    <details style="margin-top:6px;">
+                                        <summary>View</summary>
+                                        <div style="margin-top:8px;">
+                                            <div class="hint" style="margin-bottom:6px;">Request Params</div>
+                                            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:220px;">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                            <div class="hint" style="margin:10px 0 6px;">Response</div>
+                                            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:220px;">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                        </div>
+                                    </details>
+                                </td>
+                                <td>{{ $log->auth_required ? 'Yes' : 'No' }}</td>
+                                <td>{{ $log->response_status }}</td>
+                                <td>{{ $log->ok ? 'Yes' : 'No' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-        </div>
-        <div class="d-flex gap-8 mt-12">
-            <button class="btn" type="submit">Get Brands</button>
-        </div>
-        <div class="hint">Calls <code>/category/brands/query</code> (no auth required).</div>
-    </form>
-
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-
-    <form method="POST" action="{{ route('lazada.products_get') }}">
-        @csrf
-        <div>
-            <label>Get Products (Seller SKU)</label>
-            <input class="input" name="seller_sku" value="{{ old('seller_sku', '') }}" placeholder="e.g. MY-SKU-001">
-            <div class="hint">Calls <code>/products/get</code> (auth required). Uses stored Access Token.</div>
-        </div>
-
-        <div class="d-flex gap-8 mt-12">
-            <button class="btn" type="submit">Get Product</button>
-        </div>
-    </form>
-</div>
-
-<div class="card mt-16">
-    <h2>Variants / Options Proof of Concept</h2>
-
-    <form method="POST" action="{{ route('lazada.product_payload_preview') }}">
-        @csrf
-        <div class="form-grid">
-            <div>
-                <label>ERP Product</label>
-                <select name="product_id" class="input" required>
-                    <option value="">(select)</option>
-                    @foreach(($products ?? []) as $p)
-                        <option value="{{ $p->product_id }}" {{ (string)old('product_id') === (string)$p->product_id ? 'selected' : '' }}>
-                            #{{ $p->product_id }} — {{ $p->name ?: '(no name)' }} {{ ($p->sku || $p->model) ? ('(' . ($p->sku ?: $p->model) . ')') : '' }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div>
-                <label>Primary Category ID (Lazada)</label>
-                <input class="input" name="primary_category_id" value="{{ old('primary_category_id', '') }}" placeholder="e.g. 10000000" required>
-                <div class="hint">Use the Category Tree button above to find the correct ID.</div>
-            </div>
-        </div>
-
-        <div class="form-grid mt-12">
-            <div>
-                <label>Brand ID (Lazada, optional)</label>
-                <input class="input" name="brand_id" value="{{ old('brand_id', '') }}" placeholder="e.g. 12345">
-                <div class="hint">Optional for preview. Some categories require it.</div>
-            </div>
-            <div>
-                <label>Images (comma-separated URLs, optional)</label>
-                <input class="input" name="images" value="{{ old('images', '') }}" placeholder="https://.../1.jpg, https://.../2.jpg">
-            </div>
-        </div>
-
-        <div class="mt-12">
-            <label>Description Override (optional)</label>
-            <textarea class="input" name="description" rows="4" placeholder="Leave blank to use ERP product description">{{ old('description', '') }}</textarea>
-        </div>
-
-        <div class="d-flex gap-8 mt-12">
-            <button class="btn" type="submit">Preview Payload</button>
-        </div>
-        <div class="hint">This will build SKU variants from your ERP options. Single option = 1 SKU per value; multiple options = SKU combinations (cartesian product).</div>
-    </form>
-
-    <div style="height:1px; background:var(--border); margin:14px 0;"></div>
-
-    <form method="POST" action="{{ route('lazada.product_create') }}" onsubmit="return confirm('This will call Lazada /product/create using the generated payload. Continue?')">
-        @csrf
-        <input type="hidden" name="product_id" value="{{ old('product_id', '') }}">
-        <input type="hidden" name="primary_category_id" value="{{ old('primary_category_id', '') }}">
-        <input type="hidden" name="brand_id" value="{{ old('brand_id', '') }}">
-        <input type="hidden" name="images" value="{{ old('images', '') }}">
-        <input type="hidden" name="description" value="{{ old('description', '') }}">
-
-        <div class="d-flex gap-8">
-            <button class="btn secondary" type="submit">Create Product in Lazada</button>
-        </div>
-        <div class="hint">Start with Preview first. Lazada often requires category-specific attributes, so this call may return validation errors—that's normal for POC.</div>
-    </form>
-</div>
-
-@if($result)
-    <div class="card mt-16">
-        <h2>Last Result</h2>
-
-        @php
-            $ok = (bool)($result['ok'] ?? false);
-        @endphp
-
-        <div class="alert {{ $ok ? 'success' : 'danger' }}">
-            <strong>{{ $result['title'] ?? 'Result' }}</strong>
-        </div>
-
-        <pre class="pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+        @else
+            <div class="text-center text-muted" style="padding:32px 0;">No API logs yet.</div>
+        @endif
     </div>
-@endif
+</div>
+
+@push('scripts')
+<script>
+function lazCopy(id, btn) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var text = el.textContent;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function(){ btn.textContent = 'Copy'; }, 1500);
+        });
+    }
+}
+
+// Tab switching
+(function(){
+    var ids = ['lz-tab-settings', 'lz-tab-explorer', 'lz-tab-logs'];
+    var tabs = document.querySelectorAll('[data-tab^="lz-tab-"]');
+    tabs.forEach(function(btn){
+        btn.addEventListener('click', function(){
+            tabs.forEach(function(t){ t.classList.remove('active'); });
+            btn.classList.add('active');
+            ids.forEach(function(id){
+                var el = document.getElementById(id);
+                if (el) el.classList.toggle('hidden', id !== btn.dataset.tab);
+            });
+        });
+    });
+})();
+
+// Explorer JS
+(function(){
+    function qs(sel){ return document.querySelector(sel); }
+    function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+    var methodSel = qs('#lazada-explorer-method');
+    var authChk   = qs('#lazada-explorer-auth');
+    var pathInp   = qs('#lazada-explorer-path');
+    var paramsTa  = qs('#lazada-explorer-params');
+    var paramsHidden = qs('#lazada-explorer-params-hidden');
+    var kvBody    = qs('#lz-kv-body');
+    var epName    = qs('#lz-ep-name');
+    var epDesc    = qs('#lz-ep-desc');
+    var epSearch  = qs('#lz-endpoint-search');
+    var btnAddRow = qs('#lz-add-row');
+    var btnSync   = qs('#lz-sync-to-json');
+    var btnSample = qs('#lz-use-sample-payload');
+
+    function safeJsonParse(str){
+        try { return JSON.parse(str); } catch(e){ return null; }
+    }
+
+    function tryParsePayloadString(pv){
+        if (typeof pv !== 'string') return null;
+        var parsed = safeJsonParse(pv);
+        if (parsed !== null) return { parsed: parsed, normalized: pv };
+        if (
+            pv.indexOf('\\n') >= 0 || pv.indexOf('\\t') >= 0 ||
+            pv.indexOf('\\r') >= 0 || pv.indexOf('\\"') >= 0 ||
+            pv.indexOf('\\\\') >= 0
+        ) {
+            var unescaped = pv.replace(/\\r/g, '\r').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            var parsed2 = safeJsonParse(unescaped);
+            if (parsed2 !== null) return { parsed: parsed2, normalized: unescaped };
+        }
+        return null;
+    }
+
+    function isObject(val){ return val !== null && typeof val === 'object'; }
+
+    function buildPrettyAndHiddenParams(obj){
+        var pretty = JSON.parse(JSON.stringify(obj || {}));
+        var hidden = JSON.parse(JSON.stringify(obj || {}));
+        if (obj && Object.prototype.hasOwnProperty.call(obj, 'payload')) {
+            var pv = obj.payload;
+            if (isObject(pv) || Array.isArray(pv)) {
+                hidden.payload = JSON.stringify(pv, null, 2);
+                pretty.payload = pv;
+                return { pretty: pretty, hidden: hidden };
+            }
+            if (typeof pv === 'string') {
+                var attempt = tryParsePayloadString(pv);
+                if (attempt && attempt.parsed !== null && (isObject(attempt.parsed) || Array.isArray(attempt.parsed))) {
+                    pretty.payload = attempt.parsed;
+                    hidden.payload = attempt.normalized;
+                    return { pretty: pretty, hidden: hidden };
+                }
+            }
+        }
+        return { pretty: pretty, hidden: hidden };
+    }
+
+    function syncHiddenFromPretty(){
+        if(!paramsTa || !paramsHidden) return;
+        var obj = safeJsonParse(paramsTa.value || '');
+        if(!obj || typeof obj !== 'object') return;
+        var conv = buildPrettyAndHiddenParams(obj);
+        paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+        paramsHidden.value = JSON.stringify(conv.hidden, null, 2);
+    }
+
+    function buildRow(key, value){
+        var tr = document.createElement('tr');
+        var tdK = document.createElement('td');
+        var tdV = document.createElement('td');
+        var tdA = document.createElement('td');
+        var k = document.createElement('input');
+        k.className = 'input'; k.placeholder = 'key'; k.value = key || '';
+        var v;
+        if ((key || '').toLowerCase() === 'payload') {
+            v = document.createElement('textarea');
+            v.className = 'input lz-code'; v.rows = 6; v.placeholder = 'payload (JSON/XML string)';
+            if (isObject(value)) { v.value = JSON.stringify(value, null, 2); } else { v.value = value || ''; }
+        } else {
+            v = document.createElement('input');
+            v.className = 'input'; v.placeholder = 'value';
+            v.value = (value === null || typeof value === 'undefined') ? '' : String(value);
+        }
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'btn small'; del.textContent = 'Remove';
+        del.addEventListener('click', function(){ tr.remove(); syncToJson(); });
+        tdK.appendChild(k); tdV.appendChild(v); tdA.appendChild(del);
+        tr.appendChild(tdK); tr.appendChild(tdV); tr.appendChild(tdA);
+        kvBody.appendChild(tr);
+    }
+
+    function clearRows(){ while(kvBody.firstChild){ kvBody.removeChild(kvBody.firstChild); } }
+
+    function tableToObject(){
+        var obj = {};
+        qsa('#lz-kv-body tr').forEach(function(tr){
+            var keyEl = tr.querySelector('td:nth-child(1) .input');
+            var valEl = tr.querySelector('td:nth-child(2) .input, td:nth-child(2) textarea');
+            var k = keyEl ? String(keyEl.value || '').trim() : '';
+            if(!k) return;
+            var vRaw = valEl ? valEl.value : '';
+            if (String(k).toLowerCase() === 'payload') { obj[k] = vRaw; }
+            else { var parsed = safeJsonParse(vRaw); obj[k] = parsed !== null ? parsed : vRaw; }
+        });
+        return obj;
+    }
+
+    function syncToJson(){
+        if(!paramsTa) return;
+        var obj = tableToObject();
+        var conv = buildPrettyAndHiddenParams(obj);
+        paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+        if (paramsHidden) { paramsHidden.value = JSON.stringify(conv.hidden, null, 2); }
+    }
+
+    function rebuildTableFromJson(){
+        if(!paramsTa) return;
+        var obj = safeJsonParse(paramsTa.value || '');
+        if(!obj || typeof obj !== 'object') return;
+        var conv = buildPrettyAndHiddenParams(obj);
+        paramsTa.value = JSON.stringify(conv.pretty, null, 2);
+        if (paramsHidden) { paramsHidden.value = JSON.stringify(conv.hidden, null, 2); }
+        clearRows();
+        Object.keys(conv.pretty).forEach(function(k){ buildRow(k, conv.pretty[k]); });
+    }
+
+    function selectEndpoint(ep){
+        if (methodSel) methodSel.value = (ep.method || 'GET').toUpperCase();
+        if (authChk) authChk.checked = !!ep.auth;
+        if (pathInp) pathInp.value = ep.path || '';
+        if (epName) epName.textContent = ep.name || 'Selected';
+        if (epDesc) epDesc.textContent = ep.desc || '';
+        clearRows();
+        (ep.params || []).forEach(function(p){ buildRow(p.k, p.ph || ''); });
+        var hasPayload = (ep.params || []).some(function(p){ return String(p.k).toLowerCase() === 'payload'; });
+        var hasSample = hasPayload || (String(ep.path || '') === '/product/remove');
+        if (btnSample) { if (hasSample) { btnSample.classList.remove('hidden'); } else { btnSample.classList.add('hidden'); } }
+        syncToJson();
+    }
+
+    function getSamplePayloadFor(path){
+        if (path === '/product/create' || path === '/product/update') {
+            return JSON.stringify({ Request: { Product: { PrimaryCategory: 0, Images: { Image: ["https://<your-domain>/path/to/image.jpg"] }, Attributes: { name: "Sample Product Name", description: "Sample description", brand: "No Brand", model: "MODEL-001", package_height: "10", package_length: "10", package_width: "10", package_weight: "1" }, Skus: { Sku: [ { SellerSku: "SAMPLE-SKU", price: 100, quantity: 1 } ] } } } }, null, 2);
+        }
+        if (path === '/images/migrate') {
+            return JSON.stringify({ Request: { Images: { Url: ["https://<your-domain>/path/to/image1.jpg"] } } }, null, 2);
+        }
+        if (path === '/image/migrate') {
+            return JSON.stringify({ Request: { Image: { Url: "https://<your-domain>/path/to/image1.jpg" } } }, null, 2);
+        }
+        return '{\n  "Request": {}\n}';
+    }
+
+    qsa('.lz-endpoint').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            var ep = safeJsonParse(btn.getAttribute('data-ep') || '{}') || {};
+            selectEndpoint(ep);
+        });
+    });
+
+    if (epSearch) {
+        epSearch.addEventListener('input', function(){
+            var q = String(epSearch.value || '').toLowerCase();
+            qsa('.lz-endpoint').forEach(function(btn){
+                var raw = (btn.getAttribute('data-ep') || '').toLowerCase();
+                var t = (btn.textContent || '').toLowerCase() + ' ' + raw;
+                btn.style.display = t.indexOf(q) >= 0 ? '' : 'none';
+            });
+        });
+    }
+
+    if (btnAddRow) btnAddRow.addEventListener('click', function(){ buildRow('', ''); });
+    if (btnSync) btnSync.addEventListener('click', function(){ rebuildTableFromJson(); syncToJson(); });
+
+    if (btnSample) {
+        btnSample.addEventListener('click', function(){
+            var p = (pathInp && pathInp.value) ? String(pathInp.value) : '';
+            if (p === '/product/remove') {
+                var sampleSellerSkuList = '["test00111","test00222","test00333"]';
+                var sampleSkuIdList = '["SkuId_1269656765_5230534246","SkuId_1269656765_5230534247","SkuId_1269656765_5230534248"]';
+                qsa('#lz-kv-body tr').forEach(function(tr){
+                    var keyEl = tr.querySelector('td:nth-child(1) .input');
+                    if (!keyEl) return;
+                    var k = String(keyEl.value || '').trim();
+                    var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
+                    if (!valEl) return;
+                    if (k === 'seller_sku_list') valEl.value = sampleSellerSkuList;
+                    if (k === 'sku_id_list') valEl.value = sampleSkuIdList;
+                });
+            } else {
+                qsa('#lz-kv-body tr').forEach(function(tr){
+                    var keyEl = tr.querySelector('td:nth-child(1) .input');
+                    if (!keyEl) return;
+                    if (String(keyEl.value || '').trim().toLowerCase() !== 'payload') return;
+                    var valEl = tr.querySelector('td:nth-child(2) textarea, td:nth-child(2) .input');
+                    if (valEl) valEl.value = getSamplePayloadFor(p);
+                });
+            }
+            syncToJson();
+        });
+    }
+
+    var lastEdited = 'table';
+
+    try { syncHiddenFromPretty(); rebuildTableFromJson(); syncToJson(); } catch(e) {}
+
+    var kvBody2 = qs('#lz-kv-body');
+    if (kvBody2) {
+        kvBody2.addEventListener('input', function(e){
+            var t = e && e.target ? e.target : null;
+            if (!t || !kvBody2.contains(t)) return;
+            lastEdited = 'table';
+            try { syncToJson(); } catch(err) {}
+        });
+    }
+
+    if (paramsTa) { paramsTa.addEventListener('input', function(){ lastEdited = 'json'; }); }
+
+    var form = qs('#lazada-api-explorer-form');
+    if (form) form.addEventListener('submit', function(){
+        if (lastEdited === 'json') { try { rebuildTableFromJson(); } catch(e) {} }
+        try { syncToJson(); } catch(e2) {}
+    });
+})();
+</script>
+@endpush
 @endsection

@@ -145,4 +145,57 @@ class ShopeeClient
             'body' => $resp->json() ?? $resp->body(),
         ];
     }
+
+    /**
+     * Convenience: shop-level signed GET request.
+     */
+    public function shopGet(
+        string $mode,
+        int $partnerId,
+        string $partnerKey,
+        string $accessToken,
+        int $shopId,
+        string $path,
+        array $extraQuery = []
+    ): array {
+        $timestamp = time();
+        $sign = $this->signShop($partnerId, $partnerKey, $path, $timestamp, $accessToken, $shopId);
+
+        $query = array_merge([
+            'partner_id'   => $partnerId,
+            'timestamp'    => $timestamp,
+            'sign'         => $sign,
+            'access_token' => $accessToken,
+            'shop_id'      => $shopId,
+        ], $extraQuery);
+
+        return $this->get($mode, $path, $query);
+    }
+
+    /**
+     * Convenience: shop-level signed POST request.
+     */
+    public function shopPost(
+        string $mode,
+        int $partnerId,
+        string $partnerKey,
+        string $accessToken,
+        int $shopId,
+        string $path,
+        array $extraQuery = [],
+        array $body = []
+    ): array {
+        $timestamp = time();
+        $sign = $this->signShop($partnerId, $partnerKey, $path, $timestamp, $accessToken, $shopId);
+
+        $query = array_merge([
+            'partner_id'   => $partnerId,
+            'timestamp'    => $timestamp,
+            'sign'         => $sign,
+            'access_token' => $accessToken,
+            'shop_id'      => $shopId,
+        ], $extraQuery);
+
+        return $this->postJson($mode, $path, $query, $body);
+    }
 }

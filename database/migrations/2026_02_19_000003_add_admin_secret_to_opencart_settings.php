@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('opencart_settings', 'admin_secret')) {
+            return;
+        }
+
         Schema::table('opencart_settings', function (Blueprint $table) {
             $table->string('admin_secret', 255)->default('')->after('admin_path');
         });

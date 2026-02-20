@@ -31,6 +31,11 @@
             <input type="text" name="status" value="{{ old('status', request('status')) }}" placeholder="e.g. ready_to_ship" class="input" style="min-width:220px;">
             @error('status')<div class="field-error">{{ $message }}</div>@enderror
         </div>
+        <div style="align-self:flex-end;">
+            <label class="text-xs text-secondary" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                <input type="checkbox" name="no_stock" value="1"> Skip stock adjust
+            </label>
+        </div>
         <div class="d-flex gap-8">
             <button type="submit" class="btn" id="btnFetchOrders">
                 <span>Fetch Orders</span>
@@ -42,11 +47,11 @@
                 <span id="updateInlineSpinner" aria-hidden="true" class="hidden" style="width:14px; height:14px; border:2px solid rgba(15,23,42,.25); border-top-color:#0f172a; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
             </button>
         </div>
-        <div>
-            <button type="button" class="btn danger" id="btnResetLazadaOrders">Reset Orders</button>
-        </div>
-        <div class="text-secondary text-xs">
+        <div class="text-secondary text-xs" style="flex:1;">
 	        Leave <strong>From/To</strong> empty for <strong>automatic sync</strong> (maximum <strong>14 days</strong> lookback). Use dates only when you need a specific range (max <strong>14 days</strong> per fetch).
+        </div>
+        <div style="margin-left:auto;">
+            <button type="button" class="btn danger" id="btnResetLazadaOrders">Reset Orders</button>
         </div>
     </form>
 </div>
@@ -91,14 +96,14 @@
                 <div class="text-xs text-secondary">Choose the step you are working on</div>
             </div>
 
-            <div class="d-flex gap-10 flex-wrap">
+            <div class="d-flex gap-10 flex-wrap justify-center">
                 @foreach($pendingNav as $k => $lbl)
                     @php
                         $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
                         $qs = array_merge(request()->query(), ['tab' => 'PENDING', 'pending_sub' => $k]);
                         $count = $pending_sub_counts[$k] ?? null;
                     @endphp
-                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}" style="flex:1; min-width:140px; text-align:center;">
                         <span>{{ $lbl }}</span>
                         @if($count !== null && $count > 0)
                             <span style="margin-left:6px; color:#dc2626; font-weight:700; font-size:15px;">{{ $count }}</span>
@@ -452,10 +457,14 @@
                                                 Cancel
                                             </button>
                                         @endif
+                                        {{-- Saved AWB available for any status --}}
+                                        @if(!$isToPack && !$isToArrange && !$isToHandover && !empty($savedAwbs[$orderId]))
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
+                                        @endif
                                     </div>
 
                                     {{-- Print quick-links (only when AWB exists) --}}
-                                    @if($isToArrange || $isToHandover)
+                                    @if($isToArrange || $isToHandover || !empty($savedAwbs[$orderId]))
                                         <div class="d-flex gap-10 flex-wrap text-xs" style="margin-top:8px;">
                                             <span class="text-secondary">Print:</span>
                                             <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
@@ -489,6 +498,7 @@
 <form method="POST" action="{{ route('lazada.orders.reset') }}" id="formResetLazadaOrders" class="hidden">
     @csrf
     <input type="hidden" name="confirm" id="resetConfirmInput" value="">
+    <input type="hidden" name="password" id="resetPasswordInput" value="">
 </form>
 
 {{-- Loading overlay for long-running fetch/reset actions --}}
@@ -596,9 +606,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var input = document.getElementById('resetConfirmInput');
     if (btn && form && input) {
         btn.addEventListener('click', function () {
-            var v = prompt('Type RESET to delete Lazada orders and re-sync:');
-            if (!v) return;
-            input.value = v.trim();
+            var pw = prompt('Enter your account password to confirm resetting all Lazada orders:');
+            if (!pw || pw.trim() === '') return;
+            input.value = 'RESET';
+            document.getElementById('resetPasswordInput').value = pw;
             var ov = document.getElementById('lzLoadingOverlay');
             var tt = document.getElementById('lzLoadingTitle');
             if (ov) {

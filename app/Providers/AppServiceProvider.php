@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Models\LazadaOrder;
 use App\Models\LazadaSetting;
 use App\Models\OpenCartSetting;
+use App\Models\ShopeeOrder;
+use App\Models\ShopeeSetting;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
@@ -34,27 +36,52 @@ class AppServiceProvider extends ServiceProvider
             Config::set('mail.from.address', $setting->from_email);
             Config::set('mail.from.name', $setting->company_name);
 
+            // Apply timezone from admin settings
+            if ($setting->timezone) {
+                Config::set('app.timezone', $setting->timezone);
+                date_default_timezone_set($setting->timezone);
+            }
+
             // Make available to all blade views as $appSetting
             View::share('appSetting', $setting);
         }
 
 
-        // Share Lazada pending-orders count with the sidebar nav
+        // Share pending-orders counts with the sidebar nav
         View::composer('layouts.app', function ($view) {
+            // Shopee pending count
+            try {
+                if (!Schema::hasTable('shopee_orders')) {
+                    $view->with('shopeePendingCount', 0);
+                } else {
+                    $spRegion = 'ph';
+                    if (Schema::hasTable('shopee_settings')) {
+                        $spRegion = ShopeeSetting::query()->value('region') ?? 'ph';
+                    }
+                    $view->with('shopeePendingCount', ShopeeOrder::query()
+                        ->where('region', $spRegion)
+                        ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
+                        ->count());
+                }
+            } catch (\Throwable $e) {
+                $view->with('shopeePendingCount', 0);
+            }
+
+            // Lazada pending count
             try {
                 if (!Schema::hasTable('lazada_orders')) {
                     $view->with('lazadaPendingCount', 0);
-                    return;
+                } else {
+                    $region = 'ph';
+                    if (Schema::hasTable('lazada_settings')) {
+                        $region = LazadaSetting::query()->value('region') ?? 'ph';
+                    }
+                    $count = LazadaOrder::query()
+                        ->where('region', $region)
+                        ->whereIn('status', ['pending', 'packed', 'ready_to_ship'])
+                        ->count();
+                    $view->with('lazadaPendingCount', $count);
                 }
-                $region = 'ph';
-                if (Schema::hasTable('lazada_settings')) {
-                    $region = LazadaSetting::query()->value('region') ?? 'ph';
-                }
-                $count = LazadaOrder::query()
-                    ->where('region', $region)
-                    ->whereIn('status', ['pending', 'packed', 'ready_to_ship'])
-                    ->count();
-                $view->with('lazadaPendingCount', $count);
             } catch (\Throwable $e) {
                 $view->with('lazadaPendingCount', 0);
             }

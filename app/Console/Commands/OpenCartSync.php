@@ -18,7 +18,9 @@ class OpenCartSync extends Command
         {--store= : Store ID (opencart_settings.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--page=1 : Start page for resuming interrupted imports}
-        {--max-pages=0 : Stop after N pages (0 = unlimited, useful for testing)}';
+        {--max-pages=0 : Stop after N pages (0 = unlimited, useful for testing)}
+        {--no-stock : Skip stock adjustments (use for initial import)}
+        {--product-id= : Import a single product by its OpenCart product_id}';
 
     protected $description = 'Sync data between OpenCart and Laravel catalog';
 
@@ -119,11 +121,15 @@ class OpenCartSync extends Command
                     $sync->setManufacturerMap($manufacturerMap);
                     $sync->setOptionMap($optionMap);
                     $sync->setOptionValueMap($optionValueMap);
-                    $log = $sync->pull(null, $full);
+                    $productId = $this->option('product-id') ? (int) $this->option('product-id') : null;
+                    $log = $sync->pull(null, $full, $productId);
                     break;
 
                 case 'orders':
                     $sync = new OpenCartOrderSync($client, $setting);
+                    if ($this->option('no-stock')) {
+                        $sync->setSkipStockAdjust(true);
+                    }
                     $log = $sync->pull(
                         null,
                         $startPage,

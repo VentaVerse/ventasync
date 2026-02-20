@@ -37,6 +37,7 @@ class OrderStatusController extends Controller
             'language_id' => 1,
             'name' => $request->name,
             'subtract_stock' => $request->has('subtract_stock') ? 1 : 0,
+            'add_revenue' => $request->has('add_revenue') ? 1 : 0,
         ]);
 
         return redirect()->route('order_statuses.index')->with('status', 'Saved');
@@ -58,6 +59,7 @@ class OrderStatusController extends Controller
         $orderStatus = OrderStatus::where('order_status_id', (int) $id)->firstOrFail();
         $orderStatus->name = $request->name;
         $orderStatus->subtract_stock = $request->has('subtract_stock') ? 1 : 0;
+        $orderStatus->add_revenue = $request->has('add_revenue') ? 1 : 0;
         $orderStatus->save();
 
         return redirect()->route('order_statuses.index')->with('status', 'Saved');

@@ -52,11 +52,119 @@ class OpenCartProductSync
     }
 
     /**
+     * Auto-build category, manufacturer, and option maps from OC API + local DB.
+     * Called automatically when maps are empty (e.g. individual sync from UI).
+     */
+    private function autoPopulateMaps(): void
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        // Categories: OC API → match by name in local DB
+        if (empty($this->categoryMap)) {
+            $result = $this->client->getCategories();
+            if ($result['ok']) {
+                $ocCategories = $result['body']['data'] ?? [];
+                foreach ($ocCategories as $cat) {
+                    $ocId = (int) ($cat['category_id'] ?? 0);
+                    $name = trim($cat['name'] ?? '');
+                    if ($ocId <= 0 || $name === '') continue;
+
+                    $local = DB::table($pfx . 'category_description')
+                        ->where('language_id', $langId)
+                        ->where('name', $name)
+                        ->value('category_id');
+
+                    if ($local) {
+                        $this->categoryMap[$ocId] = (int) $local;
+                    }
+                }
+            }
+        }
+
+        // Manufacturers: OC API → match by name in local DB
+        if (empty($this->manufacturerMap)) {
+            $result = $this->client->getManufacturers();
+            if ($result['ok']) {
+                $ocMfgs = $result['body']['data'] ?? [];
+                foreach ($ocMfgs as $mfg) {
+                    $ocId = (int) ($mfg['manufacturer_id'] ?? 0);
+                    $name = trim($mfg['name'] ?? '');
+                    if ($ocId <= 0 || $name === '') continue;
+
+                    $local = DB::table($pfx . 'manufacturer')
+                        ->where('name', $name)
+                        ->value('manufacturer_id');
+
+                    if ($local) {
+                        $this->manufacturerMap[$ocId] = (int) $local;
+                    }
+                }
+            }
+        }
+
+        // Options + Option Values: OC API → match by name in local DB
+        if (empty($this->optionMap)) {
+            $result = $this->client->getOptions();
+            if ($result['ok']) {
+                $ocOptions = $result['body']['data'] ?? [];
+                foreach ($ocOptions as $opt) {
+                    $ocOptionId = (int) ($opt['option_id'] ?? 0);
+                    $name = trim($opt['name'] ?? '');
+                    if ($ocOptionId <= 0 || $name === '') continue;
+
+                    $local = DB::table($pfx . 'option AS o')
+                        ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
+                            $join->on('o.option_id', '=', 'od.option_id')
+                                ->where('od.language_id', '=', $langId);
+                        })
+                        ->where('od.name', $name)
+                        ->value('o.option_id');
+
+                    if ($local) {
+                        $this->optionMap[$ocOptionId] = (int) $local;
+
+                        // Map option values by name within this option
+                        $values = $opt['values'] ?? [];
+                        foreach ($values as $val) {
+                            $ocValueId = (int) ($val['option_value_id'] ?? 0);
+                            $valName = trim($val['name'] ?? '');
+                            if ($ocValueId <= 0 || $valName === '') continue;
+
+                            $localVal = DB::table($pfx . 'option_value AS ov')
+                                ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
+                                    $join->on('ov.option_value_id', '=', 'ovd.option_value_id')
+                                        ->where('ovd.language_id', '=', $langId);
+                                })
+                                ->where('ov.option_id', (int) $local)
+                                ->where('ovd.name', $valName)
+                                ->value('ov.option_value_id');
+
+                            if ($localVal) {
+                                $this->optionValueMap[$ocValueId] = (int) $localVal;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Log::info('OpenCart product sync auto-populated maps', [
+            'categories'    => count($this->categoryMap),
+            'manufacturers' => count($this->manufacturerMap),
+            'options'       => count($this->optionMap),
+            'optionValues'  => count($this->optionValueMap),
+        ]);
+    }
+
+    /**
      * Pull products from OpenCart into the local catalog tables.
      * Uses SKU-based matching — auto-increments IDs.
      */
-    public function pull(?string $modifiedSince = null, bool $full = false): OpenCartSyncLog
+    public function pull(?string $modifiedSince = null, bool $full = false, ?int $productId = null): OpenCartSyncLog
     {
+        // Auto-build maps if not provided (e.g. individual sync from UI)
+        $this->autoPopulateMaps();
         $log = OpenCartSyncLog::create([
             'opencart_setting_id' => $this->setting->id,
             'entity_type' => 'product',
@@ -66,7 +174,7 @@ class OpenCartProductSync
         ]);
 
         try {
-            $since = $full ? null : ($modifiedSince ?? $this->setting->last_product_sync_at?->toIso8601String());
+            $since = ($full || $productId) ? null : ($modifiedSince ?? $this->setting->last_product_sync_at?->toIso8601String());
             $page = 1;
             $limit = 100;
             $created = 0;
@@ -75,7 +183,7 @@ class OpenCartProductSync
             $errors = [];
 
             do {
-                $result = $this->client->getProducts($page, $limit, $since);
+                $result = $this->client->getProducts($page, $limit, $since, $productId);
 
                 if (!$result['ok']) {
                     throw new \RuntimeException('API error: ' . json_encode($result['body']));
@@ -106,7 +214,10 @@ class OpenCartProductSync
                 $hasMore = $page <= ($pagination['total_pages'] ?? 0);
             } while ($hasMore);
 
-            $this->setting->update(['last_product_sync_at' => now()]);
+            // Don't update last sync timestamp when importing a single product
+            if (!$productId) {
+                $this->setting->update(['last_product_sync_at' => now()]);
+            }
 
             $log->update([
                 'status'            => 'completed',
@@ -503,6 +614,7 @@ class OpenCartProductSync
         $sku = trim($raw['sku'] ?? '');
         $created = false;
         $coreProductId = null;
+        $linkedToOtherStore = false;
 
         // Remap manufacturer_id
         $ocMfgId = (int) ($raw['manufacturer_id'] ?? 0);
@@ -510,7 +622,7 @@ class OpenCartProductSync
             ? $this->manufacturerMap[$ocMfgId]
             : 0;
 
-        DB::transaction(function () use ($raw, $pfx, $langId, $sku, $ocProductId, $coreMfgId, &$created, &$coreProductId) {
+        DB::transaction(function () use ($raw, $pfx, $langId, $sku, $ocProductId, $coreMfgId, &$created, &$coreProductId, &$linkedToOtherStore) {
             $data = [
                 'model'           => $raw['model'] ?? '',
                 'sku'             => $sku,
@@ -543,7 +655,7 @@ class OpenCartProductSync
                 'date_modified'   => (isset($raw['date_modified']) && $raw['date_modified'] !== '0000-00-00 00:00:00') ? $raw['date_modified'] : now()->toDateTimeString(),
             ];
 
-            // SKU-based matching
+            // SKU-based matching, then fallback to opencart_product_links
             $existing = null;
             if ($sku !== '') {
                 $existing = DB::table($pfx . 'product')
@@ -551,12 +663,35 @@ class OpenCartProductSync
                     ->select('product_id')
                     ->first();
             }
+            if (!$existing) {
+                $link = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
+                    ->where('oc_product_id', $ocProductId)
+                    ->first();
+                if ($link) {
+                    $existing = DB::table($pfx . 'product')
+                        ->where('product_id', $link->product_id)
+                        ->select('product_id')
+                        ->first();
+                }
+            }
 
             if ($existing) {
                 $coreProductId = (int) $existing->product_id;
-                DB::table($pfx . 'product')
-                    ->where('product_id', $coreProductId)
-                    ->update($data);
+
+                // Check if this product is already linked to a DIFFERENT store.
+                // If so, only create the link — don't overwrite product data,
+                // as quantities/prices may differ between stores.
+                $existingLink = OpenCartProductLink::where('product_id', $coreProductId)
+                    ->where('opencart_setting_id', '!=', $this->setting->id)
+                    ->exists();
+
+                if ($existingLink) {
+                    $linkedToOtherStore = true;
+                } else {
+                    DB::table($pfx . 'product')
+                        ->where('product_id', $coreProductId)
+                        ->update($data);
+                }
             } else {
                 $data['date_added'] = (isset($raw['date_added']) && $raw['date_added'] !== '0000-00-00 00:00:00') ? $raw['date_added'] : now()->toDateTimeString();
                 $coreProductId = DB::table($pfx . 'product')->insertGetId($data, 'product_id');
@@ -575,6 +710,11 @@ class OpenCartProductSync
                 'sku'        => $sku,
             ]
         );
+
+        // If product is linked to another store, skip sub-table updates to avoid overwriting
+        if ($linkedToOtherStore) {
+            return false;
+        }
 
         // Sub-tables
         $this->syncSubTable('product_description', $coreProductId, function () use ($pfx, $langId, $coreProductId, $raw) {
@@ -714,6 +854,255 @@ class OpenCartProductSync
         });
 
         return $created;
+    }
+
+    /**
+     * Push only product quantities from the ERP to OpenCart.
+     * Sends quantity + option_value quantities via bulk_update without touching other fields.
+     */
+    public function pushQuantities(): OpenCartSyncLog
+    {
+        $log = OpenCartSyncLog::create([
+            'opencart_setting_id' => $this->setting->id,
+            'entity_type' => 'product_qty',
+            'direction'   => 'push',
+            'status'      => 'started',
+            'started_at'  => now(),
+        ]);
+
+        try {
+            $pfx = (string) config('catalog.prefix');
+            $updated = 0;
+            $skipped = 0;
+            $failed = 0;
+            $errors = [];
+
+            // Get all product links for this store
+            $links = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
+                ->get();
+
+            if ($links->isEmpty()) {
+                $log->update([
+                    'status'            => 'completed',
+                    'records_processed' => 0,
+                    'completed_at'      => now(),
+                ]);
+                return $log;
+            }
+
+            // Batch-fetch local product quantities
+            $localProductIds = $links->pluck('product_id')->unique()->toArray();
+            $localQty = DB::table($pfx . 'product')
+                ->whereIn('product_id', $localProductIds)
+                ->pluck('quantity', 'product_id')
+                ->toArray();
+
+            // Batch-fetch option value quantities with names for matching
+            $langId = (int) config('catalog.default_language_id');
+            $optionValues = DB::table($pfx . 'product_option_value as pov')
+                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        ->where('ovd.language_id', '=', $langId);
+                })
+                ->whereIn('pov.product_id', $localProductIds)
+                ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.sku', 'pov.quantity', 'ovd.name as option_value_name'])
+                ->groupBy('product_id');
+
+            // Build bulk update payloads in chunks of 50
+            foreach ($links->chunk(50) as $chunk) {
+                $products = [];
+
+                foreach ($chunk as $link) {
+                    $pid = (int) $link->product_id;
+                    if (!isset($localQty[$pid])) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $payload = [
+                        'product_id' => (int) $link->oc_product_id,
+                        'quantity'   => (int) $localQty[$pid],
+                    ];
+
+                    // Include option value quantities (matched by name or SKU in OC)
+                    $ovRows = $optionValues->get($pid);
+                    if ($ovRows && $ovRows->count() > 0) {
+                        $ovPayload = [];
+                        foreach ($ovRows as $ov) {
+                            $ovName = trim((string) ($ov->option_value_name ?? ''));
+                            $ovSku = trim((string) $ov->sku);
+                            if ($ovName === '' && $ovSku === '') continue;
+
+                            $entry = ['quantity' => (int) $ov->quantity];
+                            if ($ovName !== '') $entry['name'] = $ovName;
+                            if ($ovSku !== '') $entry['sku'] = $ovSku;
+                            $ovPayload[] = $entry;
+                        }
+                        if (!empty($ovPayload)) {
+                            $payload['option_values'] = $ovPayload;
+                        }
+                    }
+
+                    $products[] = $payload;
+                }
+
+                if (empty($products)) continue;
+
+                try {
+                    $resp = $this->client->bulkUpdateProducts($products);
+
+                    if (empty($resp['ok'])) {
+                        $failed += count($products);
+                        if (count($errors) < 50) {
+                            $errors[] = ['error' => 'Bulk update failed: ' . json_encode($resp['body'] ?? '')];
+                        }
+                    } else {
+                        $data = $resp['body']['data'] ?? [];
+                        foreach ($data as $r) {
+                            if (!empty($r['success'])) {
+                                $updated++;
+                            } else {
+                                $failed++;
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $failed += count($products);
+                    if (count($errors) < 50) {
+                        $errors[] = ['error' => $e->getMessage()];
+                    }
+                }
+            }
+
+            $log->update([
+                'status'            => 'completed',
+                'records_processed' => $updated + $skipped + $failed,
+                'records_updated'   => $updated,
+                'records_failed'    => $failed,
+                'details'           => $errors ?: null,
+                'completed_at'      => now(),
+            ]);
+        } catch (\Throwable $e) {
+            $log->update([
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'completed_at'  => now(),
+            ]);
+            Log::error('OpenCart quantity push failed', ['error' => $e->getMessage()]);
+        }
+
+        return $log;
+    }
+
+    /**
+     * Pull only product quantities from OpenCart into the ERP.
+     * Updates product.quantity and product_option_value.quantity without touching other fields.
+     */
+    public function pullQuantities(): OpenCartSyncLog
+    {
+        $log = OpenCartSyncLog::create([
+            'opencart_setting_id' => $this->setting->id,
+            'entity_type' => 'product_qty',
+            'direction'   => 'pull',
+            'status'      => 'started',
+            'started_at'  => now(),
+        ]);
+
+        try {
+            $pfx = (string) config('catalog.prefix');
+            $page = 1;
+            $limit = 100;
+            $updated = 0;
+            $skipped = 0;
+            $failed = 0;
+            $errors = [];
+
+            // Build OC product_id → local product_id map from product links
+            $linkMap = OpenCartProductLink::where('opencart_setting_id', $this->setting->id)
+                ->pluck('product_id', 'oc_product_id')
+                ->toArray();
+
+            do {
+                $result = $this->client->getProducts($page, $limit);
+
+                if (!$result['ok']) {
+                    throw new \RuntimeException('API error: ' . json_encode($result['body']));
+                }
+
+                $products = $result['body']['data'] ?? [];
+                $pagination = $result['body']['pagination'] ?? [];
+
+                foreach ($products as $raw) {
+                    try {
+                        $ocProductId = (int) ($raw['product_id'] ?? 0);
+                        $coreProductId = $linkMap[$ocProductId] ?? null;
+
+                        // Fallback: match by SKU if no link exists
+                        if (!$coreProductId) {
+                            $sku = trim($raw['sku'] ?? '');
+                            if ($sku !== '') {
+                                $found = DB::table($pfx . 'product')->where('sku', $sku)->value('product_id');
+                                if ($found) $coreProductId = (int) $found;
+                            }
+                        }
+
+                        if (!$coreProductId) {
+                            $skipped++;
+                            continue;
+                        }
+
+                        // Update main product quantity
+                        DB::table($pfx . 'product')
+                            ->where('product_id', $coreProductId)
+                            ->update(['quantity' => (int) ($raw['quantity'] ?? 0)]);
+
+                        // Update option value quantities (match by SKU)
+                        if (isset($raw['option_values']) && is_array($raw['option_values'])) {
+                            foreach ($raw['option_values'] as $ov) {
+                                $ovSku = trim($ov['sku'] ?? '');
+                                if ($ovSku === '') continue;
+
+                                DB::table($pfx . 'product_option_value')
+                                    ->where('product_id', $coreProductId)
+                                    ->where('sku', $ovSku)
+                                    ->update(['quantity' => (int) ($ov['quantity'] ?? 0)]);
+                            }
+                        }
+
+                        $updated++;
+                    } catch (\Throwable $e) {
+                        $failed++;
+                        if (count($errors) < 50) {
+                            $errors[] = [
+                                'product_id' => $raw['product_id'] ?? '?',
+                                'error'      => $e->getMessage(),
+                            ];
+                        }
+                    }
+                }
+
+                $page++;
+                $hasMore = $page <= ($pagination['total_pages'] ?? 0);
+            } while ($hasMore);
+
+            $log->update([
+                'status'            => 'completed',
+                'records_processed' => $updated + $skipped + $failed,
+                'records_updated'   => $updated,
+                'records_failed'    => $failed,
+                'details'           => $errors ?: null,
+                'completed_at'      => now(),
+            ]);
+        } catch (\Throwable $e) {
+            $log->update([
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'completed_at'  => now(),
+            ]);
+            Log::error('OpenCart quantity pull failed', ['error' => $e->getMessage()]);
+        }
+
+        return $log;
     }
 
     private function syncSubTable(string $table, int $productId, callable $fn): void

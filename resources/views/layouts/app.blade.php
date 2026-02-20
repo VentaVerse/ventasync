@@ -124,7 +124,7 @@
             margin-bottom: 8px;
         }
         .brand-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-        .brand-logo { height: 40px; width: auto; object-fit: contain; display: block; }
+        .brand-logo { height: 56px; width: auto; object-fit: contain; display: block; }
         .brand-company { font-weight: 700; font-size: 15px; letter-spacing: .3px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f1f5f9; }
         .brand-user { font-size: 12px; color: #94a3b8; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -420,13 +420,13 @@
             border: 1px solid #fde68a;
         }
 
-        /* Toast container (fixed top-right) */
+        /* Toast container (fixed bottom-right) */
         .toast-container {
             position: fixed;
-            top: 20px; right: 20px;
+            bottom: 20px; right: 20px;
             z-index: 9999;
             display: flex;
-            flex-direction: column;
+            flex-direction: column-reverse;
             gap: 8px;
             max-width: 400px;
             pointer-events: none;
@@ -441,11 +441,11 @@
             animation: toastOut .35s ease forwards;
         }
         @keyframes toastIn {
-            from { opacity: 0; transform: translateX(40px) scale(.95); }
-            to { opacity: 1; transform: translateX(0) scale(1); }
+            from { opacity: 0; transform: translateY(16px) scale(.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes toastOut {
-            to { opacity: 0; transform: translateX(40px) scale(.95); }
+            to { opacity: 0; transform: translateY(16px) scale(.95); }
         }
 
         /* ============================================================
@@ -725,6 +725,7 @@
         .badge-yellow { background: #fef3c7; color: #92400e; }
         .badge-gray { background: #f1f5f9; color: #475569; }
         .badge-indigo { background: #0f1689; color: #fff; }
+        .badge-orange { background: #ee4d2d; color: #fff; }
         .badge-dark { background: #64748b; color: #fff; }
         .badge-default { background: #e2e8f0; color: #475569; }
 
@@ -762,18 +763,18 @@
         /* ============================================================
            TABS
            ============================================================ */
-        .tabs { display: flex; gap: 6px; padding: 8px 0 2px 0; flex-wrap: wrap; }
+        .tabs { display: flex; gap: 8px; padding: 8px 0 2px 0; flex-wrap: wrap; justify-content: center; }
         .tab {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 16px;
+            padding: 10px 22px;
             border-radius: var(--radius-sm);
             text-decoration: none;
             color: var(--text-secondary);
             background: var(--surface-alt);
             font-weight: 600;
-            font-size: 13px;
+            font-size: 14.5px;
             transition: all var(--transition-fast);
         }
         .tab:hover { background: #e2e8f0; color: var(--text-primary); }
@@ -1014,7 +1015,6 @@
                 @else
                     <div class="brand-company">{{ $companyName }}</div>
                 @endif
-                <div class="brand-user">@if($u) Welcome, {{ $u->name }} @endif</div>
             </div>
             <button class="toggle-btn" id="sidebarToggle" type="button" aria-label="Toggle Sidebar" title="Toggle Sidebar">
                 <span class="toggle-hamburger"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span>
@@ -1027,6 +1027,26 @@
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
                     <span class="label">Dashboard</span>
                 </a>
+
+                @if($canShopee)
+                <a href="{{ route('shopee.orders.index', ['tab' => 'PENDING']) }}" class="{{ request()->routeIs('shopee.orders.*') ? 'active' : '' }}">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                    <span class="label">Shopee Orders</span>
+                    @if(($shopeePendingCount ?? 0) > 0)
+                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $shopeePendingCount }}</span>
+                    @endif
+                </a>
+                @endif
+
+                @if($canLazada)
+                <a href="{{ route('lazada.orders.index', ['tab' => 'PENDING']) }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                    <span class="label">Lazada Orders</span>
+                    @if(($lazadaPendingCount ?? 0) > 0)
+                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $lazadaPendingCount }}</span>
+                    @endif
+                </a>
+                @endif
 
                 @if($canCatalog)
                 <div class="nav-group">
@@ -1098,8 +1118,13 @@
 
                 @if($canMarketplace)
                 <div class="nav-group">
-                    <details {{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*') || request()->routeIs('opencart.*')) ? 'open' : '' }}>
-                        <summary class="{{ (request()->routeIs('shopee.*') || request()->routeIs('lazada.*') || request()->routeIs('opencart.*')) ? 'active' : '' }}">
+                    @php
+                        $mpActive = (request()->routeIs('shopee.*') && !request()->routeIs('shopee.orders.*'))
+                                 || (request()->routeIs('lazada.*') && !request()->routeIs('lazada.orders.*'))
+                                 || request()->routeIs('opencart.*');
+                    @endphp
+                    <details {{ $mpActive ? 'open' : '' }}>
+                        <summary class="{{ $mpActive ? 'active' : '' }}">
                             <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
                             <span class="label">Marketplace API</span>
                             <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
@@ -1107,9 +1132,27 @@
                         <div class="nav-sub-wrap">
                             <div class="nav-sub">
                                 @if($canShopee)
-                                <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
-                                    <span class="label">Shopee</span>
+                                {{-- ─── Shopee ─── --}}
+                                <div class="nav-sub-divider">Shopee</div>
+                                <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.index') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                                    <span class="label">Settings</span>
+                                </a>
+                                <a href="{{ route('shopee.categories.index') }}" class="{{ request()->routeIs('shopee.categories.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+                                    <span class="label">Categories</span>
+                                </a>
+                                <a href="{{ route('shopee.logistics.index') }}" class="{{ request()->routeIs('shopee.logistics.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+                                    <span class="label">Logistics</span>
+                                </a>
+                                <a href="{{ route('shopee.profiles.index') }}" class="{{ request()->routeIs('shopee.profiles.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
+                                    <span class="label">Profiles</span>
+                                </a>
+                                <a href="{{ route('shopee.products.index') }}" class="{{ request()->routeIs('shopee.products.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+                                    <span class="label">Products</span>
                                 </a>
                                 @endif
 
@@ -1131,13 +1174,6 @@
                                 <a href="{{ route('lazada.products.index') }}" class="{{ request()->routeIs('lazada.products.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
                                     <span class="label">Products</span>
-                                </a>
-                                <a href="{{ route('lazada.orders.index') }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                                    <span class="label">Orders</span>
-                                    @if(($lazadaPendingCount ?? 0) > 0)
-                                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $lazadaPendingCount }}</span>
-                                    @endif
                                 </a>
                                 @endif
 
@@ -1249,6 +1285,57 @@
                     </ul>
                 </div>
                 <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+            </div>
+        @endif
+
+        @php
+            $__lazadaExpired = false;
+            $__shopeePaused = false;
+            $__shopeeExpired = false;
+            $__shopeeExpiringSoon = false;
+            $__shopeeExpiresInMin = null;
+            try {
+                $__laz = \App\Models\LazadaSetting::query()->first();
+                $__lazadaExpired = $__laz && $__laz->expires_at && strtotime($__laz->expires_at) <= time();
+            } catch (\Throwable $e) {}
+            try {
+                $__sp = \App\Models\ShopeeSetting::query()->first();
+                if ($__sp && $__sp->expires_at) {
+                    $__spExp = \Carbon\Carbon::parse($__sp->expires_at);
+                    if ($__spExp->lte(now())) {
+                        $__shopeeExpired = true;
+                    } elseif ($__spExp->lte(now()->addMinutes(30))) {
+                        $__shopeeExpiringSoon = true;
+                        $__shopeeExpiresInMin = (int) now()->diffInMinutes($__spExp);
+                    }
+                }
+            } catch (\Throwable $e) {}
+            $__shopeePaused = \Illuminate\Support\Facades\Cache::get('shopee_sync_paused');
+        @endphp
+
+        @if($__lazadaExpired)
+            <div class="alert danger">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span><strong>Lazada:</strong> Access token expired. Order sync is paused. <a href="{{ route('lazada.index') }}">Refresh token</a></span>
+            </div>
+        @endif
+
+        @if($__shopeeExpired)
+            <div class="alert danger">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span><strong>Shopee:</strong> Access token expired. Sync commands will fail. <a href="{{ route('shopee.index') }}">Refresh token</a></span>
+            </div>
+        @elseif($__shopeeExpiringSoon)
+            <div class="alert warning">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span><strong>Shopee:</strong> Access token expires soon (in {{ $__shopeeExpiresInMin }} min). <a href="{{ route('shopee.index') }}">Refresh token</a></span>
+            </div>
+        @endif
+
+        @if($__shopeePaused)
+            <div class="alert danger">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span><strong>Shopee:</strong> Order sync paused — {{ $__shopeePaused }}. <a href="{{ route('shopee.index') }}">Check settings</a></span>
             </div>
         @endif
 
@@ -1410,13 +1497,13 @@
                 btn.classList.add('is-loading');
                 btn.disabled = true;
             });
-            // Safety: re-enable after 10s in case of network issues
+            // Safety: re-enable after 5 min in case of network issues
             setTimeout(function() {
                 btns.forEach(function(btn) {
                     btn.classList.remove('is-loading');
                     btn.disabled = false;
                 });
-            }, 10000);
+            }, 300000);
         });
     });
 

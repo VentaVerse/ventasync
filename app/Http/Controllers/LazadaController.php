@@ -110,13 +110,113 @@ class LazadaController extends Controller
             $row->model = html_entity_decode((string)($row->model ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
+        // Order status mapping data
+        $orderStatusMap = \App\Models\LazadaOrderStatusMap::pluck('order_status_id', 'lazada_status')->all();
+
+        $erpOrderStatuses = DB::table($pfx . 'order_status')
+            ->where('language_id', $langId)
+            ->orderBy('order_status_id')
+            ->get(['order_status_id', 'name']);
+
+        $lazadaStatuses = [
+            'unpaid'        => 'Unpaid',
+            'pending'       => 'Pending',
+            'packed'        => 'Packed',
+            'ready_to_ship' => 'Ready to Ship',
+            'shipped'       => 'Shipped',
+            'delivered'     => 'Delivered',
+            'canceled'      => 'Canceled',
+            'cancelled'     => 'Cancelled',
+            'returned'      => 'Returned',
+        ];
+
         return view('lazada.index', [
             'setting' => $this->decryptSetting($setting),
             'defaultRedirect' => route('lazada.callback'),
             'result' => session('lazada_result'),
             'products' => $products,
             'logs' => $logs,
+            'orderStatusMap' => $orderStatusMap,
+            'erpOrderStatuses' => $erpOrderStatuses,
+            'lazadaStatuses' => $lazadaStatuses,
         ]);
+    }
+
+    /**
+     * Save the Lazada → ERP order status mapping.
+     */
+    public function saveOrderStatusMap(Request $request)
+    {
+        $map = $request->input('map', []);
+
+        if (!is_array($map)) {
+            return back()->with('status', 'Invalid mapping data.');
+        }
+
+        foreach ($map as $lazadaStatus => $orderStatusId) {
+            $lazadaStatus = strtolower(trim((string) $lazadaStatus));
+            $orderStatusId = (int) $orderStatusId;
+
+            if ($lazadaStatus === '' || $orderStatusId <= 0) {
+                continue;
+            }
+
+            \App\Models\LazadaOrderStatusMap::updateOrCreate(
+                ['lazada_status' => $lazadaStatus],
+                ['order_status_id' => $orderStatusId]
+            );
+        }
+
+        return back()->with('status', 'Order status mapping saved.');
+    }
+
+    /**
+     * Save the "Sync Last N Days" setting for Lazada order sync.
+     */
+    public function saveSyncDays(Request $request)
+    {
+        $request->validate([
+            'sync_last_days' => ['nullable', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $setting = LazadaSetting::query()->first();
+        if (!$setting) {
+            return back()->with('error', 'Lazada settings not found.');
+        }
+
+        $setting->update([
+            'sync_last_days' => $request->input('sync_last_days') ?: null,
+        ]);
+
+        $days = $request->input('sync_last_days');
+        $msg = $days
+            ? "Order sync window set to last {$days} days."
+            : 'Order sync window cleared (defaults to 14 days).';
+
+        return back()->with('status', $msg);
+    }
+
+    public function toggleLogging(Request $request)
+    {
+        $setting = LazadaSetting::query()->first();
+        if (!$setting) {
+            return back()->with('error', 'Lazada settings not found.');
+        }
+
+        $setting->update([
+            'api_logging' => (bool) $request->input('api_logging'),
+        ]);
+
+        $state = $setting->api_logging ? 'enabled' : 'disabled';
+        return back()->with('status', "Lazada API logging {$state}.");
+    }
+
+    public function clearApiLogs()
+    {
+        $count = LazadaApiLog::count();
+        LazadaApiLog::truncate();
+
+        return back()->with('status', "Deleted {$count} Lazada API log entries.");
     }
 
     /**
@@ -1806,4 +1906,5 @@ private function decryptSetting(?LazadaSetting $setting): ?object
 
         return $s;
     }
+
 }

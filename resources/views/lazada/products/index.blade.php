@@ -7,11 +7,11 @@
     <div class="page-header">
         <div>
             <h2>Lazada Products</h2>
-            <div class="text-muted text-sm">Map ERP products to Lazada category + required attributes.</div>
+            <div class="text-muted text-sm">Map catalog products to Lazada category + required attributes.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn" href="{{ route('lazada.profiles.index') }}">Profiles</a>
-            <a class="btn" href="{{ route('lazada.index') }}">Back to Lazada</a>
+            <a class="btn secondary" href="{{ route('lazada.profiles.index') }}">Profiles</a>
+            <a class="btn secondary" href="{{ route('lazada.index') }}">Lazada Settings</a>
             <a class="btn" href="{{ route('lazada.products.create') }}">Add Product</a>
         </div>
     </div>
@@ -20,16 +20,93 @@
         <div class="alert success">{{ session('status') }}</div>
     @endif
 
+    {{-- Unmatched Items Section --}}
+    @if(isset($unmatchedItems) && $unmatchedItems->count() > 0)
+        <div class="card mb-12" id="lazada-unmatched-section">
+            <div class="d-flex justify-between items-center" style="margin-bottom:12px;">
+                <div>
+                    <h3 class="section-title mt-0 mb-0">Unmatched Lazada Items</h3>
+                    <div class="text-muted text-xs" style="margin-top:2px;">{{ $unmatchedItems->count() }} item(s) on Lazada are not linked to any ERP product. Link them manually or dismiss.</div>
+                </div>
+                <form method="POST" action="{{ route('lazada.products.sync_unmatched') }}" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small secondary">Re-scan</button>
+                </form>
+            </div>
+            <div class="table-wrap" style="min-height:auto;">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th style="width:56px;">Image</th>
+                        <th>Lazada Item</th>
+                        <th>SKU</th>
+                        <th style="width:50px;">Item ID</th>
+                        <th style="width:320px;">Link to Catalog Product</th>
+                        <th style="width:80px;"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach($unmatchedItems as $ui)
+                        <tr>
+                            <td>
+                                @if($ui->image_url)
+                                    <img src="{{ $ui->image_url }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;">
+                                @else
+                                    <span class="text-muted text-xs">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="font-bold">{{ $ui->item_name ?? '-' }}</div>
+                            </td>
+                            <td><code>{{ $ui->sku ?? '-' }}</code></td>
+                            <td>
+                                <span class="text-xs text-muted">{{ $ui->lazada_item_id }}</span>
+                            </td>
+                            <td>
+                                <div class="lazada-unmatched-link-row" data-id="{{ $ui->id }}" style="display:flex; gap:6px; align-items:center; position:relative;">
+                                    <input type="text" class="input lazada-unmatched-search" placeholder="Search product..." style="flex:1; font-size:12px; padding:4px 8px;" autocomplete="off">
+                                    <div class="lazada-unmatched-results" style="display:none; position:absolute; z-index:60; top:100%; left:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); max-height:200px; overflow-y:auto; width:300px; margin-top:4px;"></div>
+                                    <form method="POST" action="{{ route('lazada.products.link_unmatched', $ui->id) }}" class="lazada-unmatched-link-form" style="margin:0; display:flex; gap:4px;">
+                                        @csrf
+                                        <input type="hidden" name="product_id" class="lazada-unmatched-product-id" value="">
+                                        <button type="submit" class="btn small" disabled title="Select a product first">Link</button>
+                                    </form>
+                                </div>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ route('lazada.products.dismiss_unmatched', $ui->id) }}" style="margin:0;">
+                                    @csrf
+                                    <button type="submit" class="btn small secondary" title="Dismiss">Dismiss</button>
+                                </form>
+                            </td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
+    {{-- Sync Unmatched button in header area --}}
+    @if(!isset($unmatchedItems) || $unmatchedItems->count() === 0)
+        <div style="margin-bottom:12px;">
+            <form method="POST" action="{{ route('lazada.products.sync_unmatched') }}" style="display:inline;">
+                @csrf
+                <button type="submit" class="btn small secondary">Scan for Unmatched Lazada Items</button>
+            </form>
+        </div>
+    @endif
+
     <div class="card">
-        {{-- Search & Filter toolbar --}}
-        <form method="GET" action="{{ route('lazada.products.index') }}" class="d-flex gap-8 items-end flex-wrap mb-12">
+        {{-- Filter toolbar --}}
+        <form method="GET" action="{{ route('lazada.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto auto; gap:10px; align-items:end; margin-bottom:16px;">
             <div>
                 <label class="text-xs text-muted">Search</label>
-                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Product name or SKU..." style="min-width:220px;">
+                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Product name or SKU...">
             </div>
             <div>
                 <label class="text-xs text-muted">Profile</label>
-                <select name="profile" class="input" style="min-width:150px;">
+                <select name="profile" class="input">
                     <option value="all" {{ ($profileFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Profiles</option>
                     <option value="none" {{ ($profileFilter ?? '') === 'none' ? 'selected' : '' }}>No Profile</option>
                     @foreach(($allProfiles ?? collect()) as $pId => $pName)
@@ -39,25 +116,24 @@
             </div>
             <div>
                 <label class="text-xs text-muted">Lazada Status</label>
-                <select name="lazada_status" class="input" style="min-width:150px;">
+                <select name="lazada_status" class="input">
                     <option value="all" {{ ($lazadaStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
-                    <option value="not_uploaded" {{ ($lazadaStatus ?? '') === 'not_uploaded' ? 'selected' : '' }}>Not Uploaded</option>
+                    <option value="not_uploaded" {{ ($lazadaStatus ?? '') === 'not_uploaded' ? 'selected' : '' }}>Pending</option>
                     <option value="uploaded" {{ ($lazadaStatus ?? '') === 'uploaded' ? 'selected' : '' }}>Uploaded</option>
                     <option value="deleted" {{ ($lazadaStatus ?? '') === 'deleted' ? 'selected' : '' }}>Deleted</option>
                 </select>
             </div>
-            {{-- Preserve sort --}}
             @if(!empty($sort))<input type="hidden" name="sort" value="{{ $sort }}">@endif
             @if(!empty($dir))<input type="hidden" name="dir" value="{{ $dir }}">@endif
-            <button type="submit" class="btn small">Filter</button>
-            @if(($q ?? '') !== '' || ($lazadaStatus ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all')
-                <a href="{{ route('lazada.products.index') }}" class="btn small">Clear</a>
-            @endif
+            <div class="d-flex gap-6">
+                <button type="submit" class="btn small">Filter</button>
+                @if(($q ?? '') !== '' || ($lazadaStatus ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all')
+                    <a href="{{ route('lazada.products.index') }}" class="btn small secondary">Clear</a>
+                @endif
+            </div>
         </form>
 
         @php
-            // Defensive: if routes are still cached from an older release during deployment,
-            // Route::has(...) prevents a 500 on this page.
             $bulkUploadUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_upload')
                 ? route('lazada.products.bulk_upload')
                 : url('/lazada/listings/bulk/upload');
@@ -67,28 +143,39 @@
             $bulkSyncPriceUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_price')
                 ? route('lazada.products.bulk_sync_price')
                 : url('/lazada/listings/bulk/sync/price');
+            $bulkSyncLazadaIdUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_lazada_id')
+                ? route('lazada.products.bulk_sync_lazada_id')
+                : url('/lazada/products/bulk/sync/lazada-id');
             $bulkDeleteUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_delete')
                 ? route('lazada.products.bulk_delete')
                 : url('/lazada/products/bulk/delete');
         @endphp
 
-        <div class="d-flex justify-end gap-8 flex-wrap mb-12">
-            <form method="POST" action="{{ $bulkUploadUrl }}" class="bulk-action-form" style="margin:0;">
-                @csrf
-                <button type="submit" class="btn small">Upload</button>
-            </form>
-            <form method="POST" action="{{ $bulkSyncQtyUrl }}" class="bulk-action-form" style="margin:0;">
-                @csrf
-                <button type="submit" class="btn small">Sync Qty</button>
-            </form>
-            <form method="POST" action="{{ $bulkSyncPriceUrl }}" class="bulk-action-form" style="margin:0;">
-                @csrf
-                <button type="submit" class="btn small">Sync Price</button>
-            </form>
-            <form method="POST" action="{{ $bulkDeleteUrl }}" class="bulk-action-form bulk-delete-form" style="margin:0;">
-                @csrf
-                <button type="submit" class="btn small danger">Delete</button>
-            </form>
+        {{-- Bulk action bar (hidden until items selected) --}}
+        <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
+            <div class="d-flex gap-6 flex-wrap">
+                <form method="POST" action="{{ $bulkUploadUrl }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Upload</button>
+                </form>
+                <form method="POST" action="{{ $bulkSyncLazadaIdUrl }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Lazada ID</button>
+                </form>
+                <form method="POST" action="{{ $bulkSyncQtyUrl }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Qty</button>
+                </form>
+                <form method="POST" action="{{ $bulkSyncPriceUrl }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Price</button>
+                </form>
+                <form method="POST" action="{{ $bulkDeleteUrl }}" class="bulk-action-form bulk-delete-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small danger">Delete from Lazada</button>
+                </form>
+            </div>
         </div>
 
         <div class="table-wrap">
@@ -115,21 +202,17 @@
             };
         @endphp
 
-        <th style="width:60px;">
-            <label class="d-flex items-center gap-8">
-                <input type="checkbox" id="checkAll" />
-                <a href="{{ $sortUrl('id') }}" style="text-decoration:none; color:inherit;">ID{!! $sortIcon('id') !!}</a>
-            </label>
-        </th>
-        <th style="width:70px;">Photo</th>
+        <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
+        <th style="width:60px;"><a href="{{ $sortUrl('id') }}" style="text-decoration:none; color:inherit;">ID{!! $sortIcon('id') !!}</a></th>
+        <th style="width:56px;">Image</th>
         <th><a href="{{ $sortUrl('product') }}" style="text-decoration:none; color:inherit;">Product{!! $sortIcon('product') !!}</a></th>
-        <th style="width:130px;"><a href="{{ $sortUrl('profile') }}" style="text-decoration:none; color:inherit;">Profile{!! $sortIcon('profile') !!}</a></th>
-        <th style="width:170px;"><a href="{{ $sortUrl('lazada_item_id') }}" style="text-decoration:none; color:inherit;">Lazada Item ID{!! $sortIcon('lazada_item_id') !!}</a></th>
-        <th style="width:110px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Quantity{!! $sortIcon('quantity') !!}</a></th>
-        <th style="width:120px;"><a href="{{ $sortUrl('product_status') }}" style="text-decoration:none; color:inherit;">Product Status{!! $sortIcon('product_status') !!}</a></th>
-        <th style="width:130px;"><a href="{{ $sortUrl('lazada_status') }}" style="text-decoration:none; color:inherit;">Lazada Status{!! $sortIcon('lazada_status') !!}</a></th>
-        <th style="width:190px;">Actions</th>
-        <th style="width:70px;">Error</th>
+        <th style="width:120px;"><a href="{{ $sortUrl('profile') }}" style="text-decoration:none; color:inherit;">Profile{!! $sortIcon('profile') !!}</a></th>
+        <th style="width:130px;"><a href="{{ $sortUrl('lazada_item_id') }}" style="text-decoration:none; color:inherit;">Lazada ID{!! $sortIcon('lazada_item_id') !!}</a></th>
+        <th style="width:70px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Qty{!! $sortIcon('quantity') !!}</a></th>
+        <th style="width:90px;"><a href="{{ $sortUrl('product_status') }}" style="text-decoration:none; color:inherit;">Status{!! $sortIcon('product_status') !!}</a></th>
+        <th style="width:110px;"><a href="{{ $sortUrl('lazada_status') }}" style="text-decoration:none; color:inherit;">Lazada{!! $sortIcon('lazada_status') !!}</a></th>
+        <th style="width:60px;">Sync</th>
+        <th style="width:50px;"></th>
     </tr>
     </thead>
     <tbody>
@@ -160,67 +243,58 @@
             $errMsg = (string)($l->last_sync_error_message ?? '');
         @endphp
         <tr>
-            <td>
-                <label class="d-flex items-center gap-8">
-                    <input type="checkbox" class="row-check" value="{{ $l->id }}" />
-                    <span>{{ $l->product_id ?? '-' }}</span>
-                </label>
-            </td>
+            <td><input type="checkbox" class="row-check" value="{{ $l->id }}"></td>
+            <td>{{ $l->product_id ?? '-' }}</td>
             <td>
                 @if($thumb)
-                    <img src="{{ $thumb }}" alt="" class="thumb thumb-sm" />
+                    <img src="{{ $thumb }}" alt="" class="thumb thumb-sm">
                 @else
                     <span class="text-muted">-</span>
                 @endif
             </td>
             <td>
-                <div class="font-bold truncate" style="max-width:100%;">{{ $pName ?: '-' }}</div>
-                <div class="text-muted text-xs truncate" style="max-width:100%;">@if($pSku)SKU: {{ $pSku }}@endif</div>
+                <a href="{{ route('lazada.products.edit', $l->id) }}" class="font-bold" style="text-decoration:none; color:var(--text-primary);">{{ $pName ?: '-' }}</a>
+                @if($pSku)<div class="text-muted text-xs">{{ $pSku }}</div>@endif
                 @php
                     $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($l->product_id) : null;
                 @endphp
                 @if($optRows && count($optRows) > 0)
-                    <div style="margin-top:6px; font-size:14px;">
-                        <ul style="margin:0; padding-left:16px;">
-                            @foreach($optRows as $or)
-                                @php
-                                    $ovn = (string)($or->option_value_name ?? '');
-                                    $osku = (string)($or->option_sku ?? '');
-                                @endphp
-                                <li class="font-semibold" style="margin:0 0 3px 0;">
-                                    {{ $ovn ?: '-' }}@if($osku) <span class="text-muted font-semibold">— {{ $osku }}</span>@endif
-                                </li>
-                            @endforeach
-                        </ul>
+                    <div style="margin-top:4px;">
+                        @foreach($optRows as $or)
+                            @php
+                                $ovn = (string)($or->option_value_name ?? '');
+                                $osku = (string)($or->option_sku ?? '');
+                            @endphp
+                            <div class="text-xs" style="color:var(--text-secondary); line-height:1.6;">{{ $ovn ?: '-' }}@if($osku) <span class="text-muted">— {{ $osku }}</span>@endif</div>
+                        @endforeach
                     </div>
                 @endif
             </td>
             <td>
-                @if($l->lazada_profile_id && isset($profileNames) && $profileNames->has($l->lazada_profile_id))
-                    <a href="{{ route('lazada.profiles.edit', $l->lazada_profile_id) }}" class="text-xs">{{ $profileNames->get($l->lazada_profile_id) }}</a>
+                @if($l->profiles->count() > 0)
+                    @php $firstProf = $l->profiles->first(); @endphp
+                    <a href="{{ route('lazada.profiles.edit', $firstProf->id) }}" class="text-xs">{{ $firstProf->name }}@if($l->profiles->count() > 1) <span class="text-muted">(+{{ $l->profiles->count() - 1 }})</span>@endif</a>
                 @else
-                    <span class="text-muted text-xs">-</span>
+                    <span class="text-muted">-</span>
                 @endif
             </td>
             <td>
-                <div>{{ $l->lazada_item_id ?? '-' }}</div>
+                @if($hasItemId)
+                    <span style="font-size:12px; font-family:monospace;">{{ $l->lazada_item_id }}</span>
+                @else
+                    <span class="text-muted">-</span>
+                @endif
             </td>
             <td>
                 <div>{{ is_null($pQty) ? '-' : $pQty }}</div>
                 @if(isset($optRows) && $optRows && count($optRows) > 0)
-                    <div style="margin-top:6px; font-size:14px; line-height:1.4;">
-                        <ul style="margin:0; padding-left:16px;">
-                            @foreach($optRows as $or)
-                                @php
-                                    $oqtyRaw = $or->option_quantity ?? null;
-                                    $oqty = is_null($oqtyRaw) ? '-' : (is_numeric($oqtyRaw) ? (string)((int)$oqtyRaw) : (string)$oqtyRaw);
-                                @endphp
-                                <li class="font-semibold" style="margin:0 0 3px 0;">
-                                    {{ $oqty }}
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
+                    @foreach($optRows as $or)
+                        @php
+                            $oqtyRaw = $or->option_quantity ?? null;
+                            $oqty = is_null($oqtyRaw) ? '-' : (is_numeric($oqtyRaw) ? (string)((int)$oqtyRaw) : (string)$oqtyRaw);
+                        @endphp
+                        <div class="text-xs text-muted">{{ $oqty }}</div>
+                    @endforeach
                 @endif
             </td>
             <td>
@@ -236,58 +310,77 @@
                 @if($lazadaStatusLabel === 'Uploaded')
                     <span class="badge badge-green">Uploaded</span>
                 @elseif($lazadaStatusLabel === 'Not Uploaded')
-                    <span class="badge badge-red">Not Uploaded</span>
+                    <span class="badge badge-yellow">Pending</span>
                 @elseif($lazadaStatusLabel === 'Deleted')
                     <span class="badge badge-gray">Deleted</span>
                 @else
                     <span class="text-muted">-</span>
                 @endif
             </td>
-            <td>
-                <div class="d-flex gap-6 items-center text-nowrap">
-                    <a class="btn small" href="{{ route('lazada.products.edit', $l->id) }}">Edit</a>
-
-                    <form method="POST" action="{{ route('lazada.products.upload', $l->id) }}" style="margin:0;" onsubmit="return confirm('Upload this product to Lazada?');">
-                        @csrf
-                        <button type="submit" class="btn small">Upload</button>
-                    </form>
-
-                    @if(empty($l->lazada_item_id))
-                    <form method="POST" action="{{ route('lazada.products.sync_lazada_id', $l->id) }}" style="margin:0;">
-                        @csrf
-                        <button type="submit" class="btn small">Sync Lazada ID</button>
-                    </form>
-                    @endif
-
-                    <form method="POST" action="{{ route('lazada.products.delete_lazada', $l->id) }}" style="margin:0;" onsubmit="return confirm('Delete this product from Lazada? This cannot be undone.');">
-                        @csrf
-                        <button type="submit" class="btn small">Delete</button>
-                    </form>
-
-                    <form method="POST" action="{{ route('lazada.products.sync_quantity', $l->id) }}" style="margin:0;">
-                        @csrf
-                        <button type="submit" class="btn small">Sync Qty</button>
-                    </form>
-
-                    <form method="POST" action="{{ route('lazada.products.sync_price', $l->id) }}" style="margin:0;">
-                        @csrf
-                        <button type="submit" class="btn small">Sync Price</button>
-                    </form>
-                </div>
-            </td>
             <td class="text-center">
                 @if(!$hasSyncInfo)
                     <span class="text-muted">-</span>
                 @elseif($hasError)
-                    <span title="{{ $errCode }} - {{ $errMsg }}" style="cursor:help; font-size:16px;">⚠️</span>
+                    <span class="badge badge-red" title="{{ $errCode }}: {{ $errMsg }}" style="cursor:help;">Err</span>
                 @else
-                    <span title="OK" style="cursor:help; font-size:16px;">✅</span>
+                    <span class="badge badge-green">OK</span>
                 @endif
+            </td>
+            <td>
+                <div style="position:relative;" class="row-actions">
+                    <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                    <div class="action-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); min-width:170px; padding:4px 0;">
+                        <a href="{{ route('lazada.products.edit', $l->id) }}" class="action-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                        </a>
+                        <form method="POST" action="{{ route('lazada.products.upload', $l->id) }}" style="margin:0;" onsubmit="return confirm('Upload this product to Lazada?');">
+                            @csrf
+                            <button type="submit" class="action-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                                Upload
+                            </button>
+                        </form>
+                        @if(empty($l->lazada_item_id))
+                        <form method="POST" action="{{ route('lazada.products.sync_lazada_id', $l->id) }}" style="margin:0;">
+                            @csrf
+                            <button type="submit" class="action-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                Sync Lazada ID
+                            </button>
+                        </form>
+                        @endif
+                        <form method="POST" action="{{ route('lazada.products.sync_quantity', $l->id) }}" style="margin:0;">
+                            @csrf
+                            <button type="submit" class="action-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                Sync Qty
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ route('lazada.products.sync_price', $l->id) }}" style="margin:0;">
+                            @csrf
+                            <button type="submit" class="action-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                Sync Price
+                            </button>
+                        </form>
+                        <div style="border-top:1px solid var(--border-light); margin:4px 0;"></div>
+                        <form method="POST" action="{{ route('lazada.products.delete_lazada', $l->id) }}" style="margin:0;" onsubmit="return confirm('Delete this product from Lazada? This cannot be undone.');">
+                            @csrf
+                            <button type="submit" class="action-item" style="color:var(--danger);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                Delete from Lazada
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </td>
         </tr>
     @empty
         <tr>
-            <td colspan="10" class="text-muted">No products found.</td>
+            <td colspan="11" class="text-muted">No products found. <a href="{{ route('lazada.products.create') }}">Add your first product</a>.</td>
         </tr>
     @endforelse
     </tbody>
@@ -295,23 +388,64 @@
         </div>
 
         @if(isset($paginator) && $paginator->lastPage() > 1)
-            <div class="d-flex justify-center mt-16">
-                {{ $paginator->links() }}
+            <div class="mt-16">
+                {{ $paginator->onEachSide(1)->links('vendor.pagination.simple') }}
             </div>
         @endif
+    </div>
 
+@push('scripts')
+<style>
+    /* Action dropdown menu items */
+    .action-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 14px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+        text-decoration: none;
+        text-align: left;
+        transition: background var(--transition-fast);
+        white-space: nowrap;
+    }
+    .action-item:hover { background: var(--surface-hover); }
+    .action-item svg { flex-shrink: 0; opacity: .6; }
+
+    /* Ensure action dropdown is not clipped by table-wrap overflow */
+    .table-wrap.menu-open { overflow: visible; }
+    .table-wrap { min-height: 280px; }
+
+    /* Filter grid responsive */
+    @media (max-width: 768px) {
+        .card form[style*="grid-template-columns"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
 <script>
-    (function(){
-        const table = document.getElementById('lazadaListingsTable');
-        if (!table) return;
+(function(){
+    var table = document.getElementById('lazadaListingsTable');
+    if (!table) return;
 
-        const checkAll = document.getElementById('checkAll');
-        const rowChecks = () => Array.from(table.querySelectorAll('.row-check'));
+    var checkAll = document.getElementById('checkAll');
+    var bulkBar = document.getElementById('bulk-bar');
+    var bulkCount = document.getElementById('bulk-count');
 
-        function updateCheckAllState(){
-            const boxes = rowChecks();
-            const checked = boxes.filter(b => b.checked).length;
-            if (!checkAll) return;
+    function rowChecks() { return Array.from(table.querySelectorAll('.row-check')); }
+
+    function updateState() {
+        var boxes = rowChecks();
+        var checked = boxes.filter(function(b){ return b.checked; }).length;
+
+        // Update checkAll state
+        if (checkAll) {
             if (checked === 0) {
                 checkAll.indeterminate = false;
                 checkAll.checked = false;
@@ -324,48 +458,168 @@
             }
         }
 
-        if (checkAll) {
-            checkAll.addEventListener('change', function(){
-                const boxes = rowChecks();
-                boxes.forEach(b => { b.checked = checkAll.checked; });
-                updateCheckAllState();
-            });
+        // Show/hide bulk bar
+        if (bulkBar) {
+            bulkBar.style.display = checked > 0 ? 'flex' : 'none';
         }
-
-        rowChecks().forEach(b => b.addEventListener('change', updateCheckAllState));
-
-        function getSelectedIds(){
-            return rowChecks().filter(b => b.checked).map(b => b.value);
+        if (bulkCount) {
+            bulkCount.textContent = checked;
         }
+    }
 
-        document.querySelectorAll('form.bulk-action-form').forEach(form => {
-            form.addEventListener('submit', function(e){
-                form.querySelectorAll('input[name="listing_ids[]"]').forEach(n => n.remove());
+    if (checkAll) {
+        checkAll.addEventListener('change', function(){
+            rowChecks().forEach(function(b){ b.checked = checkAll.checked; });
+            updateState();
+        });
+    }
 
-                const ids = getSelectedIds();
-                if (!ids.length) {
+    rowChecks().forEach(function(b){ b.addEventListener('change', updateState); });
+
+    // Bulk action forms
+    document.querySelectorAll('form.bulk-action-form').forEach(function(form){
+        form.addEventListener('submit', function(e){
+            form.querySelectorAll('input[name="listing_ids[]"]').forEach(function(n){ n.remove(); });
+
+            var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
+            if (!ids.length) {
+                e.preventDefault();
+                alert('Please select at least 1 product.');
+                return;
+            }
+
+            if (form.classList.contains('bulk-delete-form')) {
+                if (!confirm('Delete ' + ids.length + ' selected product(s) from Lazada? This cannot be undone.')) {
                     e.preventDefault();
-                    alert('Please select at least 1 listing.');
                     return;
                 }
+            }
 
-                if (form.classList.contains('bulk-delete-form')) {
-                    if (!confirm('Delete ' + ids.length + ' selected product(s) from Lazada? This cannot be undone.')) {
-                        e.preventDefault();
-                        return;
-                    }
-                }
-
-                ids.forEach(id => {
-                    const inp = document.createElement('input');
-                    inp.type = 'hidden';
-                    inp.name = 'listing_ids[]';
-                    inp.value = id;
-                    form.appendChild(inp);
-                });
+            ids.forEach(function(id){
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'listing_ids[]';
+                inp.value = id;
+                form.appendChild(inp);
             });
         });
-    })();
+    });
+
+    // Action dropdown toggle
+    var openMenu = null;
+    var tableWrap = table ? table.closest('.table-wrap') : null;
+
+    function closeMenu() {
+        if (openMenu) {
+            openMenu.style.display = 'none';
+            openMenu = null;
+        }
+        if (tableWrap) tableWrap.classList.remove('menu-open');
+    }
+
+    document.addEventListener('click', function(e) {
+        var toggle = e.target.closest('.action-toggle');
+        if (toggle) {
+            e.stopPropagation();
+            var menu = toggle.nextElementSibling;
+            if (!menu) return;
+
+            // Close any other open menu
+            if (openMenu && openMenu !== menu) {
+                openMenu.style.display = 'none';
+            }
+
+            if (menu.style.display === 'none') {
+                menu.style.display = 'block';
+                openMenu = menu;
+                if (tableWrap) tableWrap.classList.add('menu-open');
+            } else {
+                closeMenu();
+            }
+            return;
+        }
+
+        // Click outside closes menu
+        if (openMenu && !e.target.closest('.action-menu')) {
+            closeMenu();
+        }
+    });
+    // ── Unmatched Items: Product Search ──────────────────────────
+    var lazSearchUrl = @json(route('lazada.products.search_catalog'));
+    var lazDebounceTimers = {};
+
+    document.querySelectorAll('.lazada-unmatched-link-row').forEach(function(row) {
+        var searchInput = row.querySelector('.lazada-unmatched-search');
+        var resultsDiv = row.querySelector('.lazada-unmatched-results');
+        var productIdInput = row.querySelector('.lazada-unmatched-product-id');
+        var linkBtn = row.querySelector('.lazada-unmatched-link-form button[type="submit"]');
+        var rowId = row.dataset.id;
+
+        if (!searchInput || !resultsDiv) return;
+
+        searchInput.addEventListener('input', function() {
+            var q = searchInput.value.trim();
+            if (q.length < 2) {
+                resultsDiv.style.display = 'none';
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            clearTimeout(lazDebounceTimers[rowId]);
+            lazDebounceTimers[rowId] = setTimeout(function() {
+                fetch(lazSearchUrl + '?q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(items) {
+                        if (!items.length) {
+                            resultsDiv.innerHTML = '<div style="padding:8px 10px; font-size:12px; color:var(--text-muted);">No products found</div>';
+                            resultsDiv.style.display = 'block';
+                            return;
+                        }
+                        resultsDiv.innerHTML = items.map(function(item) {
+                            var imgHtml = item.image ? '<img src="' + item.image + '" alt="" style="width:28px; height:28px; object-fit:cover; border-radius:3px;">' : '';
+                            var optsHtml = '';
+                            if (item.options && item.options.length) {
+                                optsHtml = '<div style="margin-top:2px;">' + item.options.map(function(o) {
+                                    return '<div style="font-size:10px; color:var(--text-muted);">' + (o.name ? o.name + ' - ' : '') + 'SKU: ' + o.sku + ' (Qty: ' + o.qty + ')</div>';
+                                }).join('') + '</div>';
+                            }
+                            return '<div class="laz-result-item" data-pid="' + item.product_id + '" style="display:flex; align-items:center; gap:8px; padding:6px 10px; cursor:pointer; font-size:12px;">'
+                                + imgHtml
+                                + '<div style="flex:1; min-width:0;">'
+                                + '<div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + item.name + '</div>'
+                                + '<div style="color:var(--text-muted); font-size:11px;">SKU: ' + (item.sku || '-') + ' | ID: ' + item.product_id + '</div>'
+                                + optsHtml
+                                + '</div></div>';
+                        }).join('');
+                        resultsDiv.style.display = 'block';
+                    })
+                    .catch(function() {
+                        resultsDiv.style.display = 'none';
+                    });
+            }, 300);
+        });
+
+        resultsDiv.addEventListener('click', function(e) {
+            var item = e.target.closest('.laz-result-item');
+            if (!item) return;
+            var pid = item.dataset.pid;
+            var nameEl = item.querySelector('div[style*="font-weight"]');
+            productIdInput.value = pid;
+            searchInput.value = (nameEl ? nameEl.textContent : '') + ' (#' + pid + ')';
+            resultsDiv.style.display = 'none';
+            if (linkBtn) linkBtn.disabled = false;
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!row.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+    });
+})();
 </script>
-    </div>
+<style>
+    .laz-result-item:hover { background: var(--surface-hover); }
+</style>
+@endpush
 @endsection

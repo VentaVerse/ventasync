@@ -3,7 +3,28 @@
 
 @section('content')
 <div class="page-header">
-    <h2>Dashboard</h2>
+    <h2>{{ $greeting }}, {{ auth()->user()->name ?? 'there' }}</h2>
+</div>
+
+{{-- Today's snapshot --}}
+<div class="dash-snapshot">
+    <div class="dash-snap-item">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="dash-snap-value">{{ number_format($todayOrders) }}</span>
+        <span class="dash-snap-label">orders today</span>
+    </div>
+    <div class="dash-snap-sep"></div>
+    <div class="dash-snap-item">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span class="dash-snap-value">&#8369;{{ number_format($todayRevenue, 2) }}</span>
+        <span class="dash-snap-label">revenue today</span>
+    </div>
+    <div class="dash-snap-sep"></div>
+    <div class="dash-snap-item">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="dash-snap-value">{{ number_format($weekOrders) }}</span>
+        <span class="dash-snap-label">orders this week</span>
+    </div>
 </div>
 
 {{-- Stat cards --}}
@@ -15,6 +36,13 @@
         <div class="dash-stat-body">
             <div class="dash-stat-value">{{ number_format($totalOrders) }}</div>
             <div class="dash-stat-label">Total Orders</div>
+            <div class="dash-stat-breakdown">
+                @foreach(['direct' => 'Direct', 'lazada' => 'Lazada', 'opencart' => 'OpenCart'] as $key => $label)
+                    @if(($ordersBySource->get($key)->cnt ?? 0) > 0)
+                        <span>{{ $label }}: {{ number_format($ordersBySource->get($key)->cnt) }}</span>
+                    @endif
+                @endforeach
+            </div>
         </div>
     </a>
     <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
@@ -24,6 +52,13 @@
         <div class="dash-stat-body">
             <div class="dash-stat-value">&#8369;{{ number_format($totalRevenue, 2) }}</div>
             <div class="dash-stat-label">Total Revenue</div>
+            <div class="dash-stat-breakdown">
+                @foreach(['direct' => 'Direct', 'lazada' => 'Lazada', 'opencart' => 'OpenCart'] as $key => $label)
+                    @if(($ordersBySource->get($key)->rev ?? 0) > 0)
+                        <span>{{ $label }}: &#8369;{{ number_format((float)$ordersBySource->get($key)->rev, 0) }}</span>
+                    @endif
+                @endforeach
+            </div>
         </div>
     </a>
     <a href="{{ route('products.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
@@ -44,6 +79,24 @@
             <div class="dash-stat-label">Lazada Pending</div>
         </div>
     </a>
+    <a href="{{ route('shopee.orders.index', ['tab' => 'PENDING']) }}" class="dash-stat" style="--stat-accent:#ee4d2d; --stat-bg:rgba(238,77,45,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($shopeePending) }}</div>
+            <div class="dash-stat-label">Shopee Pending</div>
+        </div>
+    </a>
+    <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($opencartPending) }}</div>
+            <div class="dash-stat-label">OpenCart Pending</div>
+        </div>
+    </a>
 </div>
 
 {{-- Sales chart --}}
@@ -62,6 +115,89 @@
         <canvas id="salesChart"></canvas>
     </div>
 </div>
+
+{{-- Middle row: OpenCart sync status --}}
+@if($syncStatuses->isNotEmpty())
+<div class="card mb-16">
+    <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">OpenCart Sync Status</h3>
+    <div class="dash-sync-grid">
+        @foreach($syncStatuses as $store)
+            <div class="dash-sync-store">
+                <div class="dash-sync-header">
+                    <span class="dash-sync-dot {{ ($store->last_status === 'completed') ? 'dash-sync-ok' : (($store->last_status === 'failed') ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
+                    <span class="font-bold">{{ $store->store_name ?: 'Store #'.$store->id }}</span>
+                </div>
+                <div class="dash-sync-details">
+                    @if($store->last_completed)
+                        <span class="text-secondary text-xs">Last sync: {{ \Carbon\Carbon::parse($store->last_completed)->diffForHumans() }}</span>
+                    @elseif($store->last_order_sync_at)
+                        <span class="text-secondary text-xs">Last order sync: {{ \Carbon\Carbon::parse($store->last_order_sync_at)->diffForHumans() }}</span>
+                    @else
+                        <span class="text-secondary text-xs">Never synced</span>
+                    @endif
+                    @if($store->last_status === 'failed' && $store->last_error)
+                        <span class="text-xs" style="color:#ef4444;">{{ \Illuminate\Support\Str::limit($store->last_error, 60) }}</span>
+                    @endif
+                </div>
+            </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
+{{-- Marketplace sync status --}}
+@if($shopeeSyncStatus || $lazadaSyncStatus)
+<div class="card mb-16">
+    <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">Marketplace Sync Status</h3>
+    <div class="dash-sync-grid">
+        @if($shopeeSyncStatus)
+            <div class="dash-sync-store">
+                <div class="dash-sync-header">
+                    <span class="dash-sync-dot {{ $shopeeSyncStatus->order_sync_ok ? 'dash-sync-ok' : ($shopeeSyncStatus->order_sync_at ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
+                    <span class="font-bold">Shopee</span>
+                </div>
+                <div class="dash-sync-details">
+                    @if($shopeeSyncStatus->order_sync_at)
+                        <span class="text-secondary text-xs">Order sync: {{ $shopeeSyncStatus->order_sync_at->diffForHumans() }}</span>
+                    @else
+                        <span class="text-secondary text-xs">Order sync: never</span>
+                    @endif
+                    @if($shopeeSyncStatus->push_stock_at)
+                        <span class="text-secondary text-xs">Push stock: {{ $shopeeSyncStatus->push_stock_at->diffForHumans() }}</span>
+                    @else
+                        <span class="text-secondary text-xs">Push stock: never</span>
+                    @endif
+                    @if($shopeeSyncStatus->return_sync_at)
+                        <span class="text-secondary text-xs">Return sync: {{ $shopeeSyncStatus->return_sync_at->diffForHumans() }}</span>
+                    @else
+                        <span class="text-secondary text-xs">Return sync: never</span>
+                    @endif
+                </div>
+            </div>
+        @endif
+        @if($lazadaSyncStatus)
+            <div class="dash-sync-store">
+                <div class="dash-sync-header">
+                    <span class="dash-sync-dot {{ $lazadaSyncStatus->order_sync_ok ? 'dash-sync-ok' : ($lazadaSyncStatus->order_sync_at ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
+                    <span class="font-bold">Lazada</span>
+                </div>
+                <div class="dash-sync-details">
+                    @if($lazadaSyncStatus->order_sync_at)
+                        <span class="text-secondary text-xs">Order sync: {{ $lazadaSyncStatus->order_sync_at->diffForHumans() }}</span>
+                    @else
+                        <span class="text-secondary text-xs">Order sync: never</span>
+                    @endif
+                    @if($lazadaSyncStatus->push_stock_at)
+                        <span class="text-secondary text-xs">Push stock: {{ $lazadaSyncStatus->push_stock_at->diffForHumans() }}</span>
+                    @else
+                        <span class="text-secondary text-xs">Push stock: never</span>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </div>
+</div>
+@endif
 
 {{-- Bottom row: Quick links + Recent orders --}}
 <div style="display:grid; grid-template-columns: 1fr 2fr; gap:16px;">
@@ -160,9 +296,31 @@
 </div>
 
 <style>
-    .dash-stat {
+    /* Today's snapshot bar */
+    .dash-snapshot {
         display: flex;
         align-items: center;
+        gap: 20px;
+        padding: 12px 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        margin-bottom: 16px;
+    }
+    .dash-snap-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .dash-snap-item svg { color: var(--text-secondary); flex-shrink: 0; }
+    .dash-snap-value { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .dash-snap-label { font-size: 13px; color: var(--text-secondary); }
+    .dash-snap-sep { width: 1px; height: 24px; background: var(--border-light); }
+
+    /* Stat cards */
+    .dash-stat {
+        display: flex;
+        align-items: flex-start;
         gap: 14px;
         padding: 20px;
         background: var(--card-bg);
@@ -186,6 +344,7 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        margin-top: 2px;
     }
     .dash-stat-value {
         font-size: 22px;
@@ -198,7 +357,16 @@
         color: var(--text-secondary);
         margin-top: 2px;
     }
+    .dash-stat-breakdown {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        margin-top: 6px;
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
 
+    /* Quick links */
     .dash-links {
         display: flex;
         flex-direction: column;
@@ -233,6 +401,7 @@
         color: var(--text-secondary);
     }
 
+    /* Chart range toggle */
     .chart-range-toggle {
         display: inline-flex;
         border: 1px solid var(--border-light);
@@ -260,6 +429,43 @@
         color: #fff;
     }
 
+    /* OpenCart sync status */
+    .dash-sync-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .dash-sync-store {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 16px;
+        background: var(--surface-alt);
+        border-radius: 8px;
+        min-width: 200px;
+    }
+    .dash-sync-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+    .dash-sync-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .dash-sync-ok { background: #22c55e; }
+    .dash-sync-fail { background: #ef4444; }
+    .dash-sync-idle { background: #94a3b8; }
+    .dash-sync-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding-left: 16px;
+    }
+
     @media (max-width: 900px) {
         .dash-stat { padding: 16px; }
         .dash-stat-value { font-size: 18px; }
@@ -271,6 +477,8 @@
         div[style*="grid-template-columns: 1fr 2fr"] {
             grid-template-columns: 1fr !important;
         }
+        .dash-snapshot { flex-wrap: wrap; gap: 12px; }
+        .dash-snap-sep { display: none; }
     }
 </style>
 

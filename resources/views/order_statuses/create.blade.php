@@ -26,6 +26,13 @@
                 </label>
                 <small class="hint">When enabled, product stock will be deducted when an order enters this status.</small>
             </div>
+            <div class="full">
+                <label>
+                    <input type="checkbox" name="add_revenue" value="1" {{ old('add_revenue') ? 'checked' : '' }}>
+                    Add Revenue
+                </label>
+                <small class="hint">When enabled, orders with this status will be included in revenue calculations.</small>
+            </div>
         </div>
     </form>
 </div>

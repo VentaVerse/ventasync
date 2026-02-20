@@ -73,7 +73,7 @@
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('lazada.profiles.edit', $p->id) }}">Edit</a>
 
-                                <form method="POST" action="{{ route('lazada.profiles.destroy', $p->id) }}" style="margin:0;" onsubmit="return confirm('Delete profile? Products remain (unlinked).');">
+                                <form method="POST" action="{{ route('lazada.profiles.destroy', $p->id) }}" style="margin:0;" onsubmit="return confirm('Delete profile? Products with no other profile links will be removed.');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>

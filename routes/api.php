@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController as ApiDashboardController;
+use App\Http\Controllers\Api\OrderController as ApiOrderController;
+use App\Http\Controllers\Api\ProductController as ApiProductController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +18,29 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::get('/dashboard', [ApiDashboardController::class, 'index']);
+    Route::get('/dashboard/chart-data', [ApiDashboardController::class, 'chartData']);
+
+    Route::middleware('perm:manage_orders')->group(function () {
+        Route::get('/orders/pending-count', [ApiOrderController::class, 'pendingCount']);
+        Route::get('/orders', [ApiOrderController::class, 'index']);
+        Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
+        Route::post('/orders/{id}/status', [ApiOrderController::class, 'updateStatus']);
+        Route::get('/order-statuses', [ApiOrderController::class, 'statuses']);
+    });
+
+    Route::middleware('perm:manage_products')->group(function () {
+        Route::get('/products', [ApiProductController::class, 'index']);
+        Route::get('/products/{id}/quantity', [ApiProductController::class, 'showQuantity']);
+        Route::put('/products/{id}/quantity', [ApiProductController::class, 'updateQuantity']);
+    });
 });

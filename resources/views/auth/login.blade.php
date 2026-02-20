@@ -53,7 +53,7 @@
         .brand {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 4px;
             align-items: center;
             text-align: center;
             margin-bottom: 24px;
@@ -197,10 +197,8 @@
                 style="height:130px;width:auto;object-fit:contain;"
             >
         </div>
-        <div>
-            <h1>Sign in</h1>
-            <p>{{ $setting->company_name ?? 'Xenon Suite' }}</p>
-        </div>
+        <p style="margin:0;">{{ $setting->company_name ?? 'Xenon Suite' }}</p>
+        <h1 style="margin:10px 0 0;">Sign in</h1>
     </div>
 
     <div class="card">

@@ -21,6 +21,7 @@ class SettingController extends Controller
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:255'],
             'from_email'   => ['required', 'email', 'max:255'],
+            'timezone'     => ['required', 'string', 'timezone'],
             'logo'           => ['nullable', 'image', 'max:2048'],
             'software_logo' => ['nullable', 'image', 'max:2048'],
         ]);

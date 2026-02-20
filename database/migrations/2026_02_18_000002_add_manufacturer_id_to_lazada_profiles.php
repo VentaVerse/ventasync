@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (Schema::hasColumn('lazada_profiles', 'manufacturer_id')) {
+            return;
+        }
+
         Schema::table('lazada_profiles', function (Blueprint $table) {
             $table->unsignedInteger('manufacturer_id')->nullable()->after('catalog_category_id');
         });

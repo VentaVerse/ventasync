@@ -18,11 +18,13 @@ class LazadaOrder extends Model
         'order_created_at',
         'order_updated_at',
         'raw',
+        'fees',
         'catalog_order_id',
     ];
 
     protected $casts = [
         'raw' => 'array',
+        'fees' => 'array',
         'order_created_at' => 'datetime',
         'order_updated_at' => 'datetime',
     ];

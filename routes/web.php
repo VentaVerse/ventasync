@@ -8,6 +8,12 @@ use App\Http\Controllers\ManufacturerController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
 use App\Http\Controllers\ShopeeController;
+use App\Http\Controllers\ShopeeOrderController;
+use App\Http\Controllers\ShopeeCategoryController;
+use App\Http\Controllers\ShopeeCategoryAttributeController;
+use App\Http\Controllers\ShopeeProfileController;
+use App\Http\Controllers\ShopeeProductController;
+use App\Http\Controllers\ShopeeLogisticsController;
 use App\Http\Controllers\ProductOptionController;
 use App\Http\Controllers\OptionController;
 use App\Http\Controllers\UserController;
@@ -29,6 +35,7 @@ Route::get('/', [ShopeeController::class, 'root'])->name('root');
 // Lazada OAuth callback must be publicly accessible so Lazada can redirect back with `code`.
 // Keeping it outside auth/perm middleware prevents losing the code behind login redirects.
 Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
+
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -109,6 +116,62 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shopee/token/get', [ShopeeController::class, 'tokenGet'])->name('shopee.token_get');
         Route::post('/shopee/token/refresh', [ShopeeController::class, 'tokenRefresh'])->name('shopee.token_refresh');
         Route::post('/shopee/call', [ShopeeController::class, 'callApi'])->name('shopee.call_api');
+        Route::post('/shopee/order-status-map', [ShopeeController::class, 'saveOrderStatusMap'])->name('shopee.order_status_map');
+        Route::post('/shopee/sync-days', [ShopeeController::class, 'saveSyncDays'])->name('shopee.sync_days');
+        Route::post('/shopee/toggle-logging', [ShopeeController::class, 'toggleLogging'])->name('shopee.toggle_logging');
+        Route::delete('/shopee/api-logs', [ShopeeController::class, 'clearApiLogs'])->name('shopee.clear_api_logs');
+
+        // Shopee Explorer & Packs
+        Route::post('/shopee/explorer/run', [ShopeeController::class, 'explorerRun'])->name('shopee.explorer_run');
+        Route::post('/shopee/packs/run', [ShopeeController::class, 'packsRun'])->name('shopee.packs_run');
+        Route::post('/shopee/logistics/channels', [ShopeeController::class, 'logisticsChannels'])->name('shopee.logistics_channels');
+
+        // Shopee Categories
+        Route::get('/shopee/categories', [ShopeeCategoryController::class, 'index'])->name('shopee.categories.index');
+        Route::post('/shopee/categories/fetch', [ShopeeCategoryController::class, 'fetch'])->name('shopee.categories.fetch');
+        Route::get('/shopee/categories/{id}/attributes', [ShopeeCategoryAttributeController::class, 'show'])->name('shopee.categories.attributes.show');
+        Route::post('/shopee/categories/{id}/attributes/fetch', [ShopeeCategoryAttributeController::class, 'fetch'])->name('shopee.categories.attributes.fetch');
+
+        // Shopee Logistics
+        Route::get('/shopee/logistics', [ShopeeLogisticsController::class, 'index'])->name('shopee.logistics.index');
+        Route::post('/shopee/logistics/fetch', [ShopeeLogisticsController::class, 'fetch'])->name('shopee.logistics.fetch');
+
+        // Shopee Profiles
+        Route::get('/shopee/profiles', [ShopeeProfileController::class, 'index'])->name('shopee.profiles.index');
+        Route::get('/shopee/profiles/create', [ShopeeProfileController::class, 'create'])->name('shopee.profiles.create');
+        Route::post('/shopee/profiles', [ShopeeProfileController::class, 'store'])->name('shopee.profiles.store');
+        Route::get('/shopee/profiles/{id}/edit', [ShopeeProfileController::class, 'edit'])->name('shopee.profiles.edit');
+        Route::put('/shopee/profiles/{id}', [ShopeeProfileController::class, 'update'])->name('shopee.profiles.update');
+        Route::delete('/shopee/profiles/{id}', [ShopeeProfileController::class, 'destroy'])->name('shopee.profiles.destroy');
+        Route::post('/shopee/profiles/{id}/sync-products', [ShopeeProfileController::class, 'syncProducts'])->name('shopee.profiles.sync_products');
+        Route::post('/shopee/profiles/{id}/template/sync', [ShopeeProfileController::class, 'syncTemplate'])->name('shopee.profiles.template_sync');
+
+        // Shopee Products
+        Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('shopee.products.index');
+        Route::post('/shopee/products/sync-ids', [ShopeeProductController::class, 'syncProductIds'])->name('shopee.products.sync_ids');
+        Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('shopee.products.push');
+        Route::post('/shopee/products/{productId}/push', [ShopeeProductController::class, 'push'])->name('shopee.products.push.post');
+        Route::post('/shopee/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('shopee.products.sync_shopee_id');
+        Route::post('/shopee/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('shopee.products.sync_quantity');
+        Route::post('/shopee/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('shopee.products.sync_price');
+        Route::post('/shopee/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('shopee.products.unlink');
+        Route::post('/shopee/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('shopee.products.bulk_sync_quantity');
+        Route::post('/shopee/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('shopee.products.bulk_sync_price');
+        Route::post('/shopee/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('shopee.products.link_unmatched');
+        Route::post('/shopee/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('shopee.products.dismiss_unmatched');
+        Route::get('/shopee/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('shopee.products.search_catalog');
+        Route::post('/shopee/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('shopee.products.rebuild_cache');
+
+        // Shopee Orders
+        Route::get('/shopee/orders', [ShopeeOrderController::class, 'index'])->name('shopee.orders.index');
+        Route::get('/shopee/orders/{orderSn}', [ShopeeOrderController::class, 'show'])->name('shopee.orders.show');
+        Route::post('/shopee/orders/fetch', [ShopeeOrderController::class, 'fetch'])->name('shopee.orders.fetch');
+        Route::post('/shopee/orders/update-statuses', [ShopeeOrderController::class, 'updateStatuses'])->name('shopee.orders.update_statuses');
+        Route::post('/shopee/orders/reset', [ShopeeOrderController::class, 'reset'])->name('shopee.orders.reset');
+        Route::post('/shopee/orders/{orderSn}/ship', [ShopeeOrderController::class, 'shipOrder'])->name('shopee.orders.ship');
+        Route::get('/shopee/orders/{orderSn}/tracking', [ShopeeOrderController::class, 'getTrackingNumber'])->name('shopee.orders.tracking');
+        Route::get('/shopee/orders/{orderSn}/awb', [ShopeeOrderController::class, 'awbPdf'])->name('shopee.orders.awb');
+        Route::post('/shopee/orders/fetch-returns', [ShopeeOrderController::class, 'fetchReturns'])->name('shopee.orders.fetch_returns');
     });
 
     // Lazada
@@ -117,6 +180,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('lazada.authorize');
         // NOTE: /lazada/callback is declared above (public route)
         Route::post('/lazada/save', [LazadaController::class, 'save'])->name('lazada.save');
+        Route::post('/lazada/order-status-map', [LazadaController::class, 'saveOrderStatusMap'])->name('lazada.order_status_map');
+        Route::post('/lazada/sync-days', [LazadaController::class, 'saveSyncDays'])->name('lazada.sync_days');
+        Route::post('/lazada/toggle-logging', [LazadaController::class, 'toggleLogging'])->name('lazada.toggle_logging');
+        Route::delete('/lazada/api-logs', [LazadaController::class, 'clearApiLogs'])->name('lazada.clear_api_logs');
         Route::post('/lazada/token/create', [LazadaController::class, 'tokenCreate'])->name('lazada.token_create');
         Route::post('/lazada/token/refresh', [LazadaController::class, 'tokenRefresh'])->name('lazada.token_refresh');
         Route::post('/lazada/call', [LazadaController::class, 'callApi'])->name('lazada.call_api');
@@ -182,10 +249,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('lazada.products.bulk_upload');
         Route::post('/lazada/products/bulk/sync/quantity', [LazadaProductController::class, 'bulkSyncQuantity'])->name('lazada.products.bulk_sync_quantity');
         Route::post('/lazada/products/bulk/sync/price', [LazadaProductController::class, 'bulkSyncPrice'])->name('lazada.products.bulk_sync_price');
+        Route::post('/lazada/products/bulk/sync/lazada-id', [LazadaProductController::class, 'bulkSyncLazadaId'])->name('lazada.products.bulk_sync_lazada_id');
         Route::post('/lazada/products/bulk/delete', [LazadaProductController::class, 'bulkDeleteFromLazada'])->name('lazada.products.bulk_delete');
 
         Route::post('/lazada/products/{id}/payload/build', [LazadaProductController::class, 'buildPayload'])->whereNumber('id')->name('lazada.products.payload_build');
         Route::post('/lazada/products/{id}/push/sample', [LazadaProductController::class, 'pushSample'])->whereNumber('id')->name('lazada.products.push_sample');
+
+        Route::post('/lazada/products/unmatched/sync', [LazadaProductController::class, 'syncUnmatchedItems'])->name('lazada.products.sync_unmatched');
+        Route::post('/lazada/products/unmatched/{unmatchedId}/link', [LazadaProductController::class, 'linkUnmatchedItem'])->name('lazada.products.link_unmatched');
+        Route::post('/lazada/products/unmatched/{unmatchedId}/dismiss', [LazadaProductController::class, 'dismissUnmatchedItem'])->name('lazada.products.dismiss_unmatched');
+        Route::get('/lazada/products/search-catalog', [LazadaProductController::class, 'searchCatalogProducts'])->name('lazada.products.search_catalog');
 
         Route::post('/lazada/brands/sync', [LazadaProductController::class, 'syncBrandsGlobal'])->name('lazada.brands_sync');
 
@@ -212,7 +285,12 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/opencart/{id}', [\App\Http\Controllers\OpenCartController::class, 'destroy'])->name('opencart.destroy');
         Route::post('/opencart/test', [\App\Http\Controllers\OpenCartController::class, 'testConnection'])->name('opencart.test');
         Route::post('/opencart/sync', [\App\Http\Controllers\OpenCartController::class, 'syncNow'])->name('opencart.sync');
+        Route::post('/opencart/sync-date', [\App\Http\Controllers\OpenCartController::class, 'saveSyncDate'])->name('opencart.sync_date');
         Route::post('/opencart/push', [\App\Http\Controllers\OpenCartController::class, 'pushNow'])->name('opencart.push');
+        Route::post('/opencart/push-qty', [\App\Http\Controllers\OpenCartController::class, 'pushQtyNow'])->name('opencart.push_qty');
+        Route::post('/opencart/verify-password', [\App\Http\Controllers\OpenCartController::class, 'verifyPassword'])->name('opencart.verify_password');
+        Route::post('/opencart/fetch-oc-statuses', [\App\Http\Controllers\OpenCartController::class, 'fetchOcStatuses'])->name('opencart.fetch_oc_statuses');
+        Route::post('/opencart/save-status-map', [\App\Http\Controllers\OpenCartController::class, 'saveOrderStatusMap'])->name('opencart.save_status_map');
 
         // OpenCart per-store profiles
         Route::get('/opencart/{store}/profiles', [OpenCartProfileController::class, 'index'])->name('opencart.profiles.index');

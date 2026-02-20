@@ -15,6 +15,8 @@ class OpenCartSetting extends Model
         'enabled',
         'last_product_sync_at',
         'last_order_sync_at',
+        'sync_orders_from',
+        'sync_last_days',
         'last_category_sync_at',
         'last_manufacturer_sync_at',
         'last_order_page',
@@ -25,6 +27,8 @@ class OpenCartSetting extends Model
         'enabled' => 'boolean',
         'last_product_sync_at' => 'datetime',
         'last_order_sync_at' => 'datetime',
+        'sync_orders_from' => 'date',
+        'sync_last_days' => 'integer',
         'last_category_sync_at' => 'datetime',
         'last_manufacturer_sync_at' => 'datetime',
         'sync_log' => 'array',
@@ -42,5 +46,13 @@ class OpenCartSetting extends Model
         } catch (\Throwable $e) {
             return $value;
         }
+    }
+
+    /**
+     * Set the API key without encrypting (for temporary/unsaved instances).
+     */
+    public function setRawApiKey(string $value): void
+    {
+        $this->attributes['api_key'] = $value;
     }
 }

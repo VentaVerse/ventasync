@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\LazadaOrder;
+use App\Models\LazadaOrderStatusMap;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\Catalog\Order;
@@ -15,20 +16,13 @@ use Illuminate\Support\Facades\DB;
 
 class LazadaCatalogOrderSync
 {
-    /**
-     * Lazada status → OpenCart order_status_id mapping.
-     */
-    private const STATUS_MAP = [
-        'unpaid'        => 11, // Awaiting Payment
-        'pending'       => 1,  // Pending
-        'packed'        => 2,  // Processing
-        'ready_to_ship' => 2,  // Processing
-        'shipped'       => 3,  // Shipped
-        'delivered'     => 9,  // Delivered
-        'canceled'      => 5,  // Cancelled
-        'cancelled'     => 5,  // Cancelled
-        'returned'      => 7,  // Reversed
-    ];
+    private bool $skipStockAdjust = false;
+
+    public function setSkipStockAdjust(bool $skip = true): self
+    {
+        $this->skipStockAdjust = $skip;
+        return $this;
+    }
 
     public function sync(LazadaOrder $lazadaOrder): void
     {
@@ -39,7 +33,8 @@ class LazadaCatalogOrderSync
             // Merge: prefer detail over raw list payload
             $src = array_merge($raw, $detail);
 
-            $statusId = self::STATUS_MAP[strtolower($lazadaOrder->status ?? '')] ?? 1;
+            $statusMap = LazadaOrderStatusMap::pluck('order_status_id', 'lazada_status')->all();
+            $statusId = $statusMap[strtolower($lazadaOrder->status ?? '')] ?? 1;
 
             // --- Name ---
             $firstname = trim((string) ($src['customer_first_name'] ?? ''));
@@ -320,7 +315,9 @@ class LazadaCatalogOrderSync
                 ]);
 
                 // Adjust stock based on status transition
-                OrderStockService::adjustStock($catalogOrder, $oldStatusId, $statusId);
+                if (!$this->skipStockAdjust) {
+                    OrderStockService::adjustStock($catalogOrder, $oldStatusId, $statusId);
+                }
             }
 
             // --- Save catalog_order_id back ---

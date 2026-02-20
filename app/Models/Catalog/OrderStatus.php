@@ -10,6 +10,7 @@ class OrderStatus extends BaseModel
         'language_id',
         'name',
         'subtract_stock',
+        'add_revenue',
     ];
 
     public function getTable()

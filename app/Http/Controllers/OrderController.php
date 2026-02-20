@@ -9,6 +9,7 @@ use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
+use App\Models\OpenCartSetting;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 
@@ -54,7 +55,10 @@ class OrderController extends Controller
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'sort', 'dir'));
+        // Build opencart store ID → name map for the Source column
+        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+
+        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'sort', 'dir', 'ocStoreNames'));
     }
 
     public function create()

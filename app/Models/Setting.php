@@ -9,6 +9,7 @@ class Setting extends Model
     protected $fillable = [
         'company_name',
         'from_email',
+        'timezone',
         'logo_path',
         'software_logo_path',
     ];

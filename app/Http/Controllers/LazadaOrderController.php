@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class LazadaOrderController extends Controller
@@ -145,6 +146,16 @@ class LazadaOrderController extends Controller
         // Products (and any status refresh) should happen during explicit user actions (Fetch Orders / Pack / RTS).
         $live_statuses = [];
 
+        // Detect which orders have saved AWB PDFs locally
+        $awbDir = storage_path('app/lazada/awb');
+        $savedAwbs = [];
+        foreach ($orders as $o) {
+            $oid = preg_replace('/[^0-9A-Za-z_-]/', '', $o->order_id ?? '');
+            if ($oid !== '' && file_exists($awbDir . '/' . $oid . '.pdf')) {
+                $savedAwbs[$o->order_id] = true;
+            }
+        }
+
         return view('lazada.orders.index', [
             'setting' => $setting,
             'orders' => $orders,
@@ -156,6 +167,7 @@ class LazadaOrderController extends Controller
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
             'live_statuses' => $live_statuses,
+            'savedAwbs' => $savedAwbs,
             'filters' => [
                 'order_number' => $orderNumber,
                 'buyer_name' => $buyerName,
@@ -258,6 +270,63 @@ class LazadaOrderController extends Controller
             }
         }
 
+        // Extract fees from order item raw data + order detail
+        if ($hasCreds && (empty($order->fees) || $refresh) && $order->products()->exists()) {
+            try {
+                $fees = $this->extractLazadaFees($order);
+
+                // Try /finance/transaction/detail/get for commission breakdown
+                $trxRes = $this->runSignedApiCall(
+                    $client,
+                    $setting->region,
+                    $setting->app_key,
+                    $setting->app_secret,
+                    $setting->access_token,
+                    'GET',
+                    '/finance/transaction/detail/get',
+                    true,
+                    ['trade_order_id' => (string) $order->order_id, 'start_time' => '1970-01-01', 'end_time' => now()->addDay()->format('Y-m-d')],
+                    'lazada.finance.transaction_detail'
+                );
+
+                if (($trxRes['ok'] ?? false) && is_array($trxRes['body'] ?? null)) {
+                    $trxData = $trxRes['body']['data'] ?? $trxRes['body'];
+                    $fees['_finance_raw'] = $trxData;
+
+                    // Sum up fee types from transaction detail
+                    $trxItems = [];
+                    if (is_array($trxData)) {
+                        $trxItems = array_is_list($trxData) ? $trxData : ($trxData['data'] ?? $trxData['items'] ?? $trxData['transaction_details'] ?? []);
+                    }
+                    if (is_array($trxItems)) {
+                        $commissionTotal = 0;
+                        $paymentFeeTotal = 0;
+                        $otherFees = [];
+                        foreach ($trxItems as $trx) {
+                            if (!is_array($trx)) continue;
+                            $feeName = strtolower((string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? ''));
+                            $amount = (float) ($trx['amount'] ?? $trx['fee_amount'] ?? 0);
+                            if (str_contains($feeName, 'commission')) {
+                                $commissionTotal += $amount;
+                            } elseif (str_contains($feeName, 'payment')) {
+                                $paymentFeeTotal += $amount;
+                            } else {
+                                $otherFees[$feeName] = ($otherFees[$feeName] ?? 0) + $amount;
+                            }
+                        }
+                        if ($commissionTotal != 0) $fees['commission'] = round($commissionTotal, 2);
+                        if ($paymentFeeTotal != 0) $fees['payment_fee'] = round($paymentFeeTotal, 2);
+                        if (!empty($otherFees)) $fees['other_fees'] = $otherFees;
+                    }
+                }
+
+                $order->fees = $fees;
+                $order->save();
+            } catch (\Throwable $e) {
+                // Best-effort
+            }
+        }
+
         $raw = is_array($order->raw) ? $order->raw : [];
         $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
 
@@ -268,6 +337,58 @@ class LazadaOrderController extends Controller
             'api_items_synced' => $apiItemsSynced,
             'api_error' => $apiError,
         ]);
+    }
+
+    private function extractLazadaFees(LazadaOrder $order): array
+    {
+        $items = $order->products()->get();
+        $subtotal = 0;
+        $paidTotal = 0;
+        $shippingTotal = 0;
+        $voucherSeller = 0;
+        $voucherPlatform = 0;
+        $shippingDiscountSeller = 0;
+        $shippingDiscountPlatform = 0;
+        $walletCredits = 0;
+        $shippingServiceCost = 0;
+
+        foreach ($items as $item) {
+            $ir = is_array($item->raw) ? $item->raw : [];
+            $qty = max(1, (int) ($item->quantity ?? 1));
+
+            $itemPrice = (float) ($ir['item_price'] ?? ($ir['price'] ?? 0));
+            $paidPrice = (float) ($ir['paid_price'] ?? $itemPrice);
+            $subtotal += $itemPrice * $qty;
+            $paidTotal += $paidPrice;
+            $shippingTotal += (float) ($ir['shipping_amount'] ?? ($ir['shipping_fee_original'] ?? 0));
+            $voucherSeller += (float) ($ir['voucher_seller'] ?? 0);
+            $voucherPlatform += (float) ($ir['voucher_platform'] ?? 0);
+            $shippingDiscountSeller += (float) ($ir['shipping_fee_discount_seller'] ?? 0);
+            $shippingDiscountPlatform += (float) ($ir['shipping_fee_discount_platform'] ?? 0);
+            $walletCredits += (float) ($ir['wallet_credits'] ?? 0);
+            $shippingServiceCost += (float) ($ir['shipping_service_cost'] ?? 0);
+        }
+
+        // Order-level data
+        $raw = is_array($order->raw) ? $order->raw : [];
+        $detail = $raw['_detail'] ?? $raw;
+        $orderPrice = (float) ($detail['price'] ?? 0);
+        $orderShipping = (float) ($detail['shipping_fee'] ?? ($detail['shipping_amount'] ?? 0));
+        $orderVoucher = (float) ($detail['voucher'] ?? ($detail['voucher_amount'] ?? 0));
+
+        return [
+            'subtotal' => round($subtotal, 2),
+            'paid_total' => round($paidTotal, 2),
+            'shipping' => round($shippingTotal ?: $orderShipping, 2),
+            'voucher_seller' => round($voucherSeller, 2),
+            'voucher_platform' => round($voucherPlatform, 2),
+            'shipping_discount_seller' => round($shippingDiscountSeller, 2),
+            'shipping_discount_platform' => round($shippingDiscountPlatform, 2),
+            'wallet_credits' => round($walletCredits, 2),
+            'shipping_service_cost' => round($shippingServiceCost, 2),
+            'order_price' => round($orderPrice, 2),
+            'order_voucher' => round($orderVoucher, 2),
+        ];
     }
 
     /**
@@ -830,19 +951,124 @@ class LazadaOrderController extends Controller
      * "Recreate Package" (local-only fallback).
      * For now we revert the local status so the order goes back to "To Pack" in our ERP.
      */
-    public function recreatePackage(Request $request, $orderId)
+    public function recreatePackage(Request $request, LazadaClient $client, $orderId)
     {
-        $setting = LazadaSetting::query()->first();
-        $region = $setting->region ?? 'ph';
-        LazadaOrder::query()->where('region', $region)->where('order_id', (string)$orderId)->update(['status' => 'pending']);
-        // Sync to catalog
+        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
+            ]);
+        }
+
+        $items = $this->getOrderItems($client, $setting, $orderId);
+        if (!$items['ok']) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'Failed to fetch order items before repacking.',
+                'raw' => $items['raw'],
+            ]);
+        }
+
+        if (count($items['order_item_ids']) === 0) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'No order_item_ids found for this order.',
+                'raw' => $items['raw'],
+            ]);
+        }
+
+        // Extract package_ids (same pattern as RTS)
+        $packageIds = [];
+        $order = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
+        if ($order) {
+            try {
+                $raw = $order->raw ? json_decode($order->raw, true) : [];
+                $p = $raw['package_id'] ?? ($raw['package_ids'] ?? null);
+                if (is_string($p) && $p !== '') {
+                    $packageIds = [$p];
+                } elseif (is_array($p)) {
+                    $packageIds = $p;
+                }
+            } catch (\Throwable $e) {
+                $packageIds = [];
+            }
+        }
+        if (empty($packageIds)) {
+            $packageIds = $items['package_ids'] ?? [];
+        }
+        if (empty($packageIds)) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'No package_id found for this order. Please Pack first.',
+            ]);
+        }
+
+        $orderItemList = [];
+        foreach (array_values($items['order_item_ids']) as $oid) {
+            $orderItemList[] = (string) $oid;
+        }
+
+        $packReqPayload = [
+            'delivery_type' => 'dropship',
+            'shipping_allocate_type' => 'TFS',
+            'pack_order_list' => [
+                [
+                    'order_id' => (string) $orderId,
+                    'package_id' => (string) $packageIds[0],
+                    'order_item_list' => $orderItemList,
+                ],
+            ],
+        ];
+
+        $repackRes = $this->runSignedApiCall(
+            $client,
+            $setting->region,
+            $setting->app_key,
+            $setting->app_secret,
+            $setting->access_token,
+            'POST',
+            '/order/repack',
+            true,
+            [
+                'packReq' => json_encode($packReqPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            ],
+            'lazada.order.repack'
+        );
+
+        if (!($repackRes['ok'] ?? false)) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'Failed to repack order on Lazada.',
+                'raw' => $repackRes,
+            ]);
+        }
+
+        $body = $repackRes['body'] ?? [];
+        if (is_array($body) && isset($body['code']) && isset($body['message'])) {
+            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'Lazada error: ' . $body['code'] . ' - ' . $body['message'],
+                'raw' => $repackRes,
+            ]);
+        }
+
+        // Refresh local order status from API
         try {
-            $lo = LazadaOrder::query()->where('region', $region)->where('order_id', (string)$orderId)->first();
+            $st = $this->fetchOrderStatusFromApi($client, $setting, (string)$orderId);
+            if ($st !== null) {
+                LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
+            }
+            $lo = LazadaOrder::query()->where('region', $setting->region)->where('order_id', (string)$orderId)->first();
             if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
-            'message' => 'Order moved back to To Pack (local). If Lazada does not reflect it, use Seller Center to repack/recreate.',
+            'message' => 'Repacked on Lazada. The order should return to To Pack.',
+            'raw' => $repackRes,
         ]);
     }
 
@@ -856,7 +1082,10 @@ class LazadaOrderController extends Controller
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'status' => 'nullable|string|max:64',
+            'no_stock' => 'nullable',
         ]);
+
+        $skipStock = !empty($data['no_stock']);
 
         // Require both dates when using manual range
         $hasFrom = !empty($data['date_from']);
@@ -891,21 +1120,14 @@ $baseParams = [
     'limit' => $pageLimit,
 ];
 
+$syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
+
 if ($hasFrom && $hasTo) {
-    // Safety: restrict manual fetch to max 14 days to avoid timeouts and API call limits.
-	    $fromDt = new \DateTime($data['date_from'], $tz);
-	    $toDt = new \DateTime($data['date_to'], $tz);
+    $fromDt = new \DateTime($data['date_from'], $tz);
+    $toDt = new \DateTime($data['date_to'], $tz);
     if ($toDt < $fromDt) {
         return redirect()->back()->withErrors([
             'date_to' => 'To date must be the same as or after From date.',
-        ])->withInput();
-    }
-
-
-    $diffDays = (int)$fromDt->diff($toDt)->days + 1; // inclusive
-    if ($diffDays > 14) {
-        return redirect()->back()->withErrors([
-            'date_to' => 'Maximum fetch range is 14 days. Please select a shorter date range.',
         ])->withInput();
     }
 
@@ -919,27 +1141,19 @@ if ($hasFrom && $hasTo) {
     $baseParams['created_after'] = $createdAfter;
     $baseParams['created_before'] = $createdBefore;
 } else {
-    // Lazada docs do not publish a strict lookback window; in practice, marketplaces often limit historical fetch.
-    // We default initial backfill to 30 days and then move forward using updated_after.
-    $historyDays = 14;
-
     $latestUpdated = LazadaOrder::query()
         ->where('region', $setting->region)
         ->max('order_updated_at');
 
     if ($latestUpdated) {
-        // Incremental sync: pull updates since the newest order we have (with a small buffer).
-	        $dt = (new \DateTime($latestUpdated, $tz))->modify('-2 hours');
-	        // Safety cap: do not auto-fetch older than 14 days to avoid timeouts / heavy API usage.
-	        $minDt = (new \DateTime('now', $tz))->modify('-' . $historyDays . ' days');
-	        if ($dt < $minDt) {
-	            $dt = $minDt;
-	        }
-        // Lazada Open Platform commonly uses `update_after` for incremental sync.
+        $dt = (new \DateTime($latestUpdated, $tz))->modify('-2 hours');
+        $minDt = (new \DateTime('now', $tz))->modify('-' . $syncDays . ' days');
+        if ($dt < $minDt) {
+            $dt = $minDt;
+        }
         $baseParams['update_after'] = $dt->format('Y-m-d\\TH:i:sP');
     } else {
-        // First-time backfill: use created_after because it is supported consistently across ventures.
-        $dt = (new \DateTime('now', $tz))->modify('-' . $historyDays . ' days');
+        $dt = (new \DateTime('now', $tz))->modify('-' . $syncDays . ' days');
         $baseParams['created_after'] = $dt->format('Y-m-d\\TH:i:sP');
     }
 }
@@ -1044,7 +1258,7 @@ if ($hasFrom && $hasTo) {
                 // Best-effort sync of products for this order.
                 try { $this->syncOrderProductsFromApi($client, $setting, $newOrder); } catch (\Throwable $e) {}
                 // Sync to catalog order tables
-                try { (new LazadaCatalogOrderSync)->sync($newOrder); } catch (\Throwable $e) {}
+                try { (new LazadaCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
             }
         }
 
@@ -1095,8 +1309,8 @@ return redirect()->route('lazada.orders.index', $redirectParams)
 	    }
 
 	    $tz = new \DateTimeZone('Asia/Manila');
-	    $historyDays = 14;
-	    $dt = (new \DateTime('now', $tz))->modify('-' . $historyDays . ' days');
+	    $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
+	    $dt = (new \DateTime('now', $tz))->modify('-' . $syncDays . ' days');
 
 	    $baseParams = [
 	        'limit' => 50,
@@ -1217,7 +1431,15 @@ public function reset(Request $request)
 {
     $request->validate([
         'confirm' => 'required|in:RESET',
+        'password' => 'required|string',
     ]);
+
+    if (!Hash::check($request->input('password'), auth()->user()->password)) {
+        return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
+            'ok' => false,
+            'message' => 'Incorrect password. Reset cancelled.',
+        ]);
+    }
 
     $setting = $this->decryptSetting(LazadaSetting::query()->first());
     if (!$setting || !$setting->region) {
@@ -1446,6 +1668,17 @@ public function reset(Request $request)
 
     public function awbPdf(Request $request, LazadaClient $client, $orderId)
     {
+        // Serve saved AWB if it exists locally
+        $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
+        $localPath = storage_path('app/lazada/awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf');
+
+        if (file_exists($localPath)) {
+            return response(file_get_contents($localPath), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="awb_' . $safeOrderId . '.pdf"',
+            ]);
+        }
+
         // LazadaController::decryptSetting is private; decrypt here to keep controllers decoupled.
         $setting = $this->decryptSetting(LazadaSetting::query()->first());
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
