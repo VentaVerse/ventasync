@@ -9,9 +9,7 @@ use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\OrderStatus;
 use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
-use App\Models\LazadaApiLog;
 use App\Models\OpenCartSyncLog;
-use App\Models\ShopeeApiLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -95,7 +93,7 @@ class DashboardController extends Controller
         // --- OpenCart sync status per store ---
         $syncStatuses = DB::table('opencart_settings as s')
             ->where('s.enabled', true)
-            ->get(['s.id', 's.store_name', 's.last_order_sync_at'])
+            ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
             ->map(function ($store) {
                 $lastLog = OpenCartSyncLog::where('opencart_setting_id', $store->id)
                     ->orderByDesc('id')
@@ -104,41 +102,44 @@ class DashboardController extends Controller
                 $store->last_entity = $lastLog->entity_type ?? null;
                 $store->last_completed = $lastLog->completed_at ?? null;
                 $store->last_error = $lastLog->error_message ?? null;
+
+                // Last successful push qty timestamp
+                $lastPushQty = OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                    ->where('entity_type', 'product_qty')
+                    ->where('direction', 'push')
+                    ->where('status', 'completed')
+                    ->orderByDesc('id')
+                    ->value('completed_at');
+                $store->last_push_qty_at = $lastPushQty;
+
                 return $store;
             });
 
-        // --- Lazada sync status ---
+        // --- Lazada sync status (from settings table, independent of API logging) ---
         $lazadaSyncStatus = null;
-        if (Schema::hasTable('lazada_api_logs')) {
-            $lastOrderSync = LazadaApiLog::where('api_path', 'LIKE', '%/orders/get%')
-                ->orderByDesc('id')->first(['created_at', 'ok']);
-            $lastPushStock = LazadaApiLog::where('api_path', 'LIKE', '%/product/stock/sellable/update%')
-                ->orderByDesc('id')->first(['created_at', 'ok']);
-            $lazadaSyncStatus = (object) [
-                'order_sync_at' => $lastOrderSync?->created_at,
-                'order_sync_ok' => $lastOrderSync?->ok,
-                'push_stock_at' => $lastPushStock?->created_at,
-                'push_stock_ok' => $lastPushStock?->ok,
-            ];
+        if (Schema::hasTable('lazada_settings')) {
+            $lzSetting = \App\Models\LazadaSetting::query()->first();
+            if ($lzSetting) {
+                $lazadaSyncStatus = (object) [
+                    'order_sync_at' => $lzSetting->last_order_sync_at,
+                    'push_stock_at' => $lzSetting->last_stock_push_at,
+                    'return_sync_at' => $lzSetting->last_return_sync_at,
+                ];
+            }
         }
 
-        // --- Shopee sync status ---
+        // --- Shopee sync status (from settings table, independent of API logging) ---
         $shopeeSyncStatus = null;
-        if (Schema::hasTable('shopee_api_logs')) {
-            $lastOrderSync = ShopeeApiLog::where('api_path', 'LIKE', '%/order/get_order_list%')
-                ->orderByDesc('id')->first(['created_at', 'ok']);
-            $lastPushStock = ShopeeApiLog::where('api_path', 'LIKE', '%/product/update_stock%')
-                ->orderByDesc('id')->first(['created_at', 'ok']);
-            $lastReturnSync = ShopeeApiLog::where('api_path', 'LIKE', '%/returns/get_return_list%')
-                ->orderByDesc('id')->first(['created_at', 'ok']);
-            $shopeeSyncStatus = (object) [
-                'order_sync_at' => $lastOrderSync?->created_at,
-                'order_sync_ok' => $lastOrderSync?->ok,
-                'push_stock_at' => $lastPushStock?->created_at,
-                'push_stock_ok' => $lastPushStock?->ok,
-                'return_sync_at' => $lastReturnSync?->created_at,
-                'return_sync_ok' => $lastReturnSync?->ok,
-            ];
+        if (Schema::hasTable('shopee_settings')) {
+            $spSetting = \App\Models\ShopeeSetting::query()->first();
+            if ($spSetting) {
+                $shopeeSyncStatus = (object) [
+                    'order_sync_at' => $spSetting->last_order_sync_at,
+                    'push_stock_at' => $spSetting->last_stock_push_at,
+                    'return_sync_at' => $spSetting->last_return_sync_at,
+                    'expires_at'    => $spSetting->expires_at,
+                ];
+            }
         }
 
         // --- Greeting ---
@@ -184,6 +185,90 @@ class DashboardController extends Controller
     {
         $range = $request->query('range', '30d');
         return response()->json($this->buildChartData($range));
+    }
+
+    /**
+     * AJAX endpoint for platform distribution pie chart.
+     */
+    public function platformData(Request $request)
+    {
+        $range = $request->query('range', '30d');
+        $pfx = (string) config('catalog.prefix');
+        $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
+
+        $query = DB::table($pfx . 'order');
+
+        if ($range === 'yearly') {
+            $query->where('date_added', '>=', now()->startOfYear());
+        } elseif ($range === 'monthly') {
+            $query->where('date_added', '>=', now()->subDays(29)->startOfDay());
+        }
+        // '30d' also uses last 30 days (same as monthly for this chart)
+        if ($range === '30d') {
+            $query->where('date_added', '>=', now()->subDays(29)->startOfDay());
+        }
+
+        $rows = $query->select(
+                'marketplace_source',
+                DB::raw('COUNT(*) as orders'),
+                DB::raw('SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue')
+            )
+            ->groupBy('marketplace_source')
+            ->get();
+
+        // Map OC store names
+        $ocStores = DB::table('opencart_settings')
+            ->pluck('store_name', 'id')
+            ->toArray();
+
+        $slices = [];
+        foreach ($rows as $row) {
+            $src = trim((string) $row->marketplace_source);
+            if ($src === 'shopee') {
+                $label = 'Shopee';
+                $color = '#ee4d2d';
+            } elseif ($src === 'lazada') {
+                $label = 'Lazada';
+                $color = '#0F146D';
+            } elseif (str_starts_with($src, 'opencart:')) {
+                $storeId = (int) str_replace('opencart:', '', $src);
+                $label = $ocStores[$storeId] ?? ('OpenCart #' . $storeId);
+                // Fixed colors for known OC stores, random for new ones
+                $ocFixedColors = [
+                    1 => '#16a34a', // Shop A — green
+                    2 => '#38bdf8', // Shop B — light blue
+                ];
+                $color = $ocFixedColors[$storeId] ?? sprintf('#%06X', mt_rand(0x333333, 0xCCCCCC));
+            } else {
+                $label = 'Direct';
+                $color = '#3b82f6';
+            }
+
+            // Merge if same label exists (e.g. legacy 'opencart' + 'opencart:1')
+            $found = false;
+            foreach ($slices as &$s) {
+                if ($s['label'] === $label) {
+                    $s['orders'] += (int) $row->orders;
+                    $s['revenue'] += round((float) $row->revenue, 2);
+                    $found = true;
+                    break;
+                }
+            }
+            unset($s);
+            if (!$found) {
+                $slices[] = [
+                    'label'   => $label,
+                    'orders'  => (int) $row->orders,
+                    'revenue' => round((float) $row->revenue, 2),
+                    'color'   => $color,
+                ];
+            }
+        }
+
+        // Sort by orders descending
+        usort($slices, fn ($a, $b) => $b['orders'] - $a['orders']);
+
+        return response()->json(['slices' => $slices]);
     }
 
     private function buildChartData(string $range): array

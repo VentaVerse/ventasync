@@ -39,7 +39,7 @@ class LazadaBrandController extends Controller
 
     public function fetch(Request $request, LazadaClient $client)
     {
-        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
             return redirect()->route('lazada.brands.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
@@ -233,31 +233,11 @@ class LazadaBrandController extends Controller
 
     private function currentRegion(): ?string
     {
-        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        $setting = LazadaSetting::query()->first()?->decrypted();
         if ($setting && !empty($setting->region)) {
             return (string)$setting->region;
         }
         return null;
     }
 
-    private function decryptSetting(?LazadaSetting $setting): ?object
-    {
-        if (!$setting) {
-            return null;
-        }
-
-        $s = (object)$setting->toArray();
-
-        foreach (['app_secret', 'auth_code', 'access_token', 'refresh_token'] as $k) {
-            if (!empty($s->$k)) {
-                try {
-                    $s->$k = decrypt($s->$k);
-                } catch (\Throwable $e) {
-                    $s->$k = null;
-                }
-            }
-        }
-
-        return $s;
-    }
 }

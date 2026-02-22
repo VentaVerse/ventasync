@@ -123,6 +123,10 @@
                 $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
                 $img = $catalogProduct ? trim((string)($catalogProduct->image ?? '')) : '';
                 $imgSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+                if ($imgSrc === '') {
+                    $lzImg = trim($lazadaImages[$p->order_product_id] ?? '');
+                    if ($lzImg !== '') { $imgSrc = $lzImg; }
+                }
             @endphp
             <tr>
                 <td>

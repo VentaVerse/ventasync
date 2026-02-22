@@ -2,18 +2,19 @@
 @section('breadcrumb', 'Marketplace / Lazada / Orders')
 
 @section('content')
+<style>
+    #content {
+        --accent: #0F146D;
+        --accent-hover: #0b1058;
+        --accent-light: rgba(15, 20, 109, 0.08);
+    }
+    #content .input:focus {
+        box-shadow: 0 0 0 3px rgba(15, 20, 109, 0.12);
+    }
+</style>
 <div class="page-header">
     <h2>Lazada Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
-
-    @if($last_result)
-        <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
-            <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
-            @if(!empty($last_result['message']))
-                <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
-            @endif
-        </div>
-@endif
 
 <div class="card mb-16">
 <form method="POST" action="{{ route('lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="d-flex gap-12 flex-wrap items-center">
@@ -56,11 +57,21 @@
     </form>
 </div>
 
+    @if($last_result)
+        <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
+            <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
+            @if(!empty($last_result['message']))
+                <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
+            @endif
+        </div>
+@endif
+
     @php
         $tabs = $tabs ?? [];
         $active_tab = $active_tab ?? 'ALL';
         $tab_counts = $tab_counts ?? [];
         $pending_sub_counts = $pending_sub_counts ?? [];
+        $fd_sub_counts = $fd_sub_counts ?? [];
     @endphp
 
     <div class="tabs mb-12">
@@ -69,44 +80,78 @@
                 $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
                 $count = $tab_counts[$key] ?? null;
                 $qs = array_merge(request()->query(), ['tab' => $key]);
-                $isPending = ($key === 'PENDING');
+                $isToShip = ($key === 'TO_SHIP');
             @endphp
             <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                 <span>{{ $label }}</span>
-                @if($isPending && $count !== null && $count > 0)
-                    <span style="margin-left:6px; color:#dc2626; font-weight:700; font-size:15px;">{{ $count }}</span>
+                @if($isToShip && $count !== null && $count > 0)
+                    <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
                 @endif
             </a>
         @endforeach
+        <a href="{{ route('lazada.orders.returns') }}" class="tab">Return/Refund/Cancel</a>
     </div>
 
-    {{-- Lazada workflow: PENDING has sub steps (To Pack / To Arrange / To Handover) --}}
-    @if(strtoupper((string)($active_tab ?? 'ALL')) === 'PENDING')
+    {{-- To Ship workflow: sub steps (To Pack / To Arrange / To Handover) --}}
+    @if(strtoupper((string)($active_tab ?? 'ALL')) === 'TO_SHIP')
         @php
             $ps = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
             $pendingNav = [
                 'to_pack' => 'To Pack',
-                'to_arrange' => 'To Arrange',
+                'to_arrange' => 'To Arrange Shipment',
                 'to_handover' => 'To Handover',
             ];
         @endphp
         <div class="card mb-12" style="padding:12px 16px;">
             <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
-                <div class="font-semibold">Pending workflow</div>
+                <div class="font-semibold">To Ship workflow</div>
                 <div class="text-xs text-secondary">Choose the step you are working on</div>
             </div>
 
-            <div class="d-flex gap-10 flex-wrap justify-center">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
                 @foreach($pendingNav as $k => $lbl)
                     @php
                         $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                        $qs = array_merge(request()->query(), ['tab' => 'PENDING', 'pending_sub' => $k]);
+                        $qs = array_merge(request()->query(), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
                         $count = $pending_sub_counts[$k] ?? null;
                     @endphp
-                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}" style="flex:1; min-width:140px; text-align:center;">
+                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                         <span>{{ $lbl }}</span>
                         @if($count !== null && $count > 0)
-                            <span style="margin-left:6px; color:#dc2626; font-weight:700; font-size:15px;">{{ $count }}</span>
+                            <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    {{-- Failed Delivery sub-tabs --}}
+    @if(strtoupper((string)($active_tab ?? 'ALL')) === 'FAILED_DELIVERY')
+        @php
+            $fs = $fd_subtab ?? request()->query('fd_sub', 'failed_delivery');
+            $fdNav = [
+                'failed_delivery' => 'Failed Delivery',
+                'lost_damaged' => 'Lost & Damaged',
+            ];
+        @endphp
+        <div class="card mb-12" style="padding:12px 16px;">
+            <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
+                <div class="font-semibold">Failed Delivery</div>
+                <div class="text-xs text-secondary">Filter by delivery failure type</div>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+                @foreach($fdNav as $k => $lbl)
+                    @php
+                        $isActive = ($fs === $k) || ($fs === '' && $k === 'failed_delivery');
+                        $qs = array_merge(request()->query(), ['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k]);
+                        $count = $fd_sub_counts[$k] ?? null;
+                    @endphp
+                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+                        <span>{{ $lbl }}</span>
+                        @if($count !== null && $count > 0)
+                            <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
                         @endif
                     </a>
                 @endforeach
@@ -159,8 +204,22 @@
     </div>
 
         @if($orders->count() === 0)
-            <div class="text-secondary" style="padding:12px 0;">No orders loaded yet.</div>
-        @else
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 24px; text-align:center;">
+                <svg style="width:48px; height:48px; color:var(--text-muted); margin-bottom:16px; opacity:.45;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <div style="font-weight:600; font-size:15px; color:var(--text-primary); margin-bottom:6px;">No orders found</div>
+                <div class="text-muted" style="font-size:13px; max-width:360px;">
+                    @if(($filters['order_number'] ?? request()->query('order_number', '')) !== '' || ($filters['buyer_name'] ?? request()->query('buyer_name', '')) !== '')
+                        No results match your search filters. Try clearing the filters above.
+                    @elseif(strtoupper($active_tab ?? 'ALL') !== 'ALL')
+                        There are no <strong>{{ $tabs[$active_tab] ?? $active_tab }}</strong> orders right now.
+                    @else
+                        No orders have been synced yet. Use <strong>Fetch Orders</strong> above to pull orders from Lazada.
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        @if($orders->count() > 0)
             <div class="table-wrap">
             <table class="table">
                 <thead>
@@ -267,22 +326,30 @@
                             }
 
                             // Shipping / courier / tracking
-                            $courier = $raw['shipping_provider'] ?? $raw['shipping_provider_type'] ?? $raw['shipping_provider_name'] ?? $raw['shipment_provider'] ?? $raw['shippingCompany'] ?? null;
-                            if (is_array($courier)) $courier = implode(', ', $courier);
-                            $courier = is_string($courier) ? trim($courier) : null;
+                            // Check order-level raw, then _detail, then first product's raw
+                            $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
+                            $firstItemRaw = [];
+                            if ($o->products && $o->products->isNotEmpty()) {
+                                $fir = $o->products->first()->raw ?? null;
+                                if (is_array($fir)) $firstItemRaw = $fir;
+                            }
 
-                            $deliveryMethod = $raw['delivery_type'] ?? $raw['deliveryType'] ?? $raw['shipping_type'] ?? null;
-                            if (is_array($deliveryMethod)) $deliveryMethod = implode(', ', $deliveryMethod);
-                            $deliveryMethod = is_string($deliveryMethod) ? trim($deliveryMethod) : null;
+                            // Helper: first non-empty string from multiple keys across sources
+                            $pick = function (array $keys) use ($firstItemRaw, $detail, $raw) {
+                                foreach ([$firstItemRaw, $detail, $raw] as $src) {
+                                    foreach ($keys as $k) {
+                                        $v = $src[$k] ?? null;
+                                        if (is_array($v)) $v = implode(', ', $v);
+                                        if (is_string($v) && trim($v) !== '') return trim($v);
+                                    }
+                                }
+                                return null;
+                            };
 
-                            $trackingNo = $raw['tracking_code'] ?? $raw['tracking_number'] ?? $raw['trackingNo'] ?? $raw['tracking'] ?? null;
-                            if (is_array($trackingNo)) $trackingNo = implode(', ', $trackingNo);
-                            $trackingNo = is_string($trackingNo) ? trim($trackingNo) : null;
-
-                            // SLA / urgency
-                            $sla = $raw['sla_time'] ?? $raw['shipping_sla'] ?? $raw['sla'] ?? $raw['ship_by_date'] ?? null;
-                            if (is_array($sla)) $sla = implode(', ', $sla);
-                            $sla = is_string($sla) ? trim($sla) : null;
+                            $courier = $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']);
+                            $deliveryMethod = $pick(['shipping_type', 'delivery_type']);
+                            $trackingNo = $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']);
+                            $sla = $pick(['sla_time_stamp', 'sla_time', 'shipping_sla', 'ship_by_date']);
                         @endphp
 
                         @if($orderId)
@@ -447,39 +514,44 @@
                                             <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
                                         @endif
 
-                                        {{-- Cancel available in these workflow statuses --}}
-                                        @if($isToPack || $isToArrange || $isToHandover)
-                                            <button type="button"
-                                                    class="btnCancelOrder btn small danger"
-                                                    data-order-id="{{ $orderId }}"
-                                                    data-reasons-url="{{ route('lazada.orders.cancel_reasons', ['orderId' => $orderId]) }}"
-                                                    data-submit-url="{{ route('lazada.orders.cancel', ['orderId' => $orderId]) }}">
-                                                Cancel
-                                            </button>
-                                        @endif
-                                        {{-- Saved AWB available for any status --}}
-                                        @if(!$isToPack && !$isToArrange && !$isToHandover && !empty($savedAwbs[$orderId]))
+                                        {{-- Post-fulfilment: only show AWB if a local copy exists --}}
+                                        @if(!$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && ($savedAwbs[$orderId] ?? false))
                                             <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
                                         @endif
                                     </div>
 
-                                    {{-- Print quick-links (only when AWB exists) --}}
-                                    @if($isToArrange || $isToHandover || !empty($savedAwbs[$orderId]))
+                                    {{-- Quick-links row --}}
+                                    @if(!$isCancelled)
+                                        @php $hasAwb = ($savedAwbs[$orderId] ?? false); @endphp
                                         <div class="d-flex gap-10 flex-wrap text-xs" style="margin-top:8px;">
-                                            <span class="text-secondary">Print:</span>
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
-                                            <span class="text-muted">|</span>
-                                            <a href="{{ route('lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Packing List</a>
-                                            <span class="text-muted">|</span>
-                                            <a href="{{ route('lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Pick List</a>
-
-                                            <span class="text-muted">|</span>
-                                            <button type="button"
-                                                    class="btnLzLogistics"
-                                                    data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
-                                                    style="border:0; padding:0; background:transparent; color:var(--accent); cursor:pointer; font-size:12px;">
-                                                Logistics Status
-                                            </button>
+                                            @if(!$isToPack)
+                                                <span class="text-secondary">Print:</span>
+                                                @if($hasAwb)
+                                                    <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
+                                                    <span class="text-muted">|</span>
+                                                @endif
+                                                <a href="{{ route('lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Packing List</a>
+                                                <span class="text-muted">|</span>
+                                                <a href="{{ route('lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Pick List</a>
+                                                <span class="text-muted">|</span>
+                                                <button type="button"
+                                                        class="btnLzLogistics"
+                                                        data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
+                                                        style="border:0; padding:0; background:transparent; color:var(--accent); cursor:pointer; font-size:12px;">
+                                                    Logistics Status
+                                                </button>
+                                            @endif
+                                            @if($isToPack || $isToArrange || $isToHandover)
+                                                @if(!$isToPack)<span class="text-muted">|</span>@endif
+                                                <button type="button"
+                                                        class="btnCancelOrder"
+                                                        data-order-id="{{ $orderId }}"
+                                                        data-reasons-url="{{ route('lazada.orders.cancel_reasons', ['orderId' => $orderId]) }}"
+                                                        data-submit-url="{{ route('lazada.orders.cancel', ['orderId' => $orderId]) }}"
+                                                        style="border:0; padding:0; background:transparent; color:var(--danger); cursor:pointer; font-size:12px;">
+                                                    Cancel Order
+                                                </button>
+                                            @endif
                                         </div>
                                     @endif
                                 @endif
@@ -491,8 +563,9 @@
                 </tbody>
             </table>
             </div>
-            <div style="padding:12px 0 0;">{{ $orders->links() }}</div>
         @endif
+
+        <div style="padding:12px 0 0;">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
     </div>
 
 <form method="POST" action="{{ route('lazada.orders.reset') }}" id="formResetLazadaOrders" class="hidden">
@@ -814,9 +887,49 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function formatEventTime(t) {
+        if (!t) return '';
+        // Unix milliseconds timestamp
+        if (typeof t === 'number' && t > 1000000000000) {
+            var d = new Date(t);
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
+                + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+        }
+        // Unix seconds
+        if (typeof t === 'number' && t > 1000000000) {
+            return formatEventTime(t * 1000);
+        }
+        return String(t);
+    }
+
     function renderTrace(body) {
         var data = (body && body.data) ? body.data : body;
-        var traces = (data && (data.traces || data.trace_list || data.traceList || data.events)) || [];
+        var traces = [];
+        if (data) {
+            // Try common keys first
+            traces = data.traces || data.trace_list || data.traceList || data.events || [];
+            // Lazada packages structure: data.packages[0].package_trace_list
+            if ((!Array.isArray(traces) || traces.length === 0) && Array.isArray(data.packages)) {
+                for (var pi = 0; pi < data.packages.length; pi++) {
+                    var ptl = data.packages[pi].package_trace_list || data.packages[pi].traceList || [];
+                    if (Array.isArray(ptl) && ptl.length > 0) {
+                        traces = traces.concat(ptl);
+                    }
+                }
+            }
+            // Lazada logistic/order/trace structure: result.module[].package_detail_info_list[].logistic_detail_info_list[]
+            if ((!Array.isArray(traces) || traces.length === 0) && data.result && Array.isArray(data.result.module)) {
+                for (var mi = 0; mi < data.result.module.length; mi++) {
+                    var pkgs = data.result.module[mi].package_detail_info_list || [];
+                    for (var pi = 0; pi < pkgs.length; pi++) {
+                        var events = pkgs[pi].logistic_detail_info_list || [];
+                        if (Array.isArray(events)) {
+                            traces = traces.concat(events);
+                        }
+                    }
+                }
+            }
+        }
         if (!Array.isArray(traces)) traces = [];
         if (!logisticsBody) return;
 
@@ -834,10 +947,10 @@ document.addEventListener('DOMContentLoaded', function () {
             + '</tr></thead><tbody>';
         traces.forEach(function (t) {
             var time = t.event_time || t.time || t.timestamp || t.update_time || '';
-            var status = t.status || t.event || t.action || t.title || '';
+            var status = t.title || t.status || t.event || t.action || '';
             var detail = t.description || t.desc || t.detail || t.message || '';
             html += '<tr>'
-                + '<td>' + esc(time) + '</td>'
+                + '<td>' + esc(formatEventTime(time)) + '</td>'
                 + '<td class="font-bold">' + esc(status) + '</td>'
                 + '<td>' + esc(detail) + '</td>'
                 + '</tr>';

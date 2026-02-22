@@ -45,7 +45,6 @@ class ShopeeOrderController extends Controller
             'SHIPPING',
             'DELIVERED_COMPLETED',
             'CANCELLED',
-            'RETURN',
         ];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
@@ -57,17 +56,15 @@ class ShopeeOrderController extends Controller
             'SHIPPING'            => ['SHIPPED'],
             'DELIVERED_COMPLETED' => ['COMPLETED'],
             'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
-            'RETURN'              => ['AWAITING_RETURN', 'IN_RETURN', 'RETURNED'],
         ];
 
         $tabs = [
-            'ALL'                 => 'ALL',
-            'UNPAID'              => 'UNPAID',
-            'PENDING'             => 'PENDING',
-            'SHIPPING'            => 'SHIPPING',
-            'DELIVERED_COMPLETED' => 'DELIVERED / COMPLETED',
-            'CANCELLED'           => 'CANCELLED',
-            'RETURN'              => 'RETURN',
+            'ALL'                 => 'All',
+            'UNPAID'              => 'Unpaid',
+            'PENDING'             => 'To Ship',
+            'SHIPPING'            => 'Shipping',
+            'DELIVERED_COMPLETED' => 'Delivered',
+            'CANCELLED'           => 'Cancelled',
         ];
 
         $query = ShopeeOrder::query()
@@ -135,19 +132,6 @@ class ShopeeOrderController extends Controller
             }
         }
 
-        // Load returns keyed by order_sn when RETURN tab is active
-        $returnsByOrder = [];
-        if ($tab === 'RETURN') {
-            $orderSns = $orders->pluck('order_sn')->filter()->all();
-            if (!empty($orderSns)) {
-                $returnsByOrder = ShopeeReturn::query()
-                    ->where('region', $setting->region ?? 'ph')
-                    ->whereIn('order_sn', $orderSns)
-                    ->get()
-                    ->groupBy('order_sn');
-            }
-        }
-
         return view('shopee.orders.index', [
             'setting' => $setting,
             'orders' => $orders,
@@ -159,10 +143,94 @@ class ShopeeOrderController extends Controller
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
             'savedAwbs' => $savedAwbs,
-            'returnsByOrder' => $returnsByOrder,
             'filters' => [
                 'order_number' => $orderNumber,
                 'buyer_name' => $buyerName,
+            ],
+        ]);
+    }
+
+    public function returns(Request $request)
+    {
+        $setting = ShopeeSetting::query()->first();
+
+        $filters = $request->validate([
+            'return_sn' => ['nullable', 'string', 'max:80'],
+            'order_sn'  => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $returnSn = trim((string) ($filters['return_sn'] ?? ''));
+        $orderSn  = trim((string) ($filters['order_sn'] ?? ''));
+
+        $perPage = (int) $request->query('per_page', 10);
+        if (!in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $tab = strtoupper((string) $request->query('tab', 'ALL'));
+
+        $tabStatusMap = [
+            'REQUESTED' => ['REQUESTED', 'PROCESSING'],
+            'ACCEPTED'  => ['ACCEPTED'],
+            'REFUND'    => ['REFUND_PAID', 'SELLER_COMPENSATION'],
+            'DISPUTE'   => ['JUDGING', 'SELLER_DISPUTE'],
+            'CLOSED'    => ['CLOSED', 'CANCELLED'],
+        ];
+
+        $tabs = [
+            'ALL'       => 'All',
+            'REQUESTED' => 'Under Review',
+            'ACCEPTED'  => 'Returning',
+            'REFUND'    => 'Refunded',
+            'DISPUTE'   => 'Disputed',
+            'CLOSED'    => 'Rejected / Cancelled',
+        ];
+
+        if (!array_key_exists($tab, $tabs)) {
+            $tab = 'ALL';
+        }
+
+        $region = $setting->region ?? 'ph';
+        $query = ShopeeReturn::query()->where('region', $region);
+        $baseCountQuery = ShopeeReturn::query()->where('region', $region);
+
+        if ($tab !== 'ALL') {
+            $statuses = $tabStatusMap[$tab] ?? [];
+            if (!empty($statuses)) {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        if ($returnSn !== '') {
+            $query->where('return_sn', 'like', '%' . $returnSn . '%');
+        }
+        if ($orderSn !== '') {
+            $query->where('order_sn', 'like', '%' . $orderSn . '%');
+        }
+
+        $tab_counts = [];
+        $tab_counts['ALL'] = (clone $baseCountQuery)->count();
+        foreach ($tabStatusMap as $k => $statuses) {
+            $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
+        }
+
+        $returns = $query
+            ->orderByDesc('return_updated_at')
+            ->orderByDesc('created_at')
+            ->paginate($perPage)
+            ->appends($request->query());
+
+        return view('shopee.orders.returns', [
+            'setting'    => $setting,
+            'returns'    => $returns,
+            'per_page'   => $perPage,
+            'last_result' => session('shopee_orders_last_result'),
+            'tabs'       => $tabs,
+            'active_tab' => $tab,
+            'tab_counts' => $tab_counts,
+            'filters'    => [
+                'return_sn' => $returnSn,
+                'order_sn'  => $orderSn,
             ],
         ]);
     }
@@ -186,7 +254,7 @@ class ShopeeOrderController extends Controller
         $apiError = null;
 
         $refresh = (bool) $request->boolean('refresh');
-        $setting = $this->decryptSetting($settingRaw);
+        $setting = $settingRaw?->decrypted();
         $hasCreds = $setting && $setting->partner_id && $setting->partner_key && $setting->access_token && $setting->shop_id;
 
         if ($hasCreds && $refresh) {
@@ -261,7 +329,11 @@ class ShopeeOrderController extends Controller
                     $escrowBody = $escrowRes['body'];
                     $escrowData = $escrowBody['response'] ?? $escrowBody;
                     if (is_array($escrowData) && !empty($escrowData)) {
-                        $order->fees = $escrowData;
+                        // Extract order_income (the financial breakdown) as the top-level fees
+                        $orderIncome = $escrowData['order_income'] ?? null;
+                        $order->fees = is_array($orderIncome) && !empty($orderIncome)
+                            ? $orderIncome
+                            : $escrowData;
                         $order->save();
                     }
                 }
@@ -305,7 +377,7 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
@@ -517,7 +589,7 @@ class ShopeeOrderController extends Controller
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
@@ -643,10 +715,55 @@ class ShopeeOrderController extends Controller
         ]);
     }
 
+    public function getShippingAddresses(ShopeeClient $client, string $orderSn)
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials.'], 422);
+        }
+
+        $res = $client->shopGet(
+            $setting->mode ?? 'live',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            '/api/v2/logistics/get_shipping_parameter',
+            ['order_sn' => $orderSn]
+        );
+
+        ShopeeApiLog::safeCreate([
+            'pack'            => 'shopee.logistics.get_shipping_parameter.addresses',
+            'method'          => 'GET',
+            'api_path'        => '/api/v2/logistics/get_shipping_parameter',
+            'auth_required'   => true,
+            'request_params'  => ['order_sn' => $orderSn],
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok'              => (bool) ($res['ok'] ?? false),
+            'response_body'   => $res['body'] ?? null,
+        ]);
+
+        if (!($res['ok'] ?? false)) {
+            return response()->json(['ok' => false, 'message' => 'Failed to get shipping parameters.']);
+        }
+
+        $paramBody = $res['body'] ?? [];
+        $paramResp = $paramBody['response'] ?? $paramBody;
+
+        return response()->json([
+            'ok'      => true,
+            'pickup'  => $paramResp['pickup'] ?? null,
+            'dropoff' => $paramResp['dropoff'] ?? null,
+        ]);
+    }
+
     public function shipOrder(Request $request, ShopeeClient $client, string $orderSn)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $json = $request->expectsJson();
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            if ($json) return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials/token.'], 422);
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Shopee credentials/token.',
@@ -659,6 +776,7 @@ class ShopeeOrderController extends Controller
             ->first();
 
         if (!$order) {
+            if ($json) return response()->json(['ok' => false, 'message' => 'Order not found.'], 404);
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
                 'message' => 'Order not found.',
@@ -688,6 +806,7 @@ class ShopeeOrderController extends Controller
         ]);
 
         if (!($paramRes['ok'] ?? false)) {
+            if ($json) return response()->json(['ok' => false, 'message' => 'Failed to get shipping parameters.'], 422);
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
                 'message' => 'Failed to get shipping parameters.',
@@ -706,13 +825,22 @@ class ShopeeOrderController extends Controller
         $shipBody = ['order_sn' => $orderSn];
 
         if ($shippingType === 'dropoff') {
-            $shipBody['dropoff'] = new \stdClass();
+            $branchId = (int) $request->input('branch_id', 0);
+            $shipBody['dropoff'] = $branchId > 0 ? ['branch_id' => $branchId] : new \stdClass();
         } else {
-            // Pickup — use first address from shipping params
-            $addressList = ($paramResp['pickup']['address_list'] ?? []);
-            $addressId = 0;
-            if (!empty($addressList) && is_array($addressList[0] ?? null)) {
-                $addressId = (int) ($addressList[0]['address_id'] ?? 0);
+            // Use user-selected address_id if provided, otherwise find pickup_address flag
+            $addressId = (int) $request->input('address_id', 0);
+            if ($addressId === 0) {
+                $addressList = ($paramResp['pickup']['address_list'] ?? []);
+                foreach ($addressList as $addr) {
+                    if (is_array($addr) && in_array('pickup_address', $addr['address_flag'] ?? [])) {
+                        $addressId = (int) ($addr['address_id'] ?? 0);
+                        break;
+                    }
+                }
+                if ($addressId === 0 && !empty($addressList) && is_array($addressList[0] ?? null)) {
+                    $addressId = (int) ($addressList[0]['address_id'] ?? 0);
+                }
             }
             $shipBody['pickup'] = [
                 'address_id' => $addressId,
@@ -745,6 +873,7 @@ class ShopeeOrderController extends Controller
         $errMsg = $shipBodyResp['error'] ?? ($shipBodyResp['message'] ?? null);
 
         if (!($shipRes['ok'] ?? false) || (is_string($errMsg) && $errMsg !== '' && $errMsg !== 'success')) {
+            if ($json) return response()->json(['ok' => false, 'message' => 'Ship order failed: ' . ($errMsg ?? 'Unknown error')], 422);
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
                 'message' => 'Ship order failed: ' . ($errMsg ?? 'Unknown error'),
@@ -760,6 +889,8 @@ class ShopeeOrderController extends Controller
             (new ShopeeCatalogOrderSync)->sync($order);
         } catch (\Throwable $e) {}
 
+        if ($json) return response()->json(['ok' => true, 'message' => "Order {$orderSn} shipped successfully."]);
+
         return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
             'ok' => true,
             'message' => "Order {$orderSn} shipped successfully.",
@@ -768,7 +899,7 @@ class ShopeeOrderController extends Controller
 
     public function getTrackingNumber(ShopeeClient $client, string $orderSn)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials.'], 422);
         }
@@ -804,21 +935,64 @@ class ShopeeOrderController extends Controller
         ]);
     }
 
+    public function getTrackingInfo(ShopeeClient $client, string $orderSn)
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials.'], 422);
+        }
+
+        $res = $client->shopGet(
+            $setting->mode ?? 'live',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            '/api/v2/logistics/get_tracking_info',
+            ['order_sn' => $orderSn]
+        );
+
+        ShopeeApiLog::safeCreate([
+            'pack'            => 'shopee.logistics.get_tracking_info',
+            'method'          => 'GET',
+            'api_path'        => '/api/v2/logistics/get_tracking_info',
+            'auth_required'   => true,
+            'request_params'  => ['order_sn' => $orderSn],
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok'              => (bool) ($res['ok'] ?? false),
+            'response_body'   => $res['body'] ?? null,
+        ]);
+
+        $body = $res['body'] ?? [];
+        $respData = $body['response'] ?? $body;
+
+        return response()->json([
+            'ok'            => (bool) ($res['ok'] ?? false),
+            'tracking_info' => $respData['tracking_info'] ?? [],
+            'logistics_status' => $respData['logistics_status'] ?? null,
+            'body'          => $respData,
+        ]);
+    }
+
     public function awbPdf(Request $request, ShopeeClient $client, string $orderSn)
     {
+        $json = $request->expectsJson();
+
         // Serve saved AWB if it exists locally
         $safeOrderSn = preg_replace('/[^A-Za-z0-9_-]/', '', $orderSn);
         $awbDir = storage_path('app/shopee-awb');
         $awbPath = $awbDir . '/' . $safeOrderSn . '.pdf';
 
         if (file_exists($awbPath)) {
+            if ($json) return response()->json(['ok' => true, 'ready' => true]);
             return response(file_get_contents($awbPath), 200)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderSn . '.pdf"');
         }
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            if ($json) return response()->json(['ok' => false, 'ready' => false, 'message' => 'Missing Shopee credentials/token.'], 422);
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Shopee credentials/token.',
@@ -830,6 +1004,15 @@ class ShopeeOrderController extends Controller
         $pkey = (string) $setting->partner_key;
         $token = (string) $setting->access_token;
         $shopId = (int) $setting->shop_id;
+
+        // Fetch tracking number from Shopee — needed for create_shipping_document
+        $trackRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
+            '/api/v2/logistics/get_tracking_number',
+            ['order_sn' => $orderSn]
+        );
+        $trackBody = $trackRes['body'] ?? [];
+        $trackResp = is_array($trackBody) ? ($trackBody['response'] ?? []) : [];
+        $trackingNo = trim((string) ($trackResp['tracking_number'] ?? ''));
 
         // Step 1: Get shipping document parameter to find supported document type
         $paramRes = $client->shopPost($mode, $pid, $pkey, $token, $shopId,
@@ -855,55 +1038,49 @@ class ShopeeOrderController extends Controller
             'response_body'   => is_array($paramBody) ? $paramBody : null,
         ]);
 
-        // Build order entry with package_number if present
+        // Build order entry with package_number and tracking_number
         $orderEntry = ['order_sn' => $orderSn, 'shipping_document_type' => $docType];
         if ($packageNumber) {
             $orderEntry['package_number'] = $packageNumber;
         }
+        if ($trackingNo !== '') {
+            $orderEntry['tracking_number'] = $trackingNo;
+        }
 
-        // Step 2: Create shipping document
+        // Step 2: Create shipping document (don't abort on failure — proceed to poll & download)
         $createRes = $client->shopPost($mode, $pid, $pkey, $token, $shopId,
             '/api/v2/logistics/create_shipping_document', [],
             ['order_list' => [$orderEntry]]
         );
 
         $createBody = $createRes['body'] ?? [];
+        $createError = is_array($createBody) ? ($createBody['error'] ?? '') : '';
 
         ShopeeApiLog::safeCreate([
             'pack'            => 'shopee.logistics.create_shipping_document',
             'method'          => 'POST',
             'api_path'        => '/api/v2/logistics/create_shipping_document',
             'auth_required'   => true,
-            'request_params'  => ['order_sn' => $orderSn, 'shipping_document_type' => $docType],
+            'request_params'  => $orderEntry,
             'response_status' => (int) ($createRes['status'] ?? 0),
             'ok'              => (bool) ($createRes['ok'] ?? false),
             'response_body'   => is_array($createBody) ? $createBody : null,
         ]);
 
-        // Check create response for errors
-        $createError = is_array($createBody) ? ($createBody['error'] ?? '') : '';
-        if ($createError !== '' && $createError !== 'success') {
-            // "repeat_create" means document already exists — that's fine, proceed to download
-            if (!str_contains($createError, 'repeat') && !str_contains($createError, 'already')) {
-                $createMsg = is_array($createBody) ? ($createBody['message'] ?? $createError) : $createError;
-                // Check result_list for per-order errors
-                $createResp = is_array($createBody) ? ($createBody['response'] ?? $createBody) : [];
-                $createList = $createResp['result_list'] ?? [];
-                $createFirst = $createList[0] ?? [];
-                if (!empty($createFirst['fail_message'])) {
-                    $createMsg = $createFirst['fail_message'];
-                }
-                return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
-                    'ok' => false,
-                    'message' => 'AWB create failed: ' . $createMsg,
-                ]);
-            }
+        // For AJAX: fast path — if create failed, return immediately so frontend retries
+        if ($json && $createError !== '' && $createError !== 'success') {
+            $failMsg = (($createBody['response']['result_list'] ?? [])[0]['fail_message'] ?? null)
+                ?: ($createBody['message'] ?? 'Document not ready yet');
+            return response()->json(['ok' => false, 'ready' => false, 'message' => $failMsg], 422);
         }
 
-        // Step 3: Poll get_shipping_document_result until READY (max ~10s)
+        // Step 3: Poll get_shipping_document_result until READY
         $ready = false;
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            sleep(2);
+        $lastFailMsg = null;
+        $maxPolls = $json ? 2 : 5;        // AJAX: quick check; browser: full wait
+        $pollSleep = $json ? 1 : 2;       // AJAX: 1s; browser: 2s
+        for ($attempt = 0; $attempt < $maxPolls; $attempt++) {
+            sleep($pollSleep);
 
             $pollEntry = ['order_sn' => $orderSn];
             if ($packageNumber) {
@@ -926,14 +1103,10 @@ class ShopeeOrderController extends Controller
             }
 
             if ($status === 'FAILED') {
-                $failMsg = $pollFirst['fail_message'] ?? ($pollFirst['fail_error'] ?? 'Document creation failed');
-                return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
-                    'ok' => false,
-                    'message' => 'AWB creation failed: ' . $failMsg,
-                ]);
+                $lastFailMsg = $pollFirst['fail_message'] ?? ($pollFirst['fail_error'] ?? 'Document creation failed');
+                break;
             }
 
-            // If poll returns an error (not status-based), break and try download anyway
             $pollError = is_array($pollBody) ? ($pollBody['error'] ?? '') : '';
             if ($pollError !== '' && $pollError !== 'success') {
                 break;
@@ -959,22 +1132,23 @@ class ShopeeOrderController extends Controller
             }
             file_put_contents($awbPath, $body);
 
+            if ($json) return response()->json(['ok' => true, 'ready' => true]);
             return response($body, 200)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderSn . '.pdf"');
         }
 
-        // JSON error response
-        $errMsg = 'Unknown error';
+        // JSON error response — download failed
+        $dlErrMsg = 'Unknown error';
         if (is_array($body)) {
-            $errMsg = $body['message'] ?? ($body['error'] ?? $errMsg);
+            $dlErrMsg = $body['message'] ?? ($body['error'] ?? $dlErrMsg);
             $respData = $body['response'] ?? $body;
             if (is_array($respData) && isset($respData['result_list'])) {
                 $firstDl = $respData['result_list'][0] ?? [];
                 if (!empty($firstDl['fail_message'])) {
-                    $errMsg = $firstDl['fail_message'];
+                    $dlErrMsg = $firstDl['fail_message'];
                 } elseif (!empty($firstDl['fail_error'])) {
-                    $errMsg = $firstDl['fail_error'];
+                    $dlErrMsg = $firstDl['fail_error'];
                 }
             }
         }
@@ -990,9 +1164,26 @@ class ShopeeOrderController extends Controller
             'response_body'   => is_array($body) ? $body : ['raw_length' => is_string($body) ? strlen($body) : 0],
         ]);
 
+        // Build informative error: show create + poll + download context
+        $createError = is_array($createBody) ? ($createBody['error'] ?? '') : '';
+        $errorMsg = 'Failed to download AWB: ' . $dlErrMsg;
+        if ($createError !== '' && $createError !== 'success') {
+            $createResp = is_array($createBody) ? ($createBody['response'] ?? $createBody) : [];
+            $createList = is_array($createResp) ? ($createResp['result_list'] ?? []) : [];
+            $createFirst = $createList[0] ?? [];
+            $createFailMsg = $createFirst['fail_message'] ?? ($createBody['message'] ?? $createError);
+            $errorMsg = 'AWB create: ' . $createFailMsg;
+            if ($lastFailMsg) {
+                $errorMsg .= ' | Poll: ' . $lastFailMsg;
+            }
+            $errorMsg .= ' | Download: ' . $dlErrMsg;
+        }
+
+        if ($json) return response()->json(['ok' => false, 'ready' => false, 'message' => $errorMsg], 422);
+
         return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
             'ok' => false,
-            'message' => 'Failed to download AWB: ' . $errMsg,
+            'message' => $errorMsg,
         ]);
     }
 
@@ -1034,7 +1225,7 @@ class ShopeeOrderController extends Controller
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.orders.index', ['tab' => 'RETURN'])->with('shopee_orders_last_result', [
                 'ok' => false,
@@ -1233,23 +1424,4 @@ class ShopeeOrderController extends Controller
         return $ts === false ? null : date('Y-m-d H:i:s', $ts);
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?ShopeeSetting
-    {
-        if (!$setting) return null;
-
-        $setting = $setting->replicate();
-        $setting->id = ShopeeSetting::query()->value('id');
-
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $field) {
-            if (!empty($setting->{$field})) {
-                try {
-                    $setting->{$field} = decrypt($setting->{$field});
-                } catch (\Throwable $e) {
-                    // leave as-is
-                }
-            }
-        }
-
-        return $setting;
-    }
 }

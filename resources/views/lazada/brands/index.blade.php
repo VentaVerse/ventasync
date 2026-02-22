@@ -57,7 +57,7 @@
     </div>
 
     <div class="mt-12">
-        {{ $brands->links() }}
+        {{ $brands->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>
 @endsection

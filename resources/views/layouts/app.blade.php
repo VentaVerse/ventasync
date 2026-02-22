@@ -613,7 +613,7 @@
         .input {
             height: 40px;
             padding: 0 12px;
-            border: 1px solid var(--border);
+            border: 1px solid #cbd5e1;
             border-radius: var(--radius-md);
             background: var(--surface);
             color: var(--text-primary);
@@ -773,12 +773,13 @@
             text-decoration: none;
             color: var(--text-secondary);
             background: var(--surface-alt);
+            border: 1px solid var(--border);
             font-weight: 600;
             font-size: 14.5px;
             transition: all var(--transition-fast);
         }
         .tab:hover { background: #e2e8f0; color: var(--text-primary); }
-        .tab.active { background: var(--accent); color: #fff; }
+        .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
         .tab.disabled { opacity: .55; cursor: not-allowed; }
 
         /* ============================================================
@@ -999,6 +1000,8 @@
             $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
             $canShopee = $u && $u->hasPermission('manage_shopee');
             $canLazada = $u && $u->hasPermission('manage_lazada');
+            $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
+            $canLazadaOrders = $u && $u->hasPermission('manage_lazada_orders');
             $canOpencart = $u && $u->hasPermission('manage_opencart');
 
             $canSettingsParent = $u && $u->hasPermission('manage_settings');
@@ -1009,13 +1012,13 @@
         @endphp
 
         <div class="brand">
-            <div class="brand-stack">
+            <a href="{{ route('dashboard') }}" class="brand-stack" style="text-decoration:none; color:inherit;">
                 @if($logoPath)
                     <img class="brand-logo" src="{{ asset('storage/'.$logoPath) }}" alt="Company Logo">
                 @else
                     <div class="brand-company">{{ $companyName }}</div>
                 @endif
-            </div>
+            </a>
             <button class="toggle-btn" id="sidebarToggle" type="button" aria-label="Toggle Sidebar" title="Toggle Sidebar">
                 <span class="toggle-hamburger"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span>
             </button>
@@ -1028,7 +1031,7 @@
                     <span class="label">Dashboard</span>
                 </a>
 
-                @if($canShopee)
+                @if($canShopeeOrders)
                 <a href="{{ route('shopee.orders.index', ['tab' => 'PENDING']) }}" class="{{ request()->routeIs('shopee.orders.*') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                     <span class="label">Shopee Orders</span>
@@ -1038,8 +1041,8 @@
                 </a>
                 @endif
 
-                @if($canLazada)
-                <a href="{{ route('lazada.orders.index', ['tab' => 'PENDING']) }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
+                @if($canLazadaOrders)
+                <a href="{{ route('lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                     <span class="label">Lazada Orders</span>
                     @if(($lazadaPendingCount ?? 0) > 0)

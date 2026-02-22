@@ -25,7 +25,7 @@ class ShopeeSyncOrders extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             $this->error('Missing Shopee credentials/token. Configure Shopee settings first.');
             return 1;
@@ -39,6 +39,7 @@ class ShopeeSyncOrders extends Command
         if ($this->option('returns')) {
             $this->info('--- Syncing Shopee returns ---');
             $this->syncReturns($client, $setting);
+            ShopeeSetting::query()->update(['last_return_sync_at' => now()]);
             $this->info('Done.');
             return 0;
         }
@@ -59,6 +60,9 @@ class ShopeeSyncOrders extends Command
             $this->info('--- Updating statuses of existing orders ---');
             $this->updateStatuses($client, $setting);
         }
+
+        // Stamp sync timestamp on settings (independent of API logging)
+        ShopeeSetting::query()->update(['last_order_sync_at' => now()]);
 
         $this->info('Done.');
         return 0;
@@ -123,7 +127,7 @@ class ShopeeSyncOrders extends Command
                 'response_status' => (int) ($res['status'] ?? 0),
                 'ok'              => (bool) ($res['ok'] ?? false),
                 'response_body'   => $res['body'] ?? null,
-            ], force: true);
+            ]);
 
             if (!($res['ok'] ?? false)) {
                 $body = $res['body'] ?? [];
@@ -378,7 +382,7 @@ class ShopeeSyncOrders extends Command
                 'response_status' => (int) ($res['status'] ?? 0),
                 'ok'              => (bool) ($res['ok'] ?? false),
                 'response_body'   => $res['body'] ?? null,
-            ], force: true);
+            ]);
 
             if (!($res['ok'] ?? false)) {
                 $body = $res['body'] ?? [];
@@ -478,6 +482,12 @@ class ShopeeSyncOrders extends Command
             $itemId = (string) ($it['item_id'] ?? '');
             $modelId = (string) ($it['model_id'] ?? '');
 
+            // Prefer model_sku (variant) over item_sku (parent) so option-value stock resolves correctly
+            $sku = trim((string) ($it['model_sku'] ?? ''));
+            if ($sku === '') {
+                $sku = trim((string) ($it['item_sku'] ?? ''));
+            }
+
             ShopeeOrderProduct::query()->updateOrCreate(
                 [
                     'shopee_order_id' => $order->id,
@@ -485,7 +495,7 @@ class ShopeeSyncOrders extends Command
                     'model_id'        => $modelId !== '' ? $modelId : null,
                 ],
                 [
-                    'sku'       => ($v = trim((string) ($it['item_sku'] ?? ($it['model_sku'] ?? '')))) !== '' ? $v : null,
+                    'sku'       => $sku !== '' ? $sku : null,
                     'name'      => ($v = trim((string) ($it['item_name'] ?? ''))) !== '' ? $v : null,
                     'variation' => ($v = trim((string) ($it['model_name'] ?? ''))) !== '' ? $v : null,
                     'quantity'  => max(1, (int) ($it['model_quantity_purchased'] ?? ($it['quantity'] ?? 1))),
@@ -514,22 +524,4 @@ class ShopeeSyncOrders extends Command
         return $ts === false ? null : date('Y-m-d H:i:s', $ts);
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?object
-    {
-        if (!$setting) return null;
-
-        $s = (object) $setting->toArray();
-
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $k) {
-            if (!empty($s->$k)) {
-                try {
-                    $s->$k = decrypt($s->$k);
-                } catch (\Throwable $e) {
-                    $s->$k = $s->$k;
-                }
-            }
-        }
-
-        return $s;
-    }
 }

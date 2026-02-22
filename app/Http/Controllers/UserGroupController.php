@@ -19,7 +19,7 @@ class UserGroupController extends Controller
         $groups = [
             'Catalog' => ['manage_catalog', 'manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options'],
             'Sales' => ['manage_sales', 'manage_orders', 'manage_order_statuses'],
-            'Marketplace API' => ['manage_marketplace_api', 'manage_shopee', 'manage_lazada', 'manage_opencart'],
+            'Marketplace API' => ['manage_marketplace_api', 'manage_shopee', 'manage_shopee_orders', 'manage_lazada', 'manage_lazada_orders', 'manage_opencart'],
             'Settings' => ['manage_settings', 'manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log'],
         ];
 

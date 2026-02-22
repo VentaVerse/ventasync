@@ -228,7 +228,7 @@ class ShopeeProductController extends Controller
             'selected_images.*' => 'string',
         ]);
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()
                 ->with('error', 'Missing Shopee settings.');
@@ -350,7 +350,7 @@ class ShopeeProductController extends Controller
 
     public function syncProductIds(Request $request, ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -609,7 +609,7 @@ class ShopeeProductController extends Controller
 
     public function syncQuantity(int $productId, ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -633,7 +633,7 @@ class ShopeeProductController extends Controller
 
     public function syncPrice(int $productId, ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -681,7 +681,7 @@ class ShopeeProductController extends Controller
 
     public function rebuildCache(ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -785,7 +785,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'No products selected.');
         }
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -814,7 +814,7 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'No products selected.');
         }
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -836,7 +836,7 @@ class ShopeeProductController extends Controller
     {
         $tag = '[ShopeeSync:single:' . $productId . ']';
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->back()->with('error', 'Missing Shopee settings.');
         }
@@ -1207,7 +1207,7 @@ class ShopeeProductController extends Controller
 
     // ── Model-Aware Stock Push Helper ───────────────────────────────
 
-    private function pushStockForLinks(ShopeeClient $client, ShopeeSetting $setting, string $pfx, $links): array
+    private function pushStockForLinks(ShopeeClient $client, object $setting, string $pfx, $links): array
     {
         $ok = 0;
         $err = 0;
@@ -1268,6 +1268,17 @@ class ShopeeProductController extends Controller
             ]);
 
             $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
+            $syncData = [
+                'last_synced_at' => now(),
+                'last_sync_action' => 'sync_qty',
+                'last_sync_ok' => $isOk,
+                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
+                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
+            ];
+            foreach ($itemLinks as $link) {
+                $link->update($syncData);
+            }
+
             if ($isOk) {
                 $ok += count($stockList);
             } else {
@@ -1281,7 +1292,7 @@ class ShopeeProductController extends Controller
 
     // ── Model-Aware Price Push Helper ───────────────────────────────
 
-    private function pushPriceForLinks(ShopeeClient $client, ShopeeSetting $setting, string $pfx, $links): array
+    private function pushPriceForLinks(ShopeeClient $client, object $setting, string $pfx, $links): array
     {
         $ok = 0;
         $err = 0;
@@ -1343,6 +1354,17 @@ class ShopeeProductController extends Controller
             ]);
 
             $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
+            $syncData = [
+                'last_synced_at' => now(),
+                'last_sync_action' => 'sync_price',
+                'last_sync_ok' => $isOk,
+                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
+                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
+            ];
+            foreach ($itemLinks as $link) {
+                $link->update($syncData);
+            }
+
             if ($isOk) {
                 $ok += count($priceList);
             } else {
@@ -1454,7 +1476,7 @@ class ShopeeProductController extends Controller
         return null;
     }
 
-    private function uploadImage(ShopeeClient $client, ShopeeSetting $setting, string $localPath): array
+    private function uploadImage(ShopeeClient $client, object $setting, string $localPath): array
     {
         $path = '/api/v2/media_space/upload_image';
         $timestamp = time();
@@ -1496,7 +1518,7 @@ class ShopeeProductController extends Controller
      * Fetch all Shopee item IDs across 15-day time windows (API limit).
      * Scans NORMAL + UNLIST statuses, going back $days days.
      */
-    private function fetchAllShopeeItemIds(ShopeeClient $client, ShopeeSetting $setting, int $days = 730, ?string $logPack = null): array
+    private function fetchAllShopeeItemIds(ShopeeClient $client, object $setting, int $days = 730, ?string $logPack = null): array
     {
         $now = time();
         $allItemIds = [];
@@ -1559,16 +1581,4 @@ class ShopeeProductController extends Controller
         return array_values(array_unique($allItemIds));
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?ShopeeSetting
-    {
-        if (!$setting) return null;
-        $setting = $setting->replicate();
-        $setting->id = ShopeeSetting::query()->value('id');
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $field) {
-            if (!empty($setting->{$field})) {
-                try { $setting->{$field} = decrypt($setting->{$field}); } catch (\Throwable $e) {}
-            }
-        }
-        return $setting;
-    }
 }

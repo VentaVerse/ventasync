@@ -93,6 +93,10 @@
                 $firstProduct = $o->products->first();
                 $imgPath = $firstProduct ? trim($productImages[$firstProduct->order_product_id] ?? '') : '';
                 $imgSrc = $imgPath !== '' ? asset('storage/' . ltrim($imgPath, '/')) : '';
+                if ($imgSrc === '' && $firstProduct) {
+                    $lzImg = trim($lazadaImages[$firstProduct->order_product_id] ?? '');
+                    if ($lzImg !== '') { $imgSrc = $lzImg; }
+                }
             @endphp
             <tr>
                 <td><input type="checkbox" class="ord-row-check" name="ids[]" value="{{ (int)$o->order_id }}" form="ord-bulk-form"></td>

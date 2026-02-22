@@ -296,7 +296,7 @@ class OpenCartProductSync
                 $link = $links->get($pid);
                 $ocPid = (int) $link->oc_product_id;
 
-                $products[] = [
+                $productData = [
                     'product_id'  => $ocPid,
                     'quantity'    => (int) $product->quantity,
                     'price'       => (string) $product->price,
@@ -308,6 +308,14 @@ class OpenCartProductSync
                     'weight'      => (string) $product->weight,
                     'image'       => $product->image ?? '',
                 ];
+
+                // Include options so new/updated variants are synced
+                $options = $this->buildOptionsPayload((int) $pid, $pfx, $langId);
+                if (!empty($options)) {
+                    $productData['options'] = $options;
+                }
+
+                $products[] = $productData;
                 $chunkMap[$ocPid] = $pid;
             }
 
@@ -515,6 +523,19 @@ class OpenCartProductSync
         }
 
         // Options with names
+        $optionsPayload = $this->buildOptionsPayload($productId, $pfx, $langId);
+        if (!empty($optionsPayload)) {
+            $payload['options'] = $optionsPayload;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Build the options payload for a product (used by both create and update).
+     */
+    private function buildOptionsPayload(int $productId, string $pfx, int $langId): array
+    {
         $productOptions = DB::table($pfx . 'product_option AS po')
             ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
                 $join->on('po.option_id', '=', 'od.option_id')
@@ -525,45 +546,46 @@ class OpenCartProductSync
             ->select('po.product_option_id', 'po.option_id', 'po.required', 'od.name AS option_name', 'o.type')
             ->get();
 
-        if ($productOptions->isNotEmpty()) {
-            $optionsPayload = [];
-            foreach ($productOptions as $po) {
-                $values = DB::table($pfx . 'product_option_value AS pov')
-                    ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
-                        $join->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                            ->where('ovd.language_id', '=', $langId);
-                    })
-                    ->where('pov.product_option_id', (int) $po->product_option_id)
-                    ->select(
-                        'ovd.name', 'pov.sku', 'pov.quantity', 'pov.subtract',
-                        'pov.price', 'pov.price_prefix',
-                        'pov.weight', 'pov.weight_prefix',
-                        'pov.points', 'pov.points_prefix'
-                    )
-                    ->get();
-
-                $optionsPayload[] = [
-                    'option_name' => $po->option_name,
-                    'type'        => $po->type,
-                    'required'    => (int) $po->required,
-                    'values'      => $values->map(fn($v) => [
-                        'name'          => $v->name,
-                        'sku'           => $v->sku ?? '',
-                        'quantity'      => (int) $v->quantity,
-                        'subtract'      => (int) $v->subtract,
-                        'price'         => (float) $v->price,
-                        'price_prefix'  => $v->price_prefix ?? '+',
-                        'weight'        => (float) $v->weight,
-                        'weight_prefix' => $v->weight_prefix ?? '+',
-                        'points'        => (int) $v->points,
-                        'points_prefix' => $v->points_prefix ?? '+',
-                    ])->toArray(),
-                ];
-            }
-            $payload['options'] = $optionsPayload;
+        if ($productOptions->isEmpty()) {
+            return [];
         }
 
-        return $payload;
+        $optionsPayload = [];
+        foreach ($productOptions as $po) {
+            $values = DB::table($pfx . 'product_option_value AS pov')
+                ->join($pfx . 'option_value_description AS ovd', function ($join) use ($langId) {
+                    $join->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        ->where('ovd.language_id', '=', $langId);
+                })
+                ->where('pov.product_option_id', (int) $po->product_option_id)
+                ->select(
+                    'ovd.name', 'pov.sku', 'pov.quantity', 'pov.subtract',
+                    'pov.price', 'pov.price_prefix',
+                    'pov.weight', 'pov.weight_prefix',
+                    'pov.points', 'pov.points_prefix'
+                )
+                ->get();
+
+            $optionsPayload[] = [
+                'option_name' => $po->option_name,
+                'type'        => $po->type,
+                'required'    => (int) $po->required,
+                'values'      => $values->map(fn($v) => [
+                    'name'          => $v->name,
+                    'sku'           => $v->sku ?? '',
+                    'quantity'      => (int) $v->quantity,
+                    'subtract'      => (int) $v->subtract,
+                    'price'         => (float) $v->price,
+                    'price_prefix'  => $v->price_prefix ?? '+',
+                    'weight'        => (float) $v->weight,
+                    'weight_prefix' => $v->weight_prefix ?? '+',
+                    'points'        => (int) $v->points,
+                    'points_prefix' => $v->points_prefix ?? '+',
+                ])->toArray(),
+            ];
+        }
+
+        return $optionsPayload;
     }
 
     /**

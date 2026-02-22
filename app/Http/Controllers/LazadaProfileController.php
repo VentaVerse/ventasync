@@ -348,7 +348,7 @@ class LazadaProfileController extends Controller
         $lazadaCategoryId = (int) $request->input('lazada_category_id');
         $profile->update(['lazada_category_id' => $lazadaCategoryId]);
 
-        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
             return redirect()->route('lazada.profiles.edit', $profile->id)
                 ->with('status', 'Missing Lazada settings.');
@@ -572,18 +572,6 @@ class LazadaProfileController extends Controller
     {
         $setting = LazadaSetting::query()->first();
         return (string) ($setting->region ?? '');
-    }
-
-    private function decryptSetting(?LazadaSetting $setting): ?LazadaSetting
-    {
-        if (!$setting) return null;
-        $copy = $setting->replicate();
-        foreach (['app_secret', 'access_token', 'refresh_token', 'auth_code'] as $field) {
-            try {
-                if ($copy->{$field}) $copy->{$field} = decrypt($copy->{$field});
-            } catch (\Throwable $e) {}
-        }
-        return $copy;
     }
 
     private function extractAttributes($body): array

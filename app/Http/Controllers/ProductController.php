@@ -7,6 +7,7 @@ use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductDescription;
 use App\Models\Catalog\ProductToCategory;
 use App\Models\Catalog\ProductImage;
+use App\Rules\UniqueSku;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -473,7 +474,7 @@ public function store(Request $request)
         $request->validate([
             'name' => 'required|string|max:255',
             'model' => 'required|string|max:64',
-            'sku' => "required|string|max:64|unique:{$pfxProduct},sku",
+            'sku' => ['required', 'string', 'max:64', new UniqueSku()],
             'price' => 'required|numeric',
             'quantity' => 'required|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
@@ -743,7 +744,7 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         $request->validate([
             'name' => 'required|string|max:255',
             'model' => 'required|string|max:64',
-            'sku' => "required|string|max:64|unique:{$pfxProduct},sku,{$id},product_id",
+            'sku' => ['required', 'string', 'max:64', new UniqueSku((int) $id)],
             'price' => 'required|numeric',
             'quantity' => 'required|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
@@ -783,14 +784,24 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         // If options exist, quantity must be forced from option quantities (server-side enforcement).
         $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
 
-        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $resolvedCategoryId, $forcedQty) {
+        $skuChanges = ['product_sku' => null, 'option_skus' => []];
+
+        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $resolvedCategoryId, $forcedQty, &$skuChanges) {
             /** @var Product $p */
             $p = Product::where('product_id', (int) $id)->firstOrFail();
 
             $oldManufacturerId = (int) ($p->manufacturer_id ?? 0);
 
+            // Detect product-level SKU change
+            $oldProductSku = trim((string) $p->sku);
+
             $p->model = $request->model ?? ($request->sku ?? '');
             $p->sku = $request->sku ?? '';
+
+            $newProductSku = trim((string) $p->sku);
+            if ($oldProductSku !== '' && $newProductSku !== '' && $oldProductSku !== $newProductSku) {
+                $skuChanges['product_sku'] = ['old' => $oldProductSku, 'new' => $newProductSku];
+            }
             $p->quantity = $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity;
             $p->weight = (float) ($request->input('weight', $p->weight ?? 0) ?? 0);
             $p->length = (float) ($request->input('length', $p->length ?? 0) ?? 0);
@@ -852,7 +863,7 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
 
             // Save product options (OpenCart-like: options can be set during Add/Edit)
             $options = $request->input('options', []);
-            $this->saveProductOptions((int) $id, $options);
+            $this->saveProductOptions((int) $id, $options, $skuChanges);
             // Save product images (main + additional)
             if ($request->has('images_json')) {
                 $items = $this->imagesFromRequest($request->input('images_json'));
@@ -861,12 +872,21 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
             }
         });
 
-        $returnUrl = $request->input('_return');
-        if ($returnUrl && str_starts_with($returnUrl, url('/'))) {
-            return redirect($returnUrl)->with('status', 'Saved');
+        // Sync SKU changes to connected platforms (after transaction commits)
+        $status = 'Saved';
+        if (!empty($skuChanges['product_sku']) || !empty($skuChanges['option_skus'])) {
+            $syncMessages = (new \App\Services\SkuSyncService())->syncSkuChanges((int) $id, $skuChanges);
+            if (!empty($syncMessages)) {
+                $status .= ' | SKU synced: ' . implode(' | ', $syncMessages);
+            }
         }
 
-        return redirect()->route('products.index')->with('status','Saved');
+        $returnUrl = $request->input('_return');
+        if ($returnUrl && str_starts_with($returnUrl, url('/'))) {
+            return redirect($returnUrl)->with('status', $status);
+        }
+
+        return redirect()->route('products.index')->with('status', $status);
     }
 
     public function destroy($id)
@@ -922,28 +942,52 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
 
 /**
      * Persist product options in OpenCart tables (product_option / product_option_value).
-     * Safe to call from Add/Edit; replace strategy (idempotent).
+     * Uses upsert strategy to preserve product_option_value_id across edits,
+     * since downstream systems (Lazada/Shopee variant mappings) reference these IDs.
      */
-    private function saveProductOptions(int $productId, array $options): void
+    private function saveProductOptions(int $productId, array $options, array &$skuChanges = []): void
     {
         $p = config('catalog.prefix');
 
         // Normalize
         $options = array_values(array_filter($options ?? [], fn ($o) => is_array($o)));
 
-        // Replace strategy: clear existing first
-        $existingPoIds = DB::table($p.'product_option')
-            ->where('product_id', $productId)
-            ->pluck('product_option_id')
-            ->map(fn ($v) => (int) $v)
-            ->all();
-
-        if (!empty($existingPoIds)) {
-            DB::table($p.'product_option_value')->whereIn('product_option_id', $existingPoIds)->delete();
+        // Validate SKU uniqueness across product.sku and product_option_value.sku
+        $skuRule = new UniqueSku($productId);
+        $errors = [];
+        foreach ($options as $oi => $opt) {
+            foreach (($opt['values'] ?? []) as $vi => $v) {
+                $sku = trim((string) ($v['sku'] ?? ''));
+                if ($sku === '') continue;
+                $skuRule->validate("options.{$oi}.values.{$vi}.sku", $sku, function (string $msg) use (&$errors) {
+                    $errors[] = $msg;
+                });
+            }
         }
-        DB::table($p.'product_option')->where('product_id', $productId)->delete();
+        if (!empty($errors)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['sku' => $errors]);
+        }
+
+        // Index existing product_option rows by option_id
+        $existingPo = DB::table($p.'product_option')
+            ->where('product_id', $productId)
+            ->get()
+            ->keyBy('option_id');
+
+        // Index existing product_option_value rows by "option_id:option_value_id"
+        $existingPov = DB::table($p.'product_option_value')
+            ->where('product_id', $productId)
+            ->get()
+            ->keyBy(fn ($r) => $r->option_id . ':' . $r->option_value_id);
 
         if (empty($options)) {
+            // Remove all if no options provided
+            if ($existingPov->isNotEmpty()) {
+                DB::table($p.'product_option_value')->where('product_id', $productId)->delete();
+            }
+            if ($existingPo->isNotEmpty()) {
+                DB::table($p.'product_option')->where('product_id', $productId)->delete();
+            }
             return;
         }
 
@@ -965,6 +1009,9 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
             }
         }
 
+        $seenPoOptionIds = [];
+        $seenPovKeys = [];
+
         foreach ($options as $opt) {
             $optionId = (int) ($opt['option_id'] ?? 0);
             if ($optionId < 1) {
@@ -972,13 +1019,21 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
             }
 
             $required = (int) ($opt['required'] ?? 0);
+            $seenPoOptionIds[] = $optionId;
 
-            $productOptionId = DB::table($p.'product_option')->insertGetId([
-                'product_id' => $productId,
-                'option_id' => $optionId,
-                'value' => '', // not used for select/radio/checkbox/image
-                'required' => $required,
-            ]);
+            if (isset($existingPo[$optionId])) {
+                $productOptionId = (int) $existingPo[$optionId]->product_option_id;
+                DB::table($p.'product_option')
+                    ->where('product_option_id', $productOptionId)
+                    ->update(['required' => $required]);
+            } else {
+                $productOptionId = DB::table($p.'product_option')->insertGetId([
+                    'product_id' => $productId,
+                    'option_id' => $optionId,
+                    'value' => '',
+                    'required' => $required,
+                ]);
+            }
 
             $vals = $opt['values'] ?? [];
             if (!is_array($vals)) {
@@ -994,26 +1049,87 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
                     continue;
                 }
 
+                $key = $optionId . ':' . $ovId;
+                $seenPovKeys[] = $key;
 
-                $row = [
-                    'product_option_id' => (int) $productOptionId,
-                    'product_id' => $productId,
-                    'option_id' => $optionId,
-                    'option_value_id' => $ovId,
+                $data = [
                     'sku' => (string) ($v['sku'] ?? ''),
                     'quantity' => (int) ($v['quantity'] ?? 0),
                     'subtract' => (int) ($v['subtract'] ?? 1),
                     'price' => (float) ($v['price'] ?? 0),
                     'price_prefix' => (string) ($v['price_prefix'] ?? '+'),
-                    // Points kept in DB schema, but not used in UI
-                    'points' => 0,
-                    'points_prefix' => '+',
                     'weight' => (float) ($v['weight'] ?? 0),
                     'weight_prefix' => (string) ($v['weight_prefix'] ?? '+'),
                 ];
 
-                DB::table($p.'product_option_value')->insert($row);
+                if (isset($existingPov[$key])) {
+                    // Track SKU changes for marketplace link updates
+                    $oldSku = trim((string) ($existingPov[$key]->sku ?? ''));
+                    $newSku = $data['sku'];
+                    if ($oldSku !== '' && $newSku !== $oldSku) {
+                        DB::table('shopee_product_links')
+                            ->where('product_id', $productId)
+                            ->where('sku', $oldSku)
+                            ->update(['sku' => $newSku]);
+
+                        DB::table('lazada_product_variants')
+                            ->whereIn('lazada_product_id', function ($q) use ($productId) {
+                                $q->select('id')->from('lazada_products')->where('product_id', $productId);
+                            })
+                            ->where('seller_sku', $oldSku)
+                            ->update(['seller_sku' => $newSku]);
+
+                        // Record for platform API sync after transaction
+                        $povId = (int) $existingPov[$key]->product_option_value_id;
+                        $skuChanges['option_skus'][$povId] = ['old' => $oldSku, 'new' => $newSku];
+                    }
+
+                    DB::table($p.'product_option_value')
+                        ->where('product_option_value_id', $existingPov[$key]->product_option_value_id)
+                        ->update(array_merge($data, ['product_option_id' => $productOptionId]));
+                } else {
+                    DB::table($p.'product_option_value')->insert(array_merge($data, [
+                        'product_option_id' => $productOptionId,
+                        'product_id' => $productId,
+                        'option_id' => $optionId,
+                        'option_value_id' => $ovId,
+                        'points' => 0,
+                        'points_prefix' => '+',
+                    ]));
+                }
             }
+        }
+
+        // Remove option values no longer in the incoming list
+        $deletedPovIds = [];
+        foreach ($existingPov as $key => $row) {
+            if (!in_array($key, $seenPovKeys, true)) {
+                $deletedPovIds[] = (int) $row->product_option_value_id;
+                DB::table($p.'product_option_value')->where('product_option_value_id', $row->product_option_value_id)->delete();
+            }
+        }
+
+        // Remove product options no longer in the incoming list
+        foreach ($existingPo as $optId => $row) {
+            if (!in_array((int) $optId, $seenPoOptionIds, true)) {
+                // Collect IDs of option values being removed with the option group
+                $groupPovIds = DB::table($p.'product_option_value')
+                    ->where('product_option_id', $row->product_option_id)
+                    ->pluck('product_option_value_id')
+                    ->map(fn ($v) => (int) $v)
+                    ->all();
+                $deletedPovIds = array_merge($deletedPovIds, $groupPovIds);
+
+                DB::table($p.'product_option_value')->where('product_option_id', $row->product_option_id)->delete();
+                DB::table($p.'product_option')->where('product_option_id', $row->product_option_id)->delete();
+            }
+        }
+
+        // Clean stale downstream references for deleted option values
+        if (!empty($deletedPovIds)) {
+            DB::table('lazada_product_variants')
+                ->whereIn('product_option_value_id', $deletedPovIds)
+                ->update(['product_option_value_id' => null]);
         }
     }
 

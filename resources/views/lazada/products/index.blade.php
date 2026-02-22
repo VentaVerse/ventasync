@@ -211,7 +211,7 @@
         <th style="width:70px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Qty{!! $sortIcon('quantity') !!}</a></th>
         <th style="width:90px;"><a href="{{ $sortUrl('product_status') }}" style="text-decoration:none; color:inherit;">Status{!! $sortIcon('product_status') !!}</a></th>
         <th style="width:110px;"><a href="{{ $sortUrl('lazada_status') }}" style="text-decoration:none; color:inherit;">Lazada{!! $sortIcon('lazada_status') !!}</a></th>
-        <th style="width:60px;">Sync</th>
+        <th style="width:140px;">Sync</th>
         <th style="width:50px;"></th>
     </tr>
     </thead>
@@ -237,8 +237,8 @@
                 $lazadaStatusLabel = 'Not Uploaded';
             }
 
-            $hasSyncInfo = !is_null($l->last_synced_at) || !is_null($l->last_sync_ok) || !is_null($l->last_sync_error_code);
-            $hasError = $hasSyncInfo && !empty($l->last_sync_error_code);
+            $hasSyncInfo = !is_null($l->last_synced_at) || !is_null($l->last_sync_ok);
+            $hasError = $hasSyncInfo && !is_null($l->last_sync_ok) && !$l->last_sync_ok;
             $errCode = (string)($l->last_sync_error_code ?? '');
             $errMsg = (string)($l->last_sync_error_message ?? '');
         @endphp
@@ -317,13 +317,24 @@
                     <span class="text-muted">-</span>
                 @endif
             </td>
-            <td class="text-center">
+            <td>
                 @if(!$hasSyncInfo)
                     <span class="text-muted">-</span>
-                @elseif($hasError)
-                    <span class="badge badge-red" title="{{ $errCode }}: {{ $errMsg }}" style="cursor:help;">Err</span>
                 @else
-                    <span class="badge badge-green">OK</span>
+                    <div style="line-height:1.4;">
+                        @if($hasError)
+                            <span class="badge badge-red">Err</span>
+                            <div class="text-xs" style="margin-top:3px; color:var(--danger); word-break:break-word;">{{ $errCode }}@if($errMsg): {{ Str::limit($errMsg, 60) }}@endif</div>
+                        @else
+                            <span class="badge badge-green">OK</span>
+                        @endif
+                        @if($l->last_sync_action)
+                            <div class="text-xs text-muted" style="margin-top:2px;">{{ $l->last_sync_action }}</div>
+                        @endif
+                        @if($l->last_synced_at)
+                            <div class="text-xs text-muted" style="margin-top:1px;">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</div>
+                        @endif
+                    </div>
                 @endif
             </td>
             <td>
@@ -367,6 +378,13 @@
                             </button>
                         </form>
                         <div style="border-top:1px solid var(--border-light); margin:4px 0;"></div>
+                        <form method="POST" action="{{ route('lazada.products.unlink', $l->id) }}" style="margin:0;" onsubmit="return confirm('Unlink this product from Lazada ERP? This removes the ERP link only — the Lazada listing is not deleted. You can re-sync afterwards.');">
+                            @csrf
+                            <button type="submit" class="action-item" style="color:var(--danger);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                                Unlink from Lazada
+                            </button>
+                        </form>
                         <form method="POST" action="{{ route('lazada.products.delete_lazada', $l->id) }}" style="margin:0;" onsubmit="return confirm('Delete this product from Lazada? This cannot be undone.');">
                             @csrf
                             <button type="submit" class="action-item" style="color:var(--danger);">
@@ -393,6 +411,13 @@
             </div>
         @endif
     </div>
+
+<div class="bulk-loading-overlay" id="loadingOverlay">
+    <div class="bulk-loading-box">
+        <div class="spinner"></div>
+        <div class="msg" id="loadingMsg">Processing...</div>
+    </div>
+</div>
 
 @push('scripts')
 <style>
@@ -427,6 +452,41 @@
         .card form[style*="grid-template-columns"] {
             grid-template-columns: 1fr !important;
         }
+    }
+
+    /* Bulk action loading overlay */
+    .bulk-loading-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(0,0,0,.35);
+        align-items: center;
+        justify-content: center;
+    }
+    .bulk-loading-overlay.active { display: flex; }
+    .bulk-loading-box {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        padding: 28px 36px;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+        max-width: 320px;
+    }
+    .bulk-loading-box .spinner {
+        display: inline-block;
+        width: 28px; height: 28px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .bulk-loading-box .msg {
+        margin-top: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
     }
 </style>
 <script>
@@ -502,6 +562,15 @@
                 inp.value = id;
                 form.appendChild(inp);
             });
+
+            // Show loading overlay
+            var overlay = document.getElementById('loadingOverlay');
+            var msg = document.getElementById('loadingMsg');
+            if (overlay) {
+                if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
+                overlay.classList.add('active');
+            }
+            form.querySelector('button[type="submit"]').disabled = true;
         });
     });
 
@@ -544,6 +613,18 @@
             closeMenu();
         }
     });
+    // ── Loading overlay for individual action forms ─────────────
+    document.querySelectorAll('.action-menu form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            var overlay = document.getElementById('loadingOverlay');
+            var msg = document.getElementById('loadingMsg');
+            if (overlay) {
+                if (msg) msg.textContent = 'Processing...';
+                overlay.classList.add('active');
+            }
+        });
+    });
+
     // ── Unmatched Items: Product Search ──────────────────────────
     var lazSearchUrl = @json(route('lazada.products.search_catalog'));
     var lazDebounceTimers = {};

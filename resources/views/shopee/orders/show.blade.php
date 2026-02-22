@@ -56,10 +56,7 @@
         <a href="{{ route('shopee.orders.index') }}" class="btn secondary">← Back to Orders</a>
         <a href="{{ route('shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1]) }}" class="btn">Refresh from Shopee</a>
         @if($isToPack)
-            <form method="POST" action="{{ route('shopee.orders.ship', ['orderSn' => $order->order_sn]) }}" onsubmit="return confirm('Ship this order now?');" style="display:inline;">
-                @csrf
-                <button type="submit" class="btn" style="background:#16a34a; border-color:#16a34a; color:#fff;">Ship Order</button>
-            </form>
+            <button type="button" id="btnArrangeShipShow" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;">Arrange Shipment</button>
         @endif
     </div>
 </div>
@@ -104,6 +101,15 @@
         </div>
     </div>
 </div>
+
+@if($tracking !== '')
+<div class="card mt-16">
+    <h3 class="section-title mt-0">Tracking History</h3>
+    <div id="trackingHistoryBody">
+        <button type="button" class="btn small" id="btnLoadTracking">Load Tracking Info</button>
+    </div>
+</div>
+@endif
 
 <div class="card">
     <h3 class="section-title mt-0">Items</h3>
@@ -158,25 +164,32 @@
 </div>
 
 @php
-    $fees = is_array($order->fees ?? null) ? $order->fees : [];
+    $feesRaw = is_array($order->fees ?? null) ? $order->fees : [];
+    // Support both flat format and old nested format (order_income sub-key)
+    $fees = (isset($feesRaw['order_income']) && is_array($feesRaw['order_income']))
+        ? $feesRaw['order_income']
+        : $feesRaw;
     $hasFees = !empty($fees);
 
     // Shopee escrow detail fields
     $oBuyerTotal = (float)($fees['buyer_total_amount'] ?? 0);
     $oOriginalPrice = (float)($fees['original_price'] ?? 0);
     $oSellerDiscount = (float)($fees['seller_discount'] ?? 0);
-    $oPlatformDiscount = (float)($fees['platform_discount'] ?? 0);
+    $oPlatformDiscount = (float)($fees['shopee_discount'] ?? ($fees['platform_discount'] ?? 0));
     $oVoucherSeller = (float)($fees['voucher_from_seller'] ?? 0);
-    $oVoucherPlatform = (float)($fees['voucher_from_platform'] ?? 0);
+    $oVoucherPlatform = (float)($fees['voucher_from_shopee'] ?? ($fees['voucher_from_platform'] ?? 0));
     $oCoinOffset = (float)($fees['coins'] ?? ($fees['coin_offset'] ?? 0));
     $oCommission = (float)($fees['commission_fee'] ?? 0);
     $oServiceFee = (float)($fees['service_fee'] ?? 0);
     $oTransactionFee = (float)($fees['seller_transaction_fee'] ?? ($fees['credit_card_transaction_fee'] ?? 0));
     $oShippingBuyer = (float)($fees['buyer_paid_shipping_fee'] ?? 0);
-    $oShippingDiscount = (float)($fees['shipping_fee_discount_from_3pl'] ?? 0);
-    $oShippingSeller = (float)($fees['seller_shipping_discount'] ?? ($fees['shipping_seller'] ?? 0));
-    $oEscrow = (float)($fees['escrow_amount'] ?? ($fees['order_income'] ?? 0));
+    $oShippingDiscount = (float)($fees['shipping_fee_discount_from_3pl'] ?? ($fees['shopee_shipping_rebate'] ?? 0));
+    $oShippingSeller = (float)($fees['seller_shipping_discount'] ?? ($fees['final_shipping_fee'] ?? ($fees['actual_shipping_fee'] ?? 0)));
+    $oEscrow = (float)($fees['escrow_amount'] ?? 0);
     $oSellerDue = (float)($fees['seller_due'] ?? 0);
+    $oCrossBorderTax = (float)($fees['cross_border_tax'] ?? 0);
+    $oEscrowTax = (float)($fees['escrow_tax'] ?? 0);
+    $oPaymentPromotion = (float)($fees['payment_promotion'] ?? 0);
 
     // Compute net if escrow is available
     $netAmount = $oEscrow ?: $oSellerDue;
@@ -228,15 +241,24 @@
                     @if($oTransactionFee)
                     <tr><td class="text-secondary">Transaction Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oTransactionFee), 2) }}</td></tr>
                     @endif
+                    @if($oCrossBorderTax)
+                    <tr><td class="text-secondary">Cross-border Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oCrossBorderTax), 2) }}</td></tr>
+                    @endif
+                    @if($oEscrowTax)
+                    <tr><td class="text-secondary">Escrow Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oEscrowTax), 2) }}</td></tr>
+                    @endif
+                    @if($oPaymentPromotion)
+                    <tr><td class="text-secondary">Payment Promotion</td><td class="text-right">{{ number_format($oPaymentPromotion, 2) }}</td></tr>
+                    @endif
                     @if($oShippingDiscount)
-                    <tr><td class="text-secondary">3PL Shipping Discount</td><td class="text-right">{{ number_format($oShippingDiscount, 2) }}</td></tr>
+                    <tr><td class="text-secondary">Shipping Rebate (3PL)</td><td class="text-right">{{ number_format($oShippingDiscount, 2) }}</td></tr>
                     @endif
                     @if($oShippingSeller)
-                    <tr><td class="text-secondary">Seller Shipping Cost</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oShippingSeller), 2) }}</td></tr>
+                    <tr><td class="text-secondary">Final Shipping Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oShippingSeller), 2) }}</td></tr>
                     @endif
                     @if($netAmount)
                     <tr style="border-top:2px solid var(--border);">
-                        <td class="font-bold">Net to Seller</td>
+                        <td class="font-bold">Net to Seller (Escrow)</td>
                         <td class="text-right font-bold" style="font-size:1.1em; color:#16a34a;">{{ number_format($netAmount, 2) }}</td>
                     </tr>
                     @endif
@@ -244,6 +266,14 @@
             </table>
         </div>
     </div>
+    @if(!$oCommission && !$oServiceFee && !$oTransactionFee)
+        <div class="text-secondary text-xs mt-12" style="padding:0 4px;">Fee details may not be available until the order is completed and settled by Shopee.</div>
+    @endif
+</div>
+@else
+<div class="card mt-16">
+    <h3 class="section-title mt-0">Fees & Revenue Breakdown</h3>
+    <div class="text-secondary">No escrow/fee data available yet. Click <strong>Refresh from Shopee</strong> to fetch — fees are typically available after order completion.</div>
 </div>
 @endif
 
@@ -357,4 +387,364 @@
         <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
     </details>
 </div>
+
+@if($isToPack)
+{{-- Arrange Shipment modal --}}
+<div id="spShipModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.45); align-items:center; justify-content:center;">
+    <div style="background:var(--bg, #fff); border-radius:12px; padding:24px; max-width:520px; width:95%; max-height:90vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;">Arrange Shipment</h3>
+            <button type="button" id="btnCloseShipShow" style="background:none; border:none; font-size:24px; cursor:pointer; color:inherit;">&times;</button>
+        </div>
+        <div style="margin-top:12px;">
+            <div class="text-secondary text-sm">Order: <strong>{{ $order->order_sn }}</strong></div>
+        </div>
+
+        {{-- Step 1: Choose shipping type --}}
+        <div id="shipStep1Show">
+            <div class="text-sm" style="margin-top:10px;">How will this order be shipped?</div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+                <button type="button" class="btn secondary btnShipChoiceShow" data-type="dropoff" style="flex:1;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    Drop Off
+                </button>
+                <button type="button" class="btn btnShipChoiceShow" data-type="pickup" style="flex:1;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    Pickup
+                </button>
+            </div>
+        </div>
+
+        {{-- Step 2: Address/branch selection --}}
+        <div id="shipStep2Show" style="display:none;">
+            <div id="shipStep2LoadingShow" style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+                <div style="width:16px; height:16px; border:3px solid #cbd5e1; border-top-color:#EE4D2D; border-radius:50%; animation:spSpinShow 0.8s linear infinite;"></div>
+                <span class="text-secondary text-sm">Loading addresses…</span>
+            </div>
+            <div id="shipStep2ContentShow" style="display:none; margin-top:12px;"></div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+                <button type="button" id="btnShipBackShow" class="btn secondary" style="flex:0;">&larr; Back</button>
+                <button type="button" id="btnShipConfirmShow" class="btn" style="flex:1; background:#EE4D2D; border-color:#EE4D2D; color:#fff;" disabled>Confirm &amp; Ship</button>
+            </div>
+        </div>
+
+        <form method="POST" id="formShipOrderShow" action="{{ route('shopee.orders.ship', ['orderSn' => $order->order_sn]) }}" style="display:none;">
+            @csrf
+            <input type="hidden" name="shipping_type" id="shipTypeInputShow" value="">
+            <input type="hidden" name="address_id" id="shipAddressInputShow" value="">
+            <input type="hidden" name="branch_id" id="shipBranchInputShow" value="">
+        </form>
+    </div>
+</div>
+<style>@keyframes spSpinShow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var shipModal = document.getElementById('spShipModal');
+    var btnOpen = document.getElementById('btnArrangeShipShow');
+    var btnClose = document.getElementById('btnCloseShipShow');
+    var shipForm = document.getElementById('formShipOrderShow');
+    var shipTypeInput = document.getElementById('shipTypeInputShow');
+    var shipAddressInput = document.getElementById('shipAddressInputShow');
+    var shipBranchInput = document.getElementById('shipBranchInputShow');
+    var shipStep1 = document.getElementById('shipStep1Show');
+    var shipStep2 = document.getElementById('shipStep2Show');
+    var shipStep2Loading = document.getElementById('shipStep2LoadingShow');
+    var shipStep2Content = document.getElementById('shipStep2ContentShow');
+    var btnConfirm = document.getElementById('btnShipConfirmShow');
+    var btnBack = document.getElementById('btnShipBackShow');
+    var currentShipType = '';
+    var isShipping = false;
+
+    if (!btnOpen || !shipModal) return;
+
+    function resetModal() {
+        shipStep1.style.display = '';
+        shipStep2.style.display = 'none';
+        shipStep2Loading.style.display = 'flex';
+        shipStep2Content.style.display = 'none';
+        shipStep2Content.innerHTML = '';
+        shipAddressInput.value = '';
+        shipBranchInput.value = '';
+        btnConfirm.disabled = true;
+        currentShipType = '';
+    }
+
+    btnOpen.addEventListener('click', function () {
+        resetModal();
+        shipModal.style.display = 'flex';
+    });
+
+    btnClose.addEventListener('click', function () {
+        if (!isShipping) shipModal.style.display = 'none';
+    });
+
+    shipModal.addEventListener('click', function (e) {
+        if (e.target === shipModal && !isShipping) shipModal.style.display = 'none';
+    });
+
+    document.querySelectorAll('.btnShipChoiceShow').forEach(function (el) {
+        el.addEventListener('click', function () {
+            currentShipType = el.getAttribute('data-type');
+            shipTypeInput.value = currentShipType;
+            shipStep1.style.display = 'none';
+            shipStep2.style.display = '';
+            shipStep2Loading.style.display = 'flex';
+            shipStep2Content.style.display = 'none';
+
+            fetch('/shopee/orders/' + encodeURIComponent('{{ $order->order_sn }}') + '/shipping-addresses', {
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                shipStep2Loading.style.display = 'none';
+                shipStep2Content.style.display = '';
+
+                if (!data.ok) {
+                    shipStep2Content.innerHTML = '<div class="alert danger">' + (data.message || 'Failed to load addresses.') + '</div>';
+                    return;
+                }
+
+                var html = '';
+                if (currentShipType === 'pickup') {
+                    var addresses = (data.pickup && data.pickup.address_list) ? data.pickup.address_list : [];
+                    if (addresses.length === 0) {
+                        shipStep2Content.innerHTML = '<div class="text-secondary">No pickup addresses available.</div>';
+                        return;
+                    }
+
+                    var autoAddr = null;
+                    addresses.forEach(function (addr) {
+                        if (!autoAddr && (addr.address_flag || []).indexOf('pickup_address') !== -1) {
+                            autoAddr = addr;
+                        }
+                    });
+                    if (!autoAddr) autoAddr = addresses[0];
+
+                    shipAddressInput.value = autoAddr.address_id || 0;
+                    var addrParts = [autoAddr.address, autoAddr.city, autoAddr.state, autoAddr.district].filter(function(p) { return p && p !== ''; });
+                    var flags = (autoAddr.address_flag || []);
+
+                    html += '<div class="text-sm font-bold" style="margin-bottom:8px;">Pickup address (auto-selected):</div>';
+                    html += '<div style="padding:10px 12px; border:2px solid #16a34a; border-radius:8px; background:#16a34a0a;">';
+                    html += '<div class="text-sm">' + addrParts.join(', ') + '</div>';
+                    if (flags.length > 0) {
+                        html += '<div style="margin-top:4px;">';
+                        flags.forEach(function (f) {
+                            var color = f === 'pickup_address' ? '#16a34a' : (f === 'return_address' ? '#2563eb' : '#6b7280');
+                            html += '<span style="display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px; background:' + color + '18; color:' + color + '; margin-right:4px;">' + f.replace(/_/g, ' ') + '</span>';
+                        });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                } else {
+                    var branches = (data.dropoff && data.dropoff.branch_list) ? data.dropoff.branch_list : [];
+                    if (branches.length === 0) {
+                        shipStep2Content.innerHTML = '<div class="text-secondary">No drop-off branches available. The order will be shipped without branch selection.</div>';
+                        btnConfirm.disabled = false;
+                        return;
+                    }
+                    html += '<div class="text-sm font-bold" style="margin-bottom:8px;">Select drop-off branch:</div>';
+                    branches.forEach(function (branch, i) {
+                        var checked = i === 0 ? ' checked' : '';
+                        var addrParts = [branch.address, branch.city, branch.state, branch.district].filter(function(p) { return p && p !== ''; });
+
+                        html += '<label style="display:block; padding:10px 12px; border:2px solid var(--border, #e2e8f0); border-radius:8px; cursor:pointer; margin-bottom:8px;">';
+                        html += '<div style="display:flex; align-items:flex-start; gap:10px;">';
+                        html += '<input type="radio" name="ship_branch_show" value="' + (branch.branch_id || 0) + '"' + checked + ' style="margin-top:3px;">';
+                        html += '<div style="flex:1;">';
+                        html += '<div class="text-sm">' + addrParts.join(', ') + '</div>';
+                        html += '</div></div></label>';
+
+                        if (i === 0) shipBranchInput.value = branch.branch_id || 0;
+                    });
+                }
+
+                shipStep2Content.innerHTML = html;
+                btnConfirm.disabled = false;
+
+                shipStep2Content.querySelectorAll('input[type=radio]').forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        shipBranchInput.value = radio.value;
+                    });
+                });
+            })
+            .catch(function () {
+                shipStep2Loading.style.display = 'none';
+                shipStep2Content.style.display = '';
+                shipStep2Content.innerHTML = '<div class="alert danger">Network error loading addresses.</div>';
+            });
+        });
+    });
+
+    btnBack.addEventListener('click', function () {
+        shipStep1.style.display = '';
+        shipStep2.style.display = 'none';
+    });
+
+    btnConfirm.addEventListener('click', function () {
+        btnConfirm.disabled = true;
+        isShipping = true;
+
+        // Capture form data BEFORE replacing modal content
+        var csrfToken = document.querySelector('meta[name="csrf-token"]');
+        if (!csrfToken) csrfToken = shipForm.querySelector('input[name="_token"]');
+        var token = csrfToken ? (csrfToken.content || csrfToken.value) : '';
+        var formData = new FormData(shipForm);
+        var formAction = shipForm.action;
+        var orderSn = '{{ $order->order_sn }}';
+
+        // Replace modal content with loading spinner
+        var modalInner = shipModal.querySelector('div > div') || shipModal.firstElementChild;
+        modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
+            '<div style="width:48px; height:48px; border:4px solid #cbd5e1; border-top-color:#EE4D2D; border-radius:50%; animation:spSpinShow 0.8s linear infinite; margin:0 auto;"></div>' +
+            '<div id="shipLoadingMsg" class="font-bold" style="margin-top:16px;">Shipping order…</div>' +
+            '<div class="text-xs text-secondary" style="margin-top:4px;">Please keep this tab open.</div>' +
+            '</div>';
+
+        fetch(formAction, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
+            body: formData
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) {
+                modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
+                    '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
+                    '<div class="font-bold" style="color:#dc2626;">Ship failed</div>' +
+                    '<div class="text-sm text-secondary" style="margin-top:8px;">' + (data.message || 'Unknown error') + '</div>' +
+                    '<button type="button" class="btn secondary" style="margin-top:16px;" onclick="location.reload()">Close</button>' +
+                    '</div>';
+                return;
+            }
+
+            // Ship succeeded — poll for AWB
+            var msg = document.getElementById('shipLoadingMsg');
+            if (msg) msg.textContent = 'Generating AWB…';
+
+            var awbUrl = '/shopee/orders/' + encodeURIComponent(orderSn) + '/awb';
+            var awbAttempts = 0;
+            var maxAttempts = 20;
+
+            function pollAwb() {
+                awbAttempts++;
+                fetch(awbUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (awbData) {
+                    if (awbData.ok && awbData.ready) {
+                        shipModal.style.display = 'none';
+                        window.open(awbUrl, '_blank');
+                        location.reload();
+                    } else if (awbAttempts < maxAttempts) {
+                        setTimeout(pollAwb, 3000);
+                    } else {
+                        modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
+                            '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
+                            '<div class="font-bold">Order shipped successfully</div>' +
+                            '<div class="text-sm text-secondary" style="margin-top:8px;">AWB is still being generated by Shopee. Use the Print AWB button to try again.</div>' +
+                            '<button type="button" class="btn" style="margin-top:16px;" onclick="location.reload()">OK</button>' +
+                            '</div>';
+                    }
+                })
+                .catch(function () {
+                    if (awbAttempts < maxAttempts) {
+                        setTimeout(pollAwb, 3000);
+                    } else {
+                        modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
+                            '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
+                            '<div class="font-bold">Order shipped successfully</div>' +
+                            '<div class="text-sm text-secondary" style="margin-top:8px;">Could not generate AWB. Use the Print AWB button to try again.</div>' +
+                            '<button type="button" class="btn" style="margin-top:16px;" onclick="location.reload()">OK</button>' +
+                            '</div>';
+                    }
+                });
+            }
+
+            setTimeout(pollAwb, 2000);
+        })
+        .catch(function () {
+            modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
+                '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
+                '<div class="font-bold" style="color:#dc2626;">Network error</div>' +
+                '<div class="text-sm text-secondary" style="margin-top:8px;">Failed to connect. Please try again.</div>' +
+                '<button type="button" class="btn secondary" style="margin-top:16px;" onclick="location.reload()">Close</button>' +
+                '</div>';
+        });
+    });
+});
+</script>
+@endif
+
+@if($tracking !== '')
+<style>
+.tracking-timeline { position: relative; padding-left: 24px; }
+.tracking-timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
+.tracking-event { position: relative; padding-bottom: 16px; }
+.tracking-event:last-child { padding-bottom: 0; }
+.tracking-event::before { content: ''; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--border); border: 2px solid var(--bg); }
+.tracking-event:first-child::before { background: var(--accent); }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('btnLoadTracking');
+    var body = document.getElementById('trackingHistoryBody');
+    if (!btn || !body) return;
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.textContent = 'Loading…';
+
+        fetch("{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}", {
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) {
+                body.innerHTML = '<div class="alert warning">' + (data.message || 'Could not load tracking info.') + '</div>' +
+                    '<button type="button" class="btn small mt-12" onclick="location.reload()">Retry</button>';
+                return;
+            }
+
+            var events = data.tracking_info || [];
+            var status = data.logistics_status || '';
+
+            if (events.length === 0) {
+                body.innerHTML = '<div class="text-secondary">No tracking events available yet.</div>' +
+                    (status ? '<div class="text-xs text-secondary" style="margin-top:4px;">Status: <strong>' + status + '</strong></div>' : '');
+                return;
+            }
+
+            // Sort by ctime descending (most recent first)
+            events.sort(function (a, b) { return (b.ctime || 0) - (a.ctime || 0); });
+
+            var html = '';
+            if (status) {
+                html += '<div class="text-xs text-secondary" style="margin-bottom:12px;">Logistics status: <strong>' + status + '</strong></div>';
+            }
+            html += '<div class="tracking-timeline">';
+            events.forEach(function (ev) {
+                var dt = ev.ctime ? new Date(ev.ctime * 1000) : null;
+                var timeStr = dt ? dt.toLocaleString() : '';
+                html += '<div class="tracking-event">';
+                html += '<div class="text-sm">' + (ev.description || '—') + '</div>';
+                if (timeStr) {
+                    html += '<div class="text-xs text-secondary" style="margin-top:2px;">' + timeStr + '</div>';
+                }
+                if (ev.logistics_status) {
+                    html += '<div style="margin-top:2px;"><span style="display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px; background:var(--accent)18; color:var(--accent);">' + ev.logistics_status + '</span></div>';
+                }
+                html += '</div>';
+            });
+            html += '</div>';
+
+            body.innerHTML = html;
+        })
+        .catch(function () {
+            body.innerHTML = '<div class="alert danger">Network error loading tracking info.</div>' +
+                '<button type="button" class="btn small mt-12" onclick="location.reload()">Retry</button>';
+        });
+    });
+});
+</script>
+@endif
 @endsection

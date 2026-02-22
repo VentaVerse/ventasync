@@ -15,7 +15,7 @@ class LazadaCategoryAttributeController extends Controller
     {
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        $setting = LazadaSetting::query()->first()?->decrypted();
         $region = (string)($setting->region ?? '');
 
         $template = null;
@@ -50,7 +50,7 @@ class LazadaCategoryAttributeController extends Controller
     {
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
-        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
             return redirect()->route('lazada.categories.attributes.show', $categoryId)
                 ->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
@@ -148,24 +148,4 @@ class LazadaCategoryAttributeController extends Controller
         return $out;
     }
 
-    private function decryptSetting(?LazadaSetting $setting): ?object
-    {
-        if (!$setting) {
-            return null;
-        }
-
-        $s = (object)$setting->toArray();
-
-        foreach (['app_secret', 'auth_code', 'access_token', 'refresh_token'] as $k) {
-            if (!empty($s->$k)) {
-                try {
-                    $s->$k = decrypt($s->$k);
-                } catch (\Throwable $e) {
-                    $s->$k = null;
-                }
-            }
-        }
-
-        return $s;
-    }
 }

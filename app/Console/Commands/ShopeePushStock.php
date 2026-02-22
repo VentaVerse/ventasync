@@ -18,7 +18,7 @@ class ShopeePushStock extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             $this->error('Missing Shopee credentials/token. Configure Shopee settings first.');
             return 1;
@@ -113,12 +113,24 @@ class ShopeePushStock extends Command
                 'response_status' => (int) ($res['status'] ?? 0),
                 'ok'              => (bool) ($res['ok'] ?? false),
                 'response_body'   => $res['body'] ?? null,
-            ], force: true);
+            ]);
 
             $resBody = $res['body'] ?? [];
             $errMsg = is_array($resBody) ? ($resBody['error'] ?? null) : null;
 
-            if (($res['ok'] ?? false) && (empty($errMsg) || $errMsg === '' || $errMsg === 'success')) {
+            $isOk = ($res['ok'] ?? false) && (empty($errMsg) || $errMsg === '' || $errMsg === 'success');
+            $syncData = [
+                'last_synced_at' => now(),
+                'last_sync_action' => 'sync_qty',
+                'last_sync_ok' => $isOk,
+                'last_sync_error_code' => $isOk ? null : (string) ($errMsg ?? ''),
+                'last_sync_error_message' => $isOk ? null : (is_array($resBody) ? (string) ($resBody['message'] ?? '') : ''),
+            ];
+            foreach ($itemLinks as $link) {
+                $link->update($syncData);
+            }
+
+            if ($isOk) {
                 $totalOk += count($stockList);
             } else {
                 $totalErr += count($stockList);
@@ -129,25 +141,10 @@ class ShopeePushStock extends Command
 
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$totalSkipped}");
 
+        // Stamp sync timestamp on settings (independent of API logging)
+        ShopeeSetting::query()->update(['last_stock_push_at' => now()]);
+
         return $totalErr > 0 ? 1 : 0;
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?object
-    {
-        if (!$setting) return null;
-
-        $s = (object) $setting->toArray();
-
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $k) {
-            if (!empty($s->$k)) {
-                try {
-                    $s->$k = decrypt($s->$k);
-                } catch (\Throwable $e) {
-                    $s->$k = $s->$k;
-                }
-            }
-        }
-
-        return $s;
-    }
 }

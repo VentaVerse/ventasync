@@ -39,15 +39,15 @@ class ShopeeCatalogOrderSync
             $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
             if (!is_array($addr)) $addr = [];
 
-            $shippingFirstname = trim((string) ($addr['name'] ?? $firstname));
+            $shippingFirstname = mb_substr(trim((string) ($addr['name'] ?? $firstname)), 0, 128);
             $shippingLastname = '';
-            $shippingAddress1 = trim((string) ($addr['full_address'] ?? ($addr['address1'] ?? '')));
+            $shippingAddress1 = mb_substr(trim((string) ($addr['full_address'] ?? ($addr['address1'] ?? ''))), 0, 256);
             $shippingAddress2 = '';
-            $shippingCity = trim((string) ($addr['city'] ?? ($addr['town'] ?? '')));
-            $shippingPostcode = trim((string) ($addr['zipcode'] ?? ($addr['zip_code'] ?? '')));
-            $shippingCountry = trim((string) ($addr['country'] ?? ''));
-            $shippingZone = trim((string) ($addr['state'] ?? ($addr['region'] ?? '')));
-            $telephone = trim((string) ($addr['phone'] ?? ''));
+            $shippingCity = mb_substr(trim((string) ($addr['city'] ?? ($addr['town'] ?? ''))), 0, 128);
+            $shippingPostcode = mb_substr(trim((string) ($addr['zipcode'] ?? ($addr['zip_code'] ?? ''))), 0, 10);
+            $shippingCountry = mb_substr(trim((string) ($addr['country'] ?? '')), 0, 128);
+            $shippingZone = mb_substr(trim((string) ($addr['state'] ?? ($addr['region'] ?? ''))), 0, 128);
+            $telephone = mb_substr(trim((string) ($addr['phone'] ?? '')), 0, 32);
 
             // --- Other fields ---
             $shippingMethod = trim((string) ($raw['shipping_carrier'] ?? ($raw['checkout_shipping_carrier'] ?? '')));

@@ -198,7 +198,6 @@
             >
         </div>
         <p style="margin:0;">{{ $setting->company_name ?? 'Xenon Suite' }}</p>
-        <h1 style="margin:10px 0 0;">Sign in</h1>
     </div>
 
     <div class="card">

@@ -150,6 +150,7 @@
                     <th>Manufacturer</th>
                     <th>Shopee Item ID</th>
                     <th style="width:120px;">Shopee Status</th>
+                    <th style="width:140px;">Sync</th>
                     <th style="width:50px;"></th>
                 </tr>
                 </thead>
@@ -213,6 +214,28 @@
                             @endif
                         </td>
                         <td>
+                            @if(!$link || is_null($link->last_sync_ok))
+                                <span class="text-muted">-</span>
+                            @else
+                                <div style="line-height:1.4;">
+                                    @if(!$link->last_sync_ok)
+                                        <span class="badge badge-red">Err</span>
+                                        @if($link->last_sync_error_code || $link->last_sync_error_message)
+                                            <div class="text-xs" style="margin-top:3px; color:var(--danger); word-break:break-word;">{{ $link->last_sync_error_code }}@if($link->last_sync_error_message): {{ Str::limit($link->last_sync_error_message, 60) }}@endif</div>
+                                        @endif
+                                    @else
+                                        <span class="badge badge-green">OK</span>
+                                    @endif
+                                    @if($link->last_sync_action)
+                                        <div class="text-xs text-muted" style="margin-top:2px;">{{ $link->last_sync_action }}</div>
+                                    @endif
+                                    @if($link->last_synced_at)
+                                        <div class="text-xs text-muted" style="margin-top:1px;">{{ $link->last_synced_at->diffForHumans() }}</div>
+                                    @endif
+                                </div>
+                            @endif
+                        </td>
+                        <td>
                             <div style="position:relative;" class="row-actions">
                                 <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -267,7 +290,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
+                        <td colspan="11" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -283,6 +306,13 @@
             </div>
         </div>
     </div>
+
+<div class="bulk-loading-overlay" id="loadingOverlay">
+    <div class="bulk-loading-box">
+        <div class="spinner"></div>
+        <div class="msg" id="loadingMsg">Processing...</div>
+    </div>
+</div>
 
 @push('scripts')
 <style>
@@ -308,6 +338,41 @@
     .action-item svg { flex-shrink: 0; opacity: .6; }
     .table-wrap.menu-open { overflow: visible; }
     .table-wrap { min-height: 280px; }
+
+    /* Bulk action loading overlay */
+    .bulk-loading-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(0,0,0,.35);
+        align-items: center;
+        justify-content: center;
+    }
+    .bulk-loading-overlay.active { display: flex; }
+    .bulk-loading-box {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        padding: 28px 36px;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+        max-width: 320px;
+    }
+    .bulk-loading-box .spinner {
+        display: inline-block;
+        width: 28px; height: 28px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .bulk-loading-box .msg {
+        margin-top: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
 
     .unmatched-link-row { position: relative; }
     .unmatched-results {
@@ -389,6 +454,27 @@
                 inp.value = id;
                 form.appendChild(inp);
             });
+
+            // Show loading overlay
+            var overlay = document.getElementById('loadingOverlay');
+            var msg = document.getElementById('loadingMsg');
+            if (overlay) {
+                if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
+                overlay.classList.add('active');
+            }
+            form.querySelector('button[type="submit"]').disabled = true;
+        });
+    });
+
+    // Loading overlay for individual action forms
+    document.querySelectorAll('.action-menu form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            var overlay = document.getElementById('loadingOverlay');
+            var msg = document.getElementById('loadingMsg');
+            if (overlay) {
+                if (msg) msg.textContent = 'Processing...';
+                overlay.classList.add('active');
+            }
         });
     });
 

@@ -40,7 +40,7 @@ class ShopeeCategoryController extends Controller
 
     public function fetch(Request $request, ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.categories.index')
                 ->with('error', 'Missing Shopee settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.');
@@ -146,24 +146,4 @@ class ShopeeCategoryController extends Controller
         }
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?ShopeeSetting
-    {
-        if (!$setting) {
-            return null;
-        }
-
-        $setting = $setting->replicate();
-        $setting->id = ShopeeSetting::query()->value('id');
-
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $field) {
-            if (!empty($setting->{$field})) {
-                try {
-                    $setting->{$field} = decrypt($setting->{$field});
-                } catch (\Throwable $e) {
-                }
-            }
-        }
-
-        return $setting;
-    }
 }

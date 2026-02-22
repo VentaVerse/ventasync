@@ -11,8 +11,12 @@ class LazadaClient
      * Lazada REST API endpoints by region.
      * NOTE: Lazada has announced endpoint changes/deprecations; keep this mapping configurable in UI.
      */
-    public function baseUrl(?string $region): string
+    public function baseUrl(?string $region, string $mode = 'live'): string
     {
+        if ($mode === 'sandbox') {
+            return 'https://api.lazada.test/rest';
+        }
+
         $region = strtolower(trim((string)$region));
 
         $map = [
@@ -73,9 +77,9 @@ class LazadaClient
         return strtoupper(hash_hmac('sha256', $base, $secret));
     }
 
-    public function post(string $region, string $apiPath, array $params): array
+    public function post(string $region, string $apiPath, array $params, string $mode = 'live'): array
     {
-        $url = $this->baseUrl($region) . $apiPath;
+        $url = $this->baseUrl($region, $mode) . $apiPath;
 
         // Lazada accepts GET/POST; POST as form is safest and matches most SDKs.
         $resp = $this->http()
@@ -89,9 +93,9 @@ class LazadaClient
         ];
     }
 
-    public function get(string $region, string $apiPath, array $params): array
+    public function get(string $region, string $apiPath, array $params, string $mode = 'live'): array
     {
-        $url = $this->baseUrl($region) . $apiPath;
+        $url = $this->baseUrl($region, $mode) . $apiPath;
 
         $resp = $this->http()
             ->get($url, $params);

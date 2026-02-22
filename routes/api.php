@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController as ApiDashboardController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
+use App\Http\Controllers\Api\MarketplaceOrderController as ApiMarketplaceOrderController;
 use App\Http\Controllers\Api\ProductController as ApiProductController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +37,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
         Route::post('/orders/{id}/status', [ApiOrderController::class, 'updateStatus']);
         Route::get('/order-statuses', [ApiOrderController::class, 'statuses']);
+    });
+
+    Route::middleware('perm:manage_marketplace_api')->group(function () {
+        Route::get('/marketplace/{platform}/orders', [ApiMarketplaceOrderController::class, 'index']);
+        Route::get('/marketplace/{platform}/orders/{id}', [ApiMarketplaceOrderController::class, 'show']);
     });
 
     Route::middleware('perm:manage_products')->group(function () {

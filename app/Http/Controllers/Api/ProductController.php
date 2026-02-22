@@ -76,6 +76,7 @@ class ProductController extends Controller
                 'product_id'       => (int) $row->product_id,
                 'name'             => html_entity_decode((string) ($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'image'            => $row->image ?? '',
+                'image_url'        => $this->productImageUrl($row->image),
                 'model'            => $row->model ?? '',
                 'sku'              => $row->sku ?? '',
                 'quantity'         => (int) $row->quantity,
@@ -138,6 +139,18 @@ class ProductController extends Controller
                 'quantity'                => (int) $row->quantity,
             ])->values()->all() : [],
         ]);
+    }
+
+    private function productImageUrl(?string $path): ?string
+    {
+        $path = trim((string) ($path ?? ''));
+        if ($path === '' || str_contains($path, '..')) {
+            return null;
+        }
+        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
+        $prefix = config('catalog.image_prefix', 'image');
+
+        return $base . '/' . $prefix . '/' . ltrim($path, '/');
     }
 
     public function updateQuantity(Request $request, int $id)

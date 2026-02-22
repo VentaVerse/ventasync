@@ -32,7 +32,7 @@ public function root(Request $request, ShopeeClient $client)
         $raw->save();
     }
 
-    $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+    $setting = ShopeeSetting::query()->first()?->decrypted();
 
     // If we have everything required, perform token exchange automatically
     if ($code && $setting && $setting->partner_id && $setting->partner_key && $setting->shop_id) {
@@ -104,18 +104,36 @@ public function index()
             'INVOICE_PENDING' => 'Invoice Pending',
         ];
 
+        $shopeeReturnStatuses = [
+            'REQUESTED'           => 'Requested',
+            'ACCEPTED'            => 'Accepted',
+            'CANCELLED'           => 'Cancelled',
+            'JUDGING'             => 'Judging',
+            'PROCESSING'          => 'Processing',
+            'SELLER_DISPUTE'      => 'Seller Dispute',
+            'REFUND_PAID'         => 'Refund Paid',
+            'CLOSED'              => 'Closed',
+            'SELLER_COMPENSATION' => 'Seller Compensation',
+        ];
+
+        $returnStatusMap = ShopeeOrderStatusMap::whereIn('shopee_status', array_keys($shopeeReturnStatuses))
+            ->pluck('order_status_id', 'shopee_status')
+            ->all();
+
         $logs = ShopeeApiLog::query()
             ->orderByDesc('id')
             ->limit(25)
             ->get();
 
         return view('shopee.index', [
-            'setting' => $this->decryptSetting($setting),
+            'setting' => $setting?->decrypted(),
             'defaultRedirect' => 'https://shop-a.example',
             'result' => session('shopee_result'),
             'orderStatusMap' => $orderStatusMap,
             'erpOrderStatuses' => $erpOrderStatuses,
             'shopeeStatuses' => $shopeeStatuses,
+            'shopeeReturnStatuses' => $shopeeReturnStatuses,
+            'returnStatusMap' => $returnStatusMap,
             'logs' => $logs,
         ]);
     }
@@ -123,40 +141,68 @@ public function index()
     public function save(Request $request)
     {
         $data = $request->validate([
-            'mode' => 'required|in:sandbox,live',
+            'env' => 'nullable|in:live,sandbox',
             'partner_id' => 'nullable|integer|min:1',
             'partner_key' => 'nullable|string',
             'shop_id' => 'nullable|integer|min:1',
             'access_token' => 'nullable|string',
             'redirect_uri' => 'nullable|string|max:255',
             'region' => 'nullable|string|max:16',
+            'sandbox_partner_id' => 'nullable|integer|min:1',
+            'sandbox_partner_key' => 'nullable|string',
+            'sandbox_shop_id' => 'nullable|integer|min:1',
+            'sandbox_access_token' => 'nullable|string',
+            'sandbox_redirect_uri' => 'nullable|string|max:255',
+            'sandbox_region' => 'nullable|string|max:16',
         ]);
 
         $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
 
-        $setting->mode = $data['mode'];
-        $setting->partner_id = $data['partner_id'] ?? null;
-        $setting->shop_id = $data['shop_id'] ?? null;
-        $setting->redirect_uri = $data['redirect_uri'] ?? null;
-        $setting->region = $data['region'] ?? null;
+        $env = $data['env'] ?? 'live';
 
-        // Encrypt secrets at rest
-        $setting->partner_key = isset($data['partner_key']) && $data['partner_key'] !== ''
-            ? encrypt(trim($data['partner_key']))
-            : null;
+        if ($env === 'live') {
+            $setting->partner_id = $data['partner_id'] ?? null;
+            $setting->shop_id = $data['shop_id'] ?? null;
+            $setting->redirect_uri = $data['redirect_uri'] ?? null;
+            $setting->region = $data['region'] ?? null;
 
-        $setting->access_token = isset($data['access_token']) && $data['access_token'] !== ''
-            ? encrypt(trim($data['access_token']))
-            : null;
-        // Refresh token is managed by OAuth token exchange; do not overwrite from settings UI.
+            $setting->partner_key = isset($data['partner_key']) && $data['partner_key'] !== ''
+                ? encrypt(trim($data['partner_key']))
+                : null;
+
+            $setting->access_token = isset($data['access_token']) && $data['access_token'] !== ''
+                ? encrypt(trim($data['access_token']))
+                : null;
+        } else {
+            $setting->sandbox_partner_id = $data['sandbox_partner_id'] ?? null;
+            $setting->sandbox_shop_id = $data['sandbox_shop_id'] ?? null;
+            $setting->sandbox_redirect_uri = $data['sandbox_redirect_uri'] ?? null;
+            $setting->sandbox_region = $data['sandbox_region'] ?? null;
+
+            $setting->sandbox_partner_key = isset($data['sandbox_partner_key']) && $data['sandbox_partner_key'] !== ''
+                ? encrypt(trim($data['sandbox_partner_key']))
+                : null;
+
+            $setting->sandbox_access_token = isset($data['sandbox_access_token']) && $data['sandbox_access_token'] !== ''
+                ? encrypt(trim($data['sandbox_access_token']))
+                : null;
+        }
 
         $setting->save();
 
-        return redirect()->route('shopee.index')->with('shopee_result', [
-            'ok' => true,
-            'title' => 'Saved',
-            'data' => ['message' => 'Shopee settings saved.'],
-        ]);
+        $label = $env === 'sandbox' ? 'Sandbox' : 'Production';
+        return redirect()->route('shopee.index')->with('status', "{$label} settings saved.");
+    }
+
+    public function toggleMode(Request $request)
+    {
+        $data = $request->validate(['mode' => 'required|in:live,sandbox']);
+        $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+        $setting->mode = $data['mode'];
+        $setting->save();
+
+        $label = $data['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+        return redirect()->route('shopee.index')->with('status', "Switched to {$label} mode.");
     }
 
     public function callback(Request $request)
@@ -180,7 +226,7 @@ public function index()
 
     public function redirectToShopeeAuth(ShopeeClient $client)
 {
-    $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+    $setting = ShopeeSetting::query()->first()?->decrypted();
 
     if (!$setting || !$setting->partner_id || !$setting->partner_key) {
         return redirect()->route('shopee.index')->with('shopee_result', [
@@ -198,7 +244,7 @@ public function index()
 
 public function buildAuthUrl(ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
 
         if (!$setting || !$setting->partner_id || !$setting->partner_key) {
             return redirect()->route('shopee.index')->with('shopee_result', [
@@ -225,7 +271,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'code' => 'required|string',
         ]);
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->shop_id) {
             return redirect()->route('shopee.index')->with('shopee_result', [
                 'ok' => false,
@@ -272,7 +318,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
     public function tokenRefresh(ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->shop_id || !$setting->refresh_token) {
             return redirect()->route('shopee.index')->with('shopee_result', [
                 'ok' => false,
@@ -338,7 +384,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'use_shop_id' => 'nullable|boolean',
         ]);
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key) {
             return redirect()->route('shopee.index')->with('shopee_result', [
                 'ok' => false,
@@ -425,6 +471,31 @@ public function buildAuthUrl(ShopeeClient $client)
         return back()->with('status', 'Order status mapping saved.');
     }
 
+    public function saveReturnStatusMap(Request $request)
+    {
+        $map = $request->input('map', []);
+
+        if (!is_array($map)) {
+            return back()->with('status', 'Invalid mapping data.');
+        }
+
+        foreach ($map as $shopeeStatus => $orderStatusId) {
+            $shopeeStatus = strtoupper(trim((string) $shopeeStatus));
+            $orderStatusId = (int) $orderStatusId;
+
+            if ($shopeeStatus === '' || $orderStatusId <= 0) {
+                continue;
+            }
+
+            ShopeeOrderStatusMap::updateOrCreate(
+                ['shopee_status' => $shopeeStatus],
+                ['order_status_id' => $orderStatusId]
+            );
+        }
+
+        return back()->with('status', 'Return status mapping saved.');
+    }
+
     public function saveSyncDays(Request $request)
     {
         $request->validate([
@@ -481,7 +552,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'params_json' => 'nullable|string|max:20000',
         ]);
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key) {
             return redirect()->route('shopee.index')->with('shopee_result', [
                 'ok' => false,
@@ -576,7 +647,7 @@ public function buildAuthUrl(ShopeeClient $client)
             'pack' => 'required|in:shop_info,catalog,orders,logistics,full',
         ]);
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.index')->with('shopee_result', [
                 'ok' => false,
@@ -674,7 +745,7 @@ public function buildAuthUrl(ShopeeClient $client)
 
     public function logisticsChannels(ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.index')->with('shopee_result', [
                 'ok' => false,
@@ -713,26 +784,4 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?ShopeeSetting
-    {
-        if (!$setting) {
-            return null;
-        }
-
-        // Clone in-memory values without mutating DB payload
-        $setting = $setting->replicate();
-        $setting->id = ShopeeSetting::query()->value('id'); // retain id for UI only
-
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $field) {
-            if (!empty($setting->{$field})) {
-                try {
-                    $setting->{$field} = decrypt($setting->{$field});
-                } catch (\Throwable $e) {
-                    // If decrypt fails, leave as-is (corrupt or plain text from old installs)
-                }
-            }
-        }
-
-        return $setting;
-    }
 }

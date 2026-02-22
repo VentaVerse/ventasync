@@ -7,6 +7,7 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
+use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\OpenCartSetting;
@@ -52,13 +53,14 @@ class OrderController extends Controller
 
         // Resolve catalog product images (handles product_id=0 via Lazada variant chain)
         $productImages = self::resolveOrderProductImages($orders->getCollection());
+        $lazadaImages = self::resolveLazadaImages($orders->getCollection());
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
         // Build opencart store ID → name map for the Source column
         $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
 
-        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'sort', 'dir', 'ocStoreNames'));
+        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'ocStoreNames'));
     }
 
     public function create()
@@ -181,8 +183,9 @@ class OrderController extends Controller
 
         // Resolve catalog products (handles product_id=0 via Lazada variant chain)
         $catalogProducts = self::resolveOrderCatalogProducts($products);
+        $lazadaImages = self::resolveLazadaImages(collect([$order]));
 
-        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts'));
+        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -407,6 +410,50 @@ class OrderController extends Controller
         foreach ($idMap as $opId => $pid) {
             if (isset($catalogProducts[$pid])) {
                 $result[$opId] = (object) $catalogProducts[$pid];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build order_product_id → Lazada image URL map for Lazada orders.
+     */
+    private static function resolveLazadaImages($orders): array
+    {
+        $lazadaOrderIds = [];
+        foreach ($orders as $o) {
+            if ($o->marketplace_source === 'lazada') {
+                $lazadaOrderIds[] = $o->order_id;
+            }
+        }
+
+        if (! $lazadaOrderIds) {
+            return [];
+        }
+
+        $lazadaOrders = LazadaOrder::whereIn('catalog_order_id', $lazadaOrderIds)
+            ->with('products')
+            ->get()
+            ->keyBy('catalog_order_id');
+
+        $result = [];
+        foreach ($orders as $o) {
+            if ($o->marketplace_source !== 'lazada') {
+                continue;
+            }
+            $lzOrder = $lazadaOrders->get($o->order_id);
+            if (! $lzOrder) {
+                continue;
+            }
+            $lzProducts = $lzOrder->products->keyBy('sku');
+            foreach ($o->products as $op) {
+                $sku = trim((string) $op->model);
+                $lzProduct = $sku !== '' ? $lzProducts->get($sku) : null;
+                $image = $lzProduct ? trim((string) ($lzProduct->image ?? '')) : '';
+                if ($image !== '') {
+                    $result[$op->order_product_id] = $image;
+                }
             }
         }
 

@@ -104,7 +104,7 @@
     <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
         <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales (Last 30 Days)</h3>
         <div class="d-flex items-center gap-8">
-            <div class="chart-range-toggle">
+            <div class="chart-range-toggle" id="chartRangeToggle">
                 <button class="chart-range-btn active" data-range="30d">30 Days</button>
                 <button class="chart-range-btn" data-range="monthly">Monthly</button>
                 <button class="chart-range-btn" data-range="yearly">Yearly</button>
@@ -116,88 +116,126 @@
     </div>
 </div>
 
-{{-- Middle row: OpenCart sync status --}}
-@if($syncStatuses->isNotEmpty())
-<div class="card mb-16">
-    <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">OpenCart Sync Status</h3>
-    <div class="dash-sync-grid">
-        @foreach($syncStatuses as $store)
-            <div class="dash-sync-store">
-                <div class="dash-sync-header">
-                    <span class="dash-sync-dot {{ ($store->last_status === 'completed') ? 'dash-sync-ok' : (($store->last_status === 'failed') ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
-                    <span class="font-bold">{{ $store->store_name ?: 'Store #'.$store->id }}</span>
-                </div>
-                <div class="dash-sync-details">
-                    @if($store->last_completed)
-                        <span class="text-secondary text-xs">Last sync: {{ \Carbon\Carbon::parse($store->last_completed)->diffForHumans() }}</span>
-                    @elseif($store->last_order_sync_at)
-                        <span class="text-secondary text-xs">Last order sync: {{ \Carbon\Carbon::parse($store->last_order_sync_at)->diffForHumans() }}</span>
-                    @else
-                        <span class="text-secondary text-xs">Never synced</span>
-                    @endif
-                    @if($store->last_status === 'failed' && $store->last_error)
-                        <span class="text-xs" style="color:#ef4444;">{{ \Illuminate\Support\Str::limit($store->last_error, 60) }}</span>
-                    @endif
-                </div>
+{{-- Platform distribution + Sync status row --}}
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
+    {{-- Platform distribution pie chart --}}
+    <div class="card">
+        <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:12px;">
+            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="pieTitle">Orders by Platform (Last 30 Days)</h3>
+            <div class="chart-range-toggle" id="pieRangeToggle">
+                <button class="chart-range-btn active" data-range="30d">30 Days</button>
+                <button class="chart-range-btn" data-range="monthly">Monthly</button>
+                <button class="chart-range-btn" data-range="yearly">Yearly</button>
             </div>
-        @endforeach
+        </div>
+        <div style="display:flex; align-items:center; gap:24px;">
+            <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
+                <canvas id="platformChart"></canvas>
+            </div>
+            <div id="pieLegend" style="flex:1; font-size:13px;"></div>
+        </div>
     </div>
-</div>
-@endif
 
-{{-- Marketplace sync status --}}
-@if($shopeeSyncStatus || $lazadaSyncStatus)
-<div class="card mb-16">
-    <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">Marketplace Sync Status</h3>
-    <div class="dash-sync-grid">
-        @if($shopeeSyncStatus)
-            <div class="dash-sync-store">
-                <div class="dash-sync-header">
-                    <span class="dash-sync-dot {{ $shopeeSyncStatus->order_sync_ok ? 'dash-sync-ok' : ($shopeeSyncStatus->order_sync_at ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
-                    <span class="font-bold">Shopee</span>
-                </div>
-                <div class="dash-sync-details">
-                    @if($shopeeSyncStatus->order_sync_at)
-                        <span class="text-secondary text-xs">Order sync: {{ $shopeeSyncStatus->order_sync_at->diffForHumans() }}</span>
-                    @else
-                        <span class="text-secondary text-xs">Order sync: never</span>
-                    @endif
-                    @if($shopeeSyncStatus->push_stock_at)
-                        <span class="text-secondary text-xs">Push stock: {{ $shopeeSyncStatus->push_stock_at->diffForHumans() }}</span>
-                    @else
-                        <span class="text-secondary text-xs">Push stock: never</span>
-                    @endif
-                    @if($shopeeSyncStatus->return_sync_at)
-                        <span class="text-secondary text-xs">Return sync: {{ $shopeeSyncStatus->return_sync_at->diffForHumans() }}</span>
-                    @else
-                        <span class="text-secondary text-xs">Return sync: never</span>
-                    @endif
-                </div>
+    {{-- Sync status column --}}
+    <div style="display:flex; flex-direction:column; gap:16px;">
+        @if($syncStatuses->isNotEmpty())
+        <div class="card">
+            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">OpenCart Sync Status</h3>
+            <div class="dash-sync-grid">
+                @foreach($syncStatuses as $store)
+                    <div class="dash-sync-store">
+                        <div class="dash-sync-header">
+                            <span class="dash-sync-dot {{ ($store->last_status === 'completed') ? 'dash-sync-ok' : (($store->last_status === 'failed') ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
+                            <span class="font-bold">{{ $store->store_name ?: 'Store #'.$store->id }}</span>
+                        </div>
+                        <div class="dash-sync-details">
+                            @if($store->last_order_sync_at)
+                                <span class="text-secondary text-xs">Order sync: {{ \Carbon\Carbon::parse($store->last_order_sync_at)->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Order sync: never</span>
+                            @endif
+                            @if($store->last_push_qty_at)
+                                <span class="text-secondary text-xs">Push stock: {{ \Carbon\Carbon::parse($store->last_push_qty_at)->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Push stock: never</span>
+                            @endif
+                            @if($store->last_status === 'failed' && $store->last_error)
+                                <span class="text-xs" style="color:#ef4444;">{{ \Illuminate\Support\Str::limit($store->last_error, 60) }}</span>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
             </div>
+        </div>
         @endif
-        @if($lazadaSyncStatus)
-            <div class="dash-sync-store">
-                <div class="dash-sync-header">
-                    <span class="dash-sync-dot {{ $lazadaSyncStatus->order_sync_ok ? 'dash-sync-ok' : ($lazadaSyncStatus->order_sync_at ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
-                    <span class="font-bold">Lazada</span>
-                </div>
-                <div class="dash-sync-details">
-                    @if($lazadaSyncStatus->order_sync_at)
-                        <span class="text-secondary text-xs">Order sync: {{ $lazadaSyncStatus->order_sync_at->diffForHumans() }}</span>
-                    @else
-                        <span class="text-secondary text-xs">Order sync: never</span>
-                    @endif
-                    @if($lazadaSyncStatus->push_stock_at)
-                        <span class="text-secondary text-xs">Push stock: {{ $lazadaSyncStatus->push_stock_at->diffForHumans() }}</span>
-                    @else
-                        <span class="text-secondary text-xs">Push stock: never</span>
-                    @endif
-                </div>
+
+        @if($shopeeSyncStatus || $lazadaSyncStatus)
+        <div class="card">
+            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">Marketplace Sync Status</h3>
+            <div class="dash-sync-grid">
+                @if($shopeeSyncStatus)
+                    <div class="dash-sync-store">
+                        <div class="dash-sync-header">
+                            @php $shopeeTokenOk = !empty($shopeeSyncStatus->expires_at) && $shopeeSyncStatus->expires_at->isFuture(); @endphp
+                            <span class="dash-sync-dot {{ ($shopeeSyncStatus->order_sync_at && $shopeeTokenOk) ? 'dash-sync-ok' : 'dash-sync-idle' }}"></span>
+                            <span class="font-bold">Shopee</span>
+                        </div>
+                        <div class="dash-sync-details">
+                            @if($shopeeSyncStatus->order_sync_at)
+                                <span class="text-secondary text-xs">Order sync: {{ $shopeeSyncStatus->order_sync_at->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Order sync: never</span>
+                            @endif
+                            @if($shopeeSyncStatus->push_stock_at)
+                                <span class="text-secondary text-xs">Push stock: {{ $shopeeSyncStatus->push_stock_at->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Push stock: never</span>
+                            @endif
+                            @if($shopeeSyncStatus->return_sync_at)
+                                <span class="text-secondary text-xs">Return sync: {{ $shopeeSyncStatus->return_sync_at->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Return sync: never</span>
+                            @endif
+                            @if(!empty($shopeeSyncStatus->expires_at))
+                                <span class="text-xs" style="color:{{ $shopeeTokenOk ? '#16a34a' : '#dc2626' }};">
+                                    Token: {{ $shopeeTokenOk ? 'valid (expires ' . $shopeeSyncStatus->expires_at->diffForHumans() . ')' : 'EXPIRED (' . $shopeeSyncStatus->expires_at->diffForHumans() . ')' }}
+                                </span>
+                            @else
+                                <span class="text-xs" style="color:#dc2626;">Token: not configured</span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+                @if($lazadaSyncStatus)
+                    <div class="dash-sync-store">
+                        <div class="dash-sync-header">
+                            <span class="dash-sync-dot {{ $lazadaSyncStatus->order_sync_at ? 'dash-sync-ok' : 'dash-sync-idle' }}"></span>
+                            <span class="font-bold">Lazada</span>
+                        </div>
+                        <div class="dash-sync-details">
+                            @if($lazadaSyncStatus->order_sync_at)
+                                <span class="text-secondary text-xs">Order sync: {{ $lazadaSyncStatus->order_sync_at->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Order sync: never</span>
+                            @endif
+                            @if($lazadaSyncStatus->push_stock_at)
+                                <span class="text-secondary text-xs">Push stock: {{ $lazadaSyncStatus->push_stock_at->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Push stock: never</span>
+                            @endif
+                            @if($lazadaSyncStatus->return_sync_at)
+                                <span class="text-secondary text-xs">Return sync: {{ $lazadaSyncStatus->return_sync_at->diffForHumans() }}</span>
+                            @else
+                                <span class="text-secondary text-xs">Return sync: never</span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
             </div>
+        </div>
         @endif
     </div>
 </div>
-@endif
 
 {{-- Bottom row: Quick links + Recent orders --}}
 <div style="display:grid; grid-template-columns: 1fr 2fr; gap:16px;">
@@ -205,37 +243,28 @@
     <div class="card">
         <h3 class="section-title mt-0">Quick Links</h3>
         <div class="dash-links">
-            <a href="{{ route('products.index') }}">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                <span>Products</span>
-                <span class="dash-link-count">{{ number_format($totalProducts) }}</span>
-            </a>
-            <a href="{{ route('categories.index') }}">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <span>Categories</span>
-                <span class="dash-link-count">{{ number_format($totalCategories) }}</span>
-            </a>
-            <a href="{{ route('manufacturers.index') }}">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                <span>Manufacturers</span>
-                <span class="dash-link-count">{{ number_format($totalManufacturers) }}</span>
-            </a>
-            <a href="{{ route('orders.index') }}">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
-                <span>Orders</span>
-                <span class="dash-link-count">{{ number_format($totalOrders) }}</span>
-            </a>
-            <a href="{{ route('lazada.products.index') }}">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                <span>Lazada Products</span>
-                <span class="dash-link-count">{{ number_format($lazadaProducts) }}</span>
-            </a>
             <a href="{{ route('lazada.orders.index') }}">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 <span>Lazada Orders</span>
                 @if($lazadaPending > 0)
                     <span class="dash-link-count" style="background:#dc2626; color:#fff;">{{ $lazadaPending }}</span>
+                @else
+                    <span class="dash-link-count">No new orders</span>
                 @endif
+            </a>
+            <a href="{{ route('shopee.orders.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Shopee Orders</span>
+                @if($shopeePending > 0)
+                    <span class="dash-link-count" style="background:#dc2626; color:#fff;">{{ $shopeePending }}</span>
+                @else
+                    <span class="dash-link-count">No new orders</span>
+                @endif
+            </a>
+            <a href="{{ route('orders.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                <span>Orders</span>
+                <span class="dash-link-count">{{ number_format($totalOrders) }}</span>
             </a>
         </div>
     </div>
@@ -470,11 +499,30 @@
         .dash-stat { padding: 16px; }
         .dash-stat-value { font-size: 18px; }
     }
+    /* Pie legend */
+    .pie-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border-light);
+    }
+    .pie-legend-item:last-child { border-bottom: none; }
+    .pie-legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+    .pie-legend-label { font-weight: 600; flex: 1; }
+    .pie-legend-value { text-align: right; white-space: nowrap; }
+
     @media (max-width: 768px) {
         div[style*="grid-template-columns: repeat(4"] {
             grid-template-columns: repeat(2, 1fr) !important;
         }
-        div[style*="grid-template-columns: 1fr 2fr"] {
+        div[style*="grid-template-columns: 1fr 2fr"],
+        div[style*="grid-template-columns: 1fr 1fr"] {
             grid-template-columns: 1fr !important;
         }
         .dash-snapshot { flex-wrap: wrap; gap: 12px; }
@@ -625,11 +673,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Range toggle buttons
-    document.querySelectorAll('.chart-range-btn').forEach(function(btn) {
+    // Range toggle buttons (sales chart only)
+    document.querySelectorAll('#chartRangeToggle .chart-range-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var range = this.dataset.range;
-            document.querySelectorAll('.chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
+            this.closest('.chart-range-toggle').querySelectorAll('.chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
             this.classList.add('active');
             document.getElementById('chartTitle').textContent = titles[range] || titles['30d'];
 
@@ -641,6 +689,119 @@ document.addEventListener('DOMContentLoaded', function () {
                     salesChart.data.datasets[1].data = data.orders;
                     salesChart.update();
                 });
+        });
+    });
+
+    // ---- Platform distribution pie chart ----
+    var pieCtx = document.getElementById('platformChart');
+    var pieLegend = document.getElementById('pieLegend');
+    var pieTitles = {
+        '30d': 'Orders by Platform (Last 30 Days)',
+        'monthly': 'Orders by Platform (Monthly)',
+        'yearly': 'Orders by Platform (Yearly)'
+    };
+
+    var platformChart = null;
+
+    function renderPie(slices) {
+        var labels = slices.map(function(s) { return s.label; });
+        var data = slices.map(function(s) { return s.orders; });
+        var colors = slices.map(function(s) { return s.color; });
+
+        if (platformChart) {
+            platformChart.data.labels = labels;
+            platformChart.data.datasets[0].data = data;
+            platformChart.data.datasets[0].backgroundColor = colors;
+            platformChart.update();
+        } else if (pieCtx) {
+            platformChart = new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: cs.getPropertyValue('--card-bg').trim() || '#fff',
+                        hoverOffset: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '55%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,.9)',
+                            titleFont: { size: 12 },
+                            bodyFont: { size: 12 },
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(ctx) {
+                                    var s = slices[ctx.dataIndex];
+                                    var total = data.reduce(function(a,b){return a+b;}, 0);
+                                    var pct = total > 0 ? Math.round(s.orders / total * 100) : 0;
+                                    return s.label + ': ' + s.orders + ' orders (' + pct + '%) — \u20B1' + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Custom legend
+        if (pieLegend) {
+            var totalOrders = slices.reduce(function(a,s){return a+s.orders;}, 0);
+            var totalRevenue = slices.reduce(function(a,s){return a+s.revenue;}, 0);
+            var html = '';
+            slices.forEach(function(s) {
+                var pct = totalOrders > 0 ? Math.round(s.orders / totalOrders * 100) : 0;
+                html += '<div class="pie-legend-item">';
+                html += '<span class="pie-legend-dot" style="background:' + s.color + ';"></span>';
+                html += '<span class="pie-legend-label">' + s.label + '</span>';
+                html += '<span class="pie-legend-value">';
+                html += '<span class="font-bold">' + s.orders + '</span>';
+                html += '<span class="text-secondary text-xs"> (' + pct + '%)</span>';
+                html += '<br><span class="text-xs text-secondary">\u20B1' + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
+                html += '</span>';
+                html += '</div>';
+            });
+            if (slices.length > 0) {
+                html += '<div class="pie-legend-item" style="border-top:2px solid var(--border); margin-top:4px; padding-top:8px;">';
+                html += '<span class="pie-legend-dot" style="background:transparent;"></span>';
+                html += '<span class="pie-legend-label">Total</span>';
+                html += '<span class="pie-legend-value">';
+                html += '<span class="font-bold">' + totalOrders + '</span>';
+                html += '<br><span class="text-xs" style="color:#16a34a; font-weight:600;">\u20B1' + Number(totalRevenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
+                html += '</span>';
+                html += '</div>';
+            }
+            pieLegend.innerHTML = html;
+        }
+    }
+
+    function loadPieData(range) {
+        fetch('{{ route("dashboard.platform_data") }}?range=' + range)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                renderPie(data.slices || []);
+            });
+    }
+
+    // Initial load
+    loadPieData('30d');
+
+    // Pie range toggle
+    document.querySelectorAll('#pieRangeToggle .chart-range-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var range = this.dataset.range;
+            this.closest('.chart-range-toggle').querySelectorAll('.chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            document.getElementById('pieTitle').textContent = pieTitles[range] || pieTitles['30d'];
+            loadPieData(range);
         });
     });
 });

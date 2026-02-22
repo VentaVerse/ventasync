@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\LazadaApiLog;
 use App\Models\LazadaOrder;
 use App\Models\LazadaOrderProduct;
+use App\Models\LazadaReverseOrder;
 use App\Models\LazadaSetting;
 use App\Services\Lazada\LazadaClient;
 use App\Services\LazadaCatalogOrderSync;
@@ -17,13 +18,14 @@ class LazadaSyncOrders extends Command
     protected $signature = 'lazada:sync-orders
         {--fetch : Fetch new orders (default behaviour)}
         {--update : Update statuses of existing orders only}
-        {--both : Fetch new orders AND update existing statuses}';
+        {--returns : Sync reverse orders (returns/refunds) only}
+        {--both : Fetch new orders AND update existing statuses AND sync returns}';
 
-    protected $description = 'Sync orders from Lazada (fetch new + update statuses)';
+    protected $description = 'Sync orders from Lazada (fetch new + update statuses + returns)';
 
     public function handle(LazadaClient $client): int
     {
-        $setting = $this->decryptSetting(LazadaSetting::query()->first());
+        $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
             return 1;
@@ -34,8 +36,10 @@ class LazadaSyncOrders extends Command
             return 1;
         }
 
-        $doFetch = $this->option('fetch') || $this->option('both') || !$this->option('update');
+        $hasAnyFlag = $this->option('fetch') || $this->option('update') || $this->option('returns') || $this->option('both');
+        $doFetch = $this->option('fetch') || $this->option('both') || !$hasAnyFlag;
         $doUpdate = $this->option('update') || $this->option('both');
+        $doReturns = $this->option('returns') || $this->option('both') || !$hasAnyFlag;
 
         if ($doFetch) {
             $this->info('--- Fetching new Lazada orders ---');
@@ -45,6 +49,19 @@ class LazadaSyncOrders extends Command
         if ($doUpdate) {
             $this->info('--- Updating statuses of existing orders ---');
             $this->updateStatuses($client, $setting);
+        }
+
+        if ($doReturns) {
+            $this->info('--- Syncing reverse orders (returns/refunds) ---');
+            $this->syncReturns($client, $setting);
+        }
+
+        // Stamp sync timestamps on settings (independent of API logging)
+        if ($doFetch || $doUpdate) {
+            LazadaSetting::query()->update(['last_order_sync_at' => now()]);
+        }
+        if ($doReturns) {
+            LazadaSetting::query()->update(['last_return_sync_at' => now()]);
         }
 
         $this->info('Done.');
@@ -249,6 +266,99 @@ class LazadaSyncOrders extends Command
     }
 
     /**
+     * Sync reverse orders (returns/refunds) from Lazada API.
+     */
+    private function syncReturns(LazadaClient $client, object $setting): void
+    {
+        $syncDays = ($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14;
+        $tz = new \DateTimeZone('Asia/Manila');
+        $dt = (new \DateTime('now', $tz))->modify("-{$syncDays} days");
+        $this->info("  Returns window: last {$syncDays} days (since " . $dt->format('Y-m-d H:i:s') . ")");
+
+        $pageSize = 50;
+        $allOrders = [];
+        $res = null;
+
+        for ($pageNo = 1; $pageNo <= 20; $pageNo++) {
+            $res = $this->runSignedApiCall($client, $setting, 'GET', '/reverse/getreverseordersforseller', [
+                'pageNo' => $pageNo,
+                'pageSize' => $pageSize,
+                'create_time_start' => $dt->format('Y-m-d H:i:s'),
+            ], 'lazada.reverse.list');
+
+            $body = $res['body'] ?? [];
+            $pageOrders = [];
+            if (($res['ok'] ?? false) && is_array($body)) {
+                $dataNode = $body['data'] ?? $body;
+                $pageOrders = $dataNode['list'] ?? $dataNode['reverse_order_list'] ?? $dataNode['data'] ?? [];
+                if (!is_array($pageOrders)) $pageOrders = [];
+            }
+
+            if (!($res['ok'] ?? false)) {
+                $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
+                $this->error('  API error: ' . $msg);
+                break;
+            }
+
+            $allOrders = array_merge($allOrders, $pageOrders);
+
+            if (count($pageOrders) < $pageSize) {
+                break;
+            }
+        }
+
+        $saved = 0;
+        $updated = 0;
+
+        foreach ($allOrders as $o) {
+            if (!is_array($o)) continue;
+
+            $reverseOrderId = (string)($o['reverse_order_id'] ?? $o['reverseOrderId'] ?? '');
+            if ($reverseOrderId === '') continue;
+
+            $tradeOrderId = (string)($o['trade_order_id'] ?? $o['tradeOrderId'] ?? '');
+            $reverseStatus = (string)($o['reverse_status'] ?? $o['reverseStatus'] ?? $o['status'] ?? '');
+            $reverseType = (string)($o['reverse_type'] ?? $o['reverseType'] ?? $o['type'] ?? '');
+            $reason = (string)($o['reason'] ?? $o['reverse_reason'] ?? '');
+            $refundAmount = $o['refund_amount'] ?? $o['refundAmount'] ?? $o['actual_refund_amount'] ?? null;
+            $currency = (string)($o['currency'] ?? '');
+            $items = $o['items'] ?? $o['reverse_order_items'] ?? $o['reverseOrderItems'] ?? null;
+
+            $payload = [
+                'region' => $setting->region,
+                'reverse_order_id' => $reverseOrderId,
+                'trade_order_id' => $tradeOrderId !== '' ? $tradeOrderId : null,
+                'reverse_status' => $reverseStatus !== '' ? $reverseStatus : null,
+                'reverse_type' => $reverseType !== '' ? $reverseType : null,
+                'reason' => $reason !== '' ? $reason : null,
+                'refund_amount' => is_numeric($refundAmount) ? $refundAmount : null,
+                'currency' => $currency !== '' ? $currency : null,
+                'items' => is_array($items) ? $items : null,
+                'raw' => $o,
+            ];
+
+            $existing = LazadaReverseOrder::query()
+                ->where('region', $setting->region)
+                ->where('reverse_order_id', $reverseOrderId)
+                ->first();
+
+            if ($existing) {
+                $existing->fill($payload)->save();
+                $updated++;
+            } else {
+                try {
+                    LazadaReverseOrder::query()->create($payload);
+                    $saved++;
+                } catch (\Throwable $e) {
+                    Log::error('Lazada sync: failed to create reverse order ' . $reverseOrderId, ['error' => $e->getMessage()]);
+                }
+            }
+        }
+
+        $this->info("  Returns: {$saved} new, {$updated} updated");
+    }
+
+    /**
      * Fetch order items from Lazada API and store as LazadaOrderProduct rows.
      */
     private function syncOrderProducts(LazadaClient $client, object $setting, LazadaOrder $order): void
@@ -388,28 +498,9 @@ class LazadaSyncOrders extends Command
             'ok'              => (bool) ($result['ok'] ?? false),
             'response_body'   => $result['body'] ?? null,
             'user_id'         => null,
-        ], force: true);
+        ]);
 
         return $result;
-    }
-
-    private function decryptSetting(?LazadaSetting $setting): ?object
-    {
-        if (!$setting) return null;
-
-        $s = (object) $setting->toArray();
-
-        foreach (['app_secret', 'auth_code', 'access_token', 'refresh_token'] as $k) {
-            if (!empty($s->$k)) {
-                try {
-                    $s->$k = decrypt($s->$k);
-                } catch (\Throwable $e) {
-                    $s->$k = $s->$k;
-                }
-            }
-        }
-
-        return $s;
     }
 
     private function parseApiDatetime($value): ?string

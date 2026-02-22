@@ -24,7 +24,7 @@ class ShopeeLogisticsController extends Controller
 
     public function fetch(ShopeeClient $client)
     {
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.logistics.index')
                 ->with('error', 'Missing Shopee settings. Configure Partner ID, Partner Key, Access Token and Shop ID first.');
@@ -98,16 +98,4 @@ class ShopeeLogisticsController extends Controller
             ->with('status', "Fetched {$saved} logistics channel(s) from Shopee.");
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?ShopeeSetting
-    {
-        if (!$setting) return null;
-        $setting = $setting->replicate();
-        $setting->id = ShopeeSetting::query()->value('id');
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $field) {
-            if (!empty($setting->{$field})) {
-                try { $setting->{$field} = decrypt($setting->{$field}); } catch (\Throwable $e) {}
-            }
-        }
-        return $setting;
-    }
 }

@@ -7,8 +7,18 @@
 </div>
 
 @php
+    $currentMode = $setting->mode ?? 'sandbox';
+    $isSandbox = $currentMode === 'sandbox';
+
+    // Live credentials
     $__hasToken = !empty($setting->access_token ?? '');
     $__tokenExpired = $__hasToken && ($setting->expires_at ?? null) && \Carbon\Carbon::parse($setting->expires_at)->lt(now());
+
+    // Sandbox credentials
+    $__hasSandboxCredentials = ($setting->sandbox_partner_id ?? '') !== '' && ($setting->sandbox_partner_key ?? '') !== '';
+    $__hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
+    $__sandboxTokenExpired = $__hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
+
     $logCount = count($logs);
     $hasResult = !empty($result);
 @endphp
@@ -30,24 +40,44 @@
      ╚══════════════════════════════════════════════════════════════════╝ --}}
 <div id="sp-tab-settings" class="{{ $hasResult ? 'hidden' : '' }}">
 
+    {{-- Environment Toggle --}}
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
+        <span class="font-semibold text-sm">Environment:</span>
+        <form method="POST" action="{{ route('shopee.toggle_mode') }}" id="sp-mode-form" style="display:flex; align-items:center; gap:10px;">
+            @csrf
+            <input type="hidden" name="mode" id="sp-mode-value" value="{{ $currentMode }}">
+            <button type="button" id="sp-mode-toggle" style="
+                position:relative; display:inline-flex; align-items:center; width:48px; height:26px;
+                border-radius:13px; border:none; cursor:pointer; transition:background 0.2s;
+                background:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};
+            ">
+                <span id="sp-mode-knob" style="
+                    position:absolute; top:3px; {{ $isSandbox ? 'left:3px' : 'left:25px' }};
+                    width:20px; height:20px; background:#fff; border-radius:50%;
+                    transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+                "></span>
+            </button>
+            <span id="sp-mode-label" class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
+                {{ $isSandbox ? 'Sandbox' : 'Production' }}
+            </span>
+        </form>
+    </div>
+
     {{-- Connection + Auth side-by-side on wide screens --}}
     <style>.sp-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;} @media(max-width:1024px){.sp-settings-grid{grid-template-columns:1fr;}}</style>
+
+    {{-- ═══ PRODUCTION fields ═══ --}}
+    <div id="sp-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
     <div class="sp-settings-grid">
 
-        {{-- Connection Settings --}}
+        {{-- Connection (Live) --}}
         <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Connection</h3>
+            <h3 class="section-title mt-0">Connection <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
 
             <form method="POST" action="{{ route('shopee.save') }}">
                 @csrf
+                <input type="hidden" name="env" value="live">
                 <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div>
-                        <label>Account Mode</label>
-                        <select name="mode" class="input">
-                            <option value="sandbox" {{ ($setting->mode ?? 'sandbox') === 'sandbox' ? 'selected' : '' }}>Sandbox</option>
-                            <option value="live" {{ ($setting->mode ?? '') === 'live' ? 'selected' : '' }}>Live</option>
-                        </select>
-                    </div>
                     <div>
                         <label>Partner ID</label>
                         <input class="input" name="partner_id" value="{{ old('partner_id', $setting->partner_id ?? '') }}">
@@ -63,7 +93,7 @@
                     </div>
                     <div>
                         <label>Access Token</label>
-                        <input class="input" name="access_token" value="{{ old('access_token', $setting->access_token ?? '') }}">
+                        <input class="input" type="password" name="access_token" value="{{ old('access_token', $setting->access_token ?? '') }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">
@@ -83,9 +113,9 @@
             </form>
         </div>
 
-        {{-- Authentication --}}
+        {{-- Authentication (Live) --}}
         <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Authentication</h3>
+            <h3 class="section-title mt-0">Authentication <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
 
             @if($__hasToken && !$__tokenExpired)
                 <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
@@ -153,6 +183,131 @@
             </div>
         </div>
     </div>
+    </div>
+
+    {{-- ═══ SANDBOX fields ═══ --}}
+    <div id="sp-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
+    <div class="sp-settings-grid">
+
+        {{-- Connection (Sandbox) --}}
+        <div class="card" style="margin-bottom:0;">
+            <h3 class="section-title mt-0">Connection <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+
+            @if($__hasSandboxCredentials)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-green">Connected</span>
+                </div>
+            @else
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-gray">Not configured</span>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('shopee.save') }}">
+                @csrf
+                <input type="hidden" name="env" value="sandbox">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label>Sandbox Partner ID</label>
+                        <input class="input" name="sandbox_partner_id" value="{{ old('sandbox_partner_id', $setting->sandbox_partner_id ?? '') }}">
+                    </div>
+                    <div>
+                        <label>Sandbox Partner Key</label>
+                        <input class="input" name="sandbox_partner_key" value="{{ old('sandbox_partner_key', $setting->sandbox_partner_key ?? '') }}">
+                        <div class="hint">Stored encrypted.</div>
+                    </div>
+                    <div>
+                        <label>Sandbox Shop ID</label>
+                        <input class="input" name="sandbox_shop_id" value="{{ old('sandbox_shop_id', $setting->sandbox_shop_id ?? '') }}">
+                    </div>
+                    <div>
+                        <label>Sandbox Access Token</label>
+                        <input class="input" type="password" name="sandbox_access_token" value="{{ old('sandbox_access_token', $setting->sandbox_access_token ?? '') }}">
+                        <div class="hint">Stored encrypted.</div>
+                    </div>
+                    <div class="form-grid">
+                        <div>
+                            <label>Redirect URI</label>
+                            <input class="input" name="sandbox_redirect_uri" value="{{ old('sandbox_redirect_uri', $setting->sandbox_redirect_uri ?? $defaultRedirect) }}">
+                        </div>
+                        <div>
+                            <label>Region</label>
+                            <input class="input" name="sandbox_region" value="{{ old('sandbox_region', $setting->sandbox_region ?? '') }}" placeholder="PH, SG, MY...">
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:14px;">
+                    <button class="btn" type="submit">Save Sandbox Settings</button>
+                </div>
+            </form>
+        </div>
+
+        {{-- Authentication (Sandbox) --}}
+        <div class="card" style="margin-bottom:0;">
+            <h3 class="section-title mt-0">Authentication <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+
+            @if($__hasSandboxToken && !$__sandboxTokenExpired)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-green">Token Active</span>
+                    @if($setting->sandbox_expires_at ?? null)
+                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
+                    @endif
+                </div>
+            @elseif($__hasSandboxToken && $__sandboxTokenExpired)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-red">Token Expired</span>
+                </div>
+            @else
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-yellow">No Token</span>
+                    <span class="text-xs text-muted">Configure sandbox credentials, then authorize.</span>
+                </div>
+            @endif
+
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
+                        <span class="font-semibold text-sm">Authorize with Shopee Sandbox</span>
+                    </div>
+                    <form method="GET" action="{{ route('shopee.authorize') }}">
+                        @csrf
+                        <button class="btn small" type="submit">Authorize Sandbox</button>
+                    </form>
+                    <div class="hint" style="margin-top:6px;">Uses sandbox credentials to authorize with the Shopee test environment.</div>
+                </div>
+
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
+                        <span class="font-semibold text-sm">Exchange auth code for sandbox token</span>
+                    </div>
+                    <form method="POST" action="{{ route('shopee.token_get') }}">
+                        @csrf
+                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:200px;">
+                                <label class="text-xs text-muted">Auth Code</label>
+                                <input class="input" name="code" value="{{ old('code', '') }}" placeholder="Paste sandbox code here">
+                            </div>
+                            <button class="btn small" type="submit">Exchange Token</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
+                        <span class="font-semibold text-sm">Refresh sandbox token</span>
+                    </div>
+                    <form method="POST" action="{{ route('shopee.token_refresh') }}" style="display:inline;">
+                        @csrf
+                        <button class="btn small secondary" type="submit">Refresh Sandbox Token</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 
     {{-- Order Status Mapping --}}
     <div class="card mb-16">
@@ -182,6 +337,51 @@
                             <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+
+    {{-- Return Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Return Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            When Shopee returns are synced, each return status is mapped to an ERP order status below.
+        </div>
+
+        <form method="POST" action="{{ route('shopee.return_status_map') }}">
+            @csrf
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Shopee Return Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($shopeeReturnStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                <option value="">(not mapped)</option>
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($returnStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
                                         {{ $os->name }}
                                     </option>
                                 @endforeach
@@ -283,6 +483,17 @@
                     <button type="button" class="btn small secondary" onclick="spCopy('sp-cron-returns', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
                 </div>
             </div>
+            <div>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Token Refresh</span>
+                    <span class="text-muted">— Auto-refresh access token before expiry</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 3 hours</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="sp-cron-token" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} shopee:refresh-token</code>
+                    <button type="button" class="btn small secondary" onclick="spCopy('sp-cron-token', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
+            </div>
         </div>
 
         <details>
@@ -362,12 +573,13 @@
                 <div class="sp-cat">Logistics</div>
                 <button type="button" class="sp-endpoint" data-ep='{"name":"Get Channel List","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_channel_list","desc":"Fetch available logistics channels.","params":[]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_channel_list</span><div class="sp-hint">Logistics channels</div></button>
                 <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Parameter","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_parameter","desc":"Get shipping parameter for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_shipping_parameter</span><div class="sp-hint">order_sn</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Ship Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/ship_order","desc":"Ship an order.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"pickup","req":false,"ph":""}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/ship_order</span><div class="sp-hint">order_sn</div></button>
+                <button type="button" class="sp-endpoint" data-ep='{"name":"Ship Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/ship_order","desc":"Ship an order. Use pickup with address_id from get_shipping_parameter, or dropoff with empty object.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"pickup","req":false,"ph":"{\"address_id\":0}"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/ship_order</span><div class="sp-hint">order_sn, pickup/dropoff</div></button>
                 <button type="button" class="sp-endpoint" data-ep='{"name":"Get Tracking Number","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_number","desc":"Get tracking number.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_tracking_number</span><div class="sp-hint">order_sn</div></button>
                 <button type="button" class="sp-endpoint" data-ep='{"name":"Get Tracking Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_info","desc":"Get tracking info for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_tracking_info</span><div class="sp-hint">order_sn</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Doc Parameter","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_parameter","desc":"Get shipping document parameter.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_shipping_document_parameter</span><div class="sp-hint">order_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Create Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/create_shipping_document","desc":"Create shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/create_shipping_document</span><div class="sp-hint">order_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Download Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/download_shipping_document","desc":"Download shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"},{"k":"shipping_document_type","req":false,"ph":"THERMAL_AIR_WAYBILL"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/download_shipping_document</span><div class="sp-hint">order_list</div></button>
+                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Doc Parameter","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_parameter","desc":"Get shipping document parameter (doc type, package number).","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/get_shipping_document_parameter</span><div class="sp-hint">order_list</div></button>
+                <button type="button" class="sp-endpoint" data-ep='{"name":"Create Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/create_shipping_document","desc":"Create shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\",\"shipping_document_type\":\"THERMAL_AIR_WAYBILL\",\"tracking_number\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/create_shipping_document</span><div class="sp-hint">order_list</div></button>
+                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Doc Result","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_result","desc":"Poll document creation status. Status: READY, FAILED, or PROCESSING.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/get_shipping_document_result</span><div class="sp-hint">order_list — check READY/FAILED</div></button>
+                <button type="button" class="sp-endpoint" data-ep='{"name":"Download Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/download_shipping_document","desc":"Download shipping document as PDF. Response is binary — will show as raw data in explorer.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"},{"k":"shipping_document_type","req":false,"ph":"THERMAL_AIR_WAYBILL"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/download_shipping_document</span><div class="sp-hint">order_list — returns binary PDF</div></button>
 
                 <div class="sp-cat">Media</div>
                 <button type="button" class="sp-endpoint" data-ep='{"name":"Upload Image","method":"POST","auth":true,"shop":true,"path":"/api/v2/media_space/upload_image","desc":"Upload an image.","params":[]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/media_space/upload_image</span><div class="sp-hint">Multipart upload</div></button>
@@ -558,6 +770,30 @@
 
 @push('scripts')
 <script>
+// Environment toggle
+(function(){
+    var toggle = document.getElementById('sp-mode-toggle');
+    var knob = document.getElementById('sp-mode-knob');
+    var label = document.getElementById('sp-mode-label');
+    var input = document.getElementById('sp-mode-value');
+    var form = document.getElementById('sp-mode-form');
+    var envLive = document.getElementById('sp-env-live');
+    var envSandbox = document.getElementById('sp-env-sandbox');
+    if (!toggle) return;
+
+    toggle.addEventListener('click', function(){
+        var isNowSandbox = input.value === 'live';
+        input.value = isNowSandbox ? 'sandbox' : 'live';
+        toggle.style.background = isNowSandbox ? '#9ca3af' : '#22c55e';
+        knob.style.left = isNowSandbox ? '3px' : '25px';
+        label.textContent = isNowSandbox ? 'Sandbox' : 'Production';
+        label.style.color = isNowSandbox ? '#9ca3af' : '#22c55e';
+        if (envLive) envLive.classList.toggle('hidden', isNowSandbox);
+        if (envSandbox) envSandbox.classList.toggle('hidden', !isNowSandbox);
+        form.submit();
+    });
+})();
+
 function spCopy(id, btn) {
     var el = document.getElementById(id);
     if (!el) return;

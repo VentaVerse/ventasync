@@ -107,6 +107,41 @@
     </div>
 </div>
 
+@php
+    // Consolidate items by SKU + variation (Lazada returns each unit as a separate order_item_id)
+    $consolidated = [];
+    foreach ($items as $it) {
+        $ir = is_array($it->raw ?? null) ? $it->raw : [];
+        $img = (string)($it->image ?? ($ir['product_main_image'] ?? $ir['image'] ?? ''));
+        $name = (string)($it->name ?? ($ir['name'] ?? $ir['product_name'] ?? ''));
+        $sku = (string)($it->sku ?? ($ir['seller_sku'] ?? $ir['SellerSku'] ?? $ir['Sku'] ?? ''));
+        $variation = (string)($it->variation ?? ($ir['variation'] ?? ''));
+        $qty = (int)($it->quantity ?? ($ir['quantity'] ?? 1));
+        if ($qty < 1) $qty = 1;
+        $orderItemId = (string)($it->order_item_id ?? ($ir['order_item_id'] ?? $ir['orderItemId'] ?? ''));
+        $itemPrice = (float)($ir['item_price'] ?? ($ir['price'] ?? ($it->price ?? 0)));
+        $paidPrice = (float)($ir['paid_price'] ?? $itemPrice);
+
+        $groupKey = $sku . '||' . $name . '||' . $variation;
+
+        if (isset($consolidated[$groupKey])) {
+            $consolidated[$groupKey]['qty'] += $qty;
+            $consolidated[$groupKey]['paid_total'] += $paidPrice;
+            $consolidated[$groupKey]['order_item_ids'][] = $orderItemId;
+        } else {
+            $consolidated[$groupKey] = [
+                'img' => $img,
+                'name' => $name,
+                'sku' => $sku,
+                'variation' => $variation,
+                'qty' => $qty,
+                'unit_price' => $itemPrice,
+                'paid_total' => $paidPrice,
+                'order_item_ids' => [$orderItemId],
+            ];
+        }
+    }
+@endphp
 <div class="card">
     <h3 class="section-title mt-0">Items</h3>
     @if($items->count() === 0)
@@ -119,39 +154,33 @@
                         <th style="width:90px;">Image</th>
                         <th>Product</th>
                         <th style="width:130px;">SKU</th>
-                        <th style="width:100px;">Qty</th>
-                        <th style="width:190px;">Order Item ID</th>
+                        <th style="width:70px;">Qty</th>
+                        <th style="width:100px;">Unit Price</th>
+                        <th style="width:100px;">Paid</th>
+                        <th>Order Item IDs</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($items as $it)
-                        @php
-                            $ir = is_array($it->raw ?? null) ? $it->raw : [];
-                            $img = (string)($it->image ?? ($ir['product_main_image'] ?? $ir['image'] ?? ''));
-                            $name = (string)($it->name ?? ($ir['name'] ?? $ir['product_name'] ?? ''));
-                            $sku = (string)($it->sku ?? ($ir['seller_sku'] ?? $ir['SellerSku'] ?? $ir['Sku'] ?? ''));
-                            $variation = (string)($it->variation ?? ($ir['variation'] ?? ''));
-                            $qty = (int)($it->quantity ?? ($ir['quantity'] ?? 1));
-                            if ($qty < 1) $qty = 1;
-                            $orderItemId = (string)($it->order_item_id ?? ($ir['order_item_id'] ?? $ir['orderItemId'] ?? ''));
-                        @endphp
+                    @foreach($consolidated as $ci)
                         <tr>
                             <td>
-                                @if($img !== '')
-                                    <img src="{{ $img }}" alt="" class="thumb" style="width:64px; height:64px;" onerror="this.style.display='none'">
+                                @if($ci['img'] !== '')
+                                    <img src="{{ $ci['img'] }}" alt="" class="thumb" style="width:64px; height:64px;" onerror="this.style.display='none'">
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
                             </td>
                             <td>
-                                <div class="font-bold">{{ $name !== '' ? $name : '—' }}</div>
-                                @if($variation !== '')
-                                    <div class="text-secondary text-xs" style="margin-top:4px;">{{ $variation }}</div>
+                                <div class="font-bold">{{ $ci['name'] !== '' ? $ci['name'] : '—' }}</div>
+                                @if($ci['variation'] !== '')
+                                    <div class="text-secondary text-xs" style="margin-top:4px;">{{ $ci['variation'] }}</div>
                                 @endif
                             </td>
-                            <td>{{ $sku !== '' ? $sku : '—' }}</td>
-                            <td>{{ $qty }}</td>
-                            <td>{{ $orderItemId !== '' ? $orderItemId : '—' }}</td>
+                            <td>{{ $ci['sku'] !== '' ? $ci['sku'] : '—' }}</td>
+                            <td>{{ $ci['qty'] }}</td>
+                            <td>{{ $ci['unit_price'] > 0 ? number_format($ci['unit_price'], 2) : '—' }}</td>
+                            <td class="font-bold">{{ $ci['paid_total'] > 0 ? number_format($ci['paid_total'], 2) : '—' }}</td>
+                            <td class="text-xs">{{ implode(', ', array_filter($ci['order_item_ids'])) ?: '—' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -184,11 +213,48 @@
     if ($lCommission) $lNet += $lCommission; // commission is typically negative
     if ($lPaymentFee) $lNet += $lPaymentFee;
     if ($lShippingServiceCost) $lNet -= $lShippingServiceCost;
+
+    // Per-item fee breakdown from raw item data
+    $itemFees = [];
+    foreach ($items as $it) {
+        $ir = is_array($it->raw ?? null) ? $it->raw : [];
+        $iName = (string)($it->name ?? ($ir['name'] ?? ($ir['product_name'] ?? '—')));
+        $iSku = (string)($it->sku ?? ($ir['seller_sku'] ?? ($ir['SellerSku'] ?? '')));
+        $iItemPrice = (float)($ir['item_price'] ?? ($ir['price'] ?? 0));
+        $iPaidPrice = (float)($ir['paid_price'] ?? 0);
+        $iShipping = (float)($ir['shipping_amount'] ?? ($ir['shipping_fee_original'] ?? 0));
+        $iVoucherSeller = (float)($ir['voucher_seller'] ?? 0);
+        $iVoucherPlatform = (float)($ir['voucher_platform'] ?? 0);
+        $iShipDiscSeller = (float)($ir['shipping_fee_discount_seller'] ?? 0);
+        $iShipDiscPlatform = (float)($ir['shipping_fee_discount_platform'] ?? 0);
+        $iWallet = (float)($ir['wallet_credits'] ?? 0);
+        $iShipService = (float)($ir['shipping_service_cost'] ?? 0);
+        $iStatus = (string)($ir['status'] ?? ($it->status ?? ''));
+
+        // Only include if there's meaningful data
+        $hasData = ($iItemPrice != 0 || $iPaidPrice != 0 || $iVoucherSeller != 0 || $iVoucherPlatform != 0 || $iShipService != 0);
+        if ($hasData) {
+            $itemFees[] = [
+                'name' => $iName,
+                'sku' => $iSku,
+                'item_price' => $iItemPrice,
+                'paid_price' => $iPaidPrice,
+                'shipping' => $iShipping,
+                'voucher_seller' => $iVoucherSeller,
+                'voucher_platform' => $iVoucherPlatform,
+                'ship_disc_seller' => $iShipDiscSeller,
+                'ship_disc_platform' => $iShipDiscPlatform,
+                'wallet' => $iWallet,
+                'ship_service' => $iShipService,
+                'status' => $iStatus,
+            ];
+        }
+    }
 @endphp
 
-@if($hasFees)
 <div class="card mt-16">
     <h3 class="section-title mt-0">Fees & Revenue Breakdown</h3>
+    @if($hasFees)
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
         <div>
             <table class="table" style="width:100%;">
@@ -255,14 +321,91 @@
     @if(!$lCommission && !$lPaymentFee)
         <div class="text-secondary text-xs mt-12" style="padding:0 4px;">Commission and payment fee data may not be available until the order is settled by Lazada.</div>
     @endif
+
+    @php
+        $trxLines = $fees['transaction_lines'] ?? [];
+    @endphp
+    @if(!empty($trxLines))
+    <div style="margin-top:20px;">
+        <h4 style="margin:0 0 10px 0; font-size:0.95em;">Lazada Platform Fees ({{ count($trxLines) }} transactions)</h4>
+        <div class="table-wrap">
+            <table class="table" style="width:100%; font-size:0.85em;">
+                <thead>
+                    <tr>
+                        <th>Fee Name</th>
+                        <th style="width:80px;">Type</th>
+                        <th style="width:120px;">SKU</th>
+                        <th style="width:110px;">Amount</th>
+                        <th style="width:130px;">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($trxLines as $tl)
+                    <tr>
+                        <td>{{ $tl['fee_name'] ?: ('Fee Type ' . $tl['fee_type']) }}</td>
+                        <td class="text-xs text-secondary">{{ $tl['fee_type'] ?: '—' }}</td>
+                        <td class="text-xs">{{ $tl['sku'] ?: ($tl['order_item_id'] ?: '—') }}</td>
+                        <td class="text-right font-bold" style="{{ $tl['amount'] < 0 ? 'color:#dc2626;' : '' }}">{{ $tl['amount'] < 0 ? '-' : '' }}{{ number_format(abs($tl['amount']), 2) }}</td>
+                        <td class="text-xs text-secondary">{{ $tl['transaction_date'] ?: '—' }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
+    @if(!empty($itemFees))
+    <details style="margin-top:16px;">
+        <summary style="cursor:pointer;" class="font-bold text-sm">Per-Item Price Breakdown ({{ count($itemFees) }} items)</summary>
+        <div class="table-wrap" style="margin-top:10px;">
+            <table class="table" style="width:100%; font-size:0.85em;">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th style="width:90px;">Item Price</th>
+                        <th style="width:90px;">Paid Price</th>
+                        <th style="width:90px;">Voucher (S)</th>
+                        <th style="width:90px;">Voucher (P)</th>
+                        <th style="width:90px;">Shipping</th>
+                        <th style="width:100px;">Ship Svc Cost</th>
+                        <th style="width:80px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($itemFees as $if)
+                    <tr>
+                        <td>
+                            <div>{{ $if['name'] }}</div>
+                            @if($if['sku'] !== '')
+                                <div class="text-xs text-secondary">{{ $if['sku'] }}</div>
+                            @endif
+                        </td>
+                        <td class="text-right">{{ $if['item_price'] ? number_format($if['item_price'], 2) : '—' }}</td>
+                        <td class="text-right font-bold">{{ $if['paid_price'] ? number_format($if['paid_price'], 2) : '—' }}</td>
+                        <td class="text-right" style="{{ $if['voucher_seller'] ? 'color:#dc2626;' : '' }}">{{ $if['voucher_seller'] ? '-' . number_format(abs($if['voucher_seller']), 2) : '—' }}</td>
+                        <td class="text-right" style="{{ $if['voucher_platform'] ? 'color:#dc2626;' : '' }}">{{ $if['voucher_platform'] ? '-' . number_format(abs($if['voucher_platform']), 2) : '—' }}</td>
+                        <td class="text-right">{{ $if['shipping'] ? number_format($if['shipping'], 2) : '—' }}</td>
+                        <td class="text-right" style="{{ $if['ship_service'] ? 'color:#dc2626;' : '' }}">{{ $if['ship_service'] ? '-' . number_format(abs($if['ship_service']), 2) : '—' }}</td>
+                        <td class="text-xs">{{ $if['status'] ?: '—' }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </details>
+    @endif
+
+    @else
+    <div class="text-secondary">No fee data available yet. Click <strong>Refresh from Lazada</strong> to fetch — fees are typically available after order completion.</div>
+    @endif
 </div>
-@endif
 
 <div class="card mt-16">
     <h3 class="section-title mt-0">Raw Payload (debug)</h3>
     <details>
         <summary style="cursor:pointer;" class="font-bold">Show raw JSON</summary>
-        <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode(['order' => $raw, 'detail' => $detail], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+        <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode(['order' => $raw, 'detail' => $detail, 'fees' => $fees], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
     </details>
 </div>
 @endsection

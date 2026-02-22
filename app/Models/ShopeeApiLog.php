@@ -33,15 +33,13 @@ class ShopeeApiLog extends Model
     /**
      * Create an API log record without breaking the app if schema is out of sync.
      */
-    public static function safeCreate(array $attributes, bool $force = false): void
+    public static function safeCreate(array $attributes): void
     {
         try {
-            // Skip logging if disabled in settings (unless forced by sync commands)
-            if (!$force) {
-                $setting = ShopeeSetting::query()->first();
-                if ($setting && $setting->api_logging === false) {
-                    return;
-                }
+            // Skip logging if disabled in settings
+            $setting = ShopeeSetting::query()->first();
+            if ($setting && $setting->api_logging === false) {
+                return;
             }
 
             if (array_key_exists('pack', $attributes) && !Schema::hasColumn('shopee_api_logs', 'pack')) {

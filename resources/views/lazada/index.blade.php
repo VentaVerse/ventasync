@@ -11,9 +11,19 @@
 </div>
 
 @php
+    $currentMode = $setting->mode ?? 'live';
+    $isSandbox = $currentMode === 'sandbox';
+
+    // Live credentials
     $hasCredentials = ($setting->region ?? '') !== '' && ($setting->app_key ?? '') !== '' && ($setting->app_secret ?? '') !== '';
     $hasToken = !empty($setting->access_token ?? '');
     $tokenExpired = $hasToken && ($setting->expires_at ?? null) && \Carbon\Carbon::parse($setting->expires_at)->lt(now());
+
+    // Sandbox credentials
+    $hasSandboxCredentials = ($setting->sandbox_app_key ?? '') !== '' && ($setting->sandbox_app_secret ?? '') !== '';
+    $hasSandboxToken = !empty($setting->sandbox_access_token ?? '');
+    $sandboxTokenExpired = $hasSandboxToken && ($setting->sandbox_expires_at ?? null) && \Carbon\Carbon::parse($setting->sandbox_expires_at)->lt(now());
+
     $logCount = count($logs);
     $hasResult = !empty($result);
 @endphp
@@ -35,13 +45,38 @@
      ╚══════════════════════════════════════════════════════════════════╝ --}}
 <div id="lz-tab-settings" class="{{ $hasResult ? 'hidden' : '' }}">
 
+    {{-- Environment Toggle --}}
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
+        <span class="font-semibold text-sm">Environment:</span>
+        <form method="POST" action="{{ route('lazada.toggle_mode') }}" id="lz-mode-form" style="display:flex; align-items:center; gap:10px;">
+            @csrf
+            <input type="hidden" name="mode" id="lz-mode-value" value="{{ $currentMode }}">
+            <button type="button" id="lz-mode-toggle" style="
+                position:relative; display:inline-flex; align-items:center; width:48px; height:26px;
+                border-radius:13px; border:none; cursor:pointer; transition:background 0.2s;
+                background:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};
+            ">
+                <span id="lz-mode-knob" style="
+                    position:absolute; top:3px; {{ $isSandbox ? 'left:3px' : 'left:25px' }};
+                    width:20px; height:20px; background:#fff; border-radius:50%;
+                    transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+                "></span>
+            </button>
+            <span id="lz-mode-label" class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
+                {{ $isSandbox ? 'Sandbox' : 'Production' }}
+            </span>
+        </form>
+    </div>
+
     {{-- Connection + Auth side-by-side --}}
     <style>.lz-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;} @media(max-width:1024px){.lz-settings-grid{grid-template-columns:1fr;}}</style>
-    <div class="lz-settings-grid">
 
-        {{-- Connection --}}
+    {{-- ═══ PRODUCTION fields ═══ --}}
+    <div id="lz-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
+    <div class="lz-settings-grid">
+        {{-- Connection (Live) --}}
         <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Connection</h3>
+            <h3 class="section-title mt-0">Connection <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
 
             @if($hasCredentials)
                 <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
@@ -56,6 +91,7 @@
 
             <form method="POST" action="{{ route('lazada.save') }}">
                 @csrf
+                <input type="hidden" name="env" value="live">
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Region</label>
@@ -82,14 +118,14 @@
                     </div>
                 </div>
                 <div style="margin-top:14px;">
-                    <button class="btn" type="submit">Save Connection</button>
+                    <button class="btn" type="submit">Save Settings</button>
                 </div>
             </form>
         </div>
 
-        {{-- Authorization --}}
+        {{-- Authorization (Live) --}}
         <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Authorization</h3>
+            <h3 class="section-title mt-0">Authorization <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
 
             @if($hasToken && !$tokenExpired)
                 <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
@@ -154,6 +190,116 @@
             </div>
         </div>
     </div>
+    </div>
+
+    {{-- ═══ SANDBOX fields ═══ --}}
+    <div id="lz-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
+    <div class="lz-settings-grid">
+        {{-- Connection (Sandbox) --}}
+        <div class="card" style="margin-bottom:0;">
+            <h3 class="section-title mt-0">Connection <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+
+            @if($hasSandboxCredentials)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-green">Connected</span>
+                </div>
+            @else
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-gray">Not configured</span>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('lazada.save') }}">
+                @csrf
+                <input type="hidden" name="env" value="sandbox">
+                <input type="hidden" name="region" value="{{ $setting->region ?? '' }}">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label>Sandbox App Key</label>
+                        <input class="input" name="sandbox_app_key" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}">
+                    </div>
+                    <div>
+                        <label>Sandbox App Secret</label>
+                        <input class="input" name="sandbox_app_secret" type="password" value="{{ old('sandbox_app_secret', $setting->sandbox_app_secret ?? '') }}">
+                        <div class="hint">Stored encrypted.</div>
+                    </div>
+                    <div>
+                        <label>Sandbox Redirect URI</label>
+                        <input class="input" name="sandbox_redirect_uri" value="{{ old('sandbox_redirect_uri', $setting->sandbox_redirect_uri ?? $defaultRedirect) }}">
+                        <div class="hint">Callback URL for sandbox app.</div>
+                    </div>
+                </div>
+                <div style="margin-top:14px;">
+                    <button class="btn" type="submit">Save Sandbox Settings</button>
+                </div>
+            </form>
+        </div>
+
+        {{-- Authorization (Sandbox) --}}
+        <div class="card" style="margin-bottom:0;">
+            <h3 class="section-title mt-0">Authorization <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+
+            @if($hasSandboxToken && !$sandboxTokenExpired)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-green">Token Active</span>
+                    @if($setting->sandbox_expires_at ?? null)
+                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
+                    @endif
+                </div>
+            @elseif($hasSandboxToken && $sandboxTokenExpired)
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-red">Token Expired</span>
+                </div>
+            @else
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
+                    <span class="badge badge-yellow">No Token</span>
+                    <span class="text-xs text-muted">Configure sandbox credentials, then authorize.</span>
+                </div>
+            @endif
+
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
+                        <span class="font-semibold text-sm">Open Lazada sandbox authorization page</span>
+                    </div>
+                    <a class="btn small" href="{{ route('lazada.authorize') }}?sandbox=1" target="_blank" rel="noopener">Authorize Sandbox</a>
+                    <div class="hint" style="margin-top:6px;">Uses sandbox credentials to authorize with the Lazada test environment.</div>
+                </div>
+
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
+                        <span class="font-semibold text-sm">Exchange auth code for sandbox token</span>
+                    </div>
+                    <form method="POST" action="{{ route('lazada.token_create') }}">
+                        @csrf
+                        <input type="hidden" name="sandbox" value="1">
+                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:200px;">
+                                <label class="text-xs text-muted">Auth Code</label>
+                                <input class="input" name="code" value="{{ old('code', $setting->sandbox_auth_code ?? '') }}" placeholder="Paste sandbox auth code here">
+                            </div>
+                            <button class="btn small" type="submit">Exchange Token</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="detail-section">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
+                        <span class="font-semibold text-sm">Refresh sandbox token</span>
+                    </div>
+                    <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline;">
+                        @csrf
+                        <input type="hidden" name="sandbox" value="1">
+                        <button class="btn small secondary" type="submit">Refresh Sandbox Token</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 
     {{-- Order Status Mapping --}}
     <div class="card mb-16">
@@ -183,6 +329,51 @@
                             <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+
+    {{-- Reverse Order Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Reverse Order Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            Map each Lazada reverse order status to an ERP order status. Useful for organizing returned orders and handling product quantity adjustments. Statuses marked with a dot trigger stock subtraction.
+        </div>
+
+        <form method="POST" action="{{ route('lazada.reverse_status_map') }}">
+            @csrf
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Reverse Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($reverseStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                <option value="">(not mapped)</option>
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($reverseStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
                                         {{ $os->name }}
                                     </option>
                                 @endforeach
@@ -229,6 +420,32 @@
             @endif
         </div>
 
+        <div class="detail-section" style="margin-bottom:16px;">
+            <label class="font-semibold text-sm" style="margin-bottom:8px; display:block;">Sync Last N Days (Returns)</label>
+            <div class="hint" style="margin-bottom:10px;">
+                How far back the cronjob looks for <strong>return/refund</strong> orders. Independent from order sync. Defaults to 14 days.
+            </div>
+            <form method="POST" action="{{ route('lazada.sync_days_returns') }}">
+                @csrf
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" name="sync_last_days_returns" class="input"
+                           value="{{ $setting->sync_last_days_returns ?? '' }}"
+                           placeholder="e.g. 7" min="1" max="365" style="width:100px;">
+                    <span class="text-muted text-xs">days</span>
+                    <button class="btn small" type="submit">Save</button>
+                </div>
+            </form>
+            @if(($setting->sync_last_days_returns ?? null) > 0)
+                <div class="hint" style="margin-top:8px;">
+                    Fetching returns from the <strong>last {{ $setting->sync_last_days_returns }} days</strong>.
+                </div>
+            @else
+                <div class="hint" style="margin-top:8px;">
+                    Using default window of <strong>14 days</strong>.
+                </div>
+            @endif
+        </div>
+
         <h3 class="section-title">Cronjob Commands</h3>
         <div class="hint" style="margin-bottom:14px;">
             Add these commands to your hosting panel's scheduled tasks (HestiaCP, cPanel, etc.).
@@ -259,6 +476,17 @@
                 <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
                     <code id="laz-cron-push" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:push-stock</code>
                     <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-push', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Sync Returns</span>
+                    <span class="text-muted">— Fetch return/refund orders from Lazada</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 5 min</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="laz-cron-returns" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:sync-orders --returns</code>
+                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-returns', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
                 </div>
             </div>
         </div>
@@ -352,6 +580,11 @@
 
                 <div class="lz-cat">Finance</div>
                 <button type="button" class="lz-endpoint" data-ep='{"name":"Transaction Details","method":"GET","auth":true,"path":"/finance/transaction/details/get","desc":"Transaction/fees details.","params":[{"k":"start_time","req":true,"ph":""},{"k":"end_time","req":true,"ph":""},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/finance/transaction/details/get</span><div class="lz-hint">start_time, end_time</div></button>
+
+                <div class="lz-cat">Returns / Reverse Orders</div>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Reverse Orders List","method":"GET","auth":true,"path":"/reverse/getreverseordersforseller","desc":"List reverse orders (returns/refunds) for seller with pagination.","params":[{"k":"pageNo","req":false,"ph":"1"},{"k":"pageSize","req":false,"ph":"50"},{"k":"create_time_start","req":false,"ph":""},{"k":"create_time_end","req":false,"ph":""}]}'><span class="lz-badge get">GET</span><span class="lz-code">/reverse/getreverseordersforseller</span><div class="lz-hint">pageNo, pageSize, date filters</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Reverse Order Detail","method":"GET","auth":true,"path":"/order/reverse/return/detail/list","desc":"Get detail for a specific reverse order.","params":[{"k":"reverseOrderId","req":true,"ph":""}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/reverse/return/detail/list</span><div class="lz-hint">reverseOrderId</div></button>
+                <button type="button" class="lz-endpoint" data-ep='{"name":"Reverse Order History","method":"GET","auth":true,"path":"/order/reverse/return/history/list","desc":"Communication history for a reverse order line.","params":[{"k":"reverseOrderLineId","req":true,"ph":""},{"k":"pageSize","req":false,"ph":"10"},{"k":"pageNumber","req":false,"ph":"1"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/reverse/return/history/list</span><div class="lz-hint">reverseOrderLineId</div></button>
             </div>
         </div>
 
@@ -538,6 +771,30 @@
 
 @push('scripts')
 <script>
+// Environment toggle
+(function(){
+    var toggle = document.getElementById('lz-mode-toggle');
+    var knob = document.getElementById('lz-mode-knob');
+    var label = document.getElementById('lz-mode-label');
+    var input = document.getElementById('lz-mode-value');
+    var form = document.getElementById('lz-mode-form');
+    var envLive = document.getElementById('lz-env-live');
+    var envSandbox = document.getElementById('lz-env-sandbox');
+    if (!toggle) return;
+
+    toggle.addEventListener('click', function(){
+        var isNowSandbox = input.value === 'live';
+        input.value = isNowSandbox ? 'sandbox' : 'live';
+        toggle.style.background = isNowSandbox ? '#9ca3af' : '#22c55e';
+        knob.style.left = isNowSandbox ? '3px' : '25px';
+        label.textContent = isNowSandbox ? 'Sandbox' : 'Production';
+        label.style.color = isNowSandbox ? '#9ca3af' : '#22c55e';
+        if (envLive) envLive.classList.toggle('hidden', isNowSandbox);
+        if (envSandbox) envSandbox.classList.toggle('hidden', !isNowSandbox);
+        form.submit();
+    });
+})();
+
 function lazCopy(id, btn) {
     var el = document.getElementById(id);
     if (!el) return;

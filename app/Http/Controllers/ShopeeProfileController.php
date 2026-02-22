@@ -230,7 +230,7 @@ class ShopeeProfileController extends Controller
         $shopeeCategoryId = (int) $request->input('shopee_category_id');
         $profile->update(['shopee_category_id' => $shopeeCategoryId]);
 
-        $setting = $this->decryptSetting(ShopeeSetting::query()->first());
+        $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.profiles.edit', $profile->id)
                 ->with('error', 'Missing Shopee settings.');
@@ -405,16 +405,4 @@ class ShopeeProfileController extends Controller
             ->toArray();
     }
 
-    private function decryptSetting(?ShopeeSetting $setting): ?ShopeeSetting
-    {
-        if (!$setting) return null;
-        $setting = $setting->replicate();
-        $setting->id = ShopeeSetting::query()->value('id');
-        foreach (['partner_key', 'access_token', 'refresh_token'] as $field) {
-            if (!empty($setting->{$field})) {
-                try { $setting->{$field} = decrypt($setting->{$field}); } catch (\Throwable $e) {}
-            }
-        }
-        return $setting;
-    }
 }
