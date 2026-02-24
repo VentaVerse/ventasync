@@ -13,7 +13,6 @@
         <div class="alert error mt-12">{{ $errors->first() }}</div>
     @endif
 
-
     <form method="POST" action="{{ route('products.store') }}">
         @csrf
 
@@ -59,14 +58,6 @@
             </div>
 
             <div>
-                <label>Price</label>
-                <input class="input" name="price" value="{{ old('price', '0') }}" required>
-                @error('price')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div>
                 <label>Quantity</label>
                 <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', '0') }}" required>
                 @error('quantity')
@@ -76,33 +67,12 @@
             </div>
 
             <div>
-                <label>Weight</label>
-                <input class="input" name="weight" value="{{ old('weight', '0') }}" placeholder="e.g. 0.5">
-                @error('weight')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div>
-                <label>Length</label>
-                <input class="input" name="length" value="{{ old('length', '0') }}" placeholder="e.g. 10">
-                @error('length')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div>
-                <label>Width</label>
-                <input class="input" name="width" value="{{ old('width', '0') }}" placeholder="e.g. 5">
-                @error('width')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <div>
-                <label>Height</label>
-                <input class="input" name="height" value="{{ old('height', '0') }}" placeholder="e.g. 3">
-                @error('height')
+                <label class="required">Status</label>
+                <select class="input" name="status" required>
+                    <option value="1" {{ old('status','1')=='1'?'selected':'' }}>Enabled</option>
+                    <option value="0" {{ old('status','1')=='0'?'selected':'' }}>Disabled</option>
+                </select>
+                @error('status')
                     <div class="field-error">{{ $message }}</div>
                 @enderror
             </div>
@@ -118,17 +88,6 @@
                 @enderror
             </div>
 
-            <div>
-                <label class="required">Status</label>
-                <select class="input" name="status" required>
-                    <option value="1" {{ old('status','1')=='1'?'selected':'' }}>Enabled</option>
-                    <option value="0" {{ old('status','1')=='0'?'selected':'' }}>Disabled</option>
-                </select>
-                @error('status')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
-            </div>
-
             <div class="full">
                 <label>Description</label>
                 <textarea class="input wysiwyg" name="description">{!! old('description', '') !!}</textarea>
@@ -137,6 +96,94 @@
                 @enderror
             </div>
         </div>
+        </div>
+
+        <h3 class="section-title mt-24">Pricing & Cost</h3>
+
+        <div class="tab-pane mt-16">
+            <div class="form-grid">
+                <div>
+                    <label>Selling Price</label>
+                    <input class="input" name="price" id="product_price" value="{{ old('price', '0') }}" required>
+                    @error('price')
+                        <div class="field-error">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div>
+                    <label>Product Cost</label>
+                    <input class="input" id="product_cost" name="cost" value="{{ old('cost', '0') }}" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                </div>
+            </div>
+
+            <div class="cost-breakdown mt-16">
+                <div class="cost-breakdown-label">Cost Breakdown</div>
+                <div class="cost-breakdown-fields">
+                    <div>
+                        <label>Cost</label>
+                        <input class="input" id="cost_amount" name="cost_amount" value="{{ old('cost_amount', '0') }}">
+                        <div class="hint">Fixed amount</div>
+                    </div>
+                    <div class="cost-breakdown-op">and/or</div>
+                    <div>
+                        <label>Cost [%]</label>
+                        <input class="input" id="cost_percentage" name="cost_percentage" value="{{ old('cost_percentage', '0') }}">
+                        <div class="hint">% of selling price</div>
+                    </div>
+                    <div class="cost-breakdown-op">+</div>
+                    <div>
+                        <label>Additional Cost</label>
+                        <input class="input" id="cost_additional" name="cost_additional" value="{{ old('cost_additional', '0') }}">
+                        <div class="hint">e.g. supplier shipping</div>
+                    </div>
+                    <div class="cost-breakdown-op">=</div>
+                    <div>
+                        <label>Product Cost</label>
+                        <input class="input" id="product_cost_mirror" value="0" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                        <div class="hint">Computed total</div>
+                    </div>
+                </div>
+                <div class="profit-metrics">
+                    <div>
+                        <label>Profit</label>
+                        <input class="input" id="calc_profit" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                    </div>
+                    <div>
+                        <label>Margin [%]</label>
+                        <input class="input" id="calc_margin" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                    </div>
+                    <div>
+                        <label>Markup [%]</label>
+                        <input class="input" id="calc_markup" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="section-title mt-24">Shipping & Dimensions</h3>
+
+        <div class="tab-pane mt-16">
+            <div class="form-grid">
+                <div>
+                    <label>Weight</label>
+                    <input class="input" name="weight" value="{{ old('weight', '0') }}" placeholder="e.g. 0.5">
+                    @error('weight') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div>
+                    <label>Length</label>
+                    <input class="input" name="length" value="{{ old('length', '0') }}" placeholder="e.g. 10">
+                    @error('length') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div>
+                    <label>Width</label>
+                    <input class="input" name="width" value="{{ old('width', '0') }}" placeholder="e.g. 5">
+                    @error('width') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div>
+                    <label>Height</label>
+                    <input class="input" name="height" value="{{ old('height', '0') }}" placeholder="e.g. 3">
+                    @error('height') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+            </div>
         </div>
 
         <h3 class="section-title mt-24">Options</h3>
@@ -153,3 +200,43 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+(function() {
+    var price = document.getElementById('product_price');
+    var amt   = document.getElementById('cost_amount');
+    var pct   = document.getElementById('cost_percentage');
+    var add   = document.getElementById('cost_additional');
+    var out   = document.getElementById('product_cost');
+    var mirror = document.getElementById('product_cost_mirror');
+
+    var profitEl = document.getElementById('calc_profit');
+    var marginEl = document.getElementById('calc_margin');
+    var markupEl = document.getElementById('calc_markup');
+
+    function calc() {
+        var p = parseFloat(price.value) || 0;
+        var a = parseFloat(amt.value) || 0;
+        var c = parseFloat(pct.value) || 0;
+        var d = parseFloat(add.value) || 0;
+        var cost = a + (c / 100 * p) + d;
+        var result = cost.toFixed(4);
+        out.value = result;
+        if (mirror) mirror.value = result;
+
+        var profit = p - cost;
+        if (profitEl) profitEl.value = profit.toFixed(2);
+        if (marginEl) marginEl.value = p > 0 ? (profit / p * 100).toFixed(2) + '%' : '0%';
+        if (markupEl) markupEl.value = cost > 0 ? (profit / cost * 100).toFixed(2) + '%' : '0%';
+
+        if (profitEl) profitEl.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+        if (marginEl) marginEl.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+        if (markupEl) markupEl.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+
+    [price, amt, pct, add].forEach(function(el) { el.addEventListener('input', calc); });
+    calc();
+})();
+</script>
+@endpush

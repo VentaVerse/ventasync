@@ -56,7 +56,7 @@ class DashboardController extends Controller
         }
         if (Schema::hasTable('lazada_orders')) {
             $lazadaPending = DB::table('lazada_orders')
-                ->whereIn('status', ['pending', 'packed', 'ready_to_ship'])
+                ->whereIn('status', ['pending', 'repacked'])
                 ->count();
         }
 
@@ -64,15 +64,30 @@ class DashboardController extends Controller
         $shopeePending = 0;
         if (Schema::hasTable('shopee_orders')) {
             $shopeePending = DB::table('shopee_orders')
-                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
+                ->whereIn('status', ['READY_TO_SHIP'])
                 ->count();
         }
 
         // OpenCart pending (Pending + Processing order statuses)
         $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
-        $opencartPending = $pendingStatusIds->isNotEmpty()
-            ? DB::table($pfx . 'order')->whereIn('order_status_id', $pendingStatusIds)->count()
-            : 0;
+        $pendingByStore = [];
+        if ($pendingStatusIds->isNotEmpty()) {
+            $pendingRows = DB::table($pfx . 'order')
+                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
+                ->whereIn('order_status_id', $pendingStatusIds)
+                ->where('marketplace_source', 'like', 'opencart:%')
+                ->groupBy('marketplace_source')
+                ->get();
+            foreach ($pendingRows as $row) {
+                $src = (string) $row->marketplace_source;
+                if (str_starts_with($src, 'opencart:')) {
+                    $storeId = (int) str_replace('opencart:', '', $src);
+                    if ($storeId > 0) {
+                        $pendingByStore[$storeId] = (int) $row->cnt;
+                    }
+                }
+            }
+        }
 
         // --- Sales chart: default 30 days (loaded via JS) ---
         $chart = $this->buildChartData('30d');
@@ -114,6 +129,10 @@ class DashboardController extends Controller
 
                 return $store;
             });
+        $syncStatuses = $syncStatuses->map(function ($store) use ($pendingByStore) {
+            $store->pending_count = $pendingByStore[$store->id] ?? 0;
+            return $store;
+        });
 
         // --- Lazada sync status (from settings table, independent of API logging) ---
         $lazadaSyncStatus = null;
@@ -166,7 +185,6 @@ class DashboardController extends Controller
             'lazadaProducts' => $lazadaProducts,
             'lazadaPending' => $lazadaPending,
             'shopeePending' => $shopeePending,
-            'opencartPending' => $opencartPending,
             'chartLabels' => $chartLabels,
             'chartRevenue' => $chartRevenue,
             'chartOrders' => $chartOrders,

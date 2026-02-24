@@ -55,7 +55,7 @@
 
     <div class="page-header-actions">
         <a href="{{ route('lazada.orders.index') }}" class="btn secondary">← Back to Orders</a>
-        <a href="{{ route('lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]) }}" class="btn">Refresh from Lazada</a>
+        <a href="{{ route('lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]) }}" class="btn secondary">Refresh from Lazada</a>
     </div>
 </div>
 
@@ -145,7 +145,7 @@
 <div class="card">
     <h3 class="section-title mt-0">Items</h3>
     @if($items->count() === 0)
-        <div class="text-secondary">No items cached yet. Click <strong>Refresh from Lazada</strong>.</div>
+        <div class="text-secondary">No items synced yet. Items will be fetched on the next order sync.</div>
     @else
         <div class="table-wrap">
             <table class="table">
@@ -397,7 +397,7 @@
     @endif
 
     @else
-    <div class="text-secondary">No fee data available yet. Click <strong>Refresh from Lazada</strong> to fetch — fees are typically available after order completion.</div>
+    <div class="text-secondary">No fee data available yet — fees are typically fetched automatically after order completion.</div>
     @endif
 </div>
 

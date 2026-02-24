@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SettingController extends Controller
@@ -44,5 +45,38 @@ class SettingController extends Controller
         $setting->update($data);
 
         return back()->with('success', 'Settings updated.');
+    }
+
+    public function purgeRaw(Request $request)
+    {
+        $request->validate(['days' => ['required', 'integer', 'min' => 1]]);
+
+        $cutoff = now()->subDays((int) $request->days);
+
+        $tables = [
+            'lazada_orders',
+            'lazada_order_products',
+            'lazada_order_items',
+            'lazada_reverse_orders',
+            'shopee_orders',
+            'shopee_order_products',
+            'shopee_returns',
+        ];
+
+        $total = 0;
+
+        foreach ($tables as $table) {
+            $affected = DB::table($table)
+                ->whereNotNull('raw')
+                ->where('created_at', '<', $cutoff)
+                ->update(['raw' => null]);
+
+            $total += $affected;
+        }
+
+        return response()->json([
+            'ok'      => true,
+            'message' => "Purged raw data from {$total} rows (older than {$request->days} days).",
+        ]);
     }
 }

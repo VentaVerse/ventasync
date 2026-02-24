@@ -476,6 +476,9 @@ public function store(Request $request)
             'model' => 'required|string|max:64',
             'sku' => ['required', 'string', 'max:64', new UniqueSku()],
             'price' => 'required|numeric',
+            'cost_amount' => 'nullable|numeric',
+            'cost_percentage' => 'nullable|numeric',
+            'cost_additional' => 'nullable|numeric',
             'quantity' => 'required|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
             'weight' => 'nullable|numeric',
@@ -502,6 +505,9 @@ public function store(Request $request)
             'options.*.values.*.price_prefix' => 'nullable|in:+,-',
             'options.*.values.*.weight' => 'nullable|numeric',
             'options.*.values.*.weight_prefix' => 'nullable|in:+,-',
+            'options.*.values.*.cost_amount' => 'nullable|numeric',
+            'options.*.values.*.cost_percentage' => 'nullable|numeric',
+            'options.*.values.*.cost_additional' => 'nullable|numeric',
         ]);
 
         $langId = (int) config('catalog.default_language_id');
@@ -542,6 +548,10 @@ public function store(Request $request)
             $p->shipping = 1;
 
             $p->price = (float) $request->price;
+            $p->cost_amount = (float) ($request->cost_amount ?? 0);
+            $p->cost_percentage = (float) ($request->cost_percentage ?? 0);
+            $p->cost_additional = (float) ($request->cost_additional ?? 0);
+            $p->cost = $p->cost_amount + ($p->cost_percentage / 100 * $p->price) + $p->cost_additional;
             $p->points = 0;
             $p->tax_class_id = 0;
 
@@ -685,6 +695,9 @@ $catId = (int) ($resolvedCategoryId ?? 0);
                         'pov.price',
                         'pov.weight_prefix',
                         'pov.weight',
+                        'pov.cost_amount',
+                        'pov.cost_percentage',
+                        'pov.cost_additional',
                     ]);
 
                 foreach ($rows as $r) {
@@ -699,6 +712,9 @@ $catId = (int) ($resolvedCategoryId ?? 0);
                         'weight_prefix' => (string)($r->weight_prefix ?? '+'),
                         'weight' => (string)($r->weight ?? 0),
                         'sku' => (string)($r->sku ?? ''),
+                        'cost_amount' => (string)($r->cost_amount ?? 0),
+                        'cost_percentage' => (string)($r->cost_percentage ?? 0),
+                        'cost_additional' => (string)($r->cost_additional ?? 0),
                     ];
                 }
             }
@@ -746,6 +762,9 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             'model' => 'required|string|max:64',
             'sku' => ['required', 'string', 'max:64', new UniqueSku((int) $id)],
             'price' => 'required|numeric',
+            'cost_amount' => 'nullable|numeric',
+            'cost_percentage' => 'nullable|numeric',
+            'cost_additional' => 'nullable|numeric',
             'quantity' => 'required|integer',
             // Physical attributes (needed for marketplace payloads e.g. Lazada)
             'weight' => 'nullable|numeric',
@@ -772,10 +791,13 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             'options.*.values.*.price_prefix' => 'nullable|in:+,-',
             'options.*.values.*.weight' => 'nullable|numeric',
             'options.*.values.*.weight_prefix' => 'nullable|in:+,-',
+            'options.*.values.*.cost_amount' => 'nullable|numeric',
+            'options.*.values.*.cost_percentage' => 'nullable|numeric',
+            'options.*.values.*.cost_additional' => 'nullable|numeric',
         ]);
 
         $langId = (int) config('catalog.default_language_id');
-        
+
         $resolvedManufacturerId = $this->resolveManufacturerId($request->manufacturer_id, $request->manufacturer_name);
         $resolvedCategoryId = $this->resolveCategoryId($request->category_id, $request->category_name);
 
@@ -809,6 +831,10 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             $p->height = (float) ($request->input('height', $p->height ?? 0) ?? 0);
             $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
             $p->price = (float) $request->price;
+            $p->cost_amount = (float) ($request->cost_amount ?? 0);
+            $p->cost_percentage = (float) ($request->cost_percentage ?? 0);
+            $p->cost_additional = (float) ($request->cost_additional ?? 0);
+            $p->cost = $p->cost_amount + ($p->cost_percentage / 100 * $p->price) + $p->cost_additional;
             $p->status = (int) $request->status;
             
             
@@ -1052,14 +1078,25 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
                 $key = $optionId . ':' . $ovId;
                 $seenPovKeys[] = $key;
 
+                $costAmount = (float) ($v['cost_amount'] ?? 0);
+                $costPct    = (float) ($v['cost_percentage'] ?? 0);
+                $costAdd    = (float) ($v['cost_additional'] ?? 0);
+                $optPrice   = (float) ($v['price'] ?? 0);
+                $costTotal  = $costAmount + ($costPct / 100 * $optPrice) + $costAdd;
+
                 $data = [
                     'sku' => (string) ($v['sku'] ?? ''),
                     'quantity' => (int) ($v['quantity'] ?? 0),
                     'subtract' => (int) ($v['subtract'] ?? 1),
-                    'price' => (float) ($v['price'] ?? 0),
+                    'price' => $optPrice,
                     'price_prefix' => (string) ($v['price_prefix'] ?? '+'),
                     'weight' => (float) ($v['weight'] ?? 0),
                     'weight_prefix' => (string) ($v['weight_prefix'] ?? '+'),
+                    'cost_amount' => $costAmount,
+                    'cost_percentage' => $costPct,
+                    'cost_additional' => $costAdd,
+                    'cost' => $costTotal,
+                    'cost_prefix' => '+',
                 ];
 
                 if (isset($existingPov[$key])) {

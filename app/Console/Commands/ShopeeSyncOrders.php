@@ -16,12 +16,11 @@ use Illuminate\Support\Facades\Log;
 class ShopeeSyncOrders extends Command
 {
     protected $signature = 'shopee:sync-orders
-        {--fetch : Fetch new orders (default behaviour)}
-        {--update : Update statuses of existing orders only}
-        {--both : Fetch new orders AND update existing statuses}
-        {--returns : Sync return/refund details from Shopee}';
+        {--both : Sync orders and returns (default behavior)}
+        {--returns : Sync return/refund details only}
+        {--no-returns : Skip return sync}';
 
-    protected $description = 'Sync orders from Shopee (fetch new + update statuses)';
+    protected $description = 'Sync orders from Shopee (create new + update existing + returns)';
 
     public function handle(ShopeeClient $client): int
     {
@@ -36,45 +35,45 @@ class ShopeeSyncOrders extends Command
             return 1;
         }
 
-        if ($this->option('returns')) {
-            $this->info('--- Syncing Shopee returns ---');
-            $this->syncReturns($client, $setting);
-            ShopeeSetting::query()->update(['last_return_sync_at' => now()]);
-            $this->info('Done.');
-            return 0;
-        }
+        $returnsOnly = $this->option('returns');
+        $skipReturns = $this->option('no-returns');
 
-        $doFetch = $this->option('fetch') || $this->option('both') || !$this->option('update');
-        $doUpdate = $this->option('update') || $this->option('both');
-
-        if ($doFetch) {
-            $this->info('--- Fetching new Shopee orders ---');
-            $this->fetchOrders($client, $setting);
+        if (!$returnsOnly) {
+            $this->info('--- Syncing Shopee orders ---');
+            $this->syncOrders($client, $setting);
+            ShopeeSetting::query()->update(['last_order_sync_at' => now()]);
         }
 
         if (Cache::get('shopee_sync_paused')) {
             return 1;
         }
 
-        if ($doUpdate) {
-            $this->info('--- Updating statuses of existing orders ---');
-            $this->updateStatuses($client, $setting);
+        if (!$returnsOnly) {
+            $this->info('--- Backfilling missing escrow fees ---');
+            $this->backfillMissingFees($client, $setting);
+
+            $this->info('--- Syncing Shopee payout statuses ---');
+            $this->syncPayoutStatuses($client, $setting);
         }
 
-        // Stamp sync timestamp on settings (independent of API logging)
-        ShopeeSetting::query()->update(['last_order_sync_at' => now()]);
+        if (!$skipReturns) {
+            $this->info('--- Syncing Shopee returns ---');
+            $this->syncReturns($client, $setting);
+            ShopeeSetting::query()->update(['last_return_sync_at' => now()]);
+        }
 
         $this->info('Done.');
         return 0;
     }
 
-    private function fetchOrders(ShopeeClient $client, object $setting): void
+    private function syncOrders(ShopeeClient $client, object $setting): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
         $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
+        $region = $setting->region ?? 'ph';
 
         $latestUpdated = ShopeeOrder::query()
-            ->where('region', $setting->region ?? 'ph')
+            ->where('region', $region)
             ->max('order_updated_at');
 
         if ($latestUpdated) {
@@ -84,7 +83,7 @@ class ShopeeSyncOrders extends Command
                 $dt = $minDt;
             }
             $timeFrom = $dt->getTimestamp();
-            $this->info("  Incremental fetch since: " . $dt->format('Y-m-d H:i:s') . " (window: {$syncDays} days)");
+            $this->info("  Incremental sync since: " . $dt->format('Y-m-d H:i:s') . " (window: {$syncDays} days)");
         } else {
             $timeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
             $this->info("  Initial backfill: last {$syncDays} days");
@@ -92,74 +91,83 @@ class ShopeeSyncOrders extends Command
 
         $timeTo = time();
 
-        // Cursor-based pagination to get order_sn list
+        // Cursor-based pagination with sliding 15-day windows
+        // (Shopee API max window is 15 days per request)
         $allOrderSns = [];
-        $cursor = '';
-        $maxOrders = 2000;
+        $maxOrders = 5000;
+        $windowSize = 15 * 86400; // 15 days in seconds
 
-        while (true) {
-            $extraQuery = [
-                'time_range_field' => 'update_time',
-                'time_from'        => $timeFrom,
-                'time_to'          => $timeTo,
-                'page_size'        => 100,
-            ];
-            if ($cursor !== '') {
-                $extraQuery['cursor'] = $cursor;
-            }
+        $windowFrom = $timeFrom;
+        while ($windowFrom < $timeTo && count($allOrderSns) < $maxOrders) {
+            $windowTo = min($windowFrom + $windowSize, $timeTo);
+            $cursor = '';
 
-            $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
-                '/api/v2/order/get_order_list',
-                $extraQuery
-            );
+            while (true) {
+                $extraQuery = [
+                    'time_range_field' => 'update_time',
+                    'time_from'        => $windowFrom,
+                    'time_to'          => $windowTo,
+                    'page_size'        => 100,
+                ];
+                if ($cursor !== '') {
+                    $extraQuery['cursor'] = $cursor;
+                }
 
-            ShopeeApiLog::safeCreate([
-                'pack'            => 'shopee.sync.get_order_list',
-                'method'          => 'GET',
-                'api_path'        => '/api/v2/order/get_order_list',
-                'auth_required'   => true,
-                'request_params'  => $extraQuery,
-                'response_status' => (int) ($res['status'] ?? 0),
-                'ok'              => (bool) ($res['ok'] ?? false),
-                'response_body'   => $res['body'] ?? null,
-            ]);
+                $res = $client->shopGet(
+                    $setting->mode ?? 'live',
+                    (int) $setting->partner_id,
+                    (string) $setting->partner_key,
+                    (string) $setting->access_token,
+                    (int) $setting->shop_id,
+                    '/api/v2/order/get_order_list',
+                    $extraQuery
+                );
 
-            if (!($res['ok'] ?? false)) {
+                ShopeeApiLog::safeCreate([
+                    'pack'            => 'shopee.sync.get_order_list',
+                    'method'          => 'GET',
+                    'api_path'        => '/api/v2/order/get_order_list',
+                    'auth_required'   => true,
+                    'request_params'  => $extraQuery,
+                    'response_status' => (int) ($res['status'] ?? 0),
+                    'ok'              => (bool) ($res['ok'] ?? false),
+                    'response_body'   => $res['body'] ?? null,
+                ]);
+
+                if (!($res['ok'] ?? false)) {
+                    $body = $res['body'] ?? [];
+                    $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
+                    $this->error("  API error: {$msg}");
+                    Cache::put('shopee_sync_paused', $msg, now()->addMinutes(10));
+                    return;
+                }
+
                 $body = $res['body'] ?? [];
-                $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
-                $this->error("  API error: {$msg}");
-                Cache::put('shopee_sync_paused', $msg, now()->addMinutes(10));
-                return;
-            }
+                $respData = $body['response'] ?? $body;
+                $orderList = $respData['order_list'] ?? [];
+                if (!is_array($orderList)) $orderList = [];
 
-            $body = $res['body'] ?? [];
-            $respData = $body['response'] ?? $body;
-            $orderList = $respData['order_list'] ?? [];
-            if (!is_array($orderList)) $orderList = [];
+                foreach ($orderList as $o) {
+                    $sn = (string) ($o['order_sn'] ?? '');
+                    if ($sn !== '') {
+                        $allOrderSns[] = $sn;
+                    }
+                }
 
-            foreach ($orderList as $o) {
-                $sn = (string) ($o['order_sn'] ?? '');
-                if ($sn !== '') {
-                    $allOrderSns[] = $sn;
+                $more = (bool) ($respData['more'] ?? false);
+                $cursor = (string) ($respData['next_cursor'] ?? '');
+
+                if (!$more || $cursor === '' || count($allOrderSns) >= $maxOrders) {
+                    break;
                 }
             }
 
-            $more = (bool) ($respData['more'] ?? false);
-            $cursor = (string) ($respData['next_cursor'] ?? '');
-
-            if (!$more || $cursor === '' || count($allOrderSns) >= $maxOrders) {
-                break;
-            }
+            $windowFrom = $windowTo;
         }
 
-        // Fetch details in batches of 50
-        $saved = 0;
-        $skipped = 0;
+        // Fetch details in batches of 50, then create or update each order
+        $created = 0;
+        $updated = 0;
         $errors = 0;
 
         foreach (array_chunk($allOrderSns, 50) as $chunk) {
@@ -193,165 +201,68 @@ class ShopeeSyncOrders extends Command
                 if ($orderSn === '') continue;
 
                 $existing = ShopeeOrder::query()
-                    ->where('region', $setting->region ?? 'ph')
+                    ->where('region', $region)
                     ->where('order_sn', $orderSn)
                     ->first();
 
                 if ($existing) {
-                    $skipped++;
-                    continue;
-                }
-
-                try {
-                    $newOrder = ShopeeOrder::query()->create([
-                        'region'           => $setting->region ?? 'ph',
-                        'order_sn'         => $orderSn,
-                        'status'           => (string) ($o['order_status'] ?? ''),
-                        'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
-                        'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
+                    // --- Update existing order ---
+                    $existing->fill([
+                        'status'           => (string) ($o['order_status'] ?? $existing->status),
+                        'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
+                        'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null) ?? $existing->order_updated_at,
                         'raw'              => $o,
-                    ]);
-                    $saved++;
+                    ])->save();
+                    $updated++;
 
                     try {
-                        $this->syncOrderProducts($newOrder, $o);
+                        $this->syncOrderProducts($existing, $o);
                     } catch (\Throwable $e) {
                         Log::warning('Shopee sync: failed to sync items for order ' . $orderSn, ['error' => $e->getMessage()]);
                     }
 
                     try {
-                        (new ShopeeCatalogOrderSync)->sync($newOrder);
+                        (new ShopeeCatalogOrderSync)->sync($existing);
                     } catch (\Throwable $e) {
-                        Log::warning('Shopee sync: failed to sync order ' . $orderSn . ' to catalog', ['error' => $e->getMessage()]);
+                        Log::warning('Shopee sync: catalog sync failed for order ' . $orderSn, ['error' => $e->getMessage()]);
                     }
-                } catch (\Throwable $e) {
-                    $errors++;
-                    Log::error('Shopee sync: failed to create order ' . $orderSn, ['error' => $e->getMessage()]);
+
+                    $this->fetchFeesIfReady($client, $setting, $existing);
+                } else {
+                    // --- Create new order ---
+                    try {
+                        $newOrder = ShopeeOrder::query()->create([
+                            'region'           => $region,
+                            'order_sn'         => $orderSn,
+                            'status'           => (string) ($o['order_status'] ?? ''),
+                            'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
+                            'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
+                            'raw'              => $o,
+                        ]);
+                        $created++;
+
+                        try {
+                            $this->syncOrderProducts($newOrder, $o);
+                        } catch (\Throwable $e) {
+                            Log::warning('Shopee sync: failed to sync items for order ' . $orderSn, ['error' => $e->getMessage()]);
+                        }
+
+                        try {
+                            (new ShopeeCatalogOrderSync)->sync($newOrder);
+                        } catch (\Throwable $e) {
+                            Log::warning('Shopee sync: failed to sync order ' . $orderSn . ' to catalog', ['error' => $e->getMessage()]);
+                        }
+
+                        $this->fetchFeesIfReady($client, $setting, $newOrder);
+                    } catch (\Throwable $e) {
+                        $errors++;
+                        Log::error('Shopee sync: failed to create order ' . $orderSn, ['error' => $e->getMessage()]);
+                    }
                 }
             }
         }
 
-        $this->info("  Fetched: {$saved} new, {$skipped} skipped" . ($errors > 0 ? ", {$errors} errors" : ''));
-    }
-
-    private function updateStatuses(ShopeeClient $client, object $setting): void
-    {
-        $tz = new \DateTimeZone('Asia/Manila');
-        $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
-        $timeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
-        $timeTo = time();
-
-        $allOrderSns = [];
-        $cursor = '';
-
-        while (true) {
-            $extraQuery = [
-                'time_range_field' => 'update_time',
-                'time_from'        => $timeFrom,
-                'time_to'          => $timeTo,
-                'page_size'        => 100,
-            ];
-            if ($cursor !== '') {
-                $extraQuery['cursor'] = $cursor;
-            }
-
-            $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
-                '/api/v2/order/get_order_list',
-                $extraQuery
-            );
-
-            if (!($res['ok'] ?? false)) {
-                $body = $res['body'] ?? [];
-                $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
-                $this->error("  API error: {$msg}");
-                Cache::put('shopee_sync_paused', $msg, now()->addMinutes(10));
-                return;
-            }
-
-            $body = $res['body'] ?? [];
-            $respData = $body['response'] ?? $body;
-            $orderList = $respData['order_list'] ?? [];
-            if (!is_array($orderList)) $orderList = [];
-
-            foreach ($orderList as $o) {
-                $sn = (string) ($o['order_sn'] ?? '');
-                if ($sn !== '') {
-                    $allOrderSns[] = $sn;
-                }
-            }
-
-            $more = (bool) ($respData['more'] ?? false);
-            $cursor = (string) ($respData['next_cursor'] ?? '');
-
-            if (!$more || $cursor === '' || count($allOrderSns) >= 500) break;
-        }
-
-        $updated = 0;
-        $skipped = 0;
-
-        foreach (array_chunk($allOrderSns, 50) as $chunk) {
-            $detailRes = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
-                '/api/v2/order/get_order_detail',
-                [
-                    'order_sn_list' => implode(',', $chunk),
-                    'response_optional_fields' => 'buyer_username,recipient_address,total_amount,item_list,pay_time,shipping_carrier,tracking_no,payment_method,currency',
-                ]
-            );
-
-            if (!($detailRes['ok'] ?? false)) continue;
-
-            $detailBody = $detailRes['body'] ?? [];
-            $detailResp = $detailBody['response'] ?? $detailBody;
-            $detailList = $detailResp['order_list'] ?? [];
-            if (!is_array($detailList)) $detailList = [];
-
-            foreach ($detailList as $o) {
-                if (!is_array($o)) continue;
-
-                $orderSn = (string) ($o['order_sn'] ?? '');
-                if ($orderSn === '') continue;
-
-                $existing = ShopeeOrder::query()
-                    ->where('region', $setting->region ?? 'ph')
-                    ->where('order_sn', $orderSn)
-                    ->first();
-
-                if (!$existing) {
-                    $skipped++;
-                    continue;
-                }
-
-                $existing->fill([
-                    'status'           => (string) ($o['order_status'] ?? $existing->status),
-                    'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
-                    'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null) ?? $existing->order_updated_at,
-                    'raw'              => $o,
-                ])->save();
-                $updated++;
-
-                try {
-                    $this->syncOrderProducts($existing, $o);
-                } catch (\Throwable $e) {}
-
-                try {
-                    (new ShopeeCatalogOrderSync)->sync($existing);
-                } catch (\Throwable $e) {
-                    Log::warning('Shopee status update: catalog sync failed for order ' . $orderSn, ['error' => $e->getMessage()]);
-                }
-            }
-        }
-
-        $this->info("  Updated: {$updated}, skipped: {$skipped} (not yet fetched)");
+        $this->info("  Synced: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} errors" : ''));
     }
 
     private function syncReturns(ShopeeClient $client, object $setting): void
@@ -469,6 +380,184 @@ class ShopeeSyncOrders extends Command
         }
 
         $this->info("  Synced: {$saved} return(s)" . ($errors > 0 ? ", {$errors} error(s)" : ''));
+    }
+
+    /**
+     * Fetch escrow/fee details for completed orders.
+     * Only calls the API if: order is COMPLETED and fees not already stored.
+     */
+    private function fetchFeesIfReady(ShopeeClient $client, object $setting, ShopeeOrder $order): void
+    {
+        $status = strtoupper(trim((string) $order->status));
+
+        // Fetch escrow for any order past payment (SHIPPED, TO_CONFIRM_RECEIVE, COMPLETED)
+        $eligibleStatuses = ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'];
+        if (!in_array($status, $eligibleStatuses)) return;
+
+        // Skip if already has fee data
+        if (!empty($order->fees)) return;
+
+        try {
+            $escrowRes = $client->shopGet(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id,
+                (string) $setting->partner_key,
+                (string) $setting->access_token,
+                (int) $setting->shop_id,
+                '/api/v2/payment/get_escrow_detail',
+                ['order_sn' => $order->order_sn]
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack'            => 'shopee.sync.get_escrow_detail',
+                'method'          => 'GET',
+                'api_path'        => '/api/v2/payment/get_escrow_detail',
+                'auth_required'   => true,
+                'request_params'  => ['order_sn' => $order->order_sn],
+                'response_status' => (int) ($escrowRes['status'] ?? 0),
+                'ok'              => (bool) ($escrowRes['ok'] ?? false),
+                'response_body'   => is_array($escrowRes['body'] ?? null) ? $escrowRes['body'] : null,
+            ]);
+
+            if (($escrowRes['ok'] ?? false) && is_array($escrowRes['body'] ?? null)) {
+                $escrowBody = $escrowRes['body'];
+                $escrowData = $escrowBody['response'] ?? $escrowBody;
+                if (is_array($escrowData) && !empty($escrowData)) {
+                    $orderIncome = $escrowData['order_income'] ?? null;
+                    $order->fees = is_array($orderIncome) && !empty($orderIncome)
+                        ? $escrowData
+                        : $escrowData;
+                    $order->save();
+                }
+            }
+        } catch (\Throwable $e) {
+            // Best-effort — don't break the sync
+        }
+    }
+
+    /**
+     * Fetch escrow fees for shipped/completed orders that don't have fee data yet.
+     */
+    private function backfillMissingFees(ShopeeClient $client, object $setting): void
+    {
+        $region = $setting->region ?? 'ph';
+
+        $orders = ShopeeOrder::query()
+            ->where('region', $region)
+            ->whereIn('status', ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'])
+            ->whereNull('fees')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            $this->info('  No orders need fee backfill.');
+            return;
+        }
+
+        $filled = 0;
+        foreach ($orders as $order) {
+            $this->fetchFeesIfReady($client, $setting, $order);
+            if (!empty($order->fresh()->fees)) {
+                $filled++;
+            }
+            usleep(200000); // 200ms rate limit
+        }
+
+        $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
+    }
+
+    /**
+     * Fetch wallet transactions from Shopee and update payout_status/paid_at
+     * for COMPLETED orders that haven't been marked as Paid yet.
+     */
+    private function syncPayoutStatuses(ShopeeClient $client, object $setting): void
+    {
+        $region = $setting->region ?? 'ph';
+
+        // Find COMPLETED orders without payout_status = 'Paid'
+        $pendingOrders = ShopeeOrder::query()
+            ->where('region', $region)
+            ->where('status', 'COMPLETED')
+            ->where(function ($q) {
+                $q->whereNull('payout_status')
+                  ->orWhere('payout_status', '!=', 'Paid');
+            })
+            ->pluck('order_sn')
+            ->all();
+
+        if (empty($pendingOrders)) {
+            $this->info('  No completed orders awaiting payout check.');
+            return;
+        }
+
+        // Fetch wallet transactions (14-day API window, paginated)
+        $paidMap = []; // order_sn => paid_at
+        $pageNo = 1;
+
+        try {
+            do {
+                $res = $client->shopGet(
+                    $setting->mode ?? 'live',
+                    (int) $setting->partner_id,
+                    (string) $setting->partner_key,
+                    (string) $setting->access_token,
+                    (int) $setting->shop_id,
+                    '/api/v2/payment/get_wallet_transaction_list',
+                    [
+                        'page_no'          => $pageNo,
+                        'page_size'        => 50,
+                        'create_time_from' => strtotime('-14 days'),
+                        'create_time_to'   => time(),
+                    ]
+                );
+
+                if (!($res['ok'] ?? false)) break;
+
+                $response = $res['body']['response'] ?? [];
+                $transactions = $response['transaction_list'] ?? [];
+                $hasMore = $response['more'] ?? false;
+
+                foreach ($transactions as $trx) {
+                    if (($trx['transaction_type'] ?? '') === 'ESCROW_VERIFIED_ADD'
+                        && ($trx['status'] ?? '') === 'COMPLETED'
+                        && !empty($trx['order_sn'])) {
+                        $paidMap[$trx['order_sn']] = isset($trx['create_time'])
+                            ? date('Y-m-d H:i:s', $trx['create_time'])
+                            : now()->toDateTimeString();
+                    }
+                }
+
+                $pageNo++;
+            } while ($hasMore && $pageNo <= 20);
+        } catch (\Throwable $e) {
+            $this->warn('  Wallet API error: ' . $e->getMessage());
+            return;
+        }
+
+        // Update orders that appear in the wallet payout list
+        $paidCount = 0;
+        $releasingCount = 0;
+        foreach ($pendingOrders as $orderSn) {
+            if (isset($paidMap[$orderSn])) {
+                ShopeeOrder::query()
+                    ->where('region', $region)
+                    ->where('order_sn', $orderSn)
+                    ->update([
+                        'payout_status' => 'Paid',
+                        'paid_at' => $paidMap[$orderSn],
+                    ]);
+                $paidCount++;
+            } else {
+                // Mark as Releasing (completed but not yet paid out)
+                ShopeeOrder::query()
+                    ->where('region', $region)
+                    ->where('order_sn', $orderSn)
+                    ->whereNull('payout_status')
+                    ->update(['payout_status' => 'Releasing']);
+                $releasingCount++;
+            }
+        }
+
+        $this->info("  Payout statuses: {$paidCount} Paid, {$releasingCount} Releasing");
     }
 
     private function syncOrderProducts(ShopeeOrder $order, array $detail): void

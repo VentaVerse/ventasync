@@ -50,6 +50,32 @@ class ShopeeOrderController extends Controller
             $tab = 'ALL';
         }
 
+        $defaultDir = ($tab === 'PENDING') ? 'asc' : 'desc';
+        $sortKey = strtolower((string) $request->query('sort', ''));
+        if ($sortKey === '') {
+            $sortKey = 'created_' . $defaultDir;
+        }
+        $allowedSort = [
+            'created_asc',
+            'created_desc',
+            'confirmed_pay_asc',
+            'confirmed_pay_desc',
+            'confirmed_update_asc',
+            'confirmed_update_desc',
+            'confirmed_create_asc',
+            'confirmed_create_desc',
+        ];
+        if (!in_array($sortKey, $allowedSort, true)) {
+            $sortKey = 'created_' . $defaultDir;
+        }
+        if (!preg_match('/^(.*)_(asc|desc)$/', $sortKey, $m)) {
+            $sortBy = 'created';
+            $sortDir = $defaultDir;
+        } else {
+            $sortBy = $m[1];
+            $sortDir = $m[2];
+        }
+
         $tabStatusMap = [
             'UNPAID'              => ['UNPAID'],
             'PENDING'             => ['READY_TO_SHIP', 'PROCESSED'],
@@ -110,15 +136,28 @@ class ShopeeOrderController extends Controller
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
             if (!empty($statuses)) {
-                $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
+                if ($k === 'PENDING') {
+                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['READY_TO_SHIP'])->count();
+                } else {
+                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
+                }
             } else {
                 $tab_counts[$k] = 0;
             }
         }
 
+        if ($sortBy === 'confirmed_pay') {
+            $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.pay_time')) AS UNSIGNED) {$sortDir}");
+        } elseif ($sortBy === 'confirmed_update') {
+            $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.update_time')) AS UNSIGNED) {$sortDir}");
+        } elseif ($sortBy === 'confirmed_create') {
+            $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.create_time')) AS UNSIGNED) {$sortDir}");
+        } else {
+            $query->orderBy('order_created_at', $sortDir);
+        }
         $orders = $query
-            ->orderByDesc('order_created_at')
-            ->orderByDesc('created_at')
+            ->orderBy('order_created_at', $sortDir)
+            ->orderBy('created_at', $sortDir)
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -142,12 +181,62 @@ class ShopeeOrderController extends Controller
             'pending_subtab' => $pendingSubtab,
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
+            'pending_courier_counts' => $this->buildToShipCourierCounts($setting->region ?? 'ph'),
             'savedAwbs' => $savedAwbs,
+            'sort' => $sortKey,
             'filters' => [
                 'order_number' => $orderNumber,
                 'buyer_name' => $buyerName,
             ],
         ]);
+    }
+
+    private function buildToShipCourierCounts(string $region): array
+    {
+        $counts = [];
+        $display = [];
+        $statuses = ['PROCESSED'];
+
+        ShopeeOrder::query()
+            ->where('region', $region)
+            ->whereIn('status', $statuses)
+            ->select(['id', 'raw'])
+            ->orderBy('id')
+            ->chunk(300, function ($orders) use (&$counts, &$display) {
+                foreach ($orders as $o) {
+                    $courier = $this->extractShopeeCourier($o);
+                    $label = $courier !== '' ? $courier : 'Unknown';
+                    $key = mb_strtolower($label);
+                    if (!isset($display[$key])) {
+                        $display[$key] = $label;
+                    }
+                    $counts[$key] = ($counts[$key] ?? 0) + 1;
+                }
+            });
+
+        arsort($counts);
+        $out = [];
+        foreach ($counts as $key => $count) {
+            $out[$display[$key] ?? $key] = $count;
+        }
+
+        return $out;
+    }
+
+    private function extractShopeeCourier(ShopeeOrder $order): string
+    {
+        $raw = is_array($order->raw) ? $order->raw : [];
+        foreach (['shipping_carrier', 'checkout_shipping_carrier'] as $k) {
+            $v = $raw[$k] ?? null;
+            if (is_array($v)) {
+                $v = implode(', ', $v);
+            }
+            if (is_string($v) && trim($v) !== '') {
+                return trim($v);
+            }
+        }
+
+        return '';
     }
 
     public function returns(Request $request)
@@ -361,21 +450,12 @@ class ShopeeOrderController extends Controller
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $data = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'date_from' => 'required|date',
+            'date_to' => 'required|date|after_or_equal:date_from',
             'no_stock' => 'nullable',
         ]);
 
         $skipStock = !empty($data['no_stock']);
-
-        $hasFrom = !empty($data['date_from']);
-        $hasTo = !empty($data['date_to']);
-        if (($hasFrom && !$hasTo) || (!$hasFrom && $hasTo)) {
-            return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
-                'ok' => false,
-                'message' => 'Please provide both From and To dates, or leave both empty for automatic sync.',
-            ]);
-        }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
@@ -386,100 +466,88 @@ class ShopeeOrderController extends Controller
         }
 
         $tz = new \DateTimeZone('Asia/Manila');
-        $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
 
-        // Build time_from / time_to as Unix timestamps
-        if ($hasFrom && $hasTo) {
-            $timeFrom = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
-            $timeTo = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
-            $timeRangeField = 'create_time';
-        } else {
-            $latestUpdated = ShopeeOrder::query()
-                ->where('region', $setting->region ?? 'ph')
-                ->max('order_updated_at');
+        $timeFrom = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
+        $timeTo = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
+        $timeRangeField = 'create_time';
 
-            if ($latestUpdated) {
-                $dt = (new \DateTime($latestUpdated, $tz))->modify('-2 hours');
-                $minDt = (new \DateTime('now', $tz))->modify("-{$syncDays} days");
-                if ($dt < $minDt) {
-                    $dt = $minDt;
-                }
-                $timeFrom = $dt->getTimestamp();
-            } else {
-                $timeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
-            }
-            $timeTo = time();
-            $timeRangeField = 'update_time';
-        }
-
-        // Shopee cursor-based pagination
+        // Shopee cursor-based pagination with sliding 15-day windows
+        // (Shopee API max window is 15 days per request)
         $allOrderSns = [];
-        $cursor = '';
         $pageSize = 100;
-        $maxOrders = 2000;
+        $maxOrders = 5000;
+        $windowSize = 15 * 86400; // 15 days in seconds
 
-        while (true) {
-            $extraQuery = [
-                'time_range_field' => $timeRangeField,
-                'time_from'        => $timeFrom,
-                'time_to'          => $timeTo,
-                'page_size'        => $pageSize,
-            ];
-            if ($cursor !== '') {
-                $extraQuery['cursor'] = $cursor;
-            }
+        $windowFrom = $timeFrom;
+        while ($windowFrom < $timeTo && count($allOrderSns) < $maxOrders) {
+            $windowTo = min($windowFrom + $windowSize, $timeTo);
+            $cursor = '';
 
-            $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
-                '/api/v2/order/get_order_list',
-                $extraQuery
-            );
-
-            ShopeeApiLog::safeCreate([
-                'pack'            => 'shopee.order.get_order_list',
-                'method'          => 'GET',
-                'api_path'        => '/api/v2/order/get_order_list',
-                'auth_required'   => true,
-                'request_params'  => $extraQuery,
-                'response_status' => (int) ($res['status'] ?? 0),
-                'ok'              => (bool) ($res['ok'] ?? false),
-                'response_body'   => $res['body'] ?? null,
-            ]);
-
-            if (!($res['ok'] ?? false)) {
-                $msg = 'Shopee API error';
-                $body = $res['body'] ?? [];
-                if (is_array($body)) {
-                    $msg = (string) ($body['message'] ?? ($body['msg'] ?? $msg));
+            while (true) {
+                $extraQuery = [
+                    'time_range_field' => $timeRangeField,
+                    'time_from'        => $windowFrom,
+                    'time_to'          => $windowTo,
+                    'page_size'        => $pageSize,
+                ];
+                if ($cursor !== '') {
+                    $extraQuery['cursor'] = $cursor;
                 }
-                return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
-                    'ok' => false,
-                    'message' => $msg,
+
+                $res = $client->shopGet(
+                    $setting->mode ?? 'live',
+                    (int) $setting->partner_id,
+                    (string) $setting->partner_key,
+                    (string) $setting->access_token,
+                    (int) $setting->shop_id,
+                    '/api/v2/order/get_order_list',
+                    $extraQuery
+                );
+
+                ShopeeApiLog::safeCreate([
+                    'pack'            => 'shopee.order.get_order_list',
+                    'method'          => 'GET',
+                    'api_path'        => '/api/v2/order/get_order_list',
+                    'auth_required'   => true,
+                    'request_params'  => $extraQuery,
+                    'response_status' => (int) ($res['status'] ?? 0),
+                    'ok'              => (bool) ($res['ok'] ?? false),
+                    'response_body'   => $res['body'] ?? null,
                 ]);
-            }
 
-            $body = $res['body'] ?? [];
-            $respData = $body['response'] ?? $body;
-            $orderList = $respData['order_list'] ?? [];
-            if (!is_array($orderList)) $orderList = [];
+                if (!($res['ok'] ?? false)) {
+                    $msg = 'Shopee API error';
+                    $body = $res['body'] ?? [];
+                    if (is_array($body)) {
+                        $msg = (string) ($body['message'] ?? ($body['msg'] ?? $msg));
+                    }
+                    return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
+                        'ok' => false,
+                        'message' => $msg,
+                    ]);
+                }
 
-            foreach ($orderList as $o) {
-                $sn = (string) ($o['order_sn'] ?? '');
-                if ($sn !== '') {
-                    $allOrderSns[] = $sn;
+                $body = $res['body'] ?? [];
+                $respData = $body['response'] ?? $body;
+                $orderList = $respData['order_list'] ?? [];
+                if (!is_array($orderList)) $orderList = [];
+
+                foreach ($orderList as $o) {
+                    $sn = (string) ($o['order_sn'] ?? '');
+                    if ($sn !== '') {
+                        $allOrderSns[] = $sn;
+                    }
+                }
+
+                $more = (bool) ($respData['more'] ?? false);
+                $cursor = (string) ($respData['next_cursor'] ?? '');
+
+                if (!$more || $cursor === '' || count($allOrderSns) >= $maxOrders) {
+                    break;
                 }
             }
 
-            $more = (bool) ($respData['more'] ?? false);
-            $cursor = (string) ($respData['next_cursor'] ?? '');
-
-            if (!$more || $cursor === '' || count($allOrderSns) >= $maxOrders) {
-                break;
-            }
+            $windowFrom = $windowTo;
         }
 
         if (empty($allOrderSns)) {
@@ -589,6 +657,11 @@ class ShopeeOrderController extends Controller
     {
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
+        $data = $request->validate([
+            'date_from' => 'required|date',
+            'date_to' => 'required|date|after_or_equal:date_from',
+        ]);
+
         $setting = ShopeeSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
@@ -598,9 +671,8 @@ class ShopeeOrderController extends Controller
         }
 
         $tz = new \DateTimeZone('Asia/Manila');
-        $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
-        $timeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
-        $timeTo = time();
+        $timeFrom = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
+        $timeTo = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
 
         $allOrderSns = [];
         $cursor = '';

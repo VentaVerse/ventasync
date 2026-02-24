@@ -19,14 +19,19 @@ class ShopeeOrder extends Model
         'order_updated_at',
         'raw',
         'fees',
+        'payout_status',
+        'paid_at',
         'catalog_order_id',
     ];
+
+    protected $hidden = ['raw'];
 
     protected $casts = [
         'raw' => 'array',
         'fees' => 'array',
         'order_created_at' => 'datetime',
         'order_updated_at' => 'datetime',
+        'paid_at' => 'datetime',
     ];
 
     public function products(): HasMany

@@ -26,7 +26,7 @@ class DashboardController extends Controller
         $lazadaPending = 0;
         if (Schema::hasTable('lazada_orders')) {
             $lazadaPending = DB::table('lazada_orders')
-                ->whereIn('status', ['pending', 'packed', 'ready_to_ship'])
+                ->whereIn('status', ['pending', 'repacked'])
                 ->count();
         }
 

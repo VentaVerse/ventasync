@@ -93,8 +93,50 @@
                 <label>Weight</label>
                 <input class="input js-row-weight" type="number" step="0.0001" value="0">
             </div>
-<div style="width:140px; margin-left:auto;">
+            <div style="width:140px; margin-left:auto;">
                 <button class="btn danger" type="button" data-action="remove-value" style="width:100%;">Remove</button>
+            </div>
+        </div>
+        <div class="cost-breakdown mt-8" style="padding:10px 14px;">
+            <div class="cost-breakdown-label" style="margin-bottom:8px;">Option Cost</div>
+            <div class="cost-breakdown-fields">
+                <div>
+                    <label>Cost</label>
+                    <input class="input js-row-cost-amount" type="number" step="0.0001" value="0">
+                    <div class="hint">Fixed amount</div>
+                </div>
+                <div class="cost-breakdown-op">and/or</div>
+                <div>
+                    <label>Cost [%]</label>
+                    <input class="input js-row-cost-pct" type="number" step="0.01" value="0">
+                    <div class="hint">% of option price</div>
+                </div>
+                <div class="cost-breakdown-op">+</div>
+                <div>
+                    <label>Additional</label>
+                    <input class="input js-row-cost-additional" type="number" step="0.0001" value="0">
+                    <div class="hint">e.g. shipping</div>
+                </div>
+                <div class="cost-breakdown-op">=</div>
+                <div>
+                    <label>Total</label>
+                    <input class="input js-row-cost" type="text" value="0" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                    <div class="hint">Computed total</div>
+                </div>
+            </div>
+            <div class="profit-metrics">
+                <div>
+                    <label>Profit</label>
+                    <input class="input js-row-profit" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                </div>
+                <div>
+                    <label>Margin [%]</label>
+                    <input class="input js-row-margin" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                </div>
+                <div>
+                    <label>Markup [%]</label>
+                    <input class="input js-row-markup" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                </div>
             </div>
         </div>
     </div>
@@ -183,6 +225,36 @@ function buildValueRow(valuesList, seed){
   row.querySelector('.js-row-weight-prefix').value = seed?.weight_prefix ?? '+';
   row.querySelector('.js-row-weight').value = seed?.weight ?? 0;
 
+  // Cost breakdown fields
+  var costAmt = row.querySelector('.js-row-cost-amount');
+  var costPct = row.querySelector('.js-row-cost-pct');
+  var costAdd = row.querySelector('.js-row-cost-additional');
+  var costOut = row.querySelector('.js-row-cost');
+  var priceIn = row.querySelector('.js-row-price');
+  var profitOut = row.querySelector('.js-row-profit');
+  var marginOut = row.querySelector('.js-row-margin');
+  var markupOut = row.querySelector('.js-row-markup');
+
+  costAmt.value = seed?.cost_amount ?? 0;
+  costPct.value = seed?.cost_percentage ?? 0;
+  costAdd.value = seed?.cost_additional ?? 0;
+
+  function calcOptionCost() {
+    var p = parseFloat(priceIn.value) || 0;
+    var a = parseFloat(costAmt.value) || 0;
+    var c = parseFloat(costPct.value) || 0;
+    var d = parseFloat(costAdd.value) || 0;
+    var cost = a + (c / 100 * p) + d;
+    costOut.value = cost.toFixed(4);
+
+    var profit = p - cost;
+    if (profitOut) { profitOut.value = profit.toFixed(2); profitOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+    if (marginOut) { marginOut.value = p > 0 ? (profit / p * 100).toFixed(2) + '%' : '0%'; marginOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+    if (markupOut) { markupOut.value = cost > 0 ? (profit / cost * 100).toFixed(2) + '%' : '0%'; markupOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+  }
+  [priceIn, costAmt, costPct, costAdd].forEach(function(el) { el.addEventListener('input', calcOptionCost); });
+  calcOptionCost();
+
   row.querySelector('[data-action="remove-value"]').addEventListener('click', () => {
     row.remove();
     recalcAndLockProductQuantity();
@@ -229,6 +301,9 @@ function buildOptionBlock(seed){
       price: v.price ?? 0,
       weight_prefix: v.weight_prefix ?? '+',
       weight: v.weight ?? 0,
+      cost_amount: v.cost_amount ?? 0,
+      cost_percentage: v.cost_percentage ?? 0,
+      cost_additional: v.cost_additional ?? 0,
     }));
 
     if(existing.length === 0){
@@ -309,6 +384,10 @@ function beforeSubmit(e){
         root.appendChild(el);
       };
 
+      const costAmt = r.querySelector('.js-row-cost-amount').value || '0';
+      const costPct = r.querySelector('.js-row-cost-pct').value || '0';
+      const costAdd = r.querySelector('.js-row-cost-additional').value || '0';
+
       add(`options[${idx}][values][${vIdx}][option_value_id]`, valId);
       add(`options[${idx}][values][${vIdx}][sku]`, sku);
       add(`options[${idx}][values][${vIdx}][quantity]`, qty);
@@ -317,6 +396,9 @@ function beforeSubmit(e){
       add(`options[${idx}][values][${vIdx}][price]`, price);
       add(`options[${idx}][values][${vIdx}][weight_prefix]`, wp);
       add(`options[${idx}][values][${vIdx}][weight]`, weight);
+      add(`options[${idx}][values][${vIdx}][cost_amount]`, costAmt);
+      add(`options[${idx}][values][${vIdx}][cost_percentage]`, costPct);
+      add(`options[${idx}][values][${vIdx}][cost_additional]`, costAdd);
 
       vIdx++;
     }

@@ -235,6 +235,28 @@ class LazadaCatalogOrderSync
                     }
                 }
 
+                $productCost = 0;
+                if ($resolvedProductId > 0) {
+                    $pfx = (string) config('catalog.prefix');
+
+                    // Prefer option value cost when a specific variant was matched
+                    if ($resolvedOptionValueId > 0) {
+                        $optCost = DB::table($pfx . 'product_option_value')
+                            ->where('product_option_value_id', $resolvedOptionValueId)
+                            ->value('cost');
+                        if ($optCost !== null && (float) $optCost > 0) {
+                            $productCost = (float) $optCost;
+                        }
+                    }
+
+                    // Fallback to base product cost
+                    if ($productCost == 0) {
+                        $productCost = (float) DB::table($pfx . 'product')
+                            ->where('product_id', $resolvedProductId)
+                            ->value('cost');
+                    }
+                }
+
                 $op = OrderProduct::create([
                     'order_id'   => $catalogOrder->order_id,
                     'product_id' => $resolvedProductId,
@@ -246,7 +268,7 @@ class LazadaCatalogOrderSync
                     'tax'        => 0,
                     'reward'     => 0,
                     'base_price' => $price,
-                    'cost'       => 0,
+                    'cost'       => $productCost,
                     'supplier_id' => 0,
                 ]);
 

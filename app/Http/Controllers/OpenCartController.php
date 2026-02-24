@@ -101,7 +101,7 @@ class OpenCartController extends Controller
 
         $msg = $parts ? 'Order sync updated: ' . implode(', ', $parts) . '.' : 'Order sync settings saved.';
 
-        return back()->with('status', $msg);
+        return redirect()->route('opencart.index', ['store' => $setting->id])->with('status', $msg);
     }
 
     public function destroy($id)

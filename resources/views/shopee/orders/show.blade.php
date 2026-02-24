@@ -54,7 +54,7 @@
 
     <div class="page-header-actions">
         <a href="{{ route('shopee.orders.index') }}" class="btn secondary">← Back to Orders</a>
-        <a href="{{ route('shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1]) }}" class="btn">Refresh from Shopee</a>
+        <a href="{{ route('shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1]) }}" class="btn secondary">Refresh from Shopee</a>
         @if($isToPack)
             <button type="button" id="btnArrangeShipShow" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;">Arrange Shipment</button>
         @endif
@@ -95,7 +95,7 @@
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
             @if($hasAwbFile || $statusNorm === 'PROCESSED')
                 <div class="mt-12">
-                    <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" target="_blank" rel="noopener" class="btn">Print AWB</a>
+                    <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn">Print AWB</a>
                 </div>
             @endif
         </div>
@@ -114,7 +114,7 @@
 <div class="card">
     <h3 class="section-title mt-0">Items</h3>
     @if($items->count() === 0)
-        <div class="text-secondary">No items cached yet. Click <strong>Refresh from Shopee</strong>.</div>
+        <div class="text-secondary">No items synced yet. Items will be fetched on the next order sync.</div>
     @else
         <div class="table-wrap">
             <table class="table">
@@ -187,6 +187,7 @@
     $oShippingSeller = (float)($fees['seller_shipping_discount'] ?? ($fees['final_shipping_fee'] ?? ($fees['actual_shipping_fee'] ?? 0)));
     $oEscrow = (float)($fees['escrow_amount'] ?? 0);
     $oSellerDue = (float)($fees['seller_due'] ?? 0);
+    $oWithholdingTax = (float)($fees['withholding_tax'] ?? 0);
     $oCrossBorderTax = (float)($fees['cross_border_tax'] ?? 0);
     $oEscrowTax = (float)($fees['escrow_tax'] ?? 0);
     $oPaymentPromotion = (float)($fees['payment_promotion'] ?? 0);
@@ -241,6 +242,9 @@
                     @if($oTransactionFee)
                     <tr><td class="text-secondary">Transaction Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oTransactionFee), 2) }}</td></tr>
                     @endif
+                    @if($oWithholdingTax)
+                    <tr><td class="text-secondary">Withholding Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oWithholdingTax), 2) }}</td></tr>
+                    @endif
                     @if($oCrossBorderTax)
                     <tr><td class="text-secondary">Cross-border Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oCrossBorderTax), 2) }}</td></tr>
                     @endif
@@ -273,7 +277,7 @@
 @else
 <div class="card mt-16">
     <h3 class="section-title mt-0">Fees & Revenue Breakdown</h3>
-    <div class="text-secondary">No escrow/fee data available yet. Click <strong>Refresh from Shopee</strong> to fetch — fees are typically available after order completion.</div>
+    <div class="text-secondary">No escrow/fee data available yet — fees are typically fetched automatically after order completion.</div>
 </div>
 @endif
 

@@ -26,6 +26,8 @@ class ShopeeReturn extends Model
         'return_updated_at',
     ];
 
+    protected $hidden = ['raw'];
+
     protected $casts = [
         'items' => 'array',
         'negotiation' => 'array',

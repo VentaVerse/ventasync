@@ -297,16 +297,20 @@ class OpenCartProductSync
                 $ocPid = (int) $link->oc_product_id;
 
                 $productData = [
-                    'product_id'  => $ocPid,
-                    'quantity'    => (int) $product->quantity,
-                    'price'       => (string) $product->price,
-                    'status'      => (int) $product->status,
-                    'name'        => $desc->name ?? '',
-                    'description' => $desc->description ?? '',
-                    'sku'         => $product->sku ?? '',
-                    'model'       => $product->model ?? '',
-                    'weight'      => (string) $product->weight,
-                    'image'       => $product->image ?? '',
+                    'product_id'      => $ocPid,
+                    'quantity'        => (int) $product->quantity,
+                    'price'           => (string) $product->price,
+                    'cost'            => (string) ($product->cost ?? 0),
+                    'cost_amount'     => (string) ($product->cost_amount ?? 0),
+                    'cost_percentage' => (string) ($product->cost_percentage ?? 0),
+                    'cost_additional' => (string) ($product->cost_additional ?? 0),
+                    'status'          => (int) $product->status,
+                    'name'            => $desc->name ?? '',
+                    'description'     => $desc->description ?? '',
+                    'sku'             => $product->sku ?? '',
+                    'model'           => $product->model ?? '',
+                    'weight'          => (string) $product->weight,
+                    'image'           => $product->image ?? '',
                 ];
 
                 // Include options so new/updated variants are synced
@@ -426,6 +430,10 @@ class OpenCartProductSync
             'sku'              => $product->sku ?? '',
             'model'            => $product->model ?? '',
             'price'            => (float) $product->price,
+            'cost'             => (float) ($product->cost ?? 0),
+            'cost_amount'      => (float) ($product->cost_amount ?? 0),
+            'cost_percentage'  => (float) ($product->cost_percentage ?? 0),
+            'cost_additional'  => (float) ($product->cost_additional ?? 0),
             'quantity'         => (int) $product->quantity,
             'status'           => (int) $product->status,
             'weight'           => (float) $product->weight,
@@ -562,7 +570,8 @@ class OpenCartProductSync
                     'ovd.name', 'pov.sku', 'pov.quantity', 'pov.subtract',
                     'pov.price', 'pov.price_prefix',
                     'pov.weight', 'pov.weight_prefix',
-                    'pov.points', 'pov.points_prefix'
+                    'pov.points', 'pov.points_prefix',
+                    'pov.cost', 'pov.cost_amount', 'pov.cost_percentage', 'pov.cost_additional', 'pov.cost_prefix'
                 )
                 ->get();
 
@@ -571,16 +580,21 @@ class OpenCartProductSync
                 'type'        => $po->type,
                 'required'    => (int) $po->required,
                 'values'      => $values->map(fn($v) => [
-                    'name'          => $v->name,
-                    'sku'           => $v->sku ?? '',
-                    'quantity'      => (int) $v->quantity,
-                    'subtract'      => (int) $v->subtract,
-                    'price'         => (float) $v->price,
-                    'price_prefix'  => $v->price_prefix ?? '+',
-                    'weight'        => (float) $v->weight,
-                    'weight_prefix' => $v->weight_prefix ?? '+',
-                    'points'        => (int) $v->points,
-                    'points_prefix' => $v->points_prefix ?? '+',
+                    'name'            => $v->name,
+                    'sku'             => $v->sku ?? '',
+                    'quantity'        => (int) $v->quantity,
+                    'subtract'        => (int) $v->subtract,
+                    'price'           => (float) $v->price,
+                    'price_prefix'    => $v->price_prefix ?? '+',
+                    'weight'          => (float) $v->weight,
+                    'weight_prefix'   => $v->weight_prefix ?? '+',
+                    'points'          => (int) $v->points,
+                    'points_prefix'   => $v->points_prefix ?? '+',
+                    'cost'            => (float) ($v->cost ?? 0),
+                    'cost_amount'     => (float) ($v->cost_amount ?? 0),
+                    'cost_percentage' => (float) ($v->cost_percentage ?? 0),
+                    'cost_additional' => (float) ($v->cost_additional ?? 0),
+                    'cost_prefix'     => $v->cost_prefix ?? '+',
                 ])->toArray(),
             ];
         }

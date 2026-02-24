@@ -59,9 +59,35 @@ class LazadaOrderController extends Controller
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
+        $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
+        $sortKey = strtolower((string)$request->query('sort', ''));
+        if ($sortKey === '') {
+            $sortKey = 'created_' . $defaultDir;
+        }
+        $allowedSort = [
+            'created_asc',
+            'created_desc',
+            'confirmed_created_asc',
+            'confirmed_created_desc',
+            'confirmed_updated_asc',
+            'confirmed_updated_desc',
+            'promised_shipping_asc',
+            'promised_shipping_desc',
+        ];
+        if (!in_array($sortKey, $allowedSort, true)) {
+            $sortKey = 'created_' . $defaultDir;
+        }
+        if (!preg_match('/^(.*)_(asc|desc)$/', $sortKey, $m)) {
+            $sortBy = 'created';
+            $sortDir = $defaultDir;
+        } else {
+            $sortBy = $m[1];
+            $sortDir = $m[2];
+        }
+
         $tabStatusMap = [
             'UNPAID'          => ['unpaid'],
-            'TO_SHIP'         => ['pending', 'packed', 'ready_to_ship'],
+            'TO_SHIP'         => ['pending', 'repacked', 'packed', 'ready_to_ship'],
             'SHIPPING'        => ['shipped'],
             'DELIVERED'       => ['delivered'],
             'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl'],
@@ -89,7 +115,7 @@ class LazadaOrderController extends Controller
         if ($tab !== 'ALL') {
             if ($tab === 'TO_SHIP' && $pendingSubtab !== '') {
                 $pendingMap = [
-                    'to_pack' => ['pending'],
+                    'to_pack' => ['pending', 'repacked'],
                     'to_arrange' => ['packed'],
                     'to_handover' => ['ready_to_ship'],
                 ];
@@ -113,7 +139,7 @@ class LazadaOrderController extends Controller
 
         // Counts for TO_SHIP sub-tabs (DB only)
         $pending_sub_counts = [
-            'to_pack' => (clone $baseCountQuery)->whereIn('status', ['pending'])->count(),
+            'to_pack' => (clone $baseCountQuery)->whereIn('status', ['pending', 'repacked'])->count(),
             'to_arrange' => (clone $baseCountQuery)->whereIn('status', ['packed'])->count(),
             'to_handover' => (clone $baseCountQuery)->whereIn('status', ['ready_to_ship'])->count(),
         ];
@@ -142,15 +168,28 @@ class LazadaOrderController extends Controller
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
             if (!empty($statuses)) {
-                $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
+                if ($k === 'TO_SHIP') {
+                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['pending', 'repacked'])->count();
+                } else {
+                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
+                }
             } else {
                 $tab_counts[$k] = 0;
             }
         }
 
+        if ($sortBy === 'confirmed_created') {
+            $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(raw, '$.created_at')) {$sortDir}");
+        } elseif ($sortBy === 'confirmed_updated') {
+            $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(raw, '$.updated_at')) {$sortDir}");
+        } elseif ($sortBy === 'promised_shipping') {
+            $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(raw, '$.promised_shipping_times')) {$sortDir}");
+        } else {
+            $query->orderBy('order_created_at', $sortDir);
+        }
         $orders = $query
-            ->orderByDesc('order_created_at')
-            ->orderByDesc('created_at')
+            ->orderBy('order_created_at', $sortDir)
+            ->orderBy('created_at', $sortDir)
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -181,14 +220,77 @@ class LazadaOrderController extends Controller
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
             'fd_sub_counts' => $fd_sub_counts,
+            'to_ship_courier_counts' => $this->buildToShipCourierCounts($setting->region ?? 'ph'),
             'live_statuses' => $live_statuses,
             'savedAwbs' => $savedAwbs,
+            'sort' => $sortKey,
             'filters' => [
                 'order_number' => $orderNumber,
                 'buyer_name' => $buyerName,
             ],
         ]);
 }
+
+    private function buildToShipCourierCounts(string $region): array
+    {
+        $counts = [];
+        $display = [];
+        $statuses = ['ready_to_ship'];
+
+        LazadaOrder::query()
+            ->where('region', $region)
+            ->whereIn('status', $statuses)
+            ->with(['products' => function ($q) {
+                $q->select('id', 'lazada_order_id', 'raw');
+            }])
+            ->orderBy('id')
+            ->chunk(200, function ($orders) use (&$counts, &$display) {
+                foreach ($orders as $o) {
+                    $courier = $this->extractLazadaCourier($o);
+                    $label = $courier !== '' ? $courier : 'Unknown';
+                    $key = mb_strtolower($label);
+                    if (!isset($display[$key])) {
+                        $display[$key] = $label;
+                    }
+                    $counts[$key] = ($counts[$key] ?? 0) + 1;
+                }
+            });
+
+        arsort($counts);
+        $out = [];
+        foreach ($counts as $key => $count) {
+            $out[$display[$key] ?? $key] = $count;
+        }
+
+        return $out;
+    }
+
+    private function extractLazadaCourier(LazadaOrder $order): string
+    {
+        $raw = is_array($order->raw) ? $order->raw : [];
+        $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
+        $firstRaw = [];
+        if ($order->relationLoaded('products') && $order->products->isNotEmpty()) {
+            $first = $order->products->first();
+            if ($first && is_array($first->raw ?? null)) {
+                $firstRaw = $first->raw;
+            }
+        }
+
+        foreach ([$firstRaw, $detail, $raw] as $src) {
+            foreach (['shipment_provider', 'shipping_provider', 'shipping_provider_name'] as $k) {
+                $v = $src[$k] ?? null;
+                if (is_array($v)) {
+                    $v = implode(', ', $v);
+                }
+                if (is_string($v) && trim($v) !== '') {
+                    return trim($v);
+                }
+            }
+        }
+
+        return '';
+    }
 
     /**
      * Return or Refund — separate page listing reverse orders.
@@ -529,7 +631,7 @@ class LazadaOrderController extends Controller
                     'GET',
                     '/finance/transaction/details/get',
                     true,
-                    ['trade_order_id' => (string) $order->order_id, 'start_time' => '1970-01-01', 'end_time' => now()->addDay()->format('Y-m-d')],
+                    ['trade_order_id' => (string) $order->order_id, 'start_time' => now()->subDays(170)->format('Y-m-d'), 'end_time' => now()->addDay()->format('Y-m-d')],
                     'lazada.finance.transaction_details'
                 );
 
@@ -1341,6 +1443,7 @@ class LazadaOrderController extends Controller
             '/order/repack',
             true,
             [
+                'package_id' => (string) $packageIds[0],
                 'packReq' => json_encode($packReqPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             ],
             'lazada.order.repack'
@@ -1362,6 +1465,11 @@ class LazadaOrderController extends Controller
                 'raw' => $repackRes,
             ]);
         }
+
+        // Delete old local AWB so the next Pack & Print fetches a fresh one
+        $safeId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
+        $awbPath = 'lazada/awb/' . ($safeId !== '' ? $safeId : 'awb') . '.pdf';
+        Storage::disk('local')->delete($awbPath);
 
         // Refresh local order status from API
         try {
@@ -1389,23 +1497,13 @@ class LazadaOrderController extends Controller
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $data = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'date_from' => 'required|date',
+            'date_to' => 'required|date|after_or_equal:date_from',
             'status' => 'nullable|string|max:64',
             'no_stock' => 'nullable',
         ]);
 
         $skipStock = !empty($data['no_stock']);
-
-        // Require both dates when using manual range
-        $hasFrom = !empty($data['date_from']);
-        $hasTo = !empty($data['date_to']);
-        if (($hasFrom && !$hasTo) || (!$hasFrom && $hasTo)) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Please provide both From and To dates, or leave both empty for automatic sync.',
-            ]);
-        }
 
         // Decrypt Lazada credentials via model method.
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -1418,55 +1516,23 @@ class LazadaOrderController extends Controller
 
         $tz = new \DateTimeZone('Asia/Manila');
 
-// Manual range: use created_after/created_before.
-// Auto sync (no dates): use updated_after based on the newest order we have, with a small buffer.
 // Lazada GetOrders is paginated and Limit has a hard maximum of 100.
 $pageLimit = 100;
-// Safety guard to avoid PHP/HTTP timeouts on very large volumes.
-// If this cap is reached, narrow the date range and re-run fetch.
 $maxOrdersPerRun = 2000;
 
 $baseParams = [
     'limit' => $pageLimit,
 ];
 
-$syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
+$createdAfter = (new \DateTime($data['date_from'], $tz))
+    ->setTime(0, 0, 0)
+    ->format('Y-m-d\\TH:i:sP');
+$createdBefore = (new \DateTime($data['date_to'], $tz))
+    ->setTime(23, 59, 59)
+    ->format('Y-m-d\\TH:i:sP');
 
-if ($hasFrom && $hasTo) {
-    $fromDt = new \DateTime($data['date_from'], $tz);
-    $toDt = new \DateTime($data['date_to'], $tz);
-    if ($toDt < $fromDt) {
-        return redirect()->back()->withErrors([
-            'date_to' => 'To date must be the same as or after From date.',
-        ])->withInput();
-    }
-
-    $createdAfter = (new \DateTime($data['date_from'], $tz))
-        ->setTime(0, 0, 0)
-        ->format('Y-m-d\\TH:i:sP');
-    $createdBefore = (new \DateTime($data['date_to'], $tz))
-        ->setTime(23, 59, 59)
-        ->format('Y-m-d\\TH:i:sP');
-
-    $baseParams['created_after'] = $createdAfter;
-    $baseParams['created_before'] = $createdBefore;
-} else {
-    $latestUpdated = LazadaOrder::query()
-        ->where('region', $setting->region)
-        ->max('order_updated_at');
-
-    if ($latestUpdated) {
-        $dt = (new \DateTime($latestUpdated, $tz))->modify('-2 hours');
-        $minDt = (new \DateTime('now', $tz))->modify('-' . $syncDays . ' days');
-        if ($dt < $minDt) {
-            $dt = $minDt;
-        }
-        $baseParams['update_after'] = $dt->format('Y-m-d\\TH:i:sP');
-    } else {
-        $dt = (new \DateTime('now', $tz))->modify('-' . $syncDays . ' days');
-        $baseParams['created_after'] = $dt->format('Y-m-d\\TH:i:sP');
-    }
-}
+$baseParams['created_after'] = $createdAfter;
+$baseParams['created_before'] = $createdBefore;
         if (!empty($data['status'])) {
             $baseParams['status'] = $data['status'];
         }
@@ -1569,7 +1635,8 @@ if ($hasFrom && $hasTo) {
                     $firstProduct = $existing->products()->first();
                     $fpRaw = $firstProduct ? ($firstProduct->raw ?? []) : [];
                     $needsProductSync = !$firstProduct
-                        || (trim((string)($fpRaw['shipment_provider'] ?? '')) === '' && trim((string)($fpRaw['tracking_code'] ?? '')) === '');
+                        || trim((string)($fpRaw['shipment_provider'] ?? '')) === ''
+                        || trim((string)($fpRaw['tracking_code'] ?? '')) === '';
                 }
                 if ($needsProductSync) {
                     try { $this->syncOrderProductsFromApi($client, $setting, $existing); } catch (\Throwable $e) {}
@@ -1623,6 +1690,11 @@ return redirect()->route('lazada.orders.index', $redirectParams)
 	    // Long-running network operations (best-effort; may be ignored by host settings)
 	    try { @set_time_limit(0); } catch (\Throwable $e) {}
 
+	    $data = $request->validate([
+	        'date_from' => 'required|date',
+	        'date_to' => 'required|date|after_or_equal:date_from',
+	    ]);
+
 	    // Decrypt Lazada credentials via model method.
 	    $setting = LazadaSetting::query()->first()?->decrypted();
 	    if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
@@ -1633,13 +1705,11 @@ return redirect()->route('lazada.orders.index', $redirectParams)
 	    }
 
 	    $tz = new \DateTimeZone('Asia/Manila');
-	    $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
-	    $dt = (new \DateTime('now', $tz))->modify('-' . $syncDays . ' days');
+	    $updateAfter = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->format('Y-m-d\\TH:i:sP');
 
 	    $baseParams = [
 	        'limit' => 50,
-	        // Lazada Open Platform uses `update_after` for incremental changes.
-	        'update_after' => $dt->format('Y-m-d\\TH:i:sP'),
+	        'update_after' => $updateAfter,
 	    ];
 
 	    // Pull multiple pages.
@@ -1733,7 +1803,8 @@ return redirect()->route('lazada.orders.index', $redirectParams)
                     $firstProduct = $existing->products()->first();
                     $fpRaw = $firstProduct ? ($firstProduct->raw ?? []) : [];
                     $needsProductSync = !$firstProduct
-                        || (trim((string)($fpRaw['shipment_provider'] ?? '')) === '' && trim((string)($fpRaw['tracking_code'] ?? '')) === '');
+                        || trim((string)($fpRaw['shipment_provider'] ?? '')) === ''
+                        || trim((string)($fpRaw['tracking_code'] ?? '')) === '';
                 }
                 if ($needsProductSync) {
                     try { $this->syncOrderProductsFromApi($client, $setting, $existing); } catch (\Throwable $e) {}
@@ -2135,7 +2206,7 @@ public function reset(Request $request)
 
         if (($doc['type'] ?? '') === 'url') {
             $url = (string)($doc['value'] ?? '');
-            if ($url !== '' && !Storage::disk('local')->exists($storePath) && preg_match('#^https?://#i', $url)) {
+            if ($url !== '' && preg_match('#^https?://#i', $url)) {
                 try {
                     $resp = Http::timeout(30)->withHeaders([
                         'User-Agent' => 'LaravelERP/1.0',
@@ -2169,7 +2240,7 @@ public function reset(Request $request)
         if (!str_starts_with($bin, '%PDF')) {
             if (preg_match('/<iframe[^>]+src=\"([^\"]+)\"/i', $bin, $m) && isset($m[1]) && str_starts_with($m[1], 'http')) {
                 $url = (string)$m[1];
-                if ($url !== '' && !Storage::disk('local')->exists($storePath) && preg_match('#^https?://#i', $url)) {
+                if ($url !== '' && preg_match('#^https?://#i', $url)) {
                     try {
                         $resp = Http::timeout(30)->withHeaders([
                             'User-Agent' => 'LaravelERP/1.0',
@@ -2189,7 +2260,7 @@ public function reset(Request $request)
         }
 
         // If it's a PDF binary, persist it locally (best-effort)
-        if (str_starts_with($bin, '%PDF') && !Storage::disk('local')->exists($storePath)) {
+        if (str_starts_with($bin, '%PDF')) {
             try {
                 Storage::disk('local')->put($storePath, $bin);
             } catch (\Throwable $e) {

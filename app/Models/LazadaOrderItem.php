@@ -19,6 +19,8 @@ class LazadaOrderItem extends Model
         'raw',
     ];
 
+    protected $hidden = ['raw'];
+
     protected $casts = [
         'raw' => 'array',
     ];

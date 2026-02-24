@@ -11,6 +11,50 @@
     #content .input:focus {
         box-shadow: 0 0 0 3px rgba(238, 77, 45, 0.12);
     }
+    #content .order-img-wrap {
+        position: relative;
+        transition: transform 140ms ease, box-shadow 140ms ease;
+        transform-origin: center center;
+        cursor: zoom-in;
+        z-index: 1;
+        will-change: transform;
+    }
+    #content .order-img-wrap:hover {
+        transform: translateX(120px) scale(5.2);
+        z-index: 200;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.2);
+    }
+    .order-option-wrap {
+        margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+    }
+    .order-option-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #9a3412;
+        background: #ffedd5;
+        border: 1px solid #fdba74;
+        border-radius: 999px;
+        padding: 2px 8px;
+    }
+    .order-option-pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1e293b;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 4px 8px;
+        line-height: 1.35;
+        max-width: 100%;
+        word-break: break-word;
+    }
 </style>
 <div class="page-header">
     <h2>Shopee Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
@@ -37,10 +81,7 @@
             <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('shopee.orders.update_statuses') }}">Update Orders</button>
         </div>
         <div class="text-secondary text-xs" style="flex:1;">
-            Leave <strong>From/To</strong> empty for <strong>automatic sync</strong> (maximum <strong>14 days</strong> lookback).
-        </div>
-        <div style="margin-left:auto;">
-            <button type="button" class="btn danger" id="btnResetShopeeOrders">Reset Orders</button>
+            <strong>From/To</strong> required for both Fetch and Update.
         </div>
     </form>
 </div>
@@ -81,7 +122,7 @@
     </a>
 </div>
 
-{{-- Shopee workflow: PENDING has 2 sub steps (To Pack / To Handover) --}}
+{{-- Shopee workflow: TO SHIP (PENDING) has 2 sub steps (To Pack / To Handover) --}}
 @if(strtoupper((string)($active_tab ?? 'ALL')) === 'PENDING')
     @php
         $ps = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
@@ -92,7 +133,7 @@
     @endphp
     <div class="card mb-12" style="padding:12px 16px;">
         <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
-            <div class="font-semibold">Pending workflow</div>
+            <div class="font-semibold">To Ship workflow</div>
             <div class="text-xs text-secondary">Choose the step you are working on</div>
         </div>
 
@@ -100,7 +141,7 @@
             @foreach($pendingNav as $k => $lbl)
                 @php
                     $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                    $qs = array_merge(request()->query(), ['tab' => 'PENDING', 'pending_sub' => $k]);
+                    $qs = array_merge(request()->except('page'), ['tab' => 'PENDING', 'pending_sub' => $k]);
                     $count = $pending_sub_counts[$k] ?? null;
                 @endphp
                 <a href="{{ route('shopee.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
@@ -111,6 +152,21 @@
                 </a>
             @endforeach
         </div>
+
+        @if(!empty($pending_courier_counts))
+            <div style="margin-top:10px;">
+                <div class="text-xs text-secondary" style="margin-bottom:6px;">Courier tally (To Handover only)</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    @foreach($pending_courier_counts as $courier => $count)
+                        <span class="badge badge-gray" style="display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                            {{ $courier }}
+                            <span style="margin-left:2px; font-weight:700; font-size:15px; color:#dc2626;">{{ $count }}</span>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 @endif
 
@@ -129,6 +185,20 @@
             <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? '') }}" placeholder="Buyer" class="input" style="min-width:220px;">
         </div>
 
+        <div>
+            <label class="text-xs text-secondary">Sort by</label>
+            <select name="sort" class="input" style="width:auto; min-width:240px;">
+                <option value="created_asc" {{ ($sort ?? '') === 'created_asc' ? 'selected' : '' }}>Created Date (Oldest to Newest)</option>
+                <option value="created_desc" {{ ($sort ?? '') === 'created_desc' ? 'selected' : '' }}>Created Date (Newest to Oldest)</option>
+                <option value="confirmed_pay_asc" {{ ($sort ?? '') === 'confirmed_pay_asc' ? 'selected' : '' }}>Confirmed: Pay Time (Oldest to Newest)</option>
+                <option value="confirmed_pay_desc" {{ ($sort ?? '') === 'confirmed_pay_desc' ? 'selected' : '' }}>Confirmed: Pay Time (Newest to Oldest)</option>
+                <option value="confirmed_update_asc" {{ ($sort ?? '') === 'confirmed_update_asc' ? 'selected' : '' }}>Confirmed: Update Time (Oldest to Newest)</option>
+                <option value="confirmed_update_desc" {{ ($sort ?? '') === 'confirmed_update_desc' ? 'selected' : '' }}>Confirmed: Update Time (Newest to Oldest)</option>
+                <option value="confirmed_create_asc" {{ ($sort ?? '') === 'confirmed_create_asc' ? 'selected' : '' }}>Confirmed: Create Time (Oldest to Newest)</option>
+                <option value="confirmed_create_desc" {{ ($sort ?? '') === 'confirmed_create_desc' ? 'selected' : '' }}>Confirmed: Create Time (Newest to Oldest)</option>
+            </select>
+        </div>
+
         <div class="d-flex gap-8">
             <button type="submit" class="btn secondary">Search</button>
             <a href="{{ route('shopee.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
@@ -141,6 +211,7 @@
         <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
         <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? '' }}">
         <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? '' }}">
+        <input type="hidden" name="sort" value="{{ $sort ?? request()->query('sort', '') }}">
         <div>
             <label class="text-xs text-secondary">Orders per page</label>
             <select name="per_page" onchange="this.form.submit()" class="input" style="width:auto;">
@@ -257,15 +328,12 @@
                                 <div class="d-flex justify-between items-start gap-12">
                                     <div class="text-xs text-secondary" style="line-height:1.35;">
                                         <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
+                                        <span style="margin-left:8px;">Order SN:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $orderSn }}</span>
                                         @if($itemCount > 0)
                                             <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                                         @endif
                                     </div>
                                     <div class="text-xs text-secondary text-right" style="line-height:1.35;">
-                                        <span>Order SN:</span>
-                                        <a href="{{ route('shopee.orders.show', ['orderSn' => $orderSn]) }}" target="_blank" rel="noopener" class="font-semibold" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
-                                            {{ $orderSn }}
-                                        </a>
                                         @if($created)
                                             <span style="margin-left:8px;">Create Time:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
                                         @endif
@@ -294,20 +362,31 @@
                             @endphp
 
                             <div class="d-flex gap-10">
-                                <div style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <div class="order-img-wrap" style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                     @if($img)
-                                        <img src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
+                                        <img class="order-img" src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
                                     @else
                                         <span class="text-xs text-muted">No image</span>
                                     @endif
                                 </div>
                                 <div style="min-width:0;">
-                                    <div class="font-semibold" style="word-break:break-word;">{{ $name !== '' ? $name : '—' }}</div>
+                                    <div class="font-semibold" style="word-break:break-word;">
+                                        @if($orderSn)
+                                            <a href="{{ route('shopee.orders.show', ['orderSn' => $orderSn]) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
+                                                {{ $name !== '' ? $name : '—' }}
+                                            </a>
+                                        @else
+                                            {{ $name !== '' ? $name : '—' }}
+                                        @endif
+                                    </div>
                                     <div class="text-xs" style="margin-top:3px;">
                                         <span class="text-secondary">SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
                                     </div>
                                     @if($variation !== '')
-                                        <div class="text-xs text-secondary" style="margin-top:3px;">{{ $variation }}</div>
+                                        <div class="order-option-wrap">
+                                            <span class="order-option-label">Option</span>
+                                            <span class="order-option-pill">{{ $variation }}</span>
+                                        </div>
                                     @endif
                                 </div>
                             </div>
@@ -368,7 +447,7 @@
                                     @endif
 
                                     @if(!$isToPack)
-                                        <a href="{{ route('shopee.orders.awb', ['orderSn' => $orderSn]) }}" target="_blank" class="btn small">Print AWB</a>
+                                        <a href="{{ route('shopee.orders.awb', ['orderSn' => $orderSn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small">Print AWB</a>
                                     @endif
 
                                     @if($isToHandover || $isShipped)
@@ -393,11 +472,6 @@
     <div style="padding:12px 0 0;">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
 </div>
 
-<form method="POST" action="{{ route('shopee.orders.reset') }}" id="formResetShopeeOrders" class="hidden">
-    @csrf
-    <input type="hidden" name="confirm" id="resetConfirmInput" value="">
-    <input type="hidden" name="password" id="resetPasswordInput" value="">
-</form>
 
 {{-- Ship method modal --}}
 <div id="spShipModal" class="modal-backdrop">
@@ -481,30 +555,30 @@
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('btnResetShopeeOrders');
-    var form = document.getElementById('formResetShopeeOrders');
     var overlay = document.getElementById('spLoadingOverlay');
     var fetchForm = document.getElementById('formFetchShopeeOrders');
 
-    if (btn && form) {
-        btn.addEventListener('click', function () {
-            var pw = prompt('Enter your account password to confirm resetting all Shopee orders:');
-            if (pw && pw.trim() !== '') {
-                document.getElementById('resetConfirmInput').value = 'RESET';
-                document.getElementById('resetPasswordInput').value = pw;
-                if (overlay) overlay.style.display = 'flex';
-                document.getElementById('spLoadingTitle').textContent = 'Resetting orders…';
-                form.submit();
-            }
-        });
-    }
+    var clickedBtn = null;
+    var fetchBtn = document.getElementById('btnFetchOrders');
+    var updateBtn = document.getElementById('btnUpdateOrders');
 
-    if (fetchForm && overlay) {
-        fetchForm.addEventListener('submit', function () {
-            setTimeout(function () {
+    if (fetchBtn) fetchBtn.addEventListener('click', function () { clickedBtn = 'fetch'; });
+    if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
+
+    if (fetchForm) {
+        fetchForm.addEventListener('submit', function (e) {
+            // Require From/To dates
+            var dateFrom = fetchForm.querySelector('input[name="date_from"]');
+            var dateTo = fetchForm.querySelector('input[name="date_to"]');
+            if (!dateFrom.value || !dateTo.value) {
+                e.preventDefault();
+                alert('Please provide both From and To dates.');
+                return;
+            }
+            if (overlay) {
+                document.getElementById('spLoadingTitle').textContent = (clickedBtn === 'update') ? 'Updating orders…' : 'Fetching orders…';
                 overlay.style.display = 'flex';
-                document.getElementById('spLoadingTitle').textContent = 'Processing…';
-            }, 50);
+            }
         });
     }
 

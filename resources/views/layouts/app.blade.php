@@ -560,7 +560,7 @@
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             border-radius: var(--radius-md);
-            border: 1px solid var(--border-light);
+            border: 1px solid var(--border);
         }
         table {
             width: 100%;
@@ -568,10 +568,12 @@
         }
         th, td {
             padding: 12px 14px;
-            border-bottom: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
             text-align: left;
             vertical-align: middle;
         }
+        th:last-child, td:last-child { border-right: none; }
         th {
             color: var(--text-secondary);
             font-size: 12px;
@@ -583,6 +585,7 @@
             position: sticky;
             top: 0;
             z-index: 10;
+            border-bottom: 2px solid var(--border);
         }
         tbody tr { transition: background var(--transition-fast); }
         tbody tr:hover { background: rgba(59,130,246,.045); }
@@ -648,9 +651,108 @@
             font-weight: 600;
             color: var(--text-primary);
             padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-light);
+            border-bottom: 2px solid var(--border);
         }
         .section-title:first-child { margin-top: 0; }
+
+        /* Cost Breakdown */
+        .cost-breakdown {
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px 20px;
+        }
+        .cost-breakdown-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 12px;
+        }
+        .cost-breakdown-fields {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+            gap: 0 12px;
+            align-items: end;
+        }
+        .cost-breakdown-fields > div:not(.cost-breakdown-op) label {
+            display: block;
+            margin-bottom: 4px;
+        }
+        .cost-breakdown-fields > div:not(.cost-breakdown-op) .hint {
+            font-size: 11px;
+            margin-top: 4px;
+            min-height: 16px;
+        }
+        .cost-breakdown-op {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            user-select: none;
+            padding-bottom: 20px;
+            text-align: center;
+        }
+        /* Profit / Margin / Markup row */
+        .profit-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+            padding: 10px 0 0;
+            border-top: 1px solid var(--border);
+        }
+        .profit-metrics label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        @media (max-width: 768px) {
+            .cost-breakdown-fields {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cost-breakdown-op { padding: 0; }
+            .profit-metrics { grid-template-columns: 1fr; }
+        }
+
+        /* ============================================================
+           ORDER TOTALS TABLE (order detail page)
+           ============================================================ */
+        .order-totals-table {
+            min-width: 280px;
+            max-width: 360px;
+            border-collapse: collapse;
+        }
+        .order-totals-table td {
+            padding: 5px 0;
+            font-size: 13.5px;
+        }
+        .order-totals-table td:first-child {
+            padding-right: 24px;
+        }
+        .order-totals-row-total td {
+            font-weight: 700;
+            font-size: 15px !important;
+            padding-top: 8px !important;
+            border-top: 2px solid var(--border);
+        }
+        .order-totals-row-profit td {
+            font-weight: 700;
+            font-size: 15px !important;
+            padding-top: 8px !important;
+            border-top: 2px solid var(--border);
+        }
+        .order-totals-margin {
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
 
         /* ============================================================
            TYPEAHEAD / AUTOCOMPLETE
@@ -773,13 +875,13 @@
             text-decoration: none;
             color: var(--text-secondary);
             background: var(--surface-alt);
-            border: 1px solid var(--border);
+            border: 2px solid #cbd5e1;
             font-weight: 600;
             font-size: 14.5px;
             transition: all var(--transition-fast);
         }
-        .tab:hover { background: #e2e8f0; color: var(--text-primary); }
-        .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .tab:hover { background: #e2e8f0; color: var(--text-primary); border-color: #94a3b8; }
+        .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 6px rgba(59,130,246,.3); }
         .tab.disabled { opacity: .55; cursor: not-allowed; }
 
         /* ============================================================
@@ -788,7 +890,7 @@
         .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         .detail-section {
             background: var(--surface-alt);
-            border: 1px solid var(--border-light);
+            border: 1px solid var(--border);
             border-radius: var(--radius-md);
             padding: 18px;
         }
@@ -811,19 +913,20 @@
             margin-bottom: 20px;
             padding: 12px 16px;
             background: var(--surface-alt);
-            border: 1px solid var(--border-light);
+            border: 1px solid var(--border);
             border-radius: var(--radius-md);
         }
         .meta-item { font-size: 13px; color: var(--text-secondary); }
+        .meta-item + .meta-item { padding-left: 16px; border-left: 1px solid var(--border); }
         .meta-label { font-weight: 600; color: var(--text-primary); margin-right: 4px; }
 
         /* Thumbnails */
         .thumb { width: 52px; height: 52px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid rgba(0,0,0,.06); display: block; background: var(--surface-alt); }
         .thumb-sm { width: 42px; height: 42px; border-radius: 6px; }
-        .thumb-placeholder { display: inline-block; border-radius: var(--radius-sm); background: var(--surface-alt); border: 1px solid var(--border-light); }
+        .thumb-placeholder { display: inline-block; border-radius: var(--radius-sm); background: var(--surface-alt); border: 1px solid var(--border); }
 
         /* History timeline */
-        .history-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border-light); }
+        .history-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .history-item:last-child { border-bottom: none; }
         .history-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; min-width: 140px; }
         .history-status { font-weight: 600; font-size: 13px; color: var(--text-primary); }
@@ -938,6 +1041,7 @@
             .toolbar form { flex-wrap: wrap; }
             .card { padding: 16px; border-radius: var(--radius-md); }
             .meta-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .meta-item + .meta-item { padding-left: 0; border-left: none; padding-top: 8px; border-top: 1px solid var(--border); }
         }
         @media (max-width: 480px) {
             .content { padding: 0 12px 20px; }
@@ -1003,6 +1107,7 @@
             $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
             $canLazadaOrders = $u && $u->hasPermission('manage_lazada_orders');
             $canOpencart = $u && $u->hasPermission('manage_opencart');
+            $canOpencartOrders = $u && $u->hasPermission('manage_opencart_orders');
 
             $canSettingsParent = $u && $u->hasPermission('manage_settings');
             $canUsers = $u && $u->hasPermission('manage_users');
@@ -1031,6 +1136,16 @@
                     <span class="label">Dashboard</span>
                 </a>
 
+                @if($canLazadaOrders)
+                <a href="{{ route('lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                    <span class="label">Lazada Orders</span>
+                    @if(($lazadaPendingCount ?? 0) > 0)
+                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $lazadaPendingCount }}</span>
+                    @endif
+                </a>
+                @endif
+
                 @if($canShopeeOrders)
                 <a href="{{ route('shopee.orders.index', ['tab' => 'PENDING']) }}" class="{{ request()->routeIs('shopee.orders.*') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
@@ -1041,14 +1156,16 @@
                 </a>
                 @endif
 
-                @if($canLazadaOrders)
-                <a href="{{ route('lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                    <span class="label">Lazada Orders</span>
-                    @if(($lazadaPendingCount ?? 0) > 0)
-                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $lazadaPendingCount }}</span>
-                    @endif
-                </a>
+                @if($canOpencartOrders)
+                    @foreach(($opencartStores ?? collect()) as $ocStore)
+                    <a href="{{ route('opencart.orders.index', $ocStore->id) }}" class="{{ request()->routeIs('opencart.orders.*') && request()->route('store') == $ocStore->id ? 'active' : '' }}">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                        <span class="label">{{ $ocStore->store_name }} Orders</span>
+                        @if((int) ($ocStore->pending_count ?? 0) > 0)
+                            <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ (int) $ocStore->pending_count }}</span>
+                        @endif
+                    </a>
+                    @endforeach
                 @endif
 
                 @if($canCatalog)
@@ -1194,6 +1311,34 @@
                                     </a>
                                 @endforeach
                                 @endif
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                @endif
+
+                @if($canOrders)
+                <div class="nav-group">
+                    <details {{ request()->routeIs('reports.*') ? 'open' : '' }}>
+                        <summary class="{{ request()->routeIs('reports.*') ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
+                            <span class="label">Reports</span>
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('reports.orders') }}" class="{{ request()->routeIs('reports.orders*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>
+                                    <span class="label">Order Profitability</span>
+                                </a>
+                                <a href="{{ route('reports.products') }}" class="{{ request()->routeIs('reports.products*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+                                    <span class="label">Product Profitability</span>
+                                </a>
+                                <a href="{{ route('reports.payouts') }}" class="{{ request()->routeIs('reports.payouts*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+                                    <span class="label">Marketplace Payouts</span>
+                                </a>
                             </div>
                         </div>
                     </details>
@@ -1488,25 +1633,32 @@
     });
 
     // ── Loading state on form submit buttons ──
+    // Track which button was clicked so we only spinner that one
+    var lastClickedSubmit = null;
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button[type="submit"], button:not([type])');
+        if (btn) lastClickedSubmit = btn;
+    });
+
     document.querySelectorAll('form').forEach(function(form) {
-        form.addEventListener('submit', function() {
-            // Find the submit button (inside form or linked via form= attribute)
-            var formId = form.id;
-            var btns = Array.from(form.querySelectorAll('button[type="submit"], button:not([type])'));
-            if (formId) {
-                btns = btns.concat(Array.from(document.querySelectorAll('button[form="' + formId + '"]')));
+        form.addEventListener('submit', function(e) {
+            // Delay loading state so other handlers can preventDefault first
+            var btn = lastClickedSubmit;
+            if (!btn || !form.contains(btn)) {
+                var btns = form.querySelectorAll('button[type="submit"], button:not([type])');
+                btn = btns.length === 1 ? btns[0] : null;
             }
-            btns.forEach(function(btn) {
+            lastClickedSubmit = null;
+            if (!btn) return;
+            setTimeout(function() {
+                if (e.defaultPrevented) return;
                 btn.classList.add('is-loading');
                 btn.disabled = true;
-            });
-            // Safety: re-enable after 5 min in case of network issues
-            setTimeout(function() {
-                btns.forEach(function(btn) {
+                setTimeout(function() {
                     btn.classList.remove('is-loading');
                     btn.disabled = false;
-                });
-            }, 300000);
+                }, 300000);
+            }, 0);
         });
     });
 

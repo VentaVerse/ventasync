@@ -459,11 +459,11 @@
             <div>
                 <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
                     <span style="font-weight:600; color:var(--text-primary);">Sync Orders</span>
-                    <span class="text-muted">— Fetch new orders + update existing statuses</span>
+                    <span class="text-muted">— Create new + update existing orders (no returns)</span>
                     <span style="margin-left:auto; color:var(--text-muted);">every 1 min</span>
                 </label>
                 <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="laz-cron-sync" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:sync-orders --both</code>
+                    <code id="laz-cron-sync" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:sync-orders --no-returns</code>
                     <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-sync', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
                 </div>
             </div>

@@ -17,6 +17,8 @@
             <span class="meta-label">Source:</span>
             @if($order->marketplace_source === 'lazada')
                 <span class="badge badge-indigo">Lazada</span>
+            @elseif($order->marketplace_source === 'shopee')
+                <span class="badge badge-dark">Shopee</span>
             @elseif($order->marketplace_source !== '')
                 <span class="badge badge-dark">{{ ucfirst($order->marketplace_source) }}</span>
             @else
@@ -31,10 +33,12 @@
             <span class="meta-label">Date:</span>
             {{ $order->date_added }}
         </div>
+        @if($order->marketplace_order_id)
         <div class="meta-item">
-            <span class="meta-label">Total:</span>
-            {{ $order->currency_code }} {{ number_format($order->total, 2) }}
+            <span class="meta-label">Marketplace ID:</span>
+            {{ $order->marketplace_order_id }}
         </div>
+        @endif
         @if($order->tracking_number)
         <div class="meta-item">
             <span class="meta-label">Tracking:</span>
@@ -105,6 +109,10 @@
     {{-- Products --}}
     <h3 class="section-title">Products</h3>
     @if($products->count())
+    @php
+        $totalRevenue = 0;
+        $totalCogs = 0;
+    @endphp
     <div class="table-wrap">
     <table>
         <thead>
@@ -115,6 +123,10 @@
             <th class="text-right">Qty</th>
             <th class="text-right">Unit Price</th>
             <th class="text-right">Total</th>
+            <th class="text-right">Unit Cost</th>
+            <th class="text-right">COGS</th>
+            <th class="text-right">Profit</th>
+            <th class="text-right">Margin</th>
         </tr>
         </thead>
         <tbody>
@@ -127,6 +139,15 @@
                     $lzImg = trim($lazadaImages[$p->order_product_id] ?? '');
                     if ($lzImg !== '') { $imgSrc = $lzImg; }
                 }
+
+                $unitCost = (float) ($p->cost ?? 0);
+                $cogs = $unitCost * (int) $p->quantity;
+                $lineTotal = (float) $p->total;
+                $profit = $lineTotal - $cogs;
+                $margin = $lineTotal > 0 ? ($profit / $lineTotal * 100) : 0;
+
+                $totalRevenue += $lineTotal;
+                $totalCogs += $cogs;
             @endphp
             <tr>
                 <td>
@@ -148,6 +169,18 @@
                 <td class="text-right">{{ $p->quantity }}</td>
                 <td class="text-right">{{ number_format($p->price, 2) }}</td>
                 <td class="text-right font-semibold">{{ number_format($p->total, 2) }}</td>
+                <td class="text-right text-secondary">{{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}</td>
+                <td class="text-right text-secondary">{{ $unitCost > 0 ? number_format($cogs, 2) : '-' }}</td>
+                <td class="text-right font-semibold" style="color: {{ $profit >= 0 ? 'var(--success)' : 'var(--danger)' }}">
+                    {{ $unitCost > 0 ? number_format($profit, 2) : '-' }}
+                </td>
+                <td class="text-right">
+                    @if($unitCost > 0)
+                        <span style="color: {{ $margin >= 20 ? 'var(--success)' : ($margin >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($margin, 1) }}%</span>
+                    @else
+                        -
+                    @endif
+                </td>
             </tr>
         @endforeach
         </tbody>
@@ -157,21 +190,83 @@
         <p class="text-muted">No products on this order.</p>
     @endif
 
-    {{-- Order Totals --}}
-    @if($orderTotals->count())
-    <div class="d-flex justify-end mt-12">
-        <table class="max-w-300">
+    {{-- Order Totals + Cost & Profit Summary --}}
+    @php
+        $mktFeeTotal = (float) ($marketplaceFees['total'] ?? 0);
+        $mktFeeItems = $marketplaceFees['items'] ?? [];
+        $mktFeeSource = $marketplaceFees['source'] ?? '';
+        $shippingCost = (float) ($order->shipping_cost ?? 0);
+        $grossProfit = $totalRevenue - $totalCogs;
+        $netProfit = $grossProfit - $shippingCost - $mktFeeTotal;
+        $netMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue * 100) : 0;
+        $grossMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue * 100) : 0;
+        $hasCostData = $totalCogs > 0;
+        $hasDeductions = $shippingCost > 0 || $mktFeeTotal > 0;
+        $hasAnyProfit = $hasCostData || $hasDeductions;
+    @endphp
+    <div class="d-flex justify-end mt-16">
+        <table class="order-totals-table">
             <tbody>
+            {{-- Standard order totals (Sub-Total, Shipping, etc.) --}}
             @foreach($orderTotals as $ot)
-                <tr @if($ot->code === 'total') class="font-bold" style="font-size:15px;" @endif>
-                    <td>{{ $ot->title }}</td>
+                @if($ot->code !== 'total')
+                <tr>
+                    <td class="text-secondary">{{ $ot->title }}</td>
                     <td class="text-right">{{ number_format($ot->value, 2) }}</td>
                 </tr>
+                @endif
             @endforeach
+
+            {{-- Order Total --}}
+            <tr class="order-totals-row-total">
+                <td>Total</td>
+                <td class="text-right">{{ number_format($order->total, 2) }}</td>
+            </tr>
+
+            @if($hasAnyProfit)
+            {{-- Separator --}}
+            <tr><td colspan="2" style="padding:0;"><hr style="border:none; border-top:1px dashed var(--border); margin:8px 0;"></td></tr>
+
+            {{-- COGS --}}
+            @if($hasCostData)
+            <tr>
+                <td class="text-secondary">COGS</td>
+                <td class="text-right" style="color:var(--danger);">-{{ number_format($totalCogs, 2) }}</td>
+            </tr>
+            @endif
+
+            {{-- Shipping Cost --}}
+            @if($shippingCost > 0)
+            <tr>
+                <td class="text-secondary">Shipping Cost</td>
+                <td class="text-right" style="color:var(--danger);">-{{ number_format($shippingCost, 2) }}</td>
+            </tr>
+            @endif
+
+            {{-- Marketplace Fees (itemized) --}}
+            @foreach($mktFeeItems as $fee)
+            <tr>
+                <td class="text-secondary">{{ $fee['label'] }}</td>
+                <td class="text-right" style="color:var(--danger);">-{{ number_format($fee['amount'], 2) }}</td>
+            </tr>
+            @endforeach
+
+            {{-- Net Profit --}}
+            <tr class="order-totals-row-profit">
+                <td>
+                    {{ $hasDeductions ? 'Net Profit' : 'Gross Profit' }}
+                    @if($hasAnyProfit)
+                    <span class="order-totals-margin" style="color: {{ ($hasDeductions ? $netMargin : $grossMargin) >= 20 ? 'var(--success)' : (($hasDeductions ? $netMargin : $grossMargin) >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($hasDeductions ? $netMargin : $grossMargin, 1) }}%</span>
+                    @endif
+                </td>
+                <td class="text-right" style="color: {{ ($hasDeductions ? $netProfit : $grossProfit) >= 0 ? 'var(--success)' : 'var(--danger)' }}">
+                    {{ number_format($hasDeductions ? $netProfit : $grossProfit, 2) }}
+                </td>
+            </tr>
+            @endif
             </tbody>
         </table>
     </div>
-    @endif
 
     {{-- Status Update --}}
     <h3 class="section-title mt-24">Update Status</h3>

@@ -108,6 +108,12 @@ class MarketplaceOrderController extends Controller
         $data = $orders->map(function ($order) use ($isLazada) {
             $raw = $order->raw ?? [];
 
+            $firstProduct = $order->products()->orderBy('id')->first();
+            $productRaw = $firstProduct?->raw ?? [];
+            $productImage = $firstProduct?->image
+                ?? ($productRaw['image_info']['image_url'] ?? null)
+                ?? ($productRaw['product_main_image'] ?? null);
+
             if ($isLazada) {
                 $orderId = $order->order_id;
                 $buyerName = $raw['customer_first_name']
@@ -139,6 +145,7 @@ class MarketplaceOrderController extends Controller
                 'total_amount'    => $totalAmount,
                 'currency'        => $currency,
                 'items_count'     => $itemsCount,
+                'product_image'   => $productImage ?: null,
                 'payment_method'  => $paymentMethod,
                 'tracking_number' => $trackingNumber,
                 'date'            => $order->order_created_at

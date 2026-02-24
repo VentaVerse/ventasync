@@ -21,6 +21,8 @@ class LazadaReverseOrder extends Model
         'raw',
     ];
 
+    protected $hidden = ['raw'];
+
     protected $casts = [
         'items' => 'array',
         'raw' => 'array',

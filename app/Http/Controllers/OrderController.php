@@ -11,6 +11,7 @@ use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\OpenCartSetting;
+use App\Models\ShopeeOrder;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 
@@ -61,6 +62,56 @@ class OrderController extends Controller
         $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
 
         return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'ocStoreNames'));
+    }
+
+    public function opencartIndex(Request $request, int $store)
+    {
+        $q = trim((string) $request->get('q', ''));
+        $statusId = (int) $request->get('status', 0);
+
+        $sortable = ['order_id', 'date_added', 'total', 'firstname'];
+        $sort = in_array($request->get('sort'), $sortable) ? $request->get('sort') : 'date_added';
+        $dir = $request->get('dir') === 'asc' ? 'asc' : 'desc';
+
+        $orders = Order::query()
+            ->with('products')
+            ->where('marketplace_source', 'opencart:' . $store)
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('firstname', 'like', '%' . $q . '%')
+                        ->orWhere('lastname', 'like', '%' . $q . '%')
+                        ->orWhere('email', 'like', '%' . $q . '%')
+                        ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
+                        ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0);
+                });
+            })
+            ->when($statusId > 0, function ($query) use ($statusId) {
+                $query->where('order_status_id', $statusId);
+            })
+            ->orderBy($sort, $dir)
+            ->paginate(50)
+            ->withQueryString();
+
+        $productImages = self::resolveOrderProductImages($orders->getCollection());
+        $lazadaImages = self::resolveLazadaImages($orders->getCollection());
+        $statuses = OrderStatus::orderBy('order_status_id')->get();
+        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+
+        $storeLabel = ($ocStoreNames[$store] ?? '') ?: ('OpenCart #' . $store);
+
+        return view('opencart.orders.index', compact(
+            'orders',
+            'q',
+            'statusId',
+            'statuses',
+            'productImages',
+            'lazadaImages',
+            'sort',
+            'dir',
+            'ocStoreNames',
+            'store',
+            'storeLabel'
+        ));
     }
 
     public function create()
@@ -185,7 +236,10 @@ class OrderController extends Controller
         $catalogProducts = self::resolveOrderCatalogProducts($products);
         $lazadaImages = self::resolveLazadaImages(collect([$order]));
 
-        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages'));
+        // Look up marketplace fees from the source order
+        $marketplaceFees = self::resolveMarketplaceFees($order);
+
+        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -458,5 +512,92 @@ class OrderController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Resolve marketplace fees from the source Lazada/Shopee order.
+     * Returns an array with individual fee components and a total.
+     */
+    private static function resolveMarketplaceFees(Order $order): array
+    {
+        $source = (string) $order->marketplace_source;
+        $mktOrderId = (string) $order->marketplace_order_id;
+
+        if ($source === '' || $mktOrderId === '') {
+            return ['total' => 0, 'items' => [], 'source' => ''];
+        }
+
+        if ($source === 'lazada') {
+            $lzOrder = LazadaOrder::where('order_id', $mktOrderId)->first();
+            if (!$lzOrder || empty($lzOrder->fees)) {
+                return ['total' => 0, 'items' => [], 'source' => 'lazada'];
+            }
+
+            $fees = is_array($lzOrder->fees) ? $lzOrder->fees : [];
+            $items = [];
+            $total = 0;
+
+            $commission = abs((float) ($fees['commission'] ?? 0));
+            $paymentFee = abs((float) ($fees['payment_fee'] ?? 0));
+            $shippingCost = abs((float) ($fees['shipping_service_cost'] ?? 0));
+
+            if ($commission > 0) { $items[] = ['label' => 'Commission', 'amount' => $commission]; $total += $commission; }
+            if ($paymentFee > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentFee]; $total += $paymentFee; }
+            if ($shippingCost > 0) { $items[] = ['label' => 'Shipping Fee', 'amount' => $shippingCost]; $total += $shippingCost; }
+
+            // Other fees (stored as key=>value map)
+            $otherFees = $fees['other_fees'] ?? [];
+            if (is_array($otherFees)) {
+                foreach ($otherFees as $label => $amount) {
+                    $amt = abs((float) $amount);
+                    if ($amt > 0) { $items[] = ['label' => $label, 'amount' => $amt]; $total += $amt; }
+                }
+            }
+
+            return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
+        }
+
+        if ($source === 'shopee') {
+            $spOrder = ShopeeOrder::where('order_sn', $mktOrderId)->first();
+            if (!$spOrder || empty($spOrder->fees)) {
+                return ['total' => 0, 'items' => [], 'source' => 'shopee'];
+            }
+
+            $feesRaw = is_array($spOrder->fees) ? $spOrder->fees : [];
+            $income = $feesRaw['order_income'] ?? $feesRaw;
+            if (!is_array($income)) {
+                return ['total' => 0, 'items' => [], 'source' => 'shopee'];
+            }
+
+            $items = [];
+            $total = 0;
+
+            $commission = abs((float) ($income['commission_fee'] ?? 0));
+            $serviceFee = abs((float) ($income['service_fee'] ?? 0));
+            $txnFee = abs((float) ($income['seller_transaction_fee'] ?? 0));
+            $withholdingTax = abs((float) ($income['withholding_tax'] ?? 0));
+
+            if ($commission > 0) { $items[] = ['label' => 'Commission', 'amount' => $commission]; $total += $commission; }
+            if ($serviceFee > 0) { $items[] = ['label' => 'Service Fee', 'amount' => $serviceFee]; $total += $serviceFee; }
+            if ($txnFee > 0) { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee]; $total += $txnFee; }
+            if ($withholdingTax > 0) { $items[] = ['label' => 'Withholding Tax', 'amount' => $withholdingTax]; $total += $withholdingTax; }
+
+            return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
+        }
+
+        // OpenCart: use payment_cost + extra_cost from order table
+        if (str_starts_with($source, 'opencart:')) {
+            $items = [];
+            $total = 0;
+            $paymentCost = (float) ($order->payment_cost ?? 0);
+            $extraCost = (float) ($order->extra_cost ?? 0);
+
+            if ($paymentCost > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentCost]; $total += $paymentCost; }
+            if ($extraCost > 0) { $items[] = ['label' => 'Extra Cost', 'amount' => $extraCost]; $total += $extraCost; }
+
+            return ['total' => round($total, 2), 'items' => $items, 'source' => $source];
+        }
+
+        return ['total' => 0, 'items' => [], 'source' => $source];
     }
 }

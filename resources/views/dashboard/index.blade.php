@@ -88,15 +88,19 @@
             <div class="dash-stat-label">Shopee Pending</div>
         </div>
     </a>
-    <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($opencartPending) }}</div>
-            <div class="dash-stat-label">OpenCart Pending</div>
-        </div>
-    </a>
+    @if($syncStatuses->isNotEmpty())
+        @foreach($syncStatuses as $store)
+            <a href="{{ route('opencart.orders.index', $store->id) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
+                <div class="dash-stat-icon">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div class="dash-stat-body">
+                    <div class="dash-stat-value">{{ number_format((int) ($store->pending_count ?? 0)) }}</div>
+                    <div class="dash-stat-label">{{ $store->store_name ?: 'OpenCart #'.$store->id }} Pending</div>
+                </div>
+            </a>
+        @endforeach
+    @endif
 </div>
 
 {{-- Sales chart --}}

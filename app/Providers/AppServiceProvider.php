@@ -4,11 +4,13 @@ namespace App\Providers;
 
 use App\Models\LazadaOrder;
 use App\Models\LazadaSetting;
+use App\Models\Catalog\OrderStatus;
 use App\Models\OpenCartSetting;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSetting;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -60,7 +62,7 @@ class AppServiceProvider extends ServiceProvider
                     }
                     $view->with('shopeePendingCount', ShopeeOrder::query()
                         ->where('region', $spRegion)
-                        ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
+                        ->whereIn('status', ['READY_TO_SHIP'])
                         ->count());
                 }
             } catch (\Throwable $e) {
@@ -78,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
                     }
                     $count = LazadaOrder::query()
                         ->where('region', $region)
-                        ->whereIn('status', ['pending', 'packed', 'ready_to_ship'])
+                        ->whereIn('status', ['pending', 'repacked'])
                         ->count();
                     $view->with('lazadaPendingCount', $count);
                 }
@@ -89,7 +91,41 @@ class AppServiceProvider extends ServiceProvider
             // Share enabled OpenCart stores for sidebar per-store links
             try {
                 if (Schema::hasTable('opencart_settings')) {
-                    $view->with('opencartStores', OpenCartSetting::where('enabled', true)->get());
+                    $stores = OpenCartSetting::where('enabled', true)->get();
+                    $pendingByStore = [];
+
+                    $pfx = (string) config('catalog.prefix');
+                    $orderTable = $pfx . 'order';
+
+                    if (Schema::hasTable($orderTable)) {
+                        $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
+
+                        if ($pendingStatusIds->isNotEmpty()) {
+                            $rows = DB::table($orderTable)
+                                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
+                                ->whereIn('order_status_id', $pendingStatusIds)
+                                ->where('marketplace_source', 'like', 'opencart:%')
+                                ->groupBy('marketplace_source')
+                                ->get();
+
+                            foreach ($rows as $row) {
+                                $src = (string) ($row->marketplace_source ?? '');
+                                if (str_starts_with($src, 'opencart:')) {
+                                    $storeId = (int) str_replace('opencart:', '', $src);
+                                    if ($storeId > 0) {
+                                        $pendingByStore[$storeId] = (int) $row->cnt;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $stores = $stores->map(function ($store) use ($pendingByStore) {
+                        $store->pending_count = $pendingByStore[$store->id] ?? 0;
+                        return $store;
+                    });
+
+                    $view->with('opencartStores', $stores);
                 } else {
                     $view->with('opencartStores', collect());
                 }

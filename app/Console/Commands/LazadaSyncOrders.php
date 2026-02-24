@@ -16,12 +16,11 @@ use Illuminate\Support\Facades\Log;
 class LazadaSyncOrders extends Command
 {
     protected $signature = 'lazada:sync-orders
-        {--fetch : Fetch new orders (default behaviour)}
-        {--update : Update statuses of existing orders only}
+        {--both : Sync orders and returns (default behavior)}
         {--returns : Sync reverse orders (returns/refunds) only}
-        {--both : Fetch new orders AND update existing statuses AND sync returns}';
+        {--no-returns : Skip reverse order sync}';
 
-    protected $description = 'Sync orders from Lazada (fetch new + update statuses + returns)';
+    protected $description = 'Sync orders from Lazada (create new + update existing + returns)';
 
     public function handle(LazadaClient $client): int
     {
@@ -36,31 +35,24 @@ class LazadaSyncOrders extends Command
             return 1;
         }
 
-        $hasAnyFlag = $this->option('fetch') || $this->option('update') || $this->option('returns') || $this->option('both');
-        $doFetch = $this->option('fetch') || $this->option('both') || !$hasAnyFlag;
-        $doUpdate = $this->option('update') || $this->option('both');
-        $doReturns = $this->option('returns') || $this->option('both') || !$hasAnyFlag;
+        $returnsOnly = $this->option('returns');
+        $skipReturns = $this->option('no-returns');
 
-        if ($doFetch) {
-            $this->info('--- Fetching new Lazada orders ---');
-            $this->fetchOrders($client, $setting);
+        if (!$returnsOnly) {
+            $this->info('--- Syncing Lazada orders ---');
+            $this->syncOrders($client, $setting);
+            LazadaSetting::query()->update(['last_order_sync_at' => now()]);
+
+            $this->info('--- Backfilling missing Lazada fees ---');
+            $this->backfillMissingFees($client, $setting);
+
+            $this->info('--- Syncing Lazada payout statuses ---');
+            $this->syncPayoutStatuses($client, $setting);
         }
 
-        if ($doUpdate) {
-            $this->info('--- Updating statuses of existing orders ---');
-            $this->updateStatuses($client, $setting);
-        }
-
-        if ($doReturns) {
+        if (!$skipReturns) {
             $this->info('--- Syncing reverse orders (returns/refunds) ---');
             $this->syncReturns($client, $setting);
-        }
-
-        // Stamp sync timestamps on settings (independent of API logging)
-        if ($doFetch || $doUpdate) {
-            LazadaSetting::query()->update(['last_order_sync_at' => now()]);
-        }
-        if ($doReturns) {
             LazadaSetting::query()->update(['last_return_sync_at' => now()]);
         }
 
@@ -68,7 +60,7 @@ class LazadaSyncOrders extends Command
         return 0;
     }
 
-    private function fetchOrders(LazadaClient $client, object $setting): void
+    private function syncOrders(LazadaClient $client, object $setting): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
         $pageLimit = 100;
@@ -89,13 +81,14 @@ class LazadaSyncOrders extends Command
                 $dt = $minDt;
             }
             $baseParams['update_after'] = $dt->format('Y-m-d\TH:i:sP');
-            $this->info("  Incremental fetch since: " . $dt->format('Y-m-d H:i:s') . " (window: {$syncDays} days)");
+            $this->info("  Incremental sync since: " . $dt->format('Y-m-d H:i:s') . " (window: {$syncDays} days)");
         } else {
             $dt = (new \DateTime('now', $tz))->modify("-{$syncDays} days");
             $baseParams['created_after'] = $dt->format('Y-m-d\TH:i:sP');
             $this->info("  Initial backfill: last {$syncDays} days");
         }
 
+        // Paginate through all orders from the API
         $allOrders = [];
         $offset = 0;
 
@@ -128,8 +121,9 @@ class LazadaSyncOrders extends Command
             $offset += $pageLimit;
         }
 
-        $saved = 0;
-        $skipped = 0;
+        // Process each order: create if new, update if existing
+        $created = 0;
+        $updated = 0;
         $errors = 0;
 
         foreach ($allOrders as $o) {
@@ -138,131 +132,81 @@ class LazadaSyncOrders extends Command
             $orderId = (string) ($o['order_id'] ?? $o['orderId'] ?? $o['order_number'] ?? $o['orderNumber'] ?? '');
             if ($orderId === '') continue;
 
+            $statusVal = $o['statuses'] ?? $o['status'] ?? $o['order_status'] ?? null;
+            if (is_array($statusVal)) $statusVal = $statusVal[0] ?? null;
+
             $existing = LazadaOrder::query()
                 ->where('region', $setting->region)
                 ->where('order_id', $orderId)
                 ->first();
 
             if ($existing) {
-                $skipped++;
-                continue;
-            }
+                // --- Update existing order ---
+                $existing->fill([
+                    'status'           => is_string($statusVal) ? $statusVal : null,
+                    'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
+                    'order_updated_at' => $this->parseApiDatetime($o['updated_at'] ?? $o['updatedAt'] ?? $o['update_time'] ?? null),
+                    'raw'              => $o,
+                ])->save();
+                $updated++;
 
-            $statusVal = $o['statuses'] ?? $o['status'] ?? $o['order_status'] ?? null;
-            if (is_array($statusVal)) $statusVal = $statusVal[0] ?? null;
-
-            $payload = [
-                'region'           => $setting->region,
-                'order_id'         => $orderId,
-                'status'           => is_string($statusVal) ? $statusVal : null,
-                'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
-                'order_updated_at' => $this->parseApiDatetime($o['updated_at'] ?? $o['updatedAt'] ?? $o['update_time'] ?? null),
-                'raw'              => $o,
-            ];
-
-            try {
-                $newOrder = LazadaOrder::query()->create($payload);
-                $saved++;
-
-                // Fetch order items
-                try {
-                    $this->syncOrderProducts($client, $setting, $newOrder);
-                } catch (\Throwable $e) {
-                    Log::warning('Lazada sync: failed to fetch items for order ' . $orderId, ['error' => $e->getMessage()]);
+                // Re-sync products if missing OR shipping data incomplete
+                $needsProductSync = !$existing->products()->exists();
+                if (!$needsProductSync) {
+                    $firstProduct = $existing->products()->first();
+                    $fpRaw = $firstProduct ? ($firstProduct->raw ?? []) : [];
+                    $needsProductSync = trim((string)($fpRaw['shipment_provider'] ?? '')) === ''
+                        || trim((string)($fpRaw['tracking_code'] ?? '')) === '';
+                }
+                if ($needsProductSync) {
+                    try {
+                        $this->syncOrderProducts($client, $setting, $existing);
+                    } catch (\Throwable $e) {
+                        Log::warning('Lazada sync: failed to fetch items for order ' . $orderId, ['error' => $e->getMessage()]);
+                    }
                 }
 
-                // Sync to catalog tables (triggers stock adjustment)
                 try {
-                    (new LazadaCatalogOrderSync)->sync($newOrder);
+                    (new LazadaCatalogOrderSync)->sync($existing);
                 } catch (\Throwable $e) {
-                    Log::warning('Lazada sync: failed to sync order ' . $orderId . ' to catalog', ['error' => $e->getMessage()]);
+                    Log::warning('Lazada sync: catalog sync failed for order ' . $orderId, ['error' => $e->getMessage()]);
                 }
-            } catch (\Throwable $e) {
-                $errors++;
-                Log::error('Lazada sync: failed to create order ' . $orderId, ['error' => $e->getMessage()]);
+
+                $this->fetchFeesIfReady($client, $setting, $existing);
+            } else {
+                // --- Create new order ---
+                try {
+                    $newOrder = LazadaOrder::query()->create([
+                        'region'           => $setting->region,
+                        'order_id'         => $orderId,
+                        'status'           => is_string($statusVal) ? $statusVal : null,
+                        'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
+                        'order_updated_at' => $this->parseApiDatetime($o['updated_at'] ?? $o['updatedAt'] ?? $o['update_time'] ?? null),
+                        'raw'              => $o,
+                    ]);
+                    $created++;
+
+                    try {
+                        $this->syncOrderProducts($client, $setting, $newOrder);
+                    } catch (\Throwable $e) {
+                        Log::warning('Lazada sync: failed to fetch items for order ' . $orderId, ['error' => $e->getMessage()]);
+                    }
+
+                    try {
+                        (new LazadaCatalogOrderSync)->sync($newOrder);
+                    } catch (\Throwable $e) {
+                        Log::warning('Lazada sync: failed to sync order ' . $orderId . ' to catalog', ['error' => $e->getMessage()]);
+                    }
+
+                    $this->fetchFeesIfReady($client, $setting, $newOrder);
+                } catch (\Throwable $e) {
+                    $errors++;
+                    Log::error('Lazada sync: failed to create order ' . $orderId, ['error' => $e->getMessage()]);
+                }
             }
         }
 
-        $this->info("  Fetched: {$saved} new, {$skipped} skipped" . ($errors > 0 ? ", {$errors} errors" : ''));
-    }
-
-    private function updateStatuses(LazadaClient $client, object $setting): void
-    {
-        $tz = new \DateTimeZone('Asia/Manila');
-        $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
-        $dt = (new \DateTime('now', $tz))->modify("-{$syncDays} days");
-
-        $baseParams = [
-            'limit'        => 50,
-            'update_after' => $dt->format('Y-m-d\TH:i:sP'),
-        ];
-
-        $allOrders = [];
-        $res = null;
-
-        for ($offset = 0; $offset <= 450; $offset += 50) {
-            $params = $baseParams;
-            $params['offset'] = $offset;
-
-            $res = $this->runSignedApiCall($client, $setting, 'GET', '/orders/get', $params, 'lazada.orders.get');
-
-            $body = $res['body'] ?? [];
-            $pageOrders = [];
-            if (($res['ok'] ?? false) && is_array($body)) {
-                $dataNode = $body['data'] ?? $body;
-                $pageOrders = $dataNode['orders'] ?? $dataNode['order_list'] ?? $dataNode['orders_list'] ?? $dataNode['data'] ?? [];
-                if (!is_array($pageOrders)) $pageOrders = [];
-            }
-
-            if (!($res['ok'] ?? false)) {
-                $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
-                $this->error('  API error: ' . $msg);
-                break;
-            }
-
-            $allOrders = array_merge($allOrders, $pageOrders);
-            if (count($pageOrders) < 50) break;
-        }
-
-        $updated = 0;
-        $skipped = 0;
-
-        foreach ($allOrders as $o) {
-            if (!is_array($o)) continue;
-
-            $orderId = (string) ($o['order_id'] ?? $o['orderId'] ?? $o['order_number'] ?? $o['orderNumber'] ?? '');
-            if ($orderId === '') continue;
-
-            $existing = LazadaOrder::query()
-                ->where('region', $setting->region)
-                ->where('order_id', $orderId)
-                ->first();
-
-            if (!$existing) {
-                $skipped++;
-                continue;
-            }
-
-            $statusVal = $o['statuses'] ?? $o['status'] ?? $o['order_status'] ?? null;
-            if (is_array($statusVal)) $statusVal = $statusVal[0] ?? null;
-
-            $existing->fill([
-                'status'           => is_string($statusVal) ? $statusVal : null,
-                'order_created_at' => $this->parseApiDatetime($o['created_at'] ?? $o['createdAt'] ?? $o['created_time'] ?? null),
-                'order_updated_at' => $this->parseApiDatetime($o['updated_at'] ?? $o['updatedAt'] ?? $o['update_time'] ?? null),
-                'raw'              => $o,
-            ])->save();
-
-            $updated++;
-
-            try {
-                (new LazadaCatalogOrderSync)->sync($existing);
-            } catch (\Throwable $e) {
-                Log::warning('Lazada status update: catalog sync failed for order ' . $orderId, ['error' => $e->getMessage()]);
-            }
-        }
-
-        $this->info("  Updated: {$updated}, skipped: {$skipped} (not yet fetched)");
+        $this->info("  Synced: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} errors" : ''));
     }
 
     /**
@@ -501,6 +445,232 @@ class LazadaSyncOrders extends Command
         ]);
 
         return $result;
+    }
+
+    /**
+     * Fetch finance transaction fees for delivered/completed orders.
+     * Only calls the API if: order is delivered/completed, fees not already stored,
+     * and the order has products (needed for the API to return data).
+     */
+    private function fetchFeesIfReady(LazadaClient $client, object $setting, LazadaOrder $order): void
+    {
+        $status = strtolower(trim((string) $order->status));
+
+        // Skip cancelled/unpaid — no fees to fetch
+        if (in_array($status, ['canceled', 'unpaid'])) return;
+
+        // Skip if already has finance data (commission key present)
+        $existingFees = $order->fees;
+        if (is_array($existingFees) && isset($existingFees['commission'])) return;
+
+        // First: always extract basic pricing from raw order data
+        $raw = $order->raw;
+        if (is_array($raw) && !empty($raw['price'])) {
+            $fees = is_array($existingFees) ? $existingFees : [];
+            $fees['subtotal'] = (float) ($raw['price'] ?? 0);
+            $fees['paid_total'] = (float) ($raw['price'] ?? 0)
+                - (float) ($raw['voucher_seller'] ?? 0)
+                - (float) ($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
+            $fees['shipping'] = (float) ($raw['shipping_fee'] ?? 0);
+            $fees['voucher_seller'] = (float) ($raw['voucher_seller'] ?? 0);
+            $fees['voucher_platform'] = (float) ($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
+            $fees['shipping_discount_seller'] = (float) ($raw['shipping_fee_discount_seller'] ?? 0);
+            $fees['shipping_discount_platform'] = (float) ($raw['shipping_fee_discount_platform'] ?? 0);
+            $fees['wallet_credits'] = (float) ($raw['wallet_credits'] ?? 0);
+            $fees['shipping_service_cost'] = (float) ($raw['shipping_service_cost'] ?? 0);
+            $fees['order_price'] = (float) ($raw['price'] ?? 0);
+            $fees['order_voucher'] = (float) ($raw['voucher_platform'] ?? $raw['voucher'] ?? 0);
+
+            $order->fees = $fees;
+            $order->save();
+            $existingFees = $fees;
+        }
+
+        // Second: try the finance transaction API for detailed commission breakdown
+        try {
+            $trxRes = $this->runSignedApiCall($client, $setting, 'GET', '/finance/transaction/details/get', [
+                'trade_order_id' => (string) $order->order_id,
+                'start_time'     => now()->subDays(170)->format('Y-m-d'),
+                'end_time'       => now()->addDay()->format('Y-m-d'),
+            ], 'lazada.finance.transaction_details');
+
+            if (!($trxRes['ok'] ?? false) || !is_array($trxRes['body'] ?? null)) {
+                // Store the API response for debugging
+                $fees = is_array($existingFees) ? $existingFees : [];
+                $fees['_finance_raw'] = $trxRes['body'] ?? null;
+                $order->fees = $fees;
+                $order->save();
+                return;
+            }
+
+            $trxData = $trxRes['body']['data'] ?? $trxRes['body'];
+            $trxItems = [];
+            if (is_array($trxData)) {
+                $trxItems = array_is_list($trxData) ? $trxData : ($trxData['data'] ?? $trxData['items'] ?? $trxData['transaction_details'] ?? []);
+            }
+            if (!is_array($trxItems) || empty($trxItems)) return;
+
+            $commissionTypes = [16, 15, 65, 66, 123, 274, 275, 277, 278, 341];
+            $paymentTypes = [3, 4, 67, 84, 514];
+            $shippingTypes = [7, 8, 21, 26, 27, 28, 34, 35, 42, 43, 49, 52, 53, 141, 157, 158, 159, 160, 161, 200, 211, 500, 501, 502, 503, 504, 505];
+
+            $commissionTotal = 0;
+            $paymentFeeTotal = 0;
+            $shippingFeeTotal = 0;
+            $otherFees = [];
+
+            foreach ($trxItems as $trx) {
+                if (!is_array($trx)) continue;
+
+                $feeType = (int) ($trx['fee_type'] ?? 0);
+                $feeName = (string) ($trx['fee_name'] ?? $trx['transaction_type'] ?? '');
+                $amount = (float) ($trx['amount'] ?? $trx['fee_amount'] ?? 0);
+
+                if ($feeType && in_array($feeType, $commissionTypes)) {
+                    $commissionTotal += $amount;
+                } elseif ($feeType && in_array($feeType, $paymentTypes)) {
+                    $paymentFeeTotal += $amount;
+                } elseif ($feeType && in_array($feeType, $shippingTypes)) {
+                    $shippingFeeTotal += $amount;
+                } else {
+                    $feeNameLower = strtolower($feeName);
+                    if (str_contains($feeNameLower, 'commission')) {
+                        $commissionTotal += $amount;
+                    } elseif (str_contains($feeNameLower, 'payment')) {
+                        $paymentFeeTotal += $amount;
+                    } elseif (str_contains($feeNameLower, 'shipping') || str_contains($feeNameLower, 'delivery')) {
+                        $shippingFeeTotal += $amount;
+                    } elseif ($amount != 0) {
+                        $label = $feeName !== '' ? $feeName : 'fee_type_' . $feeType;
+                        $otherFees[$label] = ($otherFees[$label] ?? 0) + $amount;
+                    }
+                }
+            }
+
+            $fees = is_array($existingFees) ? $existingFees : [];
+            if ($commissionTotal != 0) $fees['commission'] = round($commissionTotal, 2);
+            if ($paymentFeeTotal != 0) $fees['payment_fee'] = round($paymentFeeTotal, 2);
+            if ($shippingFeeTotal != 0) $fees['shipping_service_cost'] = round($shippingFeeTotal, 2);
+            if (!empty($otherFees)) $fees['other_fees'] = $otherFees;
+
+            $order->fees = $fees;
+            $order->save();
+        } catch (\Throwable $e) {
+            // Best-effort — don't break the sync
+        }
+    }
+
+    /**
+     * Fetch fees for orders that don't have fee data yet.
+     */
+    private function backfillMissingFees(LazadaClient $client, object $setting): void
+    {
+        $region = $setting->region ?? 'ph';
+
+        $orders = LazadaOrder::query()
+            ->where('region', $region)
+            ->whereNotIn('status', ['canceled'])
+            ->where(function ($q) {
+                $q->whereNull('fees')
+                  ->orWhereRaw("JSON_EXTRACT(fees, '$.subtotal') IS NULL");
+            })
+            ->get();
+
+        if ($orders->isEmpty()) {
+            $this->info('  No orders need fee backfill.');
+            return;
+        }
+
+        $filled = 0;
+        foreach ($orders as $order) {
+            $before = $order->fees;
+            $this->fetchFeesIfReady($client, $setting, $order);
+            $after = $order->fresh()->fees;
+            if (!empty($after) && $after !== $before) {
+                $filled++;
+            }
+            usleep(300000); // 300ms rate limit
+        }
+
+        $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
+    }
+
+    /**
+     * Fetch payout statements from Lazada and update payout_status/paid_at
+     * for delivered/completed orders that haven't been marked as Paid yet.
+     */
+    private function syncPayoutStatuses(LazadaClient $client, object $setting): void
+    {
+        $region = $setting->region ?? 'ph';
+
+        // Find delivered/completed orders without payout_status = 'Paid'
+        $pendingOrders = LazadaOrder::query()
+            ->where('region', $region)
+            ->whereIn('status', ['delivered', 'completed'])
+            ->where(function ($q) {
+                $q->whereNull('payout_status')
+                  ->orWhere('payout_status', '!=', 'Paid');
+            })
+            ->get();
+
+        if ($pendingOrders->isEmpty()) {
+            $this->info('  No delivered/completed orders awaiting payout check.');
+            return;
+        }
+
+        // Fetch payout statements to find the latest paid date
+        try {
+            $res = $this->runSignedApiCall($client, $setting, 'GET', '/finance/payout/status/get', [
+                'created_after' => now()->subDays(30)->format('Y-m-d'),
+            ], 'lazada.finance.payout_status');
+
+            if (!($res['ok'] ?? false) || !is_array($res['body']['data'] ?? null)) {
+                $this->warn('  Payout status API returned no data.');
+                return;
+            }
+
+            // Find the most recent statement with paid=1
+            $latestPaidDate = null;
+            foreach ($res['body']['data'] as $stmt) {
+                if (($stmt['paid'] ?? '0') === '1' && !empty($stmt['created_at'])) {
+                    $stmtDate = \Carbon\Carbon::parse($stmt['created_at'])->format('Y-m-d');
+                    if (!$latestPaidDate || $stmtDate > $latestPaidDate) {
+                        $latestPaidDate = $stmtDate;
+                    }
+                }
+            }
+
+            if (!$latestPaidDate) {
+                $this->info('  No paid payout statements found.');
+                return;
+            }
+
+            // Orders delivered on or before the latest paid date are considered paid
+            $paidCount = 0;
+            $releasingCount = 0;
+            foreach ($pendingOrders as $order) {
+                $updatedDate = $order->order_updated_at
+                    ? \Carbon\Carbon::parse($order->order_updated_at)->format('Y-m-d')
+                    : null;
+
+                if ($updatedDate && $updatedDate <= $latestPaidDate) {
+                    $order->update([
+                        'payout_status' => 'Paid',
+                        'paid_at' => $latestPaidDate,
+                    ]);
+                    $paidCount++;
+                } else {
+                    if (!$order->payout_status) {
+                        $order->update(['payout_status' => 'Releasing']);
+                    }
+                    $releasingCount++;
+                }
+            }
+
+            $this->info("  Payout statuses: {$paidCount} Paid, {$releasingCount} Releasing (latest paid stmt: {$latestPaidDate})");
+        } catch (\Throwable $e) {
+            $this->warn('  Payout API error: ' . $e->getMessage());
+        }
     }
 
     private function parseApiDatetime($value): ?string

@@ -11,6 +11,19 @@
     #content .input:focus {
         box-shadow: 0 0 0 3px rgba(15, 20, 109, 0.12);
     }
+    #content .order-img-wrap {
+        position: relative;
+        transition: transform 140ms ease, box-shadow 140ms ease;
+        transform-origin: center center;
+        cursor: zoom-in;
+        z-index: 1;
+        will-change: transform;
+    }
+    #content .order-img-wrap:hover {
+        transform: translateX(120px) scale(5.2);
+        z-index: 200;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.2);
+    }
 </style>
 <div class="page-header">
     <h2>Lazada Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
@@ -27,32 +40,17 @@
             <label class="text-xs text-secondary">To</label>
             <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" class="input" style="width:auto;">
         </div>
-        <div>
-            <label class="text-xs text-secondary">Status (optional)</label>
-            <input type="text" name="status" value="{{ old('status', request('status')) }}" placeholder="e.g. ready_to_ship" class="input" style="min-width:220px;">
-            @error('status')<div class="field-error">{{ $message }}</div>@enderror
-        </div>
         <div style="align-self:flex-end;">
             <label class="text-xs text-secondary" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
                 <input type="checkbox" name="no_stock" value="1"> Skip stock adjust
             </label>
         </div>
         <div class="d-flex gap-8">
-            <button type="submit" class="btn" id="btnFetchOrders">
-                <span>Fetch Orders</span>
-                <span id="fetchInlineSpinner" aria-hidden="true" class="hidden" style="width:14px; height:14px; border:2px solid rgba(255,255,255,.55); border-top-color:#fff; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
-            </button>
-
-            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('lazada.orders.update_statuses') }}">
-                <span>Update Orders</span>
-                <span id="updateInlineSpinner" aria-hidden="true" class="hidden" style="width:14px; height:14px; border:2px solid rgba(15,23,42,.25); border-top-color:#0f172a; border-radius:50%; animation:lzSpin 0.8s linear infinite;"></span>
-            </button>
+            <button type="submit" class="btn" id="btnFetchOrders">Fetch Orders</button>
+            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('lazada.orders.update_statuses') }}">Update Orders</button>
         </div>
         <div class="text-secondary text-xs" style="flex:1;">
-	        Leave <strong>From/To</strong> empty for <strong>automatic sync</strong> (maximum <strong>14 days</strong> lookback). Use dates only when you need a specific range (max <strong>14 days</strong> per fetch).
-        </div>
-        <div style="margin-left:auto;">
-            <button type="button" class="btn danger" id="btnResetLazadaOrders">Reset Orders</button>
+	        <strong>From/To</strong> required for both Fetch and Update.
         </div>
     </form>
 </div>
@@ -112,7 +110,7 @@
                 @foreach($pendingNav as $k => $lbl)
                     @php
                         $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                        $qs = array_merge(request()->query(), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
+                        $qs = array_merge(request()->except('page'), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
                         $count = $pending_sub_counts[$k] ?? null;
                     @endphp
                     <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
@@ -123,6 +121,21 @@
                     </a>
                 @endforeach
             </div>
+
+            @if(!empty($to_ship_courier_counts))
+                <div style="margin-top:10px;">
+                    <div class="text-xs text-secondary" style="margin-bottom:6px;">Courier tally (To Handover only)</div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        @foreach($to_ship_courier_counts as $courier => $count)
+                            <span class="badge badge-gray" style="display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px;">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                                {{ $courier }}
+                                <span style="margin-left:2px; font-weight:700; font-size:15px; color:#dc2626;">{{ $count }}</span>
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 
@@ -174,6 +187,20 @@
             <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? request()->query('buyer_name', '')) }}" placeholder="Customer" class="input" style="min-width:220px;">
         </div>
 
+        <div>
+            <label class="text-xs text-secondary">Sort by</label>
+            <select name="sort" class="input" style="width:auto; min-width:240px;">
+                <option value="created_asc" {{ ($sort ?? '') === 'created_asc' ? 'selected' : '' }}>Created Date (Oldest to Newest)</option>
+                <option value="created_desc" {{ ($sort ?? '') === 'created_desc' ? 'selected' : '' }}>Created Date (Newest to Oldest)</option>
+                <option value="confirmed_created_asc" {{ ($sort ?? '') === 'confirmed_created_asc' ? 'selected' : '' }}>Confirmed: Created At (Oldest to Newest)</option>
+                <option value="confirmed_created_desc" {{ ($sort ?? '') === 'confirmed_created_desc' ? 'selected' : '' }}>Confirmed: Created At (Newest to Oldest)</option>
+                <option value="confirmed_updated_asc" {{ ($sort ?? '') === 'confirmed_updated_asc' ? 'selected' : '' }}>Confirmed: Updated At (Oldest to Newest)</option>
+                <option value="confirmed_updated_desc" {{ ($sort ?? '') === 'confirmed_updated_desc' ? 'selected' : '' }}>Confirmed: Updated At (Newest to Oldest)</option>
+                <option value="promised_shipping_asc" {{ ($sort ?? '') === 'promised_shipping_asc' ? 'selected' : '' }}>Confirmed: Promised Shipping (Oldest to Newest)</option>
+                <option value="promised_shipping_desc" {{ ($sort ?? '') === 'promised_shipping_desc' ? 'selected' : '' }}>Confirmed: Promised Shipping (Newest to Oldest)</option>
+            </select>
+        </div>
+
         <div class="d-flex gap-8">
             <button type="submit" class="btn secondary">Search</button>
             <a href="{{ route('lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
@@ -186,6 +213,7 @@
     <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
     <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? request()->query('order_number', '') }}">
     <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? request()->query('buyer_name', '') }}">
+    <input type="hidden" name="sort" value="{{ $sort ?? request()->query('sort', '') }}">
     <div>
         <label class="text-xs text-secondary">Orders per page</label>
         <select name="per_page" onchange="this.form.submit()" class="input" style="width:auto;">
@@ -252,7 +280,7 @@
                             $statusNorm = strtolower(trim($statusStr));
                             $isUnpaid = ($statusNorm === 'unpaid');
                             $isCancelled = in_array($statusNorm, ['canceled','cancelled'], true);
-                            $isToPack = ($statusNorm === 'pending');
+                            $isToPack = in_array($statusNorm, ['pending', 'repacked'], true);
                             $isToArrange = ($statusNorm === 'packed');
                             $isToHandover = ($statusNorm === 'ready_to_ship');
                             $canSelect = !($isUnpaid || $isCancelled);
@@ -280,7 +308,11 @@
 
                                     $gName = $row['name'] ?? $rowRaw['name'] ?? $rowRaw['item_name'] ?? $rowRaw['product_name'] ?? '';
                                     $gSku = $row['sku'] ?? $rowRaw['sku'] ?? $rowRaw['seller_sku'] ?? $rowRaw['SellerSku'] ?? $rowRaw['SellerSKU'] ?? $rowRaw['SellerSku'] ?? $rowRaw['Sku'] ?? '';
-                                    $gVariation = $row['variation'] ?? $rowRaw['variation'] ?? $rowRaw['Variation'] ?? $rowRaw['variant'] ?? '';
+                                    $gVariation = (string)($row['variation'] ?? $rowRaw['variation'] ?? $rowRaw['Variation'] ?? $rowRaw['variant'] ?? '');
+                                    $gVariationNorm = mb_strtolower(trim($gVariation));
+                                    if (in_array($gVariationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
+                                        $gVariation = '';
+                                    }
 
                                     $gQty = (int)($row['quantity'] ?? $rowRaw['quantity'] ?? $rowRaw['qty'] ?? 1);
                                     if ($gQty < 1) { $gQty = 1; }
@@ -356,20 +388,17 @@
                             <tr>
                                 <td colspan="8" style="padding:10px 12px 6px 12px;">
                                     <div class="d-flex justify-between items-start gap-12">
-                                        <div class="text-xs text-secondary" style="line-height:1.35;">
-                                            <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
-                                            @if($itemCount > 0)
-                                                <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
-                                            @endif
-                                        </div>
-                                        <div class="text-xs text-secondary text-right" style="line-height:1.35;">
-                                            <span>Order Number:</span>
-                                            <a href="{{ route('lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" class="font-semibold" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
-                                                {{ $orderId }}
-                                            </a>
-                                            @if($created)
-                                                <span style="margin-left:8px;">Create Time:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
-                                            @endif
+                                    <div class="text-xs text-secondary" style="line-height:1.35;">
+                                        <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
+                                        <span style="margin-left:8px;">Order Number:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $orderId }}</span>
+                                        @if($itemCount > 0)
+                                            <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-xs text-secondary text-right" style="line-height:1.35;">
+                                        @if($created)
+                                            <span style="margin-left:8px;">Create Time:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
+                                        @endif
                                         </div>
                                     </div>
                                 </td>
@@ -402,19 +431,31 @@
                                     $name = (string)($it['name'] ?? $itRaw['name'] ?? $itRaw['item_name'] ?? $itRaw['product_name'] ?? '');
                                     $sku = (string)($it['sku'] ?? $itRaw['sku'] ?? $itRaw['seller_sku'] ?? $itRaw['SellerSku'] ?? $itRaw['SellerSKU'] ?? $itRaw['Sku'] ?? '');
                                     $variation = (string)($it['variation'] ?? $itRaw['variation'] ?? $itRaw['Variation'] ?? $itRaw['variant'] ?? '');
+                                    $variationNorm = mb_strtolower(trim($variation));
+                                    if (in_array($variationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
+                                        $variation = '';
+                                    }
                                     $img = (string)($it['image'] ?? $itRaw['image'] ?? $itRaw['product_main_image'] ?? $itRaw['product_image'] ?? '');
                                 @endphp
 
                                 <div class="d-flex gap-10">
-                                    <div style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <div class="order-img-wrap" style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                         @if($img)
-                                            <img src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
+                                            <img class="order-img" src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
                                         @else
                                             <span class="text-xs text-muted">No image</span>
                                         @endif
                                     </div>
                                     <div style="min-width:0;">
-                                        <div class="font-semibold" style="word-break:break-word;">{{ $name !== '' ? $name : '—' }}</div>
+                                        <div class="font-semibold" style="word-break:break-word;">
+                                            @if($orderId)
+                                                <a href="{{ route('lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
+                                                    {{ $name !== '' ? $name : '—' }}
+                                                </a>
+                                            @else
+                                                {{ $name !== '' ? $name : '—' }}
+                                            @endif
+                                        </div>
                                         <div class="text-xs" style="margin-top:3px;">
                                             <span class="text-secondary">Seller SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
                                         </div>
@@ -496,7 +537,7 @@
 
                                         {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
                                         @if($isToArrange)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
 
                                             <form method="POST" action="{{ route('lazada.orders.rts', ['orderId' => $orderId]) }}" onsubmit="return confirm('Arrange Shipment (Ready To Ship) for this order?');">
                                                 @csrf
@@ -511,12 +552,12 @@
 
                                         {{-- TO HANDOVER (ready_to_ship): Print only --}}
                                         @if($isToHandover)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
                                         @endif
 
                                         {{-- Post-fulfilment: only show AWB if a local copy exists --}}
                                         @if(!$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && ($savedAwbs[$orderId] ?? false))
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" class="btn small secondary">Print AWB</a>
+                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
                                         @endif
                                     </div>
 
@@ -568,11 +609,6 @@
         <div style="padding:12px 0 0;">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
     </div>
 
-<form method="POST" action="{{ route('lazada.orders.reset') }}" id="formResetLazadaOrders" class="hidden">
-    @csrf
-    <input type="hidden" name="confirm" id="resetConfirmInput" value="">
-    <input type="hidden" name="password" id="resetPasswordInput" value="">
-</form>
 
 {{-- Loading overlay for long-running fetch/reset actions --}}
 <div id="lzLoadingOverlay" class="modal-backdrop">
@@ -674,63 +710,29 @@ document.addEventListener('DOMContentLoaded', function () {
         try { window.open(String(awbUrlToOpen), '_blank'); } catch (e) {}
     }
 
-    var btn = document.getElementById('btnResetLazadaOrders');
-    var form = document.getElementById('formResetLazadaOrders');
-    var input = document.getElementById('resetConfirmInput');
-    if (btn && form && input) {
-        btn.addEventListener('click', function () {
-            var pw = prompt('Enter your account password to confirm resetting all Lazada orders:');
-            if (!pw || pw.trim() === '') return;
-            input.value = 'RESET';
-            document.getElementById('resetPasswordInput').value = pw;
-            var ov = document.getElementById('lzLoadingOverlay');
-            var tt = document.getElementById('lzLoadingTitle');
-            if (ov) {
-                if (tt) tt.textContent = 'Resetting orders…';
-                ov.classList.add('active');
-            }
-            form.submit();
-        });
-    }
-
-    // Show loading overlay for fetch/update
+    // Show loading overlay on fetch/update
     var fetchForm = document.getElementById('formFetchLazadaOrders');
     var fetchBtn = document.getElementById('btnFetchOrders');
     var updateBtn = document.getElementById('btnUpdateOrders');
-    var inlineSp = document.getElementById('fetchInlineSpinner');
-    var inlineUpSp = document.getElementById('updateInlineSpinner');
-    var nextTitle = 'Fetching orders…';
+    var clickedBtn = null;
 
-    if (fetchBtn) {
-        fetchBtn.addEventListener('click', function () {
-            nextTitle = 'Fetching orders…';
-        });
-    }
-    if (updateBtn) {
-        updateBtn.addEventListener('click', function () {
-            nextTitle = 'Updating orders…';
-        });
-    }
+    if (fetchBtn) fetchBtn.addEventListener('click', function () { clickedBtn = 'fetch'; });
+    if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
 
     if (fetchForm) {
-        fetchForm.addEventListener('submit', function () {
-            if (fetchBtn) {
-                fetchBtn.disabled = true;
-                fetchBtn.style.opacity = '0.85';
-            }
-            if (updateBtn) {
-                updateBtn.disabled = true;
-                updateBtn.style.opacity = '0.85';
-            }
-            if (nextTitle === 'Updating orders…') {
-                if (inlineUpSp) inlineUpSp.classList.remove('hidden');
-            } else {
-                if (inlineSp) inlineSp.classList.remove('hidden');
+        fetchForm.addEventListener('submit', function (e) {
+            // Require From/To dates
+            var dateFrom = fetchForm.querySelector('input[name="date_from"]');
+            var dateTo = fetchForm.querySelector('input[name="date_to"]');
+            if (!dateFrom.value || !dateTo.value) {
+                e.preventDefault();
+                alert('Please provide both From and To dates.');
+                return;
             }
             var ov = document.getElementById('lzLoadingOverlay');
             var tt = document.getElementById('lzLoadingTitle');
             if (ov) {
-                if (tt) tt.textContent = nextTitle;
+                if (tt) tt.textContent = (clickedBtn === 'update') ? 'Updating orders…' : 'Fetching orders…';
                 ov.classList.add('active');
             }
         });

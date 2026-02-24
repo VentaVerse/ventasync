@@ -94,14 +94,16 @@ public function index()
             ->get(['order_status_id', 'name']);
 
         $shopeeStatuses = [
-            'UNPAID'          => 'Unpaid',
-            'READY_TO_SHIP'   => 'Ready to Ship',
-            'PROCESSED'       => 'Processed',
-            'SHIPPED'         => 'Shipped',
-            'COMPLETED'       => 'Completed',
-            'CANCELLED'       => 'Cancelled',
-            'IN_CANCEL'       => 'In Cancel',
-            'INVOICE_PENDING' => 'Invoice Pending',
+            'UNPAID'             => 'Unpaid',
+            'READY_TO_SHIP'      => 'Ready to Ship',
+            'PROCESSED'          => 'Processed',
+            'RETRY_SHIP'         => 'Retry Ship',
+            'SHIPPED'            => 'Shipped',
+            'TO_CONFIRM_RECEIVE' => 'Delivered',
+            'COMPLETED'          => 'Completed',
+            'IN_CANCEL'          => 'In Cancel',
+            'CANCELLED'          => 'Cancelled',
+            'TO_RETURN'          => 'To Return',
         ];
 
         $shopeeReturnStatuses = [

@@ -61,6 +61,27 @@
         </div>
     </form>
 </div>
+<div class="card" style="margin-top:24px;">
+    <div class="page-header">
+        <h2>Database Maintenance</h2>
+    </div>
+
+    <div class="form-grid">
+        <div class="full">
+            <label>Purge Marketplace Raw Data</label>
+            <div class="hint" style="margin-bottom:12px;">
+                Clears the raw API response data from Lazada and Shopee order tables for orders older than the specified number of days. This frees up database space without affecting synced order data.
+            </div>
+            <div class="d-flex items-center gap-12">
+                <input class="input" type="number" id="purgeDays" value="30" min="1" style="width:120px;">
+                <span class="text-secondary">days</span>
+                <button type="button" class="btn danger" id="btnPurgeRaw">Purge Raw Data</button>
+            </div>
+            <div id="purgeResult" style="margin-top:12px; display:none;"></div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
     function previewLogo(input, previewId) {
@@ -78,6 +99,44 @@
             reader.readAsDataURL(input.files[0]);
         }
     }
+
+    document.getElementById('btnPurgeRaw').addEventListener('click', function () {
+        var days = document.getElementById('purgeDays').value;
+        if (!days || days < 1) { alert('Please enter a valid number of days.'); return; }
+        if (!confirm('Purge raw API data older than ' + days + ' days? This cannot be undone.')) return;
+
+        var btn = this;
+        var resultEl = document.getElementById('purgeResult');
+        btn.classList.add('is-loading');
+        btn.disabled = true;
+        resultEl.style.display = 'none';
+
+        fetch('{{ route("settings.purge_raw") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ days: parseInt(days) })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            btn.classList.remove('is-loading');
+            btn.disabled = false;
+            resultEl.style.display = '';
+            if (data.ok) {
+                resultEl.innerHTML = '<div class="alert success"><span>' + data.message + '</span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>';
+            } else {
+                resultEl.innerHTML = '<div class="alert danger"><span>' + (data.message || 'An error occurred.') + '</span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>';
+            }
+        })
+        .catch(function (err) {
+            btn.classList.remove('is-loading');
+            btn.disabled = false;
+            resultEl.style.display = '';
+            resultEl.innerHTML = '<div class="alert danger"><span>Network error: ' + err.message + '</span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>';
+        });
+    });
 </script>
 @endpush
 @endsection

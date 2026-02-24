@@ -29,6 +29,7 @@ use App\Http\Controllers\ErrorLogController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OpenCartProfileController;
+use App\Http\Controllers\ReportController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
@@ -325,6 +326,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/opencart/{store}/profiles/search-products', [OpenCartProfileController::class, 'searchProducts'])->name('opencart.profiles.searchProducts');
     });
 
+    // OpenCart Orders (separate permission from OpenCart settings/profiles)
+    Route::middleware(['perm:manage_opencart_orders'])->group(function () {
+        Route::get('/opencart/{store}/orders', [OrderController::class, 'opencartIndex'])->name('opencart.orders.index');
+    });
+
     // Users
     Route::middleware(['perm:manage_users'])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -349,6 +355,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['perm:manage_website_settings'])->group(function () {
         Route::get('/settings', [SettingController::class, 'edit'])->name('settings.edit');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::post('/settings/purge-raw', [SettingController::class, 'purgeRaw'])->name('settings.purge_raw');
     });
 
     // Error Log
@@ -369,6 +376,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
+    });
+
+    // Reports (reuse manage_orders permission)
+    Route::middleware(['perm:manage_orders'])->group(function () {
+        Route::get('/reports/orders', [ReportController::class, 'orders'])->name('reports.orders');
+        Route::get('/reports/orders/export', [ReportController::class, 'exportOrders'])->name('reports.orders.export');
+        Route::get('/reports/products', [ReportController::class, 'products'])->name('reports.products');
+        Route::get('/reports/products/export', [ReportController::class, 'exportProducts'])->name('reports.products.export');
+        Route::get('/reports/payouts', [ReportController::class, 'payouts'])->name('reports.payouts');
+        Route::get('/reports/payouts/export', [ReportController::class, 'exportPayouts'])->name('reports.payouts.export');
     });
 
     // Order Statuses

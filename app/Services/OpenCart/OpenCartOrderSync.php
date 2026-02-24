@@ -272,7 +272,7 @@ class OpenCartOrderSync
                 'payment_address_format' => $raw['payment_address_format'] ?? '',
                 'payment_custom_field'   => $raw['payment_custom_field'] ?? '',
                 'payment_method'         => $raw['payment_method'] ?? '',
-                'payment_cost'           => 0,
+                'payment_cost'           => (float) ($raw['payment_cost'] ?? 0),
                 'payment_code'           => $raw['payment_code'] ?? '',
                 'shipping_firstname'     => $raw['shipping_firstname'] ?? '',
                 'shipping_lastname'      => $raw['shipping_lastname'] ?? '',
@@ -288,11 +288,11 @@ class OpenCartOrderSync
                 'shipping_address_format'=> $raw['shipping_address_format'] ?? '',
                 'shipping_custom_field'  => $raw['shipping_custom_field'] ?? '',
                 'shipping_method'        => $raw['shipping_method'] ?? '',
-                'shipping_cost'          => 0,
+                'shipping_cost'          => (float) ($raw['shipping_cost'] ?? 0),
                 'shipping_code'          => $raw['shipping_code'] ?? '',
                 'comment'                => $raw['comment'] ?? '',
                 'total'                  => (float) ($raw['total'] ?? 0),
-                'extra_cost'             => 0,
+                'extra_cost'             => (float) ($raw['extra_cost'] ?? 0),
                 'order_status_id'        => $coreStatusId,
                 'affiliate_id'           => (int) ($raw['affiliate_id'] ?? 0),
                 'commission'             => (float) ($raw['commission'] ?? 0),
@@ -350,25 +350,15 @@ class OpenCartOrderSync
                     // Resolve product_id via SKU lookup on core product table
                     $coreProductId = $this->resolveProductBySku($pfx, $p);
 
-                    $opId = DB::table($pfx . 'order_product')->insertGetId([
-                        'order_id'   => $coreOrderId,
-                        'product_id' => $coreProductId,
-                        'name'       => $p['name'] ?? '',
-                        'model'      => $p['model'] ?? '',
-                        'quantity'   => (int) ($p['quantity'] ?? 0),
-                        'price'      => (float) ($p['price'] ?? 0),
-                        'total'      => (float) ($p['total'] ?? 0),
-                        'tax'        => (float) ($p['tax'] ?? 0),
-                        'reward'     => (int) ($p['reward'] ?? 0),
-                    ]);
-
-                    if (isset($p['options']) && is_array($p['options'])) {
+                    // Pre-resolve option values so we can use option cost
+                    $resolvedOptions = [];
+                    $firstMatchedPovId = 0;
+                    if ($coreProductId > 0 && isset($p['options']) && is_array($p['options'])) {
                         foreach ($p['options'] as $opt) {
-                            // Resolve local product_option_value_id by matching option value name
                             $localPovId = 0;
                             $localPoId = 0;
                             $optValue = trim($opt['value'] ?? '');
-                            if ($coreProductId > 0 && $optValue !== '') {
+                            if ($optValue !== '') {
                                 $localPov = DB::table($pfx . 'product_option_value as pov')
                                     ->join($pfx . 'option_value_description as ovd', function ($j) use ($pfx) {
                                         $langId = (int) config('catalog.default_language_id');
@@ -383,19 +373,64 @@ class OpenCartOrderSync
                                 if ($localPov) {
                                     $localPovId = (int) $localPov->product_option_value_id;
                                     $localPoId = (int) $localPov->product_option_id;
+                                    if ($firstMatchedPovId === 0) {
+                                        $firstMatchedPovId = $localPovId;
+                                    }
                                 }
                             }
-
-                            DB::table($pfx . 'order_option')->insert([
-                                'order_id'                 => $coreOrderId,
-                                'order_product_id'         => $opId,
-                                'product_option_id'        => $localPoId,
-                                'product_option_value_id'  => $localPovId,
-                                'name'                     => $opt['name'] ?? '',
-                                'value'                    => $optValue,
-                                'type'                     => $opt['type'] ?? '',
-                            ]);
+                            $resolvedOptions[] = [
+                                'localPovId' => $localPovId,
+                                'localPoId'  => $localPoId,
+                                'name'       => $opt['name'] ?? '',
+                                'value'      => $optValue,
+                                'type'       => $opt['type'] ?? '',
+                            ];
                         }
+                    }
+
+                    $productCost = 0;
+                    if ($coreProductId > 0) {
+                        // Prefer option value cost when a specific variant was matched
+                        if ($firstMatchedPovId > 0) {
+                            $optCost = DB::table($pfx . 'product_option_value')
+                                ->where('product_option_value_id', $firstMatchedPovId)
+                                ->value('cost');
+                            if ($optCost !== null && (float) $optCost > 0) {
+                                $productCost = (float) $optCost;
+                            }
+                        }
+
+                        // Fallback to base product cost
+                        if ($productCost == 0) {
+                            $productCost = (float) DB::table($pfx . 'product')
+                                ->where('product_id', $coreProductId)
+                                ->value('cost');
+                        }
+                    }
+
+                    $opId = DB::table($pfx . 'order_product')->insertGetId([
+                        'order_id'   => $coreOrderId,
+                        'product_id' => $coreProductId,
+                        'name'       => $p['name'] ?? '',
+                        'model'      => $p['model'] ?? '',
+                        'quantity'   => (int) ($p['quantity'] ?? 0),
+                        'price'      => (float) ($p['price'] ?? 0),
+                        'total'      => (float) ($p['total'] ?? 0),
+                        'tax'        => (float) ($p['tax'] ?? 0),
+                        'reward'     => (int) ($p['reward'] ?? 0),
+                        'cost'       => $productCost,
+                    ]);
+
+                    foreach ($resolvedOptions as $ro) {
+                        DB::table($pfx . 'order_option')->insert([
+                            'order_id'                 => $coreOrderId,
+                            'order_product_id'         => $opId,
+                            'product_option_id'        => $ro['localPoId'],
+                            'product_option_value_id'  => $ro['localPovId'],
+                            'name'                     => $ro['name'],
+                            'value'                    => $ro['value'],
+                            'type'                     => $ro['type'],
+                        ]);
                     }
                 }
             }
