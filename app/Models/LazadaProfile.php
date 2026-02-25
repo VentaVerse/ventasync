@@ -8,7 +8,11 @@ class LazadaProfile extends Model
 {
     protected $table = 'lazada_profiles';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'name', 'catalog_category_ids', 'manufacturer_ids',
+        'lazada_category_id', 'brand_id', 'brand_name_override',
+        'markup_fixed', 'markup_percent',
+    ];
 
     protected $casts = [
         'catalog_category_ids' => 'array',

@@ -123,7 +123,7 @@
 {{-- Platform distribution + Sync status row --}}
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
     {{-- Platform distribution pie chart --}}
-    <div class="card">
+    <div class="card" style="position:relative; z-index:2; overflow:visible;">
         <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:12px;">
             <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="pieTitle">Orders by Platform (Last 30 Days)</h3>
             <div class="chart-range-toggle" id="pieRangeToggle">
@@ -133,7 +133,7 @@
             </div>
         </div>
         <div style="display:flex; align-items:center; gap:24px;">
-            <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
+            <div style="position:relative; width:220px; height:220px; flex-shrink:0; overflow:visible;">
                 <canvas id="platformChart"></canvas>
             </div>
             <div id="pieLegend" style="flex:1; font-size:13px;"></div>
@@ -141,6 +141,31 @@
     </div>
 
     {{-- Sync status column --}}
+    @php
+        // Freshness helper: green <1h, yellow <6h, red >6h or never
+        $syncDotClass = function ($timestamp, $tokenExpiry = null) {
+            if ($tokenExpiry && !$tokenExpiry->isFuture()) return 'dash-sync-fail';
+            if (!$timestamp) return 'dash-sync-idle';
+            $hours = now()->diffInHours($timestamp);
+            if ($hours < 1) return 'dash-sync-ok';
+            if ($hours < 6) return 'dash-sync-warn';
+            return 'dash-sync-fail';
+        };
+        $syncTimeLabelFn = function ($label, $timestamp) {
+            if (!$timestamp) return $label . ': never';
+            if (is_string($timestamp)) $timestamp = \Carbon\Carbon::parse($timestamp);
+            $hours = now()->diffInHours($timestamp);
+            $text = $timestamp->diffForHumans();
+            $color = $hours < 1 ? '#16a34a' : ($hours < 6 ? '#d97706' : '#dc2626');
+            return $label . ': <span style="color:' . $color . '">' . e($text) . '</span>';
+        };
+        $ocDotClass = function ($store) use ($syncDotClass) {
+            if ($store->last_status === 'failed') return 'dash-sync-fail';
+            return $syncDotClass(
+                $store->last_order_sync_at ? \Carbon\Carbon::parse($store->last_order_sync_at) : null
+            );
+        };
+    @endphp
     <div style="display:flex; flex-direction:column; gap:16px;">
         @if($syncStatuses->isNotEmpty())
         <div class="card">
@@ -149,20 +174,12 @@
                 @foreach($syncStatuses as $store)
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
-                            <span class="dash-sync-dot {{ ($store->last_status === 'completed') ? 'dash-sync-ok' : (($store->last_status === 'failed') ? 'dash-sync-fail' : 'dash-sync-idle') }}"></span>
+                            <span class="dash-sync-dot {{ $ocDotClass($store) }}"></span>
                             <span class="font-bold">{{ $store->store_name ?: 'Store #'.$store->id }}</span>
                         </div>
                         <div class="dash-sync-details">
-                            @if($store->last_order_sync_at)
-                                <span class="text-secondary text-xs">Order sync: {{ \Carbon\Carbon::parse($store->last_order_sync_at)->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Order sync: never</span>
-                            @endif
-                            @if($store->last_push_qty_at)
-                                <span class="text-secondary text-xs">Push stock: {{ \Carbon\Carbon::parse($store->last_push_qty_at)->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Push stock: never</span>
-                            @endif
+                            <span class="text-xs">{!! $syncTimeLabelFn('Order sync', $store->last_order_sync_at) !!}</span>
+                            <span class="text-xs">{!! $syncTimeLabelFn('Push stock', $store->last_push_qty_at) !!}</span>
                             @if($store->last_status === 'failed' && $store->last_error)
                                 <span class="text-xs" style="color:#ef4444;">{{ \Illuminate\Support\Str::limit($store->last_error, 60) }}</span>
                             @endif
@@ -173,65 +190,56 @@
         </div>
         @endif
 
-        @if($shopeeSyncStatus || $lazadaSyncStatus)
+        @if($shopeeSyncStatus || $lazadaSyncStatus || ($tiktokSyncStatus ?? null))
+        @php
+            $tokenLabel = function ($expiresAt) {
+                if (!$expiresAt) return '<span style="color:#dc2626;">Token: not configured</span>';
+                $ok = $expiresAt->isFuture();
+                $color = $ok ? '#16a34a' : '#dc2626';
+                $text = $ok ? 'valid (expires ' . $expiresAt->diffForHumans() . ')' : 'EXPIRED (' . $expiresAt->diffForHumans() . ')';
+                return '<span style="color:' . $color . ';">Token: ' . e($text) . '</span>';
+            };
+        @endphp
         <div class="card">
             <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">Marketplace Sync Status</h3>
             <div class="dash-sync-grid">
                 @if($shopeeSyncStatus)
+                    @php $shopeeTokenOk = !empty($shopeeSyncStatus->expires_at) && $shopeeSyncStatus->expires_at->isFuture(); @endphp
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
-                            @php $shopeeTokenOk = !empty($shopeeSyncStatus->expires_at) && $shopeeSyncStatus->expires_at->isFuture(); @endphp
-                            <span class="dash-sync-dot {{ ($shopeeSyncStatus->order_sync_at && $shopeeTokenOk) ? 'dash-sync-ok' : 'dash-sync-idle' }}"></span>
+                            <span class="dash-sync-dot {{ $syncDotClass($shopeeSyncStatus->order_sync_at, $shopeeSyncStatus->expires_at ?? null) }}"></span>
                             <span class="font-bold">Shopee</span>
                         </div>
                         <div class="dash-sync-details">
-                            @if($shopeeSyncStatus->order_sync_at)
-                                <span class="text-secondary text-xs">Order sync: {{ $shopeeSyncStatus->order_sync_at->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Order sync: never</span>
-                            @endif
-                            @if($shopeeSyncStatus->push_stock_at)
-                                <span class="text-secondary text-xs">Push stock: {{ $shopeeSyncStatus->push_stock_at->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Push stock: never</span>
-                            @endif
-                            @if($shopeeSyncStatus->return_sync_at)
-                                <span class="text-secondary text-xs">Return sync: {{ $shopeeSyncStatus->return_sync_at->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Return sync: never</span>
-                            @endif
-                            @if(!empty($shopeeSyncStatus->expires_at))
-                                <span class="text-xs" style="color:{{ $shopeeTokenOk ? '#16a34a' : '#dc2626' }};">
-                                    Token: {{ $shopeeTokenOk ? 'valid (expires ' . $shopeeSyncStatus->expires_at->diffForHumans() . ')' : 'EXPIRED (' . $shopeeSyncStatus->expires_at->diffForHumans() . ')' }}
-                                </span>
-                            @else
-                                <span class="text-xs" style="color:#dc2626;">Token: not configured</span>
-                            @endif
+                            <span class="text-xs">{!! $syncTimeLabelFn('Order sync', $shopeeSyncStatus->order_sync_at) !!}</span>
+                            <span class="text-xs">{!! $syncTimeLabelFn('Push stock', $shopeeSyncStatus->push_stock_at) !!}</span>
+                            <span class="text-xs">{!! $syncTimeLabelFn('Return sync', $shopeeSyncStatus->return_sync_at) !!}</span>
+                            <span class="text-xs">{!! $tokenLabel($shopeeSyncStatus->expires_at ?? null) !!}</span>
                         </div>
                     </div>
                 @endif
                 @if($lazadaSyncStatus)
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
-                            <span class="dash-sync-dot {{ $lazadaSyncStatus->order_sync_at ? 'dash-sync-ok' : 'dash-sync-idle' }}"></span>
+                            <span class="dash-sync-dot {{ $syncDotClass($lazadaSyncStatus->order_sync_at, $lazadaSyncStatus->expires_at ?? null) }}"></span>
                             <span class="font-bold">Lazada</span>
                         </div>
                         <div class="dash-sync-details">
-                            @if($lazadaSyncStatus->order_sync_at)
-                                <span class="text-secondary text-xs">Order sync: {{ $lazadaSyncStatus->order_sync_at->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Order sync: never</span>
-                            @endif
-                            @if($lazadaSyncStatus->push_stock_at)
-                                <span class="text-secondary text-xs">Push stock: {{ $lazadaSyncStatus->push_stock_at->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Push stock: never</span>
-                            @endif
-                            @if($lazadaSyncStatus->return_sync_at)
-                                <span class="text-secondary text-xs">Return sync: {{ $lazadaSyncStatus->return_sync_at->diffForHumans() }}</span>
-                            @else
-                                <span class="text-secondary text-xs">Return sync: never</span>
-                            @endif
+                            <span class="text-xs">{!! $syncTimeLabelFn('Order sync', $lazadaSyncStatus->order_sync_at) !!}</span>
+                            <span class="text-xs">{!! $syncTimeLabelFn('Push stock', $lazadaSyncStatus->push_stock_at) !!}</span>
+                            <span class="text-xs">{!! $syncTimeLabelFn('Return sync', $lazadaSyncStatus->return_sync_at) !!}</span>
+                            <span class="text-xs">{!! $tokenLabel($lazadaSyncStatus->expires_at ?? null) !!}</span>
+                        </div>
+                    </div>
+                @endif
+                @if($tiktokSyncStatus ?? null)
+                    <div class="dash-sync-store">
+                        <div class="dash-sync-header">
+                            <span class="dash-sync-dot {{ (!empty($tiktokSyncStatus->expires_at) && $tiktokSyncStatus->expires_at->isFuture()) ? 'dash-sync-ok' : 'dash-sync-idle' }}"></span>
+                            <span class="font-bold">TikTok Shop</span>
+                        </div>
+                        <div class="dash-sync-details">
+                            <span class="text-xs">{!! $tokenLabel($tiktokSyncStatus->expires_at ?? null) !!}</span>
                         </div>
                     </div>
                 @endif
@@ -312,8 +320,16 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @if($o->marketplace_source)
-                                        <span class="badge badge-gray">{{ ucfirst($o->marketplace_source) }}</span>
+                                    @php $src = trim((string)$o->marketplace_source); @endphp
+                                    @if($src === 'lazada')
+                                        <span class="badge badge-indigo">Lazada</span>
+                                    @elseif($src === 'shopee')
+                                        <span class="badge badge-orange">Shopee</span>
+                                    @elseif(str_starts_with($src, 'opencart:'))
+                                        @php $storeId = (int) str_replace('opencart:', '', $src); @endphp
+                                        <span class="badge badge-dark">{{ $ocStoreNames[$storeId] ?? ('OpenCart #'.$storeId) }}</span>
+                                    @elseif($src !== '')
+                                        <span class="badge badge-gray">{{ ucfirst($src) }}</span>
                                     @else
                                         <span class="text-muted">Direct</span>
                                     @endif
@@ -490,6 +506,7 @@
         flex-shrink: 0;
     }
     .dash-sync-ok { background: #22c55e; }
+    .dash-sync-warn { background: #f59e0b; }
     .dash-sync-fail { background: #ef4444; }
     .dash-sync-idle { background: #94a3b8; }
     .dash-sync-details {
@@ -737,18 +754,28 @@ document.addEventListener('DOMContentLoaded', function () {
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            backgroundColor: 'rgba(15,23,42,.9)',
-                            titleFont: { size: 12 },
-                            bodyFont: { size: 12 },
-                            padding: 10,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(ctx) {
-                                    var s = slices[ctx.dataIndex];
-                                    var total = data.reduce(function(a,b){return a+b;}, 0);
-                                    var pct = total > 0 ? Math.round(s.orders / total * 100) : 0;
-                                    return s.label + ': ' + s.orders + ' orders (' + pct + '%) — \u20B1' + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                            enabled: false,
+                            external: function(context) {
+                                var tooltipEl = document.getElementById('pieChartTooltip');
+                                if (!tooltipEl) {
+                                    tooltipEl = document.createElement('div');
+                                    tooltipEl.id = 'pieChartTooltip';
+                                    tooltipEl.style.cssText = 'position:fixed;pointer-events:none;z-index:9999;background:rgba(15,23,42,.92);color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;font-family:inherit;white-space:nowrap;transition:opacity .15s;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+                                    document.body.appendChild(tooltipEl);
                                 }
+                                var tooltip = context.tooltip;
+                                if (tooltip.opacity === 0) {
+                                    tooltipEl.style.opacity = '0';
+                                    return;
+                                }
+                                var s = slices[tooltip.dataPoints[0].dataIndex];
+                                var total = data.reduce(function(a,b){return a+b;}, 0);
+                                var pct = total > 0 ? Math.round(s.orders / total * 100) : 0;
+                                tooltipEl.innerHTML = '<strong>' + s.label + '</strong><br>' + s.orders + ' orders (' + pct + '%) — \u20B1' + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                                var canvasRect = context.chart.canvas.getBoundingClientRect();
+                                tooltipEl.style.opacity = '1';
+                                tooltipEl.style.left = (canvasRect.left + tooltip.caretX + 10) + 'px';
+                                tooltipEl.style.top = (canvasRect.top + tooltip.caretY - 10) + 'px';
                             }
                         }
                     }

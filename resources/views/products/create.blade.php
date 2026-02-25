@@ -77,15 +77,20 @@
                 @enderror
             </div>
 
-            <div class="typeahead">
-                <label>Category</label>
-                <input class="input" id="category_search" placeholder="Type to search..." autocomplete="off" value="{{ old('category_name','') }}" name="category_name">
-                <input type="hidden" name="category_id" id="category_id" value="{{ old('category_id', 0) }}">
+            <div class="typeahead full">
+                <label>Categories</label>
+                <div id="category_tags" class="tag-container">
+                    @foreach(old('category_ids', []) as $catId)
+                        <span class="tag-chip" data-id="{{ $catId }}">
+                            Category #{{ $catId }}
+                            <input type="hidden" name="category_ids[]" value="{{ $catId }}">
+                            <button type="button" class="tag-remove" onclick="this.parentElement.remove(); window.updateCatPlaceholder();">&times;</button>
+                        </span>
+                    @endforeach
+                </div>
+                <input class="input" id="category_search" placeholder="Type to search categories..." autocomplete="off">
                 <div class="typeahead-list" id="category_list"></div>
-                <div class="hint">Start typing, then click a result.</div>
-                @error('category_name')
-                    <div class="field-error">{{ $message }}</div>
-                @enderror
+                <div class="hint">Search and select multiple categories.</div>
             </div>
 
             <div class="full">

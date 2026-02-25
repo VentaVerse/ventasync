@@ -7,6 +7,7 @@ use App\Models\ShopeeOrder;
 use App\Models\ShopeeOrderProduct;
 use App\Models\ShopeeReturn;
 use App\Models\ShopeeSetting;
+use App\Services\ActivityLogger;
 use App\Services\Shopee\ShopeeClient;
 use App\Services\ShopeeCatalogOrderSync;
 use Illuminate\Http\Request;
@@ -781,6 +782,8 @@ class ShopeeOrderController extends Controller
             ? 'Orders are already up to date.'
             : "Updated {$updated} order(s)." . ($skipped > 0 ? " Skipped {$skipped} not-yet-fetched." : '');
 
+        ActivityLogger::log('updated', 'Shopee Order', null, 'Synced statuses for ' . $updated . ' order(s)');
+
         return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
             'ok' => true,
             'message' => $message,
@@ -960,6 +963,8 @@ class ShopeeOrderController extends Controller
         try {
             (new ShopeeCatalogOrderSync)->sync($order);
         } catch (\Throwable $e) {}
+
+        ActivityLogger::log('updated', 'Shopee Order', null, 'Shipped order #' . $orderSn);
 
         if ($json) return response()->json(['ok' => true, 'message' => "Order {$orderSn} shipped successfully."]);
 
@@ -1277,9 +1282,13 @@ class ShopeeOrderController extends Controller
         $region = $setting->region ?? 'ph';
 
         try {
+            $count = ShopeeOrder::query()->where('region', $region)->count();
+
             \DB::transaction(function () use ($region) {
                 ShopeeOrder::query()->where('region', $region)->delete();
             });
+
+            ActivityLogger::log('deleted', 'Shopee Order', null, 'Reset ' . $count . ' Shopee order(s)');
 
             return redirect()->route('shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => true,

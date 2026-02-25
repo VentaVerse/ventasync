@@ -6,6 +6,7 @@ use App\Models\Catalog\OrderStatus;
 use App\Models\OpenCartOrderStatusMap;
 use App\Models\OpenCartSetting;
 use App\Models\OpenCartSyncLog;
+use App\Services\ActivityLogger;
 use App\Services\OpenCart\OpenCartClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -62,6 +63,7 @@ class OpenCartController extends Controller
                 'enabled'          => $data['enabled'],
                 'sync_orders_from' => $data['sync_orders_from'] ?? $setting->sync_orders_from,
             ]);
+            ActivityLogger::log('updated', 'OpenCart Store', $setting->id, $setting->store_name ?? $setting->base_url);
         } else {
             $setting = OpenCartSetting::create([
                 'store_name'       => $data['store_name'] ?? '',
@@ -70,6 +72,7 @@ class OpenCartController extends Controller
                 'enabled'          => $data['enabled'],
                 'sync_orders_from' => $data['sync_orders_from'] ?? null,
             ]);
+            ActivityLogger::log('created', 'OpenCart Store', $setting->id, $setting->store_name ?? $setting->base_url);
         }
 
         $savedStoreId = $setting->id;
@@ -107,7 +110,10 @@ class OpenCartController extends Controller
     public function destroy($id)
     {
         $setting = OpenCartSetting::findOrFail((int) $id);
+        $name = $setting->store_name ?? $setting->base_url;
         $setting->delete();
+
+        ActivityLogger::log('deleted', 'OpenCart Store', (int) $id, $name);
 
         return redirect()->route('opencart.index')->with('status', 'Store deleted.');
     }

@@ -99,10 +99,19 @@
 
     <div class="card">
         {{-- Filter toolbar --}}
-        <form method="GET" action="{{ route('lazada.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto auto; gap:10px; align-items:end; margin-bottom:16px;">
+        <form method="GET" action="{{ route('lazada.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto auto auto auto; gap:10px; align-items:end; margin-bottom:16px;">
             <div>
                 <label class="text-xs text-muted">Search</label>
-                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Product name or SKU...">
+                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Name, model or SKU...">
+            </div>
+            <div>
+                <label class="text-xs text-muted">Manufacturer</label>
+                <select name="manufacturer" class="input">
+                    <option value="all">All Manufacturers</option>
+                    @foreach(($allManufacturers ?? collect()) as $mId => $mName)
+                        <option value="{{ $mId }}" {{ (string)($manufacturerFilter ?? '') === (string)$mId ? 'selected' : '' }}>{{ $mName }}</option>
+                    @endforeach
+                </select>
             </div>
             <div>
                 <label class="text-xs text-muted">Profile</label>
@@ -115,19 +124,27 @@
                 </select>
             </div>
             <div>
-                <label class="text-xs text-muted">Lazada Status</label>
-                <select name="lazada_status" class="input">
-                    <option value="all" {{ ($lazadaStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
-                    <option value="not_uploaded" {{ ($lazadaStatus ?? '') === 'not_uploaded' ? 'selected' : '' }}>Pending</option>
-                    <option value="uploaded" {{ ($lazadaStatus ?? '') === 'uploaded' ? 'selected' : '' }}>Uploaded</option>
-                    <option value="deleted" {{ ($lazadaStatus ?? '') === 'deleted' ? 'selected' : '' }}>Deleted</option>
+                <label class="text-xs text-muted">ERP Status</label>
+                <select name="erp_status" class="input">
+                    <option value="all" {{ ($erpStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+                    <option value="enabled" {{ ($erpStatus ?? '') === 'enabled' ? 'selected' : '' }}>Enabled</option>
+                    <option value="disabled" {{ ($erpStatus ?? '') === 'disabled' ? 'selected' : '' }}>Disabled</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted">Sync Status</label>
+                <select name="sync_status" class="input">
+                    <option value="all" {{ ($syncStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+                    <option value="uploaded" {{ ($syncStatus ?? '') === 'uploaded' ? 'selected' : '' }}>Uploaded</option>
+                    <option value="not_uploaded" {{ ($syncStatus ?? '') === 'not_uploaded' ? 'selected' : '' }}>Pending</option>
+                    <option value="deleted" {{ ($syncStatus ?? '') === 'deleted' ? 'selected' : '' }}>Deleted</option>
                 </select>
             </div>
             @if(!empty($sort))<input type="hidden" name="sort" value="{{ $sort }}">@endif
             @if(!empty($dir))<input type="hidden" name="dir" value="{{ $dir }}">@endif
             <div class="d-flex gap-6">
                 <button type="submit" class="btn small">Filter</button>
-                @if(($q ?? '') !== '' || ($lazadaStatus ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all')
+                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
                     <a href="{{ route('lazada.products.index') }}" class="btn small secondary">Clear</a>
                 @endif
             </div>
@@ -205,13 +222,15 @@
         <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
         <th style="width:60px;"><a href="{{ $sortUrl('id') }}" style="text-decoration:none; color:inherit;">ID{!! $sortIcon('id') !!}</a></th>
         <th style="width:56px;">Image</th>
-        <th><a href="{{ $sortUrl('product') }}" style="text-decoration:none; color:inherit;">Product{!! $sortIcon('product') !!}</a></th>
+        <th><a href="{{ $sortUrl('product') }}" style="text-decoration:none; color:inherit;">Product Name{!! $sortIcon('product') !!}</a></th>
+        <th>SKU</th>
+        <th><a href="{{ $sortUrl('manufacturer') }}" style="text-decoration:none; color:inherit;">Manufacturer{!! $sortIcon('manufacturer') !!}</a></th>
         <th style="width:120px;"><a href="{{ $sortUrl('profile') }}" style="text-decoration:none; color:inherit;">Profile{!! $sortIcon('profile') !!}</a></th>
+        <th style="width:60px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Stock{!! $sortIcon('quantity') !!}</a></th>
         <th style="width:130px;"><a href="{{ $sortUrl('lazada_item_id') }}" style="text-decoration:none; color:inherit;">Lazada ID{!! $sortIcon('lazada_item_id') !!}</a></th>
-        <th style="width:70px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Qty{!! $sortIcon('quantity') !!}</a></th>
-        <th style="width:90px;"><a href="{{ $sortUrl('product_status') }}" style="text-decoration:none; color:inherit;">Status{!! $sortIcon('product_status') !!}</a></th>
-        <th style="width:110px;"><a href="{{ $sortUrl('lazada_status') }}" style="text-decoration:none; color:inherit;">Lazada{!! $sortIcon('lazada_status') !!}</a></th>
-        <th style="width:140px;">Sync</th>
+        <th style="width:90px;"><a href="{{ $sortUrl('product_status') }}" style="text-decoration:none; color:inherit;">ERP Status{!! $sortIcon('product_status') !!}</a></th>
+        <th style="width:100px;"><a href="{{ $sortUrl('lazada_status') }}" style="text-decoration:none; color:inherit;">Sync Status{!! $sortIcon('lazada_status') !!}</a></th>
+        <th style="width:160px;">Error</th>
         <th style="width:50px;"></th>
     </tr>
     </thead>
@@ -225,22 +244,17 @@
             $pModel = $p ? (string)($p->model ?? '') : '';
             $pQty = $p ? (int)($p->quantity ?? 0) : null;
             $pStatus = $p ? (int)($p->status ?? 0) : null;
-            $erpStatusLabel = $p === null ? '-' : ($pStatus ? 'Enabled' : 'Disabled');
+            $pMfg = $p ? (string)($p->manufacturer_name ?? '') : '';
 
             $isDeleted = !is_null($l->lazada_deleted_at);
             $hasItemId = !is_null($l->lazada_item_id) && (string)$l->lazada_item_id !== '';
-            if ($hasItemId) {
-                $lazadaStatusLabel = 'Uploaded';
-            } elseif ($isDeleted) {
-                $lazadaStatusLabel = 'Deleted';
-            } else {
-                $lazadaStatusLabel = 'Not Uploaded';
-            }
 
             $hasSyncInfo = !is_null($l->last_synced_at) || !is_null($l->last_sync_ok);
             $hasError = $hasSyncInfo && !is_null($l->last_sync_ok) && !$l->last_sync_ok;
             $errCode = (string)($l->last_sync_error_code ?? '');
             $errMsg = (string)($l->last_sync_error_message ?? '');
+
+            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($l->product_id) : null;
         @endphp
         <tr>
             <td><input type="checkbox" class="row-check" value="{{ $l->id }}"></td>
@@ -254,10 +268,6 @@
             </td>
             <td>
                 <a href="{{ route('lazada.products.edit', $l->id) }}" class="font-bold" style="text-decoration:none; color:var(--text-primary);">{{ $pName ?: '-' }}</a>
-                @if($pSku)<div class="text-muted text-xs">{{ $pSku }}</div>@endif
-                @php
-                    $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($l->product_id) : null;
-                @endphp
                 @if($optRows && count($optRows) > 0)
                     <div style="margin-top:4px;">
                         @foreach($optRows as $or)
@@ -270,6 +280,8 @@
                     </div>
                 @endif
             </td>
+            <td><code>{{ $pSku ?: '-' }}</code></td>
+            <td>{{ $pMfg ?: '-' }}</td>
             <td>
                 @if($l->profiles->count() > 0)
                     @php $firstProf = $l->profiles->first(); @endphp
@@ -279,15 +291,8 @@
                 @endif
             </td>
             <td>
-                @if($hasItemId)
-                    <span style="font-size:12px; font-family:monospace;">{{ $l->lazada_item_id }}</span>
-                @else
-                    <span class="text-muted">-</span>
-                @endif
-            </td>
-            <td>
                 <div>{{ is_null($pQty) ? '-' : $pQty }}</div>
-                @if(isset($optRows) && $optRows && count($optRows) > 0)
+                @if($optRows && count($optRows) > 0)
                     @foreach($optRows as $or)
                         @php
                             $oqtyRaw = $or->option_quantity ?? null;
@@ -298,43 +303,46 @@
                 @endif
             </td>
             <td>
-                @if($erpStatusLabel === 'Enabled')
-                    <span class="badge badge-green">Enabled</span>
-                @elseif($erpStatusLabel === 'Disabled')
-                    <span class="badge badge-red">Disabled</span>
+                @if($hasItemId)
+                    <span style="font-size:12px; font-family:monospace;">{{ $l->lazada_item_id }}</span>
                 @else
                     <span class="text-muted">-</span>
                 @endif
             </td>
             <td>
-                @if($lazadaStatusLabel === 'Uploaded')
+                @if($p === null)
+                    <span class="text-muted">-</span>
+                @elseif($pStatus)
+                    <span class="badge badge-green">Enabled</span>
+                @else
+                    <span class="badge badge-red">Disabled</span>
+                @endif
+            </td>
+            <td>
+                @if($hasItemId)
                     <span class="badge badge-green">Uploaded</span>
-                @elseif($lazadaStatusLabel === 'Not Uploaded')
-                    <span class="badge badge-yellow">Pending</span>
-                @elseif($lazadaStatusLabel === 'Deleted')
+                @elseif($isDeleted)
                     <span class="badge badge-gray">Deleted</span>
                 @else
-                    <span class="text-muted">-</span>
+                    <span class="badge badge-yellow">Pending</span>
                 @endif
             </td>
             <td>
-                @if(!$hasSyncInfo)
-                    <span class="text-muted">-</span>
-                @else
-                    <div style="line-height:1.4;">
-                        @if($hasError)
-                            <span class="badge badge-red">Err</span>
-                            <div class="text-xs" style="margin-top:3px; color:var(--danger); word-break:break-word;">{{ $errCode }}@if($errMsg): {{ Str::limit($errMsg, 60) }}@endif</div>
-                        @else
-                            <span class="badge badge-green">OK</span>
-                        @endif
-                        @if($l->last_sync_action)
-                            <div class="text-xs text-muted" style="margin-top:2px;">{{ $l->last_sync_action }}</div>
-                        @endif
-                        @if($l->last_synced_at)
-                            <div class="text-xs text-muted" style="margin-top:1px;">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</div>
-                        @endif
+                @if($hasError)
+                    <div class="text-xs" style="color:var(--danger); word-break:break-word; line-height:1.4;">
+                        @if($errCode)<strong>{{ $errCode }}</strong>@endif
+                        @if($errMsg){{ $errCode ? ': ' : '' }}{{ Str::limit($errMsg, 80) }}@endif
                     </div>
+                    @if($l->last_synced_at)
+                        <div class="text-xs text-muted" style="margin-top:2px;">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</div>
+                    @endif
+                @elseif($hasSyncInfo && $l->last_sync_ok)
+                    <span class="badge badge-green">OK</span>
+                    @if($l->last_synced_at)
+                        <div class="text-xs text-muted" style="margin-top:2px;">{{ \Carbon\Carbon::parse($l->last_synced_at)->diffForHumans() }}</div>
+                    @endif
+                @else
+                    <span class="text-muted">-</span>
                 @endif
             </td>
             <td>
@@ -398,7 +406,7 @@
         </tr>
     @empty
         <tr>
-            <td colspan="11" class="text-muted">No products found. <a href="{{ route('lazada.products.create') }}">Add your first product</a>.</td>
+            <td colspan="13" class="text-muted">No products found. <a href="{{ route('lazada.products.create') }}">Add your first product</a>.</td>
         </tr>
     @endforelse
     </tbody>

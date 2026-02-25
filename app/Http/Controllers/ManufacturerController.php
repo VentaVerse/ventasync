@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Catalog\Manufacturer;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
 class ManufacturerController extends Controller
@@ -48,11 +49,13 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
         'sort_order' => 'nullable|integer',
     ]);
 
-    Manufacturer::create([
+    $m = Manufacturer::create([
         'name' => $request->name,
         'image' => null,
         'sort_order' => (int) ($request->sort_order ?? 0),
     ]);
+
+    ActivityLogger::log('created', 'Manufacturer', (int) $m->manufacturer_id, $request->name);
 
     return redirect()->route('manufacturers.index')->with('status','Saved');
 }
@@ -74,9 +77,13 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
     ]);
 
     $m = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
+    $original = $m->getAttributes();
     $m->name = $request->name;
     $m->sort_order = (int) ($request->sort_order ?? 0);
     $m->save();
+
+    $changes = ActivityLogger::diff($original, $m->getAttributes(), ['name', 'sort_order']);
+    ActivityLogger::log('updated', 'Manufacturer', (int) $id, $request->name, $changes);
 
     return redirect()->route('manufacturers.index')->with('status','Saved');
 }
@@ -84,7 +91,9 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
 
     public function destroy($id)
     {
+        $name = Manufacturer::where('manufacturer_id', (int) $id)->value('name') ?? '#' . $id;
         Manufacturer::where('manufacturer_id', (int) $id)->delete();
+        ActivityLogger::log('deleted', 'Manufacturer', (int) $id, $name);
         return redirect()->route('manufacturers.index')->with('status','Saved');
     }
 
@@ -101,6 +110,8 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
         }
 
         Manufacturer::whereIn('manufacturer_id', $ids)->delete();
+
+        ActivityLogger::log('deleted', 'Manufacturer', null, count($ids) . ' manufacturers');
 
         return redirect()->route('manufacturers.index')->with('status', 'Deleted selected manufacturers.');
     }

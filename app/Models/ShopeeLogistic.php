@@ -8,7 +8,12 @@ class ShopeeLogistic extends Model
 {
     protected $table = 'shopee_logistics';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'logistics_channel_id', 'logistics_channel_name', 'cod_enabled',
+        'enabled', 'force_enable', 'fee_type', 'weight_limit',
+        'item_max_dimension', 'volume_limit', 'mask_channel_id',
+        'logistics_description', 'support_pre_order', 'support_cross_border', 'raw_data',
+    ];
 
     protected $casts = [
         'cod_enabled' => 'boolean',

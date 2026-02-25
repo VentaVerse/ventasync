@@ -784,6 +784,24 @@
         }
         .typeahead-list button:hover { background: var(--surface-hover); }
 
+        /* Multi-select tag chips */
+        .tag-container {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            margin-bottom: 6px; min-height: 0;
+        }
+        .tag-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; background: rgba(59,130,246,.1);
+            border: 1px solid rgba(59,130,246,.2); border-radius: 99px;
+            font-size: 12.5px; font-weight: 500; color: #1d4ed8;
+        }
+        .tag-remove {
+            background: none; border: none; cursor: pointer;
+            font-size: 15px; line-height: 1; color: #3b82f6;
+            padding: 0 0 0 2px; font-weight: 700;
+        }
+        .tag-remove:hover { color: #dc2626; }
+
         .ac-dd {
             position: absolute;
             left: 0; right: 0;
@@ -1100,12 +1118,14 @@
             $canSales = $u && $u->hasPermission('manage_sales');
             $canOrders = $u && $u->hasPermission('manage_orders');
             $canOrderStatuses = $u && $u->hasPermission('manage_order_statuses');
+            $canReports = $u && $u->hasPermission('manage_reports');
 
             $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
             $canShopee = $u && $u->hasPermission('manage_shopee');
             $canLazada = $u && $u->hasPermission('manage_lazada');
             $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
             $canLazadaOrders = $u && $u->hasPermission('manage_lazada_orders');
+            $canTikTok = $u && $u->hasPermission('manage_tiktok');
             $canOpencart = $u && $u->hasPermission('manage_opencart');
             $canOpencartOrders = $u && $u->hasPermission('manage_opencart_orders');
 
@@ -1114,6 +1134,7 @@
             $canUserGroups = $u && $u->hasPermission('manage_user_groups');
             $canWebsiteSettings = $u && $u->hasPermission('manage_website_settings');
             $canErrorLog = $u && $u->hasPermission('manage_error_log');
+            $canActivityLog = $u && $u->hasPermission('manage_activity_log');
         @endphp
 
         <div class="brand">
@@ -1241,6 +1262,7 @@
                     @php
                         $mpActive = (request()->routeIs('shopee.*') && !request()->routeIs('shopee.orders.*'))
                                  || (request()->routeIs('lazada.*') && !request()->routeIs('lazada.orders.*'))
+                                 || request()->routeIs('tiktok.*')
                                  || request()->routeIs('opencart.*');
                     @endphp
                     <details {{ $mpActive ? 'open' : '' }}>
@@ -1297,6 +1319,15 @@
                                 </a>
                                 @endif
 
+                                @if($canTikTok)
+                                {{-- ─── TikTok Shop ─── --}}
+                                <div class="nav-sub-divider">TikTok Shop</div>
+                                <a href="{{ route('tiktok.index') }}" class="{{ request()->routeIs('tiktok.index') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                                    <span class="label">Settings</span>
+                                </a>
+                                @endif
+
                                 @if($canOpencart)
                                 {{-- ─── OpenCart ─── --}}
                                 <div class="nav-sub-divider">OpenCart</div>
@@ -1317,7 +1348,7 @@
                 </div>
                 @endif
 
-                @if($canOrders)
+                @if($canReports)
                 <div class="nav-group">
                     <details {{ request()->routeIs('reports.*') ? 'open' : '' }}>
                         <summary class="{{ request()->routeIs('reports.*') ? 'active' : '' }}">
@@ -1339,6 +1370,18 @@
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
                                     <span class="label">Marketplace Payouts</span>
                                 </a>
+                                <a href="{{ route('reports.categories') }}" class="{{ request()->routeIs('reports.categories*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+                                    <span class="label">Margin by Category</span>
+                                </a>
+                                <a href="{{ route('reports.fees') }}" class="{{ request()->routeIs('reports.fees*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                                    <span class="label">Marketplace Fees</span>
+                                </a>
+                                <a href="{{ route('reports.inventory') }}" class="{{ request()->routeIs('reports.inventory*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+                                    <span class="label">Inventory Valuation</span>
+                                </a>
                             </div>
                         </div>
                     </details>
@@ -1347,8 +1390,8 @@
 
                 @if($canSettingsParent)
                 <div class="nav-group">
-                    <details {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('error_log.*')) ? 'open' : '' }}>
-                        <summary class="{{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('error_log.*')) ? 'active' : '' }}">
+                    <details {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('error_log.*') || request()->routeIs('activity_log.*')) ? 'open' : '' }}>
+                        <summary class="{{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('error_log.*') || request()->routeIs('activity_log.*')) ? 'active' : '' }}">
                             <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                             <span class="label">Settings</span>
                             <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
@@ -1379,6 +1422,12 @@
                                     <span class="label">Error Log</span>
                                 </a>
                                 @endif
+                                @if($canActivityLog)
+                                <a href="{{ route('activity_log.index') }}" class="{{ request()->routeIs('activity_log.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                                    <span class="label">Activity Log</span>
+                                </a>
+                                @endif
                             </div>
                         </div>
                     </details>
@@ -1403,7 +1452,13 @@
     <main id="content" class="content">
         <div class="topbar">
             <div class="topbar-title">@yield('breadcrumb', 'Dashboard')</div>
-            <div></div>
+            @auth
+            <div style="position:relative;" id="global-search-wrap">
+                <input type="text" id="global-search" class="input" placeholder="Search... (press /)" autocomplete="off" style="width:280px; padding-left:36px; font-size:13px; height:36px;">
+                <svg style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--text-muted); pointer-events:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <div id="global-search-results" style="display:none; position:absolute; top:100%; right:0; margin-top:6px; width:420px; max-height:480px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); z-index:9999;"></div>
+            </div>
+            @endauth
         </div>
 
         @if(session('status'))
@@ -1442,6 +1497,11 @@
             $__shopeeExpired = false;
             $__shopeeExpiringSoon = false;
             $__shopeeExpiresInMin = null;
+            $__tiktokExpired = false;
+            try {
+                $__tt = \App\Models\TikTokSetting::query()->first();
+                $__tiktokExpired = $__tt && $__tt->expires_at && strtotime($__tt->expires_at) <= time();
+            } catch (\Throwable $e) {}
             try {
                 $__laz = \App\Models\LazadaSetting::query()->first();
                 $__lazadaExpired = $__laz && $__laz->expires_at && strtotime($__laz->expires_at) <= time();
@@ -1460,6 +1520,13 @@
             } catch (\Throwable $e) {}
             $__shopeePaused = \Illuminate\Support\Facades\Cache::get('shopee_sync_paused');
         @endphp
+
+        @if($__tiktokExpired)
+            <div class="alert danger">
+                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span><strong>TikTok Shop:</strong> Access token expired. <a href="{{ route('tiktok.index') }}">Refresh token</a></span>
+            </div>
+        @endif
 
         @if($__lazadaExpired)
             <div class="alert danger">
@@ -1757,9 +1824,12 @@
 (function(){
   function setupTypeahead(opts){
     var input = document.getElementById(opts.inputId);
-    var hidden = document.getElementById(opts.hiddenId);
+    var hidden = opts.hiddenId ? document.getElementById(opts.hiddenId) : null;
     var list = document.getElementById(opts.listId);
-    if(!input || !hidden || !list) return;
+    var isMulti = !!opts.multi;
+    var tagContainer = isMulti ? document.getElementById(opts.tagContainerId) : null;
+    if(!input || !list) return;
+    if(!isMulti && !hidden) return;
 
     var last = '';
     var timer = null;
@@ -1768,32 +1838,58 @@
     function showList(){ list.style.display='block'; }
     function hideList(){ list.style.display='none'; }
 
-    input.addEventListener('input', function(){
-      hidden.value = '0';
-    });
+    if(!isMulti){
+      input.addEventListener('input', function(){
+        hidden.value = '0';
+      });
+    }
+
+    function getSelectedIds(){
+      if(!tagContainer) return [];
+      return Array.from(tagContainer.querySelectorAll('.tag-chip')).map(function(c){ return String(c.dataset.id); });
+    }
+
+    function addTag(id, name){
+      if(!tagContainer) return;
+      var chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.dataset.id = id;
+      chip.innerHTML = name + '<input type="hidden" name="' + opts.hiddenName + '" value="' + id + '">' +
+        '<button type="button" class="tag-remove">&times;</button>';
+      chip.querySelector('.tag-remove').addEventListener('click', function(){ chip.remove(); });
+      tagContainer.appendChild(chip);
+    }
 
     function render(items, query){
       list.innerHTML = '';
-      if(!items || !items.length){
+      var selectedIds = isMulti ? getSelectedIds() : [];
+      var filtered = isMulti ? items.filter(function(it){ return selectedIds.indexOf(String(it.id)) === -1; }) : items;
+      if(!filtered || !filtered.length){
         if(query && query.length >= 1){
           var empty = document.createElement('div');
           empty.style.cssText = 'padding:8px 12px;color:#94a3b8;font-size:13px;';
-          empty.textContent = 'No results found';
+          empty.textContent = isMulti && items.length > 0 ? 'All matches already selected' : 'No results found';
           list.appendChild(empty);
           showList();
         } else { hideList(); }
         return;
       }
-      items.forEach(function(it){
+      filtered.forEach(function(it){
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = it.name;
         btn.addEventListener('mousedown', function(e){
           e.preventDefault();
-          input.value = it.name;
-          hidden.value = String(it.id);
-          clearList();
-          input.classList.remove('input-error');
+          if(isMulti){
+            addTag(it.id, it.name);
+            input.value = '';
+            clearList();
+          } else {
+            input.value = it.name;
+            hidden.value = String(it.id);
+            clearList();
+            input.classList.remove('input-error');
+          }
         });
         list.appendChild(btn);
       });
@@ -1848,9 +1944,11 @@
     });
     setupTypeahead({
       inputId: 'category_search',
-      hiddenId: 'category_id',
       listId: 'category_list',
       url: '/api/catalog/categories?term=',
+      multi: true,
+      tagContainerId: 'category_tags',
+      hiddenName: 'category_ids[]',
     });
 
     // Require a valid manufacturer selection on product forms
@@ -1885,6 +1983,89 @@
       });
     }
   });
+})();
+</script>
+<script>
+(function() {
+    var input = document.getElementById('global-search');
+    var wrap = document.getElementById('global-search-results');
+    if (!input || !wrap) return;
+
+    var timer = null;
+
+    // Focus on '/' key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+        if (e.key === 'Escape') {
+            wrap.style.display = 'none';
+            input.blur();
+        }
+    });
+
+    input.addEventListener('input', function() {
+        clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { wrap.style.display = 'none'; return; }
+        timer = setTimeout(function() { doSearch(q); }, 300);
+    });
+
+    input.addEventListener('focus', function() {
+        if (wrap.innerHTML.trim() !== '' && input.value.trim().length >= 2) {
+            wrap.style.display = 'block';
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!document.getElementById('global-search-wrap').contains(e.target)) {
+            wrap.style.display = 'none';
+        }
+    });
+
+    function doSearch(q) {
+        fetch('/search?q=' + encodeURIComponent(q), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var results = data.results || [];
+            if (results.length === 0) {
+                wrap.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:13px;">No results found</div>';
+                wrap.style.display = 'block';
+                return;
+            }
+
+            var html = '';
+            var lastCat = '';
+            results.forEach(function(r) {
+                if (r.category !== lastCat) {
+                    lastCat = r.category;
+                    html += '<div style="padding:8px 14px 4px; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">' + r.category + '</div>';
+                }
+                html += '<a href="' + r.url + '" style="display:block; padding:8px 14px; text-decoration:none; color:var(--text-primary); transition:background .15s;"'
+                    + ' onmouseenter="this.style.background=\'var(--surface-hover)\'" onmouseleave="this.style.background=\'transparent\'">'
+                    + '<div style="font-size:13px; font-weight:500;">' + escHtml(r.label) + '</div>'
+                    + (r.sub ? '<div style="font-size:12px; color:var(--text-secondary);">' + escHtml(r.sub) + '</div>' : '')
+                    + '</a>';
+            });
+
+            wrap.innerHTML = html;
+            wrap.style.display = 'block';
+        })
+        .catch(function() {
+            wrap.innerHTML = '<div style="padding:16px; text-align:center; color:var(--danger); font-size:13px;">Search failed</div>';
+            wrap.style.display = 'block';
+        });
+    }
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
 })();
 </script>
 </body>

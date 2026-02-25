@@ -9,6 +9,7 @@ use App\Models\LazadaProductAttribute;
 use App\Models\LazadaProfile;
 use App\Models\LazadaProfileAttribute;
 use App\Models\LazadaSetting;
+use App\Services\ActivityLogger;
 use App\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -168,6 +169,8 @@ class LazadaProfileController extends Controller
 
         $this->saveProfileAttributes($profile, (array) $request->input('attributes', []));
 
+        ActivityLogger::log('created', 'Lazada Profile', $profile->id, $profile->name);
+
         $syncMsg = '';
         if ($profile->lazada_category_id) {
             $syncMsg = ' ' . $this->autoSyncProducts($profile);
@@ -210,6 +213,8 @@ class LazadaProfileController extends Controller
 
         $this->saveProfileAttributes($profile, (array) $request->input('attributes', []));
 
+        ActivityLogger::log('updated', 'Lazada Profile', $profile->id, $profile->name);
+
         $syncMsg = '';
         if ($profile->lazada_category_id) {
             $syncMsg = ' ' . $this->autoSyncProducts($profile);
@@ -231,6 +236,8 @@ class LazadaProfileController extends Controller
 
         // Delete profile (CASCADE removes its pivot rows)
         $profile->delete();
+
+        ActivityLogger::log('deleted', 'Lazada Profile', (int) $id, $profile->name);
 
         // Check which products no longer have any profile links
         $removed = 0;

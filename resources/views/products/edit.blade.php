@@ -70,12 +70,23 @@
                 </select>
             </div>
 
-            <div class="typeahead">
-                <label>Category</label>
-                <input class="input" id="category_search" placeholder="Type to search..." autocomplete="off" value="{{ old('category_name', $categoryName ?? '') }}" name="category_name">
-                <input type="hidden" name="category_id" id="category_id" value="{{ old('category_id', $currentCategoryId ?? 0) }}">
+            <div class="typeahead full">
+                <label>Categories</label>
+                <div id="category_tags" class="tag-container">
+                    @foreach(old('category_ids', collect($currentCategories ?? [])->pluck('id')->all()) as $catId)
+                        @php
+                            $catName = collect($currentCategories ?? [])->firstWhere('id', $catId)['name'] ?? 'Category #'.$catId;
+                        @endphp
+                        <span class="tag-chip" data-id="{{ $catId }}">
+                            {{ $catName }}
+                            <input type="hidden" name="category_ids[]" value="{{ $catId }}">
+                            <button type="button" class="tag-remove" onclick="this.parentElement.remove(); window.updateCatPlaceholder();">&times;</button>
+                        </span>
+                    @endforeach
+                </div>
+                <input class="input" id="category_search" placeholder="Type to search categories..." autocomplete="off">
                 <div class="typeahead-list" id="category_list"></div>
-                <div class="hint">Start typing, then click a result.</div>
+                <div class="hint">Search and select multiple categories.</div>
             </div>
 
             <div class="full">

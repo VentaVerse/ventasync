@@ -13,16 +13,29 @@
     }
     #content .order-img-wrap {
         position: relative;
-        transition: transform 140ms ease, box-shadow 140ms ease;
-        transform-origin: center center;
         cursor: zoom-in;
         z-index: 1;
-        will-change: transform;
     }
-    #content .order-img-wrap:hover {
-        transform: translateX(120px) scale(5.2);
-        z-index: 200;
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.2);
+    .order-img-preview {
+        position: fixed;
+        z-index: 9999;
+        pointer-events: none;
+        border-radius: 8px;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.25);
+        overflow: hidden;
+        transform: scale(0.2);
+        opacity: 0;
+        transition: transform 180ms ease, opacity 180ms ease;
+    }
+    .order-img-preview.visible {
+        transform: scale(1);
+        opacity: 1;
+    }
+    .order-img-preview img {
+        display: block;
+        width: 220px;
+        height: 220px;
+        object-fit: cover;
     }
     .order-option-wrap {
         margin-top: 6px;
@@ -108,11 +121,11 @@
             $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
             $count = $tab_counts[$key] ?? null;
             $qs = array_merge(request()->query(), ['tab' => $key]);
-            $isPending = ($key === 'PENDING');
+            $showBadge = in_array($key, ['PENDING', 'SHIPPING']);
         @endphp
         <a href="{{ route('shopee.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
             <span>{{ $label }}</span>
-            @if($isPending && $count !== null && $count > 0)
+            @if($showBadge && $count !== null && $count > 0)
                 <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#EE4D2D;' : 'background:#EE4D2D; color:#fff;' }}">{{ $count }}</span>
             @endif
         </a>
@@ -852,5 +865,40 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnTrackingClose2) btnTrackingClose2.addEventListener('click', closeTracking);
     if (trackingModal) trackingModal.addEventListener('click', function (e) { if (e.target === trackingModal) closeTracking(); });
 });
+</script>
+<script>
+(function () {
+    var preview = document.createElement('div');
+    preview.className = 'order-img-preview';
+    preview.innerHTML = '<img src="" alt="">';
+    document.body.appendChild(preview);
+    var previewImg = preview.querySelector('img');
+    var hideTimer = null;
+
+    document.addEventListener('mouseenter', function (e) {
+        var wrap = e.target.closest('.order-img-wrap');
+        if (!wrap) return;
+        var img = wrap.querySelector('img.order-img');
+        if (!img || !img.src) return;
+        clearTimeout(hideTimer);
+        previewImg.src = img.src;
+        var rect = wrap.getBoundingClientRect();
+        var top = rect.top + rect.height / 2 - 110;
+        var left = rect.right + 12;
+        if (left + 230 > window.innerWidth) left = rect.left - 232;
+        if (top + 220 > window.innerHeight) top = window.innerHeight - 224;
+        if (top < 4) top = 4;
+        preview.style.transformOrigin = (left < rect.left ? 'right' : 'left') + ' center';
+        preview.style.top = top + 'px';
+        preview.style.left = left + 'px';
+        preview.classList.add('visible');
+    }, true);
+
+    document.addEventListener('mouseleave', function (e) {
+        var wrap = e.target.closest('.order-img-wrap');
+        if (!wrap) return;
+        hideTimer = setTimeout(function () { preview.classList.remove('visible'); }, 80);
+    }, true);
+})();
 </script>
 @endsection

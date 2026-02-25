@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -57,11 +58,14 @@ class OptionController extends Controller
 
         $name = trim($data['name']);
 
-        DB::transaction(function () use ($p, $langId, $data, $name) {
+        $optionId = null;
+        DB::transaction(function () use ($p, $langId, $data, $name, &$optionId) {
             $id = DB::table($p.'option')->insertGetId([
                 'type' => $data['type'],
                 'sort_order' => (int) $data['sort_order'],
             ]);
+
+            $optionId = $id;
 
             DB::table($p.'option_description')->insert([
                 'option_id' => $id,
@@ -91,6 +95,8 @@ class OptionController extends Controller
                 }
             }
         });
+
+        ActivityLogger::log('created', 'Option', $optionId, $name);
 
         return redirect()->route('options.index')->with('success', 'Option created.');
     }
@@ -214,12 +220,15 @@ class OptionController extends Controller
             }
         });
 
+        ActivityLogger::log('updated', 'Option', $id, $name);
+
         return redirect()->route('options.edit', $id)->with('success', 'Option updated.');
     }
 
     public function destroy(int $id)
     {
         $p = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
 
         // Production-safe: block deletion if option is used by any product option
         $inUse = DB::table($p.'product_option')->where('option_id', $id)->exists();
@@ -227,12 +236,16 @@ class OptionController extends Controller
             return redirect()->route('options.index')->with('error', 'Cannot delete: option is used by products.');
         }
 
+        $name = DB::table($p.'option_description')->where('option_id', $id)->where('language_id', $langId)->value('name') ?? '#' . $id;
+
         DB::transaction(function () use ($p, $id) {
             DB::table($p.'option_value_description')->where('option_id', $id)->delete();
             DB::table($p.'option_value')->where('option_id', $id)->delete();
             DB::table($p.'option_description')->where('option_id', $id)->delete();
             DB::table($p.'option')->where('option_id', $id)->delete();
         });
+
+        ActivityLogger::log('deleted', 'Option', $id, $name);
 
         return redirect()->route('options.index')->with('success', 'Option deleted.');
     }
@@ -269,6 +282,10 @@ class OptionController extends Controller
                 $deleted++;
             }
         });
+
+        if ($deleted > 0) {
+            ActivityLogger::log('deleted', 'Option', null, $deleted . ' options');
+        }
 
         if ($deleted > 0 && !empty($blocked)) {
             return redirect()->route('options.index')->with('success', 'Deleted selected options (except those in use).')

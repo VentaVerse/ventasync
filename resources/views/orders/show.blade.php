@@ -36,13 +36,25 @@
         @if($order->marketplace_order_id)
         <div class="meta-item">
             <span class="meta-label">Marketplace ID:</span>
-            {{ $order->marketplace_order_id }}
+            @if($order->marketplace_source === 'lazada')
+                <a href="https://sellercenter.lazada.com.ph/order/detail?tradeOrderId={{ $order->marketplace_order_id }}" target="_blank" rel="noopener" style="color:var(--accent);">
+                    {{ $order->marketplace_order_id }} &#8599;
+                </a>
+            @elseif($order->marketplace_source === 'shopee')
+                <a href="https://seller.shopee.ph/portal/sale/{{ $order->marketplace_order_id }}" target="_blank" rel="noopener" style="color:var(--accent);">
+                    {{ $order->marketplace_order_id }} &#8599;
+                </a>
+            @else
+                {{ $order->marketplace_order_id }}
+            @endif
         </div>
         @endif
         @if($order->tracking_number)
         <div class="meta-item">
             <span class="meta-label">Tracking:</span>
-            {{ $order->tracking_number }}
+            <a href="https://parcelsapp.com/en/tracking/{{ $order->tracking_number }}" target="_blank" rel="noopener" style="color:var(--accent);">
+                {{ $order->tracking_number }} &#8599;
+            </a>
         </div>
         @endif
     </div>
@@ -126,7 +138,8 @@
             <th class="text-right">Unit Cost</th>
             <th class="text-right">COGS</th>
             <th class="text-right">Profit</th>
-            <th class="text-right">Margin</th>
+            <th class="text-right">Profit Margin %</th>
+            <th class="text-right">Profit Markup %</th>
         </tr>
         </thead>
         <tbody>
@@ -145,6 +158,7 @@
                 $lineTotal = (float) $p->total;
                 $profit = $lineTotal - $cogs;
                 $margin = $lineTotal > 0 ? ($profit / $lineTotal * 100) : 0;
+                $markup = $cogs > 0 ? ($profit / $cogs * 100) : 0;
 
                 $totalRevenue += $lineTotal;
                 $totalCogs += $cogs;
@@ -181,6 +195,13 @@
                         -
                     @endif
                 </td>
+                <td class="text-right">
+                    @if($unitCost > 0)
+                        <span style="color: {{ $markup >= 20 ? 'var(--success)' : ($markup >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($markup, 1) }}%</span>
+                    @else
+                        -
+                    @endif
+                </td>
             </tr>
         @endforeach
         </tbody>
@@ -200,6 +221,8 @@
         $netProfit = $grossProfit - $shippingCost - $mktFeeTotal;
         $netMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue * 100) : 0;
         $grossMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue * 100) : 0;
+        $netMarkup = ($totalCogs + $shippingCost + $mktFeeTotal) > 0 ? ($netProfit / ($totalCogs + $shippingCost + $mktFeeTotal) * 100) : 0;
+        $grossMarkup = $totalCogs > 0 ? ($grossProfit / $totalCogs * 100) : 0;
         $hasCostData = $totalCogs > 0;
         $hasDeductions = $shippingCost > 0 || $mktFeeTotal > 0;
         $hasAnyProfit = $hasCostData || $hasDeductions;
@@ -256,7 +279,10 @@
                 <td>
                     {{ $hasDeductions ? 'Net Profit' : 'Gross Profit' }}
                     @if($hasAnyProfit)
-                    <span class="order-totals-margin" style="color: {{ ($hasDeductions ? $netMargin : $grossMargin) >= 20 ? 'var(--success)' : (($hasDeductions ? $netMargin : $grossMargin) >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($hasDeductions ? $netMargin : $grossMargin, 1) }}%</span>
+                    @php $displayMargin = $hasDeductions ? $netMargin : $grossMargin; $displayMarkup = $hasDeductions ? $netMarkup : $grossMarkup; @endphp
+                    <span class="order-totals-margin" style="color: {{ $displayMargin >= 20 ? 'var(--success)' : ($displayMargin >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($displayMargin, 1) }}%</span>
+                    <span class="text-xs text-secondary" style="margin-left:4px;">Markup:</span>
+                    <span class="order-totals-margin" style="color: {{ $displayMarkup >= 20 ? 'var(--success)' : ($displayMarkup >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($displayMarkup, 1) }}%</span>
                     @endif
                 </td>
                 <td class="text-right" style="color: {{ ($hasDeductions ? $netProfit : $grossProfit) >= 0 ? 'var(--success)' : 'var(--danger)' }}">
@@ -300,6 +326,9 @@
             <div class="history-date">{{ $h->date_added }}</div>
             <div>
                 <div class="history-status">{{ $h->status->name ?? '-' }}</div>
+                @if($h->user_name)
+                    <div class="text-xs text-secondary">by {{ $h->user_name }}</div>
+                @endif
                 @if($h->comment)
                     <div class="history-comment">{{ $h->comment }}</div>
                 @endif

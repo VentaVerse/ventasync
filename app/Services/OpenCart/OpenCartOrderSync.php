@@ -7,6 +7,7 @@ use App\Models\OpenCartOrderStatusMap;
 use App\Models\OpenCartSetting;
 use App\Models\OpenCartSyncLog;
 use App\Services\OrderStockService;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -465,10 +466,18 @@ class OpenCartOrderSync
                         'notify'          => (int) ($h['notify'] ?? 0),
                         'comment'         => $h['comment'] ?? '',
                         'date_added'      => (isset($h['date_added']) && $h['date_added'] !== '0000-00-00 00:00:00') ? $h['date_added'] : now()->toDateTimeString(),
+                        'user_id'         => null,
+                        'user_name'       => 'OpenCart Sync',
                     ]);
                 }
             }
         });
+
+        if ($coreOrderId && $oldStatusId !== $coreStatusId) {
+            ActivityLogger::log('updated', 'Order', $coreOrderId, 'OpenCart #' . ($raw['order_id'] ?? ''), [
+                'order_status_id' => [(string) $oldStatusId, (string) $coreStatusId],
+            ], source: 'system');
+        }
 
         // Adjust stock based on status transition (after transaction so products are committed)
         // Skipped during initial import to avoid incorrect deductions from historical orders.

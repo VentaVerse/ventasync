@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\OrderStatus;
+use App\Models\OpenCartSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -16,9 +17,6 @@ class DashboardController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         // Stat cards
-        $totalProducts = DB::table($pfx . 'product')->count();
-        $totalCategories = DB::table($pfx . 'category')->count();
-        $totalManufacturers = DB::table($pfx . 'manufacturer')->count();
         $totalOrders = DB::table($pfx . 'order')->count();
         $revenueStatusIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $totalRevenue = (float) DB::table($pfx . 'order')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
@@ -28,6 +26,32 @@ class DashboardController extends Controller
             $lazadaPending = DB::table('lazada_orders')
                 ->whereIn('status', ['pending', 'repacked'])
                 ->count();
+        }
+
+        $shopeePending = 0;
+        if (Schema::hasTable('shopee_orders')) {
+            $shopeePending = DB::table('shopee_orders')
+                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
+                ->count();
+        }
+
+        // Per-OpenCart-store pending counts
+        $pendingStatusIds = OrderStatus::where(function ($q) {
+            $q->where('name', 'like', '%pending%')
+              ->orWhere('name', 'like', '%processing%');
+        })->pluck('order_status_id');
+
+        $ocStores = OpenCartSetting::where('enabled', true)->get(['id', 'store_name']);
+        $storePending = [];
+        foreach ($ocStores as $store) {
+            $count = DB::table($pfx . 'order')
+                ->where('marketplace_source', 'opencart:' . $store->id)
+                ->whereIn('order_status_id', $pendingStatusIds)
+                ->count();
+            $storePending[] = [
+                'name'  => $store->store_name,
+                'count' => $count,
+            ];
         }
 
         // Chart: default 30 days
@@ -52,14 +76,15 @@ class DashboardController extends Controller
                 'o.marketplace_source',
             ]);
 
+        $ocStoreNames = $ocStores->pluck('store_name', 'id')->toArray();
+
         return response()->json([
             'stats' => [
-                'total_orders'        => $totalOrders,
-                'total_revenue'       => round($totalRevenue, 2),
-                'total_products'      => $totalProducts,
-                'total_categories'    => $totalCategories,
-                'total_manufacturers' => $totalManufacturers,
-                'lazada_pending'      => $lazadaPending,
+                'total_orders'    => $totalOrders,
+                'total_revenue'   => round($totalRevenue, 2),
+                'lazada_pending'  => $lazadaPending,
+                'shopee_pending'  => $shopeePending,
+                'store_pending'   => $storePending,
             ],
             'chart' => $chart,
             'recent_orders' => $recentOrders->map(fn ($o) => [
@@ -70,7 +95,7 @@ class DashboardController extends Controller
                 'currency_code'      => $o->currency_code,
                 'date_added'         => $o->date_added,
                 'status_name'        => $o->status_name ?? '',
-                'marketplace_source' => $o->marketplace_source ?? '',
+                'marketplace_source' => self::resolveSourceLabel($o->marketplace_source ?? '', $ocStoreNames),
             ]),
         ]);
     }
@@ -157,5 +182,14 @@ class DashboardController extends Controller
             'revenue' => $revenue,
             'orders'  => $orders,
         ];
+    }
+
+    private static function resolveSourceLabel(string $source, array $ocStoreNames): string
+    {
+        if (preg_match('/^opencart:(\d+)$/', $source, $m)) {
+            return $ocStoreNames[(int) $m[1]] ?? 'OpenCart';
+        }
+
+        return $source;
     }
 }

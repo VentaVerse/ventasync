@@ -24,7 +24,8 @@
                 <th style="width:180px;">Username</th>
                 <th style="width:260px;">Email</th>
                 <th style="width:180px;">Group</th>
-                <th style="width:160px;">Actions</th>
+                <th style="width:140px;">Last Login</th>
+                <th style="width:200px;">Actions</th>
             </tr>
             </thead>
             <tbody>
@@ -35,8 +36,16 @@
                     <td>{{ $u->username }}</td>
                     <td>{{ $u->email }}</td>
                     <td>{{ $u->userGroup?->name ?? '-' }}</td>
+                    <td class="text-xs text-secondary">
+                        @if($u->last_login_at)
+                            {{ $u->last_login_at->diffForHumans() }}
+                        @else
+                            Never
+                        @endif
+                    </td>
                     <td class="d-flex gap-8 items-center">
                         <a class="btn small" href="{{ route('users.edit', $u->id) }}">Edit</a>
+                        <a class="btn small secondary" href="{{ route('activity_log.index', ['user_id' => $u->id]) }}">Activity</a>
                         @if(($u->userGroup->name ?? '') !== 'Administrator')
 
                         <form method="POST" action="{{ route('users.destroy', $u->id) }}" onsubmit="return confirm('Delete this user?')">

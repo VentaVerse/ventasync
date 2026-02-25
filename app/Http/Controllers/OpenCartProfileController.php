@@ -6,6 +6,7 @@ use App\Models\OpenCartProductLink;
 use App\Models\OpenCartProfile;
 use App\Models\OpenCartProfileProduct;
 use App\Models\OpenCartSetting;
+use App\Services\ActivityLogger;
 use App\Services\OpenCart\OpenCartClient;
 use App\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Http\Request;
@@ -121,6 +122,8 @@ class OpenCartProfileController extends Controller
             'manufacturer_ids' => !empty($mfgIds) ? array_values(array_map('intval', $mfgIds)) : null,
         ]);
 
+        ActivityLogger::log('created', 'OpenCart Profile', $profile->id, $profile->name);
+
         return redirect()->route('opencart.profiles.edit', [$store, $profile->id])
             ->with('status', 'Profile created.');
     }
@@ -147,6 +150,8 @@ class OpenCartProfileController extends Controller
             'manufacturer_ids' => !empty($mfgIds) ? array_values(array_map('intval', $mfgIds)) : null,
         ]);
 
+        ActivityLogger::log('updated', 'OpenCart Profile', $p->id, $p->name);
+
         return redirect()->route('opencart.profiles.edit', [$store, $p->id])
             ->with('status', 'Profile saved.');
     }
@@ -157,6 +162,8 @@ class OpenCartProfileController extends Controller
         $p = OpenCartProfile::where('opencart_setting_id', $store)->findOrFail($profile);
         $name = $p->name;
         $p->delete();
+
+        ActivityLogger::log('deleted', 'OpenCart Profile', (int) $profile, $name);
 
         return redirect()->route('opencart.profiles.index', $store)
             ->with('status', 'Profile "' . e($name) . '" deleted.');

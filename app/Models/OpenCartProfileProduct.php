@@ -10,7 +10,7 @@ class OpenCartProfileProduct extends Model
 
     public $timestamps = false;
 
-    protected $guarded = [];
+    protected $fillable = ['opencart_profile_id', 'product_id'];
 
     public function profile()
     {

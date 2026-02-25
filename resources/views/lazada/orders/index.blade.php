@@ -13,16 +13,60 @@
     }
     #content .order-img-wrap {
         position: relative;
-        transition: transform 140ms ease, box-shadow 140ms ease;
-        transform-origin: center center;
         cursor: zoom-in;
         z-index: 1;
-        will-change: transform;
     }
-    #content .order-img-wrap:hover {
-        transform: translateX(120px) scale(5.2);
-        z-index: 200;
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.2);
+    .order-img-preview {
+        position: fixed;
+        z-index: 9999;
+        pointer-events: none;
+        border-radius: 8px;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.25);
+        overflow: hidden;
+        transform: scale(0.2);
+        opacity: 0;
+        transition: transform 180ms ease, opacity 180ms ease;
+    }
+    .order-img-preview.visible {
+        transform: scale(1);
+        opacity: 1;
+    }
+    .order-img-preview img {
+        display: block;
+        width: 220px;
+        height: 220px;
+        object-fit: cover;
+    }
+    .order-option-wrap {
+        margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+    }
+    .order-option-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #1e3a5f;
+        background: #dbeafe;
+        border: 1px solid #93c5fd;
+        border-radius: 999px;
+        padding: 2px 8px;
+    }
+    .order-option-pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1e293b;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 4px 8px;
+        line-height: 1.35;
+        max-width: 100%;
+        word-break: break-word;
     }
 </style>
 <div class="page-header">
@@ -78,11 +122,11 @@
                 $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
                 $count = $tab_counts[$key] ?? null;
                 $qs = array_merge(request()->query(), ['tab' => $key]);
-                $isToShip = ($key === 'TO_SHIP');
+                $showBadge = in_array($key, ['TO_SHIP', 'SHIPPING']);
             @endphp
             <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                 <span>{{ $label }}</span>
-                @if($isToShip && $count !== null && $count > 0)
+                @if($showBadge && $count !== null && $count > 0)
                     <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
                 @endif
             </a>
@@ -460,7 +504,10 @@
                                             <span class="text-secondary">Seller SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
                                         </div>
                                         @if($variation !== '')
-                                            <div class="text-xs text-secondary" style="margin-top:3px;">{{ $variation }}</div>
+                                            <div class="order-option-wrap">
+                                                <span class="order-option-label">Option</span>
+                                                <span class="order-option-pill">{{ $variation }}</span>
+                                            </div>
                                         @endif
                                     </div>
                                 </div>
@@ -582,17 +629,6 @@
                                                     Logistics Status
                                                 </button>
                                             @endif
-                                            @if($isToPack || $isToArrange || $isToHandover)
-                                                @if(!$isToPack)<span class="text-muted">|</span>@endif
-                                                <button type="button"
-                                                        class="btnCancelOrder"
-                                                        data-order-id="{{ $orderId }}"
-                                                        data-reasons-url="{{ route('lazada.orders.cancel_reasons', ['orderId' => $orderId]) }}"
-                                                        data-submit-url="{{ route('lazada.orders.cancel', ['orderId' => $orderId]) }}"
-                                                        style="border:0; padding:0; background:transparent; color:var(--danger); cursor:pointer; font-size:12px;">
-                                                    Cancel Order
-                                                </button>
-                                            @endif
                                         </div>
                                     @endif
                                 @endif
@@ -646,38 +682,6 @@
 
             <a href="#" id="linkPrintOnly" target="_blank" class="btn secondary">Print Only</a>
         </div>
-    </div>
-</div>
-
-{{-- Cancel order modal --}}
-<div id="lzCancelModal" class="modal-backdrop">
-    <div class="modal" style="max-width:560px;">
-        <div class="modal-header">
-            <div>
-                <h3>Cancel Order</h3>
-                <div id="lzCancelModalSub" class="text-xs text-secondary" style="margin-top:2px;"></div>
-            </div>
-            <button type="button" id="btnCloseCancel" class="modal-close">&times;</button>
-        </div>
-
-        <form method="POST" id="lzCancelForm" action="#" class="mt-16">
-            @csrf
-            <div>
-                <label>Reason</label>
-                <select name="reason_id" id="lzCancelReason" required class="input">
-                    <option value="" selected disabled>Loading reasons…</option>
-                </select>
-                <div id="lzCancelReasonErr" class="field-error hidden"></div>
-            </div>
-            <div class="mt-12">
-                <label>Details (optional)</label>
-                <textarea name="reason_detail" rows="2" class="input" placeholder="Add extra details if needed" style="resize:vertical;"></textarea>
-            </div>
-            <div class="d-flex gap-10 justify-end mt-16">
-                <button type="button" id="btnCancelClose2" class="btn secondary">Close</button>
-                <button type="submit" class="btn danger">Confirm Cancel</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -773,92 +777,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (openPackPrintOrderId) {
         showPackPrintModal(String(openPackPrintOrderId));
     }
-
-    // --- Cancel modal (fetch reasons on demand) ---
-    var cancelModal = document.getElementById('lzCancelModal');
-    var cancelForm = document.getElementById('lzCancelForm');
-    var cancelReason = document.getElementById('lzCancelReason');
-    var cancelErr = document.getElementById('lzCancelReasonErr');
-    var cancelSub = document.getElementById('lzCancelModalSub');
-    var closeCancel = document.getElementById('btnCloseCancel');
-    var closeCancel2 = document.getElementById('btnCancelClose2');
-
-    function showCancelModal() {
-        if (!cancelModal) return;
-        cancelModal.classList.add('active');
-    }
-    function hideCancelModal() {
-        if (!cancelModal) return;
-        cancelModal.classList.remove('active');
-    }
-
-    if (closeCancel) closeCancel.addEventListener('click', hideCancelModal);
-    if (closeCancel2) closeCancel2.addEventListener('click', hideCancelModal);
-    if (cancelModal) {
-        cancelModal.addEventListener('click', function (e) {
-            if (e.target === cancelModal) hideCancelModal();
-        });
-    }
-
-    function setCancelReasonLoading() {
-        if (!cancelReason) return;
-        cancelReason.innerHTML = '<option value="" selected disabled>Loading reasons…</option>';
-        if (cancelErr) { cancelErr.classList.add('hidden'); cancelErr.textContent = ''; }
-    }
-
-    async function loadCancelReasons(url) {
-        setCancelReasonLoading();
-        try {
-            var r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            var j = await r.json();
-            if (!r.ok || !j || j.ok !== true) {
-                throw new Error((j && j.message) ? j.message : 'Failed to fetch reasons');
-            }
-            var data = j.data;
-            var list = [];
-            if (Array.isArray(data)) {
-                list = data;
-            } else if (data && Array.isArray(data.reasons)) {
-                list = data.reasons;
-            } else if (data && Array.isArray(data.data)) {
-                list = data.data;
-            }
-
-            if (!cancelReason) return;
-            cancelReason.innerHTML = '<option value="" selected disabled>Select a reason</option>';
-            list.forEach(function (it) {
-                var id = it.reason_id || it.reasonId || it.id || it.ReasonId;
-                var name = it.reason_name || it.reasonName || it.name || it.ReasonName;
-                if (!id || !name) return;
-                var opt = document.createElement('option');
-                opt.value = String(id);
-                opt.textContent = String(name);
-                cancelReason.appendChild(opt);
-            });
-        } catch (e) {
-            if (cancelErr) {
-                cancelErr.classList.remove('hidden');
-                cancelErr.textContent = e && e.message ? e.message : 'Failed to fetch reasons.';
-            }
-            if (cancelReason) {
-                cancelReason.innerHTML = '<option value="" selected disabled>Unable to load reasons</option>';
-            }
-        }
-    }
-
-    document.querySelectorAll('.btnCancelOrder').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var orderId = btn.getAttribute('data-order-id') || '';
-            var reasonsUrl = btn.getAttribute('data-reasons-url') || '';
-            var submitUrl = btn.getAttribute('data-submit-url') || '';
-            if (!orderId || !reasonsUrl || !submitUrl || !cancelForm) return;
-
-            cancelForm.action = submitUrl;
-            if (cancelSub) cancelSub.textContent = 'Order Number: ' + orderId;
-            showCancelModal();
-            loadCancelReasons(reasonsUrl);
-        });
-    });
 
     // --- Logistics trace modal ---
     var logisticsModal = document.getElementById('lzLogisticsModal');
@@ -987,6 +905,41 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+</script>
+<script>
+(function () {
+    var preview = document.createElement('div');
+    preview.className = 'order-img-preview';
+    preview.innerHTML = '<img src="" alt="">';
+    document.body.appendChild(preview);
+    var previewImg = preview.querySelector('img');
+    var hideTimer = null;
+
+    document.addEventListener('mouseenter', function (e) {
+        var wrap = e.target.closest('.order-img-wrap');
+        if (!wrap) return;
+        var img = wrap.querySelector('img.order-img');
+        if (!img || !img.src) return;
+        clearTimeout(hideTimer);
+        previewImg.src = img.src;
+        var rect = wrap.getBoundingClientRect();
+        var top = rect.top + rect.height / 2 - 110;
+        var left = rect.right + 12;
+        if (left + 230 > window.innerWidth) left = rect.left - 232;
+        if (top + 220 > window.innerHeight) top = window.innerHeight - 224;
+        if (top < 4) top = 4;
+        preview.style.transformOrigin = (left < rect.left ? 'right' : 'left') + ' center';
+        preview.style.top = top + 'px';
+        preview.style.left = left + 'px';
+        preview.classList.add('visible');
+    }, true);
+
+    document.addEventListener('mouseleave', function (e) {
+        var wrap = e.target.closest('.order-img-wrap');
+        if (!wrap) return;
+        hideTimer = setTimeout(function () { preview.classList.remove('visible'); }, 80);
+    }, true);
+})();
 </script>
 
 @endsection

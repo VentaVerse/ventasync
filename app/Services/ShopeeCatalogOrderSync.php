@@ -12,6 +12,8 @@ use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
 use Illuminate\Support\Facades\DB;
 
+use App\Services\ActivityLogger;
+
 class ShopeeCatalogOrderSync
 {
     private bool $skipStockAdjust = false;
@@ -307,7 +309,13 @@ class ShopeeCatalogOrderSync
                     'notify'          => 0,
                     'comment'         => 'Synced from Shopee (status: ' . ($shopeeOrder->status ?? 'unknown') . ')',
                     'date_added'      => now(),
+                    'user_id'         => null,
+                    'user_name'       => 'Shopee Sync',
                 ]);
+
+                ActivityLogger::log('updated', 'Order', $catalogOrder->order_id, 'Shopee #' . ($shopeeOrder->order_sn ?? ''), [
+                    'order_status_id' => [(string) $oldStatusId, (string) $statusId],
+                ], source: 'system');
 
                 if (!$this->skipStockAdjust) {
                     OrderStockService::adjustStock($catalogOrder, $oldStatusId, $statusId);

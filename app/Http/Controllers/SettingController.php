@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,13 +19,15 @@ class SettingController extends Controller
     public function update(Request $request)
     {
         $setting = Setting::singleton();
+        $original = $setting->getAttributes();
 
         $data = $request->validate([
-            'company_name' => ['required', 'string', 'max:255'],
-            'from_email'   => ['required', 'email', 'max:255'],
-            'timezone'     => ['required', 'string', 'timezone'],
-            'logo'           => ['nullable', 'image', 'max:2048'],
-            'software_logo' => ['nullable', 'image', 'max:2048'],
+            'company_name'                => ['required', 'string', 'max:255'],
+            'from_email'                  => ['required', 'email', 'max:255'],
+            'timezone'                    => ['required', 'string', 'timezone'],
+            'activity_log_retention_days' => ['required', 'integer', 'min:7', 'max:3650'],
+            'logo'                        => ['nullable', 'image', 'max:2048'],
+            'software_logo'               => ['nullable', 'image', 'max:2048'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -43,6 +46,11 @@ class SettingController extends Controller
         }
 
         $setting->update($data);
+
+        $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
+            'company_name', 'from_email', 'timezone', 'activity_log_retention_days',
+        ]);
+        ActivityLogger::log('updated', 'Setting', $setting->id, 'Website Settings', $changes);
 
         return back()->with('success', 'Settings updated.');
     }
@@ -73,6 +81,8 @@ class SettingController extends Controller
 
             $total += $affected;
         }
+
+        ActivityLogger::log('purged', 'Setting', null, 'Raw marketplace data (' . $request->days . ' days)');
 
         return response()->json([
             'ok'      => true,

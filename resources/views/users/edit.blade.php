@@ -53,7 +53,8 @@
             </div>
         </div>
 
-        <div class="mt-16" style="display:flex; justify-content:flex-end;">
+        <div class="mt-16" style="display:flex; justify-content:flex-end; gap:8px;">
+            <a class="btn secondary" href="{{ route('activity_log.index', ['user_id' => $user->id]) }}">View Activity Log</a>
             <button class="btn danger" type="button"
                 onclick="if(confirm('Delete this user?')) document.getElementById('delete-user-form').submit();">
                 Delete

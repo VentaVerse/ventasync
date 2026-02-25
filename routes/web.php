@@ -25,7 +25,9 @@ use App\Http\Controllers\LazadaCategoryController;
 use App\Http\Controllers\LazadaCategoryAttributeController;
 use App\Http\Controllers\LazadaOrderController;
 use App\Http\Controllers\LazadaProfileController;
+use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\ErrorLogController;
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OpenCartProfileController;
@@ -37,11 +39,16 @@ Route::get('/', [ShopeeController::class, 'root'])->name('root');
 // Keeping it outside auth/perm middleware prevents losing the code behind login redirects.
 Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
 
+// TikTok Shop OAuth callback must be publicly accessible.
+Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
+
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
     Route::get('/dashboard/platform-data', [DashboardController::class, 'platformData'])->name('dashboard.platform_data');
+
+    Route::get('/search', [\App\Http\Controllers\SearchController::class, 'index'])->name('search');
 
     // Catalog (parent permission or any child)
     Route::middleware(['perm:manage_catalog'])->group(function () {
@@ -69,6 +76,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/products/images/import-url', [ProductImageController::class, 'importUrl'])->name('products.images.import_url');
         Route::get('/products/images/browse', [ProductImageController::class, 'browse'])->name('products.images.browse');
         Route::post('/products/images/upload-to-catalog', [ProductImageController::class, 'uploadToCatalog'])->name('products.images.upload_to_catalog');
+
+        // Product sales history
+        Route::get('/products/{id}/sales', [ProductController::class, 'salesHistory'])->name('products.sales');
+
+        // Product stock history
+        Route::get('/products/{id}/stock-history', [ProductController::class, 'stockHistory'])->name('products.stock_history');
 
         // Product options
         Route::get('/products/{id}/options', [ProductOptionController::class, 'edit'])->name('products.options.edit');
@@ -298,6 +311,22 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('lazada.orders.cancel');
     });
 
+    // TikTok Shop
+    Route::middleware(['perm:manage_tiktok'])->group(function () {
+        Route::get('/tiktok', [TikTokController::class, 'index'])->name('tiktok.index');
+        Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('tiktok.authorize');
+        Route::post('/tiktok/save', [TikTokController::class, 'save'])->name('tiktok.save');
+        Route::post('/tiktok/toggle-mode', [TikTokController::class, 'toggleMode'])->name('tiktok.toggle_mode');
+        Route::post('/tiktok/token/get', [TikTokController::class, 'tokenGet'])->name('tiktok.token_get');
+        Route::post('/tiktok/token/refresh', [TikTokController::class, 'tokenRefresh'])->name('tiktok.token_refresh');
+        Route::post('/tiktok/shops', [TikTokController::class, 'getShops'])->name('tiktok.shops');
+        Route::post('/tiktok/explorer/run', [TikTokController::class, 'explorerRun'])->name('tiktok.explorer_run');
+        Route::post('/tiktok/packs/run', [TikTokController::class, 'packsRun'])->name('tiktok.packs_run');
+        Route::post('/tiktok/toggle-logging', [TikTokController::class, 'toggleLogging'])->name('tiktok.toggle_logging');
+        Route::delete('/tiktok/api-logs', [TikTokController::class, 'clearApiLogs'])->name('tiktok.clear_api_logs');
+        Route::post('/tiktok/sync-days', [TikTokController::class, 'saveSyncDays'])->name('tiktok.sync_days');
+    });
+
     // OpenCart
     Route::middleware(['perm:manage_opencart'])->group(function () {
         Route::get('/opencart', [\App\Http\Controllers\OpenCartController::class, 'index'])->name('opencart.index');
@@ -365,6 +394,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
     });
 
+    // Activity Log
+    Route::middleware(['perm:manage_activity_log'])->group(function () {
+        Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity_log.index');
+        Route::post('/activity-log/clear', [ActivityLogController::class, 'clear'])->name('activity_log.clear');
+    });
+
     // Orders
     Route::middleware(['perm:manage_orders'])->group(function () {
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
@@ -378,14 +413,17 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
     });
 
-    // Reports (reuse manage_orders permission)
-    Route::middleware(['perm:manage_orders'])->group(function () {
+    // Reports
+    Route::middleware(['perm:manage_reports'])->group(function () {
         Route::get('/reports/orders', [ReportController::class, 'orders'])->name('reports.orders');
         Route::get('/reports/orders/export', [ReportController::class, 'exportOrders'])->name('reports.orders.export');
         Route::get('/reports/products', [ReportController::class, 'products'])->name('reports.products');
         Route::get('/reports/products/export', [ReportController::class, 'exportProducts'])->name('reports.products.export');
         Route::get('/reports/payouts', [ReportController::class, 'payouts'])->name('reports.payouts');
         Route::get('/reports/payouts/export', [ReportController::class, 'exportPayouts'])->name('reports.payouts.export');
+        Route::get('/reports/categories', [ReportController::class, 'categories'])->name('reports.categories');
+        Route::get('/reports/fees', [ReportController::class, 'fees'])->name('reports.fees');
+        Route::get('/reports/inventory', [ReportController::class, 'inventory'])->name('reports.inventory');
     });
 
     // Order Statuses

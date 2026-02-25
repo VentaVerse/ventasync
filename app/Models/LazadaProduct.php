@@ -9,7 +9,10 @@ class LazadaProduct extends Model
     // Lazada products table
     protected $table = 'lazada_products';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'product_id', 'primary_category_id', 'brand_id', 'brand_name_override',
+        'total_price', 'lazada_item_id',
+    ];
 
     public function attributes()
     {

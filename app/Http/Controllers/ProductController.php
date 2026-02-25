@@ -8,6 +8,8 @@ use App\Models\Catalog\ProductDescription;
 use App\Models\Catalog\ProductToCategory;
 use App\Models\Catalog\ProductImage;
 use App\Rules\UniqueSku;
+use App\Services\ActivityLogger;
+use App\Services\StockHistoryLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -207,6 +209,7 @@ $q = trim((string) $request->get('q', ''));
         ->select(
             'p.product_id',
             'pd.name as name',
+            'p.sku',
             'p.image',
             'p.quantity',
             DB::raw('COALESCE(povsum.options_quantity, 0) as options_quantity'),
@@ -488,6 +491,8 @@ public function store(Request $request)
             'status' => 'required|in:0,1',
             'manufacturer_id' => 'nullable|integer',
             'manufacturer_name' => 'nullable|string|max:255',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
             'description' => 'nullable|string',
@@ -517,15 +522,20 @@ public function store(Request $request)
             (string) $request->input('manufacturer_name', '')
         );
 
-        $resolvedCategoryId = $this->resolveCategoryId(
-            (int) $request->input('category_id', 0),
-            (string) $request->input('category_name', '')
-        );
+        // Multi-category: prefer category_ids[], fall back to single category_id
+        $categoryIds = array_filter(array_map('intval', $request->input('category_ids', [])));
+        if (empty($categoryIds)) {
+            $fallback = $this->resolveCategoryId(
+                (int) $request->input('category_id', 0),
+                (string) $request->input('category_name', '')
+            );
+            if ($fallback > 0) $categoryIds = [$fallback];
+        }
 
         // If options exist, quantity must be forced from option quantities (server-side enforcement).
         $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
 
-        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $resolvedCategoryId, $pfx, $forcedQty) {
+        $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $categoryIds, $pfx, $forcedQty) {
             $p = new Product();
 
             $p->model = $request->model ?? ($request->sku ?? '');
@@ -573,8 +583,7 @@ public function store(Request $request)
                 'meta_keyword' => '',
                 'tag' => '',
             ]);
-$catId = (int) ($resolvedCategoryId ?? 0);
-            if ($catId > 0) {
+            foreach ($categoryIds as $catId) {
                 ProductToCategory::create([
                     'product_id' => $p->product_id,
                     'category_id' => $catId,
@@ -589,14 +598,144 @@ $catId = (int) ($resolvedCategoryId ?? 0);
             if ($request->has('images_json')) {
                 $items = $this->imagesFromRequest($request->input('images_json'));
                 $paths = $this->imagePathsFromItems($items);
-                $this->saveProductImages((int) $id, $paths);
+                $this->saveProductImages((int) $p->product_id, $paths);
             }
 
             return (int) $p->product_id;
         });
 
+        ActivityLogger::log('created', 'Product', $productId, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')');
+
+        // Log initial stock
+        $finalQty = (int) DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->value('quantity');
+        if ($finalQty > 0) {
+            StockHistoryLogger::log(
+                productId: $productId,
+                optionValueId: null,
+                orderId: null,
+                type: 'set',
+                qtyBefore: 0,
+                qtyAfter: $finalQty,
+                source: 'manual',
+                note: "Product created — initial stock $finalQty",
+            );
+        }
+
         return redirect()->route('products.index')
             ->with('status','Product created.');
+    }
+
+    public function salesHistory($id)
+    {
+        $pfx = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        // Get product name
+        $product = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->where('p.product_id', (int) $id)
+            ->select('p.product_id', 'pd.name', 'p.sku')
+            ->first();
+
+        abort_if(!$product, 404);
+
+        $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Get all order_product rows for this product
+        $sales = DB::table($pfx . 'order_product as op')
+            ->join($pfx . 'order as o', 'o.order_id', '=', 'op.order_id')
+            ->where('op.product_id', (int) $id)
+            ->where('o.order_status_id', '>', 0)
+            ->select(
+                'op.order_product_id',
+                'o.order_id',
+                'o.date_added',
+                'op.name',
+                'op.quantity',
+                'op.price',
+                'op.total',
+                'op.cost'
+            )
+            ->orderByDesc('o.date_added')
+            ->paginate(50)
+            ->withQueryString();
+
+        // Get options for these order products
+        $opIds = $sales->pluck('order_product_id')->all();
+        $optionsByOpId = [];
+        if (!empty($opIds)) {
+            $options = DB::table($pfx . 'order_option')
+                ->whereIn('order_product_id', $opIds)
+                ->get(['order_product_id', 'name', 'value']);
+            foreach ($options as $opt) {
+                $optionsByOpId[(int) $opt->order_product_id][] = $opt;
+            }
+        }
+
+        // Compute profitability for each row
+        foreach ($sales as $s) {
+            $s->options = $optionsByOpId[(int) $s->order_product_id] ?? [];
+            $cost = (float) ($s->cost ?? 0) * (int) $s->quantity;
+            $revenue = (float) $s->total;
+            $profit = $revenue - $cost;
+            $s->line_cost = $cost;
+            $s->profit = $profit;
+            $s->margin = $revenue > 0 ? round(($profit / $revenue) * 100, 1) : 0;
+            $s->markup = $cost > 0 ? round(($profit / $cost) * 100, 1) : 0;
+        }
+
+        return view('products.sales', compact('product', 'sales'));
+    }
+
+    public function stockHistory($id)
+    {
+        $pfx = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $product = DB::table($pfx . 'product as p')
+            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->where('p.product_id', (int) $id)
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.quantity')
+            ->first();
+
+        abort_if(!$product, 404);
+
+        $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Get option value names for display
+        $optionValueNames = DB::table($pfx . 'product_option_value as pov')
+            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                    ->where('ovd.language_id', '=', $langId);
+            })
+            ->where('pov.product_id', (int) $id)
+            ->pluck('ovd.name', 'pov.product_option_value_id')
+            ->all();
+
+        $history = DB::table('stock_history')
+            ->where('product_id', (int) $id)
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        // Summaries
+        $totalAdded = DB::table('stock_history')
+            ->where('product_id', (int) $id)
+            ->where('quantity_change', '>', 0)
+            ->sum('quantity_change');
+
+        $totalDeducted = DB::table('stock_history')
+            ->where('product_id', (int) $id)
+            ->where('quantity_change', '<', 0)
+            ->sum('quantity_change');
+
+        return view('products.stock_history', compact('product', 'history', 'optionValueNames', 'totalAdded', 'totalDeducted'));
     }
 
     public function edit($id)
@@ -622,26 +761,33 @@ $catId = (int) ($resolvedCategoryId ?? 0);
         $product->sku = html_entity_decode($product->sku ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
 
-        $currentCategoryId = DB::table($pfx.'product_to_category')
+        // Load all assigned categories for this product
+        $currentCategoryIds = DB::table($pfx.'product_to_category')
             ->where('product_id', (int) $id)
-            ->value('category_id');
+            ->pluck('category_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
 
-        // For display in the category search input
-        $categoryName = null;
-        if ($currentCategoryId) {
-            $categoryName = DB::table($pfx.'category_description')
-                ->where('category_id', (int) $currentCategoryId)
+        $currentCategories = [];
+        if (!empty($currentCategoryIds)) {
+            $currentCategories = DB::table($pfx.'category_description')
+                ->whereIn('category_id', $currentCategoryIds)
                 ->where('language_id', $langId)
-                ->value('name');
+                ->get(['category_id', 'name'])
+                ->map(fn ($c) => ['id' => (int) $c->category_id, 'name' => $c->name])
+                ->all();
         }
+
+        // Backward compat: single category for old references
+        $currentCategoryId = $currentCategoryIds[0] ?? 0;
+        $categoryName = $currentCategories[0]['name'] ?? null;
 
         $manufacturerName = $product->manufacturer_name ?? null;
 
         $allOptions = [];
         $existingOptions = collect();
 
-        if (true) {
-            // Option master list
+        // Option master list
             $allOptions = DB::table($pfx.'option as o')
                 ->join($pfx.'option_description as od', function ($j) use ($langId) {
                     $j->on('o.option_id', '=', 'od.option_id')
@@ -723,7 +869,6 @@ $catId = (int) ($resolvedCategoryId ?? 0);
                 $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $o->values = $existingValuesByPoId[(int)$o->product_option_id] ?? [];
             }
-        }
 
         
         // Images (main + additional)
@@ -750,7 +895,7 @@ $catId = (int) ($resolvedCategoryId ?? 0);
             $returnUrl = route('products.index');
         }
 
-return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages', 'returnUrl'));
+return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages', 'returnUrl'));
     }
 
     public function update(Request $request, $id)
@@ -774,6 +919,8 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             'status' => 'required|in:0,1',
             'manufacturer_id' => 'nullable|integer',
             'manufacturer_name' => 'nullable|string|max:255',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
             'category_name' => 'nullable|string|max:1024',
             'description' => 'nullable|string',
@@ -799,7 +946,13 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         $langId = (int) config('catalog.default_language_id');
 
         $resolvedManufacturerId = $this->resolveManufacturerId($request->manufacturer_id, $request->manufacturer_name);
-        $resolvedCategoryId = $this->resolveCategoryId($request->category_id, $request->category_name);
+
+        // Multi-category: prefer category_ids[], fall back to single category_id
+        $categoryIds = array_filter(array_map('intval', $request->input('category_ids', [])));
+        if (empty($categoryIds)) {
+            $fallback = $this->resolveCategoryId($request->category_id, $request->category_name);
+            if ($fallback > 0) $categoryIds = [$fallback];
+        }
 
         $pfx = config('catalog.prefix');
 
@@ -807,10 +960,13 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
 
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
+        $originalAttrs = null;
+        $updatedAttrs = null;
 
-        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $resolvedCategoryId, $forcedQty, &$skuChanges) {
+        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
             /** @var Product $p */
             $p = Product::where('product_id', (int) $id)->firstOrFail();
+            $originalAttrs = $p->getAttributes();
 
             $oldManufacturerId = (int) ($p->manufacturer_id ?? 0);
 
@@ -845,7 +1001,7 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             }
 
             $p->save();
-
+            $updatedAttrs = $p->getAttributes();
 
             // Manufacturer no longer affects image folders (Option B: product-based folders)
             $oldPrefix = null;
@@ -877,10 +1033,8 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
                 ]
             );
 
-DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
-
-            $catId = (int) ($resolvedCategoryId ?? 0);
-            if ($catId > 0) {
+            DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
+            foreach ($categoryIds as $catId) {
                 ProductToCategory::create([
                     'product_id' => (int) $id,
                     'category_id' => $catId,
@@ -907,6 +1061,29 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
             }
         }
 
+        $changes = $originalAttrs && $updatedAttrs
+            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'manufacturer_id'])
+            : null;
+        ActivityLogger::log('updated', 'Product', (int) $id, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')', $changes);
+
+        // Log stock change if product quantity changed
+        if ($originalAttrs && $updatedAttrs) {
+            $oldQty = (int) ($originalAttrs['quantity'] ?? 0);
+            $newQty = (int) ($updatedAttrs['quantity'] ?? 0);
+            if ($oldQty !== $newQty) {
+                StockHistoryLogger::log(
+                    productId: (int) $id,
+                    optionValueId: null,
+                    orderId: null,
+                    type: 'set',
+                    qtyBefore: $oldQty,
+                    qtyAfter: $newQty,
+                    source: 'manual',
+                    note: "Manual edit — qty $oldQty → $newQty",
+                );
+            }
+        }
+
         $returnUrl = $request->input('_return');
         if ($returnUrl && str_starts_with($returnUrl, url('/'))) {
             return redirect($returnUrl)->with('status', $status);
@@ -919,11 +1096,15 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
     {
         $pfx = config('catalog.prefix');
 
+        $name = DB::table($pfx.'product_description')->where('product_id', (int) $id)->value('name');
+
         DB::transaction(function () use ($id, $pfx) {
             DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
             DB::table($pfx.'product_description')->where('product_id', (int) $id)->delete();
             DB::table($pfx.'product')->where('product_id', (int) $id)->delete();
         });
+
+        ActivityLogger::log('deleted', 'Product', (int) $id, $name);
 
         return redirect()->route('products.index')->with('status','Saved');
     }
@@ -1100,6 +1281,22 @@ DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
                 ];
 
                 if (isset($existingPov[$key])) {
+                    // Log option value quantity change
+                    $oldOvQty = (int) ($existingPov[$key]->quantity ?? 0);
+                    $newOvQty = $data['quantity'];
+                    if ($oldOvQty !== $newOvQty) {
+                        StockHistoryLogger::log(
+                            productId: $productId,
+                            optionValueId: (int) $existingPov[$key]->product_option_value_id,
+                            orderId: null,
+                            type: 'set',
+                            qtyBefore: $oldOvQty,
+                            qtyAfter: $newOvQty,
+                            source: 'manual',
+                            note: "Manual edit (option) — qty $oldOvQty → $newOvQty",
+                        );
+                    }
+
                     // Track SKU changes for marketplace link updates
                     $oldSku = trim((string) ($existingPov[$key]->sku ?? ''));
                     $newSku = $data['sku'];

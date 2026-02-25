@@ -12,6 +12,7 @@ use App\Models\LazadaProductAttribute;
 use App\Models\LazadaProfileAttribute;
 use App\Models\LazadaProductVariant;
 use App\Models\LazadaSetting;
+use App\Services\ActivityLogger;
 use App\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -669,16 +670,18 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Search & filter params
         $q = trim((string) $request->query('q', ''));
-        $lazadaStatus = (string) $request->query('lazada_status', 'all');
-        if (!in_array($lazadaStatus, ['all', 'not_uploaded', 'uploaded', 'deleted'], true)) {
-            $lazadaStatus = 'all';
+        $syncStatus = (string) $request->query('sync_status', 'all');
+        if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted'], true)) {
+            $syncStatus = 'all';
         }
         $profileFilter = $request->query('profile', 'all');
+        $manufacturerFilter = (string) $request->query('manufacturer', 'all');
+        $erpStatus = (string) $request->query('erp_status', 'all');
 
         // Sorting (UI-driven). Keep this strict to avoid injection / unexpected behavior.
         $sort = (string) $request->query('sort', 'id');
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['id', 'product', 'profile', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status'];
+        $allowedSorts = ['id', 'product', 'profile', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status', 'manufacturer'];
         if (!in_array($sort, $allowedSorts, true)) {
             $sort = 'id';
         }
@@ -695,19 +698,18 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
         }
 
-        // Status filter (applied at DB level)
-        if ($lazadaStatus === 'uploaded') {
+        // Sync status filter (applied at DB level)
+        if ($syncStatus === 'uploaded') {
             $query->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '');
-        } elseif ($lazadaStatus === 'deleted') {
+        } elseif ($syncStatus === 'deleted') {
             $query->whereNotNull('lazada_deleted_at');
-        } elseif ($lazadaStatus === 'not_uploaded') {
+        } elseif ($syncStatus === 'not_uploaded') {
             $query->where(function ($qb) {
                 $qb->whereNull('lazada_item_id')->orWhere('lazada_item_id', '=', '');
             })->whereNull('lazada_deleted_at');
         }
 
         // If search query, find matching product IDs first
-        $searchProductIds = null;
         if ($q !== '') {
             $searchProductIds = DB::table($pfx . 'product as p')
                 ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -725,6 +727,30 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $query->whereIn('product_id', $searchProductIds);
         }
 
+        // Manufacturer filter — find matching ERP product IDs, then filter Lazada query
+        if ($manufacturerFilter !== 'all') {
+            $mfgProductIds = DB::table($pfx . 'product')
+                ->where('manufacturer_id', (int) $manufacturerFilter)
+                ->pluck('product_id')
+                ->toArray();
+            $query->whereIn('product_id', $mfgProductIds);
+        }
+
+        // ERP Status filter
+        if ($erpStatus === 'enabled') {
+            $statusProductIds = DB::table($pfx . 'product')
+                ->where('status', 1)
+                ->pluck('product_id')
+                ->toArray();
+            $query->whereIn('product_id', $statusProductIds);
+        } elseif ($erpStatus === 'disabled') {
+            $statusProductIds = DB::table($pfx . 'product')
+                ->where('status', 0)
+                ->pluck('product_id')
+                ->toArray();
+            $query->whereIn('product_id', $statusProductIds);
+        }
+
         // Load Lazada products (sorting by ERP-derived fields is done in-memory below).
         $listings = $query->get();
 
@@ -739,8 +765,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     $j->on('p.product_id', '=', 'pd.product_id')
                         ->where('pd.language_id', '=', $langId);
                 })
+                ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
                 ->whereIn('p.product_id', $productIds)
-                ->get(['p.product_id', 'p.sku', 'p.model', 'p.quantity', 'p.status', 'p.image', 'pd.name']);
+                ->get(['p.product_id', 'p.sku', 'p.model', 'p.quantity', 'p.status', 'p.image', 'pd.name', 'm.name as manufacturer_name']);
 
             $productsById = $rows->keyBy('product_id');
 
@@ -838,6 +865,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 return 0;
             }
 
+            if ($sort === 'manufacturer') {
+                $mfgName = $p ? mb_strtolower(trim((string)($p->manufacturer_name ?? ''))) : '';
+                $isNull = $mfgName === '' ? 1 : 0;
+                return sprintf('%d|%s', $isNull, $mfgName);
+            }
+
             return (int)($l->product_id ?? 0);
         });
 
@@ -862,16 +895,24 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->orderBy('item_name')
             ->get();
 
+        // Manufacturer list for filter dropdown
+        $allManufacturers = DB::table($pfx . 'manufacturer')
+            ->orderBy('name')
+            ->pluck('name', 'manufacturer_id');
+
         return view('lazada.products.index', [
             'listings' => $paged,
             'productsById' => $productsById,
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
             'allProfiles' => $allProfiles,
+            'allManufacturers' => $allManufacturers,
             'sort' => $sort,
             'dir' => $dir,
             'q' => $q,
-            'lazadaStatus' => $lazadaStatus,
+            'syncStatus' => $syncStatus,
+            'manufacturerFilter' => $manufacturerFilter,
+            'erpStatus' => $erpStatus,
             'profileFilter' => $profileFilter,
             'paginator' => $paginator,
             'unmatchedItems' => $unmatchedItems,
@@ -1265,6 +1306,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'user_id' => auth()->id(),
             ]);
         }
+
+        ActivityLogger::log('deleted', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
         return redirect()->to(url()->previous(route('lazada.products.index')))
             ->with('status', $this->formatLazadaResultMessage('Delete (Lazada)', $result));
@@ -2327,6 +2370,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'markup_percent' => $data['markup_percent'] ?? null,
         ]);
 
+        ActivityLogger::log('created', 'Lazada Product', $listing->id, 'ERP #' . (int)$data['product_id']);
+
         return redirect()->route('lazada.products.edit', $listing->id);
     }
 
@@ -2521,6 +2566,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $listing->total_price = self::computeFinalPrice($erpPrice, $fixedMarkup, $percentMarkup);
         $listing->save();
+
+        ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
         return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Listing updated.');
     }

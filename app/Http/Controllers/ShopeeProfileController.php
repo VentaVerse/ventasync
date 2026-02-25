@@ -8,6 +8,7 @@ use App\Models\ShopeeLogistic;
 use App\Models\ShopeeProfile;
 use App\Models\ShopeeProfileAttribute;
 use App\Models\ShopeeSetting;
+use App\Services\ActivityLogger;
 use App\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -154,6 +155,8 @@ class ShopeeProfileController extends Controller
             'markup_percent' => $data['markup_percent'] ?? null,
         ]);
 
+        ActivityLogger::log('created', 'Shopee Profile', $profile->id, $profile->name);
+
         $this->saveProfileAttributes($profile, (array) $request->input('attributes', []));
 
         return redirect()->route('shopee.profiles.edit', $profile->id)
@@ -191,6 +194,8 @@ class ShopeeProfileController extends Controller
             'markup_percent' => $data['markup_percent'] ?? null,
         ]);
 
+        ActivityLogger::log('updated', 'Shopee Profile', $profile->id, $profile->name);
+
         $this->saveProfileAttributes($profile, (array) $request->input('attributes', []));
 
         return redirect()->route('shopee.profiles.edit', $profile->id)
@@ -202,6 +207,8 @@ class ShopeeProfileController extends Controller
         $profile = ShopeeProfile::query()->findOrFail($id);
         $name = $profile->name;
         $profile->delete();
+
+        ActivityLogger::log('deleted', 'Shopee Profile', (int) $id, $name);
 
         return redirect()->route('shopee.profiles.index')
             ->with('status', 'Profile "' . e($name) . '" deleted.');

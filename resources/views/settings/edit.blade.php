@@ -33,6 +33,14 @@
             </div>
 
             <div class="full">
+                <label class="required">Activity Log Retention (days)</label>
+                <input class="input" type="number" name="activity_log_retention_days"
+                       value="{{ old('activity_log_retention_days', $setting->activity_log_retention_days ?? 90) }}"
+                       min="7" max="3650" required style="width:160px;">
+                <div class="hint">Logs older than this many days will be cleared when using "Clear Old Logs" or via the scheduled cleanup.</div>
+            </div>
+
+            <div class="full">
                 <label>Company Logo (optional)</label>
                 <input class="input" type="file" name="logo" accept="image/*" onchange="previewLogo(this, 'logo-preview')">
 

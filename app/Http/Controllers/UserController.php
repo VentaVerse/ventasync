@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Admin\UserGroup;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -43,13 +44,15 @@ class UserController extends Controller
             'user_group_id' => 'required|integer|exists:user_groups,id',
         ]);
 
-        User::create([
+        $user = User::create([
             'name' => $request->name,
             'username' => $request->username,
             'email' => $request->email,
             'user_group_id' => (int) $request->user_group_id,
             'password' => Hash::make($request->password),
         ]);
+
+        ActivityLogger::log('created', 'User', $user->id, $user->name . ' (' . $user->email . ')');
 
         return redirect()->route('users.index')->with('status','User saved');
     }
@@ -74,6 +77,8 @@ class UserController extends Controller
             'password' => 'nullable|string|min:6|confirmed',
         ]);
 
+        $original = $user->getAttributes();
+
         $user->name = $request->name;
         $user->username = $request->username;
         $user->email = $request->email;
@@ -84,6 +89,9 @@ class UserController extends Controller
         }
 
         $user->save();
+
+        $changes = ActivityLogger::diff($original, $user->getAttributes(), ['name', 'username', 'email', 'user_group_id']);
+        ActivityLogger::log('updated', 'User', $user->id, $user->name . ' (' . $user->email . ')', $changes);
 
         return redirect()->route('users.index')->with('status','User updated');
     }
@@ -105,9 +113,10 @@ class UserController extends Controller
                 ->with('error', 'Administrator accounts cannot be deleted. Change the user group first if you need to remove access.');
         }
 
+        $userName = $user->name;
         $user->delete();
 
-
+        ActivityLogger::log('deleted', 'User', (int) $id, $userName);
 
         return redirect()->route('users.index')->with('status','User deleted');
     }

@@ -12,11 +12,22 @@ use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\OpenCartSetting;
 use App\Models\ShopeeOrder;
+use App\Services\ActivityLogger;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class OrderController extends Controller
 {
+    private function currentUser(): array
+    {
+        $user = Auth::user();
+        return [
+            'user_id'   => $user?->id,
+            'user_name' => $user ? ($user->name ?? $user->username ?? 'User #' . $user->id) : null,
+        ];
+    }
+
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
@@ -28,7 +39,7 @@ class OrderController extends Controller
         $dir = $request->get('dir') === 'asc' ? 'asc' : 'desc';
 
         $orders = Order::query()
-            ->with('products')
+            ->with(['products', 'latestHistory'])
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('firstname', 'like', '%' . $q . '%')
@@ -74,7 +85,7 @@ class OrderController extends Controller
         $dir = $request->get('dir') === 'asc' ? 'asc' : 'desc';
 
         $orders = Order::query()
-            ->with('products')
+            ->with(['products', 'latestHistory'])
             ->where('marketplace_source', 'opencart:' . $store)
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
@@ -208,16 +219,18 @@ class OrderController extends Controller
         ]);
 
         // Add initial history entry
-        OrderHistory::create([
+        OrderHistory::create(array_merge($this->currentUser(), [
             'order_id'        => $order->order_id,
             'order_status_id' => $request->order_status_id,
             'notify'          => 0,
             'comment'         => $request->comment ?? '',
             'date_added'      => $now,
-        ]);
+        ]));
 
         // Adjust stock based on new status
         OrderStockService::adjustStock($order, 0, (int) $request->order_status_id);
+
+        ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
         return redirect()->route('orders.index')->with('status', 'Order created.');
     }
@@ -258,17 +271,27 @@ class OrderController extends Controller
             'date_modified'   => now(),
         ]);
 
-        OrderHistory::create([
+        OrderHistory::create(array_merge($this->currentUser(), [
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
             'comment'         => $request->comment ?? '',
             'date_added'      => now(),
-        ]);
+        ]));
 
         if ($oldStatusId !== $newStatusId) {
             OrderStockService::adjustStock($order, $oldStatusId, $newStatusId);
         }
+
+        $oldStatusName = OrderStatus::where('order_status_id', $oldStatusId)->value('name') ?? $oldStatusId;
+        $newStatusName = OrderStatus::where('order_status_id', $newStatusId)->value('name') ?? $newStatusId;
+        ActivityLogger::log(
+            'updated',
+            'Order',
+            (int) $order->order_id,
+            '#' . $order->order_id . ' ' . trim($order->firstname . ' ' . $order->lastname),
+            ['status' => [(string) $oldStatusName, (string) $newStatusName]]
+        );
 
         return redirect()->route('orders.show', $id)->with('status', 'Order status updated.');
     }
@@ -302,6 +325,7 @@ class OrderController extends Controller
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
         $oldStatusId = $order->order_status_id;
+        $original = $order->getAttributes();
 
         $order->update([
             'firstname'          => $request->firstname,
@@ -337,17 +361,23 @@ class OrderController extends Controller
 
         // Add history entry if status changed
         if ((int) $oldStatusId !== (int) $request->order_status_id) {
-            OrderHistory::create([
+            OrderHistory::create(array_merge($this->currentUser(), [
                 'order_id'        => $order->order_id,
                 'order_status_id' => (int) $request->order_status_id,
                 'notify'          => 0,
                 'comment'         => $request->history_comment ?? '',
                 'date_added'      => now(),
-            ]);
+            ]));
 
             // Adjust stock based on status transition
             OrderStockService::adjustStock($order, (int) $oldStatusId, (int) $request->order_status_id);
         }
+
+        $changes = ActivityLogger::diff($original, $order->getAttributes(), [
+            'firstname', 'lastname', 'email', 'telephone', 'total',
+            'order_status_id', 'tracking_number', 'payment_method', 'shipping_method',
+        ]);
+        ActivityLogger::log('updated', 'Order', (int) $id, '#' . $id . ' ' . trim($request->firstname . ' ' . ($request->lastname ?? '')), $changes);
 
         return redirect()->route('orders.edit', $id)->with('status', 'Order updated.');
     }
@@ -357,6 +387,8 @@ class OrderController extends Controller
         $orderId = (int) $id;
         Order::where('order_id', $orderId)->delete();
         OrderHistory::where('order_id', $orderId)->delete();
+
+        ActivityLogger::log('deleted', 'Order', $orderId, '#' . $orderId);
 
         return redirect()->route('orders.index')->with('status', 'Order deleted.');
     }
@@ -375,6 +407,10 @@ class OrderController extends Controller
 
         Order::whereIn('order_id', $ids)->delete();
         OrderHistory::whereIn('order_id', $ids)->delete();
+
+        foreach ($ids as $orderId) {
+            ActivityLogger::log('deleted', 'Order', $orderId, '#' . $orderId);
+        }
 
         return redirect()->route('orders.index')->with('status', 'Deleted selected orders.');
     }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Permission extends Model
 {
     public $timestamps = false;
-    protected $fillable = ['key','label'];
+    protected $fillable = ['key','label','description'];
 
     public function userGroups()
     {

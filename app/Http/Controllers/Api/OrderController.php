@@ -6,8 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
+use App\Models\Catalog\Product;
+use App\Models\OpenCartSetting;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class OrderController extends Controller
 {
@@ -47,7 +52,9 @@ class OrderController extends Controller
             ->orderBy($sort, $dir)
             ->paginate(25);
 
-        $orders->getCollection()->transform(function ($order) {
+        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+
+        $orders->getCollection()->transform(function ($order) use ($ocStoreNames) {
             return [
                 'order_id'             => $order->order_id,
                 'firstname'            => $order->firstname,
@@ -59,7 +66,7 @@ class OrderController extends Controller
                 'order_status_id'      => (int) $order->order_status_id,
                 'status_name'          => $order->status->name ?? '',
                 'date_added'           => $order->date_added,
-                'marketplace_source'   => $order->marketplace_source ?? '',
+                'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
             ];
         });
@@ -76,6 +83,11 @@ class OrderController extends Controller
             ->with('status')
             ->orderByDesc('date_added')
             ->get();
+
+        // Resolve product images from catalog
+        $productImages = $this->resolveProductImages($products);
+
+        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
 
         return response()->json([
             'order' => [
@@ -96,10 +108,10 @@ class OrderController extends Controller
                 'tracking_number'    => $order->tracking_number ?? '',
                 'date_added'         => $order->date_added,
                 'date_modified'      => $order->date_modified,
-                'marketplace_source'   => $order->marketplace_source ?? '',
+                'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
             ],
-            'products' => $products->map(function ($p) {
+            'products' => $products->map(function ($p) use ($productImages) {
                 return [
                     'order_product_id' => $p->order_product_id,
                     'name'     => $p->name,
@@ -107,6 +119,7 @@ class OrderController extends Controller
                     'quantity' => (int) $p->quantity,
                     'price'    => (float) $p->price,
                     'total'    => (float) $p->total,
+                    'image'    => $productImages[$p->order_product_id] ?? null,
                     'options'  => $p->options->map(fn ($o) => [
                         'name'  => $o->name,
                         'value' => $o->value,
@@ -143,12 +156,15 @@ class OrderController extends Controller
             'date_modified'   => now(),
         ]);
 
+        $user = Auth::user();
         OrderHistory::create([
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
             'comment'         => $request->comment ?? '',
             'date_added'      => now(),
+            'user_id'         => $user?->id,
+            'user_name'       => $user ? ($user->name ?? $user->username ?? 'User #' . $user->id) : 'API',
         ]);
 
         if ($oldStatusId !== $newStatusId) {
@@ -167,7 +183,25 @@ class OrderController extends Controller
 
         $count = Order::whereIn('order_status_id', $pendingStatuses)->count();
 
-        return response()->json(['count' => $count]);
+        $lazadaPending = 0;
+        if (Schema::hasTable('lazada_orders')) {
+            $lazadaPending = DB::table('lazada_orders')
+                ->whereIn('status', ['pending', 'repacked'])
+                ->count();
+        }
+
+        $shopeePending = 0;
+        if (Schema::hasTable('shopee_orders')) {
+            $shopeePending = DB::table('shopee_orders')
+                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
+                ->count();
+        }
+
+        return response()->json([
+            'count'          => $count,
+            'lazada_pending' => $lazadaPending,
+            'shopee_pending' => $shopeePending,
+        ]);
     }
 
     public function statuses()
@@ -176,5 +210,51 @@ class OrderController extends Controller
             ->get(['order_status_id', 'name']);
 
         return response()->json($statuses);
+    }
+
+    /**
+     * Resolve "opencart:1" → "Store Name" or return the source as-is.
+     */
+    private static function resolveSourceLabel(string $source, array $ocStoreNames): string
+    {
+        if (preg_match('/^opencart:(\d+)$/', $source, $m)) {
+            return $ocStoreNames[(int) $m[1]] ?? 'OpenCart';
+        }
+
+        return $source;
+    }
+
+    /**
+     * Build order_product_id → full image URL map.
+     */
+    private function resolveProductImages($orderProducts): array
+    {
+        $productIds = $orderProducts
+            ->filter(fn ($p) => $p->product_id > 0)
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if (empty($productIds)) {
+            return [];
+        }
+
+        $images = Product::whereIn('product_id', $productIds)
+            ->pluck('image', 'product_id')
+            ->toArray();
+
+        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
+        $prefix = config('catalog.image_prefix', 'image');
+
+        $result = [];
+        foreach ($orderProducts as $op) {
+            $pid = $op->product_id;
+            if ($pid > 0 && isset($images[$pid]) && trim($images[$pid]) !== '') {
+                $result[$op->order_product_id] = $base . '/' . $prefix . '/' . ltrim($images[$pid], '/');
+            }
+        }
+
+        return $result;
     }
 }

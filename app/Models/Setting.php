@@ -12,6 +12,7 @@ class Setting extends Model
         'timezone',
         'logo_path',
         'software_logo_path',
+        'activity_log_retention_days',
     ];
 
     public static function singleton(): self

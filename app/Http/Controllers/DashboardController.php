@@ -105,6 +105,9 @@ class DashboardController extends Controller
             ->limit(10)
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.marketplace_source']);
 
+        // OpenCart store names for display
+        $ocStoreNames = DB::table('opencart_settings')->pluck('store_name', 'id')->all();
+
         // --- OpenCart sync status per store ---
         $syncStatuses = DB::table('opencart_settings as s')
             ->where('s.enabled', true)
@@ -143,6 +146,7 @@ class DashboardController extends Controller
                     'order_sync_at' => $lzSetting->last_order_sync_at,
                     'push_stock_at' => $lzSetting->last_stock_push_at,
                     'return_sync_at' => $lzSetting->last_return_sync_at,
+                    'expires_at'    => $lzSetting->expires_at,
                 ];
             }
         }
@@ -157,6 +161,17 @@ class DashboardController extends Controller
                     'push_stock_at' => $spSetting->last_stock_push_at,
                     'return_sync_at' => $spSetting->last_return_sync_at,
                     'expires_at'    => $spSetting->expires_at,
+                ];
+            }
+        }
+
+        // --- TikTok sync status ---
+        $tiktokSyncStatus = null;
+        if (Schema::hasTable('tiktok_settings')) {
+            $ttSetting = \App\Models\TikTokSetting::query()->first();
+            if ($ttSetting) {
+                $tiktokSyncStatus = (object) [
+                    'expires_at' => $ttSetting->expires_at,
                 ];
             }
         }
@@ -189,9 +204,11 @@ class DashboardController extends Controller
             'chartRevenue' => $chartRevenue,
             'chartOrders' => $chartOrders,
             'recentOrders' => $recentOrders,
+            'ocStoreNames' => $ocStoreNames,
             'syncStatuses' => $syncStatuses,
             'lazadaSyncStatus' => $lazadaSyncStatus,
             'shopeeSyncStatus' => $shopeeSyncStatus,
+            'tiktokSyncStatus' => $tiktokSyncStatus,
             'greeting' => $greeting,
         ]);
     }

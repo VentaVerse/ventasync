@@ -18,6 +18,8 @@ class User extends Authenticatable
         'email',
         'user_group_id',
         'password',
+        'last_login_at',
+        'last_login_ip',
     ];
 
     protected $hidden = [
@@ -27,6 +29,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_login_at' => 'datetime',
         'password' => 'hashed',
     ];
 
@@ -42,9 +45,9 @@ class User extends Authenticatable
      */
     public const PERMISSION_GROUPS = [
         'manage_catalog' => ['manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options'],
-        'manage_sales' => ['manage_orders', 'manage_order_statuses'],
-        'manage_marketplace_api' => ['manage_shopee', 'manage_lazada', 'manage_opencart', 'manage_shopee_orders', 'manage_lazada_orders', 'manage_opencart_orders'],
-        'manage_settings' => ['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log'],
+        'manage_sales' => ['manage_orders', 'manage_order_statuses', 'manage_reports'],
+        'manage_marketplace_api' => ['manage_shopee', 'manage_lazada', 'manage_opencart', 'manage_tiktok', 'manage_shopee_orders', 'manage_lazada_orders', 'manage_opencart_orders'],
+        'manage_settings' => ['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log', 'manage_activity_log'],
     ];
 
     public function hasPermission(string $key): bool

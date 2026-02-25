@@ -7,6 +7,7 @@ use App\Models\LazadaApiLog;
 use App\Models\LazadaOrder;
 use App\Models\LazadaOrderProduct;
 use App\Models\LazadaReverseOrder;
+use App\Services\ActivityLogger;
 use App\Services\Lazada\LazadaClient;
 use App\Services\LazadaCatalogOrderSync;
 use Illuminate\Http\Request;
@@ -89,7 +90,7 @@ class LazadaOrderController extends Controller
             'UNPAID'          => ['unpaid'],
             'TO_SHIP'         => ['pending', 'repacked', 'packed', 'ready_to_ship'],
             'SHIPPING'        => ['shipped'],
-            'DELIVERED'       => ['delivered'],
+            'DELIVERED'       => ['delivered', 'confirmed'],
             'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl'],
             'CANCELLATION'    => ['canceled', 'cancelled'],
         ];
@@ -1353,6 +1354,8 @@ class LazadaOrderController extends Controller
             if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
         } catch (\Throwable $e) {}
 
+        ActivityLogger::log('updated', 'Lazada Order', null, 'Cancel #' . $orderId);
+
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => 'Order cancellation submitted to Lazada.',
@@ -1823,6 +1826,9 @@ return redirect()->route('lazada.orders.index', $redirectParams)
             ? 'Orders are already up to date.'
             : 'Orders updated. Updated ' . $updated . ($skipped ? (', skipped ' . $skipped . ' not-yet-synced order(s). Use Fetch Orders to add them.') : '.') ;
 
+	    $count = $updated + $skipped;
+	    ActivityLogger::log('updated', 'Lazada Order', null, 'Synced statuses for ' . $count . ' order(s)');
+
 	    return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
 	        'ok' => true,
 	        'message' => $message,
@@ -1857,10 +1863,14 @@ public function reset(Request $request)
     }
 
     try {
+        $count = LazadaOrder::query()->where('region', $setting->region)->count();
+
         \DB::transaction(function () use ($setting) {
             // Delete orders by region; products are deleted via FK cascade.
             LazadaOrder::query()->where('region', $setting->region)->delete();
         });
+
+        ActivityLogger::log('deleted', 'Lazada Order', null, 'Reset ' . $count . ' Lazada order(s)');
 
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,

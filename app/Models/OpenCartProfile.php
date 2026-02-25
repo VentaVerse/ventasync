@@ -8,7 +8,7 @@ class OpenCartProfile extends Model
 {
     protected $table = 'opencart_profiles';
 
-    protected $guarded = [];
+    protected $fillable = ['opencart_setting_id', 'name', 'catalog_category_ids', 'manufacturer_ids'];
 
     protected $casts = [
         'catalog_category_ids' => 'array',

@@ -8,5 +8,5 @@ class LazadaProfileAttribute extends Model
 {
     protected $table = 'lazada_profile_attributes';
 
-    protected $guarded = [];
+    protected $fillable = ['lazada_profile_id', 'attribute_key', 'value'];
 }

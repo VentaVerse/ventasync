@@ -8,7 +8,7 @@ class ShopeeCategoryTemplate extends Model
 {
     protected $table = 'shopee_category_templates';
 
-    protected $guarded = [];
+    protected $fillable = ['category_id', 'region', 'attributes', 'fetched_at'];
 
     protected $casts = [
         'attributes' => 'array',

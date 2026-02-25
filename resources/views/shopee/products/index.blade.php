@@ -95,22 +95,49 @@
 
     {{-- Filter toolbar --}}
     <div class="card mb-12">
-        <form method="GET" action="{{ route('shopee.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:end;">
+        <form method="GET" action="{{ route('shopee.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto auto auto auto; gap:10px; align-items:end;">
             <div>
                 <label class="text-xs text-muted">Search</label>
-                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Product name or SKU...">
+                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Name, model or SKU...">
             </div>
             <div>
-                <label class="text-xs text-muted">Shopee Status</label>
-                <select name="shopee_status" class="input">
-                    <option value="all" {{ ($shopeeStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
-                    <option value="listed" {{ ($shopeeStatus ?? '') === 'listed' ? 'selected' : '' }}>Listed</option>
-                    <option value="not_listed" {{ ($shopeeStatus ?? '') === 'not_listed' ? 'selected' : '' }}>Not Listed</option>
+                <label class="text-xs text-muted">Manufacturer</label>
+                <select name="manufacturer" class="input">
+                    <option value="all">All Manufacturers</option>
+                    @foreach(($allManufacturers ?? collect()) as $mId => $mName)
+                        <option value="{{ $mId }}" {{ (string)($manufacturerFilter ?? '') === (string)$mId ? 'selected' : '' }}>{{ $mName }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted">Profile</label>
+                <select name="profile" class="input">
+                    <option value="all" {{ ($profileFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Profiles</option>
+                    <option value="none" {{ ($profileFilter ?? '') === 'none' ? 'selected' : '' }}>No Profile</option>
+                    @foreach(($allProfiles ?? collect()) as $pId => $pName)
+                        <option value="{{ $pId }}" {{ (string)($profileFilter ?? '') === (string)$pId ? 'selected' : '' }}>{{ $pName }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted">ERP Status</label>
+                <select name="erp_status" class="input">
+                    <option value="all" {{ ($erpStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+                    <option value="enabled" {{ ($erpStatus ?? '') === 'enabled' ? 'selected' : '' }}>Enabled</option>
+                    <option value="disabled" {{ ($erpStatus ?? '') === 'disabled' ? 'selected' : '' }}>Disabled</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-muted">Sync Status</label>
+                <select name="sync_status" class="input">
+                    <option value="all" {{ ($syncStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+                    <option value="listed" {{ ($syncStatus ?? '') === 'listed' ? 'selected' : '' }}>Listed</option>
+                    <option value="not_listed" {{ ($syncStatus ?? '') === 'not_listed' ? 'selected' : '' }}>Not Listed</option>
                 </select>
             </div>
             <div class="d-flex gap-6">
                 <button type="submit" class="btn small">Filter</button>
-                @if(($q ?? '') !== '' || ($shopeeStatus ?? 'all') !== 'all')
+                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
                     <a href="{{ route('shopee.products.index') }}" class="btn small secondary">Clear</a>
                 @endif
             </div>
@@ -142,15 +169,17 @@
                 <thead>
                 <tr>
                     <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
+                    <th style="width:60px;">ID</th>
                     <th style="width:56px;">Image</th>
-                    <th>Name</th>
-                    <th>Model / SKU</th>
-                    <th style="width:70px;">Price</th>
-                    <th style="width:60px;">Stock</th>
+                    <th>Product Name</th>
+                    <th>SKU</th>
                     <th>Manufacturer</th>
-                    <th>Shopee Item ID</th>
-                    <th style="width:120px;">Shopee Status</th>
-                    <th style="width:140px;">Sync</th>
+                    <th style="width:120px;">Profile</th>
+                    <th style="width:60px;">Stock</th>
+                    <th>Shopee ID</th>
+                    <th style="width:90px;">ERP Status</th>
+                    <th style="width:100px;">Sync Status</th>
+                    <th style="width:160px;">Error</th>
                     <th style="width:50px;"></th>
                 </tr>
                 </thead>
@@ -159,9 +188,11 @@
                     @php
                         $links = $shopeeLinks->get($p->product_id, collect());
                         $link = $links->first();
+                        $pProfiles = isset($profilesByProductId) ? ($profilesByProductId[$p->product_id] ?? []) : [];
                     @endphp
                     <tr>
                         <td><input type="checkbox" class="row-check" value="{{ $p->product_id }}"></td>
+                        <td>{{ $p->product_id }}</td>
                         <td>
                             @if($p->image)
                                 <img src="{{ asset('storage/' . ltrim($p->image, '/')) }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;">
@@ -190,20 +221,28 @@
                                 </div>
                             @endif
                         </td>
+                        <td><code>{{ $p->sku ?: '-' }}</code></td>
+                        <td>{{ $p->manufacturer_name ?? '-' }}</td>
                         <td>
-                            <code>{{ $p->model ?: '-' }}</code>
-                            @if($p->sku && $p->sku !== $p->model)
-                                <div class="text-xs text-muted" style="margin-top:2px;">{{ $p->sku }}</div>
+                            @if(count($pProfiles) > 0)
+                                <span class="text-xs">{{ $pProfiles[0] }}@if(count($pProfiles) > 1) <span class="text-muted">(+{{ count($pProfiles) - 1 }})</span>@endif</span>
+                            @else
+                                <span class="text-muted">-</span>
                             @endif
                         </td>
-                        <td>{{ number_format((float)$p->price, 2) }}</td>
                         <td>{{ (int)$p->quantity }}</td>
-                        <td>{{ $p->manufacturer_name ?? '-' }}</td>
                         <td>
                             @if($link)
                                 <code class="text-xs">{{ $link->shopee_item_id }}</code>
                             @else
                                 <span class="text-muted">-</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if((int)$p->status === 1)
+                                <span class="badge badge-green">Enabled</span>
+                            @else
+                                <span class="badge badge-red">Disabled</span>
                             @endif
                         </td>
                         <td>
@@ -214,25 +253,21 @@
                             @endif
                         </td>
                         <td>
-                            @if(!$link || is_null($link->last_sync_ok))
-                                <span class="text-muted">-</span>
-                            @else
-                                <div style="line-height:1.4;">
-                                    @if(!$link->last_sync_ok)
-                                        <span class="badge badge-red">Err</span>
-                                        @if($link->last_sync_error_code || $link->last_sync_error_message)
-                                            <div class="text-xs" style="margin-top:3px; color:var(--danger); word-break:break-word;">{{ $link->last_sync_error_code }}@if($link->last_sync_error_message): {{ Str::limit($link->last_sync_error_message, 60) }}@endif</div>
-                                        @endif
-                                    @else
-                                        <span class="badge badge-green">OK</span>
-                                    @endif
-                                    @if($link->last_sync_action)
-                                        <div class="text-xs text-muted" style="margin-top:2px;">{{ $link->last_sync_action }}</div>
-                                    @endif
-                                    @if($link->last_synced_at)
-                                        <div class="text-xs text-muted" style="margin-top:1px;">{{ $link->last_synced_at->diffForHumans() }}</div>
-                                    @endif
+                            @if($link && !is_null($link->last_sync_ok) && !$link->last_sync_ok)
+                                <div class="text-xs" style="color:var(--danger); word-break:break-word; line-height:1.4;">
+                                    @if($link->last_sync_error_code)<strong>{{ $link->last_sync_error_code }}</strong>@endif
+                                    @if($link->last_sync_error_message){{ $link->last_sync_error_code ? ': ' : '' }}{{ Str::limit($link->last_sync_error_message, 80) }}@endif
                                 </div>
+                                @if($link->last_synced_at)
+                                    <div class="text-xs text-muted" style="margin-top:2px;">{{ $link->last_synced_at->diffForHumans() }}</div>
+                                @endif
+                            @elseif($link && $link->last_sync_ok)
+                                <span class="badge badge-green">OK</span>
+                                @if($link->last_synced_at)
+                                    <div class="text-xs text-muted" style="margin-top:2px;">{{ $link->last_synced_at->diffForHumans() }}</div>
+                                @endif
+                            @else
+                                <span class="text-muted">-</span>
                             @endif
                         </td>
                         <td>
@@ -290,7 +325,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="11" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
+                        <td colspan="13" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
                     </tr>
                 @endforelse
                 </tbody>

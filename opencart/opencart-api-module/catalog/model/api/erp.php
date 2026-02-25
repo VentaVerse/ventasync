@@ -13,6 +13,9 @@ class ModelApiErp extends Model
         $sql = "SELECT COUNT(*) AS total FROM " . DB_PREFIX . "product p";
 
         $where = [];
+        if (!empty($filter['product_id'])) {
+            $where[] = "p.product_id = '" . (int)$filter['product_id'] . "'";
+        }
         if (!empty($filter['modified_since'])) {
             $where[] = "p.date_modified >= '" . $this->db->escape($filter['modified_since']) . "'";
         }
@@ -40,6 +43,9 @@ class ModelApiErp extends Model
                     ON p.product_id = pd.product_id AND pd.language_id = '" . (int)$this->config->get('config_language_id') . "'";
 
         $where = [];
+        if (!empty($filter['product_id'])) {
+            $where[] = "p.product_id = '" . (int)$filter['product_id'] . "'";
+        }
         if (!empty($filter['modified_since'])) {
             $where[] = "p.date_modified >= '" . $this->db->escape($filter['modified_since']) . "'";
         }
@@ -139,6 +145,9 @@ class ModelApiErp extends Model
         if (!empty($filter['modified_since'])) {
             $sql .= " AND o.date_modified >= '" . $this->db->escape($filter['modified_since']) . "'";
         }
+        if (!empty($filter['modified_before'])) {
+            $sql .= " AND o.date_modified <= '" . $this->db->escape($filter['modified_before']) . "'";
+        }
 
         $result = $this->db->query($sql);
         return (int)$result->row['total'];
@@ -170,6 +179,9 @@ class ModelApiErp extends Model
                        o.language_id, o.currency_id, o.currency_code, o.currency_value,
                        o.ip, o.forwarded_ip, o.user_agent, o.accept_language,
                        o.date_added, o.date_modified,
+                       COALESCE(o.shipping_cost, 0) AS shipping_cost,
+                       COALESCE(o.payment_cost, 0) AS payment_cost,
+                       COALESCE(o.extra_cost, 0) AS extra_cost,
                        os.name AS order_status_name
                 FROM " . DB_PREFIX . "order o
                 LEFT JOIN " . DB_PREFIX . "order_status os
@@ -179,6 +191,9 @@ class ModelApiErp extends Model
 
         if (!empty($filter['modified_since'])) {
             $sql .= " AND o.date_modified >= '" . $this->db->escape($filter['modified_since']) . "'";
+        }
+        if (!empty($filter['modified_before'])) {
+            $sql .= " AND o.date_modified <= '" . $this->db->escape($filter['modified_before']) . "'";
         }
 
         $sql .= " ORDER BY o.date_modified ASC";
@@ -287,6 +302,21 @@ class ModelApiErp extends Model
         return $result->rows;
     }
 
+    // ─── Order Statuses ───────────────────────────────────────
+
+    public function getOrderStatuses()
+    {
+        $langId = (int)$this->config->get('config_language_id');
+
+        $result = $this->db->query(
+            "SELECT os.order_status_id, os.name
+             FROM " . DB_PREFIX . "order_status os
+             WHERE os.language_id = '" . $langId . "'
+             ORDER BY os.order_status_id ASC"
+        );
+        return $result->rows;
+    }
+
     // ─── Options ──────────────────────────────────────────────
 
     public function getOptions()
@@ -360,6 +390,7 @@ class ModelApiErp extends Model
                 manufacturer_id = '" . (int)$manufacturerId . "',
                 shipping = '" . (int)($data['shipping'] ?? 1) . "',
                 price = '" . (float)($data['price'] ?? 0) . "',
+                cost = '" . (float)($data['cost'] ?? 0) . "',
                 points = '" . (int)($data['points'] ?? 0) . "',
                 tax_class_id = '" . (int)($data['tax_class_id'] ?? 0) . "',
                 date_available = '" . $this->db->escape($data['date_available'] ?? date('Y-m-d')) . "',
@@ -379,6 +410,25 @@ class ModelApiErp extends Model
         );
 
         $productId = (int)$this->db->getLastId();
+
+        // Upsert ADV Profit product_cost table
+        if (isset($data['cost_amount']) || isset($data['cost_percentage']) || isset($data['cost_additional'])) {
+            $this->db->query(
+                "INSERT INTO " . DB_PREFIX . "product_cost SET
+                    product_id = '" . $productId . "',
+                    cost = '" . (float)($data['cost'] ?? 0) . "',
+                    cost_amount = '" . (float)($data['cost_amount'] ?? 0) . "',
+                    cost_percentage = '" . (float)($data['cost_percentage'] ?? 0) . "',
+                    cost_additional = '" . (float)($data['cost_additional'] ?? 0) . "',
+                    costing_method = '0',
+                    supplier_id = '0'
+                 ON DUPLICATE KEY UPDATE
+                    cost = VALUES(cost),
+                    cost_amount = VALUES(cost_amount),
+                    cost_percentage = VALUES(cost_percentage),
+                    cost_additional = VALUES(cost_additional)"
+            );
+        }
 
         // Insert product description
         $this->db->query(
@@ -488,6 +538,26 @@ class ModelApiErp extends Model
                                 weight = '" . (float)($val['weight'] ?? 0) . "',
                                 weight_prefix = '" . $this->db->escape($val['weight_prefix'] ?? '+') . "'"
                         );
+
+                        // Upsert ADV Profit product_option_cost
+                        $povId = (int)$this->db->getLastId();
+                        if (isset($val['cost_amount']) || isset($val['cost_percentage']) || isset($val['cost_additional'])) {
+                            $this->db->query(
+                                "INSERT INTO " . DB_PREFIX . "product_option_cost SET
+                                    product_option_value_id = '" . $povId . "',
+                                    product_id = '" . $productId . "',
+                                    cost = '" . (float)($val['cost'] ?? 0) . "',
+                                    cost_amount = '" . (float)($val['cost_amount'] ?? 0) . "',
+                                    cost_prefix = '" . $this->db->escape($val['cost_prefix'] ?? '+') . "',
+                                    costing_method = '0',
+                                    sku = '" . $this->db->escape($val['sku'] ?? '') . "'
+                                 ON DUPLICATE KEY UPDATE
+                                    cost = VALUES(cost),
+                                    cost_amount = VALUES(cost_amount),
+                                    cost_prefix = VALUES(cost_prefix),
+                                    sku = VALUES(sku)"
+                            );
+                        }
                     }
                 }
             }
@@ -783,6 +853,9 @@ class ModelApiErp extends Model
         if (array_key_exists('price', $data)) {
             $sets[] = "price = '" . (float)$data['price'] . "'";
         }
+        if (array_key_exists('cost', $data)) {
+            $sets[] = "cost = '" . (float)$data['cost'] . "'";
+        }
         if (array_key_exists('status', $data)) {
             $sets[] = "status = '" . (int)$data['status'] . "'";
         }
@@ -804,6 +877,25 @@ class ModelApiErp extends Model
             $this->db->query(
                 "UPDATE " . DB_PREFIX . "product SET " . implode(', ', $sets) .
                 " WHERE product_id = '" . (int)$product_id . "'"
+            );
+        }
+
+        // Upsert ADV Profit product_cost table
+        if (array_key_exists('cost_amount', $data) || array_key_exists('cost_percentage', $data) || array_key_exists('cost_additional', $data)) {
+            $this->db->query(
+                "INSERT INTO " . DB_PREFIX . "product_cost SET
+                    product_id = '" . (int)$product_id . "',
+                    cost = '" . (float)($data['cost'] ?? 0) . "',
+                    cost_amount = '" . (float)($data['cost_amount'] ?? 0) . "',
+                    cost_percentage = '" . (float)($data['cost_percentage'] ?? 0) . "',
+                    cost_additional = '" . (float)($data['cost_additional'] ?? 0) . "',
+                    costing_method = '0',
+                    supplier_id = '0'
+                 ON DUPLICATE KEY UPDATE
+                    cost = VALUES(cost),
+                    cost_amount = VALUES(cost_amount),
+                    cost_percentage = VALUES(cost_percentage),
+                    cost_additional = VALUES(cost_additional)"
             );
         }
 
@@ -833,10 +925,43 @@ class ModelApiErp extends Model
             );
         }
 
-        // Update option value quantities if provided
+        // Update option value quantities if provided (legacy simple format)
         if (isset($data['option_values']) && is_array($data['option_values'])) {
+            $langId = (int)$this->config->get('config_language_id');
+
             foreach ($data['option_values'] as $ov) {
                 $povId = isset($ov['product_option_value_id']) ? (int)$ov['product_option_value_id'] : 0;
+
+                // Try matching by SKU
+                if ($povId <= 0 && !empty($ov['sku'])) {
+                    $skuLookup = $this->db->query(
+                        "SELECT product_option_value_id FROM " . DB_PREFIX . "product_option_value
+                         WHERE product_id = '" . (int)$product_id . "'
+                           AND sku = '" . $this->db->escape($ov['sku']) . "'
+                         LIMIT 1"
+                    );
+                    if ($skuLookup->num_rows) {
+                        $povId = (int)$skuLookup->row['product_option_value_id'];
+                    }
+                }
+
+                // Try matching by option value name
+                if ($povId <= 0 && !empty($ov['name'])) {
+                    $nameLookup = $this->db->query(
+                        "SELECT pov.product_option_value_id
+                         FROM " . DB_PREFIX . "product_option_value pov
+                         INNER JOIN " . DB_PREFIX . "option_value_description ovd
+                            ON pov.option_value_id = ovd.option_value_id
+                            AND ovd.language_id = '" . $langId . "'
+                         WHERE pov.product_id = '" . (int)$product_id . "'
+                           AND ovd.name = '" . $this->db->escape($ov['name']) . "'
+                         LIMIT 1"
+                    );
+                    if ($nameLookup->num_rows) {
+                        $povId = (int)$nameLookup->row['product_option_value_id'];
+                    }
+                }
+
                 if ($povId <= 0) continue;
 
                 $ovSets = [];
@@ -846,15 +971,213 @@ class ModelApiErp extends Model
                 if (array_key_exists('price', $ov)) {
                     $ovSets[] = "price = '" . (float)$ov['price'] . "'";
                 }
-                if (array_key_exists('sku', $ov)) {
-                    $ovSets[] = "sku = '" . $this->db->escape($ov['sku']) . "'";
-                }
 
                 if (!empty($ovSets)) {
                     $this->db->query(
                         "UPDATE " . DB_PREFIX . "product_option_value SET " . implode(', ', $ovSets) .
                         " WHERE product_option_value_id = '" . $povId . "'
                           AND product_id = '" . (int)$product_id . "'"
+                    );
+                }
+            }
+        }
+
+        // Full options upsert — handles adding new options/values and updating existing ones.
+        // Uses the same format as createProduct(): options[]{option_name, type, required, values[]{name, sku, ...}}
+        if (isset($data['options']) && is_array($data['options'])) {
+            $langId = (int)$this->config->get('config_language_id');
+
+            // Index existing product_option rows by option_id
+            $existingPo = $this->db->query(
+                "SELECT po.product_option_id, po.option_id, od.name AS option_name
+                 FROM " . DB_PREFIX . "product_option po
+                 INNER JOIN " . DB_PREFIX . "option_description od
+                    ON po.option_id = od.option_id AND od.language_id = '" . $langId . "'
+                 WHERE po.product_id = '" . (int)$product_id . "'"
+            );
+            $poByOptionId = array();
+            foreach ($existingPo->rows as $row) {
+                $poByOptionId[(int)$row['option_id']] = $row;
+            }
+
+            // Index existing product_option_value rows by "option_id:sku" and "option_id:value_name"
+            $existingPov = $this->db->query(
+                "SELECT pov.product_option_value_id, pov.option_id, pov.option_value_id, pov.sku,
+                        ovd.name AS value_name
+                 FROM " . DB_PREFIX . "product_option_value pov
+                 INNER JOIN " . DB_PREFIX . "option_value_description ovd
+                    ON pov.option_value_id = ovd.option_value_id AND ovd.language_id = '" . $langId . "'
+                 WHERE pov.product_id = '" . (int)$product_id . "'"
+            );
+            $povBySku = array();
+            $povByName = array();
+            foreach ($existingPov->rows as $row) {
+                $oid = (int)$row['option_id'];
+                if (!empty($row['sku'])) {
+                    $povBySku[$oid . ':' . $row['sku']] = $row;
+                }
+                $povByName[$oid . ':' . $row['value_name']] = $row;
+            }
+
+            $seenOptionIds = array();
+            $seenPovIds = array();
+
+            foreach ($data['options'] as $opt) {
+                $optionName = trim($opt['option_name']);
+                if ($optionName === '') continue;
+
+                $optionId = $this->resolveOption($optionName, $opt['type'], $langId);
+                $seenOptionIds[] = $optionId;
+
+                // Upsert product_option
+                if (isset($poByOptionId[$optionId])) {
+                    $productOptionId = (int)$poByOptionId[$optionId]['product_option_id'];
+                    $this->db->query(
+                        "UPDATE " . DB_PREFIX . "product_option SET
+                            required = '" . (int)($opt['required'] ?? 1) . "'
+                         WHERE product_option_id = '" . $productOptionId . "'"
+                    );
+                } else {
+                    $this->db->query(
+                        "INSERT INTO " . DB_PREFIX . "product_option SET
+                            product_id = '" . (int)$product_id . "',
+                            option_id = '" . (int)$optionId . "',
+                            value = '',
+                            required = '" . (int)($opt['required'] ?? 1) . "'"
+                    );
+                    $productOptionId = (int)$this->db->getLastId();
+                }
+
+                if (!empty($opt['values']) && is_array($opt['values'])) {
+                    foreach ($opt['values'] as $val) {
+                        $valName = trim($val['name'] ?? '');
+                        if ($valName === '') continue;
+
+                        $valSku = isset($val['sku']) ? trim($val['sku']) : '';
+                        $optionValueId = $this->resolveOptionValue($optionId, $valName, $langId);
+
+                        // Match existing product_option_value: by SKU first, then by name
+                        $matchedRow = null;
+                        if ($valSku !== '' && isset($povBySku[$optionId . ':' . $valSku])) {
+                            $matchedRow = $povBySku[$optionId . ':' . $valSku];
+                        } elseif (isset($povByName[$optionId . ':' . $valName])) {
+                            $matchedRow = $povByName[$optionId . ':' . $valName];
+                        }
+
+                        if ($matchedRow) {
+                            // Update existing
+                            $povId = (int)$matchedRow['product_option_value_id'];
+                            $seenPovIds[] = $povId;
+                            $this->db->query(
+                                "UPDATE " . DB_PREFIX . "product_option_value SET
+                                    product_option_id = '" . $productOptionId . "',
+                                    option_value_id = '" . (int)$optionValueId . "',
+                                    sku = '" . $this->db->escape($valSku) . "',
+                                    quantity = '" . (int)($val['quantity'] ?? 0) . "',
+                                    subtract = '" . (int)($val['subtract'] ?? 1) . "',
+                                    price = '" . (float)($val['price'] ?? 0) . "',
+                                    price_prefix = '" . $this->db->escape($val['price_prefix'] ?? '+') . "',
+                                    points = '" . (int)($val['points'] ?? 0) . "',
+                                    points_prefix = '" . $this->db->escape($val['points_prefix'] ?? '+') . "',
+                                    weight = '" . (float)($val['weight'] ?? 0) . "',
+                                    weight_prefix = '" . $this->db->escape($val['weight_prefix'] ?? '+') . "'
+                                 WHERE product_option_value_id = '" . $povId . "'"
+                            );
+
+                            // Upsert ADV Profit product_option_cost
+                            if (isset($val['cost_amount']) || isset($val['cost_percentage']) || isset($val['cost_additional'])) {
+                                $this->db->query(
+                                    "INSERT INTO " . DB_PREFIX . "product_option_cost SET
+                                        product_option_value_id = '" . $povId . "',
+                                        product_id = '" . (int)$product_id . "',
+                                        cost = '" . (float)($val['cost'] ?? 0) . "',
+                                        cost_amount = '" . (float)($val['cost_amount'] ?? 0) . "',
+                                        cost_prefix = '" . $this->db->escape($val['cost_prefix'] ?? '+') . "',
+                                        costing_method = '0',
+                                        sku = '" . $this->db->escape($valSku) . "'
+                                     ON DUPLICATE KEY UPDATE
+                                        cost = VALUES(cost),
+                                        cost_amount = VALUES(cost_amount),
+                                        cost_prefix = VALUES(cost_prefix),
+                                        sku = VALUES(sku)"
+                                );
+                            }
+                        } else {
+                            // Insert new
+                            $this->db->query(
+                                "INSERT INTO " . DB_PREFIX . "product_option_value SET
+                                    product_option_id = '" . $productOptionId . "',
+                                    product_id = '" . (int)$product_id . "',
+                                    option_id = '" . (int)$optionId . "',
+                                    option_value_id = '" . (int)$optionValueId . "',
+                                    sku = '" . $this->db->escape($valSku) . "',
+                                    quantity = '" . (int)($val['quantity'] ?? 0) . "',
+                                    subtract = '" . (int)($val['subtract'] ?? 1) . "',
+                                    price = '" . (float)($val['price'] ?? 0) . "',
+                                    price_prefix = '" . $this->db->escape($val['price_prefix'] ?? '+') . "',
+                                    points = '" . (int)($val['points'] ?? 0) . "',
+                                    points_prefix = '" . $this->db->escape($val['points_prefix'] ?? '+') . "',
+                                    weight = '" . (float)($val['weight'] ?? 0) . "',
+                                    weight_prefix = '" . $this->db->escape($val['weight_prefix'] ?? '+') . "'"
+                            );
+                            $newPovId = (int)$this->db->getLastId();
+                            $seenPovIds[] = $newPovId;
+
+                            // Upsert ADV Profit product_option_cost
+                            if (isset($val['cost_amount']) || isset($val['cost_percentage']) || isset($val['cost_additional'])) {
+                                $this->db->query(
+                                    "INSERT INTO " . DB_PREFIX . "product_option_cost SET
+                                        product_option_value_id = '" . $newPovId . "',
+                                        product_id = '" . (int)$product_id . "',
+                                        cost = '" . (float)($val['cost'] ?? 0) . "',
+                                        cost_amount = '" . (float)($val['cost_amount'] ?? 0) . "',
+                                        cost_prefix = '" . $this->db->escape($val['cost_prefix'] ?? '+') . "',
+                                        costing_method = '0',
+                                        sku = '" . $this->db->escape($valSku) . "'
+                                     ON DUPLICATE KEY UPDATE
+                                        cost = VALUES(cost),
+                                        cost_amount = VALUES(cost_amount),
+                                        cost_prefix = VALUES(cost_prefix),
+                                        sku = VALUES(sku)"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Remove option values no longer in the incoming list
+            foreach ($existingPov->rows as $row) {
+                $povId = (int)$row['product_option_value_id'];
+                if (!in_array($povId, $seenPovIds)) {
+                    $this->db->query(
+                        "DELETE FROM " . DB_PREFIX . "product_option_cost
+                         WHERE product_option_value_id = '" . $povId . "'"
+                    );
+                    $this->db->query(
+                        "DELETE FROM " . DB_PREFIX . "product_option_value
+                         WHERE product_option_value_id = '" . $povId . "'"
+                    );
+                }
+            }
+
+            // Remove product options no longer in the incoming list
+            foreach ($poByOptionId as $oid => $row) {
+                if (!in_array((int)$oid, $seenOptionIds)) {
+                    // Clean up option costs for all values in this option group
+                    $this->db->query(
+                        "DELETE poc FROM " . DB_PREFIX . "product_option_cost poc
+                         INNER JOIN " . DB_PREFIX . "product_option_value pov
+                            ON poc.product_option_value_id = pov.product_option_value_id
+                         WHERE pov.product_option_id = '" . (int)$row['product_option_id'] . "'"
+                    );
+                    $this->db->query(
+                        "DELETE FROM " . DB_PREFIX . "product_option_value
+                         WHERE product_option_id = '" . (int)$row['product_option_id'] . "'"
+                    );
+                    $this->db->query(
+                        "DELETE FROM " . DB_PREFIX . "product_option
+                         WHERE product_option_id = '" . (int)$row['product_option_id'] . "'"
                     );
                 }
             }

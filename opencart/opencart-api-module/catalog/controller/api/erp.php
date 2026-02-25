@@ -183,12 +183,13 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('products page=' . $this->param('page', 1) . ' modified_since=' . ($this->param('modified_since') ?: 'all'));
+        $this->debugLog('products page=' . $this->param('page', 1) . ' modified_since=' . ($this->param('modified_since') ?: 'all') . ' product_id=' . ($this->param('product_id') ?: 'all'));
 
         $filter = [
             'page'           => max(1, (int)$this->param('page', 1)),
             'limit'          => min(500, max(1, (int)$this->param('limit', 100))),
             'modified_since' => $this->param('modified_since'),
+            'product_id'     => $this->param('product_id'),
         ];
 
         $total = $this->model_api_erp->getProductCount($filter);
@@ -231,9 +232,10 @@ class ControllerApiErp extends Controller
         $this->debugLog('orders page=' . $this->param('page', 1) . ' modified_since=' . ($this->param('modified_since') ?: 'all'));
 
         $filter = [
-            'page'           => max(1, (int)$this->param('page', 1)),
-            'limit'          => min(500, max(1, (int)$this->param('limit', 100))),
-            'modified_since' => $this->param('modified_since'),
+            'page'            => max(1, (int)$this->param('page', 1)),
+            'limit'           => min(500, max(1, (int)$this->param('limit', 100))),
+            'modified_since'  => $this->param('modified_since'),
+            'modified_before' => $this->param('modified_before'),
         ];
 
         $total = $this->model_api_erp->getOrderCount($filter);
@@ -317,6 +319,27 @@ class ControllerApiErp extends Controller
         $this->debugLog('options');
 
         $data = $this->model_api_erp->getOptions();
+
+        $this->sendJson(200, [
+            'success' => true,
+            'data'    => $data,
+            'total'   => count($data),
+        ]);
+    }
+
+    /**
+     * GET api/erp/order_statuses
+     *
+     * Returns all order statuses (id + name) for the default language.
+     */
+    public function order_statuses()
+    {
+        if (!$this->authenticate()) return;
+
+        $this->load->model('api/erp');
+        $this->debugLog('order_statuses');
+
+        $data = $this->model_api_erp->getOrderStatuses();
 
         $this->sendJson(200, [
             'success' => true,

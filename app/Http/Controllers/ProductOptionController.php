@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Catalog\Product;
 use App\Rules\UniqueSku;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -208,6 +209,8 @@ class ProductOptionController extends Controller
                 $status .= ' | SKU synced: ' . implode(' | ', $syncMessages);
             }
         }
+
+        ActivityLogger::log('updated', 'Product Options', $id, 'Product #' . $id);
 
         return redirect()->route('products.options.edit', $id)->with('status', $status);
     }

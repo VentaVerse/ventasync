@@ -14,6 +14,8 @@ use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
 use Illuminate\Support\Facades\DB;
 
+use App\Services\ActivityLogger;
+
 class LazadaCatalogOrderSync
 {
     private bool $skipStockAdjust = false;
@@ -334,7 +336,13 @@ class LazadaCatalogOrderSync
                     'notify'          => 0,
                     'comment'         => 'Synced from Lazada (status: ' . ($lazadaOrder->status ?? 'unknown') . ')',
                     'date_added'      => now(),
+                    'user_id'         => null,
+                    'user_name'       => 'Lazada Sync',
                 ]);
+
+                ActivityLogger::log('updated', 'Order', $catalogOrder->order_id, 'Lazada #' . ($lazadaOrder->order_id ?? ''), [
+                    'order_status_id' => [(string) $oldStatusId, (string) $statusId],
+                ], source: 'system');
 
                 // Adjust stock based on status transition
                 if (!$this->skipStockAdjust) {

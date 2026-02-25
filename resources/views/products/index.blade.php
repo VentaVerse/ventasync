@@ -55,6 +55,7 @@
     <th style="width:90px;">{!! sort_link('product_id','ID',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:70px;">Image</th>
     <th>{!! sort_link('name','Name',$currentSort,$currentDir,$q ?? '') !!}</th>
+    <th style="width:140px;">SKU</th>
     <th style="width:130px;">{!! sort_link('quantity','Quantity',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:120px;">{!! sort_link('price','Price',$currentSort,$currentDir,$q ?? '') !!}</th>
     <th style="width:110px;">{!! sort_link('status','Status',$currentSort,$currentDir,$q ?? '') !!}</th>
@@ -88,11 +89,14 @@
                         $optRows = is_array($p->option_rows ?? null) ? $p->option_rows : (is_iterable($p->option_rows ?? null) ? $p->option_rows : []);
                     @endphp
                 </td>
+                <td class="text-xs text-secondary">{{ $p->sku ?: '—' }}</td>
                 <td>{{ (int)$p->quantity }}</td>
                 <td>{{ number_format((float)$p->price, 2) }}</td>
                 <td>{{ (int)$p->status === 1 ? 'Enabled' : 'Disabled' }}</td>
                 <td>
                     <div class="d-flex gap-8 items-center">
+                        <a class="btn small secondary" href="{{ route('products.sales', $p->product_id) }}?back={{ urlencode(request()->fullUrl()) }}">Sales</a>
+                        <a class="btn small secondary" href="{{ route('products.stock_history', $p->product_id) }}?back={{ urlencode(request()->fullUrl()) }}">Stock</a>
                         <a class="btn small" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
                         <form method="POST" action="{{ route('products.destroy', $p->product_id) }}" onsubmit="return confirm('Delete this product?')">
                             @csrf
@@ -128,6 +132,7 @@
                             <div class="font-semibold text-sm">{{ $or->option_value_name ?? '' }}</div>
                             <div class="text-xs text-muted" style="margin-top:2px;">{{ $or->option_name ?? '' }}</div>
                         </td>
+                        <td></td>
                         <td class="font-semibold">{{ (int)($or->quantity ?? 0) }}</td>
                         <td>{{ number_format($final, 2) }}</td>
                         <td></td>

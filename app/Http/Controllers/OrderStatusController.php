@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Catalog\OrderStatus;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
 class OrderStatusController extends Controller
@@ -33,12 +34,14 @@ class OrderStatusController extends Controller
             'name' => 'required|string|max:32',
         ]);
 
-        OrderStatus::create([
+        $os = OrderStatus::create([
             'language_id' => 1,
             'name' => $request->name,
             'subtract_stock' => $request->has('subtract_stock') ? 1 : 0,
             'add_revenue' => $request->has('add_revenue') ? 1 : 0,
         ]);
+
+        ActivityLogger::log('created', 'Order Status', (int) $os->order_status_id, $request->name);
 
         return redirect()->route('order_statuses.index')->with('status', 'Saved');
     }
@@ -57,17 +60,24 @@ class OrderStatusController extends Controller
         ]);
 
         $orderStatus = OrderStatus::where('order_status_id', (int) $id)->firstOrFail();
+        $original = $orderStatus->getAttributes();
         $orderStatus->name = $request->name;
         $orderStatus->subtract_stock = $request->has('subtract_stock') ? 1 : 0;
         $orderStatus->add_revenue = $request->has('add_revenue') ? 1 : 0;
         $orderStatus->save();
+
+        $changes = ActivityLogger::diff($original, $orderStatus->getAttributes(), ['name', 'subtract_stock', 'add_revenue']);
+        ActivityLogger::log('updated', 'Order Status', (int) $id, $request->name, $changes);
 
         return redirect()->route('order_statuses.index')->with('status', 'Saved');
     }
 
     public function destroy($id)
     {
+        $name = OrderStatus::where('order_status_id', (int) $id)->value('name') ?? '#' . $id;
         OrderStatus::where('order_status_id', (int) $id)->delete();
+
+        ActivityLogger::log('deleted', 'Order Status', (int) $id, $name);
 
         return redirect()->route('order_statuses.index')->with('status', 'Saved');
     }
@@ -85,6 +95,8 @@ class OrderStatusController extends Controller
         }
 
         OrderStatus::whereIn('order_status_id', $ids)->delete();
+
+        ActivityLogger::log('deleted', 'Order Status', null, count($ids) . ' order statuses');
 
         return redirect()->route('order_statuses.index')->with('status', 'Deleted selected order statuses.');
     }

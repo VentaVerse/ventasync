@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Models\Admin\Permission;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
 class UserGroupController extends Controller
@@ -16,27 +17,47 @@ class UserGroupController extends Controller
     {
         $all = Permission::orderBy('label')->get()->keyBy('key');
 
-        $groups = [
-            'Catalog' => ['manage_catalog', 'manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options'],
-            'Sales' => ['manage_sales', 'manage_orders', 'manage_order_statuses'],
-            'Marketplace API' => ['manage_marketplace_api', 'manage_shopee', 'manage_shopee_orders', 'manage_lazada', 'manage_lazada_orders', 'manage_opencart', 'manage_opencart_orders'],
-            'Settings' => ['manage_settings', 'manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log'],
-        ];
-
-        $result = [];
-        foreach ($groups as $label => $keys) {
-            $perms = [];
-            foreach ($keys as $key) {
-                if ($all->has($key)) {
-                    $perms[] = $all->get($key);
+        $resolve = function (array $keys) use ($all): array {
+            $out = [];
+            foreach ($keys as $k) {
+                if ($all->has($k)) {
+                    $out[] = $all->get($k);
                 }
             }
-            if ($perms) {
-                $result[] = ['label' => $label, 'permissions' => $perms];
-            }
-        }
+            return $out;
+        };
 
-        return $result;
+        return array_filter([
+            [
+                'key'      => 'catalog',
+                'label'    => 'Catalog',
+                'parent'   => $all->get('manage_catalog'),
+                'children' => $resolve(['manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options']),
+            ],
+            [
+                'key'      => 'sales',
+                'label'    => 'Sales',
+                'parent'   => $all->get('manage_sales'),
+                'children' => $resolve(['manage_orders', 'manage_order_statuses', 'manage_reports']),
+            ],
+            [
+                'key'       => 'marketplace',
+                'label'     => 'Marketplace API',
+                'parent'    => $all->get('manage_marketplace_api'),
+                'subgroups' => [
+                    ['label' => 'Shopee',      'children' => $resolve(['manage_shopee', 'manage_shopee_orders'])],
+                    ['label' => 'Lazada',      'children' => $resolve(['manage_lazada', 'manage_lazada_orders'])],
+                    ['label' => 'TikTok Shop', 'children' => $resolve(['manage_tiktok'])],
+                    ['label' => 'OpenCart',    'children' => $resolve(['manage_opencart', 'manage_opencart_orders'])],
+                ],
+            ],
+            [
+                'key'      => 'settings',
+                'label'    => 'Settings',
+                'parent'   => $all->get('manage_settings'),
+                'children' => $resolve(['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log', 'manage_activity_log']),
+            ],
+        ], fn ($g) => $g['parent'] !== null);
     }
 
     public function index(Request $request)
@@ -68,6 +89,8 @@ class UserGroupController extends Controller
         $group = UserGroup::create(['name' => $request->name]);
         $group->permissions()->sync($request->permissions ?? []);
 
+        ActivityLogger::log('created', 'User Group', $group->id, $group->name);
+
         return redirect()->route('user_groups.index');
     }
 
@@ -90,9 +113,13 @@ class UserGroupController extends Controller
             'permissions.*' => 'integer',
         ]);
 
+        $original = $group->getAttributes();
         $group->name = $request->name;
         $group->save();
         $group->permissions()->sync($request->permissions ?? []);
+
+        $changes = ActivityLogger::diff($original, $group->getAttributes(), ['name']);
+        ActivityLogger::log('updated', 'User Group', $group->id, $group->name, $changes);
 
         return redirect()->route('user_groups.index');
     }
@@ -114,7 +141,10 @@ class UserGroupController extends Controller
                 ->with('error', 'Cannot delete this group because there are '.$assigned.' user(s) assigned to it');
         }
 
+        $groupName = $group->name;
         $group->delete();
+
+        ActivityLogger::log('deleted', 'User Group', (int) $id, $groupName);
 
         return redirect()->route('user_groups.index');
     }

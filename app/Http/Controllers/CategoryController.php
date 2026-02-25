@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Catalog\Category;
 use App\Models\Catalog\CategoryDescription;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -66,7 +67,8 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
 
         $languageId = (int) config('catalog.default_language_id');
 
-        DB::transaction(function () use ($request, $languageId) {
+        $categoryId = null;
+        DB::transaction(function () use ($request, $languageId, &$categoryId) {
             $c = new Category();
             $c->image = null;
             $c->parent_id = (int) ($request->parent_id ?? 0);
@@ -77,6 +79,8 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
             $c->date_added = now();
             $c->date_modified = now();
             $c->save();
+
+            $categoryId = $c->category_id;
 
             $cd = new CategoryDescription();
             $cd->category_id = $c->category_id;
@@ -95,6 +99,8 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
             $this->rebuildCategoryPath($c->category_id, $c->parent_id);
             $this->rebuildChildrenPaths($c->category_id);
         });
+
+        ActivityLogger::log('created', 'Category', $categoryId, $request->name);
 
         return redirect()->route('categories.index')->with('status','Saved');
     }
@@ -130,8 +136,11 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
 
         $languageId = (int) config('catalog.default_language_id');
 
-        DB::transaction(function () use ($request, $id, $languageId) {
+        $changes = null;
+        DB::transaction(function () use ($request, $id, $languageId, &$changes) {
             $c = Category::where('category_id', (int)$id)->firstOrFail();
+            $origStatus = (string) $c->status;
+            $origSortOrder = (string) $c->sort_order;
             $c->parent_id = (int) ($request->parent_id ?? 0);
             $c->sort_order = (int) ($request->sort_order ?? 0);
             $c->status = (int) $request->status;
@@ -139,6 +148,7 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
             $c->save();
 
             $cd = CategoryDescription::where('category_id', (int)$id)->where('language_id', $languageId)->first();
+            $origName = $cd->name ?? '';
             if (!$cd) {
                 $cd = new CategoryDescription();
                 $cd->category_id = (int)$id;
@@ -157,7 +167,15 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
 
             $this->rebuildCategoryPath((int)$id, $c->parent_id);
             $this->rebuildChildrenPaths((int)$id);
+
+            $diff = [];
+            if ($origName !== $request->name) $diff['name'] = [$origName, $request->name];
+            if ($origStatus !== (string) $request->status) $diff['status'] = [$origStatus, (string) $request->status];
+            if ($origSortOrder !== (string) ($request->sort_order ?? 0)) $diff['sort_order'] = [$origSortOrder, (string) ($request->sort_order ?? 0)];
+            $changes = !empty($diff) ? $diff : null;
         });
+
+        ActivityLogger::log('updated', 'Category', (int) $id, $request->name, $changes);
 
         return redirect()->route('categories.index')->with('status','Saved');
     }
@@ -165,6 +183,9 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
     public function destroy($id)
     {
         $p = config('catalog.prefix');
+        $languageId = (int) config('catalog.default_language_id');
+        $name = DB::table($p.'category_description')
+            ->where('category_id', (int)$id)->where('language_id', $languageId)->value('name') ?? '#' . $id;
 
         DB::transaction(function () use ($id, $p) {
             DB::table($p.'category_path')->where('category_id', (int)$id)->delete();
@@ -172,6 +193,8 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
             DB::table($p.'product_to_category')->where('category_id', (int)$id)->delete();
             DB::table($p.'category')->where('category_id', (int)$id)->delete();
         });
+
+        ActivityLogger::log('deleted', 'Category', (int) $id, $name);
 
         return redirect()->route('categories.index')->with('status','Saved');
     }
@@ -198,6 +221,8 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
         $pfx = config('catalog.prefix');
         $newStatus = $action === 'enable' ? 1 : 0;
         DB::table($pfx.'category')->whereIn('category_id', $ids)->update(['status' => $newStatus]);
+
+        ActivityLogger::log($action === 'enable' ? 'updated' : 'updated', 'Category', null, count($ids) . ' categories ' . $action . 'd');
 
         return redirect()->route('categories.index')->with('status', $newStatus === 1 ? 'Enabled selected categories.' : 'Disabled selected categories.');
     }

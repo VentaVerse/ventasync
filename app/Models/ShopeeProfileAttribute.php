@@ -8,5 +8,5 @@ class ShopeeProfileAttribute extends Model
 {
     protected $table = 'shopee_profile_attributes';
 
-    protected $guarded = [];
+    protected $fillable = ['shopee_profile_id', 'attribute_key', 'value'];
 }

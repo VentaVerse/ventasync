@@ -23,10 +23,13 @@ class ShopeeProductController extends Controller
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
-        $statusFilter = (string) $request->get('shopee_status', 'all');
+        $syncStatus = (string) $request->get('sync_status', 'all');
+        $manufacturerFilter = (string) $request->get('manufacturer', 'all');
+        $profileFilter = (string) $request->get('profile', 'all');
+        $erpStatus = (string) $request->get('erp_status', 'all');
 
-        // Collect product IDs matching any Shopee profile filter
-        $matchedIds = $this->getProfileMatchedProductIds();
+        // Build profile → product mapping
+        $profileMapping = $this->getProfileProductMapping();
 
         $query = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -46,13 +49,46 @@ class ShopeeProductController extends Controller
                 'm.name as manufacturer_name'
             );
 
-        // Only show products that match at least one Shopee profile
-        if ($matchedIds === null) {
-            $query->whereRaw('1=0');
+        // Profile filter
+        if ($profileFilter === 'none') {
+            // Show products NOT matching any profile
+            $allMatchedIds = $profileMapping['ids'];
+            if ($allMatchedIds === null || empty($allMatchedIds)) {
+                // No profiles or no matches — show all products
+            } else {
+                $query->whereNotIn('p.product_id', $allMatchedIds);
+            }
+        } elseif ($profileFilter !== 'all') {
+            // Show products matching a specific profile
+            $specificIds = $this->getProductIdsByProfile((int) $profileFilter);
+            if (empty($specificIds)) {
+                $query->whereRaw('1=0');
+            } else {
+                $query->whereIn('p.product_id', $specificIds);
+            }
         } else {
-            $query->whereIn('p.product_id', $matchedIds);
+            // Default: only show products matching at least one profile
+            $allMatchedIds = $profileMapping['ids'];
+            if ($allMatchedIds === null) {
+                $query->whereRaw('1=0');
+            } else {
+                $query->whereIn('p.product_id', $allMatchedIds);
+            }
         }
 
+        // Manufacturer filter
+        if ($manufacturerFilter !== 'all') {
+            $query->where('p.manufacturer_id', (int) $manufacturerFilter);
+        }
+
+        // ERP Status filter
+        if ($erpStatus === 'enabled') {
+            $query->where('p.status', 1);
+        } elseif ($erpStatus === 'disabled') {
+            $query->where('p.status', 0);
+        }
+
+        // Text search
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
@@ -61,15 +97,15 @@ class ShopeeProductController extends Controller
             });
         }
 
-        // Status filter: filter by Shopee link status
-        if ($statusFilter === 'listed') {
+        // Sync status filter (listed/not listed on Shopee)
+        if ($syncStatus === 'listed') {
             $listedIds = ShopeeProductLink::query()->pluck('product_id')->unique()->toArray();
             if (empty($listedIds)) {
                 $query->whereRaw('1=0');
             } else {
                 $query->whereIn('p.product_id', $listedIds);
             }
-        } elseif ($statusFilter === 'not_listed') {
+        } elseif ($syncStatus === 'not_listed') {
             $listedIds = ShopeeProductLink::query()->pluck('product_id')->unique()->toArray();
             if (!empty($listedIds)) {
                 $query->whereNotIn('p.product_id', $listedIds);
@@ -132,11 +168,33 @@ class ShopeeProductController extends Controller
             ->orderBy('item_name')
             ->get();
 
+        // Manufacturer list for filter dropdown
+        $allManufacturers = DB::table($pfx . 'manufacturer')
+            ->orderBy('name')
+            ->pluck('name', 'manufacturer_id');
+
+        // Profile list for filter dropdown
+        $allProfiles = ShopeeProfile::query()->orderBy('name')->pluck('name', 'id');
+
+        // Compute profile names for products on this page
+        $profileMap = $profileMapping['map'];
+        $pageProfileMap = collect();
+        foreach ($products as $p) {
+            $pid = (int) $p->product_id;
+            $pageProfileMap[$pid] = $profileMap[$pid] ?? [];
+        }
+
         return view('shopee.products.index', [
             'products' => $products,
             'q' => $q,
             'shopeeLinks' => $shopeeLinks,
-            'shopeeStatus' => $statusFilter,
+            'syncStatus' => $syncStatus,
+            'manufacturerFilter' => $manufacturerFilter,
+            'profileFilter' => $profileFilter,
+            'erpStatus' => $erpStatus,
+            'allManufacturers' => $allManufacturers,
+            'allProfiles' => $allProfiles,
+            'profilesByProductId' => $pageProfileMap,
             'unmatchedItems' => $unmatchedItems,
             'optionRowsByProductId' => $optionRowsByProductId,
         ]);
@@ -1435,13 +1493,14 @@ class ShopeeProductController extends Controller
         return null;
     }
 
-    private function getProfileMatchedProductIds(): ?array
+    private function getProfileProductMapping(): array
     {
         $profiles = ShopeeProfile::all();
-        if ($profiles->isEmpty()) return null;
+        if ($profiles->isEmpty()) return ['ids' => null, 'map' => []];
 
         $pfx = (string) config('catalog.prefix');
         $allIds = collect();
+        $map = [];
 
         foreach ($profiles as $profile) {
             $catIds = $profile->catalog_category_ids ?? [];
@@ -1457,10 +1516,37 @@ class ShopeeProductController extends Controller
                 $q->whereIn('p.manufacturer_id', $mfgIds);
             }
 
-            $allIds = $allIds->merge($q->distinct()->pluck('p.product_id'));
+            $pids = $q->distinct()->pluck('p.product_id');
+            $allIds = $allIds->merge($pids);
+
+            foreach ($pids as $pid) {
+                $map[(int) $pid][] = $profile->name;
+            }
         }
 
-        return $allIds->unique()->values()->all();
+        return ['ids' => $allIds->unique()->values()->all(), 'map' => $map];
+    }
+
+    private function getProductIdsByProfile(int $profileId): array
+    {
+        $profile = ShopeeProfile::find($profileId);
+        if (!$profile) return [];
+
+        $pfx = (string) config('catalog.prefix');
+        $catIds = $profile->catalog_category_ids ?? [];
+        $mfgIds = $profile->manufacturer_ids ?? [];
+
+        $q = DB::table($pfx . 'product as p')->select('p.product_id');
+
+        if (!empty($catIds)) {
+            $q->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
+                ->whereIn('ptc.category_id', $catIds);
+        }
+        if (!empty($mfgIds)) {
+            $q->whereIn('p.manufacturer_id', $mfgIds);
+        }
+
+        return $q->distinct()->pluck('p.product_id')->all();
     }
 
     private function resolveLocalImagePath(string $path): ?string

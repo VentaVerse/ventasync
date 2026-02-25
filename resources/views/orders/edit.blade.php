@@ -212,6 +212,7 @@
         <thead>
         <tr>
             <th>Date</th>
+            <th>User</th>
             <th>Status</th>
             <th>Comment</th>
         </tr>
@@ -220,6 +221,7 @@
         @foreach($history as $h)
             <tr>
                 <td class="text-nowrap">{{ $h->date_added }}</td>
+                <td>{{ $h->user_name ?? '-' }}</td>
                 <td>{{ $h->status->name ?? '-' }}</td>
                 <td>{{ $h->comment }}</td>
             </tr>

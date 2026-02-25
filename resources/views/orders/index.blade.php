@@ -129,7 +129,12 @@
                 <td>{{ $o->marketplace_order_id ?: '—' }}</td>
                 <td>{{ $o->status->name ?? '-' }}</td>
                 <td class="text-right">{{ number_format($o->total, 2) }}</td>
-                <td class="text-nowrap">{{ $o->date_added }}</td>
+                <td class="text-nowrap">
+                    {{ $o->date_added }}
+                    @if($o->latestHistory?->user_name)
+                        <div class="text-xs text-secondary">by {{ $o->latestHistory->user_name }}</div>
+                    @endif
+                </td>
                 <td>
                     <div class="d-flex gap-6 items-center">
                         <a class="btn small" href="{{ route('orders.show', $o->order_id) }}">View</a>

@@ -44,6 +44,15 @@ class OrderStockService
 
         // Direction: deduct (-1) when entering a subtract status, restore (+1) when leaving
         $direction = ($oldSubtract === 0 && $newSubtract === 1) ? -1 : 1;
+        $type = $direction === -1 ? 'deduct' : 'restore';
+        $source = StockHistoryLogger::sourceFromOrder($order->marketplace_source ?? '');
+        $sourceLabel = match ($source) {
+            'lazada_sync'   => 'Lazada',
+            'shopee_sync'   => 'Shopee',
+            'opencart_sync' => 'OpenCart',
+            default         => '',
+        };
+        $orderLabel = 'Order #' . $order->order_id . ($sourceLabel !== '' ? " ($sourceLabel)" : '');
 
         // Ensure fresh relationship data (products may have just been inserted)
         $order->load('products.options');
@@ -54,15 +63,39 @@ class OrderStockService
             $optionValue = $resolved['option_value'];
 
             if ($optionValue && (int) $optionValue->subtract) {
+                $ovQtyBefore = (int) $optionValue->quantity;
                 // Option-level stock: adjust the specific option value
                 $optionValue->quantity = $optionValue->quantity + ($direction * $orderProduct->quantity);
                 $optionValue->save();
+
+                StockHistoryLogger::log(
+                    productId: (int) $optionValue->product_id,
+                    optionValueId: (int) $optionValue->product_option_value_id,
+                    orderId: (int) $order->order_id,
+                    type: $type,
+                    qtyBefore: $ovQtyBefore,
+                    qtyAfter: (int) $optionValue->quantity,
+                    source: $source,
+                    note: "$orderLabel — {$type}ed {$orderProduct->quantity} (option)",
+                );
             }
 
             if ($product && (int) $product->subtract) {
+                $pQtyBefore = (int) $product->quantity;
                 // Product-level stock: always adjust main product total
                 $product->quantity = $product->quantity + ($direction * $orderProduct->quantity);
                 $product->save();
+
+                StockHistoryLogger::log(
+                    productId: (int) $product->product_id,
+                    optionValueId: null,
+                    orderId: (int) $order->order_id,
+                    type: $type,
+                    qtyBefore: $pQtyBefore,
+                    qtyAfter: (int) $product->quantity,
+                    source: $source,
+                    note: "$orderLabel — {$type}ed {$orderProduct->quantity}",
+                );
             }
         }
     }

@@ -97,6 +97,14 @@ class Order extends BaseModel
         return $this->hasMany(OrderHistory::class, 'order_id', 'order_id');
     }
 
+    public function latestHistory()
+    {
+        return $this->hasOne(OrderHistory::class, 'order_id', 'order_id')
+            ->whereNotNull('user_name')
+            ->orderByDesc('date_added')
+            ->orderByDesc('order_history_id');
+    }
+
     public function totals()
     {
         return $this->hasMany(OrderTotal::class, 'order_id', 'order_id');

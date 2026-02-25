@@ -8,7 +8,11 @@ class ShopeeProfile extends Model
 {
     protected $table = 'shopee_profiles';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'name', 'catalog_category_ids', 'manufacturer_ids',
+        'shopee_category_id', 'logistic_ids',
+        'markup_fixed', 'markup_percent',
+    ];
 
     protected $casts = [
         'catalog_category_ids' => 'array',
