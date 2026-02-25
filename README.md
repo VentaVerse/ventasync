@@ -1,66 +1,188 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Multi-Marketplace ERP
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel-based ERP system for managing products, orders, and inventory across multiple e-commerce platforms from a single dashboard.
 
-## About Laravel
+## Overview
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+This ERP centralizes catalog management, order processing, stock tracking, and sales reporting for businesses selling across multiple marketplaces. It uses an OpenCart-compatible catalog schema and syncs with external platforms via their respective APIs.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Supported Platforms
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **OpenCart** — Bi-directional sync for products, categories, manufacturers, options, orders, and stock quantities. Supports multiple OpenCart stores.
+- **Lazada** — Order sync, product listing, stock push, return tracking. Uses Lazada Open Platform API.
+- **Shopee** — Order sync, product listing, stock push, return tracking, logistics. Uses Shopee Partner API.
+- **TikTok Shop** — Integration via TikTok Shop API.
 
-## Learning Laravel
+## Features
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Catalog Management
+- Products with descriptions, images, options/variants, and SKU tracking
+- Categories with hierarchical paths
+- Manufacturers / Brands
+- Options and option values (e.g. Color, Size)
+- Bulk actions (enable, disable, delete)
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Order Management
+- Unified order list across all platforms with marketplace source badges
+- Order detail with product breakdown, cost, profit, margin, and markup
+- Order status management with configurable statuses
+- Stock deduction/restoration tied to order status changes
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Inventory & Stock
+- Real-time stock levels for products and option variants
+- Stock History Log — full audit trail of every quantity change (manual edits, order deductions, restorations) with timestamps, order links, source tracking, and user attribution
+- Automatic stock sync push to OpenCart, Lazada, and Shopee
 
-## Laravel Sponsors
+### Reports
+- **Order Profitability** — Revenue, cost, profit, margin %, markup % grouped by month or searchable
+- **Product Profitability** — Per-product sales performance with sortable columns
+- **Margin by Category** — Category-level profit analysis
+- **Marketplace Fees** — Commission, service, payment, and shipping fees by platform
+- **Inventory Valuation** — Current stock value at cost and retail
+- **Product Sales History** — Per-product order history with full profit breakdown
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Dashboard
+- Stat cards (products, categories, orders, revenue)
+- Today's snapshot (orders, revenue, week orders)
+- Sales chart with 30-day / monthly / yearly toggle
+- Platform distribution pie chart
+- Recent orders with marketplace source badges
+- Sync status cards for OpenCart stores, Lazada, Shopee, and TikTok
+- Pending order counts per platform
 
-### Premium Partners
+### User Management
+- Users with role-based access via User Groups
+- Granular permissions: `manage_products`, `manage_orders`, `manage_reports`, `manage_marketplace_api`, `manage_activity_log`, etc.
+- Activity Log — audit trail of user actions across the system
+- Last login tracking
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### Other
+- Global search across products, orders, categories, and manufacturers
+- API endpoints for external integrations (Sanctum-authenticated)
 
-## Contributing
+## Tech Stack
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- **Backend:** PHP 8.2+, Laravel 12
+- **Database:** MySQL with OpenCart-compatible prefixed tables
+- **Frontend:** Blade templates, Tailwind CSS 4, Vite 7
+- **Auth:** Laravel Sanctum (API tokens), session-based (web)
+- **Queue:** Database driver (for marketplace sync jobs)
 
-## Code of Conduct
+## Requirements
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- PHP 8.2+
+- MySQL 8.0+
+- Composer
+- Node.js 18+ & npm
 
-## Security Vulnerabilities
+## Installation
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+# Clone the repository
+git clone <repository-url>
+cd <project-directory>
+
+# Install dependencies and set up
+composer setup
+```
+
+The `composer setup` script will:
+1. Install PHP dependencies
+2. Copy `.env.example` to `.env` (if not exists)
+3. Generate application key
+4. Run migrations
+5. Install npm dependencies
+6. Build frontend assets
+
+### Manual Setup
+
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+npm install
+npm run build
+```
+
+## Configuration
+
+### Environment Variables
+
+Copy `.env.example` and configure:
+
+```env
+# Database
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=your_database
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+
+# OpenCart table prefix (e.g. "oc_")
+DB_TABLE_PREFIX=
+
+# Public catalog URL for image serving
+CATALOG_PUBLIC_URL=https://your-storefront.com
+```
+
+Marketplace API credentials (Lazada, Shopee, TikTok) are configured through the Settings pages within the application.
+
+## Development
+
+```bash
+# Start dev server, queue worker, log viewer, and Vite simultaneously
+composer dev
+```
+
+This runs concurrently:
+- `php artisan serve` — Laravel dev server
+- `php artisan queue:listen` — Queue worker for sync jobs
+- `php artisan pail` — Real-time log viewer
+- `npm run dev` — Vite HMR
+
+## Project Structure
+
+```
+app/
+├── Http/Controllers/       # Web and API controllers
+│   ├── Api/                # REST API endpoints
+│   └── Auth/               # Authentication controllers
+├── Models/
+│   ├── Admin/              # User groups, permissions
+│   └── Catalog/            # Products, orders, categories (prefixed tables)
+├── Services/
+│   ├── Lazada/             # Lazada API client
+│   ├── OpenCart/            # OpenCart sync services
+│   ├── Shopee/             # Shopee API client
+│   ├── TikTok/             # TikTok API client
+│   ├── OrderStockService   # Stock deduction/restoration logic
+│   ├── StockHistoryLogger  # Stock change audit trail
+│   ├── ActivityLogger      # User action audit trail
+│   └── SkuSyncService      # Cross-platform SKU sync
+├── Rules/                  # Custom validation rules
+└── View/                   # View composers
+
+resources/views/
+├── dashboard/              # Main dashboard
+├── products/               # Product CRUD, sales history, stock history
+├── orders/                 # Order list and detail
+├── reports/                # Profitability, fees, inventory reports
+├── lazada/                 # Lazada management pages
+├── shopee/                 # Shopee management pages
+├── opencart/               # OpenCart sync management
+├── tiktok/                 # TikTok management
+├── categories/             # Category management
+├── manufacturers/          # Manufacturer/brand management
+├── options/                # Product options management
+├── users/                  # User management
+├── user_groups/            # Role/permission management
+├── activity_log/           # Activity audit log
+├── settings/               # Application settings
+└── layouts/                # App layout and sidebar
+```
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Proprietary. All rights reserved.
