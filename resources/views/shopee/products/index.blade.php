@@ -15,7 +15,7 @@
                 <button type="submit" class="btn secondary" onclick="return confirm('Rebuild the Shopee product cache? This scans all Shopee items and may take a minute.')">Rebuild Cache</button>
             </form>
             <a class="btn secondary" href="{{ route('shopee.profiles.index') }}">Profiles</a>
-            <a class="btn secondary" href="{{ route('shopee.index') }}">Shopee Settings</a>
+            <a class="btn" href="{{ route('shopee.products.add') }}">Add Product</a>
         </div>
     </div>
 
@@ -35,6 +35,10 @@
                     <h3 class="section-title mt-0 mb-0">Unmatched Shopee Items</h3>
                     <div class="text-muted text-xs" style="margin-top:2px;">{{ $unmatchedItems->count() }} item(s) on Shopee could not be matched by SKU. Link them manually or dismiss.</div>
                 </div>
+                <form method="POST" action="{{ route('shopee.products.sync_unmatched') }}" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small secondary">Re-scan</button>
+                </form>
             </div>
             <div class="table-wrap" style="min-height:auto;">
                 <table class="table">
@@ -90,6 +94,15 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    @endif
+
+    @if(!isset($unmatchedItems) || $unmatchedItems->count() === 0)
+        <div style="margin-bottom:12px;">
+            <form method="POST" action="{{ route('shopee.products.sync_unmatched') }}" style="display:inline;">
+                @csrf
+                <button type="submit" class="btn small secondary">Scan for Unmatched Shopee Items</button>
+            </form>
         </div>
     @endif
 
@@ -176,6 +189,7 @@
                     <th>Manufacturer</th>
                     <th style="width:120px;">Profile</th>
                     <th style="width:60px;">Stock</th>
+                    <th style="width:80px;">Price</th>
                     <th>Shopee ID</th>
                     <th style="width:90px;">ERP Status</th>
                     <th style="width:100px;">Sync Status</th>
@@ -232,6 +246,19 @@
                         </td>
                         <td>{{ (int)$p->quantity }}</td>
                         <td>
+                            <div>{{ number_format((float)$p->price, 2) }}</div>
+                            @if($optRows && count($optRows) > 0)
+                                @foreach($optRows as $or)
+                                    @php
+                                        $opDelta = (float)($or->option_price ?? 0);
+                                        $opPrefix = (string)($or->option_price_prefix ?? '+');
+                                        $opFull = $opPrefix === '-' ? (float)$p->price - $opDelta : (float)$p->price + $opDelta;
+                                    @endphp
+                                    <div class="text-xs text-muted">{{ number_format($opFull, 2) }}</div>
+                                @endforeach
+                            @endif
+                        </td>
+                        <td>
                             @if($link)
                                 <code class="text-xs">{{ $link->shopee_item_id }}</code>
                             @else
@@ -278,13 +305,20 @@
                                 <div class="action-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); min-width:170px; padding:4px 0;">
                                     <a href="{{ route('products.edit', $p->product_id) }}" class="action-item">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                        Edit
+                                        Edit Product
                                     </a>
                                     @if(!$link)
                                         <a href="{{ route('shopee.products.push', $p->product_id) }}" class="action-item">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                                            Push to Shopee
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                            Edit Push Settings
                                         </a>
+                                        <form method="POST" action="{{ route('shopee.products.push_direct', $p->product_id) }}" style="margin:0;">
+                                            @csrf
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                                                Push to Shopee
+                                            </button>
+                                        </form>
                                     @endif
                                     @if(!$link)
                                         <form method="POST" action="{{ route('shopee.products.sync_shopee_id', $p->product_id) }}" style="margin:0;">
@@ -325,7 +359,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="13" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
+                        <td colspan="14" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
                     </tr>
                 @endforelse
                 </tbody>

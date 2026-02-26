@@ -80,7 +80,7 @@ class ShopeeOrderController extends Controller
         $tabStatusMap = [
             'UNPAID'              => ['UNPAID'],
             'PENDING'             => ['READY_TO_SHIP', 'PROCESSED'],
-            'SHIPPING'            => ['SHIPPED'],
+            'SHIPPING'            => ['SHIPPED', 'TO_CONFIRM_RECEIVE'],
             'DELIVERED_COMPLETED' => ['COMPLETED'],
             'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
         ];

@@ -158,6 +158,7 @@ class LazadaCatalogOrderSync
                 'oe_import'             => 0,
             ];
 
+            $isNew = false;
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
                 $orderData['date_modified'] = $updatedAt;
@@ -167,6 +168,19 @@ class LazadaCatalogOrderSync
                 $orderData['date_added'] = $createdAt;
                 $orderData['date_modified'] = $updatedAt;
                 $catalogOrder = Order::create($orderData);
+                $isNew = true;
+            }
+
+            // Send FCM notification on status change (Pending / Cancelled)
+            if ($oldStatusId !== $statusId) {
+                try {
+                    $firstProduct = $lazadaOrder->products->first();
+                    $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($firstname . ' ' . $lastname);
+                    $totalStr = number_format($total, 2) . ' ' . $currencyCode;
+                    (new FcmService())->notifyIfNeeded((int) $catalogOrder->order_id, $oldStatusId, $statusId, $itemName, $totalStr, 'lazada');
+                } catch (\Throwable $e) {
+                    \Log::warning('FCM notification failed: ' . $e->getMessage());
+                }
             }
 
             // --- Sync products ---
@@ -240,22 +254,24 @@ class LazadaCatalogOrderSync
                 $productCost = 0;
                 if ($resolvedProductId > 0) {
                     $pfx = (string) config('catalog.prefix');
+                    $baseCost = (float) DB::table($pfx . 'product')
+                        ->where('product_id', $resolvedProductId)
+                        ->value('cost');
 
-                    // Prefer option value cost when a specific variant was matched
                     if ($resolvedOptionValueId > 0) {
-                        $optCost = DB::table($pfx . 'product_option_value')
+                        $optRow = DB::table($pfx . 'product_option_value')
                             ->where('product_option_value_id', $resolvedOptionValueId)
-                            ->value('cost');
-                        if ($optCost !== null && (float) $optCost > 0) {
-                            $productCost = (float) $optCost;
+                            ->first(['cost', 'cost_prefix']);
+                        if ($optRow) {
+                            $delta = (float) $optRow->cost;
+                            $productCost = ($optRow->cost_prefix === '-')
+                                ? $baseCost - $delta
+                                : $baseCost + $delta;
+                        } else {
+                            $productCost = $baseCost;
                         }
-                    }
-
-                    // Fallback to base product cost
-                    if ($productCost == 0) {
-                        $productCost = (float) DB::table($pfx . 'product')
-                            ->where('product_id', $resolvedProductId)
-                            ->value('cost');
+                    } else {
+                        $productCost = $baseCost;
                     }
                 }
 

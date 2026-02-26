@@ -767,7 +767,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 })
                 ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
                 ->whereIn('p.product_id', $productIds)
-                ->get(['p.product_id', 'p.sku', 'p.model', 'p.quantity', 'p.status', 'p.image', 'pd.name', 'm.name as manufacturer_name']);
+                ->get(['p.product_id', 'p.sku', 'p.model', 'p.price', 'p.quantity', 'p.status', 'p.image', 'pd.name', 'm.name as manufacturer_name']);
 
             $productsById = $rows->keyBy('product_id');
 
@@ -801,6 +801,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     'ovd.name as option_value_name',
                     'pov.sku as option_sku',
                     'pov.quantity as option_quantity',
+                    'pov.price as option_price',
+                    'pov.price_prefix as option_price_prefix',
                 ]);
 
             $optionRowsByProductId = $optionRows->groupBy(fn ($r) => (int) $r->product_id);
@@ -850,6 +852,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             if ($sort === 'quantity') {
                 return (int)($p->quantity ?? -1);
+            }
+
+            if ($sort === 'price') {
+                return (float)($p->price ?? 0);
             }
 
             if ($sort === 'product_status') {
@@ -939,11 +945,16 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $product = DB::table($pfx.'product as p')
             ->where('p.product_id', $productId)
-            ->first(['p.product_id', 'p.sku', 'p.quantity']);
+            ->first(['p.product_id', 'p.sku', 'p.quantity', 'p.status']);
 
         if (!$product) {
             return redirect()->to(url()->previous(route('lazada.products.index')))
                 ->with('status', 'Cannot sync: ERP product not found for listing #' . $listing->id . '.');
+        }
+
+        if ((int) $product->status === 0) {
+            return redirect()->to(url()->previous(route('lazada.products.index')))
+                ->with('status', 'Cannot sync quantity: product #' . $productId . ' is disabled. Enable it first.');
         }
 
         // Resolve Lazada SkuId for each variant (required by Lazada production API)
@@ -1070,6 +1081,17 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $basePrice = 0;
         }
 
+        // Resolve effective markup (listing-level first, then profile fallback)
+        $fixedMarkup = $listing->markup_fixed;
+        $percentMarkup = $listing->markup_percent;
+        if ($fixedMarkup === null && $percentMarkup === null) {
+            $mkProfile = $listing->profiles()->first();
+            if ($mkProfile) {
+                $fixedMarkup = $mkProfile->markup_fixed;
+                $percentMarkup = $mkProfile->markup_percent;
+            }
+        }
+
         // Resolve Lazada SkuId for each variant (required by Lazada production API)
         if (empty($listing->lazada_item_id)) {
             return redirect()->to(url()->previous(route('lazada.products.index')))
@@ -1095,6 +1117,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'price' => $basePrice,
             ]];
         }
+
+        // Apply markup to all variant prices
+        foreach ($variantPrices as &$vp) {
+            $vp['price'] = self::computeFinalPrice((float) $vp['price'], $fixedMarkup, $percentMarkup);
+        }
+        unset($vp);
 
         $apiPath = '/product/price_quantity/update';
         $ok = 0;
@@ -1461,7 +1489,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Validate that the ERP product has a SKU (or model as fallback).
         $pfx = (string) config('catalog.prefix');
-        $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model']);
+        $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model', 'status']);
+
+        if ((int) ($erpProduct->status ?? 1) === 0) {
+            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled. Enable it before uploading.']]);
+            return redirect()->to(url()->previous(route('lazada.products.index')))
+                ->with('status', 'Upload: ERP product is disabled. Enable it before uploading to Lazada.');
+        }
+
         $erpSku = trim((string) ($erpProduct->sku ?? ''));
         if ($erpSku === '') {
             $erpSku = trim((string) ($erpProduct->model ?? ''));
@@ -1625,7 +1660,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             }
 
             // Validate SKU
-            $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model']);
+            $erpProduct = DB::table($pfx . 'product')->where('product_id', (int) $listing->product_id)->first(['sku', 'model', 'status']);
+
+            if ((int) ($erpProduct->status ?? 1) === 0) {
+                $this->persistProductSyncStatus($listing, 'bulk_upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled (status=0).']]);
+                $errCount++;
+                continue;
+            }
+
             $erpSku = trim((string) ($erpProduct->sku ?? ''));
             if ($erpSku === '') {
                 $erpSku = trim((string) ($erpProduct->model ?? ''));
@@ -1851,7 +1893,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     if (!empty($productIds)) {
         $products = DB::table($pfx.'product as p')
             ->whereIn('p.product_id', $productIds)
-            ->get(['p.product_id', 'p.sku', 'p.quantity'])
+            ->get(['p.product_id', 'p.sku', 'p.quantity', 'p.status'])
             ->keyBy('product_id');
     }
 
@@ -1873,6 +1915,12 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
         $product = $products->get((int)$listing->product_id);
         if (!$product) {
             $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'ERP_PRODUCT_NOT_FOUND', 'message' => 'ERP product not found']]);
+            $errCount++;
+            continue;
+        }
+
+        if ((int) $product->status === 0) {
+            $this->persistProductSyncStatus($listing, 'bulk_sync_quantity', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled (status=0).']]);
             $errCount++;
             continue;
         }
@@ -2093,6 +2141,21 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
             ]];
         }
 
+        // Apply listing/profile markup to all variant prices
+        $fixedMarkup = $listing->markup_fixed;
+        $percentMarkup = $listing->markup_percent;
+        if ($fixedMarkup === null && $percentMarkup === null) {
+            $mkProfile = $listing->profiles()->first();
+            if ($mkProfile) {
+                $fixedMarkup = $mkProfile->markup_fixed;
+                $percentMarkup = $mkProfile->markup_percent;
+            }
+        }
+        foreach ($variantSkus as &$vs) {
+            $vs['price'] = self::computeFinalPrice((float) $vs['price'], $fixedMarkup, $percentMarkup);
+        }
+        unset($vs);
+
         $ok = 0;
         $err = 0;
         $last = null;
@@ -2304,18 +2367,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
     public function create(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
-        $products = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
-                $j->on('p.product_id', '=', 'pd.product_id')
-                    ->where('pd.language_id', '=', $langId);
-            })
-            ->orderByDesc('p.product_id')
-            ->limit(200)
-            ->get(['p.product_id', 'p.sku', 'p.model', 'p.quantity', 'p.status', 'p.image', 'pd.name']);
-
         // Cached Lazada categories for dropdown selection
         $categories = LazadaCategory::query()
             ->orderBy('name')
@@ -2323,13 +2374,13 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->get(['category_id', 'name']);
 
         // Brand search is handled by AJAX autocomplete; no need to preload all brands.
+        // Product selection is handled by AJAX search (searchCatalogProducts endpoint).
 
         return view('lazada.products.form', [
             'mode' => 'create',
             'listing' => new LazadaProduct([
                 'product_id' => $request->input('product_id'),
             ]),
-            'products' => $products,
             'categories' => $categories,
             'template' => null,
             'attributes' => [],

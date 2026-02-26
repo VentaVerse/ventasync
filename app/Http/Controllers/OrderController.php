@@ -13,6 +13,7 @@ use App\Models\LazadaProductVariant;
 use App\Models\OpenCartSetting;
 use App\Models\ShopeeOrder;
 use App\Services\ActivityLogger;
+use App\Services\FcmService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -232,6 +233,18 @@ class OrderController extends Controller
 
         ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
+        try {
+            (new FcmService())->notifyIfNeeded(
+                (int) $order->order_id,
+                0,
+                (int) $request->order_status_id,
+                trim($request->firstname . ' ' . ($request->lastname ?? '')),
+                number_format($request->total ?? 0, 2) . ' ' . ($request->currency_code ?? 'PHP'),
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('FCM notification failed: ' . $e->getMessage());
+        }
+
         return redirect()->route('orders.index')->with('status', 'Order created.');
     }
 
@@ -292,6 +305,15 @@ class OrderController extends Controller
             '#' . $order->order_id . ' ' . trim($order->firstname . ' ' . $order->lastname),
             ['status' => [(string) $oldStatusName, (string) $newStatusName]]
         );
+
+        try {
+            $firstProduct = $order->products()->first();
+            $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($order->firstname . ' ' . $order->lastname);
+            $total = number_format((float) $order->total, 2) . ' ' . ($order->currency_code ?: 'PHP');
+            (new FcmService())->notifyIfNeeded((int) $order->order_id, $oldStatusId, $newStatusId, $itemName, $total, $order->marketplace_source ?? '');
+        } catch (\Throwable $e) {
+            \Log::warning('FCM notification failed: ' . $e->getMessage());
+        }
 
         return redirect()->route('orders.show', $id)->with('status', 'Order status updated.');
     }

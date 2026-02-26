@@ -60,9 +60,14 @@ class LazadaPushStock extends Command
         foreach ($listings as $listing) {
             $product = DB::table($pfx . 'product')
                 ->where('product_id', (int) $listing->product_id)
-                ->first(['product_id', 'sku', 'quantity']);
+                ->first(['product_id', 'sku', 'quantity', 'status']);
 
             if (!$product) {
+                $skipped++;
+                continue;
+            }
+
+            if ((int) $product->status === 0) {
                 $skipped++;
                 continue;
             }

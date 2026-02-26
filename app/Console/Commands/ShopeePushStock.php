@@ -50,6 +50,13 @@ class ShopeePushStock extends Command
             foreach ($itemLinks as $link) {
                 $productId = (int) $link->product_id;
 
+                // Skip disabled products
+                $productStatus = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
+                if ((int) $productStatus === 0) {
+                    $totalSkipped++;
+                    continue;
+                }
+
                 // If there's a model_id, try to find qty from option value by SKU
                 $qty = 0;
                 $sku = trim((string) ($link->sku ?? ''));

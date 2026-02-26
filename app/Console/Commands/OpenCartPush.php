@@ -90,18 +90,25 @@ class OpenCartPush extends Command
         $pfx = (string) config('catalog.prefix');
 
         if ($this->option('product-ids')) {
-            return array_map('intval', explode(',', $this->option('product-ids')));
+            $requestedIds = array_map('intval', explode(',', $this->option('product-ids')));
+            return DB::table($pfx . 'product')
+                ->whereIn('product_id', $requestedIds)
+                ->where('status', 1)
+                ->pluck('product_id')
+                ->toArray();
         }
 
         if ($this->option('since')) {
             return DB::table($pfx . 'product')
                 ->where('date_modified', '>=', $this->option('since'))
+                ->where('status', 1)
                 ->pluck('product_id')
                 ->toArray();
         }
 
         if ($this->option('all')) {
             return DB::table($pfx . 'product')
+                ->where('status', 1)
                 ->pluck('product_id')
                 ->toArray();
         }

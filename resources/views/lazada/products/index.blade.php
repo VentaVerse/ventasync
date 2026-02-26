@@ -11,7 +11,6 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('lazada.profiles.index') }}">Profiles</a>
-            <a class="btn secondary" href="{{ route('lazada.index') }}">Lazada Settings</a>
             <a class="btn" href="{{ route('lazada.products.create') }}">Add Product</a>
         </div>
     </div>
@@ -227,6 +226,7 @@
         <th><a href="{{ $sortUrl('manufacturer') }}" style="text-decoration:none; color:inherit;">Manufacturer{!! $sortIcon('manufacturer') !!}</a></th>
         <th style="width:120px;"><a href="{{ $sortUrl('profile') }}" style="text-decoration:none; color:inherit;">Profile{!! $sortIcon('profile') !!}</a></th>
         <th style="width:60px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Stock{!! $sortIcon('quantity') !!}</a></th>
+        <th style="width:80px;"><a href="{{ $sortUrl('price') }}" style="text-decoration:none; color:inherit;">Price{!! $sortIcon('price') !!}</a></th>
         <th style="width:130px;"><a href="{{ $sortUrl('lazada_item_id') }}" style="text-decoration:none; color:inherit;">Lazada ID{!! $sortIcon('lazada_item_id') !!}</a></th>
         <th style="width:90px;"><a href="{{ $sortUrl('product_status') }}" style="text-decoration:none; color:inherit;">ERP Status{!! $sortIcon('product_status') !!}</a></th>
         <th style="width:100px;"><a href="{{ $sortUrl('lazada_status') }}" style="text-decoration:none; color:inherit;">Sync Status{!! $sortIcon('lazada_status') !!}</a></th>
@@ -299,6 +299,20 @@
                             $oqty = is_null($oqtyRaw) ? '-' : (is_numeric($oqtyRaw) ? (string)((int)$oqtyRaw) : (string)$oqtyRaw);
                         @endphp
                         <div class="text-xs text-muted">{{ $oqty }}</div>
+                    @endforeach
+                @endif
+            </td>
+            <td>
+                <div>{{ $p ? number_format((float)$p->price, 2) : '-' }}</div>
+                @if($optRows && count($optRows) > 0)
+                    @foreach($optRows as $or)
+                        @php
+                            $opDelta = (float)($or->option_price ?? 0);
+                            $opPrefix = (string)($or->option_price_prefix ?? '+');
+                            $basePrice = $p ? (float)$p->price : 0;
+                            $opFull = $opPrefix === '-' ? $basePrice - $opDelta : $basePrice + $opDelta;
+                        @endphp
+                        <div class="text-xs text-muted">{{ number_format($opFull, 2) }}</div>
                     @endforeach
                 @endif
             </td>
@@ -406,7 +420,7 @@
         </tr>
     @empty
         <tr>
-            <td colspan="13" class="text-muted">No products found. <a href="{{ route('lazada.products.create') }}">Add your first product</a>.</td>
+            <td colspan="14" class="text-muted">No products found. <a href="{{ route('lazada.products.create') }}">Add your first product</a>.</td>
         </tr>
     @endforelse
     </tbody>

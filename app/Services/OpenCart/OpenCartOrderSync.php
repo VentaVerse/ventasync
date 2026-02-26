@@ -6,6 +6,7 @@ use App\Models\Catalog\Order;
 use App\Models\OpenCartOrderStatusMap;
 use App\Models\OpenCartSetting;
 use App\Models\OpenCartSyncLog;
+use App\Services\FcmService;
 use App\Services\OrderStockService;
 use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
@@ -391,21 +392,24 @@ class OpenCartOrderSync
 
                     $productCost = 0;
                     if ($coreProductId > 0) {
-                        // Prefer option value cost when a specific variant was matched
-                        if ($firstMatchedPovId > 0) {
-                            $optCost = DB::table($pfx . 'product_option_value')
-                                ->where('product_option_value_id', $firstMatchedPovId)
-                                ->value('cost');
-                            if ($optCost !== null && (float) $optCost > 0) {
-                                $productCost = (float) $optCost;
-                            }
-                        }
+                        $baseCost = (float) DB::table($pfx . 'product')
+                            ->where('product_id', $coreProductId)
+                            ->value('cost');
 
-                        // Fallback to base product cost
-                        if ($productCost == 0) {
-                            $productCost = (float) DB::table($pfx . 'product')
-                                ->where('product_id', $coreProductId)
-                                ->value('cost');
+                        if ($firstMatchedPovId > 0) {
+                            $optRow = DB::table($pfx . 'product_option_value')
+                                ->where('product_option_value_id', $firstMatchedPovId)
+                                ->first(['cost', 'cost_prefix']);
+                            if ($optRow) {
+                                $delta = (float) $optRow->cost;
+                                $productCost = ($optRow->cost_prefix === '-')
+                                    ? $baseCost - $delta
+                                    : $baseCost + $delta;
+                            } else {
+                                $productCost = $baseCost;
+                            }
+                        } else {
+                            $productCost = $baseCost;
                         }
                     }
 
@@ -477,6 +481,18 @@ class OpenCartOrderSync
             ActivityLogger::log('updated', 'Order', $coreOrderId, 'OpenCart #' . ($raw['order_id'] ?? ''), [
                 'order_status_id' => [(string) $oldStatusId, (string) $coreStatusId],
             ], source: 'system');
+        }
+
+        // Send FCM notification on status change (Pending / Cancelled)
+        if ($coreOrderId && $oldStatusId !== $coreStatusId) {
+            try {
+                $firstProduct = ($raw['products'] ?? [])[0] ?? null;
+                $itemName = $firstProduct ? trim($firstProduct['name'] ?? '') : trim(($raw['firstname'] ?? '') . ' ' . ($raw['lastname'] ?? ''));
+                $total = number_format((float) ($raw['total'] ?? 0), 2) . ' ' . ($raw['currency_code'] ?? 'PHP');
+                (new FcmService())->notifyIfNeeded($coreOrderId, $oldStatusId, $coreStatusId, $itemName, $total, $marketplaceSource);
+            } catch (\Throwable $e) {
+                Log::warning('FCM notification failed: ' . $e->getMessage());
+            }
         }
 
         // Adjust stock based on status transition (after transaction so products are committed)

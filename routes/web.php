@@ -165,9 +165,11 @@ Route::middleware(['auth'])->group(function () {
 
         // Shopee Products
         Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('shopee.products.index');
+        Route::get('/shopee/products/add', [ShopeeProductController::class, 'addProduct'])->name('shopee.products.add');
         Route::post('/shopee/products/sync-ids', [ShopeeProductController::class, 'syncProductIds'])->name('shopee.products.sync_ids');
         Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('shopee.products.push');
         Route::post('/shopee/products/{productId}/push', [ShopeeProductController::class, 'push'])->name('shopee.products.push.post');
+        Route::post('/shopee/products/{productId}/push-direct', [ShopeeProductController::class, 'pushDirect'])->name('shopee.products.push_direct');
         Route::post('/shopee/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('shopee.products.sync_shopee_id');
         Route::post('/shopee/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('shopee.products.sync_quantity');
         Route::post('/shopee/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('shopee.products.sync_price');
@@ -177,6 +179,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shopee/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('shopee.products.link_unmatched');
         Route::post('/shopee/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('shopee.products.dismiss_unmatched');
         Route::get('/shopee/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('shopee.products.search_catalog');
+        Route::post('/shopee/products/unmatched/sync', [ShopeeProductController::class, 'syncUnmatchedItems'])->name('shopee.products.sync_unmatched');
         Route::post('/shopee/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('shopee.products.rebuild_cache');
 
     });

@@ -49,98 +49,100 @@
 </template>
 
 <template id="tpl-value-row">
-    <div class="card mt-12" style="padding:12px;">
-        <div class="d-flex gap-10 flex-wrap" style="align-items:end;">
-            <div style="min-width:240px; flex:1;">
-                <label class="required">Value</label>
-                <select class="input js-value-select"></select>
-                <input type="hidden" class="js-value-id" />
+    <div class="card mt-8" style="padding:0; overflow:hidden;">
+        <div class="d-flex" style="align-items:stretch;">
+            {{-- Left: Option name --}}
+            <div class="js-row-option-label" style="width:120px; flex-shrink:0; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; padding:8px; font-weight:600; font-size:13px; border-right:1px solid var(--border-light); text-align:center;">
+                —
             </div>
-            <div style="width:180px;">
-                <label>SKU</label>
-                <input class="input js-row-sku" placeholder="optional">
-            </div>
-            <div style="width:140px;">
-                <label>Quantity</label>
-                <input class="input js-row-qty" type="number" value="0">
-            </div>
-            <div style="width:160px;">
-                <label>Subtract Stock</label>
-                <select class="input js-row-subtract">
-                    <option value="1">Yes</option>
-                    <option value="0">No</option>
-                </select>
-            </div>
-            <div style="width:120px;">
-                <label>Price Prefix</label>
-                <select class="input js-row-price-prefix">
-                    <option value="+">+</option>
-                    <option value="-">-</option>
-                </select>
-            </div>
-            <div style="width:140px;">
-                <label>Price</label>
-                <input class="input js-row-price" type="number" step="0.0001" value="0">
-            </div>
-            <div style="width:120px;">
-                <label>Weight Prefix</label>
-                <select class="input js-row-weight-prefix">
-                    <option value="+">+</option>
-                    <option value="-">-</option>
-                </select>
-            </div>
-            <div style="width:140px;">
-                <label>Weight</label>
-                <input class="input js-row-weight" type="number" step="0.0001" value="0">
-            </div>
-            <div style="width:140px; margin-left:auto;">
-                <button class="btn danger" type="button" data-action="remove-value" style="width:100%;">Remove</button>
-            </div>
-        </div>
-        <div class="cost-breakdown mt-8" style="padding:10px 14px;">
-            <div class="cost-breakdown-label" style="margin-bottom:8px;">Option Cost</div>
-            <div class="cost-breakdown-fields">
-                <div>
-                    <label>Cost</label>
-                    <input class="input js-row-cost-amount" type="number" step="0.0001" value="0">
-                    <div class="hint">Fixed amount</div>
+            {{-- Right: Fields grid --}}
+            <div style="flex:1; min-width:0; padding:10px;">
+                <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:8px; align-items:end;">
+                    <div>
+                        <label class="required">Value</label>
+                        <select class="input js-value-select"></select>
+                        <input type="hidden" class="js-value-id" />
+                    </div>
+                    <div>
+                        <label>SKU</label>
+                        <input class="input js-row-sku" placeholder="optional">
+                    </div>
+                    <div>
+                        <label>Quantity</label>
+                        <input class="input js-row-qty" type="number" value="0">
+                    </div>
+                    <div>
+                        <label>Subtract</label>
+                        <label class="toggle-switch" style="display:block; margin-top:6px;">
+                            <input type="checkbox" class="js-row-subtract-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <select class="js-row-subtract" hidden><option value="1" selected>Yes</option><option value="0">No</option></select>
+                    </div>
+                    <div>
+                        <label>Price</label>
+                        <div class="d-flex gap-2">
+                            <select class="input js-row-price-prefix" style="width:34px; flex-shrink:0; padding:6px 1px; text-align:center;"><option value="+">+</option><option value="-">-</option></select>
+                            <input class="input js-row-price" type="number" step="0.01" value="0" style="flex:1; min-width:0;">
+                        </div>
+                    </div>
+                    <div>
+                        <label>Cost</label>
+                        <div class="d-flex gap-2">
+                            <select class="input js-row-cost-prefix" style="width:34px; flex-shrink:0; padding:6px 1px; text-align:center;"><option value="+">+</option><option value="-">-</option></select>
+                            <input class="input js-row-cost" type="number" step="0.01" value="0" style="flex:1; min-width:0;">
+                        </div>
+                    </div>
+                    <div>
+                        <label>Weight</label>
+                        <div class="d-flex gap-2">
+                            <select class="input js-row-weight-prefix" style="width:34px; flex-shrink:0; padding:6px 1px; text-align:center;"><option value="+">+</option><option value="-">-</option></select>
+                            <input class="input js-row-weight" type="number" step="0.01" value="0" style="flex:1; min-width:0;">
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <label>&nbsp;</label>
+                        <button class="btn danger" type="button" data-action="remove-value" style="padding:6px 12px;">X</button>
+                    </div>
                 </div>
-                <div class="cost-breakdown-op">and/or</div>
-                <div>
-                    <label>Cost [%]</label>
-                    <input class="input js-row-cost-pct" type="number" step="0.01" value="0">
-                    <div class="hint">% of option price</div>
-                </div>
-                <div class="cost-breakdown-op">+</div>
-                <div>
-                    <label>Additional</label>
-                    <input class="input js-row-cost-additional" type="number" step="0.0001" value="0">
-                    <div class="hint">e.g. shipping</div>
-                </div>
-                <div class="cost-breakdown-op">=</div>
-                <div>
-                    <label>Total</label>
-                    <input class="input js-row-cost" type="text" value="0" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
-                    <div class="hint">Computed total</div>
-                </div>
-            </div>
-            <div class="profit-metrics">
-                <div>
-                    <label>Profit</label>
-                    <input class="input js-row-profit" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
-                </div>
-                <div>
-                    <label>Margin [%]</label>
-                    <input class="input js-row-margin" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
-                </div>
-                <div>
-                    <label>Markup [%]</label>
-                    <input class="input js-row-markup" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                {{-- Metrics row --}}
+                <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-top:6px;">
+                    <div>
+                        <label style="font-size:11px; color:var(--text-muted);">Full Price</label>
+                        <input class="input js-row-full-price" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:var(--text-muted);">Full Cost</label>
+                        <input class="input js-row-full-cost" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:var(--text-muted);">Profit</label>
+                        <input class="input js-row-profit" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:var(--text-muted);">Margin</label>
+                        <input class="input js-row-margin" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:var(--text-muted);">Markup</label>
+                        <input class="input js-row-markup" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </template>
+
+@push('styles')
+<style>
+.toggle-switch { position:relative; display:inline-block; width:40px; height:22px; cursor:pointer; }
+.toggle-switch input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; inset:0; background:var(--border-light, #ccc); border-radius:22px; transition:.2s; }
+.toggle-slider::before { content:""; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+.toggle-switch input:checked + .toggle-slider { background:var(--primary, #4f46e5); }
+.toggle-switch input:checked + .toggle-slider::before { transform:translateX(18px); }
+</style>
+@endpush
 
 @push('scripts')
 <script>
@@ -219,41 +221,54 @@ function buildValueRow(valuesList, seed){
 
   row.querySelector('.js-row-sku').value = seed?.sku ?? '';
   row.querySelector('.js-row-qty').value = seed?.quantity ?? 0;
-  row.querySelector('.js-row-subtract').value = String(seed?.subtract ?? 1);
+
+  // Toggle switch ↔ hidden select sync
+  var subtractSelect = row.querySelector('.js-row-subtract');
+  var subtractToggle = row.querySelector('.js-row-subtract-toggle');
+  var subtractVal = String(seed?.subtract ?? 1);
+  subtractSelect.value = subtractVal;
+  subtractToggle.checked = subtractVal === '1';
+  subtractToggle.addEventListener('change', function() { subtractSelect.value = this.checked ? '1' : '0'; });
+
   row.querySelector('.js-row-price-prefix').value = seed?.price_prefix ?? '+';
   row.querySelector('.js-row-price').value = seed?.price ?? 0;
   row.querySelector('.js-row-weight-prefix').value = seed?.weight_prefix ?? '+';
   row.querySelector('.js-row-weight').value = seed?.weight ?? 0;
+  row.querySelector('.js-row-cost-prefix').value = seed?.cost_prefix ?? '+';
+  row.querySelector('.js-row-cost').value = seed?.cost ?? 0;
 
-  // Cost breakdown fields
-  var costAmt = row.querySelector('.js-row-cost-amount');
-  var costPct = row.querySelector('.js-row-cost-pct');
-  var costAdd = row.querySelector('.js-row-cost-additional');
-  var costOut = row.querySelector('.js-row-cost');
+  // Cost & profit fields
+  var pricePrefixIn = row.querySelector('.js-row-price-prefix');
   var priceIn = row.querySelector('.js-row-price');
+  var costPrefixIn = row.querySelector('.js-row-cost-prefix');
+  var costIn = row.querySelector('.js-row-cost');
+  var fullPriceOut = row.querySelector('.js-row-full-price');
+  var fullCostOut = row.querySelector('.js-row-full-cost');
   var profitOut = row.querySelector('.js-row-profit');
   var marginOut = row.querySelector('.js-row-margin');
   var markupOut = row.querySelector('.js-row-markup');
 
-  costAmt.value = seed?.cost_amount ?? 0;
-  costPct.value = seed?.cost_percentage ?? 0;
-  costAdd.value = seed?.cost_additional ?? 0;
-
   function calcOptionCost() {
-    var p = parseFloat(priceIn.value) || 0;
-    var a = parseFloat(costAmt.value) || 0;
-    var c = parseFloat(costPct.value) || 0;
-    var d = parseFloat(costAdd.value) || 0;
-    var cost = a + (c / 100 * p) + d;
-    costOut.value = cost.toFixed(4);
+    var basePrice = parseFloat((document.getElementById('product_price') || {}).value) || 0;
+    var baseCost = parseFloat((document.getElementById('product_cost') || {}).value) || 0;
+    var priceDelta = parseFloat(priceIn.value) || 0;
+    var costDelta = parseFloat(costIn.value) || 0;
 
-    var profit = p - cost;
+    var fullPrice = pricePrefixIn.value === '-' ? basePrice - priceDelta : basePrice + priceDelta;
+    var fullCost = costPrefixIn.value === '-' ? baseCost - costDelta : baseCost + costDelta;
+    var profit = fullPrice - fullCost;
+
+    if (fullPriceOut) { fullPriceOut.value = fullPrice.toFixed(2); }
+    if (fullCostOut) { fullCostOut.value = fullCost.toFixed(2); }
     if (profitOut) { profitOut.value = profit.toFixed(2); profitOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
-    if (marginOut) { marginOut.value = p > 0 ? (profit / p * 100).toFixed(2) + '%' : '0%'; marginOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
-    if (markupOut) { markupOut.value = cost > 0 ? (profit / cost * 100).toFixed(2) + '%' : '0%'; markupOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+    if (marginOut) { marginOut.value = fullPrice > 0 ? (profit / fullPrice * 100).toFixed(2) + '%' : '0%'; marginOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+    if (markupOut) { markupOut.value = fullCost > 0 ? (profit / fullCost * 100).toFixed(2) + '%' : '0%'; markupOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
   }
-  [priceIn, costAmt, costPct, costAdd].forEach(function(el) { el.addEventListener('input', calcOptionCost); });
+  [pricePrefixIn, priceIn, costPrefixIn, costIn].forEach(function(el) { el.addEventListener('input', calcOptionCost); el.addEventListener('change', calcOptionCost); });
   calcOptionCost();
+
+  // Store calcOptionCost on the row so we can trigger it from base price/cost changes
+  row._calcOptionCost = calcOptionCost;
 
   row.querySelector('[data-action="remove-value"]').addEventListener('click', () => {
     row.remove();
@@ -291,6 +306,7 @@ function buildOptionBlock(seed){
     }
 
     const valuesList = await fetchValues(optionId);
+    const optionName = sel.options[sel.selectedIndex]?.textContent || '—';
 
     const existing = (seed?.values ?? []).map(v => ({
       option_value_id: v.option_value_id,
@@ -301,21 +317,27 @@ function buildOptionBlock(seed){
       price: v.price ?? 0,
       weight_prefix: v.weight_prefix ?? '+',
       weight: v.weight ?? 0,
-      cost_amount: v.cost_amount ?? 0,
-      cost_percentage: v.cost_percentage ?? 0,
-      cost_additional: v.cost_additional ?? 0,
+      cost_prefix: v.cost_prefix ?? '+',
+      cost: v.cost ?? 0,
     }));
 
+    function addRow(seed) {
+      const row = buildValueRow(valuesList, seed);
+      row.querySelector('.js-row-option-label').textContent = optionName;
+      valuesRoot.appendChild(row);
+      return row;
+    }
+
     if(existing.length === 0){
-      valuesRoot.appendChild(buildValueRow(valuesList, null));
+      addRow(null);
     } else {
       for(const ev of existing){
-        valuesRoot.appendChild(buildValueRow(valuesList, ev));
+        addRow(ev);
       }
     }
 
     block.querySelector('[data-action="add-value"]').onclick = () => {
-      valuesRoot.appendChild(buildValueRow(valuesList, null));
+      addRow(null);
       recalcAndLockProductQuantity();
     };
 
@@ -384,9 +406,8 @@ function beforeSubmit(e){
         root.appendChild(el);
       };
 
-      const costAmt = r.querySelector('.js-row-cost-amount').value || '0';
-      const costPct = r.querySelector('.js-row-cost-pct').value || '0';
-      const costAdd = r.querySelector('.js-row-cost-additional').value || '0';
+      const cp = r.querySelector('.js-row-cost-prefix').value || '+';
+      const cost = r.querySelector('.js-row-cost').value || '0';
 
       add(`options[${idx}][values][${vIdx}][option_value_id]`, valId);
       add(`options[${idx}][values][${vIdx}][sku]`, sku);
@@ -396,9 +417,8 @@ function beforeSubmit(e){
       add(`options[${idx}][values][${vIdx}][price]`, price);
       add(`options[${idx}][values][${vIdx}][weight_prefix]`, wp);
       add(`options[${idx}][values][${vIdx}][weight]`, weight);
-      add(`options[${idx}][values][${vIdx}][cost_amount]`, costAmt);
-      add(`options[${idx}][values][${vIdx}][cost_percentage]`, costPct);
-      add(`options[${idx}][values][${vIdx}][cost_additional]`, costAdd);
+      add(`options[${idx}][values][${vIdx}][cost_prefix]`, cp);
+      add(`options[${idx}][values][${vIdx}][cost]`, cost);
 
       vIdx++;
     }
@@ -485,6 +505,23 @@ if(root){
     if(t && t.classList?.contains('js-row-qty')){
       recalcAndLockProductQuantity();
     }
+  });
+
+  // Recalculate all option profits when base product price or cost changes
+  function recalcAllOptionCosts() {
+    root.querySelectorAll('.js-values .card').forEach(function(row) {
+      if (row._calcOptionCost) row._calcOptionCost();
+    });
+  }
+  var basePriceEl = document.getElementById('product_price');
+  var baseCostEl = document.getElementById('product_cost');
+  if (basePriceEl) { basePriceEl.addEventListener('input', recalcAllOptionCosts); basePriceEl.addEventListener('change', recalcAllOptionCosts); }
+  if (baseCostEl) { baseCostEl.addEventListener('input', recalcAllOptionCosts); baseCostEl.addEventListener('change', recalcAllOptionCosts); }
+
+  // Also listen on cost breakdown inputs that update product_cost
+  ['cost_amount', 'cost_percentage', 'cost_additional'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.addEventListener('input', function() { setTimeout(recalcAllOptionCosts, 50); }); }
   });
 
   // Initial

@@ -13,11 +13,17 @@ class MarketplaceOrderController extends Controller
 {
     private const LAZADA_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
-        'PENDING'             => ['pending', 'packed', 'ready_to_ship'],
+        'PENDING'             => ['pending', 'repacked', 'packed', 'ready_to_ship'],
         'SHIPPING'            => ['shipped'],
         'DELIVERED_COMPLETED' => ['delivered'],
         'CANCELLED'           => ['canceled', 'cancelled'],
         'RETURN'              => ['returned'],
+    ];
+
+    private const LAZADA_PENDING_SUB_MAP = [
+        'to_pack'     => ['pending', 'repacked'],
+        'to_arrange'  => ['packed'],
+        'to_handover' => ['ready_to_ship'],
     ];
 
     private const SHOPEE_TAB_STATUS_MAP = [
@@ -27,6 +33,11 @@ class MarketplaceOrderController extends Controller
         'DELIVERED_COMPLETED' => ['COMPLETED'],
         'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
         'RETURN'              => ['AWAITING_RETURN', 'IN_RETURN', 'RETURNED'],
+    ];
+
+    private const SHOPEE_PENDING_SUB_MAP = [
+        'to_pack'     => ['READY_TO_SHIP'],
+        'to_handover' => ['PROCESSED'],
     ];
 
     private const ALLOWED_TABS = [
@@ -47,8 +58,18 @@ class MarketplaceOrderController extends Controller
 
         $search = trim((string) $request->query('q', ''));
 
+        $pendingSub = (string) $request->query('pending_sub', '');
+        if ($tab !== 'PENDING') {
+            $pendingSub = '';
+        }
+
         $isLazada = $platform === 'lazada';
         $tabStatusMap = $isLazada ? self::LAZADA_TAB_STATUS_MAP : self::SHOPEE_TAB_STATUS_MAP;
+        $pendingSubMap = $isLazada ? self::LAZADA_PENDING_SUB_MAP : self::SHOPEE_PENDING_SUB_MAP;
+
+        if ($pendingSub !== '' && !array_key_exists($pendingSub, $pendingSubMap)) {
+            $pendingSub = '';
+        }
 
         // Determine region
         if ($isLazada) {
@@ -65,9 +86,16 @@ class MarketplaceOrderController extends Controller
 
         // Tab filter
         if ($tab !== 'ALL') {
-            $statuses = $tabStatusMap[$tab] ?? [];
-            if (!empty($statuses)) {
-                $query->whereIn('status', $statuses);
+            if ($tab === 'PENDING' && $pendingSub !== '') {
+                $statuses = $pendingSubMap[$pendingSub] ?? [];
+                if (!empty($statuses)) {
+                    $query->whereIn('status', $statuses);
+                }
+            } else {
+                $statuses = $tabStatusMap[$tab] ?? [];
+                if (!empty($statuses)) {
+                    $query->whereIn('status', $statuses);
+                }
             }
         }
 
@@ -95,6 +123,14 @@ class MarketplaceOrderController extends Controller
         foreach ($tabStatusMap as $k => $statuses) {
             $tabCounts[$k] = !empty($statuses)
                 ? (clone $baseCountQuery)->whereIn('status', $statuses)->count()
+                : 0;
+        }
+
+        // Pending sub-tab counts
+        $pendingSubCounts = [];
+        foreach ($pendingSubMap as $subKey => $subStatuses) {
+            $pendingSubCounts[$subKey] = !empty($subStatuses)
+                ? (clone $baseCountQuery)->whereIn('status', $subStatuses)->count()
                 : 0;
         }
 
@@ -155,11 +191,12 @@ class MarketplaceOrderController extends Controller
         });
 
         return response()->json([
-            'data'         => $data,
-            'current_page' => $orders->currentPage(),
-            'last_page'    => $orders->lastPage(),
-            'total'        => $orders->total(),
-            'tab_counts'   => $tabCounts,
+            'data'               => $data,
+            'current_page'       => $orders->currentPage(),
+            'last_page'          => $orders->lastPage(),
+            'total'              => $orders->total(),
+            'tab_counts'         => $tabCounts,
+            'pending_sub_counts' => $pendingSubCounts,
         ]);
     }
 

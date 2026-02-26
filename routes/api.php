@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController as ApiDashboardController;
+use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\MarketplaceOrderController as ApiMarketplaceOrderController;
 use App\Http\Controllers\Api\ProductController as ApiProductController;
@@ -27,6 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::post('/device-token', [DeviceTokenController::class, 'store']);
+    Route::delete('/device-token', [DeviceTokenController::class, 'destroy']);
 
     Route::get('/dashboard', [ApiDashboardController::class, 'index']);
     Route::get('/dashboard/chart-data', [ApiDashboardController::class, 'chartData']);

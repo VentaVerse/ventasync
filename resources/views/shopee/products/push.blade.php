@@ -53,7 +53,10 @@
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top:12px;">
                 <div>
                     <label>Price <span style="color:#d11;">*</span></label>
-                    <input type="number" name="original_price" class="input" step="0.01" min="0.01" value="{{ old('original_price', number_format((float)$product->price, 2, '.', '')) }}" required>
+                    <input type="number" name="original_price" class="input" step="0.01" min="0.01" value="{{ old('original_price', number_format($suggestedPrice ?? (float)$product->price, 2, '.', '')) }}" required>
+                    @if(isset($suggestedPrice) && $suggestedPrice != (float)$product->price)
+                        <div class="hint">Base: {{ number_format((float)$product->price, 2) }} + profile markup</div>
+                    @endif
                 </div>
                 <div>
                     <label>Stock <span style="color:#d11;">*</span></label>

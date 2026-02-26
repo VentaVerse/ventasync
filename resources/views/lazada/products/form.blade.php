@@ -65,20 +65,14 @@
 
             @if($mode === 'create')
                 <div>
-                    <label>ERP Product</label>
-                    <select name="product_id" class="input">
-                        @foreach($products as $p)
-                            @php
-                                $nm = html_entity_decode((string)($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                                $label = '#'.$p->product_id.' — '.$nm;
-                                if (!empty($p->sku)) $label .= ' ('.$p->sku.')';
-                            @endphp
-                            <option value="{{ $p->product_id }}" {{ (int)old('product_id', $listing->product_id) === (int)$p->product_id ? 'selected' : '' }}>
-                                {{ $label }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <div class="hint">This ERP product will be used later to generate Lazada payloads.</div>
+                    <label>ERP Product <span style="color:#d11;">*</span></label>
+                    <input type="hidden" name="product_id" id="lazSelectedProductId" value="{{ old('product_id', $listing->product_id) }}">
+                    <div style="position:relative;">
+                        <input type="text" class="input" id="lazProductSearch" placeholder="Search by name, SKU or product ID..." autocomplete="off" value="{{ old('_product_label', '') }}">
+                        <div id="lazProductResults" style="display:none; position:absolute; z-index:60; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); max-height:280px; overflow-y:auto; margin-top:4px;"></div>
+                    </div>
+                    <div id="lazSelectedProductInfo" style="display:none; margin-top:8px; padding:10px 14px; background:var(--bg-subtle, #f0f4f8); border-radius:var(--radius-md); border:1px solid var(--border-light);"></div>
+                    <div class="hint" style="margin-top:4px;">Type at least 2 characters to search. This ERP product will be used to generate Lazada payloads.</div>
                 </div>
             @endif
 
@@ -177,6 +171,12 @@
                     <span style="font-size:13px;">Total Price (base + markup):</span>
                     <strong style="font-size:16px; margin-left:6px;" id="totalPriceValue">—</strong>
                     <span class="hint" style="margin-left:8px;">Base: {{ number_format((float)$productRow->price, 2) }}</span>
+                </div>
+            @endif
+
+            @if($mode === 'create')
+                <div class="alert" style="margin-top:16px; background:var(--accent-light, #eff6ff); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); padding:12px 16px;">
+                    <strong>Next step:</strong> Click <strong>Create Listing</strong> to save, then you can sync the category template and fill required attributes.
                 </div>
             @endif
 
@@ -611,5 +611,101 @@
             recalc();
         })();
     </script>
+
+    @if($mode === 'create')
+    <style>
+        .laz-pr-item { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:13px; transition:background 0.1s; }
+        .laz-pr-item:hover { background:var(--surface-hover); }
+        .laz-pr-item img { width:32px; height:32px; object-fit:cover; border-radius:3px; flex-shrink:0; }
+        .laz-pr-item .lpi-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .laz-pr-item .lpi-meta { color:var(--text-muted); font-size:11px; }
+    </style>
+    <script>
+    (function(){
+        var searchInput = document.getElementById('lazProductSearch');
+        var resultsDiv = document.getElementById('lazProductResults');
+        var hiddenId = document.getElementById('lazSelectedProductId');
+        var infoDiv = document.getElementById('lazSelectedProductInfo');
+        var searchUrl = @json(route('lazada.products.search_catalog'));
+        var debounceTimer = null;
+
+        if (!searchInput || !resultsDiv || !hiddenId) return;
+
+        searchInput.addEventListener('input', function() {
+            var q = searchInput.value.trim();
+            if (q.length < 2) { resultsDiv.style.display = 'none'; resultsDiv.innerHTML = ''; return; }
+
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                fetch(searchUrl + '?q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(items) {
+                        if (!items.length) {
+                            resultsDiv.innerHTML = '<div style="padding:10px 12px; font-size:13px; color:var(--text-muted);">No products found</div>';
+                            resultsDiv.style.display = 'block';
+                            return;
+                        }
+                        resultsDiv.innerHTML = items.map(function(item) {
+                            var imgHtml = item.image ? '<img src="' + item.image + '" alt="">' : '<div style="width:32px;height:32px;background:var(--border-light);border-radius:3px;flex-shrink:0;"></div>';
+                            var optsHtml = '';
+                            if (item.options && item.options.length) {
+                                optsHtml = item.options.map(function(o) {
+                                    return '<span style="font-size:10px; color:var(--text-muted);">' + (o.name ? o.name + ' - ' : '') + o.sku + '</span>';
+                                }).join(', ');
+                                optsHtml = '<div style="margin-top:1px;">' + optsHtml + '</div>';
+                            }
+                            return '<div class="laz-pr-item" data-pid="' + item.product_id + '" data-name="' + item.name.replace(/"/g, '&quot;') + '" data-sku="' + (item.sku || '') + '" data-image="' + (item.image || '') + '">'
+                                + imgHtml
+                                + '<div style="flex:1; min-width:0;">'
+                                + '<div class="lpi-name">' + item.name + '</div>'
+                                + '<div class="lpi-meta">SKU: ' + (item.sku || '-') + ' | ID: ' + item.product_id + '</div>'
+                                + optsHtml
+                                + '</div></div>';
+                        }).join('');
+                        resultsDiv.style.display = 'block';
+                    })
+                    .catch(function() { resultsDiv.style.display = 'none'; });
+            }, 300);
+        });
+
+        resultsDiv.addEventListener('click', function(e) {
+            var item = e.target.closest('.laz-pr-item');
+            if (!item) return;
+            var pid = item.dataset.pid;
+            var name = item.dataset.name;
+            var sku = item.dataset.sku;
+            var image = item.dataset.image;
+
+            hiddenId.value = pid;
+            searchInput.value = name + ' (#' + pid + ')';
+            resultsDiv.style.display = 'none';
+
+            if (infoDiv) {
+                var infoHtml = '<div class="d-flex items-center gap-8">';
+                if (image) infoHtml += '<img src="' + image + '" alt="" style="width:48px; height:48px; object-fit:cover; border-radius:4px; flex-shrink:0;">';
+                infoHtml += '<div><div class="font-bold">' + name + '</div>';
+                infoHtml += '<div class="text-muted text-xs">' + (sku ? 'SKU: ' + sku + ' ' : '') + 'ID: ' + pid + '</div>';
+                infoHtml += '</div></div>';
+                infoDiv.innerHTML = infoHtml;
+                infoDiv.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (hiddenId.value) {
+                searchInput.value = '';
+                hiddenId.value = '';
+                if (infoDiv) infoDiv.style.display = 'none';
+            }
+        });
+    })();
+    </script>
+    @endif
 
 @endsection

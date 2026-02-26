@@ -18,8 +18,13 @@
     </div>
 
     <div class="toolbar">
-        <form method="GET" action="{{ route('products.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name" style="min-width:220px;">
+        <form method="GET" action="{{ route('products.index') }}" class="d-flex gap-8 items-center">
+            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name" style="width:220px;">
+            <select class="input" name="status" style="width:130px;">
+                <option value="">All Status</option>
+                <option value="1" {{ ($status ?? '') === '1' ? 'selected' : '' }}>Enabled</option>
+                <option value="0" {{ ($status ?? '') === '0' ? 'selected' : '' }}>Disabled</option>
+            </select>
             <button class="btn secondary" type="submit">Search</button>
         </form>
     </div>
@@ -34,13 +39,14 @@
 @php
     $currentSort = $sort ?? 'product_id';
     $currentDir = $dir ?? 'asc';
-    function sort_link($field, $label, $currentSort, $currentDir, $q) {
+    function sort_link($field, $label, $currentSort, $currentDir, $q, $status = '') {
         $dir = 'asc';
         if ($currentSort === $field) {
             $dir = $currentDir === 'asc' ? 'desc' : 'asc';
         }
         $params = ['sort' => $field, 'dir' => $dir];
         if (!empty($q)) $params['q'] = $q;
+        if ($status !== '') $params['status'] = $status;
         $arrow = '';
         if ($currentSort === $field) {
             $arrow = $currentDir === 'asc' ? ' ▲' : ' ▼';
@@ -52,13 +58,13 @@
     <th style="width:36px;">
         <input type="checkbox" id="product-select-all" title="Select all">
     </th>
-    <th style="width:90px;">{!! sort_link('product_id','ID',$currentSort,$currentDir,$q ?? '') !!}</th>
+    <th style="width:90px;">{!! sort_link('product_id','ID',$currentSort,$currentDir,$q ?? '',$status ?? '') !!}</th>
     <th style="width:70px;">Image</th>
-    <th>{!! sort_link('name','Name',$currentSort,$currentDir,$q ?? '') !!}</th>
+    <th>{!! sort_link('name','Name',$currentSort,$currentDir,$q ?? '',$status ?? '') !!}</th>
     <th style="width:140px;">SKU</th>
-    <th style="width:130px;">{!! sort_link('quantity','Quantity',$currentSort,$currentDir,$q ?? '') !!}</th>
-    <th style="width:120px;">{!! sort_link('price','Price',$currentSort,$currentDir,$q ?? '') !!}</th>
-    <th style="width:110px;">{!! sort_link('status','Status',$currentSort,$currentDir,$q ?? '') !!}</th>
+    <th style="width:130px;">{!! sort_link('quantity','Quantity',$currentSort,$currentDir,$q ?? '',$status ?? '') !!}</th>
+    <th style="width:120px;">{!! sort_link('price','Price',$currentSort,$currentDir,$q ?? '',$status ?? '') !!}</th>
+    <th style="width:110px;">{!! sort_link('status','Status',$currentSort,$currentDir,$q ?? '',$status ?? '') !!}</th>
     <th style="width:150px;">Actions</th>
 </tr>
 </thead>

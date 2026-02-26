@@ -288,6 +288,12 @@ class OpenCartProductSync
 
                 if (!$product) continue;
 
+                if ((int) $product->status === 0) {
+                    $failed++;
+                    $errors[] = ['product_id' => $pid, 'error' => 'Product is disabled (status=0), skipped.'];
+                    continue;
+                }
+
                 $desc = DB::table($pfx . 'product_description')
                     ->where('product_id', (int) $pid)
                     ->where('language_id', $langId)
@@ -367,6 +373,14 @@ class OpenCartProductSync
 
         // ── Create new products one by one ──
         foreach ($toCreate as $pid) {
+            // Skip disabled products
+            $createStatus = DB::table($pfx . 'product')->where('product_id', (int) $pid)->value('status');
+            if ((int) $createStatus === 0) {
+                $failed++;
+                $errors[] = ['product_id' => $pid, 'error' => 'Product is disabled (status=0), skipped create.'];
+                continue;
+            }
+
             try {
                 $payload = $this->buildCreatePayload((int) $pid, $pfx, $langId);
                 if ($payload === null) {
@@ -926,10 +940,11 @@ class OpenCartProductSync
                 return $log;
             }
 
-            // Batch-fetch local product quantities
+            // Batch-fetch local product quantities (only enabled products)
             $localProductIds = $links->pluck('product_id')->unique()->toArray();
             $localQty = DB::table($pfx . 'product')
                 ->whereIn('product_id', $localProductIds)
+                ->where('status', 1)
                 ->pluck('quantity', 'product_id')
                 ->toArray();
 

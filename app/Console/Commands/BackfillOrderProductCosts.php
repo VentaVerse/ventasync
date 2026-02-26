@@ -23,8 +23,8 @@ class BackfillOrderProductCosts extends Command
             $this->warn('DRY RUN — no changes will be saved.');
         }
 
-        // Step 1: Backfill from option value cost (via order_option → product_option_value)
-        $this->info('Step 1: Resolving option-level costs...');
+        // Step 1: Backfill from option value cost (base product cost + option cost delta)
+        $this->info('Step 1: Resolving option-level costs (base + prefix delta)...');
 
         $optionQuery = DB::table($pfx . 'order_product as op')
             ->join($pfx . 'order_option as oo', function ($j) {
@@ -32,21 +32,26 @@ class BackfillOrderProductCosts extends Command
                   ->on('oo.order_product_id', '=', 'op.order_product_id');
             })
             ->join($pfx . 'product_option_value as pov', 'pov.product_option_value_id', '=', 'oo.product_option_value_id')
-            ->where('pov.cost', '>', 0);
+            ->join($pfx . 'product as p', 'p.product_id', '=', 'op.product_id');
 
         if (!$force) {
             $optionQuery->where('op.cost', 0);
         }
 
         $optionRows = $optionQuery
-            ->select('op.order_product_id', 'pov.cost as option_cost')
+            ->select('op.order_product_id', 'p.cost as base_cost', 'pov.cost as option_cost_delta', 'pov.cost_prefix')
             ->get();
 
-        // Deduplicate: one order_product may have multiple options, pick the first with cost > 0
+        // Deduplicate: one order_product may have multiple options, pick the first
         $optionCosts = [];
         foreach ($optionRows as $row) {
             if (!isset($optionCosts[$row->order_product_id])) {
-                $optionCosts[$row->order_product_id] = (float) $row->option_cost;
+                $baseCost = (float) $row->base_cost;
+                $delta = (float) $row->option_cost_delta;
+                $fullCost = ($row->cost_prefix === '-')
+                    ? $baseCost - $delta
+                    : $baseCost + $delta;
+                $optionCosts[$row->order_product_id] = $fullCost;
             }
         }
 

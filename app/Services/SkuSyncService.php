@@ -35,6 +35,13 @@ class SkuSyncService
             return $messages;
         }
 
+        // Skip disabled products
+        $pfx = (string) config('catalog.prefix');
+        $status = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
+        if ((int) $status === 0) {
+            return $messages;
+        }
+
         $messages['opencart'] = $this->syncOpenCart($productId);
         $messages['lazada'] = $this->syncLazada($productId, $skuChanges);
         $messages['shopee'] = $this->syncShopee($productId, $skuChanges);

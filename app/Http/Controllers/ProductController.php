@@ -217,7 +217,13 @@ $q = trim((string) $request->get('q', ''));
             'p.status'
         );
 
-    if ($q !== '') {
+        // Status filter
+    $status = (string) $request->input('status', '');
+    if ($status === '0' || $status === '1') {
+        $query->where('p.status', (int) $status);
+    }
+
+if ($q !== '') {
     // Search ONLY by product name (word-start match on any word)
     $ids = DB::table($p.'product_description as pd')
         ->where('pd.language_id', '=', $langId)
@@ -294,7 +300,7 @@ $q = trim((string) $request->get('q', ''));
             $row->option_rows = [];
         }
     }
-    return view('products.index', compact('products', 'q', 'sort', 'dir'));
+    return view('products.index', compact('products', 'q', 'sort', 'dir', 'status'));
 }
 
 
@@ -841,9 +847,8 @@ public function store(Request $request)
                         'pov.price',
                         'pov.weight_prefix',
                         'pov.weight',
-                        'pov.cost_amount',
-                        'pov.cost_percentage',
-                        'pov.cost_additional',
+                        'pov.cost',
+                        'pov.cost_prefix',
                     ]);
 
                 foreach ($rows as $r) {
@@ -858,9 +863,8 @@ public function store(Request $request)
                         'weight_prefix' => (string)($r->weight_prefix ?? '+'),
                         'weight' => (string)($r->weight ?? 0),
                         'sku' => (string)($r->sku ?? ''),
-                        'cost_amount' => (string)($r->cost_amount ?? 0),
-                        'cost_percentage' => (string)($r->cost_percentage ?? 0),
-                        'cost_additional' => (string)($r->cost_additional ?? 0),
+                        'cost' => (string)($r->cost ?? 0),
+                        'cost_prefix' => (string)($r->cost_prefix ?? '+'),
                     ];
                 }
             }
@@ -1259,11 +1263,9 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
                 $key = $optionId . ':' . $ovId;
                 $seenPovKeys[] = $key;
 
-                $costAmount = (float) ($v['cost_amount'] ?? 0);
-                $costPct    = (float) ($v['cost_percentage'] ?? 0);
-                $costAdd    = (float) ($v['cost_additional'] ?? 0);
                 $optPrice   = (float) ($v['price'] ?? 0);
-                $costTotal  = $costAmount + ($costPct / 100 * $optPrice) + $costAdd;
+                $optCost    = (float) ($v['cost'] ?? 0);
+                $costPrefix = (string) ($v['cost_prefix'] ?? '+');
 
                 $data = [
                     'sku' => (string) ($v['sku'] ?? ''),
@@ -1273,11 +1275,11 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
                     'price_prefix' => (string) ($v['price_prefix'] ?? '+'),
                     'weight' => (float) ($v['weight'] ?? 0),
                     'weight_prefix' => (string) ($v['weight_prefix'] ?? '+'),
-                    'cost_amount' => $costAmount,
-                    'cost_percentage' => $costPct,
-                    'cost_additional' => $costAdd,
-                    'cost' => $costTotal,
-                    'cost_prefix' => '+',
+                    'cost' => $optCost,
+                    'cost_prefix' => $costPrefix,
+                    'cost_amount' => 0,
+                    'cost_percentage' => 0,
+                    'cost_additional' => 0,
                 ];
 
                 if (isset($existingPov[$key])) {

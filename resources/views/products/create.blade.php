@@ -114,10 +114,6 @@
                         <div class="field-error">{{ $message }}</div>
                     @enderror
                 </div>
-                <div>
-                    <label>Product Cost</label>
-                    <input class="input" id="product_cost" name="cost" value="{{ old('cost', '0') }}" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
-                </div>
             </div>
 
             <div class="cost-breakdown mt-16">
@@ -143,7 +139,7 @@
                     <div class="cost-breakdown-op">=</div>
                     <div>
                         <label>Product Cost</label>
-                        <input class="input" id="product_cost_mirror" value="0" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                        <input class="input" id="product_cost" name="cost" value="{{ old('cost', '0') }}" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
                         <div class="hint">Computed total</div>
                     </div>
                 </div>
@@ -214,7 +210,6 @@
     var pct   = document.getElementById('cost_percentage');
     var add   = document.getElementById('cost_additional');
     var out   = document.getElementById('product_cost');
-    var mirror = document.getElementById('product_cost_mirror');
 
     var profitEl = document.getElementById('calc_profit');
     var marginEl = document.getElementById('calc_margin');
@@ -228,7 +223,6 @@
         var cost = a + (c / 100 * p) + d;
         var result = cost.toFixed(4);
         out.value = result;
-        if (mirror) mirror.value = result;
 
         var profit = p - cost;
         if (profitEl) profitEl.value = profit.toFixed(2);

@@ -36,6 +36,7 @@ class ProductOptionController extends Controller
             'options.*.values.*.price' => 'nullable|numeric',
             'options.*.values.*.price_prefix' => 'nullable|in:+,-',
             'options.*.values.*.cost' => 'nullable|numeric',
+            'options.*.values.*.cost_prefix' => 'nullable|in:+,-',
         ]);
 
         $options = $validated['options'] ?? [];
@@ -127,6 +128,8 @@ class ProductOptionController extends Controller
                         'subtract' => 1,
                         'price' => (float)($v['price'] ?? 0),
                         'price_prefix' => (string)($v['price_prefix'] ?? '+'),
+                        'cost' => (float)($v['cost'] ?? 0),
+                        'cost_prefix' => (string)($v['cost_prefix'] ?? '+'),
                     ];
 
                     if (isset($existingPov[$key])) {

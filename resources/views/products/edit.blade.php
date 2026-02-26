@@ -102,10 +102,6 @@
                 <label>Selling Price</label>
                 <input class="input" name="price" id="product_price" value="{{ old('price', $product->price) }}" required>
             </div>
-            <div>
-                <label>Product Cost</label>
-                <input class="input" id="product_cost" name="cost" value="{{ old('cost', $product->cost ?? 0) }}" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
-            </div>
         </div>
 
         <div class="cost-breakdown mt-16">
@@ -131,7 +127,7 @@
                 <div class="cost-breakdown-op">=</div>
                 <div>
                     <label>Product Cost</label>
-                    <input class="input" id="product_cost_mirror" value="{{ old('cost', $product->cost ?? 0) }}" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
+                    <input class="input" id="product_cost" name="cost" value="{{ old('cost', $product->cost ?? 0) }}" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600;">
                     <div class="hint">Computed total</div>
                 </div>
             </div>
