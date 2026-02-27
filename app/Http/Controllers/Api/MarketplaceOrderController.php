@@ -32,6 +32,7 @@ class MarketplaceOrderController extends Controller
         'SHIPPING'            => ['SHIPPED'],
         'DELIVERED_COMPLETED' => ['COMPLETED'],
         'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
+        'FAILED_DELIVERY'     => ['RETRY_SHIP'],
         'RETURN'              => ['AWAITING_RETURN', 'IN_RETURN', 'RETURNED'],
     ];
 
@@ -42,7 +43,7 @@ class MarketplaceOrderController extends Controller
 
     private const ALLOWED_TABS = [
         'ALL', 'UNPAID', 'PENDING', 'SHIPPING',
-        'DELIVERED_COMPLETED', 'CANCELLED', 'RETURN',
+        'DELIVERED_COMPLETED', 'CANCELLED', 'FAILED_DELIVERY', 'RETURN',
     ];
 
     public function index(Request $request, string $platform)

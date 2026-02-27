@@ -10,6 +10,7 @@ class ShopeeOrderStatusMap extends Model
 
     protected $fillable = [
         'shopee_status',
+        'context',
         'order_status_id',
     ];
 }

@@ -46,6 +46,7 @@ class ShopeeOrderController extends Controller
             'SHIPPING',
             'DELIVERED_COMPLETED',
             'CANCELLED',
+            'FAILED_DELIVERY',
         ];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
@@ -83,6 +84,7 @@ class ShopeeOrderController extends Controller
             'SHIPPING'            => ['SHIPPED', 'TO_CONFIRM_RECEIVE'],
             'DELIVERED_COMPLETED' => ['COMPLETED'],
             'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
+            'FAILED_DELIVERY'     => ['RETRY_SHIP'],
         ];
 
         $tabs = [
@@ -92,6 +94,7 @@ class ShopeeOrderController extends Controller
             'SHIPPING'            => 'Shipping',
             'DELIVERED_COMPLETED' => 'Delivered',
             'CANCELLED'           => 'Cancelled',
+            'FAILED_DELIVERY'     => 'Failed Delivery',
         ];
 
         $query = ShopeeOrder::query()

@@ -10,6 +10,7 @@ class LazadaOrderStatusMap extends Model
 
     protected $fillable = [
         'lazada_status',
+        'context',
         'order_status_id',
     ];
 }

@@ -86,7 +86,7 @@ public function index()
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $orderStatusMap = ShopeeOrderStatusMap::pluck('order_status_id', 'shopee_status')->all();
+        $orderStatusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
 
         $erpOrderStatuses = DB::table($pfx . 'order_status')
             ->where('language_id', $langId)
@@ -118,7 +118,8 @@ public function index()
             'SELLER_COMPENSATION' => 'Seller Compensation',
         ];
 
-        $returnStatusMap = ShopeeOrderStatusMap::whereIn('shopee_status', array_keys($shopeeReturnStatuses))
+        $returnStatusMap = ShopeeOrderStatusMap::where('context', 'return')
+            ->whereIn('shopee_status', array_keys($shopeeReturnStatuses))
             ->pluck('order_status_id', 'shopee_status')
             ->all();
 
@@ -465,7 +466,7 @@ public function buildAuthUrl(ShopeeClient $client)
             }
 
             ShopeeOrderStatusMap::updateOrCreate(
-                ['shopee_status' => $shopeeStatus],
+                ['shopee_status' => $shopeeStatus, 'context' => 'order'],
                 ['order_status_id' => $orderStatusId]
             );
         }
@@ -490,7 +491,7 @@ public function buildAuthUrl(ShopeeClient $client)
             }
 
             ShopeeOrderStatusMap::updateOrCreate(
-                ['shopee_status' => $shopeeStatus],
+                ['shopee_status' => $shopeeStatus, 'context' => 'return'],
                 ['order_status_id' => $orderStatusId]
             );
         }

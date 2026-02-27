@@ -111,7 +111,7 @@ class LazadaController extends Controller
         }
 
         // Order status mapping data
-        $orderStatusMap = \App\Models\LazadaOrderStatusMap::pluck('order_status_id', 'lazada_status')->all();
+        $orderStatusMap = \App\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
 
         $erpOrderStatuses = DB::table($pfx . 'order_status')
             ->where('language_id', $langId)
@@ -121,10 +121,12 @@ class LazadaController extends Controller
         $lazadaStatuses = [
             'unpaid'          => 'Unpaid',
             'pending'         => 'Pending',
+            'repacked'        => 'Repacked',
             'packed'          => 'Packed',
             'ready_to_ship'   => 'Ready to Ship',
             'shipped'         => 'Shipped',
             'delivered'       => 'Delivered',
+            'confirmed'       => 'Confirmed (Buyer received)',
             'failed_delivery' => 'Failed Delivery',
             'lost_by_3pl'     => 'Lost by 3PL',
             'damaged_by_3pl'  => 'Damaged by 3PL',
@@ -147,7 +149,8 @@ class LazadaController extends Controller
             'cancelled'           => 'Cancelled',
         ];
 
-        $reverseStatusMap = \App\Models\LazadaOrderStatusMap::whereIn('lazada_status', array_keys($reverseStatuses))
+        $reverseStatusMap = \App\Models\LazadaOrderStatusMap::where('context', 'return')
+            ->whereIn('lazada_status', array_keys($reverseStatuses))
             ->pluck('order_status_id', 'lazada_status')
             ->all();
 
@@ -185,7 +188,7 @@ class LazadaController extends Controller
             }
 
             \App\Models\LazadaOrderStatusMap::updateOrCreate(
-                ['lazada_status' => $lazadaStatus],
+                ['lazada_status' => $lazadaStatus, 'context' => 'order'],
                 ['order_status_id' => $orderStatusId]
             );
         }
@@ -265,7 +268,7 @@ class LazadaController extends Controller
             }
 
             \App\Models\LazadaOrderStatusMap::updateOrCreate(
-                ['lazada_status' => $lazadaStatus],
+                ['lazada_status' => $lazadaStatus, 'context' => 'return'],
                 ['order_status_id' => $orderStatusId]
             );
         }
