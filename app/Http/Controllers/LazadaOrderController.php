@@ -55,8 +55,8 @@ class LazadaOrderController extends Controller
             'TO_SHIP',
             'SHIPPING',
             'DELIVERED',
-            'FAILED_DELIVERY',
             'CANCELLATION',
+            'FAILED_DELIVERY',
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
@@ -91,8 +91,8 @@ class LazadaOrderController extends Controller
             'TO_SHIP'         => ['pending', 'repacked', 'packed', 'ready_to_ship'],
             'SHIPPING'        => ['shipped'],
             'DELIVERED'       => ['delivered', 'confirmed'],
-            'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl'],
             'CANCELLATION'    => ['canceled', 'cancelled'],
+            'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl'],
         ];
 
         $tabs = [
@@ -101,8 +101,8 @@ class LazadaOrderController extends Controller
             'TO_SHIP'         => 'To Ship',
             'SHIPPING'        => 'Shipping',
             'DELIVERED'       => 'Delivered',
-            'FAILED_DELIVERY' => 'Failed Delivery',
             'CANCELLATION'    => 'Cancellation',
+            'FAILED_DELIVERY' => 'Failed Delivery',
         ];
 
         $query = LazadaOrder::query()
@@ -185,8 +185,6 @@ class LazadaOrderController extends Controller
             $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(raw, '$.updated_at')) {$sortDir}");
         } elseif ($sortBy === 'promised_shipping') {
             $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(raw, '$.promised_shipping_times')) {$sortDir}");
-        } else {
-            $query->orderBy('order_created_at', $sortDir);
         }
         $orders = $query
             ->orderBy('order_created_at', $sortDir)

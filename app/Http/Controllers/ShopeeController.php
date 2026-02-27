@@ -529,6 +529,32 @@ public function buildAuthUrl(ShopeeClient $client)
         return back()->with('status', $msg);
     }
 
+    /**
+     * Save the "Sync Last N Days" setting for Shopee returns sync (independent from orders).
+     */
+    public function saveSyncDaysReturns(Request $request)
+    {
+        $request->validate([
+            'sync_last_days_returns' => ['nullable', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $setting = ShopeeSetting::query()->first();
+        if (!$setting) {
+            return back()->with('error', 'Shopee settings not found.');
+        }
+
+        $setting->update([
+            'sync_last_days_returns' => $request->input('sync_last_days_returns') ?: null,
+        ]);
+
+        $days = $request->input('sync_last_days_returns');
+        $msg = $days
+            ? "Returns sync window set to last {$days} days."
+            : 'Returns sync window cleared (defaults to 14 days).';
+
+        return back()->with('status', $msg);
+    }
+
     public function toggleLogging(Request $request)
     {
         $setting = ShopeeSetting::query()->first();

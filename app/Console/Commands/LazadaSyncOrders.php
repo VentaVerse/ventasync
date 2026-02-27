@@ -35,6 +35,11 @@ class LazadaSyncOrders extends Command
             return 1;
         }
 
+        if ($paused = Cache::get('lazada_sync_paused')) {
+            $this->warn('Lazada order sync paused due to recent API error (' . $paused . '). Will retry automatically.');
+            return 1;
+        }
+
         $returnsOnly = $this->option('returns');
         $skipReturns = $this->option('no-returns');
 
@@ -42,6 +47,10 @@ class LazadaSyncOrders extends Command
             $this->info('--- Syncing Lazada orders ---');
             $this->syncOrders($client, $setting);
             LazadaSetting::query()->update(['last_order_sync_at' => now()]);
+
+            if (Cache::get('lazada_sync_paused')) {
+                return 1;
+            }
 
             $this->info('--- Backfilling missing Lazada fees ---');
             $this->backfillMissingFees($client, $setting);
@@ -109,6 +118,7 @@ class LazadaSyncOrders extends Command
             if (!($res['ok'] ?? false)) {
                 $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
                 $this->error('  API error: ' . $msg);
+                Cache::put('lazada_sync_paused', $msg, now()->addMinutes(10));
                 break;
             }
 
@@ -241,6 +251,7 @@ class LazadaSyncOrders extends Command
             if (!($res['ok'] ?? false)) {
                 $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
                 $this->error('  API error: ' . $msg);
+                Cache::put('lazada_sync_paused', $msg, now()->addMinutes(10));
                 break;
             }
 
@@ -569,7 +580,7 @@ class LazadaSyncOrders extends Command
 
         $orders = LazadaOrder::query()
             ->where('region', $region)
-            ->whereNotIn('status', ['canceled'])
+            ->whereNotIn('status', ['canceled', 'cancelled'])
             ->where(function ($q) {
                 $q->whereNull('fees')
                   ->orWhereRaw("JSON_EXTRACT(fees, '$.subtotal') IS NULL");

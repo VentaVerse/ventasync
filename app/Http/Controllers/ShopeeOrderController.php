@@ -156,8 +156,6 @@ class ShopeeOrderController extends Controller
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.update_time')) AS UNSIGNED) {$sortDir}");
         } elseif ($sortBy === 'confirmed_create') {
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.create_time')) AS UNSIGNED) {$sortDir}");
-        } else {
-            $query->orderBy('order_created_at', $sortDir);
         }
         $orders = $query
             ->orderBy('order_created_at', $sortDir)
@@ -678,48 +676,60 @@ class ShopeeOrderController extends Controller
         $timeFrom = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
         $timeTo = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
 
+        // Sliding 15-day windows (Shopee API max window is 15 days per request)
         $allOrderSns = [];
-        $cursor = '';
+        $maxOrders = 5000;
+        $windowSize = 15 * 86400; // 15 days in seconds
 
-        while (true) {
-            $extraQuery = [
-                'time_range_field' => 'update_time',
-                'time_from'        => $timeFrom,
-                'time_to'          => $timeTo,
-                'page_size'        => 100,
-            ];
-            if ($cursor !== '') {
-                $extraQuery['cursor'] = $cursor;
-            }
+        $windowFrom = $timeFrom;
+        while ($windowFrom < $timeTo && count($allOrderSns) < $maxOrders) {
+            $windowTo = min($windowFrom + $windowSize, $timeTo);
+            $cursor = '';
 
-            $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
-                '/api/v2/order/get_order_list',
-                $extraQuery
-            );
+            while (true) {
+                $extraQuery = [
+                    'time_range_field' => 'update_time',
+                    'time_from'        => $windowFrom,
+                    'time_to'          => $windowTo,
+                    'page_size'        => 100,
+                ];
+                if ($cursor !== '') {
+                    $extraQuery['cursor'] = $cursor;
+                }
 
-            if (!($res['ok'] ?? false)) break;
+                $res = $client->shopGet(
+                    $setting->mode ?? 'live',
+                    (int) $setting->partner_id,
+                    (string) $setting->partner_key,
+                    (string) $setting->access_token,
+                    (int) $setting->shop_id,
+                    '/api/v2/order/get_order_list',
+                    $extraQuery
+                );
 
-            $body = $res['body'] ?? [];
-            $respData = $body['response'] ?? $body;
-            $orderList = $respData['order_list'] ?? [];
-            if (!is_array($orderList)) $orderList = [];
+                if (!($res['ok'] ?? false)) break 2;
 
-            foreach ($orderList as $o) {
-                $sn = (string) ($o['order_sn'] ?? '');
-                if ($sn !== '') {
-                    $allOrderSns[] = $sn;
+                $body = $res['body'] ?? [];
+                $respData = $body['response'] ?? $body;
+                $orderList = $respData['order_list'] ?? [];
+                if (!is_array($orderList)) $orderList = [];
+
+                foreach ($orderList as $o) {
+                    $sn = (string) ($o['order_sn'] ?? '');
+                    if ($sn !== '') {
+                        $allOrderSns[] = $sn;
+                    }
+                }
+
+                $more = (bool) ($respData['more'] ?? false);
+                $cursor = (string) ($respData['next_cursor'] ?? '');
+
+                if (!$more || $cursor === '' || count($allOrderSns) >= $maxOrders) {
+                    break;
                 }
             }
 
-            $more = (bool) ($respData['more'] ?? false);
-            $cursor = (string) ($respData['next_cursor'] ?? '');
-
-            if (!$more || $cursor === '' || count($allOrderSns) >= 500) break;
+            $windowFrom = $windowTo;
         }
 
         // Fetch details in batches

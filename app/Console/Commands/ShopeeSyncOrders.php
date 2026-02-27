@@ -273,7 +273,19 @@ class ShopeeSyncOrders extends Command
         $pageNo = 0;
         $pageSize = 50;
 
+        $syncDays = ($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14;
+        $tz = new \DateTimeZone('Asia/Manila');
+        $createTimeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
+        $this->info("  Returns window: last {$syncDays} days");
+
         while (true) {
+            $queryParams = [
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+                'create_time_from' => $createTimeFrom,
+                'create_time_to' => time(),
+            ];
+
             $res = $client->shopGet(
                 $setting->mode ?? 'live',
                 (int) $setting->partner_id,
@@ -281,7 +293,7 @@ class ShopeeSyncOrders extends Command
                 (string) $setting->access_token,
                 (int) $setting->shop_id,
                 '/api/v2/returns/get_return_list',
-                ['page_no' => $pageNo, 'page_size' => $pageSize]
+                $queryParams
             );
 
             ShopeeApiLog::safeCreate([
@@ -289,7 +301,7 @@ class ShopeeSyncOrders extends Command
                 'method'          => 'GET',
                 'api_path'        => '/api/v2/returns/get_return_list',
                 'auth_required'   => true,
-                'request_params'  => ['page_no' => $pageNo, 'page_size' => $pageSize],
+                'request_params'  => $queryParams,
                 'response_status' => (int) ($res['status'] ?? 0),
                 'ok'              => (bool) ($res['ok'] ?? false),
                 'response_body'   => $res['body'] ?? null,

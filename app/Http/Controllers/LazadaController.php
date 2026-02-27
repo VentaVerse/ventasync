@@ -6,6 +6,7 @@ use App\Models\LazadaSetting;
 use App\Models\LazadaApiLog;
 use App\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -1175,6 +1176,7 @@ class LazadaController extends Controller
                     $raw->expires_at = now()->addSeconds((int)$expiresIn);
                 }
                 $raw->save();
+                Cache::forget('lazada_sync_paused');
             }
         }
 

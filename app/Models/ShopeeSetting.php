@@ -20,6 +20,7 @@ class ShopeeSetting extends Model
         'redirect_uri',
         'region',
         'sync_last_days',
+        'sync_last_days_returns',
         'api_logging',
         'last_order_sync_at',
         'last_stock_push_at',
