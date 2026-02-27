@@ -486,7 +486,14 @@ public function buildAuthUrl(ShopeeClient $client)
             $shopeeStatus = strtoupper(trim((string) $shopeeStatus));
             $orderStatusId = (int) $orderStatusId;
 
-            if ($shopeeStatus === '' || $orderStatusId <= 0) {
+            if ($shopeeStatus === '') {
+                continue;
+            }
+
+            if ($orderStatusId <= 0) {
+                ShopeeOrderStatusMap::where('shopee_status', $shopeeStatus)
+                    ->where('context', 'return')
+                    ->delete();
                 continue;
             }
 

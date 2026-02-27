@@ -263,7 +263,14 @@ class LazadaController extends Controller
             $lazadaStatus = strtolower(trim((string) $lazadaStatus));
             $orderStatusId = (int) $orderStatusId;
 
-            if ($lazadaStatus === '' || $orderStatusId <= 0) {
+            if ($lazadaStatus === '') {
+                continue;
+            }
+
+            if ($orderStatusId <= 0) {
+                \App\Models\LazadaOrderStatusMap::where('lazada_status', $lazadaStatus)
+                    ->where('context', 'return')
+                    ->delete();
                 continue;
             }
 
