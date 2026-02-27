@@ -440,6 +440,32 @@
             @endif
         </div>
 
+        <div class="detail-section" style="margin-bottom:16px;">
+            <label class="font-semibold text-sm" style="margin-bottom:8px; display:block;">Sync Last N Days (Returns)</label>
+            <div class="hint" style="margin-bottom:10px;">
+                How far back the cronjob looks for <strong>return/refund</strong> orders. Independent from order sync. Defaults to 14 days.
+            </div>
+            <form method="POST" action="{{ route('shopee.sync_days_returns') }}">
+                @csrf
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" name="sync_last_days_returns" class="input"
+                           value="{{ $setting->sync_last_days_returns ?? '' }}"
+                           placeholder="e.g. 7" min="1" max="365" style="width:100px;">
+                    <span class="text-muted text-xs">days</span>
+                    <button class="btn small" type="submit">Save</button>
+                </div>
+            </form>
+            @if(($setting->sync_last_days_returns ?? null) > 0)
+                <div class="hint" style="margin-top:8px;">
+                    Fetching returns from the <strong>last {{ $setting->sync_last_days_returns }} days</strong>.
+                </div>
+            @else
+                <div class="hint" style="margin-top:8px;">
+                    Using default window of <strong>14 days</strong>.
+                </div>
+            @endif
+        </div>
+
         <h3 class="section-title">Cronjob Commands</h3>
         <div class="hint" style="margin-bottom:14px;">
             Add these commands to your hosting panel's scheduled tasks (HestiaCP, cPanel, etc.).

@@ -45,6 +45,7 @@
     <a href="{{ route('shopee.orders.index', ['tab' => 'SHIPPING']) }}" class="tab">Shipping</a>
     <a href="{{ route('shopee.orders.index', ['tab' => 'DELIVERED_COMPLETED']) }}" class="tab">Delivered</a>
     <a href="{{ route('shopee.orders.index', ['tab' => 'CANCELLED']) }}" class="tab">Cancelled</a>
+    <a href="{{ route('shopee.orders.index', ['tab' => 'FAILED_DELIVERY']) }}" class="tab">Failed Delivery</a>
     <a href="{{ route('shopee.orders.returns') }}" class="tab active">Return/Refund/Cancel</a>
 </div>
 

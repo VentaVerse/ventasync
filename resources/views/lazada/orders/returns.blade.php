@@ -52,8 +52,8 @@
     <a href="{{ route('lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="tab">To Ship</a>
     <a href="{{ route('lazada.orders.index', ['tab' => 'SHIPPING']) }}" class="tab">Shipping</a>
     <a href="{{ route('lazada.orders.index', ['tab' => 'DELIVERED']) }}" class="tab">Delivered</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'FAILED_DELIVERY']) }}" class="tab">Failed Delivery</a>
     <a href="{{ route('lazada.orders.index', ['tab' => 'CANCELLATION']) }}" class="tab">Cancellation</a>
+    <a href="{{ route('lazada.orders.index', ['tab' => 'FAILED_DELIVERY']) }}" class="tab">Failed Delivery</a>
     <a href="{{ route('lazada.orders.returns') }}" class="tab active">Return/Refund/Cancel</a>
 </div>
 

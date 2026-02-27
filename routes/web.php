@@ -135,6 +135,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shopee/order-status-map', [ShopeeController::class, 'saveOrderStatusMap'])->name('shopee.order_status_map');
         Route::post('/shopee/return-status-map', [ShopeeController::class, 'saveReturnStatusMap'])->name('shopee.return_status_map');
         Route::post('/shopee/sync-days', [ShopeeController::class, 'saveSyncDays'])->name('shopee.sync_days');
+        Route::post('/shopee/sync-days-returns', [ShopeeController::class, 'saveSyncDaysReturns'])->name('shopee.sync_days_returns');
         Route::post('/shopee/toggle-logging', [ShopeeController::class, 'toggleLogging'])->name('shopee.toggle_logging');
         Route::delete('/shopee/api-logs', [ShopeeController::class, 'clearApiLogs'])->name('shopee.clear_api_logs');
 

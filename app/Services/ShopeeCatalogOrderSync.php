@@ -146,7 +146,6 @@ class ShopeeCatalogOrderSync
                 'oe_import'             => 0,
             ];
 
-            $isNew = false;
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
                 $orderData['date_modified'] = $updatedAt;
@@ -156,7 +155,6 @@ class ShopeeCatalogOrderSync
                 $orderData['date_added'] = $createdAt;
                 $orderData['date_modified'] = $updatedAt;
                 $catalogOrder = Order::create($orderData);
-                $isNew = true;
             }
 
             // Send FCM notification on status change (Pending / Cancelled)
