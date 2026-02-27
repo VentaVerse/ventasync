@@ -90,7 +90,6 @@ class ControllerApiErp extends Controller
             return false;
         }
 
-        $this->debugLog('Auth OK from IP: ' . $this->getClientIp());
         return true;
     }
 
@@ -161,7 +160,6 @@ class ControllerApiErp extends Controller
     public function ping()
     {
         if (!$this->authenticate()) return;
-        $this->debugLog('ping');
 
         $this->sendJson(200, [
             'success' => true,
@@ -183,7 +181,6 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('products page=' . $this->param('page', 1) . ' modified_since=' . ($this->param('modified_since') ?: 'all') . ' product_id=' . ($this->param('product_id') ?: 'all'));
 
         $filter = [
             'page'           => max(1, (int)$this->param('page', 1)),
@@ -229,7 +226,6 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('orders page=' . $this->param('page', 1) . ' modified_since=' . ($this->param('modified_since') ?: 'all'));
 
         $filter = [
             'page'            => max(1, (int)$this->param('page', 1)),
@@ -272,7 +268,6 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('categories modified_since=' . ($this->param('modified_since') ?: 'all'));
 
         $filter = [
             'modified_since' => $this->param('modified_since'),
@@ -295,7 +290,6 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('manufacturers');
 
         $data = $this->model_api_erp->getManufacturers();
 
@@ -316,7 +310,6 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('options');
 
         $data = $this->model_api_erp->getOptions();
 
@@ -337,7 +330,6 @@ class ControllerApiErp extends Controller
         if (!$this->authenticate()) return;
 
         $this->load->model('api/erp');
-        $this->debugLog('order_statuses');
 
         $data = $this->model_api_erp->getOrderStatuses();
 
