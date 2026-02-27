@@ -35,7 +35,7 @@ class LazadaCatalogOrderSync
             // Merge: prefer detail over raw list payload
             $src = array_merge($raw, $detail);
 
-            $statusMap = LazadaOrderStatusMap::pluck('order_status_id', 'lazada_status')->all();
+            $statusMap = LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
             $statusId = $statusMap[strtolower($lazadaOrder->status ?? '')] ?? 1;
 
             // --- Name ---

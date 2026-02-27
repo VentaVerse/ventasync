@@ -29,7 +29,7 @@ class ShopeeCatalogOrderSync
         DB::transaction(function () use ($shopeeOrder) {
             $raw = is_array($shopeeOrder->raw) ? $shopeeOrder->raw : [];
 
-            $statusMap = ShopeeOrderStatusMap::pluck('order_status_id', 'shopee_status')->all();
+            $statusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
             $statusId = $statusMap[$shopeeOrder->status ?? ''] ?? 1;
 
             // --- Customer name ---

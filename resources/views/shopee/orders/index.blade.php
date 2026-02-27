@@ -121,7 +121,7 @@
             $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
             $count = $tab_counts[$key] ?? null;
             $qs = array_merge(request()->query(), ['tab' => $key]);
-            $showBadge = in_array($key, ['PENDING', 'SHIPPING']);
+            $showBadge = in_array($key, ['PENDING', 'SHIPPING', 'FAILED_DELIVERY']);
         @endphp
         <a href="{{ route('shopee.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
             <span>{{ $label }}</span>
@@ -287,6 +287,7 @@
                         $isToPack = ($statusNorm === 'READY_TO_SHIP');
                         $isToHandover = ($statusNorm === 'PROCESSED');
                         $isShipped = ($statusNorm === 'SHIPPED');
+                        $isFailedDelivery = ($statusNorm === 'RETRY_SHIP');
 
                         $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
                         $buyer = (string)($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
@@ -446,7 +447,7 @@
                             @endif
                         </td>
                         <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                            <div class="font-bold">{{ $statusStr !== '' ? $statusStr : '—' }}</div>
+                            <div class="font-bold" @if($isFailedDelivery) style="color:#e53e3e;" @endif>{{ $statusStr !== '' ? $statusStr : '—' }}</div>
                         </td>
                         <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                             @if(!$orderSn)

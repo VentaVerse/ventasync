@@ -306,7 +306,7 @@
                         @foreach($recentOrders as $o)
                             <tr>
                                 <td>
-                                    <a href="{{ route('orders.edit', $o->order_id) }}" class="font-bold" style="color:var(--accent);">
+                                    <a href="{{ route('orders.show', $o->order_id) }}" class="font-bold" style="color:var(--accent);">
                                         #{{ $o->order_id }}
                                     </a>
                                 </td>
