@@ -371,15 +371,12 @@ class ControllerApiErp extends Controller
             return;
         }
 
-        $this->debugLog('product_create sku=' . (isset($input['sku']) ? $input['sku'] : ''));
-
         try {
             $productId = $this->model_api_erp->createProduct($input);
 
-            $this->debugLog('product_create OK id=' . $productId);
             $this->sendJson(200, ['success' => true, 'data' => ['product_id' => $productId]]);
         } catch (Exception $e) {
-            $this->debugLog('product_create FAILED: ' . $e->getMessage());
+            $this->debugLog('product_create FAILED sku=' . ($input['sku'] ?? '') . ': ' . $e->getMessage());
             $this->sendJson(500, ['success' => false, 'error' => $e->getMessage()]);
         }
     }
@@ -406,12 +403,9 @@ class ControllerApiErp extends Controller
             return;
         }
 
-        $this->debugLog('product_update id=' . $productId . ' fields=' . implode(',', array_keys($input)));
-
         $result = $this->model_api_erp->updateProduct($productId, $input);
 
         if ($result) {
-            $this->debugLog('product_update id=' . $productId . ' OK');
             $this->sendJson(200, ['success' => true, 'data' => ['product_id' => $productId]]);
         } else {
             $this->debugLog('product_update id=' . $productId . ' NOT FOUND');
@@ -441,8 +435,6 @@ class ControllerApiErp extends Controller
             return;
         }
 
-        $this->debugLog('product_bulk_update count=' . count($products));
-
         $results = [];
         foreach ($products as $item) {
             $pid = isset($item['product_id']) ? (int)$item['product_id'] : 0;
@@ -455,8 +447,11 @@ class ControllerApiErp extends Controller
             $results[] = ['product_id' => $pid, 'success' => $ok];
         }
 
-        $succeeded = count(array_filter($results, function($r) { return $r['success']; }));
-        $this->debugLog('product_bulk_update done: ' . $succeeded . '/' . count($results) . ' succeeded');
+        $failed = array_filter($results, function($r) { return !$r['success']; });
+        if (!empty($failed)) {
+            $failedIds = array_column($failed, 'product_id');
+            $this->debugLog('product_bulk_update ' . count($failed) . ' failed: ' . implode(',', $failedIds));
+        }
 
         $this->sendJson(200, [
             'success' => true,
