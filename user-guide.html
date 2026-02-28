@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xenon Suite - User Guide</title>
+<style>
+/* ── Reset & Base ───────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg-sidebar:#f8fafc;--bg-card:#ffffff;--bg-code:#f1f5f9;--bg-hover:#f1f5f9;
+  --text:#1e293b;--text-muted:#64748b;--text-light:#94a3b8;
+  --border:#e2e8f0;--border-light:#f1f5f9;
+  --accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--accent-bg:rgba(59,130,246,0.06);
+  --green:#10b981;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --amber:#f59e0b;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --red:#ef4444;--red-bg:#fef2f2;--red-border:#fecaca;
+  --purple:#8b5cf6;--purple-bg:#f5f3ff;
+  --sidebar-w:280px;--header-h:60px;
+  --radius:8px;--radius-sm:6px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.05);
+  --shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);
+  --shadow-lg:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --font-mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;
+}
+[data-theme="dark"]{
+  --bg:#0f172a;--bg-sidebar:#1e293b;--bg-card:#1e293b;--bg-code:#334155;--bg-hover:#334155;
+  --text:#e2e8f0;--text-muted:#94a3b8;--text-light:#64748b;
+  --border:#334155;--border-light:#1e293b;
+  --accent:#60a5fa;--accent-hover:#93bbfc;--accent-light:#1e3a5f;--accent-bg:rgba(96,165,250,0.08);
+  --green:#34d399;--green-bg:#064e3b;--green-border:#065f46;
+  --amber:#fbbf24;--amber-bg:#451a03;--amber-border:#78350f;
+  --red:#f87171;--red-bg:#450a0a;--red-border:#7f1d1d;
+  --purple:#a78bfa;--purple-bg:#2e1065;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.3);
+  --shadow:0 1px 3px rgba(0,0,0,0.4);
+  --shadow-lg:0 4px 6px rgba(0,0,0,0.4);
+}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--header-h) + 24px)}
+body{font-family:var(--font);font-size:15px;line-height:1.7;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+/* ── Header ─────────────────────────────────────── */
+.doc-header{
+  position:fixed;top:0;left:0;right:0;height:var(--header-h);
+  background:var(--bg);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;z-index:100;
+  backdrop-filter:blur(8px);background:rgba(255,255,255,0.85);
+}
+[data-theme="dark"] .doc-header{background:rgba(15,23,42,0.9)}
+.doc-header .logo{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-0.3px;display:flex;align-items:center;gap:10px}
+.doc-header .logo svg{width:28px;height:28px}
+.doc-header .logo span{color:var(--text-muted);font-weight:400;font-size:14px;margin-left:4px}
+.header-actions{margin-left:auto;display:flex;align-items:center;gap:12px}
+
+/* Search */
+.search-wrap{position:relative}
+.search-input{
+  width:260px;height:36px;border:1px solid var(--border);border-radius:18px;
+  padding:0 14px 0 36px;font-size:13px;background:var(--bg-sidebar);color:var(--text);
+  outline:none;transition:border-color .2s,box-shadow .2s,width .2s;
+}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);width:320px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-light);pointer-events:none}
+.search-results{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);max-height:360px;overflow-y:auto;display:none;z-index:200;
+}
+.search-results.active{display:block}
+.search-result-item{padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border-light);font-size:13px;transition:background .15s}
+.search-result-item:hover,.search-result-item.focused{background:var(--accent-bg)}
+.search-result-item:last-child{border-bottom:none}
+.search-result-item .section-label{font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px}
+.search-result-item .title{color:var(--text);font-weight:500}
+.search-no-results{padding:16px;text-align:center;color:var(--text-muted);font-size:13px}
+
+/* Theme toggle */
+.theme-toggle{
+  width:36px;height:36px;border:1px solid var(--border);border-radius:50%;
+  background:var(--bg-sidebar);color:var(--text-muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.theme-toggle svg{width:18px;height:18px}
+
+/* Mobile menu button */
+.menu-toggle{
+  display:none;width:36px;height:36px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--bg-sidebar);color:var(--text-muted);cursor:pointer;
+  align-items:center;justify-content:center;
+}
+
+/* ── Sidebar ────────────────────────────────────── */
+.doc-sidebar{
+  position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);
+  background:var(--bg-sidebar);border-right:1px solid var(--border);
+  overflow-y:auto;padding:20px 0;z-index:90;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+  transition:transform .3s ease;
+}
+.doc-sidebar::-webkit-scrollbar{width:4px}
+.doc-sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:89}
+
+.nav-group{margin-bottom:4px}
+.nav-group-title{
+  display:flex;align-items:center;padding:8px 20px;font-size:12px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--text-light);cursor:pointer;
+  user-select:none;transition:color .2s;
+}
+.nav-group-title:hover{color:var(--text-muted)}
+.nav-group-title .chevron{
+  margin-left:auto;width:16px;height:16px;transition:transform .2s;color:var(--text-light);
+}
+.nav-group.collapsed .chevron{transform:rotate(-90deg)}
+.nav-group.collapsed .nav-items{display:none}
+
+.nav-items{list-style:none}
+.nav-item a{
+  display:block;padding:6px 20px 6px 28px;font-size:14px;color:var(--text-muted);
+  text-decoration:none;border-left:2px solid transparent;transition:all .15s;line-height:1.5;
+}
+.nav-item a:hover{color:var(--text);background:var(--bg-hover)}
+.nav-item a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-bg);font-weight:500}
+.nav-item.sub a{padding-left:40px;font-size:13px}
+
+/* ── Main Content ───────────────────────────────── */
+.doc-main{
+  margin-left:var(--sidebar-w);margin-top:var(--header-h);
+  min-height:calc(100vh - var(--header-h));
+}
+.doc-content{max-width:820px;margin:0 auto;padding:40px 48px 80px}
+
+/* Typography */
+.doc-content h1{
+  font-size:32px;font-weight:700;letter-spacing:-0.5px;color:var(--text);
+  margin:48px 0 16px;padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+.doc-content h1:first-child{margin-top:0}
+.doc-content h2{font-size:24px;font-weight:600;color:var(--text);margin:40px 0 12px;letter-spacing:-0.3px}
+.doc-content h3{font-size:18px;font-weight:600;color:var(--text);margin:28px 0 10px}
+.doc-content h4{font-size:15px;font-weight:600;color:var(--text-muted);margin:20px 0 8px}
+.doc-content p{margin:10px 0;color:var(--text)}
+.doc-content ul,.doc-content ol{margin:10px 0 10px 20px}
+.doc-content li{margin:5px 0}
+.doc-content a{color:var(--accent);text-decoration:none}
+.doc-content a:hover{text-decoration:underline}
+.doc-content hr{border:none;border-top:1px solid var(--border);margin:32px 0}
+.doc-content code{
+  font-family:var(--font-mono);font-size:13px;background:var(--bg-code);
+  padding:2px 7px;border-radius:4px;color:var(--text);
+}
+
+/* Hero section */
+.doc-hero{
+  text-align:center;padding:48px 0 40px;margin-bottom:8px;
+  border-bottom:1px solid var(--border);
+}
+.doc-hero h1{font-size:40px;border:none;margin:0 0 8px;letter-spacing:-0.8px}
+.doc-hero .subtitle{font-size:18px;color:var(--text-muted);margin:0 0 16px}
+.doc-hero .version-badge{
+  display:inline-block;padding:4px 14px;border-radius:20px;
+  font-size:12px;font-weight:600;background:var(--accent-light);color:var(--accent);
+}
+
+/* Tables */
+.doc-content table{
+  width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+}
+.doc-content th{
+  background:var(--bg-sidebar);color:var(--text);font-weight:600;font-size:13px;
+  padding:10px 16px;text-align:left;border-bottom:2px solid var(--border);
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.doc-content td{padding:10px 16px;border-bottom:1px solid var(--border-light);color:var(--text)}
+.doc-content tr:last-child td{border-bottom:none}
+.doc-content tr:hover td{background:var(--accent-bg)}
+
+/* Callouts */
+.callout{
+  padding:14px 18px;border-radius:var(--radius);margin:16px 0;font-size:14px;
+  display:flex;gap:12px;align-items:flex-start;line-height:1.6;
+}
+.callout svg{flex-shrink:0;margin-top:2px}
+.callout-content{flex:1}
+.callout-content strong{display:block;margin-bottom:2px}
+.callout.note{background:var(--amber-bg);border:1px solid var(--amber-border)}
+.callout.note svg{color:var(--amber)}
+.callout.tip{background:var(--green-bg);border:1px solid var(--green-border)}
+.callout.tip svg{color:var(--green)}
+.callout.warning{background:var(--red-bg);border:1px solid var(--red-border)}
+.callout.warning svg{color:var(--red)}
+
+/* Steps */
+.steps{margin:16px 0;counter-reset:step}
+.step{
+  position:relative;padding:14px 18px 14px 56px;margin:8px 0;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  counter-increment:step;
+}
+.step::before{
+  content:counter(step);position:absolute;left:16px;top:14px;
+  width:26px;height:26px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:13px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* Feature cards */
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
+.feature-card{
+  padding:16px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg-card);transition:border-color .2s,box-shadow .2s;
+}
+.feature-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.feature-card h4{margin:0 0 6px;font-size:14px;color:var(--text)}
+.feature-card p{margin:0;font-size:13px;color:var(--text-muted);line-height:1.5}
+
+/* Back to top */
+.back-to-top{
+  position:fixed;bottom:28px;right:28px;width:40px;height:40px;
+  border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:all .3s;z-index:50;
+}
+.back-to-top.visible{opacity:1;pointer-events:auto}
+.back-to-top:hover{background:var(--accent-hover);transform:translateY(-2px)}
+.back-to-top svg{width:20px;height:20px}
+
+/* Footer */
+.doc-footer{
+  text-align:center;padding:32px 0;color:var(--text-light);font-size:13px;
+  border-top:1px solid var(--border);margin-top:48px;
+}
+
+/* ── Responsive ─────────────────────────────────── */
+@media(max-width:1024px){
+  .doc-content{padding:32px 28px 60px}
+}
+@media(max-width:768px){
+  .menu-toggle{display:flex}
+  .doc-sidebar{transform:translateX(-100%)}
+  .doc-sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.active{display:block}
+  .doc-main{margin-left:0}
+  .doc-content{padding:24px 20px 60px}
+  .doc-content h1{font-size:26px}
+  .doc-content h2{font-size:20px}
+  .search-input{width:180px}
+  .search-input:focus{width:220px}
+  .doc-hero h1{font-size:30px}
+  .feature-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="doc-header">
+  <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </button>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="currentColor" opacity=".12"/><path d="M8 16l5-8h6l5 8-5 8h-6L8 16z" fill="currentColor"/></svg>
+    Xenon Suite <span>User Guide</span>
+  </div>
+  <div class="header-actions">
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" type="text" placeholder="Search guide..." id="searchInput" autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle dark mode">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="doc-sidebar" id="sidebar">
+  <nav>
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Getting Started
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#getting-started">Welcome</a></li>
+        <li class="nav-item sub"><a href="#logging-in">Logging In</a></li>
+        <li class="nav-item sub"><a href="#navigation">Navigation Sidebar</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Dashboard
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#dashboard">Dashboard Overview</a></li>
+        <li class="nav-item sub"><a href="#dashboard-stats">Stat Cards</a></li>
+        <li class="nav-item sub"><a href="#dashboard-charts">Sales Charts</a></li>
+        <li class="nav-item sub"><a href="#dashboard-sync">Sync Status</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Products
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#products">Products Overview</a></li>
+        <li class="nav-item sub"><a href="#product-add">Adding a Product</a></li>
+        <li class="nav-item sub"><a href="#product-edit">Editing &amp; Deleting</a></li>
+        <li class="nav-item sub"><a href="#product-images">Uploading Images</a></li>
+        <li class="nav-item sub"><a href="#product-options">Options &amp; Variants</a></li>
+        <li class="nav-item sub"><a href="#product-history">Sales &amp; Stock History</a></li>
+        <li class="nav-item sub"><a href="#product-bulk">Bulk Actions</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Orders
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#orders">Orders Overview</a></li>
+        <li class="nav-item sub"><a href="#order-create">Creating an Order</a></li>
+        <li class="nav-item sub"><a href="#order-details">Viewing Order Details</a></li>
+        <li class="nav-item sub"><a href="#order-status">Updating Order Status</a></li>
+        <li class="nav-item sub"><a href="#order-profit">Understanding Profitability</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Categories &amp; Manufacturers
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#categories">Categories</a></li>
+        <li class="nav-item"><a href="#manufacturers">Manufacturers</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Shopee Integration
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#shopee">Shopee Overview</a></li>
+        <li class="nav-item sub"><a href="#shopee-connect">Connecting Your Account</a></li>
+        <li class="nav-item sub"><a href="#shopee-orders">Orders &amp; Returns</a></li>
+        <li class="nav-item sub"><a href="#shopee-products">Product Listings</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Lazada Integration
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#lazada">Lazada Overview</a></li>
+        <li class="nav-item sub"><a href="#lazada-connect">Connecting Your Account</a></li>
+        <li class="nav-item sub"><a href="#lazada-orders">Orders &amp; Returns</a></li>
+        <li class="nav-item sub"><a href="#lazada-products">Product Listings</a></li>
+        <li class="nav-item sub"><a href="#lazada-packing">Packing &amp; Shipping</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        OpenCart Integration
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#opencart">OpenCart Overview</a></li>
+        <li class="nav-item sub"><a href="#opencart-stores">Managing Stores</a></li>
+        <li class="nav-item sub"><a href="#opencart-profiles">Profiles &amp; Syncing</a></li>
+        <li class="nav-item sub"><a href="#opencart-orders">OpenCart Orders</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        TikTok Shop
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#tiktok">TikTok Shop</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Reports
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#reports">Reports Overview</a></li>
+        <li class="nav-item sub"><a href="#report-orders">Order Profitability</a></li>
+        <li class="nav-item sub"><a href="#report-products">Product Profitability</a></li>
+        <li class="nav-item sub"><a href="#report-payouts">Marketplace Payouts</a></li>
+        <li class="nav-item sub"><a href="#report-categories">Margin by Category</a></li>
+        <li class="nav-item sub"><a href="#report-fees">Marketplace Fees</a></li>
+        <li class="nav-item sub"><a href="#report-inventory">Inventory Valuation</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Users &amp; Permissions
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#users">Managing Users</a></li>
+        <li class="nav-item sub"><a href="#user-groups">User Groups</a></li>
+        <li class="nav-item sub"><a href="#permissions">Permissions</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Settings &amp; Logs
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#settings">System Settings</a></li>
+        <li class="nav-item"><a href="#activity-log">Activity Log</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Tips &amp; FAQ
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#tips">Tips &amp; FAQ</a></li>
+      </ul>
+    </div>
+  </nav>
+</aside>
+
+<!-- Main Content -->
+<main class="doc-main">
+<div class="doc-content">
+
+<!-- Hero -->
+<div class="doc-hero">
+  <h1 style="border:none;margin:0 0 8px;padding:0">Xenon Suite</h1>
+  <p class="subtitle">End-User Guide</p>
+  <span class="version-badge">v1.0 &mdash; March 2026</span>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="getting-started">Getting Started</h1>
+
+<p>Welcome to <strong>Xenon Suite</strong> -- your all-in-one system for managing products, orders, and marketplace connections. This guide will walk you through every part of the system in plain, easy-to-follow steps.</p>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <h4>Manage Products</h4>
+    <p>Add, edit, and organize your entire product catalog in one place.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Track Orders</h4>
+    <p>View orders from all your sales channels, update statuses, and see profitability.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Marketplace Sync</h4>
+    <p>Connect to Shopee, Lazada, OpenCart, and TikTok Shop to sync products and orders automatically.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Detailed Reports</h4>
+    <p>See how your business is performing with profit reports, fee breakdowns, and inventory valuations.</p>
+  </div>
+</div>
+
+<!-- Logging In -->
+<h2 id="logging-in">Logging In</h2>
+
+<p>To start using Xenon Suite, you need an account that an administrator has created for you.</p>
+
+<div class="steps">
+  <div class="step">Open your web browser and go to your Xenon Suite URL (the web address your company provided you).</div>
+  <div class="step">You will see a login page. Enter your <strong>username</strong> (or email) and <strong>password</strong>.</div>
+  <div class="step">Click the <strong>Log In</strong> button.</div>
+  <div class="step">You will be taken to the Dashboard -- your home screen.</div>
+</div>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Forgot your password?</strong>
+    Contact your system administrator. They can reset your password from the Users page.
+  </div>
+</div>
+
+<!-- Navigation -->
+<h2 id="navigation">Understanding the Navigation Sidebar</h2>
+
+<p>On the left side of the screen, you will see a dark sidebar. This is your main menu. It is organized into collapsible groups. Click on a group name to expand or collapse it.</p>
+
+<p>Here is what you will find in the sidebar:</p>
+
+<table>
+  <tr><th>Section</th><th>What It Contains</th></tr>
+  <tr><td><strong>Dashboard</strong></td><td>Your home screen with a snapshot of today's activity and overall stats.</td></tr>
+  <tr><td><strong>Lazada Orders</strong></td><td>Quick link to your Lazada marketplace orders (shows a red badge if there are pending orders).</td></tr>
+  <tr><td><strong>Shopee Orders</strong></td><td>Quick link to your Shopee marketplace orders (shows a red badge if there are pending orders).</td></tr>
+  <tr><td><strong>OpenCart Orders</strong></td><td>Quick links to orders from each connected OpenCart store.</td></tr>
+  <tr><td><strong>Catalog</strong></td><td>Categories, Products, Manufacturers, and Options.</td></tr>
+  <tr><td><strong>Sales</strong></td><td>Orders and Order Statuses.</td></tr>
+  <tr><td><strong>Marketplace API</strong></td><td>Settings and management pages for Shopee, Lazada, TikTok Shop, and OpenCart integrations.</td></tr>
+  <tr><td><strong>Reports</strong></td><td>Order Profitability, Product Profitability, Marketplace Payouts, Margin by Category, Marketplace Fees, and Inventory Valuation.</td></tr>
+  <tr><td><strong>Settings</strong></td><td>Users, User Groups, Website Settings, Error Log, and Activity Log.</td></tr>
+</table>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="callout-content">
+    <strong>You might not see all sections.</strong>
+    The sidebar only shows sections you have permission to access. If something is missing, ask your administrator to check your user group permissions.
+  </div>
+</div>
+
+<p>There is also a <strong>global search bar</strong> in the top right corner. Press the <code>/</code> key on your keyboard or click the search field to quickly find products, orders, or pages anywhere in the system.</p>
+
+<p>At the bottom of the sidebar, you will find the <strong>Logout</strong> button. Click it to sign out when you are done.</p>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="dashboard">Dashboard</h1>
+
+<p>The Dashboard is the first page you see after logging in. It gives you a quick overview of how your business is doing.</p>
+
+<h2 id="dashboard-stats">Stat Cards</h2>
+
+<p>At the very top, you will see a <strong>Today's Snapshot</strong> bar that shows:</p>
+<ul>
+  <li><strong>Orders Today</strong> -- How many orders came in today.</li>
+  <li><strong>Revenue Today</strong> -- The total amount earned today.</li>
+  <li><strong>Orders This Week</strong> -- How many orders have come in this week so far.</li>
+</ul>
+
+<p>Below that, there are clickable <strong>stat cards</strong>:</p>
+
+<table>
+  <tr><th>Card</th><th>What It Shows</th></tr>
+  <tr><td><strong>Total Orders</strong></td><td>The total number of orders across all sources (Direct, Lazada, OpenCart, etc.). Clicking it takes you to the Orders page.</td></tr>
+  <tr><td><strong>Total Revenue</strong></td><td>The total revenue from all orders. It also breaks down revenue by source.</td></tr>
+  <tr><td><strong>Products</strong></td><td>The total number of products in your catalog. Click to go to the Products page.</td></tr>
+  <tr><td><strong>Lazada Pending</strong></td><td>Number of Lazada orders waiting to be shipped. Click to go directly to those pending orders.</td></tr>
+  <tr><td><strong>Shopee Pending</strong></td><td>Number of Shopee orders waiting to be shipped.</td></tr>
+  <tr><td><strong>OpenCart Pending</strong></td><td>Number of pending orders from each connected OpenCart store.</td></tr>
+</table>
+
+<h2 id="dashboard-charts">Sales Charts</h2>
+
+<p>The <strong>Sales Chart</strong> shows your revenue (as blue bars) and order count (as a green line) over time. You can switch between three views:</p>
+<ul>
+  <li><strong>30 Days</strong> -- Shows daily data for the past 30 days.</li>
+  <li><strong>Monthly</strong> -- Shows data grouped by month for the past 12 months.</li>
+  <li><strong>Yearly</strong> -- Shows data grouped by year for the past 5 years.</li>
+</ul>
+
+<p>Below the sales chart, you will also see an <strong>Orders by Platform</strong> doughnut chart. This shows what percentage of your orders come from each platform (Lazada, Shopee, OpenCart stores, Direct). Hover over the chart to see exact numbers.</p>
+
+<h2 id="dashboard-sync">Sync Status</h2>
+
+<p>On the right side of the dashboard, you will see <strong>Sync Status</strong> panels showing the health of your marketplace connections:</p>
+
+<ul>
+  <li>A <strong style="color:#22c55e;">green dot</strong> means the last sync happened less than 1 hour ago -- everything is fresh.</li>
+  <li>A <strong style="color:#f59e0b;">yellow dot</strong> means the last sync was between 1 and 6 hours ago -- still OK, but getting stale.</li>
+  <li>A <strong style="color:#ef4444;">red dot</strong> means the last sync was over 6 hours ago, or the API token has expired -- needs attention.</li>
+  <li>A <strong style="color:#94a3b8;">gray dot</strong> means the connection has never synced.</li>
+</ul>
+
+<p>For each marketplace (Shopee, Lazada, OpenCart), you can see when the last order sync, stock push, and return sync happened, and whether the API token is valid.</p>
+
+<p>The <strong>Quick Links</strong> section at the bottom left gives you one-click access to Lazada Orders, Shopee Orders, and all Orders.</p>
+
+<p>The <strong>Recent Orders</strong> table at the bottom right shows your most recent orders with their status, source, and total amount.</p>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="products">Products</h1>
+
+<p>The Products page is where you manage everything you sell. Go to <strong>Catalog &gt; Products</strong> in the sidebar.</p>
+
+<h3>The Product List</h3>
+
+<p>The product list shows a table with all your products. Each row shows the product's ID, image, name, SKU, stock quantity, price, and status (Enabled or Disabled). You can sort the table by clicking any column header.</p>
+
+<p>Use the <strong>Search</strong> bar at the top to find products by name, and filter by status (Enabled / Disabled).</p>
+
+<h2 id="product-add">Adding a New Product</h2>
+
+<div class="steps">
+  <div class="step">Click the <strong>Add Product</strong> button at the top right of the Products page.</div>
+  <div class="step">Start by typing a <strong>Manufacturer</strong> name. A dropdown will appear -- select the correct one. (If the manufacturer does not exist yet, you can add one from <strong>Catalog &gt; Manufacturers</strong>.)</div>
+  <div class="step">Fill in the <strong>General</strong> section:
+    <ul>
+      <li><strong>Name</strong> (required) -- The product name your customers will see.</li>
+      <li><strong>Model</strong> (required) -- A model number or identifier.</li>
+      <li><strong>SKU</strong> (required) -- Your unique stock-keeping unit code.</li>
+      <li><strong>Quantity</strong> -- How many items you have in stock. If you add product options (variants), this is calculated automatically.</li>
+      <li><strong>Status</strong> -- Set to Enabled to make the product visible, or Disabled to hide it.</li>
+      <li><strong>Categories</strong> -- Search and select one or more categories.</li>
+      <li><strong>Description</strong> -- A text description of the product.</li>
+    </ul>
+  </div>
+  <div class="step">Fill in the <strong>Pricing &amp; Cost</strong> section:
+    <ul>
+      <li><strong>Selling Price</strong> -- The price you charge customers.</li>
+      <li><strong>Cost</strong> -- Your purchase cost (fixed amount).</li>
+      <li><strong>Cost [%]</strong> -- An alternative way to enter cost as a percentage of selling price.</li>
+      <li><strong>Additional Cost</strong> -- Any extra costs like supplier shipping.</li>
+      <li>The system will automatically calculate the total <strong>Product Cost</strong>, as well as <strong>Profit</strong>, <strong>Margin %</strong>, and <strong>Markup %</strong>.</li>
+    </ul>
+  </div>
+  <div class="step">Fill in the <strong>Shipping &amp; Dimensions</strong> section with the product's weight, length, width, and height. This helps with marketplace listings.</div>
+  <div class="step">If your product comes in different variations (like colors or sizes), add them in the <strong>Options</strong> section (see <a href="#product-options">Options &amp; Variants</a> below).</div>
+  <div class="step">Click <strong>Save</strong> at the bottom of the page.</div>
+</div>
+
+<h2 id="product-edit">Editing and Deleting Products</h2>
+
+<p>To edit a product, click the <strong>Edit</strong> button next to it in the product list. You will see the same form as when adding a product, but with the existing details filled in. Make your changes and click <strong>Save</strong>.</p>
+
+<p>To delete a product, click the <strong>Delete</strong> button next to it. You will be asked to confirm before the product is removed.</p>
+
+<h2 id="product-images">Uploading Images</h2>
+
+<p>When adding or editing a product, you will see an <strong>Image Manager</strong> section. Here is how to use it:</p>
+
+<div class="steps">
+  <div class="step">Make sure you have selected a <strong>Manufacturer</strong> first. The image manager needs this to organize your files.</div>
+  <div class="step">Click the upload area or drag and drop image files into it.</div>
+  <div class="step">Your images will appear as thumbnails. You can drag them to reorder -- the first image will be the main product image.</div>
+  <div class="step">Click the <strong>X</strong> on any image thumbnail to remove it.</div>
+</div>
+
+<h2 id="product-options">Options and Variants</h2>
+
+<p>If your product comes in different variations (like "Red" and "Blue", or "Small" and "Large"), you can add options.</p>
+
+<div class="steps">
+  <div class="step">In the <strong>Options</strong> section of the product form, click <strong>Add Option</strong>.</div>
+  <div class="step">Search for an option name (e.g., "Color"). These are pre-defined option types from your <strong>Catalog &gt; Options</strong> master list.</div>
+  <div class="step">For each option value (e.g., "Red"), set the <strong>quantity</strong>, <strong>price adjustment</strong> (using + or - prefix), and optionally an <strong>image</strong>.</div>
+  <div class="step">When you add option values with quantities, the main product quantity is automatically calculated as the sum of all option quantities.</div>
+</div>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Options also appear in the product list.</strong>
+    In the product list, option variants are shown as indented sub-rows under the parent product, so you can see each variant's quantity and price at a glance.
+  </div>
+</div>
+
+<h2 id="product-history">Sales History and Stock History</h2>
+
+<p>Each product in the list has two extra buttons:</p>
+
+<ul>
+  <li><strong>Sales</strong> -- Click this to see a history of all orders that included this product. You can see which orders it was sold in, quantities, and totals.</li>
+  <li><strong>Stock</strong> -- Click this to see a log of every stock change for this product (e.g., when stock was added, reduced by orders, or manually adjusted).</li>
+</ul>
+
+<h2 id="product-bulk">Bulk Actions</h2>
+
+<p>To perform actions on multiple products at once:</p>
+
+<div class="steps">
+  <div class="step">Use the <strong>checkboxes</strong> on the left side of the product list to select the products you want to change. Click the checkbox in the header row to select all products on the current page.</div>
+  <div class="step">Choose an action from the dropdown: <strong>Enable</strong>, <strong>Disable</strong>, or <strong>Delete</strong>.</div>
+  <div class="step">Click <strong>Apply To Selected</strong>.</div>
+  <div class="step">Confirm the action when prompted.</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="orders">Orders</h1>
+
+<p>Go to <strong>Sales &gt; Orders</strong> in the sidebar to see all your orders from every source -- manual orders, OpenCart stores, Lazada, and Shopee.</p>
+
+<h3>The Order List</h3>
+
+<p>The order list shows each order's ID, product image, customer name, source (Manual, Lazada, Shopee, or an OpenCart store name), marketplace order number, status, total amount, and date. You can sort by clicking column headers.</p>
+
+<h4>Filtering Orders</h4>
+<p>At the top of the page, you can:</p>
+<ul>
+  <li><strong>Search</strong> by customer name, email, or order ID.</li>
+  <li><strong>Filter by Status</strong> using the Status dropdown (e.g., show only "Pending" orders).</li>
+  <li><strong>Filter by Source</strong> to see only orders from a specific channel (Manual, Lazada, Shopee, or a specific OpenCart store).</li>
+</ul>
+
+<h2 id="order-create">Creating a Manual Order</h2>
+
+<div class="steps">
+  <div class="step">Click the <strong>Add Order</strong> button at the top right of the Orders page.</div>
+  <div class="step">Fill in the customer details -- name, email, and phone number.</div>
+  <div class="step">Enter the shipping and payment addresses.</div>
+  <div class="step">Add products to the order by searching for them.</div>
+  <div class="step">Set the order status and add any notes in the comment field.</div>
+  <div class="step">Click <strong>Save</strong> to create the order.</div>
+</div>
+
+<h2 id="order-details">Viewing Order Details</h2>
+
+<p>Click the <strong>View</strong> button on any order to see its full details. The order detail page shows:</p>
+
+<ul>
+  <li><strong>Meta bar</strong> -- Source badge, current status, date, marketplace ID (with a link to the marketplace seller panel), and tracking number (with a link to track the shipment).</li>
+  <li><strong>Customer Details</strong> -- Name, email, and phone number.</li>
+  <li><strong>Payment &amp; Shipping Address</strong> -- Full addresses and the payment/shipping methods used.</li>
+  <li><strong>Products table</strong> -- Each product in the order with its image, name, model, quantity, unit price, total, unit cost, COGS (cost of goods sold), profit, margin %, and markup %.</li>
+  <li><strong>Order Totals</strong> -- Sub-total, shipping, and total. If cost data is available, you will also see COGS, shipping cost, any marketplace fees (itemized), and the net profit with margin and markup percentages.</li>
+  <li><strong>Order History</strong> -- A timeline showing every status change with timestamps, who made the change, and any comments.</li>
+</ul>
+
+<h2 id="order-status">Updating Order Status</h2>
+
+<p>On the order detail page, scroll down to the <strong>Update Status</strong> section.</p>
+
+<div class="steps">
+  <div class="step">Select the new status from the <strong>Order Status</strong> dropdown.</div>
+  <div class="step">Optionally, type a note in the <strong>Comment</strong> field.</div>
+  <div class="step">Click <strong>Update Status</strong>.</div>
+</div>
+
+<p>The change will be recorded in the Order History section, along with your name and the timestamp.</p>
+
+<h2 id="order-profit">Understanding Profitability</h2>
+
+<p>Xenon Suite calculates profitability for each order automatically. Here is what the numbers mean:</p>
+
+<table>
+  <tr><th>Term</th><th>What It Means</th></tr>
+  <tr><td><strong>Revenue</strong></td><td>The total amount the customer paid for the products.</td></tr>
+  <tr><td><strong>COGS</strong></td><td>Cost of Goods Sold -- the total cost you paid for the products (unit cost multiplied by quantity).</td></tr>
+  <tr><td><strong>Gross Profit</strong></td><td>Revenue minus COGS. This is your profit before any fees or shipping costs.</td></tr>
+  <tr><td><strong>Marketplace Fees</strong></td><td>Fees charged by Shopee or Lazada (commission, service fee, payment fee, etc.).</td></tr>
+  <tr><td><strong>Shipping Cost</strong></td><td>The cost of shipping the order.</td></tr>
+  <tr><td><strong>Net Profit</strong></td><td>Gross Profit minus marketplace fees and shipping cost. This is your actual profit on the order.</td></tr>
+  <tr><td><strong>Margin %</strong></td><td>Net Profit divided by Revenue, shown as a percentage. Higher is better.</td></tr>
+  <tr><td><strong>Markup %</strong></td><td>Net Profit divided by total costs, shown as a percentage.</td></tr>
+</table>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="callout-content">
+    <strong>Color-coded profitability.</strong>
+    Profit numbers are shown in <strong style="color:#22c55e">green</strong> when positive and <strong style="color:#ef4444">red</strong> when negative. Margin percentages are green when 20% or above, yellow-orange when between 10-20%, and red when below 10%.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="categories">Categories</h1>
+
+<p>Categories help you organize your products into groups. Go to <strong>Catalog &gt; Categories</strong> in the sidebar.</p>
+
+<h3>Creating a Category</h3>
+
+<div class="steps">
+  <div class="step">Click the <strong>Add Category</strong> button.</div>
+  <div class="step">Enter the <strong>Category Name</strong>.</div>
+  <div class="step">Optionally select a <strong>Parent Category</strong> to create a hierarchy (e.g., "Guitars" under "Musical Instruments").</div>
+  <div class="step">Set the <strong>Sort Order</strong> to control the display order.</div>
+  <div class="step">Set the <strong>Status</strong> to Enabled or Disabled.</div>
+  <div class="step">Click <strong>Save</strong>.</div>
+</div>
+
+<h3>Managing Categories</h3>
+
+<p>The category list shows each category's ID, name, parent category, sort order, and status. You can:</p>
+<ul>
+  <li><strong>Search</strong> for categories by name using the search bar.</li>
+  <li><strong>Edit</strong> a category by clicking the Edit button.</li>
+  <li><strong>Delete</strong> a category by clicking the Delete button (you will be asked to confirm).</li>
+  <li><strong>Bulk actions</strong> -- Select multiple categories using checkboxes, choose "Enable" or "Disable" from the dropdown, and click "Apply To Selected."</li>
+</ul>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="manufacturers">Manufacturers</h1>
+
+<p>Manufacturers represent the brands behind your products. Go to <strong>Catalog &gt; Manufacturers</strong> in the sidebar.</p>
+
+<h3>Adding a Manufacturer</h3>
+
+<div class="steps">
+  <div class="step">Click the <strong>Add Manufacturer</strong> button.</div>
+  <div class="step">Enter the <strong>Manufacturer Name</strong> (e.g., "Fender", "Samsung").</div>
+  <div class="step">Set the <strong>Sort Order</strong> to control the display position.</div>
+  <div class="step">Click <strong>Save</strong>.</div>
+</div>
+
+<h3>Managing Manufacturers</h3>
+
+<p>The list shows each manufacturer's ID, name, and sort order. You can search, edit, delete, or bulk-delete manufacturers using the checkboxes and "Delete Selected" button.</p>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="callout-content">
+    <strong>Manufacturers are used across the system.</strong>
+    When adding a product, you search for a manufacturer. They are also used to organize product images into folders.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="shopee">Shopee Integration</h1>
+
+<p>Xenon Suite connects directly to your Shopee seller account so you can manage orders, returns, and product listings without switching between systems.</p>
+
+<h2 id="shopee-connect">Connecting Your Shopee Account</h2>
+
+<p>Go to <strong>Marketplace API &gt; Shopee &gt; Settings</strong> in the sidebar.</p>
+
+<div class="steps">
+  <div class="step">On the Settings tab, you will see the <strong>Connection</strong> section. Enter your Shopee <strong>Partner ID</strong>, <strong>Partner Key</strong>, and <strong>Shop ID</strong>. These are provided to you through the Shopee Open Platform.</div>
+  <div class="step">Click <strong>Save Credentials</strong>.</div>
+  <div class="step">In the <strong>Authorization</strong> section, click the <strong>Authorize</strong> button. You will be redirected to Shopee's website to grant access.</div>
+  <div class="step">After authorizing, you will be redirected back to Xenon Suite. You should see a green "Token valid" message with an expiration date.</div>
+</div>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="callout-content">
+    <strong>Sandbox vs Production.</strong>
+    The settings page has a toggle to switch between Sandbox (for testing) and Production (live) mode. Make sure you are using <strong>Production</strong> mode when working with real orders.
+  </div>
+</div>
+
+<h3>Understanding the Settings Page</h3>
+
+<p>The Shopee settings page has three tabs:</p>
+<ul>
+  <li><strong>Settings</strong> -- Connection credentials, authorization, environment toggle (sandbox/production), and sync buttons for orders, returns, and stock.</li>
+  <li><strong>API Explorer</strong> -- A tool for making direct API calls to Shopee (advanced users).</li>
+  <li><strong>API Logs</strong> -- A log of all API requests made to Shopee, useful for troubleshooting.</li>
+</ul>
+
+<h2 id="shopee-orders">Syncing Orders and Handling Returns</h2>
+
+<p>Go to <strong>Shopee Orders</strong> in the sidebar (or <strong>Marketplace API &gt; Shopee</strong> and click Orders).</p>
+
+<h3>Fetching Orders</h3>
+<div class="steps">
+  <div class="step">At the top of the Shopee Orders page, you will see a <strong>Fetch Orders</strong> form. Select a date range (From / To) and optionally a status filter.</div>
+  <div class="step">Click <strong>Fetch Orders</strong>. The system will pull orders from Shopee's API and save them locally.</div>
+  <div class="step">You can also use the <strong>Smart Sync</strong> option to automatically determine the best date range.</div>
+</div>
+
+<h3>Order Tabs</h3>
+<p>Orders are organized into tabs by status:</p>
+<ul>
+  <li><strong>All</strong> -- Every order.</li>
+  <li><strong>Unpaid</strong> -- Orders the buyer has not paid for yet.</li>
+  <li><strong>To Ship</strong> -- Paid orders waiting for you to ship.</li>
+  <li><strong>Shipping</strong> -- Orders that are on their way to the buyer.</li>
+  <li><strong>Delivered</strong> -- Successfully delivered orders.</li>
+  <li><strong>Cancelled</strong> -- Orders the buyer or seller cancelled.</li>
+  <li><strong>Failed Delivery</strong> -- Orders where delivery failed.</li>
+  <li><strong>Return/Refund/Cancel</strong> -- Returns and refund requests.</li>
+</ul>
+
+<h3>Handling Returns</h3>
+<p>Click the <strong>Return/Refund/Cancel</strong> tab to see all return and refund requests. You can click <strong>Fetch Returns</strong> to pull the latest return data from Shopee. Each return shows the reason, status, and associated order details.</p>
+
+<h3>Shipping and AWB</h3>
+<p>When viewing an order in "To Ship" status, you can arrange shipping and view the Air Waybill (AWB) information. The system will show you the logistics details, tracking number, and shipping label information from Shopee.</p>
+
+<h2 id="shopee-products">Managing Product Listings</h2>
+
+<p>Go to <strong>Marketplace API &gt; Shopee &gt; Products</strong> to manage your Shopee product listings.</p>
+
+<p>From this page, you can:</p>
+<ul>
+  <li>View products currently listed on Shopee.</li>
+  <li>Push new products from your catalog to Shopee using <strong>Profiles</strong>.</li>
+  <li>Manage categories and category attributes used by Shopee.</li>
+</ul>
+
+<p><strong>Profiles</strong> (under <strong>Marketplace API &gt; Shopee &gt; Profiles</strong>) are mapping templates that control how your catalog products get translated into Shopee listings, including which category they go into, what attributes they have, and how pricing works.</p>
+
+<p><strong>Logistics</strong> (under <strong>Marketplace API &gt; Shopee &gt; Logistics</strong>) lets you view and manage the available shipping channels for your Shopee shop.</p>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="lazada">Lazada Integration</h1>
+
+<p>Xenon Suite connects to your Lazada seller account for order management, product listings, and fulfillment.</p>
+
+<h2 id="lazada-connect">Connecting Your Lazada Account</h2>
+
+<p>Go to <strong>Marketplace API &gt; Lazada &gt; Settings</strong> in the sidebar.</p>
+
+<div class="steps">
+  <div class="step">On the Settings tab, enter your Lazada <strong>Region</strong>, <strong>App Key</strong>, and <strong>App Secret</strong> from the Lazada Open Platform.</div>
+  <div class="step">Click <strong>Save Credentials</strong>.</div>
+  <div class="step">In the <strong>Authorization</strong> section, click <strong>Authorize</strong>. You will be redirected to Lazada to grant access.</div>
+  <div class="step">After authorizing, the system will show a green token status with an expiration date.</div>
+</div>
+
+<p>Like Shopee, the Lazada settings page also has tabs for <strong>Settings</strong>, <strong>API Explorer</strong>, and <strong>API Logs</strong>. There is also an environment toggle for Sandbox/Production.</p>
+
+<h2 id="lazada-orders">Syncing Orders and Handling Returns</h2>
+
+<p>Go to <strong>Lazada Orders</strong> in the sidebar.</p>
+
+<h3>Fetching Orders</h3>
+<div class="steps">
+  <div class="step">Set a date range using the <strong>From</strong> and <strong>To</strong> fields.</div>
+  <div class="step">Click <strong>Fetch Orders</strong> to pull orders from Lazada.</div>
+  <div class="step">You can also use <strong>Smart Sync</strong> for automatic date range detection.</div>
+</div>
+
+<h3>Order Tabs</h3>
+<p>Lazada orders are organized into tabs:</p>
+<ul>
+  <li><strong>All</strong> -- Every order.</li>
+  <li><strong>Unpaid</strong> -- Orders not yet paid.</li>
+  <li><strong>To Ship</strong> -- Orders ready to be packed and shipped.</li>
+  <li><strong>Shipping</strong> -- Orders in transit.</li>
+  <li><strong>Delivered</strong> -- Successfully delivered orders.</li>
+  <li><strong>Cancellation</strong> -- Cancelled orders.</li>
+  <li><strong>Failed Delivery</strong> -- Orders where delivery failed.</li>
+  <li><strong>Return/Refund/Cancel</strong> -- Return and refund requests.</li>
+</ul>
+
+<h3>Handling Returns</h3>
+<p>Click the <strong>Return/Refund/Cancel</strong> tab. Use the <strong>Fetch Returns</strong> button to pull the latest return data. You can set a date range or leave it empty to fetch all available returns.</p>
+
+<h2 id="lazada-products">Managing Product Listings</h2>
+
+<p>Go to <strong>Marketplace API &gt; Lazada &gt; Products</strong> to manage your Lazada product listings.</p>
+
+<ul>
+  <li>View products listed on Lazada with their status, price, and SKU.</li>
+  <li>Use the product form to create or update Lazada listings.</li>
+  <li>Browse Lazada categories and their required attributes under <strong>Categories</strong>.</li>
+  <li>Set up <strong>Profiles</strong> to map your catalog products to Lazada categories and attributes.</li>
+  <li>View Lazada <strong>Brands</strong> that are available for your listings.</li>
+</ul>
+
+<h2 id="lazada-packing">Packing and Shipping</h2>
+
+<p>For orders in "To Ship" status, Xenon Suite provides packing tools:</p>
+
+<ul>
+  <li><strong>Packing List</strong> -- A printable list of items to pack for selected orders. Great for warehouse staff.</li>
+  <li><strong>Pick List</strong> -- A consolidated list of products to pick from inventory across multiple orders.</li>
+</ul>
+
+<p>You can select orders and print these lists to help with your fulfillment process.</p>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="opencart">OpenCart Integration</h1>
+
+<p>Xenon Suite can connect to one or more OpenCart stores to sync products, push stock quantities, and pull orders.</p>
+
+<h2 id="opencart-stores">Managing Stores</h2>
+
+<p>Go to <strong>Marketplace API &gt; OpenCart &gt; Settings</strong> in the sidebar.</p>
+
+<p>On the left side, you will see a list of connected stores. Click on a store to view its settings, or click <strong>Add New Store</strong> to connect a new OpenCart store.</p>
+
+<h3>Adding a Store</h3>
+<div class="steps">
+  <div class="step">Click <strong>Add New Store</strong> from the store list.</div>
+  <div class="step">Enter the <strong>Store Name</strong> (a friendly name for your reference).</div>
+  <div class="step">Enter the <strong>Base URL</strong> of your OpenCart store.</div>
+  <div class="step">Enter the <strong>API credentials</strong> (API URL, username, and key) for the OpenCart store.</div>
+  <div class="step">Click <strong>Save</strong>. You can use the <strong>Test Connection</strong> button to verify it works.</div>
+</div>
+
+<h3>Store Settings</h3>
+<p>For each store, you can configure:</p>
+<ul>
+  <li>Whether the store is <strong>Active</strong> or <strong>Disabled</strong>.</li>
+  <li>API connection details.</li>
+  <li>The store's status in the sync status panel on the dashboard.</li>
+</ul>
+
+<h2 id="opencart-profiles">Profiles and Syncing</h2>
+
+<p><strong>Profiles</strong> control which products get synced to which OpenCart store and how they are mapped. Go to the store's profile page from the sidebar (under <strong>Marketplace API &gt; OpenCart &gt; [Store Name]</strong>).</p>
+
+<h3>How Syncing Works</h3>
+<ul>
+  <li><strong>Product Sync</strong> pushes your catalog products to the OpenCart store, creating or updating products with their names, descriptions, prices, images, categories, and options.</li>
+  <li><strong>Push Stock Quantity</strong> sends the current stock levels from Xenon Suite to your OpenCart store, keeping your online store inventory accurate.</li>
+  <li><strong>Order Sync</strong> pulls new orders from the OpenCart store into Xenon Suite so you can manage them centrally.</li>
+</ul>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Automatic sync is available.</strong>
+    Order sync and stock push can be set up on an automatic schedule (cronjob) so you do not have to do it manually. Ask your administrator to set this up.
+  </div>
+</div>
+
+<h2 id="opencart-orders">OpenCart Orders</h2>
+
+<p>Each connected OpenCart store gets its own <strong>Orders</strong> link in the sidebar. Click it to see orders from that specific store. These orders are also visible in the main <strong>Sales &gt; Orders</strong> page with an OpenCart badge showing which store they came from.</p>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="tiktok">TikTok Shop</h1>
+
+<p>Xenon Suite supports connecting to TikTok Shop. Go to <strong>Marketplace API &gt; TikTok Shop &gt; Settings</strong> in the sidebar.</p>
+
+<h3>Connecting Your Account</h3>
+<div class="steps">
+  <div class="step">Enter your TikTok Shop <strong>App Key</strong> and <strong>App Secret</strong> from the TikTok Shop partner center.</div>
+  <div class="step">Click <strong>Save Credentials</strong>.</div>
+  <div class="step">Click <strong>Authorize</strong> to connect your TikTok Shop account. You will be redirected to TikTok to grant access.</div>
+  <div class="step">After authorization, you will see the token status and your connected shop details.</div>
+</div>
+
+<p>Like the other marketplace integrations, the TikTok Shop settings page has tabs for <strong>Settings</strong>, <strong>API Explorer</strong>, and <strong>API Logs</strong>, and a Sandbox/Production environment toggle.</p>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="callout-content">
+    <strong>TikTok Shop integration is still growing.</strong>
+    Currently, TikTok Shop supports account connection and API access. Additional features like order sync and product push may be added in future updates.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="reports">Reports</h1>
+
+<p>The Reports section gives you detailed insights into your business performance. Go to <strong>Reports</strong> in the sidebar.</p>
+
+<h2 id="report-orders">Order Profitability</h2>
+
+<p>This report shows the profitability of every order. You can filter by:</p>
+<ul>
+  <li><strong>Search</strong> -- Find specific orders by order number, marketplace ID, or customer name.</li>
+  <li><strong>Date Range</strong> -- Use preset ranges (Current Week, Last Month, Last Year, All Time, etc.) or set custom From/To dates.</li>
+  <li><strong>Source</strong> -- Filter by Lazada, Shopee, or specific OpenCart stores. Hold Ctrl/Cmd to select multiple sources.</li>
+  <li><strong>Status</strong> -- Filter by order status. Hold Ctrl/Cmd to select multiple statuses.</li>
+</ul>
+
+<p>At the top, you will see summary cards showing:</p>
+<ul>
+  <li><strong>Total Orders</strong></li>
+  <li><strong>Total Revenue</strong></li>
+  <li><strong>Total COGS</strong> (Cost of Goods Sold)</li>
+  <li><strong>Net Profit</strong></li>
+</ul>
+
+<p>Below the summary, a table lists each order with its revenue, cost, profit, and margin. Click <strong>Export CSV</strong> to download the data as a spreadsheet file.</p>
+
+<h2 id="report-products">Product Profitability</h2>
+
+<p>This report shows profitability broken down by product. It has the same filtering options as the Order Profitability report. Summary cards show:</p>
+<ul>
+  <li><strong>Products Sold</strong> -- How many different products were sold.</li>
+  <li><strong>Total Units</strong> -- Total quantity of items sold.</li>
+  <li><strong>Total Revenue</strong></li>
+  <li><strong>Total COGS</strong></li>
+  <li><strong>Gross Profit</strong></li>
+</ul>
+
+<p>Each row shows a product's name, SKU, total units sold, revenue, COGS, profit, and margin. Click <strong>Export CSV</strong> to download.</p>
+
+<h2 id="report-payouts">Marketplace Payouts</h2>
+
+<p>This report tracks actual payout amounts from Shopee and Lazada. It shows the buyer's payment amount, marketplace fees, seller payouts, and your estimated profit. You can filter by date range and source (Shopee or Lazada), and export to CSV.</p>
+
+<h2 id="report-categories">Margin by Category</h2>
+
+<p>This report shows profitability grouped by product category. For each category, you can see:</p>
+<ul>
+  <li>Units sold</li>
+  <li>Revenue</li>
+  <li>COGS</li>
+  <li>Gross Profit</li>
+  <li>Profit Margin %</li>
+  <li>Profit Markup %</li>
+</ul>
+
+<p>Filter by date range and source to narrow down the results.</p>
+
+<h2 id="report-fees">Marketplace Fees</h2>
+
+<p>This report breaks down all the fees charged by marketplaces (Shopee, Lazada, OpenCart). For each period and platform, it shows:</p>
+<ul>
+  <li>Number of orders</li>
+  <li>Revenue</li>
+  <li>Commission</li>
+  <li>Service Fee</li>
+  <li>Payment Fee</li>
+  <li>Shipping Fee</li>
+  <li>Total Fees</li>
+</ul>
+
+<p>This helps you understand how much each marketplace is costing you in fees.</p>
+
+<h2 id="report-inventory">Inventory Valuation</h2>
+
+<p>This report shows the current value of your inventory. For each product, it displays:</p>
+<ul>
+  <li>Product name and SKU</li>
+  <li>Quantity on hand</li>
+  <li>Unit cost</li>
+  <li>Total value (quantity times unit cost)</li>
+</ul>
+
+<p>The total inventory value is shown prominently at the top right. Use the search bar to find specific products by name or SKU.</p>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Exporting data.</strong>
+    Most reports have an <strong>Export CSV</strong> button that downloads the data as a CSV file. You can open this in Excel, Google Sheets, or any spreadsheet application for further analysis.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="users">Users and Permissions</h1>
+
+<p>If you are an administrator, you can manage who has access to the system and what they can do.</p>
+
+<h3>Managing Users</h3>
+
+<p>Go to <strong>Settings &gt; Users</strong> in the sidebar.</p>
+
+<p>The user list shows each user's ID, name, username, email, user group, last login time, and action buttons.</p>
+
+<h3>Adding a New User</h3>
+
+<div class="steps">
+  <div class="step">Click the <strong>Add User</strong> button.</div>
+  <div class="step">Fill in the user's <strong>Name</strong>, <strong>Username</strong>, and <strong>Email</strong>.</div>
+  <div class="step">Set a <strong>Password</strong> and confirm it.</div>
+  <div class="step">Select a <strong>User Group</strong> from the dropdown. This determines what the user can access.</div>
+  <div class="step">Click <strong>Save</strong>.</div>
+</div>
+
+<p>To edit a user, click <strong>Edit</strong> next to their name. To delete a user, click <strong>Delete</strong> (Administrator accounts are protected and cannot be deleted). You can also click <strong>Activity</strong> to see that user's activity log.</p>
+
+<h2 id="user-groups">User Groups</h2>
+
+<p>User groups define a set of permissions. Go to <strong>Settings &gt; User Groups</strong>.</p>
+
+<div class="steps">
+  <div class="step">Click <strong>Add Group</strong>.</div>
+  <div class="step">Give the group a <strong>Name</strong> (e.g., "Sales Team", "Warehouse Staff").</div>
+  <div class="step">In the <strong>Permissions</strong> section, check the boxes for each permission you want this group to have. You can use <strong>Select All</strong> or <strong>Deselect All</strong> for convenience.</div>
+  <div class="step">Click <strong>Save</strong>.</div>
+</div>
+
+<h2 id="permissions">Understanding Permissions</h2>
+
+<p>Permissions are organized into groups. Each group has a parent permission (which acts as "Select All" for that group) and individual child permissions. Here is what the main permission groups control:</p>
+
+<table>
+  <tr><th>Permission Group</th><th>What It Controls</th></tr>
+  <tr><td><strong>Manage Catalog</strong></td><td>Access to Products, Categories, Manufacturers, and Options pages.</td></tr>
+  <tr><td><strong>Manage Products</strong></td><td>Ability to add, edit, and delete products.</td></tr>
+  <tr><td><strong>Manage Categories</strong></td><td>Ability to add, edit, and delete categories.</td></tr>
+  <tr><td><strong>Manage Manufacturers</strong></td><td>Ability to add, edit, and delete manufacturers.</td></tr>
+  <tr><td><strong>Manage Options</strong></td><td>Ability to manage option types (like Color, Size).</td></tr>
+  <tr><td><strong>Manage Sales</strong></td><td>Access to the Sales section (Orders and Order Statuses).</td></tr>
+  <tr><td><strong>Manage Orders</strong></td><td>Ability to create, view, edit, and delete orders.</td></tr>
+  <tr><td><strong>Manage Order Statuses</strong></td><td>Ability to add and edit order statuses.</td></tr>
+  <tr><td><strong>Manage Marketplace API</strong></td><td>Access to the Marketplace API section (Shopee, Lazada, TikTok Shop, OpenCart settings).</td></tr>
+  <tr><td><strong>Manage Shopee</strong></td><td>Access to Shopee settings, categories, profiles, and products.</td></tr>
+  <tr><td><strong>Manage Shopee Orders</strong></td><td>Ability to view and sync Shopee orders.</td></tr>
+  <tr><td><strong>Manage Lazada</strong></td><td>Access to Lazada settings, categories, profiles, and products.</td></tr>
+  <tr><td><strong>Manage Lazada Orders</strong></td><td>Ability to view and sync Lazada orders.</td></tr>
+  <tr><td><strong>Manage TikTok</strong></td><td>Access to TikTok Shop settings.</td></tr>
+  <tr><td><strong>Manage OpenCart</strong></td><td>Access to OpenCart settings and profiles.</td></tr>
+  <tr><td><strong>Manage OpenCart Orders</strong></td><td>Ability to view orders from OpenCart stores.</td></tr>
+  <tr><td><strong>Manage Reports</strong></td><td>Access to all report pages.</td></tr>
+  <tr><td><strong>Manage Settings</strong></td><td>Access to the Settings section.</td></tr>
+  <tr><td><strong>Manage Users</strong></td><td>Ability to add, edit, and delete user accounts.</td></tr>
+  <tr><td><strong>Manage User Groups</strong></td><td>Ability to create and modify user groups and their permissions.</td></tr>
+  <tr><td><strong>Manage Website Settings</strong></td><td>Ability to change system settings (company name, logo, timezone, etc.).</td></tr>
+  <tr><td><strong>Manage Error Log</strong></td><td>Access to view system error logs.</td></tr>
+  <tr><td><strong>Manage Activity Log</strong></td><td>Access to view the system activity log.</td></tr>
+</table>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div class="callout-content">
+    <strong>Permissions are hierarchical.</strong>
+    To access a sub-section, the user typically needs both the parent permission and the specific child permission. For example, to view Shopee Orders, a user needs both "Manage Marketplace API" (or "Manage Shopee Orders" specifically) to see the sidebar link.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="settings">System Settings</h1>
+
+<p>Go to <strong>Settings &gt; Website Setting</strong> in the sidebar.</p>
+
+<h3>General Settings</h3>
+<ul>
+  <li><strong>Company Name</strong> -- The name displayed in the system and on documents.</li>
+  <li><strong>From Email</strong> -- The email address used when the system sends emails.</li>
+  <li><strong>Timezone</strong> -- Controls how dates and times are displayed throughout the system. Make sure this matches your local timezone.</li>
+  <li><strong>Activity Log Retention</strong> -- How many days of activity log data to keep. Logs older than this will be automatically cleaned up. Default is 90 days.</li>
+  <li><strong>Company Logo</strong> -- Upload your company logo to display in the sidebar.</li>
+  <li><strong>Software Logo</strong> -- Upload a custom logo for the login page and branding. If not set, the default Xenon Suite logo is used.</li>
+</ul>
+
+<h3>Database Maintenance</h3>
+<p>At the bottom of the settings page, you will find the <strong>Database Maintenance</strong> section:</p>
+<ul>
+  <li><strong>Purge Marketplace Raw Data</strong> -- Clears the raw API response data from Lazada and Shopee orders older than a specified number of days. This frees up database space without affecting your actual order data. Enter a number of days and click <strong>Purge Raw Data</strong>.</li>
+</ul>
+
+<div class="callout warning">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div class="callout-content">
+    <strong>Purging data cannot be undone.</strong>
+    Once raw API data is purged, it cannot be recovered. Only use this if you are sure you no longer need the raw data for debugging or reference.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="activity-log">Activity Log</h1>
+
+<p>The Activity Log keeps a record of important actions taken in the system. Go to <strong>Settings &gt; Activity Log</strong> in the sidebar.</p>
+
+<h3>What Gets Tracked</h3>
+<p>The system records events like:</p>
+<ul>
+  <li><strong>Created</strong> -- When a product, order, category, user, or other item is created.</li>
+  <li><strong>Updated</strong> -- When something is changed (with details of which fields changed and the old/new values).</li>
+  <li><strong>Deleted</strong> -- When something is removed.</li>
+  <li><strong>Login / Logout</strong> -- When users sign in and out.</li>
+  <li><strong>System events</strong> -- Automated actions like order syncs and stock pushes (marked with a "System" badge).</li>
+</ul>
+
+<h3>Viewing the Activity Log</h3>
+
+<p>The log shows a table with the following columns:</p>
+<ul>
+  <li><strong>When</strong> -- The date and time the action happened.</li>
+  <li><strong>User</strong> -- Who performed the action (or "System" for automated actions).</li>
+  <li><strong>Action</strong> -- The type of action (Created, Updated, Deleted, Login, etc.), color-coded for easy scanning.</li>
+  <li><strong>Subject</strong> -- What was affected (e.g., "Product #42 - Guitar Strings"). For updates, you can click to expand and see exactly which fields changed, with old values crossed out and new values highlighted.</li>
+  <li><strong>IP</strong> -- The IP address of the user who performed the action.</li>
+</ul>
+
+<h3>Filtering the Activity Log</h3>
+<p>Use the filters at the top to narrow down the log:</p>
+<ul>
+  <li><strong>Search</strong> -- Search by subject name.</li>
+  <li><strong>Action</strong> -- Filter by action type (Created, Updated, Deleted, Login, etc.).</li>
+  <li><strong>User</strong> -- Filter by a specific user.</li>
+  <li><strong>Source</strong> -- Show only User Actions or System events.</li>
+  <li><strong>Date Range</strong> -- Set From and To dates.</li>
+</ul>
+
+<p>The <strong>Clear Old Logs</strong> button at the top right removes log entries older than the retention period set in Website Settings.</p>
+
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<h1 id="tips">Tips and Frequently Asked Questions</h1>
+
+<h2>Common Workflows</h2>
+
+<h3>How do I sync all my Shopee orders?</h3>
+<div class="steps">
+  <div class="step">Go to <strong>Shopee Orders</strong> in the sidebar.</div>
+  <div class="step">At the top, set the <strong>From</strong> date to the earliest date you want, or leave it empty for the default range.</div>
+  <div class="step">Click <strong>Fetch Orders</strong> (or use <strong>Smart Sync</strong> for automatic detection).</div>
+  <div class="step">Wait for the system to finish pulling orders. A success or error message will appear.</div>
+</div>
+
+<h3>How do I sync all my Lazada orders?</h3>
+<div class="steps">
+  <div class="step">Go to <strong>Lazada Orders</strong> in the sidebar.</div>
+  <div class="step">Set the <strong>From</strong> and <strong>To</strong> dates, or leave them for the default range.</div>
+  <div class="step">Click <strong>Fetch Orders</strong>.</div>
+</div>
+
+<h3>How do I push stock to all my OpenCart stores?</h3>
+<div class="steps">
+  <div class="step">Go to <strong>Marketplace API &gt; OpenCart &gt; Settings</strong>.</div>
+  <div class="step">For each store, find the <strong>Push Stock Quantity</strong> button and click it.</div>
+  <div class="step">The system will send the current stock levels from Xenon Suite to that OpenCart store.</div>
+</div>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Automate with cronjobs.</strong>
+    Ask your administrator to set up automatic syncing so orders and stock are kept up to date without any manual work.
+  </div>
+</div>
+
+<h3>What happens when I update an order status?</h3>
+<p>When you change an order's status:</p>
+<ul>
+  <li>The new status is recorded in the order's history with a timestamp and your name.</li>
+  <li>Stock may be automatically adjusted depending on the status change (e.g., stock is reduced when an order moves to a "shipped" or "completed" status).</li>
+  <li>The change is logged in the Activity Log.</li>
+</ul>
+
+<h3>How do I check if my marketplace connections are working?</h3>
+<p>Look at the <strong>Dashboard</strong>. The Sync Status section shows colored dots for each marketplace. Green means everything is fine. If you see red or gray dots, go to the marketplace settings page and check your API credentials and token status.</p>
+
+<h3>How do I find a specific order from a marketplace?</h3>
+<p>You have two options:</p>
+<ul>
+  <li>Use the <strong>Global Search</strong> bar (top right corner, or press <code>/</code>) and type the marketplace order ID.</li>
+  <li>Go to <strong>Sales &gt; Orders</strong>, type the marketplace order ID in the search field, and click Search.</li>
+</ul>
+
+<h3>How do I export my data?</h3>
+<p>Most report pages have an <strong>Export CSV</strong> button. Click it to download a spreadsheet of the currently filtered data. You can open the file in Excel, Google Sheets, or any other spreadsheet app.</p>
+
+<h2>Best Practices</h2>
+
+<ul>
+  <li><strong>Keep your product costs up to date.</strong> Accurate cost data makes your profitability reports meaningful. Use the cost breakdown fields (cost, cost %, additional cost) on each product.</li>
+  <li><strong>Sync orders regularly.</strong> If automatic syncing is not set up, try to sync marketplace orders at least once a day to stay on top of pending shipments.</li>
+  <li><strong>Use categories effectively.</strong> Organizing products into categories makes them easier to find and improves the Margin by Category report.</li>
+  <li><strong>Review the Dashboard daily.</strong> The pending order counts and sync status indicators help you catch issues early.</li>
+  <li><strong>Set up proper user groups.</strong> Give each team member only the permissions they need. This keeps things secure and reduces mistakes.</li>
+  <li><strong>Check the Activity Log</strong> if something looks wrong. It shows exactly who changed what and when, making it easy to track down issues.</li>
+  <li><strong>Renew API tokens before they expire.</strong> Keep an eye on the token expiration dates on the dashboard sync status panel. Re-authorize before they expire to avoid interruptions.</li>
+  <li><strong>Back up before purging.</strong> Before using the Purge Raw Data feature in Settings, make sure you have a database backup.</li>
+</ul>
+
+<hr>
+
+<div class="doc-footer">
+  Xenon Suite User Guide &mdash; Last updated March 2026
+</div>
+
+</div>
+</main>
+
+<!-- Back to Top -->
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+</button>
+
+<script>
+// Theme toggle
+function toggleTheme(){
+  var html=document.documentElement;
+  var current=html.getAttribute('data-theme');
+  var next=current==='dark'?'light':'dark';
+  html.setAttribute('data-theme',next);
+  localStorage.setItem('doc-theme',next);
+  updateThemeIcons(next);
+}
+function updateThemeIcons(theme){
+  var sun=document.querySelector('.icon-sun');
+  var moon=document.querySelector('.icon-moon');
+  if(sun&&moon){
+    sun.style.display=theme==='dark'?'none':'block';
+    moon.style.display=theme==='dark'?'block':'none';
+  }
+}
+(function(){
+  var saved=localStorage.getItem('doc-theme');
+  if(saved){document.documentElement.setAttribute('data-theme',saved);updateThemeIcons(saved)}
+})();
+
+// Sidebar toggle (mobile)
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+
+// Nav group collapse
+function toggleGroup(el){
+  el.parentElement.classList.toggle('collapsed');
+}
+
+// Back to top
+window.addEventListener('scroll',function(){
+  var btn=document.getElementById('backToTop');
+  if(window.scrollY>400){btn.classList.add('visible')}else{btn.classList.remove('visible')}
+});
+
+// Active nav highlighting
+(function(){
+  var links=document.querySelectorAll('.nav-item a');
+  var sections=[];
+  links.forEach(function(link){
+    var id=link.getAttribute('href');
+    if(id&&id.startsWith('#')){
+      var el=document.querySelector(id);
+      if(el)sections.push({el:el,link:link});
+    }
+  });
+  function update(){
+    var scrollPos=window.scrollY+100;
+    var current=null;
+    sections.forEach(function(s){if(s.el.offsetTop<=scrollPos)current=s});
+    links.forEach(function(l){l.classList.remove('active')});
+    if(current)current.link.classList.add('active');
+  }
+  window.addEventListener('scroll',update);
+  update();
+})();
+
+// Search
+(function(){
+  var input=document.getElementById('searchInput');
+  var results=document.getElementById('searchResults');
+  var items=[];
+  document.querySelectorAll('.doc-content h1[id], .doc-content h2[id], .doc-content h3[id]').forEach(function(h){
+    var parent='';
+    var prev=h;
+    while(prev=prev.previousElementSibling){
+      if(prev.tagName==='H1'){parent=prev.textContent;break}
+    }
+    items.push({id:h.id,title:h.textContent,section:parent,el:h});
+  });
+
+  var focusedIdx=-1;
+
+  input.addEventListener('input',function(){
+    var q=this.value.trim().toLowerCase();
+    if(!q){results.classList.remove('active');results.innerHTML='';focusedIdx=-1;return}
+    var matches=items.filter(function(i){return i.title.toLowerCase().includes(q)||i.section.toLowerCase().includes(q)});
+    if(matches.length===0){
+      results.innerHTML='<div class="search-no-results">No results found</div>';
+    }else{
+      results.innerHTML=matches.slice(0,10).map(function(m,i){
+        return '<div class="search-result-item" data-idx="'+i+'" onclick="location.hash=\'#'+m.id+'\';document.getElementById(\'searchResults\').classList.remove(\'active\');document.getElementById(\'searchInput\').value=\'\';">'+
+          (m.section?'<div class="section-label">'+m.section+'</div>':'')+
+          '<div class="title">'+m.title+'</div></div>';
+      }).join('');
+    }
+    results.classList.add('active');
+    focusedIdx=-1;
+  });
+
+  input.addEventListener('keydown',function(e){
+    var items=results.querySelectorAll('.search-result-item');
+    if(!items.length)return;
+    if(e.key==='ArrowDown'){e.preventDefault();focusedIdx=Math.min(focusedIdx+1,items.length-1)}
+    else if(e.key==='ArrowUp'){e.preventDefault();focusedIdx=Math.max(focusedIdx-1,0)}
+    else if(e.key==='Enter'&&focusedIdx>=0){e.preventDefault();items[focusedIdx].click();return}
+    else if(e.key==='Escape'){results.classList.remove('active');input.blur();return}
+    items.forEach(function(it){it.classList.remove('focused')});
+    if(focusedIdx>=0)items[focusedIdx].classList.add('focused');
+  });
+
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('.search-wrap'))results.classList.remove('active');
+  });
+
+  // Keyboard shortcut
+  document.addEventListener('keydown',function(e){
+    if(e.key==='/'&&document.activeElement!==input&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){
+      e.preventDefault();input.focus();
+    }
+  });
+})();
+
+// Close sidebar on nav click (mobile)
+document.querySelectorAll('.nav-item a').forEach(function(a){
+  a.addEventListener('click',function(){
+    if(window.innerWidth<=768){
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('active');
+    }
+  });
+});
+</script>
+
+</body>
+</html>

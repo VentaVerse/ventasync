@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xenon Suite - Technical Documentation</title>
+<style>
+/* ── Reset & Base ───────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg-sidebar:#f8fafc;--bg-card:#ffffff;--bg-code:#f1f5f9;--bg-hover:#f1f5f9;
+  --text:#1e293b;--text-muted:#64748b;--text-light:#94a3b8;
+  --border:#e2e8f0;--border-light:#f1f5f9;
+  --accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--accent-bg:rgba(59,130,246,0.06);
+  --green:#10b981;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --amber:#f59e0b;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --red:#ef4444;--red-bg:#fef2f2;--red-border:#fecaca;
+  --purple:#8b5cf6;--purple-bg:#f5f3ff;
+  --sidebar-w:280px;--header-h:60px;
+  --radius:8px;--radius-sm:6px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.05);
+  --shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);
+  --shadow-lg:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --font-mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;
+}
+[data-theme="dark"]{
+  --bg:#0f172a;--bg-sidebar:#1e293b;--bg-card:#1e293b;--bg-code:#334155;--bg-hover:#334155;
+  --text:#e2e8f0;--text-muted:#94a3b8;--text-light:#64748b;
+  --border:#334155;--border-light:#1e293b;
+  --accent:#60a5fa;--accent-hover:#93bbfc;--accent-light:#1e3a5f;--accent-bg:rgba(96,165,250,0.08);
+  --green:#34d399;--green-bg:#064e3b;--green-border:#065f46;
+  --amber:#fbbf24;--amber-bg:#451a03;--amber-border:#78350f;
+  --red:#f87171;--red-bg:#450a0a;--red-border:#7f1d1d;
+  --purple:#a78bfa;--purple-bg:#2e1065;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.3);
+  --shadow:0 1px 3px rgba(0,0,0,0.4);
+  --shadow-lg:0 4px 6px rgba(0,0,0,0.4);
+}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--header-h) + 24px)}
+body{font-family:var(--font);font-size:15px;line-height:1.7;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+/* ── Header ─────────────────────────────────────── */
+.doc-header{
+  position:fixed;top:0;left:0;right:0;height:var(--header-h);
+  background:var(--bg);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;z-index:100;
+  backdrop-filter:blur(8px);background:rgba(255,255,255,0.85);
+}
+[data-theme="dark"] .doc-header{background:rgba(15,23,42,0.9)}
+.doc-header .logo{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-0.3px;display:flex;align-items:center;gap:10px}
+.doc-header .logo svg{width:28px;height:28px}
+.doc-header .logo span{color:var(--text-muted);font-weight:400;font-size:14px;margin-left:4px}
+.header-actions{margin-left:auto;display:flex;align-items:center;gap:12px}
+
+/* Search */
+.search-wrap{position:relative}
+.search-input{
+  width:260px;height:36px;border:1px solid var(--border);border-radius:18px;
+  padding:0 14px 0 36px;font-size:13px;background:var(--bg-sidebar);color:var(--text);
+  outline:none;transition:border-color .2s,box-shadow .2s,width .2s;
+}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);width:320px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-light);pointer-events:none}
+.search-results{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);max-height:360px;overflow-y:auto;display:none;z-index:200;
+}
+.search-results.active{display:block}
+.search-result-item{padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border-light);font-size:13px;transition:background .15s}
+.search-result-item:hover,.search-result-item.focused{background:var(--accent-bg)}
+.search-result-item:last-child{border-bottom:none}
+.search-result-item .section-label{font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px}
+.search-result-item .title{color:var(--text);font-weight:500}
+.search-no-results{padding:16px;text-align:center;color:var(--text-muted);font-size:13px}
+
+/* Theme toggle */
+.theme-toggle{
+  width:36px;height:36px;border:1px solid var(--border);border-radius:50%;
+  background:var(--bg-sidebar);color:var(--text-muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.theme-toggle svg{width:18px;height:18px}
+
+/* Mobile menu button */
+.menu-toggle{
+  display:none;width:36px;height:36px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--bg-sidebar);color:var(--text-muted);cursor:pointer;
+  align-items:center;justify-content:center;
+}
+
+/* ── Sidebar ────────────────────────────────────── */
+.doc-sidebar{
+  position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);
+  background:var(--bg-sidebar);border-right:1px solid var(--border);
+  overflow-y:auto;padding:20px 0;z-index:90;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+  transition:transform .3s ease;
+}
+.doc-sidebar::-webkit-scrollbar{width:4px}
+.doc-sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:89}
+
+.nav-group{margin-bottom:4px}
+.nav-group-title{
+  display:flex;align-items:center;padding:8px 20px;font-size:12px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--text-light);cursor:pointer;
+  user-select:none;transition:color .2s;
+}
+.nav-group-title:hover{color:var(--text-muted)}
+.nav-group-title .chevron{
+  margin-left:auto;width:16px;height:16px;transition:transform .2s;color:var(--text-light);
+}
+.nav-group.collapsed .chevron{transform:rotate(-90deg)}
+.nav-group.collapsed .nav-items{display:none}
+
+.nav-items{list-style:none}
+.nav-item a{
+  display:block;padding:6px 20px 6px 28px;font-size:14px;color:var(--text-muted);
+  text-decoration:none;border-left:2px solid transparent;transition:all .15s;line-height:1.5;
+}
+.nav-item a:hover{color:var(--text);background:var(--bg-hover)}
+.nav-item a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-bg);font-weight:500}
+.nav-item.sub a{padding-left:40px;font-size:13px}
+
+/* ── Main Content ───────────────────────────────── */
+.doc-main{
+  margin-left:var(--sidebar-w);margin-top:var(--header-h);
+  min-height:calc(100vh - var(--header-h));
+}
+.doc-content{max-width:860px;margin:0 auto;padding:40px 48px 80px}
+
+/* Typography */
+.doc-content h1{
+  font-size:32px;font-weight:700;letter-spacing:-0.5px;color:var(--text);
+  margin:48px 0 16px;padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+.doc-content h1:first-child{margin-top:0}
+.doc-content h2{font-size:24px;font-weight:600;color:var(--text);margin:40px 0 12px;letter-spacing:-0.3px}
+.doc-content h3{font-size:18px;font-weight:600;color:var(--text);margin:28px 0 10px}
+.doc-content h4{font-size:15px;font-weight:600;color:var(--text-muted);margin:20px 0 8px}
+.doc-content p{margin:10px 0;color:var(--text)}
+.doc-content ul,.doc-content ol{margin:10px 0 10px 20px}
+.doc-content li{margin:5px 0}
+.doc-content a{color:var(--accent);text-decoration:none}
+.doc-content a:hover{text-decoration:underline}
+.doc-content hr{border:none;border-top:1px solid var(--border);margin:32px 0}
+.doc-content code{
+  font-family:var(--font-mono);font-size:13px;background:var(--bg-code);
+  padding:2px 7px;border-radius:4px;color:var(--text);
+}
+
+/* Code blocks */
+.doc-content pre{
+  background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 20px;margin:12px 0;overflow-x:auto;font-size:13px;line-height:1.6;
+}
+.doc-content pre code{background:none;padding:0;border-radius:0}
+
+/* Hero section */
+.doc-hero{
+  text-align:center;padding:48px 0 40px;margin-bottom:8px;
+  border-bottom:1px solid var(--border);
+}
+.doc-hero h1{font-size:40px;border:none;margin:0 0 8px;letter-spacing:-0.8px}
+.doc-hero .subtitle{font-size:18px;color:var(--text-muted);margin:0 0 16px}
+.doc-hero .version-badge{
+  display:inline-block;padding:4px 14px;border-radius:20px;
+  font-size:12px;font-weight:600;background:var(--accent-light);color:var(--accent);
+}
+
+/* Tables */
+.doc-content table{
+  width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+}
+.doc-content th{
+  background:var(--bg-sidebar);color:var(--text);font-weight:600;font-size:13px;
+  padding:10px 16px;text-align:left;border-bottom:2px solid var(--border);
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.doc-content td{padding:10px 16px;border-bottom:1px solid var(--border-light);color:var(--text)}
+.doc-content tr:last-child td{border-bottom:none}
+.doc-content tr:hover td{background:var(--accent-bg)}
+
+/* Callouts */
+.callout{
+  padding:14px 18px;border-radius:var(--radius);margin:16px 0;font-size:14px;
+  display:flex;gap:12px;align-items:flex-start;line-height:1.6;
+}
+.callout svg{flex-shrink:0;margin-top:2px}
+.callout-content{flex:1}
+.callout-content strong{display:block;margin-bottom:2px}
+.callout.note{background:var(--amber-bg);border:1px solid var(--amber-border)}
+.callout.note svg{color:var(--amber)}
+.callout.tip{background:var(--green-bg);border:1px solid var(--green-border)}
+.callout.tip svg{color:var(--green)}
+.callout.warning{background:var(--red-bg);border:1px solid var(--red-border)}
+.callout.warning svg{color:var(--red)}
+
+/* Steps */
+.steps{margin:16px 0;counter-reset:step}
+.step{
+  position:relative;padding:14px 18px 14px 56px;margin:8px 0;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  counter-increment:step;
+}
+.step::before{
+  content:counter(step);position:absolute;left:16px;top:14px;
+  width:26px;height:26px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:13px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* Feature cards */
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
+.feature-card{
+  padding:16px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg-card);transition:border-color .2s,box-shadow .2s;
+}
+.feature-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.feature-card h4{margin:0 0 6px;font-size:14px;color:var(--text)}
+.feature-card p{margin:0;font-size:13px;color:var(--text-muted);line-height:1.5}
+
+/* Method badges */
+.method{
+  display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:700;
+  font-family:var(--font-mono);letter-spacing:.3px;vertical-align:middle;
+}
+.method-get{background:#dbeafe;color:#1d4ed8}
+.method-post{background:#dcfce7;color:#166534}
+.method-put{background:#fef3c7;color:#92400e}
+.method-delete{background:#fecaca;color:#991b1b}
+[data-theme="dark"] .method-get{background:#1e3a5f;color:#93c5fd}
+[data-theme="dark"] .method-post{background:#064e3b;color:#6ee7b7}
+[data-theme="dark"] .method-put{background:#451a03;color:#fbbf24}
+[data-theme="dark"] .method-delete{background:#450a0a;color:#fca5a5}
+
+/* Direction badges */
+.dir-badge{
+  display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;
+}
+.dir-pull{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.dir-push{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent)}
+
+/* Permission badge */
+.perm-badge{
+  display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;
+  font-family:var(--font-mono);background:var(--purple-bg);color:var(--purple);
+}
+
+/* Back to top */
+.back-to-top{
+  position:fixed;bottom:28px;right:28px;width:40px;height:40px;
+  border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:all .3s;z-index:50;
+}
+.back-to-top.visible{opacity:1;pointer-events:auto}
+.back-to-top:hover{background:var(--accent-hover);transform:translateY(-2px)}
+.back-to-top svg{width:20px;height:20px}
+
+/* Footer */
+.doc-footer{
+  text-align:center;padding:32px 0;color:var(--text-light);font-size:13px;
+  border-top:1px solid var(--border);margin-top:48px;
+}
+
+/* ── Responsive ─────────────────────────────────── */
+@media(max-width:1024px){
+  .doc-content{padding:32px 28px 60px}
+}
+@media(max-width:768px){
+  .menu-toggle{display:flex}
+  .doc-sidebar{transform:translateX(-100%)}
+  .doc-sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.active{display:block}
+  .doc-main{margin-left:0}
+  .doc-content{padding:24px 20px 60px}
+  .doc-content h1{font-size:26px}
+  .doc-content h2{font-size:20px}
+  .search-input{width:180px}
+  .search-input:focus{width:220px}
+  .doc-hero h1{font-size:30px}
+  .feature-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="doc-header">
+  <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </button>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="currentColor" opacity=".12"/><path d="M8 16l5-8h6l5 8-5 8h-6L8 16z" fill="currentColor"/></svg>
+    Xenon Suite <span>Technical Docs</span>
+  </div>
+  <div class="header-actions">
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" type="text" placeholder="Search docs..." id="searchInput" autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle dark mode">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="doc-sidebar" id="sidebar">
+  <nav>
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Getting Started
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#overview">Overview</a></li>
+        <li class="nav-item"><a href="#requirements">System Requirements</a></li>
+        <li class="nav-item"><a href="#deployment">Deployment Guide</a></li>
+        <li class="nav-item"><a href="#configuration">Configuration</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Architecture
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#architecture">Project Structure</a></li>
+        <li class="nav-item sub"><a href="#controllers">Controllers</a></li>
+        <li class="nav-item sub"><a href="#models">Models</a></li>
+        <li class="nav-item sub"><a href="#services">Services</a></li>
+        <li class="nav-item sub"><a href="#middleware">Middleware &amp; RBAC</a></li>
+        <li class="nav-item"><a href="#database-schema">Database Schema</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Marketplace
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#marketplace-integrations">Integrations Overview</a></li>
+        <li class="nav-item sub"><a href="#shopee-integration">Shopee</a></li>
+        <li class="nav-item sub"><a href="#lazada-integration">Lazada</a></li>
+        <li class="nav-item sub"><a href="#opencart-integration">OpenCart</a></li>
+        <li class="nav-item sub"><a href="#tiktok-integration">TikTok Shop</a></li>
+        <li class="nav-item"><a href="#opencart-api-module">OpenCart API Module</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        CLI &amp; API
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#console-commands">Console Commands</a></li>
+        <li class="nav-item"><a href="#scheduled-tasks">Scheduled Tasks</a></li>
+        <li class="nav-item"><a href="#api-reference">API Reference</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title" onclick="toggleGroup(this)">
+        Operations
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item"><a href="#troubleshooting">Troubleshooting</a></li>
+      </ul>
+    </div>
+  </nav>
+</aside>
+
+<!-- Main Content -->
+<main class="doc-main">
+<div class="doc-content">
+
+<!-- Hero -->
+<div class="doc-hero">
+  <h1 style="border:none;margin:0 0 8px;padding:0">Xenon Suite</h1>
+  <p class="subtitle">Technical Documentation &amp; Deployment Guide</p>
+  <span class="version-badge">v1.2 &mdash; March 2026</span>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="overview">Overview</h1>
+
+<p><strong>Xenon Suite</strong> is a centralized ERP (Enterprise Resource Planning) system built on Laravel 12. It serves as the <strong>single source of truth</strong> for product catalog data, inventory, and order management across multiple sales channels, including OpenCart storefronts, Shopee, Lazada, and TikTok Shop.</p>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <h4>Centralized Catalog</h4>
+    <p>Manage products, categories, manufacturers, and options from one place with OpenCart-compatible schema.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Multi-Store OpenCart Sync</h4>
+    <p>Two-way sync with multiple OpenCart stores. Push product data out, pull orders and stock in.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Shopee Integration</h4>
+    <p>OAuth authentication, order sync, return handling, stock push, and product listing management.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Lazada Integration</h4>
+    <p>OAuth authentication, order sync, reverse orders, pack/ship fulfillment, and product upload.</p>
+  </div>
+  <div class="feature-card">
+    <h4>TikTok Shop</h4>
+    <p>OAuth authentication, API explorer, and foundational integration for TikTok Shop marketplace.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Reports &amp; Analytics</h4>
+    <p>Order reports, product performance, payout tracking, category analytics, fee breakdowns, and inventory reports.</p>
+  </div>
+</div>
+
+<h3>Tech Stack</h3>
+<table>
+  <tr><th>Component</th><th>Technology</th></tr>
+  <tr><td>Backend Framework</td><td>Laravel 12 (PHP 8.2+)</td></tr>
+  <tr><td>Database</td><td>MySQL 8.0+</td></tr>
+  <tr><td>API Authentication</td><td>Laravel Sanctum 4.3</td></tr>
+  <tr><td>Frontend CSS</td><td>Tailwind CSS 4</td></tr>
+  <tr><td>Build Tool</td><td>Vite 7</td></tr>
+  <tr><td>Queue Driver</td><td>Database (configurable)</td></tr>
+  <tr><td>Session / Cache</td><td>Database (configurable)</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="requirements">System Requirements</h1>
+
+<h3>Server Requirements</h3>
+<table>
+  <tr><th>Requirement</th><th>Minimum</th></tr>
+  <tr><td>PHP</td><td>8.2 or higher</td></tr>
+  <tr><td>MySQL / MariaDB</td><td>8.0+ / 10.6+</td></tr>
+  <tr><td>Composer</td><td>2.x</td></tr>
+  <tr><td>Node.js</td><td>18+ (for building frontend assets)</td></tr>
+  <tr><td>npm</td><td>9+ (bundled with Node.js)</td></tr>
+</table>
+
+<h3>Required PHP Extensions</h3>
+<ul>
+  <li><code>ctype</code></li>
+  <li><code>curl</code></li>
+  <li><code>dom</code></li>
+  <li><code>fileinfo</code></li>
+  <li><code>filter</code></li>
+  <li><code>hash</code></li>
+  <li><code>mbstring</code></li>
+  <li><code>openssl</code></li>
+  <li><code>pcre</code></li>
+  <li><code>pdo</code> and <code>pdo_mysql</code></li>
+  <li><code>session</code></li>
+  <li><code>tokenizer</code></li>
+  <li><code>xml</code></li>
+  <li><code>json</code></li>
+  <li><code>bcmath</code> (for price calculations)</li>
+  <li><code>gd</code> or <code>imagick</code> (for image processing)</li>
+</ul>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="deployment">Deployment Guide</h1>
+
+<h2 id="deployment-steps">Step-by-Step Deployment</h2>
+
+<div class="steps">
+  <div class="step">
+    <strong>Clone the Repository</strong>
+    <pre><code>git clone git@github.com:your-org/xenon-suite.git /var/www/xenon-suite
+cd /var/www/xenon-suite</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Install PHP Dependencies</strong>
+    <pre><code>composer install --optimize-autoloader --no-dev</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Configure Environment</strong>
+    <pre><code>cp .env.example .env</code></pre>
+    <p>Edit <code>.env</code> and configure at minimum:</p>
+    <pre><code>APP_NAME="Xenon Suite"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://erp.yourdomain.com
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=xenon_suite
+DB_USERNAME=your_db_user
+DB_PASSWORD=your_db_password
+
+QUEUE_CONNECTION=database
+SESSION_DRIVER=database
+CACHE_STORE=database</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Generate Application Key</strong>
+    <pre><code>php artisan key:generate</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Run Database Migrations</strong>
+    <pre><code>php artisan migrate --force</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Build Frontend Assets</strong>
+    <pre><code>npm install
+npm run build</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Set File Permissions</strong>
+    <pre><code>chmod -R 775 storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Configure Web Server</strong>
+    <p>Point your web server document root to the <code>public</code> directory.</p>
+    <h4>Apache (.htaccess included)</h4>
+    <p>Ensure <code>mod_rewrite</code> is enabled. Laravel ships with a <code>public/.htaccess</code> file.</p>
+    <h4>Nginx</h4>
+    <pre><code>server {
+    listen 80;
+    server_name erp.yourdomain.com;
+    root /var/www/xenon-suite/public;
+
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Set Up Cron for Scheduled Tasks</strong>
+    <pre><code>* * * * * cd /var/www/xenon-suite &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code></pre>
+  </div>
+
+  <div class="step">
+    <strong>Configure Queue Worker</strong>
+    <p>For processing queued jobs (order sync, stock push, etc.), run a queue worker as a supervised process:</p>
+    <pre><code>php artisan queue:listen --tries=1 --timeout=0</code></pre>
+    <p>For production, use Supervisor or systemd:</p>
+    <pre><code>[program:xenon-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/xenon-suite/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/xenon-suite/storage/logs/worker.log</code></pre>
+  </div>
+</div>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Quick Setup Script</strong>
+    The project includes a <code>composer setup</code> script that automates steps 2-6 (install, .env copy, key generation, migration, and frontend build).
+  </div>
+</div>
+
+<div class="callout tip">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  <div class="callout-content">
+    <strong>Local Development</strong>
+    For local development, run <code>composer dev</code> to start the dev server, queue listener, Pail log viewer, and Vite dev server concurrently.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="configuration">Configuration</h1>
+
+<h2 id="env-variables">Environment Variables (.env)</h2>
+
+<h3>Core Application</h3>
+<table>
+  <tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>APP_NAME</code></td><td>Application display name</td><td><code>Laravel</code></td></tr>
+  <tr><td><code>APP_ENV</code></td><td>Environment (local, staging, production)</td><td><code>local</code></td></tr>
+  <tr><td><code>APP_DEBUG</code></td><td>Enable detailed error pages</td><td><code>true</code></td></tr>
+  <tr><td><code>APP_URL</code></td><td>Base URL of the application</td><td><code>http://localhost</code></td></tr>
+  <tr><td><code>APP_LOCALE</code></td><td>Default application locale</td><td><code>en</code></td></tr>
+</table>
+
+<h3>Database</h3>
+<table>
+  <tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>DB_CONNECTION</code></td><td>Database driver (mysql, sqlite)</td><td><code>sqlite</code></td></tr>
+  <tr><td><code>DB_HOST</code></td><td>Database server hostname</td><td><code>127.0.0.1</code></td></tr>
+  <tr><td><code>DB_PORT</code></td><td>Database server port</td><td><code>3306</code></td></tr>
+  <tr><td><code>DB_DATABASE</code></td><td>Database name</td><td><code>laravel</code></td></tr>
+  <tr><td><code>DB_USERNAME</code></td><td>Database username</td><td><code>root</code></td></tr>
+  <tr><td><code>DB_PASSWORD</code></td><td>Database password</td><td>(empty)</td></tr>
+</table>
+
+<h3>Queue, Session, Cache</h3>
+<table>
+  <tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>QUEUE_CONNECTION</code></td><td>Queue driver (database, redis, sync)</td><td><code>database</code></td></tr>
+  <tr><td><code>SESSION_DRIVER</code></td><td>Session storage driver</td><td><code>database</code></td></tr>
+  <tr><td><code>SESSION_LIFETIME</code></td><td>Session timeout in minutes</td><td><code>120</code></td></tr>
+  <tr><td><code>CACHE_STORE</code></td><td>Cache backend driver</td><td><code>database</code></td></tr>
+</table>
+
+<h3>Security</h3>
+<table>
+  <tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>BCRYPT_ROUNDS</code></td><td>Bcrypt hashing cost factor</td><td><code>12</code></td></tr>
+  <tr><td><code>ERP_ALLOW_REGISTRATION</code></td><td>Allow public user registration (private ERP: set to false)</td><td><code>false</code></td></tr>
+</table>
+
+<h2 id="catalog-config">Catalog Configuration (config/catalog.php)</h2>
+
+<table>
+  <tr><th>Key</th><th>Env Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>prefix</code></td><td><code>DB_TABLE_PREFIX</code></td><td>Table prefix for OpenCart-compatible catalog tables (e.g., <code>oc_</code>)</td><td>(empty)</td></tr>
+  <tr><td><code>default_language_id</code></td><td>&mdash;</td><td>Default language ID for catalog description tables</td><td><code>1</code></td></tr>
+  <tr><td><code>public_url</code></td><td><code>CATALOG_PUBLIC_URL</code></td><td>Public URL for catalog images (OpenCart storefront base URL)</td><td><code>APP_URL</code></td></tr>
+  <tr><td><code>image_prefix</code></td><td><code>CATALOG_IMAGE_PREFIX</code></td><td>Image directory prefix (e.g., <code>image</code>)</td><td><code>image</code></td></tr>
+</table>
+
+<h2 id="erp-config">ERP Configuration (config/erp.php)</h2>
+
+<table>
+  <tr><th>Key</th><th>Env Variable</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>allow_registration</code></td><td><code>ERP_ALLOW_REGISTRATION</code></td><td>Controls whether new users can self-register. Should be <code>false</code> for private ERP deployments.</td><td><code>false</code></td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="architecture">Architecture</h1>
+
+<p>Xenon Suite follows the standard Laravel MVC pattern with services for complex business logic and middleware for access control.</p>
+
+<pre><code>app/
+  Console/Commands/     # 19 Artisan commands
+  Http/
+    Controllers/        # 37 web controllers
+    Controllers/Api/    # 7 API controllers
+    Middleware/          # Custom middleware (EnsurePermission)
+  Models/               # 44 Eloquent models
+  Services/             # 7 service classes
+config/
+  catalog.php           # Catalog/OpenCart table prefix settings
+  erp.php               # ERP-specific settings
+routes/
+  web.php               # Web routes (auth-protected)
+  api.php               # REST API routes (Sanctum)
+  auth.php              # Authentication routes
+  console.php           # CLI route definitions
+database/
+  migrations/           # 80+ migration files
+opencart_extensions/    # OpenCart API module (5 files)</code></pre>
+
+<h2 id="controllers">Controllers (37+ Web, 7 API)</h2>
+
+<h3>Web Controllers</h3>
+<table>
+  <tr><th>Controller</th><th>Purpose</th></tr>
+  <tr><td><code>DashboardController</code></td><td>Dashboard with chart data and platform metrics</td></tr>
+  <tr><td><code>ProductController</code></td><td>Product CRUD, bulk actions, sales &amp; stock history</td></tr>
+  <tr><td><code>ProductImageController</code></td><td>Image upload, import from URL, browse, upload to catalog</td></tr>
+  <tr><td><code>ProductOptionController</code></td><td>Product option/variant management</td></tr>
+  <tr><td><code>CategoryController</code></td><td>Category CRUD with bulk actions</td></tr>
+  <tr><td><code>ManufacturerController</code></td><td>Manufacturer/brand CRUD</td></tr>
+  <tr><td><code>OptionController</code></td><td>Global option definitions with value management</td></tr>
+  <tr><td><code>OrderController</code></td><td>Unified order management, status updates, OpenCart orders view</td></tr>
+  <tr><td><code>OrderStatusController</code></td><td>Order status definitions and bulk management</td></tr>
+  <tr><td><code>ShopeeController</code></td><td>Shopee OAuth, settings, API explorer, packs, status mapping</td></tr>
+  <tr><td><code>ShopeeOrderController</code></td><td>Shopee order sync, detail view, ship, AWB, tracking, returns</td></tr>
+  <tr><td><code>ShopeeProductController</code></td><td>Shopee product listing, stock/price sync, unmatched items</td></tr>
+  <tr><td><code>ShopeeProfileController</code></td><td>Shopee listing profiles and template sync</td></tr>
+  <tr><td><code>ShopeeCategoryController</code></td><td>Shopee category browser and fetch</td></tr>
+  <tr><td><code>ShopeeCategoryAttributeController</code></td><td>Shopee category attribute viewer</td></tr>
+  <tr><td><code>ShopeeLogisticsController</code></td><td>Shopee logistics channel management</td></tr>
+  <tr><td><code>LazadaController</code></td><td>Lazada OAuth, settings, API explorer, packs, category/brand tools</td></tr>
+  <tr><td><code>LazadaOrderController</code></td><td>Lazada order sync, pack/ship, AWB, cancel, logistics trace, returns</td></tr>
+  <tr><td><code>LazadaProductController</code></td><td>Lazada product CRUD, upload, sync, bulk operations, unmatched items</td></tr>
+  <tr><td><code>LazadaProfileController</code></td><td>Lazada listing profiles and template sync</td></tr>
+  <tr><td><code>LazadaCategoryController</code></td><td>Lazada category browser and fetch</td></tr>
+  <tr><td><code>LazadaCategoryAttributeController</code></td><td>Lazada category attribute viewer</td></tr>
+  <tr><td><code>LazadaBrandController</code></td><td>Lazada brand management and autocomplete</td></tr>
+  <tr><td><code>TikTokController</code></td><td>TikTok Shop OAuth, settings, API explorer, packs</td></tr>
+  <tr><td><code>OpenCartController</code></td><td>OpenCart store settings, connection test, sync/push operations</td></tr>
+  <tr><td><code>OpenCartProfileController</code></td><td>Per-store product push profiles</td></tr>
+  <tr><td><code>UserController</code></td><td>User CRUD</td></tr>
+  <tr><td><code>UserGroupController</code></td><td>User group CRUD with permission assignment</td></tr>
+  <tr><td><code>SettingController</code></td><td>Website settings (timezone, logo, raw data purge)</td></tr>
+  <tr><td><code>ReportController</code></td><td>Order, product, payout, category, fee, and inventory reports</td></tr>
+  <tr><td><code>ErrorLogController</code></td><td>Error log viewer with clear and test functions</td></tr>
+  <tr><td><code>ActivityLogController</code></td><td>Activity log viewer and purge</td></tr>
+  <tr><td><code>SearchController</code></td><td>Global search across entities</td></tr>
+</table>
+
+<h3>API Controllers (app/Http/Controllers/Api/)</h3>
+<table>
+  <tr><th>Controller</th><th>Purpose</th></tr>
+  <tr><td><code>AuthController</code></td><td>Login/logout via Sanctum tokens</td></tr>
+  <tr><td><code>DashboardController</code></td><td>Dashboard summary and chart data</td></tr>
+  <tr><td><code>OrderController</code></td><td>Order listing, detail, status update, pending count</td></tr>
+  <tr><td><code>MarketplaceOrderController</code></td><td>Marketplace order listing and detail by platform</td></tr>
+  <tr><td><code>ProductController</code></td><td>Product listing, quantity view and update</td></tr>
+  <tr><td><code>CatalogController</code></td><td>Catalog lookups (manufacturers, categories, options, option values)</td></tr>
+  <tr><td><code>DeviceTokenController</code></td><td>FCM device token registration/removal</td></tr>
+</table>
+
+<h2 id="models">Models (44)</h2>
+
+<h3>Core Models</h3>
+<ul>
+  <li><code>User</code> &mdash; Authentication, group membership, permission hierarchy</li>
+  <li><code>Product</code> &mdash; Catalog product (OpenCart-compatible schema)</li>
+  <li><code>Setting</code> &mdash; Application-wide settings</li>
+  <li><code>ActivityLog</code> &mdash; Audit trail entries</li>
+  <li><code>DeviceToken</code> &mdash; FCM push notification device tokens</li>
+</ul>
+
+<h3>Shopee Models</h3>
+<ul>
+  <li><code>ShopeeSetting</code>, <code>ShopeeOrder</code>, <code>ShopeeOrderProduct</code>, <code>ShopeeReturn</code></li>
+  <li><code>ShopeeProductLink</code>, <code>ShopeeProfile</code>, <code>ShopeeProfileAttribute</code></li>
+  <li><code>ShopeeCategory</code>, <code>ShopeeCategoryTemplate</code>, <code>ShopeeLogistic</code></li>
+  <li><code>ShopeeItemCache</code>, <code>ShopeeUnmatchedItem</code>, <code>ShopeeApiLog</code>, <code>ShopeeOrderStatusMap</code></li>
+</ul>
+
+<h3>Lazada Models</h3>
+<ul>
+  <li><code>LazadaSetting</code>, <code>LazadaOrder</code>, <code>LazadaOrderProduct</code>, <code>LazadaOrderItem</code></li>
+  <li><code>LazadaProduct</code>, <code>LazadaProductVariant</code>, <code>LazadaProductAttribute</code></li>
+  <li><code>LazadaProfile</code>, <code>LazadaProfileAttribute</code>, <code>LazadaImageLink</code></li>
+  <li><code>LazadaCategory</code>, <code>LazadaCategoryTemplate</code>, <code>LazadaBrand</code></li>
+  <li><code>LazadaReverseOrder</code>, <code>LazadaUnmatchedItem</code>, <code>LazadaApiLog</code>, <code>LazadaOrderStatusMap</code></li>
+</ul>
+
+<h3>OpenCart &amp; TikTok Models</h3>
+<ul>
+  <li><code>OpenCartSetting</code>, <code>OpenCartProfile</code>, <code>OpenCartProfileProduct</code></li>
+  <li><code>OpenCartProductLink</code>, <code>OpenCartSyncLog</code>, <code>OpenCartOrderStatusMap</code></li>
+  <li><code>TikTokSetting</code>, <code>TikTokApiLog</code></li>
+</ul>
+
+<h2 id="services">Services (7)</h2>
+
+<table>
+  <tr><th>Service</th><th>Purpose</th></tr>
+  <tr><td><code>FcmService</code></td><td>Firebase Cloud Messaging push notifications</td></tr>
+  <tr><td><code>OrderStockService</code></td><td>Stock adjustment logic when order status changes</td></tr>
+  <tr><td><code>ActivityLogger</code></td><td>Structured audit logging with subject/source tracking</td></tr>
+  <tr><td><code>StockHistoryLogger</code></td><td>Stock quantity change history tracking</td></tr>
+  <tr><td><code>SkuSyncService</code></td><td>SKU-based product matching across platforms</td></tr>
+  <tr><td><code>ShopeeCatalogOrderSync</code></td><td>Syncs Shopee order data into the catalog order tables</td></tr>
+  <tr><td><code>LazadaCatalogOrderSync</code></td><td>Syncs Lazada order data into the catalog order tables</td></tr>
+</table>
+
+<h2 id="middleware">Middleware &amp; RBAC</h2>
+
+<h3>EnsurePermission Middleware</h3>
+
+<p>The <code>EnsurePermission</code> middleware (registered as <code>perm</code>) enforces role-based access control. It is applied to route groups via <code>perm:permission_key</code> syntax.</p>
+
+<pre><code>Route::middleware(['perm:manage_products'])-&gt;group(function () {
+    // Only users with manage_products permission can access
+});</code></pre>
+
+<p>Multiple permissions can be specified with a pipe (<code>|</code>) separator. Any one match grants access:</p>
+<pre><code>Route::middleware(['perm:manage_shopee|manage_lazada'])-&gt;group(function () { ... });</code></pre>
+
+<h3>Permission Hierarchy</h3>
+
+<p>Permissions follow a parent-child hierarchy. Granting a parent permission automatically includes all children. Having any child permission satisfies the parent check for sidebar visibility.</p>
+
+<table>
+  <tr><th>Parent Permission</th><th>Child Permissions</th></tr>
+  <tr><td><code>manage_catalog</code></td><td><code>manage_products</code>, <code>manage_categories</code>, <code>manage_manufacturers</code>, <code>manage_options</code></td></tr>
+  <tr><td><code>manage_sales</code></td><td><code>manage_orders</code>, <code>manage_order_statuses</code>, <code>manage_reports</code></td></tr>
+  <tr><td><code>manage_marketplace_api</code></td><td><code>manage_shopee</code>, <code>manage_lazada</code>, <code>manage_opencart</code>, <code>manage_tiktok</code>, <code>manage_shopee_orders</code>, <code>manage_lazada_orders</code>, <code>manage_opencart_orders</code></td></tr>
+  <tr><td><code>manage_settings</code></td><td><code>manage_users</code>, <code>manage_user_groups</code>, <code>manage_website_settings</code>, <code>manage_error_log</code>, <code>manage_activity_log</code></td></tr>
+</table>
+
+<h3>All Permission Keys</h3>
+
+<table>
+  <tr><th>Key</th><th>Label</th><th>Scope</th></tr>
+  <tr><td><code>manage_catalog</code></td><td>Catalog (All)</td><td>Parent</td></tr>
+  <tr><td><code>manage_products</code></td><td>Products</td><td>Catalog child</td></tr>
+  <tr><td><code>manage_categories</code></td><td>Categories</td><td>Catalog child</td></tr>
+  <tr><td><code>manage_manufacturers</code></td><td>Manufacturers</td><td>Catalog child</td></tr>
+  <tr><td><code>manage_options</code></td><td>Options</td><td>Catalog child</td></tr>
+  <tr><td><code>manage_sales</code></td><td>Sales (All)</td><td>Parent</td></tr>
+  <tr><td><code>manage_orders</code></td><td>Orders</td><td>Sales child</td></tr>
+  <tr><td><code>manage_order_statuses</code></td><td>Order Statuses</td><td>Sales child</td></tr>
+  <tr><td><code>manage_reports</code></td><td>Reports</td><td>Sales child</td></tr>
+  <tr><td><code>manage_marketplace_api</code></td><td>Marketplace API (All)</td><td>Parent</td></tr>
+  <tr><td><code>manage_shopee</code></td><td>Shopee</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_shopee_orders</code></td><td>Shopee Orders</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_lazada</code></td><td>Lazada</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_lazada_orders</code></td><td>Lazada Orders</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_opencart</code></td><td>OpenCart</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_opencart_orders</code></td><td>OpenCart Orders</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_tiktok</code></td><td>TikTok Shop</td><td>Marketplace child</td></tr>
+  <tr><td><code>manage_settings</code></td><td>Settings (All)</td><td>Parent</td></tr>
+  <tr><td><code>manage_users</code></td><td>Users</td><td>Settings child</td></tr>
+  <tr><td><code>manage_user_groups</code></td><td>User Groups</td><td>Settings child</td></tr>
+  <tr><td><code>manage_website_settings</code></td><td>Website Settings</td><td>Settings child</td></tr>
+  <tr><td><code>manage_error_log</code></td><td>Error Log</td><td>Settings child</td></tr>
+  <tr><td><code>manage_activity_log</code></td><td>Activity Log</td><td>Settings child</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="database-schema">Database Schema</h1>
+
+<h2 id="catalog-tables">Catalog Tables (OpenCart-Compatible)</h2>
+
+<p>These tables use a configurable prefix (<code>DB_TABLE_PREFIX</code> env variable, e.g. <code>oc_</code>) to maintain compatibility with existing OpenCart databases. All table names below are shown without the prefix.</p>
+
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>product</code></td><td>Core product data (SKU, model, price, quantity, weight, status, dates)</td></tr>
+  <tr><td><code>product_description</code></td><td>Multilingual product names, descriptions, meta data, tags</td></tr>
+  <tr><td><code>product_image</code></td><td>Additional product images with sort order</td></tr>
+  <tr><td><code>product_special</code></td><td>Special/sale prices with date ranges and customer group targeting</td></tr>
+  <tr><td><code>product_to_category</code></td><td>Product-category assignments (many-to-many)</td></tr>
+  <tr><td><code>product_option</code></td><td>Product-level option assignments</td></tr>
+  <tr><td><code>product_option_value</code></td><td>Option value SKUs, quantities, price/weight modifiers</td></tr>
+  <tr><td><code>category</code></td><td>Category hierarchy (parent_id, status, sort order)</td></tr>
+  <tr><td><code>category_description</code></td><td>Multilingual category names, descriptions, SEO fields</td></tr>
+  <tr><td><code>category_path</code></td><td>Materialized path for category tree traversal</td></tr>
+  <tr><td><code>manufacturer</code></td><td>Brand/manufacturer records</td></tr>
+  <tr><td><code>option</code></td><td>Global option definitions (type: select, radio, checkbox, etc.)</td></tr>
+  <tr><td><code>option_description</code></td><td>Multilingual option names</td></tr>
+  <tr><td><code>option_value</code></td><td>Option value records with images</td></tr>
+  <tr><td><code>option_value_description</code></td><td>Multilingual option value names</td></tr>
+</table>
+
+<h2 id="order-tables">Order &amp; Status Tables</h2>
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>order</code></td><td>Unified orders from all channels (marketplace_source column)</td></tr>
+  <tr><td><code>order_product</code></td><td>Line items per order with cost tracking</td></tr>
+  <tr><td><code>order_history</code></td><td>Status change audit trail with user tracking</td></tr>
+  <tr><td><code>order_total</code></td><td>Order total breakdown (subtotal, shipping, tax, etc.)</td></tr>
+  <tr><td><code>order_status</code></td><td>Custom order status definitions (subtract_stock, add_revenue flags)</td></tr>
+  <tr><td><code>stock_history</code></td><td>Product stock quantity change log</td></tr>
+</table>
+
+<h2 id="marketplace-tables">Marketplace Tables</h2>
+
+<h3>Shopee</h3>
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>shopee_settings</code></td><td>OAuth credentials, tokens, sync settings, sandbox mode</td></tr>
+  <tr><td><code>shopee_orders</code></td><td>Synced orders from Shopee with fee/payout tracking</td></tr>
+  <tr><td><code>shopee_order_products</code></td><td>Order line items from Shopee</td></tr>
+  <tr><td><code>shopee_returns</code></td><td>Return/refund records from Shopee</td></tr>
+  <tr><td><code>shopee_product_links</code></td><td>Mapping between catalog products and Shopee item IDs</td></tr>
+  <tr><td><code>shopee_profiles</code></td><td>Listing profiles with logistic IDs</td></tr>
+  <tr><td><code>shopee_profile_attributes</code></td><td>Profile-level attribute templates</td></tr>
+  <tr><td><code>shopee_categories</code></td><td>Cached Shopee category tree</td></tr>
+  <tr><td><code>shopee_category_templates</code></td><td>Category attribute templates</td></tr>
+  <tr><td><code>shopee_logistics</code></td><td>Shopee logistics/shipping channels</td></tr>
+  <tr><td><code>shopee_item_cache</code></td><td>Cached Shopee product data for matching</td></tr>
+  <tr><td><code>shopee_unmatched_items</code></td><td>Shopee items not yet linked to catalog products</td></tr>
+  <tr><td><code>shopee_order_status_map</code></td><td>Mapping between Shopee statuses and ERP order statuses (context: order/return)</td></tr>
+  <tr><td><code>shopee_api_logs</code></td><td>API request/response logging</td></tr>
+</table>
+
+<h3>Lazada</h3>
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>lazada_settings</code></td><td>OAuth credentials, tokens, sync settings, sandbox mode</td></tr>
+  <tr><td><code>lazada_orders</code></td><td>Synced orders from Lazada with fee/payout tracking</td></tr>
+  <tr><td><code>lazada_order_products</code></td><td>Order line items from Lazada</td></tr>
+  <tr><td><code>lazada_reverse_orders</code></td><td>Return/refund/reverse order records</td></tr>
+  <tr><td><code>lazada_products</code></td><td>Lazada product listings with markup, pricing, sync status</td></tr>
+  <tr><td><code>lazada_product_variants</code></td><td>Variant-level data for Lazada products</td></tr>
+  <tr><td><code>lazada_product_attributes</code></td><td>Product attribute values for Lazada listings</td></tr>
+  <tr><td><code>lazada_profiles</code></td><td>Listing profiles with multi-filter, markup settings</td></tr>
+  <tr><td><code>lazada_profile_attributes</code></td><td>Profile-level attribute templates</td></tr>
+  <tr><td><code>lazada_image_links</code></td><td>Image URL mappings for Lazada</td></tr>
+  <tr><td><code>lazada_categories</code></td><td>Cached Lazada category tree</td></tr>
+  <tr><td><code>lazada_category_templates</code></td><td>Category attribute templates</td></tr>
+  <tr><td><code>lazada_brands</code></td><td>Lazada brand directory</td></tr>
+  <tr><td><code>lazada_unmatched_items</code></td><td>Lazada items not yet linked to catalog products</td></tr>
+  <tr><td><code>lazada_order_status_map</code></td><td>Mapping between Lazada statuses and ERP order statuses (context: order/return)</td></tr>
+  <tr><td><code>lazada_api_logs</code></td><td>API request/response logging</td></tr>
+</table>
+
+<h3>OpenCart</h3>
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>opencart_settings</code></td><td>Store connection settings (URL, API key, sync dates, enabled flag)</td></tr>
+  <tr><td><code>opencart_profiles</code></td><td>Per-store product push profiles</td></tr>
+  <tr><td><code>opencart_profile_products</code></td><td>Products assigned to push profiles</td></tr>
+  <tr><td><code>opencart_product_links</code></td><td>Mapping between catalog products and OpenCart product IDs per store</td></tr>
+  <tr><td><code>opencart_sync_logs</code></td><td>Sync operation history</td></tr>
+  <tr><td><code>opencart_order_status_map</code></td><td>Mapping between OpenCart and ERP order statuses</td></tr>
+</table>
+
+<h3>TikTok Shop</h3>
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>tiktok_settings</code></td><td>OAuth credentials, tokens, sync settings</td></tr>
+  <tr><td><code>tiktok_api_logs</code></td><td>API request/response logging</td></tr>
+</table>
+
+<h2 id="system-tables">System &amp; Auth Tables</h2>
+<table>
+  <tr><th>Table</th><th>Description</th></tr>
+  <tr><td><code>users</code></td><td>User accounts (name, username, email, group, last login)</td></tr>
+  <tr><td><code>user_groups</code></td><td>User role groups</td></tr>
+  <tr><td><code>permissions</code></td><td>Permission definitions (key, label, description)</td></tr>
+  <tr><td><code>user_group_permissions</code></td><td>Group-permission pivot table</td></tr>
+  <tr><td><code>personal_access_tokens</code></td><td>Sanctum API tokens</td></tr>
+  <tr><td><code>settings</code></td><td>Application settings (timezone, logo, retention, etc.)</td></tr>
+  <tr><td><code>activity_logs</code></td><td>Audit log with source, subject, action tracking</td></tr>
+  <tr><td><code>device_tokens</code></td><td>FCM device tokens for push notifications</td></tr>
+  <tr><td><code>sessions</code></td><td>Database session storage</td></tr>
+  <tr><td><code>cache</code></td><td>Database cache storage</td></tr>
+  <tr><td><code>jobs</code> / <code>failed_jobs</code></td><td>Queue job storage</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="marketplace-integrations">Marketplace Integrations</h1>
+
+<h2 id="shopee-integration">Shopee</h2>
+
+<h3>Authentication (OAuth 2.0)</h3>
+<p>Shopee uses OAuth 2.0 with partner-level credentials. Configure <code>partner_id</code> and <code>partner_key</code> in the Shopee settings page, then use the authorization flow to obtain shop-level access tokens.</p>
+<ul>
+  <li><strong>Authorize:</strong> <code>GET /shopee/authorize</code> &mdash; Redirects to Shopee for shop authorization</li>
+  <li><strong>Token Get:</strong> <code>POST /shopee/token/get</code> &mdash; Exchange auth code for access token</li>
+  <li><strong>Token Refresh:</strong> <code>POST /shopee/token/refresh</code> &mdash; Refresh expired access token</li>
+</ul>
+
+<h3>Features</h3>
+<ul>
+  <li><strong>Order Sync:</strong> Automatic and manual order sync with configurable date range. Creates/updates orders in unified order table.</li>
+  <li><strong>Return Handling:</strong> Sync return/refund records from Shopee with separate status mapping.</li>
+  <li><strong>Stock Push:</strong> Push ERP product quantities to Shopee for all linked products via <code>shopee:push-stock</code>.</li>
+  <li><strong>Product Listing:</strong> Link catalog products to Shopee items. Sync product IDs, quantities, and prices.</li>
+  <li><strong>Profiles:</strong> Create listing profiles with category templates, attributes, and logistics channel assignments.</li>
+  <li><strong>Category Browser:</strong> Fetch and browse the Shopee category tree with attribute details.</li>
+  <li><strong>Logistics:</strong> View and manage Shopee logistics/shipping channels.</li>
+  <li><strong>Order Status Mapping:</strong> Map Shopee statuses (UPPERCASE) to ERP order statuses. Separate mappings for order and return contexts.</li>
+  <li><strong>API Explorer:</strong> Test arbitrary Shopee API calls directly from the UI.</li>
+  <li><strong>API Logging:</strong> Toggle request/response logging for debugging.</li>
+  <li><strong>Sandbox Mode:</strong> Toggle between production and sandbox environments.</li>
+</ul>
+
+<h2 id="lazada-integration">Lazada</h2>
+
+<h3>Authentication (OAuth 2.0)</h3>
+<p>Lazada uses region-based OAuth with an app key and app secret. The callback URL (<code>/lazada/callback</code>) is publicly accessible to receive the authorization code.</p>
+<ul>
+  <li><strong>Authorize:</strong> <code>GET /lazada/authorize</code> &mdash; Redirects to Lazada for authorization</li>
+  <li><strong>Callback:</strong> <code>GET /lazada/callback</code> &mdash; Receives auth code (public route)</li>
+  <li><strong>Token Create:</strong> <code>POST /lazada/token/create</code> &mdash; Exchange auth code for tokens</li>
+  <li><strong>Token Refresh:</strong> <code>POST /lazada/token/refresh</code> &mdash; Refresh expired access token</li>
+</ul>
+
+<h3>Features</h3>
+<ul>
+  <li><strong>Order Sync:</strong> Automatic order sync with configurable date range. Creates/updates orders in unified order table.</li>
+  <li><strong>Reverse Orders:</strong> Sync return/refund/cancellation records from Lazada.</li>
+  <li><strong>Pack &amp; Ship:</strong> Pack orders, create packages, set "Ready to Ship", generate AWB labels, packing lists, and pick lists.</li>
+  <li><strong>Order Cancellation:</strong> Cancel orders with reason selection.</li>
+  <li><strong>Logistics Trace:</strong> Track shipment progress for individual orders.</li>
+  <li><strong>Stock Push:</strong> Push ERP product quantities to Lazada for linked products via <code>lazada:push-stock</code>.</li>
+  <li><strong>Product Upload:</strong> Create new products on Lazada with full attribute, variant, and image support.</li>
+  <li><strong>Profiles:</strong> Create listing profiles with category templates, manufacturer filtering, and dual markup (percentage + fixed).</li>
+  <li><strong>Category/Brand Tools:</strong> Browse Lazada categories, fetch attributes, query brands.</li>
+  <li><strong>Order Status Mapping:</strong> Map Lazada statuses (lowercase) to ERP order statuses. Separate mappings for order and reverse contexts.</li>
+  <li><strong>API Explorer:</strong> Test arbitrary Lazada API calls from the UI.</li>
+  <li><strong>Sandbox Mode:</strong> Toggle between production and sandbox environments.</li>
+</ul>
+
+<h2 id="opencart-integration">OpenCart Multi-Store Sync</h2>
+
+<h3>Overview</h3>
+<p>Xenon Suite supports bi-directional synchronization with multiple OpenCart stores. Each store has its own connection settings, API key, and sync timestamps.</p>
+
+<h3>Sync Capabilities</h3>
+<table>
+  <tr><th>Direction</th><th>Entity</th><th>Description</th></tr>
+  <tr><td><span class="dir-badge dir-pull">PULL</span></td><td>Products</td><td>Import products from OpenCart into the ERP catalog</td></tr>
+  <tr><td><span class="dir-badge dir-pull">PULL</span></td><td>Orders</td><td>Import orders (with line items, totals, history)</td></tr>
+  <tr><td><span class="dir-badge dir-pull">PULL</span></td><td>Categories</td><td>Import category hierarchy</td></tr>
+  <tr><td><span class="dir-badge dir-pull">PULL</span></td><td>Manufacturers</td><td>Import brand records</td></tr>
+  <tr><td><span class="dir-badge dir-pull">PULL</span></td><td>Options</td><td>Import option definitions and values</td></tr>
+  <tr><td><span class="dir-badge dir-pull">PULL</span></td><td>Quantities</td><td>Pull current stock levels from OpenCart</td></tr>
+  <tr><td><span class="dir-badge dir-push">PUSH</span></td><td>Products</td><td>Push product data (create/update) to OpenCart</td></tr>
+  <tr><td><span class="dir-badge dir-push">PUSH</span></td><td>Quantities</td><td>Push stock levels from ERP to OpenCart</td></tr>
+</table>
+
+<h3>Features</h3>
+<ul>
+  <li><strong>Multi-Store:</strong> Connect and sync with multiple OpenCart stores simultaneously.</li>
+  <li><strong>Connection Test:</strong> Verify API connectivity before syncing.</li>
+  <li><strong>Profiles:</strong> Create per-store product push profiles to control which products sync to which store.</li>
+  <li><strong>Order Status Mapping:</strong> Map OpenCart order statuses to ERP order statuses.</li>
+  <li><strong>Configurable Sync Date:</strong> Set the starting date for order sync to avoid importing old orders.</li>
+</ul>
+
+<h2 id="tiktok-integration">TikTok Shop</h2>
+
+<h3>Authentication (OAuth 2.0)</h3>
+<p>TikTok Shop uses OAuth with an app key and app secret. The callback URL (<code>/tiktok/callback</code>) is publicly accessible.</p>
+
+<h3>Features</h3>
+<ul>
+  <li><strong>OAuth Flow:</strong> Authorization, token exchange, and token refresh.</li>
+  <li><strong>Shop Discovery:</strong> Retrieve authorized shop details.</li>
+  <li><strong>API Explorer:</strong> Test TikTok Shop API endpoints from the UI.</li>
+  <li><strong>Packs:</strong> Execute pre-configured API call packs.</li>
+  <li><strong>API Logging:</strong> Toggle request/response logging.</li>
+  <li><strong>Sandbox Mode:</strong> Toggle between production and sandbox environments.</li>
+</ul>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="opencart-api-module">OpenCart API Module</h1>
+
+<p>The ERP includes a custom OpenCart 2.3 module that exposes a REST API for Xenon Suite to communicate with. This module runs on the OpenCart <strong>catalog</strong> (frontend) side to avoid admin login requirements.</p>
+
+<h2 id="oc-module-deployment">Deployment</h2>
+
+<p>Copy the 5 files from <code>opencart_extensions/opencart-api-module/</code> to your OpenCart installation, maintaining the directory structure:</p>
+
+<div class="steps">
+  <div class="step">
+    <strong>Copy files to your OpenCart root</strong>
+    <pre><code># From ERP project root:
+cp -r opencart_extensions/opencart-api-module/* /path/to/opencart/</code></pre>
+  </div>
+  <div class="step">
+    <strong>Enable the module in OpenCart admin</strong>
+    <p>Go to Extensions &gt; Modules &gt; ERP Sync API. Enable the module, set an API key, and optionally configure an IP whitelist and debug logging.</p>
+  </div>
+  <div class="step">
+    <strong>Configure the ERP</strong>
+    <p>In Xenon Suite, go to Marketplace &gt; OpenCart, add a store, and enter the store URL and the API key you configured.</p>
+  </div>
+</div>
+
+<h3>Module Files</h3>
+<table>
+  <tr><th>File</th><th>Purpose</th></tr>
+  <tr><td><code>admin/controller/extension/module/erp_sync.php</code></td><td>Admin controller for module settings UI</td></tr>
+  <tr><td><code>admin/view/template/extension/module/erp_sync.tpl</code></td><td>Admin settings form template</td></tr>
+  <tr><td><code>admin/language/en-gb/extension/module/erp_sync.php</code></td><td>Language strings for the admin UI</td></tr>
+  <tr><td><code>catalog/controller/api/erp.php</code></td><td>API controller with all endpoints</td></tr>
+  <tr><td><code>catalog/model/api/erp.php</code></td><td>Data model for API queries</td></tr>
+</table>
+
+<h2 id="oc-module-auth">Authentication</h2>
+
+<p>All endpoints require the <code>X-ERP-API-Key</code> header. The API key is configured in the OpenCart admin module settings. Optional IP whitelist support is available.</p>
+
+<pre><code>curl -H "X-ERP-API-Key: your-api-key" \
+     https://yourstore.com/index.php?route=api/erp/ping</code></pre>
+
+<h2 id="oc-module-endpoints">API Endpoints (10)</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/ping</code></td><td>Health check. Returns OpenCart version, store name, timestamp.</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/products</code></td><td>List products with categories, options, images, specials. Params: <code>page</code>, <code>limit</code>, <code>modified_since</code>, <code>product_id</code>.</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/orders</code></td><td>List orders with line items, totals, history. Params: <code>page</code>, <code>limit</code>, <code>modified_since</code>, <code>modified_before</code>.</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/categories</code></td><td>List all categories. Params: <code>modified_since</code>.</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/manufacturers</code></td><td>List all manufacturers/brands.</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/options</code></td><td>List all global options with values (for name-based matching).</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>api/erp/order_statuses</code></td><td>List all order statuses (id + name) for the default language.</td></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>api/erp/product/create</code></td><td>Create a new product. Resolves categories, manufacturer, and options by name.</td></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>api/erp/product/update</code></td><td>Update an existing product (quantity, price, status, name, description).</td></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>api/erp/product/bulk_update</code></td><td>Bulk update multiple products in a single request.</td></tr>
+</table>
+
+<h3>Product Create Payload Example</h3>
+<pre><code>{
+  "sku": "GUITAR-001",
+  "model": "GUITAR-001",
+  "name": "Electric Guitar",
+  "description": "&lt;p&gt;Product description&lt;/p&gt;",
+  "meta_title": "Electric Guitar",
+  "price": 299.99,
+  "quantity": 10,
+  "status": 1,
+  "weight": 3.5,
+  "manufacturer_name": "Fender",
+  "category_names": ["Musical Instruments", "Musical Instruments > Guitars"],
+  "images": [{ "image": "catalog/guitar-2.jpg", "sort_order": 1 }],
+  "specials": [{ "customer_group_id": 1, "priority": 1, "price": 249.99, "date_start": "2026-03-01", "date_end": "2026-03-31" }],
+  "options": [{
+    "option_name": "Color",
+    "type": "select",
+    "required": 1,
+    "values": [{ "name": "Sunburst", "sku": "GUITAR-001-SB", "quantity": 5, "subtract": 1, "price": 0, "price_prefix": "+" }]
+  }]
+}</code></pre>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="console-commands">Console Commands</h1>
+
+<p>Xenon Suite includes 19 custom Artisan commands for marketplace operations, data migration, and maintenance tasks.</p>
+
+<h2 id="commands-marketplace">Marketplace Sync Commands</h2>
+
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><code>shopee:sync-orders</code></td><td>Sync orders from Shopee (create new + update existing + returns). Options: <code>--both</code>, <code>--returns</code>, <code>--no-returns</code>.</td></tr>
+  <tr><td><code>shopee:refresh-token</code></td><td>Refresh the Shopee access token before it expires.</td></tr>
+  <tr><td><code>shopee:push-stock</code></td><td>Push ERP product quantities to Shopee for all linked products.</td></tr>
+  <tr><td><code>lazada:sync-orders</code></td><td>Sync orders from Lazada (create new + update existing + returns). Options: <code>--both</code>, <code>--returns</code>, <code>--no-returns</code>.</td></tr>
+  <tr><td><code>lazada:refresh-token</code></td><td>Refresh the Lazada access token before it expires.</td></tr>
+  <tr><td><code>lazada:push-stock</code></td><td>Push ERP product quantities to Lazada for all linked products. Option: <code>--product-ids=</code>.</td></tr>
+</table>
+
+<h3>Usage Examples</h3>
+<pre><code># Sync all Shopee orders and returns
+php artisan shopee:sync-orders
+
+# Sync only Shopee returns
+php artisan shopee:sync-orders --returns
+
+# Sync Shopee orders without returns
+php artisan shopee:sync-orders --no-returns
+
+# Push all stock to Shopee
+php artisan shopee:push-stock
+
+# Sync all Lazada orders and returns
+php artisan lazada:sync-orders
+
+# Push stock for specific Lazada products
+php artisan lazada:push-stock --product-ids=1,2,3
+
+# Refresh tokens
+php artisan shopee:refresh-token
+php artisan lazada:refresh-token</code></pre>
+
+<h2 id="commands-opencart">OpenCart Commands</h2>
+
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><code>opencart:sync</code></td><td>Sync data between OpenCart and catalog. Argument: <code>{entity}</code> (products|orders|categories|manufacturers|options|all). Options: <code>--store=</code>, <code>--full</code>, <code>--page=</code>, <code>--max-pages=</code>, <code>--no-stock</code>, <code>--product-id=</code>.</td></tr>
+  <tr><td><code>opencart:push</code></td><td>Push product updates from ERP to OpenCart. Options: <code>--store=</code>, <code>--product-ids=</code>, <code>--since=</code>, <code>--all</code>.</td></tr>
+  <tr><td><code>opencart:push-qty</code></td><td>Push product quantities from ERP to OpenCart stores. Option: <code>--store=</code>.</td></tr>
+  <tr><td><code>opencart:pull-qty</code></td><td>Pull product quantities from OpenCart into the ERP (quantity only). Option: <code>--store=</code>.</td></tr>
+  <tr><td><code>opencart:import-orders</code></td><td>Import all historical orders from OpenCart (resumable). Options: <code>--page=</code>, <code>--limit=</code>.</td></tr>
+  <tr><td><code>opencart:reclassify-orders</code></td><td>Reclassify OpenCart orders to lazada/shopee based on payment and shipping method. Option: <code>--dry-run</code>.</td></tr>
+</table>
+
+<h3>Usage Examples</h3>
+<pre><code># Sync all entities from all enabled stores
+php artisan opencart:sync all
+
+# Sync only products from store ID 1
+php artisan opencart:sync products --store=1
+
+# Full product sync (ignore last sync timestamp)
+php artisan opencart:sync products --full
+
+# Sync a single product by OpenCart ID
+php artisan opencart:sync products --product-id=123
+
+# Initial import without stock adjustments
+php artisan opencart:sync all --no-stock
+
+# Push all products to all stores
+php artisan opencart:push --all
+
+# Push specific products
+php artisan opencart:push --product-ids=1,2,3
+
+# Push products modified since a date
+php artisan opencart:push --since="2026-03-01 00:00:00"
+
+# Push quantities to store 2
+php artisan opencart:push-qty --store=2
+
+# Pull quantities from all stores
+php artisan opencart:pull-qty
+
+# Import historical orders, starting from page 5
+php artisan opencart:import-orders --page=5 --limit=200</code></pre>
+
+<h2 id="commands-data">Data Migration &amp; Maintenance Commands</h2>
+
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><code>products:import-costs</code></td><td>Import product costs from a CSV file. Argument: <code>{file}</code> (path to CSV with sku,cost or product_id,cost). Option: <code>--dry-run</code>.</td></tr>
+  <tr><td><code>products:import-costs-sql</code></td><td>Import product cost breakdown from OpenCart SQL dump via product link mapping. Arguments: <code>{file}</code>, <code>{store_id}</code>. Option: <code>--dry-run</code>.</td></tr>
+  <tr><td><code>orders:backfill-costs</code></td><td>Backfill order_product.cost from option value cost or product cost. Options: <code>--dry-run</code>, <code>--force</code>.</td></tr>
+  <tr><td><code>opencart:migrate-costs</code></td><td>Migrate shipping_cost, payment_cost, extra_cost from ADV Profit SQL dumps into ERP orders. Option: <code>--dry-run</code>.</td></tr>
+  <tr><td><code>activity-log:purge</code></td><td>Delete activity log entries older than the configured retention period. Option: <code>--days=</code>.</td></tr>
+  <tr><td><code>errorlog:test</code></td><td>Generate a test PHP warning to validate error.log capture. Option: <code>--message=</code>.</td></tr>
+  <tr><td><code>fcm:test</code></td><td>Test FCM push notification. Options: <code>--token=</code>, <code>--type=</code> (confirmed or cancelled).</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="scheduled-tasks">Scheduled Tasks</h1>
+
+<h3>Cron Entry</h3>
+<p>Add this cron entry to invoke the Laravel scheduler every minute:</p>
+<pre><code>* * * * * cd /var/www/xenon-suite &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code></pre>
+
+<h3>Registered Scheduled Commands</h3>
+
+<table>
+  <tr><th>Command</th><th>Frequency</th><th>Description</th></tr>
+  <tr><td><code>activity-log:purge</code></td><td>Daily</td><td>Purge activity log entries older than the configured retention period (set in Website Settings).</td></tr>
+</table>
+
+<div class="callout note">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div class="callout-content">
+    <strong>Marketplace Sync Scheduling</strong>
+    Marketplace sync commands (<code>shopee:sync-orders</code>, <code>lazada:sync-orders</code>, <code>shopee:push-stock</code>, <code>lazada:push-stock</code>, <code>shopee:refresh-token</code>, <code>lazada:refresh-token</code>) are not pre-scheduled in the Kernel. Add them to your cron or scheduler based on your needs. For example:
+    <pre><code># Add to app/Console/Kernel.php schedule() method:
+$schedule-&gt;command('shopee:refresh-token')-&gt;hourly();
+$schedule-&gt;command('lazada:refresh-token')-&gt;hourly();
+$schedule-&gt;command('shopee:sync-orders')-&gt;everyFifteenMinutes();
+$schedule-&gt;command('lazada:sync-orders')-&gt;everyFifteenMinutes();
+$schedule-&gt;command('shopee:push-stock')-&gt;everyThirtyMinutes();
+$schedule-&gt;command('lazada:push-stock')-&gt;everyThirtyMinutes();
+$schedule-&gt;command('opencart:sync orders')-&gt;everyFifteenMinutes();</code></pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="api-reference">API Reference</h1>
+
+<p>All API endpoints are prefixed with <code>/api</code> and require authentication via Laravel Sanctum bearer tokens, except for the login endpoint.</p>
+
+<h2 id="api-auth">Authentication</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Auth</th></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>/api/login</code></td><td>Authenticate and receive a Sanctum token</td><td>No</td></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>/api/logout</code></td><td>Revoke current token</td><td>Yes</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/user</code></td><td>Get authenticated user details</td><td>Yes</td></tr>
+</table>
+
+<h3>Login Example</h3>
+<pre><code>POST /api/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "your-password"
+}
+
+# Response includes token for subsequent requests:
+Authorization: Bearer {token}</code></pre>
+
+<h2 id="api-dashboard">Dashboard</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Permission</th></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/dashboard</code></td><td>Dashboard summary data</td><td>Authenticated</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/dashboard/chart-data</code></td><td>Chart data for dashboard</td><td>Authenticated</td></tr>
+</table>
+
+<h2 id="api-orders">Orders</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Permission</th></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/orders</code></td><td>List orders (paginated)</td><td><code>manage_orders</code></td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/orders/{id}</code></td><td>Get order details</td><td><code>manage_orders</code></td></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>/api/orders/{id}/status</code></td><td>Update order status</td><td><code>manage_orders</code></td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/orders/pending-count</code></td><td>Get count of pending orders</td><td><code>manage_orders</code></td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/order-statuses</code></td><td>List available order statuses</td><td><code>manage_orders</code></td></tr>
+</table>
+
+<h2 id="api-marketplace-orders">Marketplace Orders</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Permission</th></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/marketplace/{platform}/orders</code></td><td>List orders for a marketplace platform</td><td><code>manage_marketplace_api</code></td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/marketplace/{platform}/orders/{id}</code></td><td>Get marketplace order details</td><td><code>manage_marketplace_api</code></td></tr>
+</table>
+
+<p>The <code>{platform}</code> parameter accepts: <code>shopee</code>, <code>lazada</code>.</p>
+
+<h2 id="api-products">Products</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Permission</th></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/products</code></td><td>List products (paginated)</td><td><code>manage_products</code></td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/products/{id}/quantity</code></td><td>Get product stock quantity</td><td><code>manage_products</code></td></tr>
+  <tr><td><span class="method method-put">PUT</span></td><td><code>/api/products/{id}/quantity</code></td><td>Update product stock quantity</td><td><code>manage_products</code></td></tr>
+</table>
+
+<h2 id="api-device-tokens">Device Tokens (Push Notifications)</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Permission</th></tr>
+  <tr><td><span class="method method-post">POST</span></td><td><code>/api/device-token</code></td><td>Register an FCM device token</td><td>Authenticated</td></tr>
+  <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/device-token</code></td><td>Remove a device token</td><td>Authenticated</td></tr>
+</table>
+
+<h2 id="api-catalog-lookups">Catalog Lookups (Web Routes)</h2>
+
+<p>These endpoints are accessed via the web middleware (session auth) and are used internally by the ERP frontend. They require the <code>manage_catalog</code> permission.</p>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/catalog/manufacturers</code></td><td>List manufacturers for dropdowns</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/catalog/categories</code></td><td>List categories for dropdowns</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/catalog/options</code></td><td>List options for dropdowns</td></tr>
+  <tr><td><span class="method method-get">GET</span></td><td><code>/api/catalog/options/{optionId}/values</code></td><td>List option values for a specific option</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<h1 id="troubleshooting">Troubleshooting</h1>
+
+<h2 id="ts-migrations">Migration Failures</h2>
+
+<table>
+  <tr><th>Issue</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>Table already exists</td><td>Partial migration run</td><td>Run <code>php artisan migrate:status</code> to check state. If stuck, manually mark completed migrations in the <code>migrations</code> table.</td></tr>
+  <tr><td>SQLSTATE[42000] syntax error</td><td>MySQL version too old</td><td>Ensure MySQL 8.0+ or MariaDB 10.6+. Some catalog tables use fulltext indexes that require InnoDB support.</td></tr>
+  <tr><td>Foreign key constraint failure</td><td>Tables created out of order</td><td>Run <code>php artisan migrate:fresh</code> on new installations. On existing databases, check that referenced tables exist.</td></tr>
+  <tr><td>Prefix-related errors</td><td>DB_TABLE_PREFIX not set correctly</td><td>Verify <code>DB_TABLE_PREFIX</code> in <code>.env</code> matches your OpenCart table prefix (e.g., <code>oc_</code>).</td></tr>
+</table>
+
+<h2 id="ts-auth">API Authentication Errors</h2>
+
+<table>
+  <tr><th>Issue</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>401 Unauthorized on API calls</td><td>Missing or invalid Sanctum token</td><td>Ensure the <code>Authorization: Bearer {token}</code> header is included. Tokens expire when the user logs out.</td></tr>
+  <tr><td>419 CSRF token mismatch</td><td>Missing CSRF token on web routes</td><td>Include <code>X-CSRF-TOKEN</code> header for POST/PUT/DELETE requests made via the web middleware.</td></tr>
+  <tr><td>403 Forbidden</td><td>User lacks required permission</td><td>Check the user's group permissions. The <code>EnsurePermission</code> middleware checks against the <code>permissions</code> table via the user's group.</td></tr>
+</table>
+
+<h2 id="ts-sync">Marketplace Sync Issues</h2>
+
+<table>
+  <tr><th>Issue</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>Shopee/Lazada "Missing credentials"</td><td>OAuth tokens not configured or expired</td><td>Go to the marketplace settings page and complete the OAuth flow. Then run the token refresh command.</td></tr>
+  <tr><td>Shopee token refresh fails</td><td>Refresh token expired (30+ days)</td><td>Re-authorize via <code>/shopee/authorize</code> to get fresh tokens.</td></tr>
+  <tr><td>Lazada token refresh fails</td><td>Refresh token expired</td><td>Re-authorize via <code>/lazada/authorize</code> to get fresh tokens.</td></tr>
+  <tr><td>Orders not syncing</td><td>Sync date range misconfigured</td><td>Check the "sync last N days" setting on each marketplace's settings page. Increase the range or run a manual fetch.</td></tr>
+  <tr><td>Stock not pushing</td><td>Products not linked</td><td>Ensure products are linked to marketplace items via product_links tables. Check for unmatched items.</td></tr>
+  <tr><td>OpenCart connection failed</td><td>API module not deployed or disabled</td><td>Verify the ERP Sync API module is installed and enabled in OpenCart. Check the API key matches. Use the Test Connection button.</td></tr>
+  <tr><td>OpenCart API key mismatch</td><td>Key in ERP doesn't match OpenCart module</td><td>Compare the API key in Xenon Suite's OpenCart settings with the key configured in the OpenCart admin module.</td></tr>
+</table>
+
+<h2 id="ts-queue">Queue Not Processing</h2>
+
+<table>
+  <tr><th>Issue</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>Jobs stuck in jobs table</td><td>Queue worker not running</td><td>Start a queue worker: <code>php artisan queue:work</code>. For production, use Supervisor or systemd.</td></tr>
+  <tr><td>Jobs failing repeatedly</td><td>Job logic error or timeout</td><td>Check <code>failed_jobs</code> table for error messages. Run <code>php artisan queue:retry all</code> after fixing issues.</td></tr>
+  <tr><td>Queue not processing in dev</td><td>QUEUE_CONNECTION set to sync</td><td>Set <code>QUEUE_CONNECTION=database</code> in <code>.env</code> and run a queue listener.</td></tr>
+</table>
+
+<h2 id="ts-permissions">Permission Denied (403)</h2>
+
+<table>
+  <tr><th>Issue</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>User cannot access a section</td><td>Missing permission in user group</td><td>Go to Settings &gt; User Groups &gt; edit the group and assign the required permission.</td></tr>
+  <tr><td>New permissions not appearing</td><td>Migration not run</td><td>Run <code>php artisan migrate</code> to apply new permission migrations.</td></tr>
+  <tr><td>Admin cannot access anything</td><td>Administrator group missing permissions</td><td>Permission migrations auto-assign to the "Administrator" group. Re-run <code>php artisan migrate</code> or manually assign permissions.</td></tr>
+</table>
+
+<h2 id="ts-general">General Issues</h2>
+
+<table>
+  <tr><th>Issue</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>500 Internal Server Error</td><td>Misconfigured .env or missing APP_KEY</td><td>Run <code>php artisan key:generate</code>. Check <code>storage/logs/laravel.log</code> for details.</td></tr>
+  <tr><td>Blank page</td><td>PHP error with display_errors off</td><td>Set <code>APP_DEBUG=true</code> temporarily, or check PHP error log and <code>storage/logs/laravel.log</code>.</td></tr>
+  <tr><td>Storage permission errors</td><td>Incorrect directory ownership</td><td>Run <code>chmod -R 775 storage bootstrap/cache</code> and <code>chown -R www-data:www-data storage bootstrap/cache</code>.</td></tr>
+  <tr><td>Vite assets not loading</td><td>Frontend not built</td><td>Run <code>npm install &amp;&amp; npm run build</code>. In development, run <code>npm run dev</code> for hot reloading.</td></tr>
+  <tr><td>Sessions expiring quickly</td><td>SESSION_LIFETIME too low</td><td>Increase <code>SESSION_LIFETIME</code> in <code>.env</code> (default: 120 minutes).</td></tr>
+  <tr><td>Images not displaying</td><td>CATALOG_PUBLIC_URL misconfigured</td><td>Set <code>CATALOG_PUBLIC_URL</code> in <code>.env</code> to the public URL where OpenCart images are served.</td></tr>
+</table>
+
+<hr>
+
+<div class="doc-footer">
+  Xenon Suite &mdash; Technical Documentation &mdash; v1.2 &mdash; March 2026
+</div>
+
+</div>
+</main>
+
+<!-- Back to Top -->
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+
+<script>
+// ── Theme ────────────────────────────────────
+function toggleTheme(){
+  var html = document.documentElement;
+  var isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+  updateThemeIcons();
+}
+function updateThemeIcons(){
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.querySelector('.icon-sun').style.display = isDark ? 'none' : 'block';
+  document.querySelector('.icon-moon').style.display = isDark ? 'block' : 'none';
+}
+(function(){
+  var saved = localStorage.getItem('theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  else if(window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.setAttribute('data-theme','dark');
+  updateThemeIcons();
+})();
+
+// ── Sidebar ──────────────────────────────────
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+function toggleGroup(el){
+  el.parentElement.classList.toggle('collapsed');
+}
+
+// ── Active link tracking ─────────────────────
+(function(){
+  var links = document.querySelectorAll('.nav-item a');
+  var sections = [];
+  links.forEach(function(a){
+    var id = a.getAttribute('href').substring(1);
+    var el = document.getElementById(id);
+    if(el) sections.push({el:el, link:a});
+  });
+
+  function update(){
+    var scrollY = window.scrollY + 100;
+    var active = null;
+    for(var i = sections.length - 1; i >= 0; i--){
+      if(sections[i].el.offsetTop <= scrollY){active = sections[i]; break;}
+    }
+    links.forEach(function(a){a.classList.remove('active')});
+    if(active) active.link.classList.add('active');
+  }
+
+  window.addEventListener('scroll', update, {passive:true});
+  update();
+
+  links.forEach(function(a){
+    a.addEventListener('click', function(){
+      if(window.innerWidth <= 768){
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
+      }
+    });
+  });
+})();
+
+// ── Back to Top ──────────────────────────────
+(function(){
+  var btn = document.getElementById('backToTop');
+  window.addEventListener('scroll', function(){
+    btn.classList.toggle('visible', window.scrollY > 400);
+  }, {passive:true});
+})();
+
+// ── Search ───────────────────────────────────
+(function(){
+  var input = document.getElementById('searchInput');
+  var results = document.getElementById('searchResults');
+  var items = [];
+  var focusedIdx = -1;
+
+  // Build index from all headings
+  document.querySelectorAll('.doc-content h1[id], .doc-content h2[id], .doc-content h3[id]').forEach(function(h){
+    var section = '';
+    var prev = h;
+    while(prev){
+      prev = prev.previousElementSibling;
+      if(prev && prev.tagName === 'H1'){section = prev.textContent; break;}
+    }
+    items.push({
+      id: h.id,
+      title: h.textContent,
+      section: section || h.textContent,
+      tag: h.tagName
+    });
+  });
+
+  input.addEventListener('input', function(){
+    var q = this.value.trim().toLowerCase();
+    focusedIdx = -1;
+    if(q.length < 2){results.classList.remove('active'); results.innerHTML=''; return;}
+
+    var matches = items.filter(function(it){
+      return it.title.toLowerCase().indexOf(q) !== -1 || it.section.toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 10);
+
+    if(matches.length === 0){
+      results.innerHTML = '<div class="search-no-results">No results found</div>';
+      results.classList.add('active');
+      return;
+    }
+
+    results.innerHTML = matches.map(function(m, i){
+      return '<div class="search-result-item" data-idx="'+i+'" data-id="'+m.id+'">'
+        + '<div class="section-label">' + m.section + '</div>'
+        + '<div class="title">' + m.title + '</div>'
+        + '</div>';
+    }).join('');
+    results.classList.add('active');
+
+    results.querySelectorAll('.search-result-item').forEach(function(el){
+      el.addEventListener('click', function(){
+        var target = document.getElementById(this.dataset.id);
+        if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+        results.classList.remove('active');
+        input.value = '';
+      });
+    });
+  });
+
+  input.addEventListener('keydown', function(e){
+    var els = results.querySelectorAll('.search-result-item');
+    if(!els.length) return;
+    if(e.key === 'ArrowDown'){e.preventDefault(); focusedIdx = Math.min(focusedIdx+1, els.length-1);}
+    else if(e.key === 'ArrowUp'){e.preventDefault(); focusedIdx = Math.max(focusedIdx-1, 0);}
+    else if(e.key === 'Enter' && focusedIdx >= 0){e.preventDefault(); els[focusedIdx].click(); return;}
+    else if(e.key === 'Escape'){results.classList.remove('active'); return;}
+    else return;
+    els.forEach(function(el){el.classList.remove('focused')});
+    if(focusedIdx >= 0) els[focusedIdx].classList.add('focused');
+  });
+
+  document.addEventListener('click', function(e){
+    if(!results.contains(e.target) && e.target !== input) results.classList.remove('active');
+  });
+})();
+</script>
+
+</body>
+</html>
