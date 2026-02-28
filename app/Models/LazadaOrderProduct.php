@@ -15,6 +15,8 @@ class LazadaOrderProduct extends Model
         'name',
         'variation',
         'quantity',
+        'item_price',
+        'paid_price',
         'status',
         'image',
         'raw',
@@ -25,6 +27,8 @@ class LazadaOrderProduct extends Model
     protected $casts = [
         'raw' => 'array',
         'quantity' => 'int',
+        'item_price' => 'float',
+        'paid_price' => 'float',
     ];
 
     public function order()

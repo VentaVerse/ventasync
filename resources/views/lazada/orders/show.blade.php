@@ -119,8 +119,8 @@
         $qty = (int)($it->quantity ?? ($ir['quantity'] ?? 1));
         if ($qty < 1) $qty = 1;
         $orderItemId = (string)($it->order_item_id ?? ($ir['order_item_id'] ?? $ir['orderItemId'] ?? ''));
-        $itemPrice = (float)($ir['item_price'] ?? ($ir['price'] ?? ($it->price ?? 0)));
-        $paidPrice = (float)($ir['paid_price'] ?? $itemPrice);
+        $itemPrice = (float)($it->item_price ?? ($ir['item_price'] ?? ($ir['price'] ?? 0)));
+        $paidPrice = (float)($it->paid_price ?? ($ir['paid_price'] ?? $itemPrice));
 
         $groupKey = $sku . '||' . $name . '||' . $variation;
 

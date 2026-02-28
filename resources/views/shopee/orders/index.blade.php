@@ -311,6 +311,8 @@
                             $gQty = max(1, (int)($row['quantity'] ?? $rowRaw['model_quantity_purchased'] ?? $rowRaw['quantity'] ?? 1));
                             $gImg = $row['image'] ?? $rowRaw['image_info']['image_url'] ?? '';
 
+                            $gPrice = $row['price'] ?? $rowRaw['model_discounted_price'] ?? $rowRaw['model_original_price'] ?? null;
+
                             $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
                             if (!isset($grouped[$key])) {
                                 $grouped[$key] = [
@@ -320,6 +322,7 @@
                                     'variation' => $gVariation,
                                     'quantity' => $gQty,
                                     'image' => $gImg,
+                                    'price' => $gPrice,
                                 ];
                             } else {
                                 $grouped[$key]['quantity'] += $gQty;
@@ -413,8 +416,7 @@
                         </td>
                         <td style="vertical-align:top;">
                             @php
-                                $itRaw = $it['raw'] ?? $it;
-                                $unitPrice = $itRaw['model_discounted_price'] ?? $itRaw['model_original_price'] ?? $it['price'] ?? null;
+                                $unitPrice = $it['price'] ?? null;
                             @endphp
                             <div class="font-bold">
                                 @if($unitPrice !== null && $unitPrice !== '')

@@ -2400,6 +2400,9 @@ public function reset(Request $request)
                 }
             }
 
+            $itemPrice = isset($it['item_price']) && is_numeric($it['item_price']) ? (float) $it['item_price'] : null;
+            $paidPrice = isset($it['paid_price']) && is_numeric($it['paid_price']) ? (float) $it['paid_price'] : null;
+
             $row = LazadaOrderProduct::query()->updateOrCreate(
                 [
                     'lazada_order_id' => $order->id,
@@ -2410,6 +2413,8 @@ public function reset(Request $request)
                     'name' => $name !== '' ? $name : null,
                     'variation' => $variation,
                     'quantity' => $qty,
+                    'item_price' => $itemPrice,
+                    'paid_price' => $paidPrice,
                     'image' => $image !== '' ? $image : null,
                     'status' => isset($it['status']) && is_string($it['status']) ? $it['status'] : null,
                     'raw' => $it,

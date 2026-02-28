@@ -363,6 +363,8 @@
 
                                     $gImg = $row['image'] ?? $rowRaw['image'] ?? $rowRaw['product_main_image'] ?? $rowRaw['product_image'] ?? '';
 
+                                    $gItemPrice = $row['item_price'] ?? $row['paid_price'] ?? $rowRaw['item_price'] ?? $rowRaw['paid_price'] ?? null;
+
                                     $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
                                     if (!isset($grouped[$key])) {
                                         $grouped[$key] = [
@@ -372,6 +374,7 @@
                                             'variation' => $gVariation,
                                             'quantity' => $gQty,
                                             'image' => $gImg,
+                                            'item_price' => $gItemPrice,
                                         ];
                                     } else {
                                         $grouped[$key]['quantity'] += $gQty;
@@ -522,9 +525,8 @@
                             </td>
                             <td style="vertical-align:top;">
                                 @php
-                                    $itRaw = $it['raw'] ?? $it;
-                                    $unitPrice = $itRaw['item_price'] ?? $itRaw['paid_price'] ?? $itRaw['price'] ?? $itRaw['unit_price'] ?? null;
-                                    $unitCurrency = $itRaw['currency'] ?? ($raw['currency'] ?? '₱');
+                                    $unitPrice = $it['item_price'] ?? $it['paid_price'] ?? null;
+                                    $unitCurrency = ($it['raw']['currency'] ?? null) ?: ($raw['currency'] ?? '₱');
                                 @endphp
                                 <div class="font-bold">
                                     @if($unitPrice !== null && $unitPrice !== '')
