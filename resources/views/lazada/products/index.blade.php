@@ -442,75 +442,6 @@
 </div>
 
 @push('scripts')
-<style>
-    /* Action dropdown menu items */
-    .action-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        padding: 8px 14px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--text-primary);
-        text-decoration: none;
-        text-align: left;
-        transition: background var(--transition-fast);
-        white-space: nowrap;
-    }
-    .action-item:hover { background: var(--surface-hover); }
-    .action-item svg { flex-shrink: 0; opacity: .6; }
-
-    /* Ensure action dropdown is not clipped by table-wrap overflow */
-    .table-wrap.menu-open { overflow: visible; }
-    .table-wrap { min-height: 280px; }
-
-    /* Filter grid responsive */
-    @media (max-width: 768px) {
-        .card form[style*="grid-template-columns"] {
-            grid-template-columns: 1fr !important;
-        }
-    }
-
-    /* Bulk action loading overlay */
-    .bulk-loading-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: rgba(0,0,0,.35);
-        align-items: center;
-        justify-content: center;
-    }
-    .bulk-loading-overlay.active { display: flex; }
-    .bulk-loading-box {
-        background: var(--surface);
-        border-radius: var(--radius-lg);
-        padding: 28px 36px;
-        box-shadow: var(--shadow-lg);
-        text-align: center;
-        max-width: 320px;
-    }
-    .bulk-loading-box .spinner {
-        display: inline-block;
-        width: 28px; height: 28px;
-        border: 3px solid var(--border);
-        border-top-color: var(--accent);
-        border-radius: 50%;
-        animation: spin .7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .bulk-loading-box .msg {
-        margin-top: 12px;
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-    }
-</style>
 <script>
 (function(){
     var table = document.getElementById('lazadaListingsTable');
@@ -721,8 +652,5 @@
     });
 })();
 </script>
-<style>
-    .laz-result-item:hover { background: var(--surface-hover); }
-</style>
 @endpush
 @endsection

@@ -1,0 +1,21 @@
+/* ============================================================
+   TABS
+   ============================================================ */
+.tabs { display: flex; gap: 8px; padding: 8px 0 2px 0; flex-wrap: wrap; justify-content: center; }
+.tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text-secondary);
+    background: var(--surface-alt);
+    border: 2px solid #cbd5e1;
+    font-weight: 600;
+    font-size: 14.5px;
+    transition: all var(--transition-fast);
+}
+.tab:hover { background: #e2e8f0; color: var(--text-primary); border-color: #94a3b8; }
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 6px rgba(59,130,246,.3); }
+.tab.disabled { opacity: .55; cursor: not-allowed; }

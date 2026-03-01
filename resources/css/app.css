@@ -1,3 +1,44 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ============================================================
+   Shop A Admin — Design System
+   Bundled via Laravel Vite
+   ============================================================ */
+
+/* Base */
+@import './base/variables.css';
+@import './base/reset.css';
+@import './base/animations.css';
+
+/* Layout */
+@import './layout/sidebar.css';
+@import './layout/content.css';
+
+/* Components */
+@import './components/alerts.css';
+@import './components/cards.css';
+@import './components/buttons.css';
+@import './components/tables.css';
+@import './components/toolbar.css';
+@import './components/forms.css';
+@import './components/order-totals.css';
+@import './components/typeahead.css';
+@import './components/badges.css';
+@import './components/pagination.css';
+@import './components/tabs.css';
+@import './components/detail.css';
+@import './components/modals.css';
+
+/* Pages */
+@import './pages/dashboard.css';
+@import './pages/marketplace-common.css';
+@import './pages/api-explorer.css';
+@import './pages/reports.css';
+@import './pages/opencart.css';
+@import './pages/permissions.css';
+@import './pages/image-manager.css';
+@import './pages/timeline.css';
+@import './pages/toggle-switch.css';
+@import './pages/product-result.css';
+
+/* Utilities & Responsive */
+@import './utilities.css';
+@import './responsive.css';

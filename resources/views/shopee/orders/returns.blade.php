@@ -86,7 +86,7 @@
             <input type="text" name="order_sn" value="{{ $filters['order_sn'] ?? '' }}" placeholder="Order SN" class="input" style="min-width:200px;">
         </div>
         <div style="align-self:flex-end;">
-            <button type="submit" class="btn secondary">Search</button>
+            <button type="submit" class="btn">Search</button>
         </div>
         <div style="align-self:flex-end;">
             <a href="{{ route('shopee.orders.returns', ['per_page' => (int)($per_page ?? 10), 'tab' => $active_tab]) }}" class="btn secondary">Reset</a>

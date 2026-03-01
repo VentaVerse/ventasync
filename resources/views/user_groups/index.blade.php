@@ -11,7 +11,7 @@
     <div class="toolbar">
         <form method="GET" action="{{ route('user_groups.index') }}">
             <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search group">
-            <button class="btn secondary" type="submit">Search</button>
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 

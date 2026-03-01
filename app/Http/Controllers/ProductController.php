@@ -37,9 +37,7 @@ class ProductController extends Controller
                 if (!is_array($v)) continue;
                 if (empty($v['option_value_id'])) continue;
                 $hasAnyValue = true;
-                $q = (int) ($v['quantity'] ?? 0);
-                if ($q < 0) $q = 0;
-                $sum += $q;
+                $sum += (int) ($v['quantity'] ?? 0);
             }
         }
 
@@ -510,7 +508,7 @@ public function store(Request $request)
             'options.*.values' => 'array',
             'options.*.values.*.option_value_id' => 'required|integer|min:1',
             'options.*.values.*.sku' => 'nullable|string|max:64',
-            'options.*.values.*.quantity' => 'nullable|integer|min:0',
+            'options.*.values.*.quantity' => 'nullable|integer',
             'options.*.values.*.subtract' => 'nullable|in:0,1',
             'options.*.values.*.price' => 'nullable|numeric',
             'options.*.values.*.price_prefix' => 'nullable|in:+,-',
@@ -554,6 +552,7 @@ public function store(Request $request)
             $p->location = '';
 
             $p->quantity = $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity;
+            $p->reorder_level = (int) ($request->reorder_level ?? 0);
             $p->weight = (float) ($request->input('weight', 0) ?? 0);
             $p->length = (float) ($request->input('length', 0) ?? 0);
             $p->width  = (float) ($request->input('width', 0) ?? 0);
@@ -837,6 +836,7 @@ public function store(Request $request)
                     ->whereIn('pov.product_option_id', $poIds)
                     ->orderBy('pov.product_option_value_id')
                     ->get([
+                        'pov.product_option_value_id',
                         'pov.product_option_id',
                         'pov.option_value_id',
                         'ovd.name as option_value_name',
@@ -854,6 +854,7 @@ public function store(Request $request)
                 foreach ($rows as $r) {
                     $r->option_value_name = html_entity_decode((string)$r->option_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     $existingValuesByPoId[(int)$r->product_option_id][] = [
+                        'product_option_value_id' => (int)$r->product_option_value_id,
                         'option_value_id' => (int)$r->option_value_id,
                         'name' => $r->option_value_name,
                         'quantity' => (int)$r->quantity,
@@ -899,7 +900,14 @@ public function store(Request $request)
             $returnUrl = route('products.index');
         }
 
-return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages', 'returnUrl'));
+$productVendors = \App\Models\ProductVendor::with('vendor:id,name')
+            ->where('product_id', (int) $id)
+            ->orderBy('id')
+            ->get();
+        $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
+        $vendors = \App\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'currency_code']);
+
+return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages', 'returnUrl', 'productVendors', 'currencies', 'vendors'));
     }
 
     public function update(Request $request, $id)
@@ -936,7 +944,7 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             'options.*.values' => 'array',
             'options.*.values.*.option_value_id' => 'required|integer|min:1',
             'options.*.values.*.sku' => 'nullable|string|max:64',
-            'options.*.values.*.quantity' => 'nullable|integer|min:0',
+            'options.*.values.*.quantity' => 'nullable|integer',
             'options.*.values.*.subtract' => 'nullable|in:0,1',
             'options.*.values.*.price' => 'nullable|numeric',
             'options.*.values.*.price_prefix' => 'nullable|in:+,-',
@@ -985,6 +993,7 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
                 $skuChanges['product_sku'] = ['old' => $oldProductSku, 'new' => $newProductSku];
             }
             $p->quantity = $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity;
+            $p->reorder_level = (int) ($request->reorder_level ?? 0);
             $p->weight = (float) ($request->input('weight', $p->weight ?? 0) ?? 0);
             $p->length = (float) ($request->input('length', $p->length ?? 0) ?? 0);
             $p->width  = (float) ($request->input('width',  $p->width  ?? 0) ?? 0);

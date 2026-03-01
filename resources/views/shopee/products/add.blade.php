@@ -70,22 +70,6 @@
     </div>
 
 @push('scripts')
-<style>
-    .product-result-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 13px;
-        transition: background 0.1s;
-    }
-    .product-result-item:hover { background: var(--surface-hover); }
-    .product-result-item img { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
-    .product-result-item .pr-info { flex: 1; min-width: 0; }
-    .product-result-item .pr-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .product-result-item .pr-meta { color: var(--text-muted); font-size: 11px; }
-</style>
 <script>
 (function(){
     var searchInput = document.getElementById('productSearch');

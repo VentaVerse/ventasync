@@ -32,6 +32,11 @@ use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OpenCartProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\VendorController;
+use App\Http\Controllers\ProductVendorController;
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\ReorderController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
@@ -41,6 +46,7 @@ Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('laz
 
 // TikTok Shop OAuth callback must be publicly accessible.
 Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
+
 
 
 Route::middleware(['auth'])->group(function () {
@@ -389,6 +395,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/settings', [SettingController::class, 'edit'])->name('settings.edit');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
         Route::post('/settings/purge-raw', [SettingController::class, 'purgeRaw'])->name('settings.purge_raw');
+
+        // Currencies
+        Route::get('/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+        Route::get('/currencies/create', [CurrencyController::class, 'create'])->name('currencies.create');
+        Route::post('/currencies', [CurrencyController::class, 'store'])->name('currencies.store');
+        Route::get('/currencies/{id}/edit', [CurrencyController::class, 'edit'])->name('currencies.edit');
+        Route::put('/currencies/{id}', [CurrencyController::class, 'update'])->name('currencies.update');
+        Route::delete('/currencies/{id}', [CurrencyController::class, 'destroy'])->name('currencies.destroy');
+        Route::post('/currencies/update-rates', [CurrencyController::class, 'updateRates'])->name('currencies.update_rates');
+        Route::get('/api/currencies', [CurrencyController::class, 'lookup'])->name('api.currencies');
     });
 
     // Error Log
@@ -439,6 +455,58 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/order-statuses/{id}/edit', [OrderStatusController::class, 'edit'])->name('order_statuses.edit');
         Route::put('/order-statuses/{id}', [OrderStatusController::class, 'update'])->name('order_statuses.update');
         Route::delete('/order-statuses/{id}', [OrderStatusController::class, 'destroy'])->name('order_statuses.destroy');
+    });
+
+    // Purchasing
+    Route::middleware(['perm:manage_purchasing'])->group(function () {
+        // Vendors
+        Route::get('/vendors', [VendorController::class, 'index'])->name('vendors.index');
+        Route::get('/vendors/create', [VendorController::class, 'create'])->name('vendors.create');
+        Route::post('/vendors', [VendorController::class, 'store'])->name('vendors.store');
+        Route::get('/vendors/{id}/edit', [VendorController::class, 'edit'])->name('vendors.edit');
+        Route::put('/vendors/{id}', [VendorController::class, 'update'])->name('vendors.update');
+        Route::delete('/vendors/{id}', [VendorController::class, 'destroy'])->name('vendors.destroy');
+        Route::post('/vendors/bulk-delete', [VendorController::class, 'bulkDestroy'])->name('vendors.bulk_delete');
+        Route::get('/api/vendors', [VendorController::class, 'lookup'])->name('api.vendors');
+
+        // Purchase Orders
+        Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase_orders.index');
+        Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase_orders.create');
+        Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase_orders.store');
+        Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])->name('purchase_orders.show');
+        Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase_orders.edit');
+        Route::put('/purchase-orders/{id}', [PurchaseOrderController::class, 'update'])->name('purchase_orders.update');
+        Route::delete('/purchase-orders/{id}', [PurchaseOrderController::class, 'destroy'])->name('purchase_orders.destroy');
+        Route::post('/purchase-orders/{id}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase_orders.update_status');
+        Route::get('/purchase-orders/{id}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase_orders.receive');
+        Route::post('/purchase-orders/{id}/receive', [PurchaseOrderController::class, 'processReceive'])->name('purchase_orders.process_receive');
+        Route::get('/purchase-orders/{id}/pdf', [PurchaseOrderController::class, 'pdf'])->name('purchase_orders.pdf');
+        Route::get('/api/purchase-orders/products', [PurchaseOrderController::class, 'productSearch'])->name('api.purchase_orders.products');
+
+        // Duplicate, Email, Payments, Attachments
+        Route::post('/purchase-orders/{id}/duplicate', [PurchaseOrderController::class, 'duplicate'])->name('purchase_orders.duplicate');
+        Route::post('/purchase-orders/{id}/email-test', [PurchaseOrderController::class, 'emailTest'])->name('purchase_orders.email_test');
+        Route::post('/purchase-orders/{id}/email-vendor', [PurchaseOrderController::class, 'emailVendor'])->name('purchase_orders.email_vendor');
+        Route::post('/purchase-orders/{id}/payment', [PurchaseOrderController::class, 'recordPayment'])->name('purchase_orders.record_payment');
+        Route::put('/purchase-orders/{id}/payment/{paymentId}', [PurchaseOrderController::class, 'updatePayment'])->name('purchase_orders.update_payment');
+        Route::delete('/purchase-orders/{id}/payment/{paymentId}', [PurchaseOrderController::class, 'deletePayment'])->name('purchase_orders.delete_payment');
+        Route::post('/purchase-orders/{id}/attachments', [PurchaseOrderController::class, 'uploadAttachment'])->name('purchase_orders.upload_attachment');
+        Route::delete('/purchase-orders/{id}/attachments/{attachmentId}', [PurchaseOrderController::class, 'deleteAttachment'])->name('purchase_orders.delete_attachment');
+        Route::get('/purchase-orders/{id}/attachments/{attachmentId}/download', [PurchaseOrderController::class, 'downloadAttachment'])->name('purchase_orders.download_attachment');
+
+        // Reorder Suggestions
+        Route::get('/reorder-suggestions', [ReorderController::class, 'index'])->name('reorder.index');
+        Route::post('/reorder-suggestions/create-pos', [ReorderController::class, 'createFromReorder'])->name('reorder.create_pos');
+    });
+
+    // Product Vendors (buying prices)
+    Route::middleware(['perm:manage_products'])->group(function () {
+        Route::get('/products/{id}/vendors', [ProductVendorController::class, 'index'])->name('products.vendors.index');
+        Route::post('/products/{id}/vendors', [ProductVendorController::class, 'store'])->name('products.vendors.store');
+        Route::post('/products/{id}/vendors/bulk', [ProductVendorController::class, 'storeBulk'])->name('products.vendors.store_bulk');
+        Route::put('/products/{productId}/vendors/{id}', [ProductVendorController::class, 'update'])->name('products.vendors.update');
+        Route::delete('/products/{productId}/vendors/{id}', [ProductVendorController::class, 'destroy'])->name('products.vendors.destroy');
+        Route::delete('/products/{id}/vendors', [ProductVendorController::class, 'destroyBulk'])->name('products.vendors.destroy_bulk');
     });
 });
 

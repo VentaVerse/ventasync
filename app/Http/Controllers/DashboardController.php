@@ -176,6 +176,17 @@ class DashboardController extends Controller
             }
         }
 
+        // --- Purchase Order stats ---
+        $openPos = \App\Models\PurchaseOrder::whereIn('status', ['draft', 'approved', 'ordered'])->count();
+        $pendingDelivery = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])->count();
+        $overduePos = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])
+            ->where('expected_delivery_date', '<', now()->toDateString())->count();
+        $monthlyPoSpend = (float) \App\Models\PurchaseOrder::where('status', 'received')
+            ->whereMonth('received_at', now()->month)
+            ->whereYear('received_at', now()->year)
+            ->selectRaw('SUM(total * exchange_rate) as spend')
+            ->value('spend');
+
         // --- Greeting ---
         $hour = (int) now()->format('H');
         if ($hour < 12) {
@@ -209,6 +220,10 @@ class DashboardController extends Controller
             'lazadaSyncStatus' => $lazadaSyncStatus,
             'shopeeSyncStatus' => $shopeeSyncStatus,
             'tiktokSyncStatus' => $tiktokSyncStatus,
+            'openPos' => $openPos,
+            'pendingDelivery' => $pendingDelivery,
+            'overduePos' => $overduePos,
+            'monthlyPoSpend' => $monthlyPoSpend,
             'greeting' => $greeting,
         ]);
     }

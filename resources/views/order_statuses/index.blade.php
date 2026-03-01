@@ -14,7 +14,7 @@
     <div class="toolbar">
         <form method="GET" action="{{ route('order_statuses.index') }}">
             <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search order status">
-            <button class="btn secondary" type="submit">Search</button>
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 

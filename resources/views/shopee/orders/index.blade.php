@@ -11,63 +11,6 @@
     #content .input:focus {
         box-shadow: 0 0 0 3px rgba(238, 77, 45, 0.12);
     }
-    #content .order-img-wrap {
-        position: relative;
-        cursor: zoom-in;
-        z-index: 1;
-    }
-    .order-img-preview {
-        position: fixed;
-        z-index: 9999;
-        pointer-events: none;
-        border-radius: 8px;
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.25);
-        overflow: hidden;
-        transform: scale(0.2);
-        opacity: 0;
-        transition: transform 180ms ease, opacity 180ms ease;
-    }
-    .order-img-preview.visible {
-        transform: scale(1);
-        opacity: 1;
-    }
-    .order-img-preview img {
-        display: block;
-        width: 220px;
-        height: 220px;
-        object-fit: cover;
-    }
-    .order-option-wrap {
-        margin-top: 6px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-    }
-    .order-option-label {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: .02em;
-        text-transform: uppercase;
-        color: #9a3412;
-        background: #ffedd5;
-        border: 1px solid #fdba74;
-        border-radius: 999px;
-        padding: 2px 8px;
-    }
-    .order-option-pill {
-        display: inline-block;
-        font-size: 12px;
-        font-weight: 600;
-        color: #1e293b;
-        background: #f8fafc;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 4px 8px;
-        line-height: 1.35;
-        max-width: 100%;
-        word-break: break-word;
-    }
 </style>
 <div class="page-header">
     <h2>Shopee Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
@@ -213,7 +156,7 @@
         </div>
 
         <div class="d-flex gap-8">
-            <button type="submit" class="btn secondary">Search</button>
+            <button type="submit" class="btn">Search</button>
             <a href="{{ route('shopee.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
         </div>
     </form>
@@ -566,9 +509,6 @@
     </div>
 </div>
 
-<style>
-@keyframes spSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-</style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var overlay = document.getElementById('spLoadingOverlay');

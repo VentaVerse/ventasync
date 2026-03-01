@@ -1,0 +1,57 @@
+/* ============================================================
+   CONTENT AREA
+   ============================================================ */
+.content {
+    margin-left: var(--sidebar-w);
+    padding: 0 32px 32px;
+    flex: 1;
+    min-width: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    transition: margin-left var(--transition-slow);
+    will-change: margin-left;
+    animation: fadeIn .3s ease;
+}
+.content-inner { max-width: 1600px; margin-left: auto; margin-right: auto; }
+.content.collapsed { margin-left: 0; }
+
+/* Topbar / Breadcrumb bar */
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0 14px;
+    margin-bottom: 4px;
+}
+.topbar-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+.topbar-title a:hover { color: var(--accent); }
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.page-header h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+}
+.page-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}

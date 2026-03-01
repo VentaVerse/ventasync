@@ -13,8 +13,22 @@
         </div>
     </div>
 
+    {{-- Category Tabs --}}
+    <div class="tabs mb-16">
+        @foreach($categories as $key => $cat)
+            <a class="tab {{ $category === $key ? 'active' : '' }}"
+               href="{{ route('activity_log.index', array_merge(request()->except('category', 'page'), ['category' => $key])) }}">
+                {{ $cat['label'] }}
+                @if(isset($categoryCounts[$key]) && $categoryCounts[$key] > 0)
+                    <span style="font-size:11px; color:var(--text-muted); margin-left:4px;">({{ number_format($categoryCounts[$key]) }})</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+
     {{-- Filters --}}
     <form method="GET" action="{{ route('activity_log.index') }}" class="d-flex gap-8 items-end mb-16" style="flex-wrap:wrap;">
+        <input type="hidden" name="category" value="{{ $category }}">
         <div>
             <label class="text-xs text-secondary">Search</label>
             <input class="input" name="q" value="{{ $q }}" placeholder="Subject..." style="width:200px;">
@@ -55,7 +69,7 @@
         </div>
         <button class="btn" type="submit">Filter</button>
         @if($q || $action || $userId || $source || $dateFrom || $dateTo)
-            <a class="btn secondary" href="{{ route('activity_log.index') }}">Reset</a>
+            <a class="btn secondary" href="{{ route('activity_log.index', ['category' => $category]) }}">Reset</a>
         @endif
     </form>
 

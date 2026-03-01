@@ -1,0 +1,33 @@
+/* ============================================================
+   TIMELINE (PO show, Shopee order tracking)
+   ============================================================ */
+
+/* PO Timeline */
+.po-timeline { position: relative; padding-left: 32px; }
+.po-timeline::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.timeline-entry { position: relative; margin-bottom: 16px; }
+.timeline-icon {
+    position: absolute; left: -32px; top: 2px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid; display: flex; align-items: center;
+    justify-content: center; background: var(--surface);
+}
+.timeline-content { padding-left: 8px; }
+.timeline-text { font-size: 13px; line-height: 1.4; }
+.timeline-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+/* PO receive option rows */
+.option-header-row td { border-top: none !important; }
+.option-value-row td { border-top: none !important; font-size: 12px; }
+
+/* Shopee order tracking timeline */
+.tracking-timeline { position: relative; padding-left: 24px; }
+.tracking-timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
+.tracking-event { position: relative; padding-bottom: 16px; }
+.tracking-event:last-child { padding-bottom: 0; }
+.tracking-event::before {
+    content: ''; position: absolute; left: -20px; top: 6px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border); border: 2px solid var(--bg);
+}
+.tracking-event:first-child::before { background: var(--accent); }

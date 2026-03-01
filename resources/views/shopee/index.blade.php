@@ -64,11 +64,9 @@
     </div>
 
     {{-- Connection + Auth side-by-side on wide screens --}}
-    <style>.sp-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;} @media(max-width:1024px){.sp-settings-grid{grid-template-columns:1fr;}}</style>
-
     {{-- ═══ PRODUCTION fields ═══ --}}
     <div id="sp-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
-    <div class="sp-settings-grid">
+    <div class="marketplace-settings-grid">
 
         {{-- Connection (Live) --}}
         <div class="card" style="margin-bottom:0;">
@@ -187,7 +185,7 @@
 
     {{-- ═══ SANDBOX fields ═══ --}}
     <div id="sp-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
-    <div class="sp-settings-grid">
+    <div class="marketplace-settings-grid">
 
         {{-- Connection (Sandbox) --}}
         <div class="card" style="margin-bottom:0;">
@@ -545,83 +543,60 @@
         Pick an endpoint, fill parameters, and run. Signing fields are generated automatically.
     </div>
 
-    <style>
-        .sp-code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-        .sp-explorer{display:grid;grid-template-columns: 360px 1fr;gap:14px;margin-top:12px;}
-        @media (max-width: 1100px){.sp-explorer{grid-template-columns:1fr;}}
-        .sp-panel{border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;background:var(--surface);}
-        .sp-search{display:flex;gap:8px;align-items:center;}
-        .sp-list{margin-top:10px;max-height:520px;overflow:auto;padding-right:4px;}
-        .sp-cat{margin:10px 0 6px;font-weight:700;color:#111827;font-size:13px;text-transform:uppercase;letter-spacing:.03em;}
-        .sp-endpoint{width:100%;text-align:left;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 10px;margin-bottom:8px;background:var(--surface-alt);cursor:pointer;}
-        .sp-endpoint:hover{background:var(--surface-hover);}
-        .sp-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface);margin-right:8px;}
-        .sp-badge.get{border-color:#bfdbfe;background:#eff6ff;}
-        .sp-badge.post{border-color:#bbf7d0;background:#f0fdf4;}
-        .sp-hint{color:var(--text-secondary);font-size:12px;margin-top:4px;}
-        .sp-kv{width:100%;border-collapse:collapse;}
-        .sp-kv th,.sp-kv td{border-bottom:1px solid var(--border-light);padding:8px 6px;vertical-align:top;}
-        .sp-kv th{color:var(--text-primary);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
-        .sp-row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-        .sp-mini{font-size:12px;color:var(--text-secondary);}
-        .sp-split{display:grid;grid-template-columns: 1fr 1fr;gap:10px;}
-        @media (max-width: 900px){.sp-split{grid-template-columns:1fr;}}
-    </style>
-
-    <div class="sp-explorer">
-        <div class="sp-panel">
-            <div class="sp-search">
-                <input class="input" id="sp-endpoint-search" placeholder="Search endpoints...">
+    <div class="api-explorer">
+        <div class="api-panel">
+            <div class="api-search">
+                <input class="input" id="api-endpoint-search" placeholder="Search endpoints...">
             </div>
-            <div class="sp-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
+            <div class="api-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
 
-            <div class="sp-list" id="sp-endpoint-list">
-                <div class="sp-cat">Shop</div>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shop Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_shop_info","desc":"Fetch shop info.","params":[]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/shop/get_shop_info</span><div class="sp-hint">Shop info</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Profile","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_profile","desc":"Fetch shop profile.","params":[]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/shop/get_profile</span><div class="sp-hint">Shop profile</div></button>
+            <div class="api-list" id="api-endpoint-list">
+                <div class="api-cat">Shop</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shop Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_shop_info","desc":"Fetch shop info.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/shop/get_shop_info</span><div class="api-hint">Shop info</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Profile","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_profile","desc":"Fetch shop profile.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/shop/get_profile</span><div class="api-hint">Shop profile</div></button>
 
-                <div class="sp-cat">Product</div>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Item List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_list","desc":"List products. Requires update_time_from and update_time_to (Unix timestamps).","params":[{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"},{"k":"update_time_from","req":true,"ph":""},{"k":"update_time_to","req":true,"ph":""},{"k":"item_status","req":false,"ph":"NORMAL"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/get_item_list</span><div class="sp-hint">offset, page_size, update_time_from/to, item_status</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Item Base Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_base_info","desc":"Get base info for item(s).","params":[{"k":"item_id_list","req":true,"ph":"123,456"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/get_item_base_info</span><div class="sp-hint">item_id_list (comma-separated)</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Model List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_model_list","desc":"Get model/variant list for an item.","params":[{"k":"item_id","req":true,"ph":"123"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/get_model_list</span><div class="sp-hint">item_id</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Category","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_category","desc":"Fetch category tree.","params":[{"k":"language","req":false,"ph":"en"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/get_category</span><div class="sp-hint">language</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Attributes","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_attribute_tree","desc":"Get attributes for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"language","req":false,"ph":"en"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/get_attribute_tree</span><div class="sp-hint">category_id</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Brand List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_brand_list","desc":"Get brands for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"100"},{"k":"status","req":false,"ph":"1"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/get_brand_list</span><div class="sp-hint">category_id, offset, page_size</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Update Stock","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_stock","desc":"Update stock for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"stock_list","req":true,"ph":"[{\"model_id\":0,\"normal_stock\":10}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/product/update_stock</span><div class="sp-hint">item_id, stock_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Update Price","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_price","desc":"Update price for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"price_list","req":true,"ph":"[{\"model_id\":0,\"original_price\":100}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/product/update_price</span><div class="sp-hint">item_id, price_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Category Recommend","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/category_recommend","desc":"Get recommended categories for an item name.","params":[{"k":"item_name","req":true,"ph":"Guitar Pedal"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/product/category_recommend</span><div class="sp-hint">item_name</div></button>
+                <div class="api-cat">Product</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Item List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_list","desc":"List products. Requires update_time_from and update_time_to (Unix timestamps).","params":[{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"},{"k":"update_time_from","req":true,"ph":""},{"k":"update_time_to","req":true,"ph":""},{"k":"item_status","req":false,"ph":"NORMAL"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_item_list</span><div class="api-hint">offset, page_size, update_time_from/to, item_status</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Item Base Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_base_info","desc":"Get base info for item(s).","params":[{"k":"item_id_list","req":true,"ph":"123,456"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_item_base_info</span><div class="api-hint">item_id_list (comma-separated)</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Model List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_model_list","desc":"Get model/variant list for an item.","params":[{"k":"item_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_model_list</span><div class="api-hint">item_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Category","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_category","desc":"Fetch category tree.","params":[{"k":"language","req":false,"ph":"en"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_category</span><div class="api-hint">language</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Attributes","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_attribute_tree","desc":"Get attributes for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"language","req":false,"ph":"en"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_attribute_tree</span><div class="api-hint">category_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Brand List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_brand_list","desc":"Get brands for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"100"},{"k":"status","req":false,"ph":"1"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_brand_list</span><div class="api-hint">category_id, offset, page_size</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Update Stock","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_stock","desc":"Update stock for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"stock_list","req":true,"ph":"[{\"model_id\":0,\"normal_stock\":10}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/product/update_stock</span><div class="api-hint">item_id, stock_list</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Update Price","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_price","desc":"Update price for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"price_list","req":true,"ph":"[{\"model_id\":0,\"original_price\":100}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/product/update_price</span><div class="api-hint">item_id, price_list</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Category Recommend","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/category_recommend","desc":"Get recommended categories for an item name.","params":[{"k":"item_name","req":true,"ph":"Guitar Pedal"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/category_recommend</span><div class="api-hint">item_name</div></button>
 
-                <div class="sp-cat">Order</div>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Order List","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_list","desc":"List orders.","params":[{"k":"order_status","req":false,"ph":"READY_TO_SHIP"},{"k":"time_range_field","req":true,"ph":"create_time"},{"k":"time_from","req":true,"ph":""},{"k":"time_to","req":true,"ph":""},{"k":"page_size","req":false,"ph":"20"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/order/get_order_list</span><div class="sp-hint">order_status, time range</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Order Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_detail","desc":"Get order details.","params":[{"k":"order_sn_list","req":true,"ph":"2502011234ABCD"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/order/get_order_detail</span><div class="sp-hint">order_sn_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Cancel Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/order/cancel_order","desc":"Cancel an order.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"cancel_reason","req":true,"ph":"OUT_OF_STOCK"},{"k":"item_list","req":false,"ph":""}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/order/cancel_order</span><div class="sp-hint">order_sn, cancel_reason</div></button>
+                <div class="api-cat">Order</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Order List","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_list","desc":"List orders.","params":[{"k":"order_status","req":false,"ph":"READY_TO_SHIP"},{"k":"time_range_field","req":true,"ph":"create_time"},{"k":"time_from","req":true,"ph":""},{"k":"time_to","req":true,"ph":""},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/order/get_order_list</span><div class="api-hint">order_status, time range</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Order Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_detail","desc":"Get order details.","params":[{"k":"order_sn_list","req":true,"ph":"2502011234ABCD"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/order/get_order_detail</span><div class="api-hint">order_sn_list</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Cancel Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/order/cancel_order","desc":"Cancel an order.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"cancel_reason","req":true,"ph":"OUT_OF_STOCK"},{"k":"item_list","req":false,"ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/order/cancel_order</span><div class="api-hint">order_sn, cancel_reason</div></button>
 
-                <div class="sp-cat">Logistics</div>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Channel List","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_channel_list","desc":"Fetch available logistics channels.","params":[]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_channel_list</span><div class="sp-hint">Logistics channels</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Parameter","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_parameter","desc":"Get shipping parameter for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_shipping_parameter</span><div class="sp-hint">order_sn</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Ship Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/ship_order","desc":"Ship an order. Use pickup with address_id from get_shipping_parameter, or dropoff with empty object.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"pickup","req":false,"ph":"{\"address_id\":0}"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/ship_order</span><div class="sp-hint">order_sn, pickup/dropoff</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Tracking Number","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_number","desc":"Get tracking number.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_tracking_number</span><div class="sp-hint">order_sn</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Tracking Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_info","desc":"Get tracking info for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/logistics/get_tracking_info</span><div class="sp-hint">order_sn</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Doc Parameter","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_parameter","desc":"Get shipping document parameter (doc type, package number).","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/get_shipping_document_parameter</span><div class="sp-hint">order_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Create Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/create_shipping_document","desc":"Create shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\",\"shipping_document_type\":\"THERMAL_AIR_WAYBILL\",\"tracking_number\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/create_shipping_document</span><div class="sp-hint">order_list</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Shipping Doc Result","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_result","desc":"Poll document creation status. Status: READY, FAILED, or PROCESSING.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/get_shipping_document_result</span><div class="sp-hint">order_list — check READY/FAILED</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Download Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/download_shipping_document","desc":"Download shipping document as PDF. Response is binary — will show as raw data in explorer.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"},{"k":"shipping_document_type","req":false,"ph":"THERMAL_AIR_WAYBILL"}]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/logistics/download_shipping_document</span><div class="sp-hint">order_list — returns binary PDF</div></button>
+                <div class="api-cat">Logistics</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Channel List","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_channel_list","desc":"Fetch available logistics channels.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_channel_list</span><div class="api-hint">Logistics channels</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Parameter","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_parameter","desc":"Get shipping parameter for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_shipping_parameter</span><div class="api-hint">order_sn</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Ship Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/ship_order","desc":"Ship an order. Use pickup with address_id from get_shipping_parameter, or dropoff with empty object.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"pickup","req":false,"ph":"{\"address_id\":0}"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/ship_order</span><div class="api-hint">order_sn, pickup/dropoff</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Tracking Number","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_number","desc":"Get tracking number.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_tracking_number</span><div class="api-hint">order_sn</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Tracking Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_info","desc":"Get tracking info for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_tracking_info</span><div class="api-hint">order_sn</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Doc Parameter","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_parameter","desc":"Get shipping document parameter (doc type, package number).","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/get_shipping_document_parameter</span><div class="api-hint">order_list</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Create Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/create_shipping_document","desc":"Create shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\",\"shipping_document_type\":\"THERMAL_AIR_WAYBILL\",\"tracking_number\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/create_shipping_document</span><div class="api-hint">order_list</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Doc Result","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_result","desc":"Poll document creation status. Status: READY, FAILED, or PROCESSING.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/get_shipping_document_result</span><div class="api-hint">order_list — check READY/FAILED</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Download Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/download_shipping_document","desc":"Download shipping document as PDF. Response is binary — will show as raw data in explorer.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"},{"k":"shipping_document_type","req":false,"ph":"THERMAL_AIR_WAYBILL"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/download_shipping_document</span><div class="api-hint">order_list — returns binary PDF</div></button>
 
-                <div class="sp-cat">Media</div>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Upload Image","method":"POST","auth":true,"shop":true,"path":"/api/v2/media_space/upload_image","desc":"Upload an image.","params":[]}'><span class="sp-badge post">POST</span><span class="sp-code">/api/v2/media_space/upload_image</span><div class="sp-hint">Multipart upload</div></button>
+                <div class="api-cat">Media</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Upload Image","method":"POST","auth":true,"shop":true,"path":"/api/v2/media_space/upload_image","desc":"Upload an image.","params":[]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/media_space/upload_image</span><div class="api-hint">Multipart upload</div></button>
 
-                <div class="sp-cat">Returns</div>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Return List","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_list","desc":"List returns.","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"20"}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/returns/get_return_list</span><div class="sp-hint">page_no, page_size</div></button>
-                <button type="button" class="sp-endpoint" data-ep='{"name":"Get Return Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_detail","desc":"Get return details.","params":[{"k":"return_sn","req":true,"ph":""}]}'><span class="sp-badge get">GET</span><span class="sp-code">/api/v2/returns/get_return_detail</span><div class="sp-hint">return_sn</div></button>
+                <div class="api-cat">Returns</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Return List","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_list","desc":"List returns.","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_list</span><div class="api-hint">page_no, page_size</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Return Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_detail","desc":"Get return details.","params":[{"k":"return_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_detail</span><div class="api-hint">return_sn</div></button>
             </div>
         </div>
 
-        <div class="sp-panel">
-            <div class="sp-split" style="margin-bottom:10px;">
+        <div class="api-panel">
+            <div class="api-split" style="margin-bottom:10px;">
                 <div>
                     <label>Selected Endpoint</label>
-                    <div class="sp-mini" id="sp-ep-name">None selected</div>
-                    <div class="sp-hint" id="sp-ep-desc"></div>
+                    <div class="api-mini" id="sp-ep-name">None selected</div>
+                    <div class="api-hint" id="sp-ep-desc"></div>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:start;">
                     <form method="POST" action="{{ route('shopee.packs_run') }}" style="display:inline;">@csrf<input type="hidden" name="pack" value="shop_info"><button class="btn small secondary" type="submit">Shop Info</button></form>
@@ -632,13 +607,13 @@
                 </div>
             </div>
 
-            <form id="sp-explorer-form" method="POST" action="{{ route('shopee.explorer_run') }}">
+            <form id="api-explorer-form" method="POST" action="{{ route('shopee.explorer_run') }}">
                 @csrf
 
                 <div class="form-grid">
                     <div>
                         <label>Method</label>
-                        <select name="method" class="input" id="sp-explorer-method">
+                        <select name="method" class="input" id="api-explorer-method">
                             <option value="GET">GET</option>
                             <option value="POST">POST</option>
                         </select>
@@ -646,11 +621,11 @@
                     <div>
                         <label>Options</label>
                         <label class="d-flex items-center gap-8" style="margin-top:6px;">
-                            <input type="checkbox" name="use_access_token" value="1" id="sp-explorer-auth" checked>
+                            <input type="checkbox" name="use_access_token" value="1" id="api-explorer-auth" checked>
                             Access Token
                         </label>
                         <label class="d-flex items-center gap-8" style="margin-top:4px;">
-                            <input type="checkbox" name="use_shop_id" value="1" id="sp-explorer-shop" checked>
+                            <input type="checkbox" name="use_shop_id" value="1" id="api-explorer-shop" checked>
                             Shop ID
                         </label>
                     </div>
@@ -658,13 +633,13 @@
 
                 <div style="margin-top:12px;">
                     <label>API Path</label>
-                    <input class="input" name="api_path" id="sp-explorer-path" value="/api/v2/shop/get_shop_info" placeholder="/api/v2/shop/get_shop_info">
+                    <input class="input" name="api_path" id="api-explorer-path" value="/api/v2/shop/get_shop_info" placeholder="/api/v2/shop/get_shop_info">
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>Parameters</label>
-                    <div class="sp-mini" style="margin-bottom:8px;">Use this table for most calls. JSON is generated automatically.</div>
-                    <table class="sp-kv" id="sp-kv-table">
+                    <div class="api-mini" style="margin-bottom:8px;">Use this table for most calls. JSON is generated automatically.</div>
+                    <table class="api-kv" id="api-kv-table">
                         <thead>
                             <tr>
                                 <th style="width:34%;">Key</th>
@@ -672,9 +647,9 @@
                                 <th style="width:70px;"></th>
                             </tr>
                         </thead>
-                        <tbody id="sp-kv-body"></tbody>
+                        <tbody id="api-kv-body"></tbody>
                     </table>
-                    <div class="sp-row-actions" style="margin-top:10px;">
+                    <div class="api-row-actions" style="margin-top:10px;">
                         <button class="btn small" type="button" id="sp-add-row">Add Param</button>
                         <button class="btn small" type="button" id="sp-sync-to-json">Update JSON</button>
                         <button class="btn small secondary" type="button" id="sp-sample-data">Sample Data</button>
@@ -683,7 +658,7 @@
 
                 <div style="margin-top:12px;">
                     <label>Params JSON</label>
-                    <textarea class="input sp-code" name="params_json" id="sp-explorer-params" rows="6" placeholder='{"page_size":10}'>{}</textarea>
+                    <textarea class="input api-code" name="params_json" id="api-explorer-params" rows="6" placeholder='{"page_size":10}'>{}</textarea>
                 </div>
 
                 <div class="d-flex gap-8 mt-12">
@@ -853,15 +828,15 @@ function spCopy(id, btn) {
     function qs(sel){ return document.querySelector(sel); }
     function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
 
-    var methodSel = qs('#sp-explorer-method');
-    var authChk   = qs('#sp-explorer-auth');
-    var shopChk   = qs('#sp-explorer-shop');
-    var pathInp   = qs('#sp-explorer-path');
-    var paramsTa  = qs('#sp-explorer-params');
-    var kvBody    = qs('#sp-kv-body');
+    var methodSel = qs('#api-explorer-method');
+    var authChk   = qs('#api-explorer-auth');
+    var shopChk   = qs('#api-explorer-shop');
+    var pathInp   = qs('#api-explorer-path');
+    var paramsTa  = qs('#api-explorer-params');
+    var kvBody    = qs('#api-kv-body');
     var epName    = qs('#sp-ep-name');
     var epDesc    = qs('#sp-ep-desc');
-    var epSearch  = qs('#sp-endpoint-search');
+    var epSearch  = qs('#api-endpoint-search');
     var btnAddRow = qs('#sp-add-row');
     var btnSync   = qs('#sp-sync-to-json');
 
@@ -905,7 +880,7 @@ function spCopy(id, btn) {
 
     function tableToObject(){
         var obj = {};
-        qsa('#sp-kv-body tr').forEach(function(tr){
+        qsa('#api-kv-body tr').forEach(function(tr){
             var keyEl = tr.querySelector('td:nth-child(1) .input');
             var valEl = tr.querySelector('td:nth-child(2) .input');
             var k = keyEl ? String(keyEl.value || '').trim() : '';
@@ -946,7 +921,7 @@ function spCopy(id, btn) {
         syncToJson();
     }
 
-    qsa('.sp-endpoint').forEach(function(btn){
+    qsa('.api-endpoint').forEach(function(btn){
         btn.addEventListener('click', function(){
             var ep = safeJsonParse(btn.getAttribute('data-ep') || '{}') || {};
             selectEndpoint(ep);
@@ -956,7 +931,7 @@ function spCopy(id, btn) {
     if (epSearch) {
         epSearch.addEventListener('input', function(){
             var q = String(epSearch.value || '').toLowerCase();
-            qsa('.sp-endpoint').forEach(function(btn){
+            qsa('.api-endpoint').forEach(function(btn){
                 var raw = (btn.getAttribute('data-ep') || '').toLowerCase();
                 var t = (btn.textContent || '').toLowerCase() + ' ' + raw;
                 btn.style.display = t.indexOf(q) >= 0 ? '' : 'none';
@@ -1005,7 +980,7 @@ function spCopy(id, btn) {
         kvBody.addEventListener('input', function(){ try { syncToJson(); } catch(e){} });
     }
 
-    var form = qs('#sp-explorer-form');
+    var form = qs('#api-explorer-form');
     if (form) form.addEventListener('submit', function(){
         try { syncToJson(); } catch(e) {}
     });

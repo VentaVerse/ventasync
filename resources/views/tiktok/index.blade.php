@@ -66,11 +66,9 @@
     </div>
 
     {{-- Connection + Auth side-by-side --}}
-    <style>.tt-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;} @media(max-width:1024px){.tt-settings-grid{grid-template-columns:1fr;}}</style>
-
     {{-- ═══ PRODUCTION fields ═══ --}}
     <div id="tt-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
-    <div class="tt-settings-grid">
+    <div class="marketplace-settings-grid">
         {{-- Connection (Live) --}}
         <div class="card" style="margin-bottom:0;">
             <h3 class="section-title mt-0">Connection <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
@@ -207,7 +205,7 @@
 
     {{-- ═══ SANDBOX fields ═══ --}}
     <div id="tt-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
-    <div class="tt-settings-grid">
+    <div class="marketplace-settings-grid">
         {{-- Connection (Sandbox) --}}
         <div class="card" style="margin-bottom:0;">
             <h3 class="section-title mt-0">Connection <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
@@ -384,79 +382,55 @@
         Pick an endpoint, fill parameters, and run. Signing fields (<code>app_key</code>, <code>timestamp</code>, <code>sign</code>, <code>shop_cipher</code>) are generated automatically.
     </div>
 
-    <style>
-        .tt-code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-        .tt-explorer{display:grid;grid-template-columns: 360px 1fr;gap:14px;margin-top:12px;}
-        @media (max-width: 1100px){.tt-explorer{grid-template-columns:1fr;}}
-        .tt-panel{border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;background:var(--surface);}
-        .tt-search{display:flex;gap:8px;align-items:center;}
-        .tt-list{margin-top:10px;max-height:520px;overflow:auto;padding-right:4px;}
-        .tt-cat{margin:10px 0 6px;font-weight:700;color:#111827;font-size:13px;text-transform:uppercase;letter-spacing:.03em;}
-        .tt-endpoint{width:100%;text-align:left;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 10px;margin-bottom:8px;background:var(--surface-alt);cursor:pointer;}
-        .tt-endpoint:hover{background:var(--surface-hover);}
-        .tt-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface);margin-right:8px;}
-        .tt-badge.get{border-color:#bfdbfe;background:#eff6ff;}
-        .tt-badge.post{border-color:#bbf7d0;background:#f0fdf4;}
-        .tt-hint{color:var(--text-secondary);font-size:12px;margin-top:4px;}
-        .tt-kv{width:100%;border-collapse:collapse;}
-        .tt-kv th,.tt-kv td{border-bottom:1px solid var(--border-light);padding:8px 6px;vertical-align:top;}
-        .tt-kv th{color:var(--text-primary);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
-        .tt-row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-        .tt-mini{font-size:12px;color:var(--text-secondary);}
-        .tt-note{border:1px dashed var(--border);border-radius:var(--radius-md);padding:10px;background:var(--surface-alt);color:var(--text-primary);}
-        .tt-split{display:grid;grid-template-columns: 1fr 1fr;gap:10px;}
-        @media (max-width: 900px){.tt-split{grid-template-columns:1fr;}}
-    </style>
-
-    <div class="tt-explorer">
-        <div class="tt-panel">
-            <div class="tt-search">
-                <input class="input" id="tt-endpoint-search" placeholder="Search endpoints (e.g. product, orders)">
+    <div class="api-explorer">
+        <div class="api-panel">
+            <div class="api-search">
+                <input class="input" id="api-endpoint-search" placeholder="Search endpoints (e.g. product, orders)">
             </div>
-            <div class="tt-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
+            <div class="api-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
 
-            <div class="tt-list" id="tt-endpoint-list">
-                <div class="tt-cat">Authorization</div>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Authorized Shops","method":"GET","auth":true,"path":"/authorization/202309/shops","desc":"Fetch shops authorized for your app.","params":[]}'><span class="tt-badge get">GET</span><span class="tt-code">/authorization/202309/shops</span><div class="tt-hint">Returns shop_id, shop_cipher, shop_name</div></button>
+            <div class="api-list" id="api-endpoint-list">
+                <div class="api-cat">Authorization</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Authorized Shops","method":"GET","auth":true,"path":"/authorization/202309/shops","desc":"Fetch shops authorized for your app.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/authorization/202309/shops</span><div class="api-hint">Returns shop_id, shop_cipher, shop_name</div></button>
 
-                <div class="tt-cat">Product</div>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Search Products","method":"POST","auth":true,"path":"/product/202309/products/search","desc":"Search products in your shop.","params":[{"k":"page_size","ph":"10"}]}'><span class="tt-badge post">POST</span><span class="tt-code">/product/202309/products/search</span><div class="tt-hint">page_size (body)</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Product Detail","method":"GET","auth":true,"path":"/product/202309/products","desc":"Get details of a specific product.","params":[{"k":"ids","ph":"product_id"}]}'><span class="tt-badge get">GET</span><span class="tt-code">/product/202309/products</span><div class="tt-hint">ids (query param)</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Product Categories","method":"GET","auth":true,"path":"/product/202309/categories","desc":"Get product category tree.","params":[]}'><span class="tt-badge get">GET</span><span class="tt-code">/product/202309/categories</span><div class="tt-hint">Category tree</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Product Attributes","method":"GET","auth":true,"path":"/product/202309/categories/rules","desc":"Get required/optional attributes for a category.","params":[{"k":"category_id","ph":"600001"}]}'><span class="tt-badge get">GET</span><span class="tt-code">/product/202309/categories/rules</span><div class="tt-hint">category_id</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Brands","method":"GET","auth":true,"path":"/product/202309/brands","desc":"Get available brands.","params":[{"k":"page_size","ph":"20"},{"k":"category_id","ph":""}]}'><span class="tt-badge get">GET</span><span class="tt-code">/product/202309/brands</span><div class="tt-hint">page_size, category_id</div></button>
+                <div class="api-cat">Product</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Search Products","method":"POST","auth":true,"path":"/product/202309/products/search","desc":"Search products in your shop.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/202309/products/search</span><div class="api-hint">page_size (body)</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Detail","method":"GET","auth":true,"path":"/product/202309/products","desc":"Get details of a specific product.","params":[{"k":"ids","ph":"product_id"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/products</span><div class="api-hint">ids (query param)</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Categories","method":"GET","auth":true,"path":"/product/202309/categories","desc":"Get product category tree.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/categories</span><div class="api-hint">Category tree</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Attributes","method":"GET","auth":true,"path":"/product/202309/categories/rules","desc":"Get required/optional attributes for a category.","params":[{"k":"category_id","ph":"600001"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/categories/rules</span><div class="api-hint">category_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Brands","method":"GET","auth":true,"path":"/product/202309/brands","desc":"Get available brands.","params":[{"k":"page_size","ph":"20"},{"k":"category_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/brands</span><div class="api-hint">page_size, category_id</div></button>
 
-                <div class="tt-cat">Order</div>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Search Orders","method":"POST","auth":true,"path":"/order/202309/orders/search","desc":"Search orders by date range.","params":[{"k":"page_size","ph":"10"},{"k":"create_time_ge","ph":""},{"k":"create_time_lt","ph":""}]}'><span class="tt-badge post">POST</span><span class="tt-code">/order/202309/orders/search</span><div class="tt-hint">page_size, create_time_ge/lt (unix)</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Order Detail","method":"POST","auth":true,"path":"/order/202309/orders","desc":"Get details of specific orders.","params":[{"k":"order_ids","ph":"[\"order_id\"]"}]}'><span class="tt-badge post">POST</span><span class="tt-code">/order/202309/orders</span><div class="tt-hint">order_ids (body)</div></button>
+                <div class="api-cat">Order</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Search Orders","method":"POST","auth":true,"path":"/order/202309/orders/search","desc":"Search orders by date range.","params":[{"k":"page_size","ph":"10"},{"k":"create_time_ge","ph":""},{"k":"create_time_lt","ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/order/202309/orders/search</span><div class="api-hint">page_size, create_time_ge/lt (unix)</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Order Detail","method":"POST","auth":true,"path":"/order/202309/orders","desc":"Get details of specific orders.","params":[{"k":"order_ids","ph":"[\"order_id\"]"}]}'><span class="api-badge post">POST</span><span class="api-code">/order/202309/orders</span><div class="api-hint">order_ids (body)</div></button>
 
-                <div class="tt-cat">Logistics</div>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Delivery Options","method":"GET","auth":true,"path":"/logistics/202309/delivery_options","desc":"Get available delivery/shipping options.","params":[]}'><span class="tt-badge get">GET</span><span class="tt-code">/logistics/202309/delivery_options</span><div class="tt-hint">Shipping options</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Warehouses","method":"GET","auth":true,"path":"/logistics/202309/warehouses","desc":"Get warehouse list.","params":[]}'><span class="tt-badge get">GET</span><span class="tt-code">/logistics/202309/warehouses</span><div class="tt-hint">Warehouse info</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Shipping Providers","method":"GET","auth":true,"path":"/logistics/202309/shipping_providers","desc":"Get available shipping providers.","params":[{"k":"delivery_option_id","ph":""}]}'><span class="tt-badge get">GET</span><span class="tt-code">/logistics/202309/shipping_providers</span><div class="tt-hint">delivery_option_id</div></button>
+                <div class="api-cat">Logistics</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Delivery Options","method":"GET","auth":true,"path":"/logistics/202309/delivery_options","desc":"Get available delivery/shipping options.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/delivery_options</span><div class="api-hint">Shipping options</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Warehouses","method":"GET","auth":true,"path":"/logistics/202309/warehouses","desc":"Get warehouse list.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/warehouses</span><div class="api-hint">Warehouse info</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Providers","method":"GET","auth":true,"path":"/logistics/202309/shipping_providers","desc":"Get available shipping providers.","params":[{"k":"delivery_option_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/shipping_providers</span><div class="api-hint">delivery_option_id</div></button>
 
-                <div class="tt-cat">Finance</div>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Search Settlements","method":"POST","auth":true,"path":"/finance/202309/settlements/search","desc":"Search financial settlement records.","params":[{"k":"page_size","ph":"10"}]}'><span class="tt-badge post">POST</span><span class="tt-code">/finance/202309/settlements/search</span><div class="tt-hint">page_size</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Payments","method":"POST","auth":true,"path":"/finance/202309/payments/search","desc":"Search payment records.","params":[{"k":"page_size","ph":"10"}]}'><span class="tt-badge post">POST</span><span class="tt-code">/finance/202309/payments/search</span><div class="tt-hint">page_size</div></button>
+                <div class="api-cat">Finance</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Search Settlements","method":"POST","auth":true,"path":"/finance/202309/settlements/search","desc":"Search financial settlement records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/settlements/search</span><div class="api-hint">page_size</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Payments","method":"POST","auth":true,"path":"/finance/202309/payments/search","desc":"Search payment records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/payments/search</span><div class="api-hint">page_size</div></button>
 
-                <div class="tt-cat">Fulfillment</div>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Search Packages","method":"POST","auth":true,"path":"/fulfillment/202309/packages/search","desc":"Search fulfillment packages.","params":[{"k":"page_size","ph":"10"}]}'><span class="tt-badge post">POST</span><span class="tt-code">/fulfillment/202309/packages/search</span><div class="tt-hint">page_size</div></button>
-                <button type="button" class="tt-endpoint" data-ep='{"name":"Get Package Detail","method":"GET","auth":true,"path":"/fulfillment/202309/packages","desc":"Get package details.","params":[{"k":"package_id","ph":""}]}'><span class="tt-badge get">GET</span><span class="tt-code">/fulfillment/202309/packages</span><div class="tt-hint">package_id</div></button>
+                <div class="api-cat">Fulfillment</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Search Packages","method":"POST","auth":true,"path":"/fulfillment/202309/packages/search","desc":"Search fulfillment packages.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/fulfillment/202309/packages/search</span><div class="api-hint">page_size</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Package Detail","method":"GET","auth":true,"path":"/fulfillment/202309/packages","desc":"Get package details.","params":[{"k":"package_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/fulfillment/202309/packages</span><div class="api-hint">package_id</div></button>
             </div>
         </div>
 
-        <div class="tt-panel">
-            <div class="tt-split" style="margin-bottom:10px;">
+        <div class="api-panel">
+            <div class="api-split" style="margin-bottom:10px;">
                 <div>
                     <div style="margin-bottom:0;">
                         <label>Selected Endpoint</label>
-                        <div class="tt-mini" id="tt-ep-name">None selected</div>
-                        <div class="tt-hint" id="tt-ep-desc"></div>
+                        <div class="api-mini" id="tt-ep-name">None selected</div>
+                        <div class="api-hint" id="tt-ep-desc"></div>
                     </div>
                 </div>
-                <div class="tt-note">
+                <div class="api-note">
                     <div class="font-bold" style="margin-bottom:6px;">TikTok API Notes</div>
-                    <div class="tt-mini">
+                    <div class="api-mini">
                         <div>&#8226; TikTok uses path-based versioning: <code>/product/202309/...</code></div>
                         <div>&#8226; Most endpoints require <code>shop_cipher</code> (auto-added if set).</div>
                         <div>&#8226; POST body must be JSON. Query params include <code>app_key</code>, <code>timestamp</code>, <code>sign</code>.</div>
@@ -470,7 +444,7 @@
                 <div class="form-grid">
                     <div>
                         <label>Method</label>
-                        <select name="method" class="input" id="tt-explorer-method">
+                        <select name="method" class="input" id="api-explorer-method">
                             <option value="GET" {{ old('method', 'GET') === 'GET' ? 'selected' : '' }}>GET</option>
                             <option value="POST" {{ old('method') === 'POST' ? 'selected' : '' }}>POST</option>
                         </select>
@@ -478,23 +452,23 @@
                     <div>
                         <label>Auth</label>
                         <label class="d-flex items-center gap-8" style="margin-top:6px;">
-                            <input type="checkbox" name="auth_required" value="1" id="tt-explorer-auth" {{ old('auth_required') ? 'checked' : '' }}>
+                            <input type="checkbox" name="auth_required" value="1" id="api-explorer-auth" {{ old('auth_required') ? 'checked' : '' }}>
                             Use Access Token
                         </label>
-                        <div class="tt-mini">Enable for shop-level endpoints (products, orders, etc.).</div>
+                        <div class="api-mini">Enable for shop-level endpoints (products, orders, etc.).</div>
                     </div>
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>API Path</label>
-                    <input class="input" name="api_path" id="tt-explorer-path" value="{{ old('api_path', '/authorization/202309/shops') }}" placeholder="/authorization/202309/shops">
-                    <div class="tt-mini">Leading slash will be added automatically.</div>
+                    <input class="input" name="api_path" id="api-explorer-path" value="{{ old('api_path', '/authorization/202309/shops') }}" placeholder="/authorization/202309/shops">
+                    <div class="api-mini">Leading slash will be added automatically.</div>
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>Parameters</label>
-                    <div class="tt-mini" style="margin-bottom:8px;">Use this table for key-value parameters. It will generate JSON automatically.</div>
-                    <table class="tt-kv" id="tt-kv-table">
+                    <div class="api-mini" style="margin-bottom:8px;">Use this table for key-value parameters. It will generate JSON automatically.</div>
+                    <table class="api-kv" id="api-kv-table">
                         <thead>
                             <tr>
                                 <th style="width:34%;">Key</th>
@@ -502,20 +476,20 @@
                                 <th style="width:70px;"></th>
                             </tr>
                         </thead>
-                        <tbody id="tt-kv-body"></tbody>
+                        <tbody id="api-kv-body"></tbody>
                     </table>
-                    <div class="tt-row-actions" style="margin-top:10px;">
+                    <div class="api-row-actions" style="margin-top:10px;">
                         <button class="btn small" type="button" id="tt-add-row">Add Param</button>
                         <button class="btn small" type="button" id="tt-sync-to-json">Update JSON</button>
-                        <span class="tt-mini">(Auto updates before submit)</span>
+                        <span class="api-mini">(Auto updates before submit)</span>
                     </div>
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>Params JSON</label>
-                    <textarea class="input tt-code" name="params_json_pretty" id="tt-explorer-params" rows="8" placeholder='{"page_size": 10}'>{{ old('params_json_pretty', '{}') }}</textarea>
-                    <input type="hidden" name="params_json" id="tt-explorer-params-hidden" value="{{ e(old('params_json', '{}')) }}" />
-                    <div class="tt-mini">For POST requests, this becomes the JSON body. For GET, these are added to query params.</div>
+                    <textarea class="input api-code" name="params_json_pretty" id="api-explorer-params" rows="8" placeholder='{"page_size": 10}'>{{ old('params_json_pretty', '{}') }}</textarea>
+                    <input type="hidden" name="params_json" id="api-explorer-params-hidden" value="{{ e(old('params_json', '{}')) }}" />
+                    <div class="api-mini">For POST requests, this becomes the JSON body. For GET, these are added to query params.</div>
                 </div>
 
                 <div class="d-flex gap-8 mt-12">
@@ -526,7 +500,7 @@
             {{-- Preset Packs --}}
             <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
                 <label>Preset Packs</label>
-                <div class="tt-mini" style="margin-bottom:8px;">Quick-run common endpoint groups.</div>
+                <div class="api-mini" style="margin-bottom:8px;">Quick-run common endpoint groups.</div>
                 <div class="d-flex gap-8" style="flex-wrap:wrap;">
                     @foreach(['shops' => 'Shops', 'products' => 'Products', 'orders' => 'Orders', 'logistics' => 'Logistics', 'finance' => 'Finance', 'full' => 'Full'] as $pack => $label)
                         <form method="POST" action="{{ route('tiktok.packs_run') }}" style="display:inline;">
@@ -687,15 +661,15 @@
 (function(){
     function qs(sel){ return document.querySelector(sel); }
 
-    var methodSel = qs('#tt-explorer-method');
-    var authChk   = qs('#tt-explorer-auth');
-    var pathInp   = qs('#tt-explorer-path');
-    var paramsTa  = qs('#tt-explorer-params');
-    var paramsHidden = qs('#tt-explorer-params-hidden');
-    var kvBody    = qs('#tt-kv-body');
+    var methodSel = qs('#api-explorer-method');
+    var authChk   = qs('#api-explorer-auth');
+    var pathInp   = qs('#api-explorer-path');
+    var paramsTa  = qs('#api-explorer-params');
+    var paramsHidden = qs('#api-explorer-params-hidden');
+    var kvBody    = qs('#api-kv-body');
     var epName    = qs('#tt-ep-name');
     var epDesc    = qs('#tt-ep-desc');
-    var epSearch  = qs('#tt-endpoint-search');
+    var epSearch  = qs('#api-endpoint-search');
     var btnAddRow = qs('#tt-add-row');
     var btnSync   = qs('#tt-sync-to-json');
 
@@ -771,7 +745,7 @@
     }
 
     // Click on endpoint buttons
-    document.querySelectorAll('.tt-endpoint').forEach(function(btn){
+    document.querySelectorAll('.api-endpoint').forEach(function(btn){
         btn.addEventListener('click', function(){
             var ep = safeJsonParse(btn.getAttribute('data-ep'));
             if (ep) selectEndpoint(ep);
@@ -782,7 +756,7 @@
     if (epSearch) {
         epSearch.addEventListener('input', function(){
             var q = epSearch.value.toLowerCase();
-            document.querySelectorAll('.tt-endpoint').forEach(function(btn){
+            document.querySelectorAll('.api-endpoint').forEach(function(btn){
                 var text = btn.textContent.toLowerCase();
                 btn.style.display = text.indexOf(q) >= 0 ? '' : 'none';
             });

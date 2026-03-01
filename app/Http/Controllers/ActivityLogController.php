@@ -9,6 +9,16 @@ use Illuminate\Http\Request;
 
 class ActivityLogController extends Controller
 {
+    private const CATEGORIES = [
+        'all'          => ['label' => 'All',            'types' => []],
+        'orders'       => ['label' => 'Orders',         'types' => ['Order']],
+        'purchasing'   => ['label' => 'Purchasing',     'types' => ['PurchaseOrder']],
+        'catalog'      => ['label' => 'Catalog',        'types' => ['Product']],
+        'marketplace'  => ['label' => 'Marketplace',    'types' => ['Shopee Order', 'Shopee Profile', 'Lazada Order', 'Lazada Product']],
+        'users'        => ['label' => 'Users',          'types' => ['User', 'User Group']],
+        'system'       => ['label' => 'System',         'types' => ['Currency', 'Setting', 'Vendor', 'Category', 'Manufacturer', 'Option', 'OrderStatus']],
+    ];
+
     public function index(Request $request)
     {
         $q        = trim((string) $request->get('q', ''));
@@ -17,8 +27,17 @@ class ActivityLogController extends Controller
         $source   = trim((string) $request->get('source', ''));
         $dateFrom = trim((string) $request->get('date_from', ''));
         $dateTo   = trim((string) $request->get('date_to', ''));
+        $category = trim((string) $request->get('category', 'all'));
 
         $query = ActivityLog::query()->orderByDesc('created_at');
+
+        // Category filter
+        if ($category !== 'all' && isset(self::CATEGORIES[$category])) {
+            $types = self::CATEGORIES[$category]['types'];
+            if (!empty($types)) {
+                $query->whereIn('subject_type', $types);
+            }
+        }
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -59,7 +78,19 @@ class ActivityLogController extends Controller
 
         $retentionDays = (int) (Setting::singleton()->activity_log_retention_days ?? 90);
 
-        return view('activity_log.index', compact('logs', 'q', 'action', 'userId', 'source', 'dateFrom', 'dateTo', 'actions', 'users', 'retentionDays'));
+        // Category counts
+        $categoryCounts = [];
+        $categoryCounts['all'] = ActivityLog::count();
+        foreach (self::CATEGORIES as $key => $cat) {
+            if ($key === 'all') continue;
+            if (!empty($cat['types'])) {
+                $categoryCounts[$key] = ActivityLog::whereIn('subject_type', $cat['types'])->count();
+            }
+        }
+
+        $categories = self::CATEGORIES;
+
+        return view('activity_log.index', compact('logs', 'q', 'action', 'userId', 'source', 'dateFrom', 'dateTo', 'actions', 'users', 'retentionDays', 'category', 'categories', 'categoryCounts'));
     }
 
     public function clear()

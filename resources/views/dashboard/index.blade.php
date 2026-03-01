@@ -28,7 +28,7 @@
 </div>
 
 {{-- Stat cards --}}
-<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:20px;">
+<div class="dash-stat-grid">
     <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#3b82f6; --stat-bg:rgba(59,130,246,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
@@ -101,6 +101,46 @@
             </a>
         @endforeach
     @endif
+</div>
+
+{{-- Purchasing stats --}}
+<div class="dash-stats">
+    <a href="{{ route('purchase_orders.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($openPos) }}</div>
+            <div class="dash-stat-label">Open POs</div>
+        </div>
+    </a>
+    <a href="{{ route('purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($pendingDelivery) }}</div>
+            <div class="dash-stat-label">Pending Delivery</div>
+        </div>
+    </a>
+    <a href="{{ route('purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($overduePos) }}</div>
+            <div class="dash-stat-label">Overdue POs</div>
+        </div>
+    </a>
+    <a href="{{ route('purchase_orders.index', ['status' => 'received']) }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">&#8369;{{ number_format($monthlyPoSpend, 2) }}</div>
+            <div class="dash-stat-label">Monthly PO Spend</div>
+        </div>
+    </a>
 </div>
 
 {{-- Sales chart --}}
@@ -343,213 +383,6 @@
         @endif
     </div>
 </div>
-
-<style>
-    /* Today's snapshot bar */
-    .dash-snapshot {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        padding: 12px 20px;
-        background: var(--card-bg);
-        border: 1px solid var(--border-light);
-        border-radius: 10px;
-        margin-bottom: 16px;
-    }
-    .dash-snap-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .dash-snap-item svg { color: var(--text-secondary); flex-shrink: 0; }
-    .dash-snap-value { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-    .dash-snap-label { font-size: 13px; color: var(--text-secondary); }
-    .dash-snap-sep { width: 1px; height: 24px; background: var(--border-light); }
-
-    /* Stat cards */
-    .dash-stat {
-        display: flex;
-        align-items: flex-start;
-        gap: 14px;
-        padding: 20px;
-        background: var(--card-bg);
-        border: 1px solid var(--border-light);
-        border-radius: 12px;
-        text-decoration: none;
-        color: inherit;
-        transition: box-shadow .15s, border-color .15s;
-    }
-    .dash-stat:hover {
-        border-color: var(--stat-accent, var(--accent));
-        box-shadow: 0 4px 16px rgba(0,0,0,.08);
-    }
-    .dash-stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        background: var(--stat-bg, rgba(59,130,246,.1));
-        color: var(--stat-accent, var(--accent));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    .dash-stat-value {
-        font-size: 22px;
-        font-weight: 700;
-        line-height: 1.2;
-        color: var(--text-primary);
-    }
-    .dash-stat-label {
-        font-size: 13px;
-        color: var(--text-secondary);
-        margin-top: 2px;
-    }
-    .dash-stat-breakdown {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px 10px;
-        margin-top: 6px;
-        font-size: 11px;
-        color: var(--text-secondary);
-    }
-
-    /* Quick links */
-    .dash-links {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-    .dash-links a {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
-        border-radius: 8px;
-        text-decoration: none;
-        color: var(--text-primary);
-        font-size: 14px;
-        font-weight: 500;
-        transition: background .12s;
-    }
-    .dash-links a:hover {
-        background: var(--surface-alt);
-    }
-    .dash-links a svg {
-        color: var(--text-secondary);
-        flex-shrink: 0;
-    }
-    .dash-link-count {
-        margin-left: auto;
-        font-size: 12px;
-        font-weight: 600;
-        background: var(--surface-alt);
-        padding: 2px 8px;
-        border-radius: 10px;
-        color: var(--text-secondary);
-    }
-
-    /* Chart range toggle */
-    .chart-range-toggle {
-        display: inline-flex;
-        border: 1px solid var(--border-light);
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    .chart-range-btn {
-        padding: 6px 14px;
-        font-size: 12px;
-        font-weight: 500;
-        border: none;
-        background: transparent;
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: background .15s, color .15s;
-    }
-    .chart-range-btn:not(:last-child) {
-        border-right: 1px solid var(--border-light);
-    }
-    .chart-range-btn:hover {
-        background: var(--surface-alt);
-    }
-    .chart-range-btn.active {
-        background: var(--accent);
-        color: #fff;
-    }
-
-    /* OpenCart sync status */
-    .dash-sync-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-    }
-    .dash-sync-store {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 10px 16px;
-        background: var(--surface-alt);
-        border-radius: 8px;
-        min-width: 200px;
-    }
-    .dash-sync-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 14px;
-    }
-    .dash-sync-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
-    .dash-sync-ok { background: #22c55e; }
-    .dash-sync-warn { background: #f59e0b; }
-    .dash-sync-fail { background: #ef4444; }
-    .dash-sync-idle { background: #94a3b8; }
-    .dash-sync-details {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding-left: 16px;
-    }
-
-    @media (max-width: 900px) {
-        .dash-stat { padding: 16px; }
-        .dash-stat-value { font-size: 18px; }
-    }
-    /* Pie legend */
-    .pie-legend-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 0;
-        border-bottom: 1px solid var(--border-light);
-    }
-    .pie-legend-item:last-child { border-bottom: none; }
-    .pie-legend-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 3px;
-        flex-shrink: 0;
-    }
-    .pie-legend-label { font-weight: 600; flex: 1; }
-    .pie-legend-value { text-align: right; white-space: nowrap; }
-
-    @media (max-width: 768px) {
-        div[style*="grid-template-columns: repeat(4"] {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-        div[style*="grid-template-columns: 1fr 2fr"],
-        div[style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-        }
-        .dash-snapshot { flex-wrap: wrap; gap: 12px; }
-        .dash-snap-sep { display: none; }
-    }
-</style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>

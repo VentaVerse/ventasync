@@ -22,7 +22,7 @@
     <div class="toolbar">
         <form method="GET" action="{{ route('opencart.profiles.products', [$setting->id, $profile->id]) }}">
             <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name / SKU / model" style="min-width:220px;">
-            <button class="btn secondary" type="submit">Search</button>
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 
@@ -128,7 +128,7 @@
 
         <div class="d-flex gap-8 items-center flex-wrap">
             <input type="text" class="input" id="manual-search" placeholder="Search by name or SKU..." style="min-width:260px;">
-            <button type="button" class="btn secondary" id="manual-search-btn">Search</button>
+            <button type="button" class="btn" id="manual-search-btn">Search</button>
             <button type="button" class="btn" id="add-selected-btn">Add Selected</button>
         </div>
 

@@ -1,0 +1,30 @@
+/* ============================================================
+   PAGINATION
+   ============================================================ */
+.pagination-nav { margin-top: 16px; }
+.pagination { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 0; align-items: center; }
+.pagination li a, .pagination li span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+.pagination li a:hover { background: var(--surface-hover); border-color: #cbd5e1; transform: translateY(-1px); }
+.pagination li.active span {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(59,130,246,.25);
+}
+.pagination li.disabled span { color: var(--text-muted); background: var(--surface-alt); cursor: default; }
+nav[role="navigation"] svg { display: none !important; }

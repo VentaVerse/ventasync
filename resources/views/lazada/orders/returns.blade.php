@@ -94,7 +94,7 @@
             <input type="text" name="trade_order_id" value="{{ $filters['trade_order_id'] ?? '' }}" placeholder="Original Order ID" class="input" style="min-width:200px;">
         </div>
         <div style="align-self:flex-end;">
-            <button type="submit" class="btn secondary">Search</button>
+            <button type="submit" class="btn">Search</button>
         </div>
         <div style="align-self:flex-end;">
             <a href="{{ route('lazada.orders.returns', ['per_page' => (int)($per_page ?? 10), 'tab' => $active_tab]) }}" class="btn secondary">Reset</a>

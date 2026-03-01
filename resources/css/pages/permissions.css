@@ -1,0 +1,86 @@
+/* ============================================================
+   PERMISSIONS (user groups)
+   ============================================================ */
+.perm-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+}
+.perm-toolbar-label {
+    font-weight: 700; font-size: 14px; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+}
+.perm-toolbar-actions { display: flex; gap: 6px; }
+.perm-toolbar-actions button {
+    font-size: 12px; padding: 4px 10px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+    cursor: pointer; transition: all var(--transition-fast);
+}
+.perm-toolbar-actions button:hover {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+}
+
+.perm-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; padding: 1px 7px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; line-height: 1.4;
+}
+.perm-badge-gray  { background: #f1f5f9; color: var(--text-muted); }
+.perm-badge-blue  { background: rgba(59,130,246,.12); color: #2563eb; }
+.perm-badge-green { background: rgba(34,197,94,.12); color: #16a34a; }
+
+.perm-group {
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    margin-bottom: 12px; overflow: hidden;
+}
+.perm-group summary {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; cursor: pointer; user-select: none;
+    font-weight: 600; font-size: 13px; color: var(--text-primary);
+    background: var(--surface-alt); list-style: none;
+    transition: background var(--transition-fast);
+}
+.perm-group summary:hover { background: #f1f5f9; }
+.perm-group summary::-webkit-details-marker { display: none; }
+.perm-group summary::before {
+    content: ''; display: inline-block; width: 0; height: 0;
+    border-left: 5px solid var(--text-muted);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform var(--transition-fast); flex-shrink: 0;
+}
+.perm-group[open] > summary::before { transform: rotate(90deg); }
+.perm-group summary .perm-badge { margin-left: auto; }
+.perm-group-body { padding: 0 16px 16px; }
+
+.perm-parent-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; margin-bottom: 12px;
+    background: rgba(59,130,246,.06); border: 1px solid rgba(59,130,246,.15);
+    border-radius: var(--radius-sm);
+}
+.perm-parent-row .perm-parent-info { flex: 1; }
+.perm-parent-row .perm-parent-label { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+.perm-parent-row .perm-parent-desc { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+.perm-parent-row .perm-parent-hint { font-size: 11px; color: var(--accent); font-weight: 500; white-space: nowrap; }
+
+.perm-subgroup-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--text-muted);
+    padding: 4px 0 8px; margin-top: 4px;
+    border-bottom: 1px solid var(--border-light); margin-bottom: 8px;
+}
+
+.perm-children-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
+}
+
+.perm-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); cursor: pointer;
+    transition: all var(--transition-fast); background: var(--surface);
+}
+.perm-card:hover { border-color: var(--accent); background: rgba(59,130,246,.03); }
+.perm-card.is-checked { border-color: var(--accent); background: rgba(59,130,246,.08); }

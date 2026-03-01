@@ -25,7 +25,7 @@
                 <option value="1" {{ ($status ?? '') === '1' ? 'selected' : '' }}>Enabled</option>
                 <option value="0" {{ ($status ?? '') === '0' ? 'selected' : '' }}>Disabled</option>
             </select>
-            <button class="btn secondary" type="submit">Search</button>
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 
@@ -124,7 +124,7 @@
                         $pp   = (string)($or->price_prefix ?? '+');
                         $final = $base + (($pp === '-') ? (-1 * $adj) : $adj);
                     @endphp
-                    <tr class="variant-row">
+                    <tr class="option-row">
                         <td></td>
                         <td></td>
                         <td>

@@ -1,0 +1,106 @@
+/* ============================================================
+   MARKETPLACE COMMON (Shopee / Lazada / TikTok shared styles)
+   ============================================================ */
+
+/* Settings grid (used on all marketplace index pages) */
+.marketplace-settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+@media (max-width: 1024px) {
+    .marketplace-settings-grid { grid-template-columns: 1fr; }
+}
+
+/* Order image preview (zoom on hover) */
+.order-img-wrap { position: relative; cursor: zoom-in; z-index: 1; }
+.order-img-preview {
+    position: fixed; z-index: 9999; pointer-events: none;
+    border-radius: 8px;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.25);
+    overflow: hidden;
+    transform: scale(0.2); opacity: 0;
+    transition: transform 180ms ease, opacity 180ms ease;
+}
+.order-img-preview.visible { transform: scale(1); opacity: 1; }
+.order-img-preview img { display: block; width: 220px; height: 220px; object-fit: cover; }
+
+/* Order option pills */
+.order-option-wrap {
+    margin-top: 6px; display: flex; flex-wrap: wrap;
+    align-items: center; gap: 6px;
+}
+.order-option-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+    text-transform: uppercase; border-radius: 999px; padding: 2px 8px;
+}
+.order-option-label.shopee-label {
+    color: #9a3412; background: #ffedd5; border: 1px solid #fdba74;
+}
+.order-option-label.lazada-label {
+    color: #1e3a5f; background: #dbeafe; border: 1px solid #93c5fd;
+}
+.order-option-pill {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    color: #1e293b; background: #e2e8f0;
+    border-radius: 999px; padding: 2px 10px;
+}
+
+/* Action dropdown items (product tables) */
+.action-item {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 8px 14px;
+    border: none; background: none; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    color: var(--text-primary); text-decoration: none;
+    text-align: left; transition: background var(--transition-fast);
+    white-space: nowrap;
+}
+.action-item:hover { background: var(--surface-hover); }
+.action-item svg { flex-shrink: 0; opacity: .6; }
+.table-wrap.menu-open { overflow: visible; }
+
+/* Bulk loading overlay */
+.bulk-loading-overlay {
+    display: none; position: fixed; inset: 0;
+    z-index: 9999; background: rgba(0,0,0,.35);
+    align-items: center; justify-content: center;
+}
+.bulk-loading-overlay.active { display: flex; }
+.bulk-loading-box {
+    background: var(--surface); border-radius: var(--radius-lg);
+    padding: 28px 36px; box-shadow: var(--shadow-lg);
+    text-align: center; max-width: 320px;
+}
+.bulk-loading-box .spinner {
+    display: inline-block; width: 28px; height: 28px;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+}
+.bulk-loading-box .msg {
+    margin-top: 12px; font-size: 14px;
+    font-weight: 600; color: var(--text-primary);
+}
+
+/* Unmatched product link rows */
+.unmatched-link-row { position: relative; }
+.unmatched-results { top: 100%; left: 0; }
+.unmatched-result-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; cursor: pointer; font-size: 12px;
+    transition: background 0.1s;
+}
+.unmatched-result-item:hover { background: var(--surface-hover); }
+.unmatched-result-item img { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+.unmatched-result-item .result-info { flex: 1; min-width: 0; }
+.unmatched-result-item .result-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unmatched-result-item .result-sku { color: var(--text-muted); font-size: 11px; }
+
+/* Lazada-specific result item (products table) */
+.laz-result-item:hover { background: var(--surface-hover); }
+
+/* Filter grid responsive */
+@media (max-width: 768px) {
+    .card form[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+}

@@ -1,0 +1,56 @@
+/* ============================================================
+   REPORTS (shared across orders, products, payouts)
+   ============================================================ */
+.report-stat-card {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    text-align: center;
+}
+.report-stat-label {
+    font-size: 12px; color: var(--text-secondary);
+    text-transform: uppercase; font-weight: 600;
+    letter-spacing: .5px; margin-bottom: 6px;
+}
+.report-stat-value {
+    font-size: 22px; font-weight: 700; color: var(--text-primary);
+}
+
+/* Sortable headers */
+.th-sort { color: inherit; text-decoration: none; }
+.th-sort:hover { color: var(--accent); }
+
+/* Month group headers (orders report) */
+.month-header {
+    background: var(--surface-alt);
+    position: sticky; top: 41px; z-index: 5;
+}
+.month-header:hover { background: var(--surface-hover, var(--surface-alt)); }
+.month-header td { padding-top: 12px; padding-bottom: 12px; background: inherit; }
+.month-toggle {
+    display: inline-block; width: 16px; font-size: 10px;
+    color: var(--text-secondary); transition: transform .15s ease;
+    margin-right: 4px;
+}
+.month-toggle.open { transform: rotate(90deg); }
+.month-row td:first-child { padding-left: 28px; }
+
+/* Payouts badge color variants (subtle) */
+.badge-green-subtle { background: rgba(34, 197, 94, .15); color: #16a34a; }
+.badge-yellow-subtle { background: rgba(234, 179, 8, .15); color: #b45309; }
+.badge-red-subtle { background: rgba(239, 68, 68, .15); color: #dc2626; }
+
+/* Report responsive */
+@media (max-width: 1024px) {
+    div[style*="grid-template-columns:repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
+    div[style*="grid-template-columns:repeat(6"] { grid-template-columns: repeat(3, 1fr) !important; }
+    div[style*="grid-template-columns:repeat(7"] { grid-template-columns: repeat(4, 1fr) !important; }
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 768px) {
+    div[style*="grid-template-columns:repeat(6"],
+    div[style*="grid-template-columns:repeat(3"],
+    div[style*="grid-template-columns:repeat(7"],
+    div[style*="grid-template-columns:repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
+}

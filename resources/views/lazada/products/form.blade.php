@@ -613,13 +613,6 @@
     </script>
 
     @if($mode === 'create')
-    <style>
-        .laz-pr-item { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:13px; transition:background 0.1s; }
-        .laz-pr-item:hover { background:var(--surface-hover); }
-        .laz-pr-item img { width:32px; height:32px; object-fit:cover; border-radius:3px; flex-shrink:0; }
-        .laz-pr-item .lpi-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .laz-pr-item .lpi-meta { color:var(--text-muted); font-size:11px; }
-    </style>
     <script>
     (function(){
         var searchInput = document.getElementById('lazProductSearch');
@@ -654,11 +647,11 @@
                                 }).join(', ');
                                 optsHtml = '<div style="margin-top:1px;">' + optsHtml + '</div>';
                             }
-                            return '<div class="laz-pr-item" data-pid="' + item.product_id + '" data-name="' + item.name.replace(/"/g, '&quot;') + '" data-sku="' + (item.sku || '') + '" data-image="' + (item.image || '') + '">'
+                            return '<div class="product-result-item" data-pid="' + item.product_id + '" data-name="' + item.name.replace(/"/g, '&quot;') + '" data-sku="' + (item.sku || '') + '" data-image="' + (item.image || '') + '">'
                                 + imgHtml
                                 + '<div style="flex:1; min-width:0;">'
-                                + '<div class="lpi-name">' + item.name + '</div>'
-                                + '<div class="lpi-meta">SKU: ' + (item.sku || '-') + ' | ID: ' + item.product_id + '</div>'
+                                + '<div class="pr-name">' + item.name + '</div>'
+                                + '<div class="pr-meta">SKU: ' + (item.sku || '-') + ' | ID: ' + item.product_id + '</div>'
                                 + optsHtml
                                 + '</div></div>';
                         }).join('');
@@ -669,7 +662,7 @@
         });
 
         resultsDiv.addEventListener('click', function(e) {
-            var item = e.target.closest('.laz-pr-item');
+            var item = e.target.closest('.product-result-item');
             if (!item) return;
             var pid = item.dataset.pid;
             var name = item.dataset.name;

@@ -13,13 +13,13 @@
 
     <div class="toolbar">
         <form method="GET" action="{{ route('manufacturers.index') }}">
-            <div class="ac-wrap" style="position:relative; max-width:420px; width:100%;">
+            <div class="ac-wrap" style="position:relative;">
     <input id="manufacturer-search" class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search manufacturer">
     <div id="manufacturer-search-dd" class="ac-dd hidden">
         <ul id="manufacturer-search-list"></ul>
     </div>
 </div>
-            <button class="btn secondary" type="submit">Search</button>
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 

@@ -1,0 +1,32 @@
+/* ============================================================
+   ORDER TOTALS TABLE (order detail page)
+   ============================================================ */
+.order-totals-table {
+    min-width: 280px;
+    max-width: 360px;
+    border-collapse: collapse;
+}
+.order-totals-table td {
+    padding: 5px 0;
+    font-size: 13.5px;
+}
+.order-totals-table td:first-child {
+    padding-right: 24px;
+}
+.order-totals-row-total td {
+    font-weight: 700;
+    font-size: 15px !important;
+    padding-top: 8px !important;
+    border-top: 2px solid var(--border);
+}
+.order-totals-row-profit td {
+    font-weight: 700;
+    font-size: 15px !important;
+    padding-top: 8px !important;
+    border-top: 2px solid var(--border);
+}
+.order-totals-margin {
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 6px;
+}

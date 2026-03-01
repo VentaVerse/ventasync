@@ -69,11 +69,9 @@
     </div>
 
     {{-- Connection + Auth side-by-side --}}
-    <style>.lz-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;} @media(max-width:1024px){.lz-settings-grid{grid-template-columns:1fr;}}</style>
-
     {{-- ═══ PRODUCTION fields ═══ --}}
     <div id="lz-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
-    <div class="lz-settings-grid">
+    <div class="marketplace-settings-grid">
         {{-- Connection (Live) --}}
         <div class="card" style="margin-bottom:0;">
             <h3 class="section-title mt-0">Connection <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
@@ -194,7 +192,7 @@
 
     {{-- ═══ SANDBOX fields ═══ --}}
     <div id="lz-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
-    <div class="lz-settings-grid">
+    <div class="marketplace-settings-grid">
         {{-- Connection (Sandbox) --}}
         <div class="card" style="margin-bottom:0;">
             <h3 class="section-title mt-0">Connection <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
@@ -512,95 +510,71 @@
     <h3 class="section-title mt-0">API Explorer</h3>
     <div class="hint" style="margin-bottom:10px;">
         Pick an endpoint, fill parameters, and run. Base signing fields are generated automatically.
-        <br><span class="lz-code">E005: Invalid Request Format</span> usually means the endpoint expects a specific payload format (e.g., <span class="lz-code">payload</span> as a JSON/XML string).
+        <br><span class="api-code">E005: Invalid Request Format</span> usually means the endpoint expects a specific payload format (e.g., <span class="api-code">payload</span> as a JSON/XML string).
     </div>
 
-    <style>
-        .lz-code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-        .lz-explorer{display:grid;grid-template-columns: 360px 1fr;gap:14px;margin-top:12px;}
-        @media (max-width: 1100px){.lz-explorer{grid-template-columns:1fr;}}
-        .lz-panel{border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;background:var(--surface);}
-        .lz-search{display:flex;gap:8px;align-items:center;}
-        .lz-list{margin-top:10px;max-height:520px;overflow:auto;padding-right:4px;}
-        .lz-cat{margin:10px 0 6px;font-weight:700;color:#111827;font-size:13px;text-transform:uppercase;letter-spacing:.03em;}
-        .lz-endpoint{width:100%;text-align:left;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 10px;margin-bottom:8px;background:var(--surface-alt);cursor:pointer;}
-        .lz-endpoint:hover{background:var(--surface-hover);}
-        .lz-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface);margin-right:8px;}
-        .lz-badge.get{border-color:#bfdbfe;background:#eff6ff;}
-        .lz-badge.post{border-color:#bbf7d0;background:#f0fdf4;}
-        .lz-hint{color:var(--text-secondary);font-size:12px;margin-top:4px;}
-        .lz-kv{width:100%;border-collapse:collapse;}
-        .lz-kv th,.lz-kv td{border-bottom:1px solid var(--border-light);padding:8px 6px;vertical-align:top;}
-        .lz-kv th{color:var(--text-primary);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
-        .lz-row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-        .lz-mini{font-size:12px;color:var(--text-secondary);}
-        .lz-note{border:1px dashed var(--border);border-radius:var(--radius-md);padding:10px;background:var(--surface-alt);color:var(--text-primary);}
-        .lz-split{display:grid;grid-template-columns: 1fr 1fr;gap:10px;}
-        @media (max-width: 900px){.lz-split{grid-template-columns:1fr;}}
-    </style>
-
-    <div class="lz-explorer">
-        <div class="lz-panel">
-            <div class="lz-search">
-                <input class="input" id="lz-endpoint-search" placeholder="Search endpoints (e.g. product/create, orders/get)">
+    <div class="api-explorer">
+        <div class="api-panel">
+            <div class="api-search">
+                <input class="input" id="api-endpoint-search" placeholder="Search endpoints (e.g. product/create, orders/get)">
             </div>
-            <div class="lz-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
+            <div class="api-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
 
-            <div class="lz-list" id="lz-endpoint-list">
-                <div class="lz-cat">Seller</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Get Seller","method":"GET","auth":true,"path":"/seller/get","desc":"Fetch seller/account info.","params":[]}'><span class="lz-badge get">GET</span><span class="lz-code">/seller/get</span><div class="lz-hint">Seller/account info</div></button>
+            <div class="api-list" id="api-endpoint-list">
+                <div class="api-cat">Seller</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Seller","method":"GET","auth":true,"path":"/seller/get","desc":"Fetch seller/account info.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/seller/get</span><div class="api-hint">Seller/account info</div></button>
 
-                <div class="lz-cat">Catalog</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Category Tree","method":"GET","auth":false,"path":"/category/tree/get","desc":"Fetch category tree.","params":[]}'><span class="lz-badge get">GET</span><span class="lz-code">/category/tree/get</span><div class="lz-hint">Public</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Category Attributes","method":"GET","auth":false,"path":"/category/attributes/get","desc":"Get attributes for a primary category.","params":[{"k":"primary_category_id","req":true,"ph":"9257"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/category/attributes/get</span><div class="lz-hint">Requires primary_category_id</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Brands Query","method":"GET","auth":false,"path":"/category/brands/query","desc":"Brands list (uses startRow/pageSize internally).","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"50"},{"k":"brand_name","req":false,"ph":"Morley"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/category/brands/query</span><div class="lz-hint">Paging + optional brand_name</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Products (List)","method":"GET","auth":true,"path":"/products/get","desc":"List products.","params":[{"k":"filter","req":false,"ph":"all"},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/products/get</span><div class="lz-hint">Auth required</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"QC Status","method":"GET","auth":true,"path":"/product/qc/status/get","desc":"QC status by seller_sku.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/product/qc/status/get</span><div class="lz-hint">seller_sku</div></button>
+                <div class="api-cat">Catalog</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Category Tree","method":"GET","auth":false,"path":"/category/tree/get","desc":"Fetch category tree.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/category/tree/get</span><div class="api-hint">Public</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Category Attributes","method":"GET","auth":false,"path":"/category/attributes/get","desc":"Get attributes for a primary category.","params":[{"k":"primary_category_id","req":true,"ph":"9257"}]}'><span class="api-badge get">GET</span><span class="api-code">/category/attributes/get</span><div class="api-hint">Requires primary_category_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Brands Query","method":"GET","auth":false,"path":"/category/brands/query","desc":"Brands list (uses startRow/pageSize internally).","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"50"},{"k":"brand_name","req":false,"ph":"Morley"}]}'><span class="api-badge get">GET</span><span class="api-code">/category/brands/query</span><div class="api-hint">Paging + optional brand_name</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Products (List)","method":"GET","auth":true,"path":"/products/get","desc":"List products.","params":[{"k":"filter","req":false,"ph":"all"},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="api-badge get">GET</span><span class="api-code">/products/get</span><div class="api-hint">Auth required</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"QC Status","method":"GET","auth":true,"path":"/product/qc/status/get","desc":"QC status by seller_sku.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/qc/status/get</span><div class="api-hint">seller_sku</div></button>
 
-                <div class="lz-cat">Products</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Create Product","method":"POST","auth":true,"path":"/product/create","desc":"Create product. Lazada expects payload as a JSON/XML string (depends on API).","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/create</span><div class="lz-hint">payload required</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Update Product","method":"POST","auth":true,"path":"/product/update","desc":"Update product. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/update</span><div class="lz-hint">payload required</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Remove Product","method":"POST","auth":true,"path":"/product/remove","desc":"Remove product/SKUs. Lazada expects seller_sku_list and/or sku_id_list as JSON-array strings (max 50).","params":[{"k":"seller_sku_list","req":false,"ph":"[\\\"test00111\\\",\\\"test00222\\\"]"},{"k":"sku_id_list","req":false,"ph":"[\\\"SkuId_123_456\\\",\\\"SkuId_123_789\\\"]"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/remove</span><div class="lz-hint">seller_sku_list / sku_id_list</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Update Price/Qty","method":"POST","auth":true,"path":"/product/price_quantity/update","desc":"Update price + quantity.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"},{"k":"price","req":true,"ph":"999"},{"k":"quantity","req":true,"ph":"10"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/product/price_quantity/update</span><div class="lz-hint">seller_sku, price, quantity</div></button>
+                <div class="api-cat">Products</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Create Product","method":"POST","auth":true,"path":"/product/create","desc":"Create product. Lazada expects payload as a JSON/XML string (depends on API).","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/create</span><div class="api-hint">payload required</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Update Product","method":"POST","auth":true,"path":"/product/update","desc":"Update product. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/update</span><div class="api-hint">payload required</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Remove Product","method":"POST","auth":true,"path":"/product/remove","desc":"Remove product/SKUs. Lazada expects seller_sku_list and/or sku_id_list as JSON-array strings (max 50).","params":[{"k":"seller_sku_list","req":false,"ph":"[\\\"test00111\\\",\\\"test00222\\\"]"},{"k":"sku_id_list","req":false,"ph":"[\\\"SkuId_123_456\\\",\\\"SkuId_123_789\\\"]"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/remove</span><div class="api-hint">seller_sku_list / sku_id_list</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Update Price/Qty","method":"POST","auth":true,"path":"/product/price_quantity/update","desc":"Update price + quantity.","params":[{"k":"seller_sku","req":true,"ph":"MY-SKU"},{"k":"price","req":true,"ph":"999"},{"k":"quantity","req":true,"ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/price_quantity/update</span><div class="api-hint">seller_sku, price, quantity</div></button>
 
-                <div class="lz-cat">Orders</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Orders (Range)","method":"GET","auth":true,"path":"/orders/get","desc":"Orders list.","params":[{"k":"update_after","req":false,"ph":""},{"k":"sort_direction","req":false,"ph":"DESC"},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/orders/get</span><div class="lz-hint">update_after, limit, offset</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Order (Single)","method":"GET","auth":true,"path":"/order/get","desc":"Fetch one order.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/get</span><div class="lz-hint">order_id</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Order Items","method":"GET","auth":true,"path":"/order/items/get","desc":"Items for an order.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/items/get</span><div class="lz-hint">order_id</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Pack Order","method":"POST","auth":true,"path":"/order/pack","desc":"Pack order items.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"order_item_ids","req":true,"ph":"<comma-separated>"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/order/pack</span><div class="lz-hint">delivery_type, shipping_provider, order_item_ids</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Ready To Ship (RTS)","method":"POST","auth":true,"path":"/order/rts","desc":"Mark packed items as ready to ship.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"tracking_number","req":false,"ph":""},{"k":"order_item_ids","req":true,"ph":"<comma-separated>"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/order/rts</span><div class="lz-hint">delivery_type, shipping_provider, order_item_ids</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Get Shipping Label (AWB)","method":"GET","auth":true,"path":"/order/package/document/get","desc":"Fetch shipping label/document for an order.","params":[{"k":"order_id","req":true,"ph":"123"},{"k":"doc_type","req":false,"ph":"shippingLabel"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/package/document/get</span><div class="lz-hint">order_id, doc_type</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Cancel Order Item","method":"POST","auth":true,"path":"/order/cancel","desc":"Cancel an order item.","params":[{"k":"reason_id","req":true,"ph":""},{"k":"order_item_id","req":true,"ph":""},{"k":"reason_detail","req":false,"ph":""}]}'><span class="lz-badge post">POST</span><span class="lz-code">/order/cancel</span><div class="lz-hint">reason_id, order_item_id</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Validate Cancel","method":"GET","auth":true,"path":"/order/reverse/cancel/validate","desc":"Validate whether an order can be cancelled.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/reverse/cancel/validate</span><div class="lz-hint">order_id</div></button>
+                <div class="api-cat">Orders</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Orders (Range)","method":"GET","auth":true,"path":"/orders/get","desc":"Orders list.","params":[{"k":"update_after","req":false,"ph":""},{"k":"sort_direction","req":false,"ph":"DESC"},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="api-badge get">GET</span><span class="api-code">/orders/get</span><div class="api-hint">update_after, limit, offset</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Order (Single)","method":"GET","auth":true,"path":"/order/get","desc":"Fetch one order.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/get</span><div class="api-hint">order_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Order Items","method":"GET","auth":true,"path":"/order/items/get","desc":"Items for an order.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/items/get</span><div class="api-hint">order_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Pack Order","method":"POST","auth":true,"path":"/order/pack","desc":"Pack order items.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"order_item_ids","req":true,"ph":"<comma-separated>"}]}'><span class="api-badge post">POST</span><span class="api-code">/order/pack</span><div class="api-hint">delivery_type, shipping_provider, order_item_ids</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Ready To Ship (RTS)","method":"POST","auth":true,"path":"/order/rts","desc":"Mark packed items as ready to ship.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"tracking_number","req":false,"ph":""},{"k":"order_item_ids","req":true,"ph":"<comma-separated>"}]}'><span class="api-badge post">POST</span><span class="api-code">/order/rts</span><div class="api-hint">delivery_type, shipping_provider, order_item_ids</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Label (AWB)","method":"GET","auth":true,"path":"/order/package/document/get","desc":"Fetch shipping label/document for an order.","params":[{"k":"order_id","req":true,"ph":"123"},{"k":"doc_type","req":false,"ph":"shippingLabel"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/package/document/get</span><div class="api-hint">order_id, doc_type</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Cancel Order Item","method":"POST","auth":true,"path":"/order/cancel","desc":"Cancel an order item.","params":[{"k":"reason_id","req":true,"ph":""},{"k":"order_item_id","req":true,"ph":""},{"k":"reason_detail","req":false,"ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/order/cancel</span><div class="api-hint">reason_id, order_item_id</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Validate Cancel","method":"GET","auth":true,"path":"/order/reverse/cancel/validate","desc":"Validate whether an order can be cancelled.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/reverse/cancel/validate</span><div class="api-hint">order_id</div></button>
 
-                <div class="lz-cat">Images</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Image Upload (Base64)","method":"POST","auth":true,"path":"/image/upload","desc":"Upload base64 image (returns Lazada inlink).","params":[{"k":"image","req":true,"ph":"<base64>"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/image/upload</span><div class="lz-hint">image (base64)</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Images Migrate","method":"POST","auth":true,"path":"/images/migrate","desc":"Migrate public URLs to Lazada-hosted images. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="lz-badge post">POST</span><span class="lz-code">/images/migrate</span><div class="lz-hint">payload required</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Image Response Get","method":"GET","auth":true,"path":"/image/response/get","desc":"Fetch migrate results by batch_id.","params":[{"k":"batch_id","req":true,"ph":"<batch_id>"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/image/response/get</span><div class="lz-hint">batch_id</div></button>
+                <div class="api-cat">Images</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Image Upload (Base64)","method":"POST","auth":true,"path":"/image/upload","desc":"Upload base64 image (returns Lazada inlink).","params":[{"k":"image","req":true,"ph":"<base64>"}]}'><span class="api-badge post">POST</span><span class="api-code">/image/upload</span><div class="api-hint">image (base64)</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Images Migrate","method":"POST","auth":true,"path":"/images/migrate","desc":"Migrate public URLs to Lazada-hosted images. payload required.","params":[{"k":"payload","req":true,"type":"payload"}]}'><span class="api-badge post">POST</span><span class="api-code">/images/migrate</span><div class="api-hint">payload required</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Image Response Get","method":"GET","auth":true,"path":"/image/response/get","desc":"Fetch migrate results by batch_id.","params":[{"k":"batch_id","req":true,"ph":"<batch_id>"}]}'><span class="api-badge get">GET</span><span class="api-code">/image/response/get</span><div class="api-hint">batch_id</div></button>
 
-                <div class="lz-cat">Finance</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Transaction Details","method":"GET","auth":true,"path":"/finance/transaction/details/get","desc":"Transaction/fees details.","params":[{"k":"start_time","req":true,"ph":""},{"k":"end_time","req":true,"ph":""},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/finance/transaction/details/get</span><div class="lz-hint">start_time, end_time</div></button>
+                <div class="api-cat">Finance</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Transaction Details","method":"GET","auth":true,"path":"/finance/transaction/details/get","desc":"Transaction/fees details.","params":[{"k":"start_time","req":true,"ph":""},{"k":"end_time","req":true,"ph":""},{"k":"limit","req":false,"ph":"10"},{"k":"offset","req":false,"ph":"0"}]}'><span class="api-badge get">GET</span><span class="api-code">/finance/transaction/details/get</span><div class="api-hint">start_time, end_time</div></button>
 
-                <div class="lz-cat">Returns / Reverse Orders</div>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Reverse Orders List","method":"GET","auth":true,"path":"/reverse/getreverseordersforseller","desc":"List reverse orders (returns/refunds) for seller with pagination.","params":[{"k":"pageNo","req":false,"ph":"1"},{"k":"pageSize","req":false,"ph":"50"},{"k":"create_time_start","req":false,"ph":""},{"k":"create_time_end","req":false,"ph":""}]}'><span class="lz-badge get">GET</span><span class="lz-code">/reverse/getreverseordersforseller</span><div class="lz-hint">pageNo, pageSize, date filters</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Reverse Order Detail","method":"GET","auth":true,"path":"/order/reverse/return/detail/list","desc":"Get detail for a specific reverse order.","params":[{"k":"reverseOrderId","req":true,"ph":""}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/reverse/return/detail/list</span><div class="lz-hint">reverseOrderId</div></button>
-                <button type="button" class="lz-endpoint" data-ep='{"name":"Reverse Order History","method":"GET","auth":true,"path":"/order/reverse/return/history/list","desc":"Communication history for a reverse order line.","params":[{"k":"reverseOrderLineId","req":true,"ph":""},{"k":"pageSize","req":false,"ph":"10"},{"k":"pageNumber","req":false,"ph":"1"}]}'><span class="lz-badge get">GET</span><span class="lz-code">/order/reverse/return/history/list</span><div class="lz-hint">reverseOrderLineId</div></button>
+                <div class="api-cat">Returns / Reverse Orders</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Reverse Orders List","method":"GET","auth":true,"path":"/reverse/getreverseordersforseller","desc":"List reverse orders (returns/refunds) for seller with pagination.","params":[{"k":"pageNo","req":false,"ph":"1"},{"k":"pageSize","req":false,"ph":"50"},{"k":"create_time_start","req":false,"ph":""},{"k":"create_time_end","req":false,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/reverse/getreverseordersforseller</span><div class="api-hint">pageNo, pageSize, date filters</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Reverse Order Detail","method":"GET","auth":true,"path":"/order/reverse/return/detail/list","desc":"Get detail for a specific reverse order.","params":[{"k":"reverseOrderId","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/order/reverse/return/detail/list</span><div class="api-hint">reverseOrderId</div></button>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Reverse Order History","method":"GET","auth":true,"path":"/order/reverse/return/history/list","desc":"Communication history for a reverse order line.","params":[{"k":"reverseOrderLineId","req":true,"ph":""},{"k":"pageSize","req":false,"ph":"10"},{"k":"pageNumber","req":false,"ph":"1"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/reverse/return/history/list</span><div class="api-hint">reverseOrderLineId</div></button>
             </div>
         </div>
 
-        <div class="lz-panel">
-            <div class="lz-split" style="margin-bottom:10px;">
+        <div class="api-panel">
+            <div class="api-split" style="margin-bottom:10px;">
                 <div>
                     <div style="margin-bottom:0;">
                         <label>Selected Endpoint</label>
-                        <div class="lz-mini" id="lz-ep-name">None selected</div>
-                        <div class="lz-hint" id="lz-ep-desc"></div>
+                        <div class="api-mini" id="lz-ep-name">None selected</div>
+                        <div class="api-hint" id="lz-ep-desc"></div>
                     </div>
                 </div>
-                <div class="lz-note">
+                <div class="api-note">
                     <div class="font-bold" style="margin-bottom:6px;">Common pitfalls</div>
-                    <div class="lz-mini">
-                        <div>&#8226; <span class="lz-code">payload</span> must be a single string. If you paste JSON object/array, the server will encode it, but Lazada may require a specific structure.</div>
+                    <div class="api-mini">
+                        <div>&#8226; <span class="api-code">payload</span> must be a single string. If you paste JSON object/array, the server will encode it, but Lazada may require a specific structure.</div>
                         <div>&#8226; If you see repeated timestamps, you're reading an old log entry. Always check the newest row.</div>
                     </div>
                 </div>
@@ -623,20 +597,20 @@
                             <input type="checkbox" name="auth_required" value="1" id="lazada-explorer-auth" {{ old('auth_required') ? 'checked' : '' }}>
                             Use Access Token
                         </label>
-                        <div class="lz-mini">Enable for seller/product/order/finance endpoints.</div>
+                        <div class="api-mini">Enable for seller/product/order/finance endpoints.</div>
                     </div>
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>API Path</label>
                     <input class="input" name="api_path" id="lazada-explorer-path" value="{{ old('api_path', '/seller/get') }}" placeholder="/seller/get">
-                    <div class="lz-mini">Leading slash will be added automatically.</div>
+                    <div class="api-mini">Leading slash will be added automatically.</div>
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>Parameters</label>
-                    <div class="lz-mini" style="margin-bottom:8px;">Use this table for most calls. It will generate JSON automatically.</div>
-                    <table class="lz-kv" id="lz-kv-table">
+                    <div class="api-mini" style="margin-bottom:8px;">Use this table for most calls. It will generate JSON automatically.</div>
+                    <table class="api-kv" id="api-kv-table">
                         <thead>
                             <tr>
                                 <th style="width:34%;">Key</th>
@@ -644,21 +618,21 @@
                                 <th style="width:70px;"></th>
                             </tr>
                         </thead>
-                        <tbody id="lz-kv-body"></tbody>
+                        <tbody id="api-kv-body"></tbody>
                     </table>
-                    <div class="lz-row-actions" style="margin-top:10px;">
+                    <div class="api-row-actions" style="margin-top:10px;">
                         <button class="btn small" type="button" id="lz-add-row">Add Param</button>
                         <button class="btn small hidden" type="button" id="lz-use-sample-payload">Insert Sample Payload</button>
                         <button class="btn small" type="button" id="lz-sync-to-json">Update JSON</button>
-                        <span class="lz-mini">(Auto updates before submit)</span>
+                        <span class="api-mini">(Auto updates before submit)</span>
                     </div>
                 </div>
 
                 <div style="margin-top:12px;">
                     <label>Params JSON</label>
-                    <textarea class="input lz-code" name="params_json_pretty" id="lazada-explorer-params" rows="10" placeholder='{"limit":10,"offset":0}'>{{ old('params_json_pretty', "{\n  \"payload\": {\n    \"Request\": {}\n  }\n}") }}</textarea>
+                    <textarea class="input api-code" name="params_json_pretty" id="lazada-explorer-params" rows="10" placeholder='{"limit":10,"offset":0}'>{{ old('params_json_pretty', "{\n  \"payload\": {\n    \"Request\": {}\n  }\n}") }}</textarea>
                     <input type="hidden" name="params_json" id="lazada-explorer-params-hidden" value="{{ e(old('params_json', '{"payload":"<xml_or_json_payload_here>"}')) }}" />
-                    <div class="lz-mini">If you prefer, edit JSON directly. The table can be rebuilt from JSON using "Update JSON".</div>
+                    <div class="api-mini">If you prefer, edit JSON directly. The table can be rebuilt from JSON using "Update JSON".</div>
                 </div>
 
                 <div class="d-flex gap-8 mt-12">
@@ -833,10 +807,10 @@ function lazCopy(id, btn) {
     var pathInp   = qs('#lazada-explorer-path');
     var paramsTa  = qs('#lazada-explorer-params');
     var paramsHidden = qs('#lazada-explorer-params-hidden');
-    var kvBody    = qs('#lz-kv-body');
+    var kvBody    = qs('#api-kv-body');
     var epName    = qs('#lz-ep-name');
     var epDesc    = qs('#lz-ep-desc');
-    var epSearch  = qs('#lz-endpoint-search');
+    var epSearch  = qs('#api-endpoint-search');
     var btnAddRow = qs('#lz-add-row');
     var btnSync   = qs('#lz-sync-to-json');
     var btnSample = qs('#lz-use-sample-payload');
@@ -904,7 +878,7 @@ function lazCopy(id, btn) {
         var v;
         if ((key || '').toLowerCase() === 'payload') {
             v = document.createElement('textarea');
-            v.className = 'input lz-code'; v.rows = 6; v.placeholder = 'payload (JSON/XML string)';
+            v.className = 'input api-code'; v.rows = 6; v.placeholder = 'payload (JSON/XML string)';
             if (isObject(value)) { v.value = JSON.stringify(value, null, 2); } else { v.value = value || ''; }
         } else {
             v = document.createElement('input');
@@ -923,7 +897,7 @@ function lazCopy(id, btn) {
 
     function tableToObject(){
         var obj = {};
-        qsa('#lz-kv-body tr').forEach(function(tr){
+        qsa('#api-kv-body tr').forEach(function(tr){
             var keyEl = tr.querySelector('td:nth-child(1) .input');
             var valEl = tr.querySelector('td:nth-child(2) .input, td:nth-child(2) textarea');
             var k = keyEl ? String(keyEl.value || '').trim() : '';
@@ -981,7 +955,7 @@ function lazCopy(id, btn) {
         return '{\n  "Request": {}\n}';
     }
 
-    qsa('.lz-endpoint').forEach(function(btn){
+    qsa('.api-endpoint').forEach(function(btn){
         btn.addEventListener('click', function(){
             var ep = safeJsonParse(btn.getAttribute('data-ep') || '{}') || {};
             selectEndpoint(ep);
@@ -991,7 +965,7 @@ function lazCopy(id, btn) {
     if (epSearch) {
         epSearch.addEventListener('input', function(){
             var q = String(epSearch.value || '').toLowerCase();
-            qsa('.lz-endpoint').forEach(function(btn){
+            qsa('.api-endpoint').forEach(function(btn){
                 var raw = (btn.getAttribute('data-ep') || '').toLowerCase();
                 var t = (btn.textContent || '').toLowerCase() + ' ' + raw;
                 btn.style.display = t.indexOf(q) >= 0 ? '' : 'none';
@@ -1008,7 +982,7 @@ function lazCopy(id, btn) {
             if (p === '/product/remove') {
                 var sampleSellerSkuList = '["test00111","test00222","test00333"]';
                 var sampleSkuIdList = '["SkuId_1269656765_5230534246","SkuId_1269656765_5230534247","SkuId_1269656765_5230534248"]';
-                qsa('#lz-kv-body tr').forEach(function(tr){
+                qsa('#api-kv-body tr').forEach(function(tr){
                     var keyEl = tr.querySelector('td:nth-child(1) .input');
                     if (!keyEl) return;
                     var k = String(keyEl.value || '').trim();
@@ -1018,7 +992,7 @@ function lazCopy(id, btn) {
                     if (k === 'sku_id_list') valEl.value = sampleSkuIdList;
                 });
             } else {
-                qsa('#lz-kv-body tr').forEach(function(tr){
+                qsa('#api-kv-body tr').forEach(function(tr){
                     var keyEl = tr.querySelector('td:nth-child(1) .input');
                     if (!keyEl) return;
                     if (String(keyEl.value || '').trim().toLowerCase() !== 'payload') return;
@@ -1034,7 +1008,7 @@ function lazCopy(id, btn) {
 
     try { syncHiddenFromPretty(); rebuildTableFromJson(); syncToJson(); } catch(e) {}
 
-    var kvBody2 = qs('#lz-kv-body');
+    var kvBody2 = qs('#api-kv-body');
     if (kvBody2) {
         kvBody2.addEventListener('input', function(e){
             var t = e && e.target ? e.target : null;

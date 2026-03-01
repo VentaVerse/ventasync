@@ -440,7 +440,6 @@
         </form>
     </div>
 </div>
-<style>@keyframes spSpinShow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var shipModal = document.getElementById('spShipModal');
@@ -680,14 +679,6 @@ document.addEventListener('DOMContentLoaded', function () {
 @endif
 
 @if($tracking !== '')
-<style>
-.tracking-timeline { position: relative; padding-left: 24px; }
-.tracking-timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
-.tracking-event { position: relative; padding-bottom: 16px; }
-.tracking-event:last-child { padding-bottom: 0; }
-.tracking-event::before { content: ''; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--border); border: 2px solid var(--bg); }
-.tracking-event:first-child::before { background: var(--accent); }
-</style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var btn = document.getElementById('btnLoadTracking');

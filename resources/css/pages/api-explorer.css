@@ -1,0 +1,34 @@
+/* ============================================================
+   API EXPLORER (unified for Shopee / Lazada / TikTok)
+   Replaces: .sp-*, .lz-*, .tt-* prefixed classes
+   ============================================================ */
+.api-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.api-explorer { display: grid; grid-template-columns: 360px 1fr; gap: 14px; margin-top: 12px; }
+@media (max-width: 1100px) { .api-explorer { grid-template-columns: 1fr; } }
+.api-panel { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; background: var(--surface); }
+.api-search { display: flex; gap: 8px; align-items: center; }
+.api-list { margin-top: 10px; max-height: 520px; overflow: auto; padding-right: 4px; }
+.api-cat { margin: 10px 0 6px; font-weight: 700; color: #111827; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; }
+.api-endpoint {
+    width: 100%; text-align: left;
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: 10px 10px; margin-bottom: 8px;
+    background: var(--surface-alt); cursor: pointer;
+}
+.api-endpoint:hover { background: var(--surface-hover); }
+.api-badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px;
+    border-radius: 999px; border: 1px solid var(--border);
+    background: var(--surface); margin-right: 8px;
+}
+.api-badge.get { border-color: #bfdbfe; background: #eff6ff; }
+.api-badge.post { border-color: #bbf7d0; background: #f0fdf4; }
+.api-hint { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+.api-kv { width: 100%; border-collapse: collapse; }
+.api-kv th, .api-kv td { border-bottom: 1px solid var(--border-light); padding: 8px 6px; vertical-align: top; }
+.api-kv th { color: var(--text-primary); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+.api-row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.api-mini { font-size: 12px; color: var(--text-secondary); }
+.api-note { margin-top: 10px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 12.5px; color: #92400e; }
+.api-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 900px) { .api-split { grid-template-columns: 1fr; } }

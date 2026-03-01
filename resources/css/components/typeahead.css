@@ -1,0 +1,71 @@
+/* ============================================================
+   TYPEAHEAD / AUTOCOMPLETE
+   ============================================================ */
+.typeahead { position: relative; }
+.typeahead-list {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 240px;
+    overflow: auto;
+    z-index: 50;
+    display: none;
+}
+.typeahead-list button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--text-primary);
+    transition: background var(--transition-fast);
+}
+.typeahead-list button:hover { background: var(--surface-hover); }
+
+/* Multi-select tag chips */
+.tag-container {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 6px; min-height: 0;
+}
+.tag-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; background: rgba(59,130,246,.1);
+    border: 1px solid rgba(59,130,246,.2); border-radius: 99px;
+    font-size: 12.5px; font-weight: 500; color: #1d4ed8;
+}
+.tag-remove {
+    background: none; border: none; cursor: pointer;
+    font-size: 15px; line-height: 1; color: #3b82f6;
+    padding: 0 0 0 2px; font-weight: 700;
+}
+.tag-remove:hover { color: #dc2626; }
+
+.ac-dd {
+    position: absolute;
+    left: 0; right: 0;
+    top: 100%;
+    margin-top: 6px;
+    background: #111827;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    z-index: 50;
+    max-height: 260px;
+    overflow: auto;
+}
+.ac-dd ul { list-style: none; margin: 0; padding: 6px; }
+.ac-dd li {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: #e5e7eb;
+    font-size: 14px;
+    transition: background var(--transition-fast);
+}
+.ac-dd li:hover { background: rgba(255,255,255,.08); }

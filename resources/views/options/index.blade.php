@@ -14,7 +14,7 @@
     <div class="toolbar">
         <form method="GET" action="{{ route('options.index') }}">
             <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search option">
-            <button class="btn secondary" type="submit">Search</button>
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 

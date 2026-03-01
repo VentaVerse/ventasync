@@ -39,7 +39,7 @@
                 <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>Variant</th>
+                    <th>Option</th>
                     <th class="text-right">Before</th>
                     <th class="text-right">Change</th>
                     <th class="text-right">After</th>

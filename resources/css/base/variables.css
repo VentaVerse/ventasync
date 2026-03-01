@@ -1,0 +1,32 @@
+/* --- CSS Custom Properties --- */
+:root {
+    --sidebar-w: 260px;
+    --bg: #0b1120;
+    --bg2: #101827;
+    --bg3: #1e293b;
+    --surface: #ffffff;
+    --surface-hover: #f8fafc;
+    --surface-alt: #f8fafc;
+    --border: #e2e8f0;
+    --border-light: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-light: rgba(59,130,246,.08);
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.12);
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 400ms cubic-bezier(.4,0,.2,1);
+}
