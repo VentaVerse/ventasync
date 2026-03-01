@@ -52,9 +52,38 @@ This ERP centralizes catalog management, order processing, stock tracking, and s
 
 ### User Management
 - Users with role-based access via User Groups
-- Granular permissions: `manage_products`, `manage_orders`, `manage_reports`, `manage_marketplace_api`, `manage_activity_log`, etc.
+- Granular permissions: `manage_products`, `manage_orders`, `manage_reports`, `manage_marketplace_api`, `manage_activity_log`, `manage_purchasing`, etc.
 - Activity Log — audit trail of user actions across the system
 - Last login tracking
+
+### Purchasing & Procurement
+- **Purchase Orders** — Full PO lifecycle: draft → approved → ordered → partially received → received (+ cancelled)
+- Auto-generated PO numbers (`PO{YYMM}-{NNNN}`)
+- Multi-currency support with PHP equivalent display and live conversion
+- Per-line discounts (percentage or fixed amount)
+- PDF generation and email to vendors
+- Drag-and-drop line item reordering
+- Smart Save & Approve flow with unsaved-changes detection
+- **Option-Level PO Items** — Add individual product options as separate line items with direct stock updates on receive
+- **Stock Auto-Update on Receive** — Automatic quantity updates for simple products and option-level items; manual allocation for legacy items
+- **Cost Auto-Update on Receive** — Optionally update product cost price from PO unit price with currency conversion
+- **Payment Tracking** — Record payments against POs with automatic status (unpaid/partial/paid) and due date calculation from vendor terms
+- **PO Status Timeline** — Color-coded audit trail of all PO actions (create, approve, order, receive, email, payment)
+- **File Attachments** — Upload invoices, receipts, and documents to POs (PDF, images, Office files)
+- **Reorder Suggestions** — Products below reorder level, filtered by vendor/category, with bulk PO creation
+- **Duplicate PO** — Clone existing POs as new drafts
+- **Dashboard Widget** — Open POs, pending delivery, overdue POs, and monthly spend stats
+
+### Vendor Management
+- Vendor CRUD with contact info, payment terms, and email preferences
+- Per-product vendor pricing with currency and minimum quantity
+- Per-option vendor pricing — different vendors and prices for each product option value
+- Inline-editable vendor pricing table with collapsible vendor groups
+- Bulk vendor assignment with "Copy first row" shortcut
+
+### Currency Management
+- Currency CRUD with exchange rates
+- Used across purchase orders for multi-currency procurement
 
 ### Other
 - Global search across products, orders, categories, and manufacturers
@@ -151,7 +180,8 @@ app/
 │   └── Auth/               # Authentication controllers
 ├── Models/
 │   ├── Admin/              # User groups, permissions
-│   └── Catalog/            # Products, orders, categories (prefixed tables)
+│   ├── Catalog/            # Products, orders, categories (prefixed tables)
+│   └── Purchasing/         # PurchaseOrder, Vendor, Currency, PO items/logs/payments/attachments
 ├── Services/
 │   ├── Lazada/             # Lazada API client
 │   ├── OpenCart/            # OpenCart sync services
@@ -168,6 +198,9 @@ resources/views/
 ├── dashboard/              # Main dashboard
 ├── products/               # Product CRUD, sales history, stock history
 ├── orders/                 # Order list and detail
+├── purchase_orders/        # PO lifecycle (create, edit, show, receive, PDF, reorder)
+├── vendors/                # Vendor management
+├── currencies/             # Currency management
 ├── reports/                # Profitability, fees, inventory reports
 ├── lazada/                 # Lazada management pages
 ├── shopee/                 # Shopee management pages
@@ -179,6 +212,7 @@ resources/views/
 ├── users/                  # User management
 ├── user_groups/            # Role/permission management
 ├── activity_log/           # Activity audit log
+├── emails/                 # Email templates (PO to vendor)
 ├── settings/               # Application settings
 └── layouts/                # App layout and sidebar
 ```
