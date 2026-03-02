@@ -15,7 +15,7 @@
     <div class="hint" style="margin-left:auto;">Drag to reorder. First image becomes the main image.</div>
 </div>
 
-  <input type="file" id="pimFileInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" multiple style="display:none;">
+  <input type="file" id="pimFileInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple style="display:none;">
   <input type="hidden" name="images_json" id="pimImagesJson" value="">
 
   <div class="pim-drop" id="pimDrop">
@@ -44,7 +44,7 @@
       </div>
 
       <div class="pim-server-upload" style="display:flex; align-items:center; gap:10px; margin: 0 0 12px;">
-        <input type="file" id="pimServerUploadInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" multiple style="display:none;">
+        <input type="file" id="pimServerUploadInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple style="display:none;">
         <button class="btn secondary" type="button" id="pimServerUploadBtn">Upload to this folder</button>
         <div class="hint" style="margin:0; opacity:.85;">Uploads to the folder you’re currently viewing.</div>
       </div>
@@ -307,8 +307,8 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
       for (const f of files) {
         const ext = (f.name.split('.').pop() || '').toLowerCase();
-        if (!['jpg','jpeg','png'].includes(ext)) {
-          showToast('Only JPG and PNG images are allowed.','error');
+        if (!['jpg','jpeg','png','webp'].includes(ext)) {
+          showToast('Only JPG, PNG, and WebP images are allowed.','error');
           continue;
         }
 
@@ -342,7 +342,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     input.value = '';
     for (const f of files) {
       const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['jpg','jpeg','png'].includes(ext)) { alert('Only JPG and PNG images are allowed.'); continue; }
+      if (!['jpg','jpeg','png','webp'].includes(ext)) { alert('Only JPG, PNG, and WebP images are allowed.'); continue; }
       await uploadFile(f);
     }
   });
@@ -356,7 +356,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     const files = Array.from(e.dataTransfer.files || []);
     for (const f of files) {
       const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['jpg','jpeg','png'].includes(ext)) { alert('Only JPG and PNG images are allowed.'); continue; }
+      if (!['jpg','jpeg','png','webp'].includes(ext)) { alert('Only JPG, PNG, and WebP images are allowed.'); continue; }
       await uploadFile(f);
     }
   });

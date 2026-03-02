@@ -30,15 +30,14 @@ class ProductImageController extends Controller
 
     private function ensureAllowedImage(string $absPath): void
     {
-        // Basic signature check (jpg/png only)
         $info = @getimagesize($absPath);
         if ($info === false || !isset($info[2])) {
             abort(422, 'Invalid image file.');
         }
 
         $type = (int) $info[2];
-        if (!in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
-            abort(422, 'Only JPG and PNG images are allowed.');
+        if (!in_array($type, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
+            abort(422, 'Only JPG, PNG, and WebP images are allowed.');
         }
     }
 
@@ -150,8 +149,8 @@ class ProductImageController extends Controller
         $original = basename($original);
 
         $ext = strtolower($file->getClientOriginalExtension() ?: '');
-        if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
-            return response()->json(['ok' => false, 'message' => 'Only JPG and PNG images are allowed.'], 422);
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            return response()->json(['ok' => false, 'message' => 'Only JPG, PNG, and WebP images are allowed.'], 422);
         }
 
         $disk = Storage::disk('public');
@@ -229,13 +228,20 @@ $target = $this->uniqueTargetPath($dir, $original);
         $name = preg_replace('/[^A-Za-z0-9._-]/', '_', $name);
 
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
             $tmp = tempnam(sys_get_temp_dir(), 'img');
             file_put_contents($tmp, $contents);
             $info = @getimagesize($tmp);
             @unlink($tmp);
-            if ($info && isset($info[2]) && (int)$info[2] === IMAGETYPE_PNG) $ext = 'png';
-            else $ext = 'jpg';
+            if ($info && isset($info[2])) {
+                $ext = match ((int) $info[2]) {
+                    IMAGETYPE_PNG => 'png',
+                    IMAGETYPE_WEBP => 'webp',
+                    default => 'jpg',
+                };
+            } else {
+                $ext = 'jpg';
+            }
             $name = pathinfo($name, PATHINFO_FILENAME) . '.' . $ext;
         }
 
@@ -298,8 +304,8 @@ $disk->makeDirectory($dir);
         $original = basename($file->getClientOriginalName() ?: 'image.jpg');
 
         $ext = strtolower($file->getClientOriginalExtension() ?: '');
-        if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
-            return response()->json(['ok' => false, 'message' => 'Only JPG and PNG images are allowed.'], 422);
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            return response()->json(['ok' => false, 'message' => 'Only JPG, PNG, and WebP images are allowed.'], 422);
         }
 
         $disk = Storage::disk('public');
@@ -433,7 +439,7 @@ $disk->makeDirectory($dir);
         $files = collect($disk->files($dir))
             ->filter(function ($f) {
                 $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
-                return in_array($ext, ['jpg', 'jpeg', 'png'], true);
+                return in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true);
             })
             ->map(function ($f) use ($disk) {
                 $modified = 0;
