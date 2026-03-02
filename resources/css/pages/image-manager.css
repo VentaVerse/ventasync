@@ -81,6 +81,25 @@
 }
 
 /* Server browser */
+.pim-server-filter-bar {
+    display: flex; align-items: center; gap: 10px; margin: 0 0 12px;
+}
+.pim-server-search {
+    flex: 1; min-width: 0;
+    padding: 6px 10px; font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+    background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92);
+    outline: none;
+}
+.pim-server-search::placeholder { color: rgba(255,255,255,0.45); }
+.pim-server-search:focus { border-color: rgba(88,160,255,0.55); }
+.pim-server-sort {
+    padding: 6px 10px; font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+    background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.92);
+    outline: none; cursor: pointer;
+}
+.pim-server-sort:focus { border-color: rgba(88,160,255,0.55); }
 .pim-server-nav { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
 .pim-server-path { font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pim-server-section-title { font-size: 12px; font-weight: 700; opacity: .85; margin: 10px 0 8px; }

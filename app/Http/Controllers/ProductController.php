@@ -111,10 +111,10 @@ private function isWordStartMatch(string $haystack, string $term): bool
             $path = trim($path);
             if ($path === '') continue;
 
-            // Accept only catalog/* and jpg/png
+            // Accept only catalog/* and allowed image extensions
             if (!Str::startsWith($path, 'catalog/')) continue;
             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) continue;
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
 
             $out[] = $path;
         }
@@ -383,7 +383,7 @@ $pfx = config('catalog.prefix');
             if ($path === '') continue;
 
             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg','jpeg','png'], true)) continue;
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
 
             if (Str::startsWith($path, $tmpBase . '/') && $disk->exists($path)) {
                 $origName = (string) ($it['name'] ?? basename($path));

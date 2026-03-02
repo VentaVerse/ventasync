@@ -49,6 +49,16 @@
         <div class="hint" style="margin:0; opacity:.85;">Uploads to the folder you’re currently viewing.</div>
       </div>
 
+      <div class="pim-server-filter-bar">
+        <input type="text" id="pimServerSearch" class="pim-server-search" placeholder="Search images…">
+        <select id="pimServerSort" class="pim-server-sort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="name_asc">Name A–Z</option>
+          <option value="name_desc">Name Z–A</option>
+        </select>
+      </div>
+
       <div class="pim-server-section-title" id="pimServerFoldersTitle">Folders</div>
       <div class="pim-server-grid" id="pimServerFolders"></div>
 
@@ -77,11 +87,15 @@
   const serverFolders = document.getElementById('pimServerFolders');
   const serverEmpty = document.getElementById('pimServerEmpty');
   const serverPath = document.getElementById('pimServerPath');
+  const serverSearch = document.getElementById('pimServerSearch');
+  const serverSort = document.getElementById('pimServerSort');
   const serverUpBtn = document.getElementById('pimServerUpBtn');
   const serverUploadBtn = document.getElementById('pimServerUploadBtn');
   const serverUploadInput = document.getElementById('pimServerUploadInput');
 
   let currentServerPath = '';
+  let cachedServerFiles = [];
+  let cachedServerFolders = [];
 
   function getManufacturerId() {
       const el = document.getElementById('manufacturer_id');
@@ -209,6 +223,45 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     showToast('Image Added','info');
     }
 
+  function renderServerFiles() {
+    serverGrid.innerHTML = '';
+    serverEmpty.classList.remove('show');
+
+    const q = (serverSearch.value || '').trim().toLowerCase();
+    const sort = serverSort.value || 'newest';
+
+    let filtered = cachedServerFiles;
+    if (q) {
+      filtered = filtered.filter(f => (f.name || '').toLowerCase().includes(q));
+    }
+
+    filtered = [...filtered];
+    if (sort === 'newest') filtered.sort((a,b) => (b.modified||0) - (a.modified||0));
+    else if (sort === 'oldest') filtered.sort((a,b) => (a.modified||0) - (b.modified||0));
+    else if (sort === 'name_asc') filtered.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    else if (sort === 'name_desc') filtered.sort((a,b) => (b.name||'').localeCompare(a.name||''));
+
+    filtered.forEach(f => {
+      const card = document.createElement('div');
+      card.className = 'pim-server-item';
+      card.innerHTML = '<img src="'+f.url+'" loading="lazy"><div class="label">'+(f.name||'')+'</div>';
+      card.addEventListener('click', () => {
+        if (!items.some(x => x.path === f.path)) {
+          items.push({path: f.path, url: f.url});
+          render();
+          showToast('Image Added','info');
+        } else {
+          showToast('Already Added','info');
+        }
+      });
+      serverGrid.appendChild(card);
+    });
+
+    if (!cachedServerFolders.length && !filtered.length) {
+      serverEmpty.classList.add('show');
+    }
+  }
+
   async function loadServerDir(path, startAtManufacturer){
     const mid = getManufacturerId();
     if (!mid) { alert('Please select a Manufacturer first.'); return; }
@@ -217,6 +270,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     serverGrid.innerHTML = '';
     serverFolders.innerHTML = '';
     serverEmpty.classList.remove('show');
+    serverSearch.value = '';
 
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
     u.searchParams.set('manufacturer_id', mid);
@@ -226,8 +280,8 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     const resp = await fetch(u.toString(), {headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
     const data = await resp.json().catch(() => ({}));
 
-    const folders = (data && data.folders) ? data.folders : [];
-    const files = (data && data.files) ? data.files : [];
+    cachedServerFolders = (data && data.folders) ? data.folders : [];
+    cachedServerFiles = (data && data.files) ? data.files : [];
     const parent = (data && Object.prototype.hasOwnProperty.call(data,'parent')) ? data.parent : null;
 
     // Update currentServerPath from server response (may differ when start_at_manufacturer resolved a folder)
@@ -246,7 +300,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     }
 
     // Folders (already sorted by server)
-    (folders || []).forEach(d => {
+    cachedServerFolders.forEach(d => {
       const card = document.createElement('div');
       card.className = 'pim-server-item';
       card.innerHTML = '<div class="icon">📁</div><div class="label">'+(d.name||'')+'</div>';
@@ -256,26 +310,8 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       serverFolders.appendChild(card);
     });
 
-    // Files (already sorted by server)
-    (files || []).forEach(f => {
-      const card = document.createElement('div');
-      card.className = 'pim-server-item';
-      card.innerHTML = '<img src="'+f.url+'" loading="lazy"><div class="label">'+(f.name||'')+'</div>';
-      card.addEventListener('click', () => {
-        if (!items.some(x => x.path === f.path)) {
-          items.push({path: f.path, url: f.url});
-          render();
-          showToast('Image Added','info');
-    } else {
-          showToast('Already Added','info');
-    }
-      });
-      serverGrid.appendChild(card);
-    });
-
-    if (!(folders && folders.length) && !(files && files.length)) {
-      serverEmpty.classList.add('show');
-    }
+    // Files (sorted + filtered via renderServerFiles)
+    renderServerFiles();
   }
 
   async function openServerModal(){
@@ -288,7 +324,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
   // Buttons
   document.getElementById('pimAddLocalBtn').addEventListener('click', () => input.click());
   document.getElementById('pimAddUrlBtn').addEventListener('click', async () => {
-    const url = prompt('Paste image URL (JPG/PNG):');
+    const url = prompt('Paste image URL (JPG/PNG/WebP):');
     if (!url) return;
     await importFromUrl(url);
   });
@@ -336,6 +372,14 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       await loadServerDir(currentServerPath || '');
     });
   }
+
+  // Search & sort for server browser
+  let searchTimer = null;
+  serverSearch.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderServerFiles(), 200);
+  });
+  serverSort.addEventListener('change', () => renderServerFiles());
 
   input.addEventListener('change', async () => {
     const files = Array.from(input.files || []);
