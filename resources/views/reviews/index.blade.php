@@ -59,6 +59,15 @@
             </select>
         </div>
         <div>
+            <label class="text-xs text-secondary">Media</label>
+            <select class="input" name="has_media" style="width:120px;">
+                <option value="">All</option>
+                <option value="any" {{ $hasMedia === 'any' ? 'selected' : '' }}>With Media</option>
+                <option value="photos" {{ $hasMedia === 'photos' ? 'selected' : '' }}>Photos</option>
+                <option value="videos" {{ $hasMedia === 'videos' ? 'selected' : '' }}>Videos</option>
+            </select>
+        </div>
+        <div>
             <label class="text-xs text-secondary">From</label>
             <input class="input" type="date" name="date_from" value="{{ $dateFrom }}" style="width:150px;">
         </div>
@@ -67,7 +76,7 @@
             <input class="input" type="date" name="date_to" value="{{ $dateTo }}" style="width:150px;">
         </div>
         <button class="btn" type="submit">Filter</button>
-        @if($q || $rating || $syncStatus || $dateFrom || $dateTo)
+        @if($q || $rating || $syncStatus || $hasMedia || $dateFrom || $dateTo)
             <a class="btn secondary" href="{{ route('reviews.index', ['platform' => $platform]) }}">Reset</a>
         @endif
     </form>
@@ -86,6 +95,7 @@
                         <th style="width:120px;">Author</th>
                         <th style="width:90px;">Rating</th>
                         <th>Comment</th>
+                        <th style="width:120px;">Media</th>
                         <th style="width:80px;">Status</th>
                         <th style="width:100px;">Actions</th>
                     </tr>
@@ -116,6 +126,27 @@
                                 </span>
                             </td>
                             <td class="text-xs">{{ \Illuminate\Support\Str::limit($review->comment ?? '', 60) }}</td>
+                            <td>
+                                @php
+                                    $imgs = $review->images ?? [];
+                                    $vids = $review->videos ?? [];
+                                @endphp
+                                @if(!empty($imgs) || !empty($vids))
+                                    <div class="review-media-inline">
+                                        @foreach(array_slice($imgs, 0, 3) as $imgUrl)
+                                            <img src="{{ $imgUrl }}" alt="" class="review-thumb-sm" loading="lazy">
+                                        @endforeach
+                                        @if(count($imgs) > 3)
+                                            <span class="review-media-more">+{{ count($imgs) - 3 }}</span>
+                                        @endif
+                                        @if(!empty($vids))
+                                            <span class="review-media-badge" title="{{ count($vids) }} video(s)">&#9654; {{ count($vids) }}</span>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-secondary text-xs">&mdash;</span>
+                                @endif
+                            </td>
                             <td>
                                 @php
                                     $statusColors = [

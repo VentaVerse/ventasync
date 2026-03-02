@@ -22,6 +22,7 @@ class ReviewController extends Controller
         $platform   = trim((string) $request->get('platform', 'all'));
         $rating     = (int) $request->get('rating', 0);
         $syncStatus = trim((string) $request->get('sync_status', ''));
+        $hasMedia   = trim((string) $request->get('has_media', ''));
         $q          = trim((string) $request->get('q', ''));
         $dateFrom   = trim((string) $request->get('date_from', ''));
         $dateTo     = trim((string) $request->get('date_to', ''));
@@ -64,6 +65,17 @@ class ReviewController extends Controller
             $query->where('marketplace_reviews.reviewed_at', '<=', $dateTo . ' 23:59:59');
         }
 
+        if ($hasMedia === 'photos') {
+            $query->whereNotNull('marketplace_reviews.images');
+        } elseif ($hasMedia === 'videos') {
+            $query->whereNotNull('marketplace_reviews.videos');
+        } elseif ($hasMedia === 'any') {
+            $query->where(function ($w) {
+                $w->whereNotNull('marketplace_reviews.images')
+                  ->orWhereNotNull('marketplace_reviews.videos');
+            });
+        }
+
         $reviews = $query->paginate(50)->withQueryString();
 
         // Platform tab counts
@@ -79,7 +91,7 @@ class ReviewController extends Controller
         $platforms = self::PLATFORMS;
 
         return view('reviews.index', compact(
-            'reviews', 'platform', 'rating', 'syncStatus', 'q', 'dateFrom', 'dateTo',
+            'reviews', 'platform', 'rating', 'syncStatus', 'hasMedia', 'q', 'dateFrom', 'dateTo',
             'platforms', 'platformCounts', 'avgRating', 'pendingCount'
         ));
     }

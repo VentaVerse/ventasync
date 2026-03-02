@@ -98,7 +98,7 @@ class ShopeeSyncReviews extends Command
         $created = 0;
         $updated = 0;
         $cursor = 0; // comment_id cursor; 0 = start from newest
-        $pageSize = 50;
+        $pageSize = 100;
         $maxPages = 20;
 
         for ($page = 0; $page < $maxPages; $page++) {
@@ -166,9 +166,10 @@ class ShopeeSyncReviews extends Command
                     $hitOldReview = true;
                 }
 
-                // Extract images
+                // Extract images (check media.image_url_list + legacy fields)
                 $images = [];
-                $imageList = $c['images'] ?? $c['image_list'] ?? [];
+                $media = $c['media'] ?? [];
+                $imageList = $media['image_url_list'] ?? $c['images'] ?? $c['image_list'] ?? [];
                 if (is_array($imageList)) {
                     foreach ($imageList as $img) {
                         $url = is_string($img) ? $img : ($img['image_url'] ?? null);
@@ -176,9 +177,9 @@ class ShopeeSyncReviews extends Command
                     }
                 }
 
-                // Extract videos
+                // Extract videos (check media.video_url_list + legacy fields)
                 $videos = [];
-                $videoList = $c['videos'] ?? $c['video_list'] ?? [];
+                $videoList = $media['video_url_list'] ?? $c['videos'] ?? $c['video_list'] ?? [];
                 if (is_array($videoList)) {
                     foreach ($videoList as $vid) {
                         $url = is_string($vid) ? $vid : ($vid['video_url'] ?? $vid['url'] ?? null);

@@ -23,5 +23,22 @@
 }
 .review-thumb:hover { transform: scale(1.08); }
 
+/* Inline media in table rows */
+.review-media-inline {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+}
+.review-thumb-sm {
+    width: 32px; height: 32px; object-fit: cover;
+    border-radius: 4px; border: 1px solid var(--border-light);
+}
+.review-media-more {
+    font-size: 11px; color: var(--text-muted); font-weight: 600;
+}
+.review-media-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 11px; color: #6366f1; font-weight: 600;
+    background: #eef2ff; padding: 2px 6px; border-radius: 4px;
+}
+
 /* Review detail page */
 .review-detail { padding: 4px 0; }
