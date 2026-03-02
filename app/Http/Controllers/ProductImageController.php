@@ -65,9 +65,16 @@ class ProductImageController extends Controller
             }
         }
     }
-    private function productsYearDir(): string
+    private function manufacturerDir(int $manufacturerId): string
     {
-        return 'catalog/_products_' . date('Y');
+        $folder = $this->resolveManufacturerFolder($manufacturerId);
+        if ($folder !== '') {
+            return 'catalog/' . $folder;
+        }
+
+        // Fallback: create folder from manufacturer name slug
+        $slug = $this->manufacturerSlugFromId($manufacturerId);
+        return 'catalog/' . $slug;
     }
 
     private function tempDir(string $token): string
@@ -155,15 +162,17 @@ class ProductImageController extends Controller
 
         $disk = Storage::disk('public');
 
+        $mid = (int) ($request->manufacturer_id ?? 0);
+
         if ($productId > 0) {
-            $dir = $this->productsYearDir();
-$target = $this->uniqueTargetPath($dir, $original);
+            $dir = $this->manufacturerDir($mid);
 
             $tmpPath = $file->storeAs('tmp/product-images', Str::uuid()->toString() . '.' . $ext, 'public');
             $absTmp = $disk->path($tmpPath);
             $this->ensureAllowedImage($absTmp);
 
             $disk->makeDirectory($dir);
+            $target = $this->uniqueTargetPath($dir, $original);
             $disk->move($tmpPath, $target);
 
             return response()->json([
@@ -251,9 +260,11 @@ $target = $this->uniqueTargetPath($dir, $original);
         $absTmp = $disk->path($tmpRel);
         $this->ensureAllowedImage($absTmp);
 
+        $mid = (int) ($request->manufacturer_id ?? 0);
+
         if ($productId > 0) {
-            $dir = $this->productsYearDir();
-$disk->makeDirectory($dir);
+            $dir = $this->manufacturerDir($mid);
+            $disk->makeDirectory($dir);
             $target = $this->uniqueTargetPath($dir, $name);
             $disk->move($tmpRel, $target);
 

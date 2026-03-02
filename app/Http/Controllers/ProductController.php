@@ -368,13 +368,48 @@ $pfx = config('catalog.prefix');
         }
     }
 
+    private function resolveManufacturerDir(int $manufacturerId): string
+    {
+        $disk = Storage::disk('public');
+
+        if ($manufacturerId > 0) {
+            $m = Manufacturer::query()->where('manufacturer_id', $manufacturerId)->first(['name']);
+            if ($m && $m->name) {
+                $name = (string) $m->name;
+                $slug = Str::slug($name);
+
+                // Check exact name, then slug, then case-insensitive scan
+                if ($disk->exists('catalog/' . $name)) return 'catalog/' . $name;
+                if ($slug !== '' && $disk->exists('catalog/' . $slug)) return 'catalog/' . $slug;
+
+                $nameLower = mb_strtolower($name);
+                $slugLower = mb_strtolower($slug);
+                foreach ($disk->directories('catalog') as $dir) {
+                    $folder = basename($dir);
+                    $folderLower = mb_strtolower($folder);
+                    if ($folderLower === $nameLower || $folderLower === $slugLower) {
+                        return 'catalog/' . $folder;
+                    }
+                }
+
+                // No existing folder — create from original name
+                return 'catalog/' . $name;
+            }
+        }
+
+        return 'catalog/_no_manufacturer_';
+    }
+
     private function finalizeTempImages(string $token, string $manufacturerSlug, int $productId, array $items): array
     {
         $disk = Storage::disk('public');
         $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $token);
         $tmpBase = 'tmp/product-images/' . ($token ?: 'default');
 
-        $finalDir = 'catalog/_products_' . date('Y');
+        // Resolve manufacturer folder from the product's manufacturer_id
+        $pfx = config('catalog.prefix');
+        $mid = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('manufacturer_id');
+        $finalDir = $this->resolveManufacturerDir($mid);
         $disk->makeDirectory($finalDir);
 
         $out = [];
