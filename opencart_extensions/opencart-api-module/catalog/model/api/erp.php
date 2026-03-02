@@ -865,7 +865,13 @@ class ModelApiErp extends Model
         if (array_key_exists('weight', $data)) {
             $sets[] = "weight = '" . (float)$data['weight'] . "'";
         }
-        if (array_key_exists('image', $data)) {
+        // Handle main image file transfer
+        if (!empty($data['image_data']) && !empty($data['image_filename'])) {
+            $saved = $this->saveBase64Image($data['image_data'], $data['image_filename'], $data['manufacturer_name'] ?? '');
+            if ($saved) {
+                $sets[] = "image = '" . $this->db->escape($saved) . "'";
+            }
+        } elseif (array_key_exists('image', $data)) {
             $sets[] = "image = '" . $this->db->escape($data['image']) . "'";
         }
 
@@ -1158,6 +1164,34 @@ class ModelApiErp extends Model
                     $this->db->query(
                         "DELETE FROM " . DB_PREFIX . "product_option
                          WHERE product_option_id = '" . (int)$row['product_option_id'] . "'"
+                    );
+                }
+            }
+        }
+
+        // Update additional images if provided
+        if (isset($data['images']) && is_array($data['images'])) {
+            // Delete existing additional images
+            $this->db->query(
+                "DELETE FROM " . DB_PREFIX . "product_image
+                 WHERE product_id = '" . (int)$product_id . "'"
+            );
+
+            // Insert new images
+            foreach ($data['images'] as $img) {
+                $imgPath = isset($img['image']) ? $img['image'] : '';
+                if (!empty($img['image_data']) && !empty($img['image_filename'])) {
+                    $saved = $this->saveBase64Image($img['image_data'], $img['image_filename'], $data['manufacturer_name'] ?? '');
+                    if ($saved) {
+                        $imgPath = $saved;
+                    }
+                }
+                if (!empty($imgPath)) {
+                    $this->db->query(
+                        "INSERT INTO " . DB_PREFIX . "product_image SET
+                            product_id = '" . (int)$product_id . "',
+                            image = '" . $this->db->escape($imgPath) . "',
+                            sort_order = '" . (int)($img['sort_order'] ?? 0) . "'"
                     );
                 }
             }

@@ -83,6 +83,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/products/images/import-url', [ProductImageController::class, 'importUrl'])->name('products.images.import_url');
         Route::get('/products/images/browse', [ProductImageController::class, 'browse'])->name('products.images.browse');
         Route::post('/products/images/upload-to-catalog', [ProductImageController::class, 'uploadToCatalog'])->name('products.images.upload_to_catalog');
+        Route::post('/products/images/delete', [ProductImageController::class, 'deleteFromCatalog'])->name('products.images.delete');
 
         // Product sales history
         Route::get('/products/{id}/sales', [ProductController::class, 'salesHistory'])->name('products.sales');

@@ -254,6 +254,32 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
           showToast('Already Added','info');
         }
       });
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'pim-server-delete';
+      del.innerHTML = '&times;';
+      del.title = 'Delete from server';
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Delete "' + (f.name||'') + '" from server? This cannot be undone.')) return;
+        const resp = await fetch(@json(route('products.images.delete')), {
+          method: 'POST',
+          headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+          body: JSON.stringify({ path: f.path })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.ok) { showToast(data.message || 'Delete failed','error'); return; }
+        // Remove from cache and re-render
+        cachedServerFiles = cachedServerFiles.filter(x => x.path !== f.path);
+        renderServerFiles();
+        // Also remove from product images if it was added
+        items = items.filter(x => x.path !== f.path);
+        render();
+        showToast('Deleted','info');
+      });
+      card.appendChild(del);
+
       serverGrid.appendChild(card);
     });
 

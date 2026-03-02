@@ -41,6 +41,43 @@ class ProductImageController extends Controller
         }
     }
 
+    /**
+     * Convert a WebP file to JPG on disk. Returns the new relative path (or the
+     * original path if not WebP). Updates the file in-place on the public disk.
+     */
+    private function convertWebpToJpg(string $relPath): string
+    {
+        $disk = Storage::disk('public');
+        $absPath = $disk->path($relPath);
+
+        $info = @getimagesize($absPath);
+        if (!$info || (int) ($info[2] ?? 0) !== IMAGETYPE_WEBP) {
+            return $relPath;
+        }
+
+        $im = @imagecreatefromwebp($absPath);
+        if (!$im) {
+            return $relPath;
+        }
+
+        // Build new path: swap extension to .jpg
+        $newRel = preg_replace('/\.webp$/i', '.jpg', $relPath);
+        if ($newRel === $relPath) {
+            $newRel = $relPath . '.jpg';
+        }
+        $newAbs = $disk->path($newRel);
+
+        imagejpeg($im, $newAbs, 90);
+        imagedestroy($im);
+
+        // Remove original WebP
+        if ($newAbs !== $absPath) {
+            @unlink($absPath);
+        }
+
+        return $newRel;
+    }
+
     private function tmpCleanup(): void
     {
         // Best-effort cleanup of old temporary uploads (6 hours)
@@ -170,7 +207,9 @@ class ProductImageController extends Controller
             $tmpPath = $file->storeAs('tmp/product-images', Str::uuid()->toString() . '.' . $ext, 'public');
             $absTmp = $disk->path($tmpPath);
             $this->ensureAllowedImage($absTmp);
+            $tmpPath = $this->convertWebpToJpg($tmpPath);
 
+            $original = preg_replace('/\.webp$/i', '.jpg', $original);
             $disk->makeDirectory($dir);
             $target = $this->uniqueTargetPath($dir, $original);
             $disk->move($tmpPath, $target);
@@ -189,12 +228,14 @@ class ProductImageController extends Controller
         }
 
         $tmpDir = $this->tempDir($token);
-        $tmpTarget = $this->uniqueTargetPath($tmpDir, $original);
 
         $tmpPath = $file->storeAs('tmp/product-images', Str::uuid()->toString() . '.' . $ext, 'public');
         $absTmp = $disk->path($tmpPath);
         $this->ensureAllowedImage($absTmp);
+        $tmpPath = $this->convertWebpToJpg($tmpPath);
 
+        $original = preg_replace('/\.webp$/i', '.jpg', $original);
+        $tmpTarget = $this->uniqueTargetPath($tmpDir, $original);
         $disk->makeDirectory($tmpDir);
         $disk->move($tmpPath, $tmpTarget);
 
@@ -259,6 +300,8 @@ class ProductImageController extends Controller
         $disk->put($tmpRel, $contents);
         $absTmp = $disk->path($tmpRel);
         $this->ensureAllowedImage($absTmp);
+        $tmpRel = $this->convertWebpToJpg($tmpRel);
+        $name = preg_replace('/\.webp$/i', '.jpg', $name);
 
         $mid = (int) ($request->manufacturer_id ?? 0);
 
@@ -324,7 +367,9 @@ class ProductImageController extends Controller
         $tmpPath = $file->storeAs('tmp/product-images', Str::uuid()->toString() . '.' . $ext, 'public');
         $absTmp = $disk->path($tmpPath);
         $this->ensureAllowedImage($absTmp);
+        $tmpPath = $this->convertWebpToJpg($tmpPath);
 
+        $original = preg_replace('/\.webp$/i', '.jpg', $original);
         $disk->makeDirectory($dir);
         $target = $this->uniqueTargetPath($dir, $original);
         $disk->move($tmpPath, $target);
@@ -336,6 +381,31 @@ class ProductImageController extends Controller
             'name' => basename($target),
         ]);
     }
+
+    public function deleteFromCatalog(Request $request)
+    {
+        $request->validate([
+            'path' => 'required|string|max:500',
+        ]);
+
+        $path = trim($request->path);
+
+        // Only allow deleting from catalog/ folder
+        if (!str_starts_with($path, 'catalog/')) {
+            return response()->json(['ok' => false, 'message' => 'Can only delete images from catalog folder.'], 422);
+        }
+
+        $disk = Storage::disk('public');
+
+        if (!$disk->exists($path)) {
+            return response()->json(['ok' => false, 'message' => 'File not found.'], 404);
+        }
+
+        $disk->delete($path);
+
+        return response()->json(['ok' => true]);
+    }
+
     /**
      * Resolve the actual catalog folder name for a manufacturer (case-insensitive disk lookup).
      */

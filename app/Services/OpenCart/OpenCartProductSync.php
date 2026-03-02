@@ -302,22 +302,64 @@ class OpenCartProductSync
                 $link = $links->get($pid);
                 $ocPid = (int) $link->oc_product_id;
 
+                // Resolve manufacturer name for image folder
+                $mfgName = '';
+                if ((int) $product->manufacturer_id > 0) {
+                    $mfg = DB::table($pfx . 'manufacturer')
+                        ->where('manufacturer_id', (int) $product->manufacturer_id)
+                        ->first();
+                    if ($mfg) $mfgName = $mfg->name;
+                }
+
                 $productData = [
-                    'product_id'      => $ocPid,
-                    'quantity'        => (int) $product->quantity,
-                    'price'           => (string) $product->price,
-                    'cost'            => (string) ($product->cost ?? 0),
-                    'cost_amount'     => (string) ($product->cost_amount ?? 0),
-                    'cost_percentage' => (string) ($product->cost_percentage ?? 0),
-                    'cost_additional' => (string) ($product->cost_additional ?? 0),
-                    'status'          => (int) $product->status,
-                    'name'            => $desc->name ?? '',
-                    'description'     => $desc->description ?? '',
-                    'sku'             => $product->sku ?? '',
-                    'model'           => $product->model ?? '',
-                    'weight'          => (string) $product->weight,
-                    'image'           => $product->image ?? '',
+                    'product_id'        => $ocPid,
+                    'quantity'          => (int) $product->quantity,
+                    'price'             => (string) $product->price,
+                    'cost'              => (string) ($product->cost ?? 0),
+                    'cost_amount'       => (string) ($product->cost_amount ?? 0),
+                    'cost_percentage'   => (string) ($product->cost_percentage ?? 0),
+                    'cost_additional'   => (string) ($product->cost_additional ?? 0),
+                    'status'            => (int) $product->status,
+                    'name'              => $desc->name ?? '',
+                    'description'       => $desc->description ?? '',
+                    'sku'               => $product->sku ?? '',
+                    'model'             => $product->model ?? '',
+                    'weight'            => (string) $product->weight,
+                    'image'             => $product->image ?? '',
+                    'manufacturer_name' => $mfgName,
                 ];
+
+                // Main image — base64-encode
+                if (!empty($product->image)) {
+                    $encoded = $this->encodeImage($product->image);
+                    if ($encoded) {
+                        $productData['image_data'] = $encoded;
+                        $productData['image_filename'] = basename($product->image);
+                    }
+                }
+
+                // Additional images
+                $addlImages = DB::table($pfx . 'product_image')
+                    ->where('product_id', (int) $pid)
+                    ->orderBy('sort_order')
+                    ->get();
+
+                if ($addlImages->isNotEmpty()) {
+                    $imagesPayload = [];
+                    foreach ($addlImages as $img) {
+                        $entry = [
+                            'image'      => $img->image,
+                            'sort_order' => (int) $img->sort_order,
+                        ];
+                        $encoded = $this->encodeImage($img->image);
+                        if ($encoded) {
+                            $entry['image_data'] = $encoded;
+                            $entry['image_filename'] = basename($img->image);
+                        }
+                        $imagesPayload[] = $entry;
+                    }
+                    $productData['images'] = $imagesPayload;
+                }
 
                 // Include options so new/updated variants are synced
                 $options = $this->buildOptionsPayload((int) $pid, $pfx, $langId);

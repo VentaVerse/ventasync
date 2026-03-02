@@ -109,6 +109,7 @@
     gap: 12px;
 }
 .pim-server-item {
+    position: relative;
     border: 1px solid rgba(255,255,255,0.10);
     background: rgba(0,0,0,0.22);
     border-radius: 12px;
@@ -116,6 +117,18 @@
     cursor: pointer;
 }
 .pim-server-item:hover { border-color: rgba(88,160,255,0.45); }
+.pim-server-delete {
+    position: absolute; top: 4px; right: 4px;
+    width: 22px; height: 22px;
+    border: none; border-radius: 50%;
+    background: rgba(220,38,38,0.85);
+    color: #fff; font-size: 15px; line-height: 1;
+    cursor: pointer; display: none;
+    align-items: center; justify-content: center;
+    z-index: 2;
+}
+.pim-server-item:hover .pim-server-delete { display: flex; }
+.pim-server-delete:hover { background: rgba(220,38,38,1); }
 .pim-server-item img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
 .pim-server-item .label { padding: 8px; font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pim-server-item .icon {
