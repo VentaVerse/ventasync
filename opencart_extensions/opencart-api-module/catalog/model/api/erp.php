@@ -358,13 +358,13 @@ class ModelApiErp extends Model
     {
         $langId = (int)$this->config->get('config_language_id');
 
-        // Resolve manufacturer by name
+        // Resolve manufacturer by name (before transaction — read-only)
         $manufacturerId = 0;
         if (!empty($data['manufacturer_name'])) {
             $manufacturerId = $this->resolveManufacturer(trim($data['manufacturer_name']));
         }
 
-        // Handle main image (base64 transfer)
+        // Handle main image (before transaction — file I/O)
         $mainImage = isset($data['image']) ? $data['image'] : '';
         if (!empty($data['image_data']) && !empty($data['image_filename'])) {
             $saved = $this->saveBase64Image($data['image_data'], $data['image_filename'], $data['manufacturer_name'] ?? '');
@@ -372,6 +372,11 @@ class ModelApiErp extends Model
                 $mainImage = $saved;
             }
         }
+
+        // Wrap all DB writes in a transaction to prevent partial inserts
+        $this->db->query("START TRANSACTION");
+
+        try {
 
         // Insert product
         $this->db->query(
@@ -546,7 +551,14 @@ class ModelApiErp extends Model
             }
         }
 
+        $this->db->query("COMMIT");
+
         return $productId;
+
+        } catch (\Throwable $e) {
+            $this->db->query("ROLLBACK");
+            throw $e;
+        }
     }
 
     // ─── Image Helpers ─────────────────────────────────────────
@@ -568,7 +580,7 @@ class ModelApiErp extends Model
         $tmp = tempnam(sys_get_temp_dir(), 'erp_img_');
         file_put_contents($tmp, $decoded);
         $info = @getimagesize($tmp);
-        if (!$info || !in_array($info[2], array(IMAGETYPE_JPEG, IMAGETYPE_PNG))) {
+        if (!$info || !in_array($info[2], array(IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP))) {
             @unlink($tmp);
             return false;
         }
@@ -577,8 +589,10 @@ class ModelApiErp extends Model
         // Sanitize filename
         $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($filename));
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (!in_array($ext, array('jpg', 'jpeg', 'png'))) {
-            $ext = ($info[2] == IMAGETYPE_PNG) ? 'png' : 'jpg';
+        if (!in_array($ext, array('jpg', 'jpeg', 'png', 'webp'))) {
+            if ($info[2] == IMAGETYPE_PNG) $ext = 'png';
+            elseif ($info[2] == IMAGETYPE_WEBP) $ext = 'webp';
+            else $ext = 'jpg';
             $filename = pathinfo($filename, PATHINFO_FILENAME) . '.' . $ext;
         }
 

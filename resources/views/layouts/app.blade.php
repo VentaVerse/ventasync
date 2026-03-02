@@ -974,6 +974,20 @@
       hiddenId: 'manufacturer_id',
       listId: 'manufacturer_list',
       url: '/api/catalog/manufacturers?term=',
+      onSelect: function(item) {
+        var nameField = document.querySelector('input[name="name"]');
+        if (!nameField) return;
+        var current = (nameField.value || '').trim();
+        var mfgName = (item.name || '').trim();
+        if (!mfgName) return;
+        // Auto-prefix if name is empty or doesn't already start with the manufacturer name
+        if (current === '') {
+          nameField.value = mfgName + ' ';
+          nameField.focus();
+        } else if (current.toLowerCase().indexOf(mfgName.toLowerCase()) !== 0) {
+          nameField.value = mfgName + ' ' + current;
+        }
+      }
     });
     setupTypeahead({
       inputId: 'category_search',
