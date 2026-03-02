@@ -640,6 +640,176 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId);
     }
 
+    // ── Bulk Push to Shopee ───────────────────────────────────────
+
+    public function bulkPushToShopee(Request $request, ShopeeClient $client)
+    {
+        $productIds = array_map('intval', array_filter($request->input('product_ids', [])));
+        if (empty($productIds)) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return redirect()->back()->with('error', 'Missing Shopee credentials. Configure Shopee settings first.');
+        }
+
+        $okCount = 0;
+        $skipCount = 0;
+        $errCount = 0;
+        $errors = [];
+
+        foreach ($productIds as $productId) {
+            // Skip already linked
+            if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+                $skipCount++;
+                continue;
+            }
+
+            $product = DB::table($pfx . 'product as p')
+                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                    $j->on('p.product_id', '=', 'pd.product_id')
+                      ->where('pd.language_id', '=', $langId);
+                })
+                ->where('p.product_id', $productId)
+                ->first([
+                    'p.product_id', 'pd.name', 'pd.description', 'p.image',
+                    'p.sku', 'p.price', 'p.quantity', 'p.status',
+                    'p.weight', 'p.length', 'p.width', 'p.height',
+                    'p.manufacturer_id',
+                ]);
+
+            if (!$product || (int) $product->status === 0) {
+                $skipCount++;
+                continue;
+            }
+
+            $profile = $this->findProfileForProduct($productId, $product->manufacturer_id);
+            if (!$profile || !$profile->shopee_category_id || empty($profile->logistic_ids ?? [])) {
+                $errors[] = "#{$productId}: No profile/category/logistics";
+                $errCount++;
+                continue;
+            }
+
+            $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $description = strip_tags($product->description ?? '');
+            if (trim($itemName) === '' || trim($description) === '' || (float) $product->price <= 0 || (float) $product->weight <= 0) {
+                $errors[] = "#{$productId}: Missing name/description/price/weight";
+                $errCount++;
+                continue;
+            }
+
+            // Upload images
+            $imagePaths = [];
+            if (!empty($product->image)) $imagePaths[] = $product->image;
+            $additionalImages = DB::table($pfx . 'product_image')
+                ->where('product_id', $productId)
+                ->orderBy('sort_order')
+                ->pluck('image')
+                ->toArray();
+            $imagePaths = array_merge($imagePaths, $additionalImages);
+
+            if (empty($imagePaths)) {
+                $errors[] = "#{$productId}: No images";
+                $errCount++;
+                continue;
+            }
+
+            $imageIds = [];
+            $imgFailed = false;
+            foreach ($imagePaths as $imgPath) {
+                $localPath = $this->resolveLocalImagePath($imgPath);
+                if (!$localPath || !file_exists($localPath)) continue;
+
+                $uploadResult = $this->uploadImage($client, $setting, $localPath);
+                if ($uploadResult['ok'] ?? false) {
+                    $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
+                    if ($imgId) $imageIds[] = (string) $imgId;
+                } else {
+                    $imgFailed = true;
+                    break;
+                }
+            }
+
+            if (empty($imageIds)) {
+                $errors[] = "#{$productId}: Image upload failed";
+                $errCount++;
+                continue;
+            }
+
+            // Build payload
+            $logisticInfo = [];
+            foreach ($profile->logistic_ids as $lid) {
+                $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
+            }
+
+            $basePrice = (float) $product->price;
+            $sellingPrice = round($basePrice + ($basePrice * (float) ($profile->markup_percent ?? 0) / 100) + (float) ($profile->markup_fixed ?? 0), 2);
+
+            $payload = [
+                'original_price' => $sellingPrice,
+                'description' => mb_substr($description, 0, 5000),
+                'item_name' => mb_substr($itemName, 0, 255),
+                'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
+                'item_sku' => (string) ($product->sku ?? ''),
+                'weight' => (float) $product->weight,
+                'dimension' => [
+                    'package_length' => max(1, (int) $product->length),
+                    'package_width' => max(1, (int) $product->width),
+                    'package_height' => max(1, (int) $product->height),
+                ],
+                'category_id' => (int) $profile->shopee_category_id,
+                'image' => ['image_id_list' => $imageIds],
+                'logistic_info' => $logisticInfo,
+                'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
+            ];
+
+            $path = '/api/v2/product/add_item';
+            $result = $client->shopPost(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id, (string) $setting->partner_key,
+                (string) $setting->access_token, (int) $setting->shop_id,
+                $path, [], $payload
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.add_item.bulk', 'method' => 'POST', 'api_path' => $path,
+                'auth_required' => true, 'request_params' => $payload,
+                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+
+            $body = $result['body'] ?? [];
+            $itemId = ($result['ok'] ?? false) ? ($body['response']['item_id'] ?? null) : null;
+
+            if ($itemId) {
+                ShopeeProductLink::create([
+                    'product_id' => $productId,
+                    'shopee_item_id' => (int) $itemId,
+                    'shopee_model_id' => null,
+                    'sku' => $product->sku ?? '',
+                ]);
+                $okCount++;
+            } else {
+                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
+                $errors[] = "#{$productId}: {$msg}";
+                $errCount++;
+            }
+
+            usleep(300000); // 300ms rate limit between pushes
+        }
+
+        $summary = "Bulk Push: {$okCount} pushed";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (already linked or disabled)";
+        if ($errCount > 0) $summary .= ", {$errCount} failed";
+        if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+
+        return redirect()->back()->with($okCount > 0 ? 'status' : 'error', $summary);
+    }
+
     // ── Sync Product IDs (with model support + local cache) ────────
 
     public function syncProductIds(Request $request, ShopeeClient $client)

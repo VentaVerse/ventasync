@@ -162,6 +162,10 @@
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
+                <form method="POST" action="{{ route('shopee.products.bulk_push') }}" class="bulk-action-form bulk-push-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Push to Shopee</button>
+                </form>
                 <form method="POST" action="{{ route('shopee.products.sync_ids') }}" class="bulk-action-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small">Sync Product IDs</button>
@@ -446,6 +450,13 @@
                 e.preventDefault();
                 alert('Please select at least 1 product.');
                 return;
+            }
+
+            if (form.classList.contains('bulk-push-form')) {
+                if (!confirm('Push ' + ids.length + ' selected product(s) to Shopee? Already-linked products will be skipped.')) {
+                    e.preventDefault();
+                    return;
+                }
             }
 
             if (form.classList.contains('bulk-delete-form')) {
