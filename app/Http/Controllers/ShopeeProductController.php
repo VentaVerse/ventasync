@@ -506,7 +506,7 @@ class ShopeeProductController extends Controller
 
         // Validate required fields
         $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $description = strip_tags($product->description ?? '');
+        $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         if (trim($itemName) === '' || trim($description) === '') {
             return redirect()->back()->with('error', 'Push failed: Product name or description is empty.');
         }
@@ -695,7 +695,7 @@ class ShopeeProductController extends Controller
             }
 
             $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $description = strip_tags($product->description ?? '');
+            $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
             if (trim($itemName) === '' || trim($description) === '' || (float) $product->price <= 0 || (float) $product->weight <= 0) {
                 $errors[] = "#{$productId}: Missing name/description/price/weight";
                 $errCount++;
