@@ -297,6 +297,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     if (serverUpBtn.disabled) return;
     const p = String(serverUpBtn.dataset.parent || '');
     await loadServerDir(p);
+  });
 
   // Upload to current server folder
   if (serverUploadBtn && serverUploadInput) {
@@ -335,7 +336,6 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       await loadServerDir(currentServerPath || '');
     });
   }
-  });
 
   input.addEventListener('change', async () => {
     const files = Array.from(input.files || []);

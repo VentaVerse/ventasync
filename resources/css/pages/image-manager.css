@@ -68,5 +68,61 @@
 }
 .pim-modal-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 14px 14px; border-bottom: 1px solid rgba(255,255,255,0.08);
 }
+.pim-modal-actions { display: flex; align-items: center; gap: 10px; }
+.pim-modal-msg { font-weight: 700; color: #2ecc71; font-size: 13px; }
+.pim-modal-msg.error { color: #e74c3c; }
+.pim-modal-msg.info { color: #2ecc71; }
+.pim-modal-body {
+    padding: 14px;
+    flex: 1 1 auto;
+    overflow: auto;
+}
+
+/* Server browser */
+.pim-server-nav { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
+.pim-server-path { font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pim-server-section-title { font-size: 12px; font-weight: 700; opacity: .85; margin: 10px 0 8px; }
+.pim-server-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+}
+.pim-server-item {
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.22);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+}
+.pim-server-item:hover { border-color: rgba(88,160,255,0.45); }
+.pim-server-item img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
+.pim-server-item .label { padding: 8px; font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pim-server-item .icon {
+    width: 100%; aspect-ratio: 1/1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 46px; opacity: .9;
+}
+.pim-server-empty { margin-top: 12px; opacity: .75; display: none; color: rgba(255,255,255,0.78); }
+.pim-server-empty.show { display: block; }
+
+/* Ensure modal text is readable on dark background */
+.pim-modal-card, .pim-modal-card * { color: rgba(255,255,255,0.92); }
+.pim-modal-card .muted, .pim-modal-card small, .pim-modal-card .hint { color: rgba(255,255,255,0.72) !important; }
+.pim-modal-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.pim-modal-header .btn { color: rgba(255,255,255,0.92); }
+.pim-modal-header .btn.secondary { border-color: rgba(255,255,255,0.18); }
+
+/* Notice banner */
+.pim-notice {
+    display: none;
+    margin: 8px 0 12px 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(88, 160, 255, 0.10);
+    color: rgba(255,255,255,0.90);
+    font-size: 13px;
+}
+.pim-notice.show { display: block; }
