@@ -1,0 +1,27 @@
+/* ============================================================
+   REVIEWS PAGE
+   ============================================================ */
+
+/* Star ratings */
+.review-stars { display: inline-flex; gap: 1px; }
+.star-filled { color: #f59e0b; }
+.star-empty { color: #d1d5db; }
+
+/* Platform badges */
+.review-platform {
+    display: inline-block; padding: 2px 8px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; letter-spacing: .02em;
+}
+.review-platform--shopee { background: #fff1f2; color: #e11d48; }
+.review-platform--lazada { background: #eff6ff; color: #1d4ed8; }
+
+/* Review image thumbnails */
+.review-thumb {
+    width: 64px; height: 64px; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--border-light);
+    transition: transform var(--transition-fast);
+}
+.review-thumb:hover { transform: scale(1.08); }
+
+/* Review detail page */
+.review-detail { padding: 4px 0; }

@@ -66,6 +66,7 @@
             $canTikTok = $u && $u->hasPermission('manage_tiktok');
             $canOpencart = $u && $u->hasPermission('manage_opencart');
             $canOpencartOrders = $u && $u->hasPermission('manage_opencart_orders');
+            $canReviews = $u && $u->hasPermission('manage_reviews');
 
             $canPurchasing = $u && $u->hasPermission('manage_purchasing');
 
@@ -231,7 +232,8 @@
                         $mpActive = (request()->routeIs('shopee.*') && !request()->routeIs('shopee.orders.*'))
                                  || (request()->routeIs('lazada.*') && !request()->routeIs('lazada.orders.*'))
                                  || request()->routeIs('tiktok.*')
-                                 || (request()->routeIs('opencart.*') && !request()->routeIs('opencart.orders.*'));
+                                 || (request()->routeIs('opencart.*') && !request()->routeIs('opencart.orders.*'))
+                                 || request()->routeIs('reviews.*');
                     @endphp
                     <details {{ $mpActive ? 'open' : '' }}>
                         <summary class="{{ $mpActive ? 'active' : '' }}">
@@ -309,6 +311,15 @@
                                         <span class="label">{{ $ocStore->store_name }}</span>
                                     </a>
                                 @endforeach
+                                @endif
+
+                                @if($canReviews)
+                                {{-- ─── Reviews ─── --}}
+                                <div class="nav-sub-divider">Reviews</div>
+                                <a href="{{ route('reviews.index') }}" class="{{ request()->routeIs('reviews.*') ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+                                    <span class="label">Reviews</span>
+                                </a>
                                 @endif
                             </div>
                         </div>

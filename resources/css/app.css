@@ -38,6 +38,7 @@
 @import './pages/timeline.css';
 @import './pages/toggle-switch.css';
 @import './pages/product-result.css';
+@import './pages/reviews.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';

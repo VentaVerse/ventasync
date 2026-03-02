@@ -21,6 +21,8 @@ class OpenCartSetting extends Model
         'last_manufacturer_sync_at',
         'last_order_page',
         'sync_log',
+        'review_auto_approve',
+        'last_review_push_at',
     ];
 
     protected $casts = [
@@ -32,6 +34,8 @@ class OpenCartSetting extends Model
         'last_category_sync_at' => 'datetime',
         'last_manufacturer_sync_at' => 'datetime',
         'sync_log' => 'array',
+        'review_auto_approve' => 'boolean',
+        'last_review_push_at' => 'datetime',
     ];
 
     public function setApiKeyAttribute($value)

@@ -585,6 +585,9 @@
                 <div class="api-cat">Media</div>
                 <button type="button" class="api-endpoint" data-ep='{"name":"Upload Image","method":"POST","auth":true,"shop":true,"path":"/api/v2/media_space/upload_image","desc":"Upload an image.","params":[]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/media_space/upload_image</span><div class="api-hint">Multipart upload</div></button>
 
+                <div class="api-cat">Reviews</div>
+                <button type="button" class="api-endpoint" data-ep='{"name":"Get Item Comments","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_comment","desc":"Get reviews/comments for a specific item. Uses cursor-based pagination via comment_id.","params":[{"k":"item_id","req":true,"ph":"10076385934"},{"k":"comment_id","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_comment</span><div class="api-hint">item_id, comment_id, page_size</div></button>
+
                 <div class="api-cat">Returns</div>
                 <button type="button" class="api-endpoint" data-ep='{"name":"Get Return List","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_list","desc":"List returns.","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_list</span><div class="api-hint">page_no, page_size</div></button>
                 <button type="button" class="api-endpoint" data-ep='{"name":"Get Return Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_detail","desc":"Get return details.","params":[{"k":"return_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_detail</span><div class="api-hint">return_sn</div></button>

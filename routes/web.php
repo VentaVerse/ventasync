@@ -37,6 +37,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\ProductVendorController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReorderController;
+use App\Http\Controllers\ReviewController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
@@ -350,6 +351,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/opencart/verify-password', [\App\Http\Controllers\OpenCartController::class, 'verifyPassword'])->name('opencart.verify_password');
         Route::post('/opencart/fetch-oc-statuses', [\App\Http\Controllers\OpenCartController::class, 'fetchOcStatuses'])->name('opencart.fetch_oc_statuses');
         Route::post('/opencart/save-status-map', [\App\Http\Controllers\OpenCartController::class, 'saveOrderStatusMap'])->name('opencart.save_status_map');
+        Route::post('/opencart/save-review-settings', [\App\Http\Controllers\OpenCartController::class, 'saveReviewSettings'])->name('opencart.save_review_settings');
 
         // OpenCart per-store profiles
         Route::get('/opencart/{store}/profiles', [OpenCartProfileController::class, 'index'])->name('opencart.profiles.index');
@@ -497,6 +499,15 @@ Route::middleware(['auth'])->group(function () {
         // Reorder Suggestions
         Route::get('/reorder-suggestions', [ReorderController::class, 'index'])->name('reorder.index');
         Route::post('/reorder-suggestions/create-pos', [ReorderController::class, 'createFromReorder'])->name('reorder.create_pos');
+    });
+
+    // Reviews
+    Route::middleware(['perm:manage_reviews'])->group(function () {
+        Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
+        Route::get('/reviews/{id}', [ReviewController::class, 'show'])->name('reviews.show')->whereNumber('id');
+        Route::post('/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('reviews.push')->whereNumber('id');
+        Route::post('/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('reviews.skip')->whereNumber('id');
+        Route::post('/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('reviews.bulk_push');
     });
 
     // Product Vendors (buying prices)

@@ -1185,4 +1185,70 @@ class ModelApiErp extends Model
 
         return true;
     }
+
+    // ─── Reviews ──────────────────────────────────────────────
+
+    /**
+     * Check if a review already exists by platform dedup marker in the text.
+     * Marker format: <!--[platform:id]-->
+     */
+    public function findReviewByPlatformId($platform, $platformReviewId)
+    {
+        $marker = '<!--[' . $platform . ':' . $platformReviewId . ']-->';
+        $result = $this->db->query(
+            "SELECT review_id FROM " . DB_PREFIX . "review WHERE text LIKE '%" . $this->db->escape($marker) . "%' LIMIT 1"
+        );
+        return $result->num_rows ? (int)$result->row['review_id'] : null;
+    }
+
+    /**
+     * Create a product review.
+     *
+     * @param array $data {product_id, author, text, rating, status, date_added, platform, platform_review_id}
+     * @return int review_id
+     */
+    public function createReview($data)
+    {
+        $productId = (int)$data['product_id'];
+        $author    = isset($data['author']) && $data['author'] !== '' ? $data['author'] : 'Marketplace Buyer';
+        $rating    = max(1, min(5, (int)$data['rating']));
+        $status    = isset($data['status']) ? (int)$data['status'] : 1;
+        $dateAdded = !empty($data['date_added']) ? $data['date_added'] : date('Y-m-d H:i:s');
+
+        $platform  = isset($data['platform']) ? $data['platform'] : '';
+        $platId    = isset($data['platform_review_id']) ? $data['platform_review_id'] : '';
+
+        // Dedup: check for existing review by marker
+        if ($platform !== '' && $platId !== '') {
+            $existing = $this->findReviewByPlatformId($platform, $platId);
+            if ($existing) {
+                return $existing; // already exists
+            }
+        }
+
+        // Verify product exists
+        $check = $this->db->query("SELECT product_id FROM " . DB_PREFIX . "product WHERE product_id = '" . $productId . "'");
+        if (!$check->num_rows) {
+            throw new \Exception('Product #' . $productId . ' not found in OpenCart');
+        }
+
+        // Build text with invisible dedup marker (escape once at SQL interpolation)
+        $text = isset($data['text']) ? $data['text'] : '';
+        $marker = ($platform !== '' && $platId !== '') ? '<!--[' . $platform . ':' . $platId . ']-->' : '';
+        $fullText = $marker !== '' ? $marker . ' ' . $text : $text;
+
+        $this->db->query(
+            "INSERT INTO " . DB_PREFIX . "review SET
+                product_id    = '" . $productId . "',
+                customer_id   = '0',
+                author        = '" . $this->db->escape($author) . "',
+                text          = '" . $this->db->escape($fullText) . "',
+                rating        = '" . $rating . "',
+                status        = '" . $status . "',
+                date_added    = '" . $this->db->escape($dateAdded) . "',
+                date_modified = NOW()"
+        );
+
+        return (int)$this->db->getLastId();
+    }
 }

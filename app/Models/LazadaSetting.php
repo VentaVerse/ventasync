@@ -27,6 +27,7 @@ class LazadaSetting extends Model
         'last_order_sync_at',
         'last_stock_push_at',
         'last_return_sync_at',
+        'last_review_sync_at',
         'sandbox_app_key',
         'sandbox_app_secret',
         'sandbox_redirect_uri',
@@ -48,6 +49,7 @@ class LazadaSetting extends Model
         'last_order_sync_at' => 'datetime',
         'last_stock_push_at' => 'datetime',
         'last_return_sync_at' => 'datetime',
+        'last_review_sync_at' => 'datetime',
     ];
 
     /**

@@ -459,4 +459,45 @@ class ControllerApiErp extends Controller
             'total'   => count($results),
         ]);
     }
+
+    /**
+     * POST api/erp/review_create
+     *
+     * Creates a product review in OpenCart.
+     *
+     * Body: {
+     *   product_id: int,                // OC product_id (required)
+     *   author: string,                 // buyer name
+     *   text: string,                   // review text
+     *   rating: int,                    // 1-5 (required)
+     *   status: int,                    // 0=pending, 1=approved (default 1)
+     *   date_added: string,             // optional ISO datetime
+     *   platform: string,               // 'shopee' or 'lazada' (for dedup)
+     *   platform_review_id: string      // marketplace review ID (for dedup)
+     * }
+     */
+    public function review_create()
+    {
+        if (!$this->authenticate()) return;
+
+        $this->load->model('api/erp');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input) {
+            $input = $this->request->post;
+        }
+
+        if (empty($input['product_id']) || empty($input['rating'])) {
+            $this->sendJson(400, ['success' => false, 'error' => 'product_id and rating are required']);
+            return;
+        }
+
+        try {
+            $reviewId = $this->model_api_erp->createReview($input);
+            $this->sendJson(200, ['success' => true, 'data' => ['review_id' => $reviewId]]);
+        } catch (Exception $e) {
+            $this->debugLog('review_create FAILED product_id=' . ($input['product_id'] ?? '') . ': ' . $e->getMessage());
+            $this->sendJson(500, ['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
 }

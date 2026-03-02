@@ -25,6 +25,7 @@ class ShopeeSetting extends Model
         'last_order_sync_at',
         'last_stock_push_at',
         'last_return_sync_at',
+        'last_review_sync_at',
         'sandbox_partner_id',
         'sandbox_partner_key',
         'sandbox_shop_id',
@@ -45,6 +46,7 @@ class ShopeeSetting extends Model
         'last_order_sync_at' => 'datetime',
         'last_stock_push_at' => 'datetime',
         'last_return_sync_at' => 'datetime',
+        'last_review_sync_at' => 'datetime',
     ];
 
     /**

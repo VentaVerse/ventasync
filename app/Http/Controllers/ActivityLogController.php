@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Catalog\OrderStatus;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -90,7 +91,10 @@ class ActivityLogController extends Controller
 
         $categories = self::CATEGORIES;
 
-        return view('activity_log.index', compact('logs', 'q', 'action', 'userId', 'source', 'dateFrom', 'dateTo', 'actions', 'users', 'retentionDays', 'category', 'categories', 'categoryCounts'));
+        // Order status ID → name lookup for human-readable activity log changes
+        $orderStatusNames = OrderStatus::pluck('name', 'order_status_id');
+
+        return view('activity_log.index', compact('logs', 'q', 'action', 'userId', 'source', 'dateFrom', 'dateTo', 'actions', 'users', 'retentionDays', 'category', 'categories', 'categoryCounts', 'orderStatusNames'));
     }
 
     public function clear()

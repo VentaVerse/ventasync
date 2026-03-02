@@ -141,6 +141,10 @@
                                     <div class="oc-stat-label">Manufacturers</div>
                                     <div class="oc-stat-value">{{ $store->last_manufacturer_sync_at ? $store->last_manufacturer_sync_at->format('M d, H:i') : '—' }}</div>
                                 </div>
+                                <div class="oc-stat-card">
+                                    <div class="oc-stat-label">Last Review Push</div>
+                                    <div class="oc-stat-value">{{ $store->last_review_push_at ? $store->last_review_push_at->format('M d, H:i') : '—' }}</div>
+                                </div>
                             </div>
 
                             {{-- ── Order Sync Section ── --}}
@@ -259,6 +263,30 @@
                                 </div>
                             </div>
 
+                            {{-- ── Review Sync ── --}}
+                            <div class="oc-section">
+                                <div class="oc-section-header">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    Review Sync
+                                </div>
+
+                                <form method="POST" action="{{ route('opencart.save_review_settings') }}">
+                                    @csrf
+                                    <input type="hidden" name="store_id" value="{{ $store->id }}">
+
+                                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                        <label class="d-flex items-center gap-8" style="margin-bottom:0;">
+                                            <input type="checkbox" name="review_auto_approve" value="1" {{ $store->review_auto_approve ? 'checked' : '' }}>
+                                            <span>Auto-approve pushed reviews</span>
+                                        </label>
+                                        <button class="btn small" type="submit">Save</button>
+                                    </div>
+                                    <div class="hint" style="margin-top:6px;">
+                                        When enabled, reviews pushed from marketplace platforms will appear on the storefront immediately. When disabled, they will be set to "Pending" in OpenCart for manual approval.
+                                    </div>
+                                </form>
+                            </div>
+
                             {{-- ── Cronjob Setup ── --}}
                             <div class="oc-section">
                                 <div class="oc-section-header">
@@ -290,6 +318,16 @@
                                         <div class="oc-cron-box">
                                             <code id="cron-push-url-{{ $store->id }}">{{ $artisanPath }} opencart:push-qty --store={{ $store->id }}</code>
                                             <button type="button" class="btn small secondary oc-copy-btn" onclick="copyText(document.getElementById('cron-push-url-{{ $store->id }}'))" title="Copy to clipboard">
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-muted" style="margin-bottom:4px;">Push Reviews</div>
+                                        <div class="oc-cron-box">
+                                            <code id="cron-push-reviews-{{ $store->id }}">{{ $artisanPath }} opencart:push-reviews --store={{ $store->id }}</code>
+                                            <button type="button" class="btn small secondary oc-copy-btn" onclick="copyText(document.getElementById('cron-push-reviews-{{ $store->id }}'))" title="Copy to clipboard">
                                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                                 Copy
                                             </button>
@@ -524,6 +562,16 @@
                         <div class="oc-cron-box">
                             <code id="cron-push-url-all">{{ $artisanPath }} opencart:push-qty</code>
                             <button type="button" class="btn small secondary oc-copy-btn" onclick="copyText(document.getElementById('cron-push-url-all'))" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted" style="margin-bottom:4px;">Push Reviews</div>
+                        <div class="oc-cron-box">
+                            <code id="cron-push-reviews-all">{{ $artisanPath }} opencart:push-reviews</code>
+                            <button type="button" class="btn small secondary oc-copy-btn" onclick="copyText(document.getElementById('cron-push-reviews-all'))" title="Copy to clipboard">
                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 Copy
                             </button>

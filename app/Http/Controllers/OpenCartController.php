@@ -79,6 +79,22 @@ class OpenCartController extends Controller
         return redirect()->route('opencart.index', $savedStoreId ? ['store' => $savedStoreId] : [])->with('status', 'OpenCart store saved.');
     }
 
+    public function saveReviewSettings(Request $request)
+    {
+        $request->validate([
+            'store_id' => ['required', 'integer'],
+        ]);
+
+        $setting = OpenCartSetting::findOrFail((int) $request->input('store_id'));
+
+        $setting->update([
+            'review_auto_approve' => $request->has('review_auto_approve'),
+        ]);
+
+        return redirect()->route('opencart.index', ['store' => $setting->id])
+            ->with('status', 'Review settings saved.');
+    }
+
     public function saveSyncDate(Request $request)
     {
         $request->validate([

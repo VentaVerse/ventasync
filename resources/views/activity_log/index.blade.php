@@ -132,11 +132,19 @@
                                         <div style="margin-top:4px; font-size:12px; line-height:1.5;">
                                             @foreach($log->changes as $field => $vals)
                                                 <div>
-                                                    <span class="text-secondary">{{ $field }}:</span>
+                                                    <span class="text-secondary">{{ $field === 'order_status_id' ? 'status' : $field }}:</span>
                                                     @if(is_array($vals) && count($vals) === 2)
-                                                        <span style="color:#dc2626; text-decoration:line-through;">{{ \Illuminate\Support\Str::limit((string)$vals[0], 50) }}</span>
+                                                        @php
+                                                            $oldVal = $vals[0];
+                                                            $newVal = $vals[1];
+                                                            if ($field === 'order_status_id') {
+                                                                $oldVal = empty($vals[0]) ? '(none)' : ($orderStatusNames[$vals[0]] ?? $vals[0]);
+                                                                $newVal = empty($vals[1]) ? '(none)' : ($orderStatusNames[$vals[1]] ?? $vals[1]);
+                                                            }
+                                                        @endphp
+                                                        <span style="color:#dc2626; text-decoration:line-through;">{{ \Illuminate\Support\Str::limit((string)$oldVal, 50) }}</span>
                                                         &rarr;
-                                                        <span style="color:#16a34a;">{{ \Illuminate\Support\Str::limit((string)$vals[1], 50) }}</span>
+                                                        <span style="color:#16a34a;">{{ \Illuminate\Support\Str::limit((string)$newVal, 50) }}</span>
                                                     @else
                                                         {{ \Illuminate\Support\Str::limit(json_encode($vals), 80) }}
                                                     @endif

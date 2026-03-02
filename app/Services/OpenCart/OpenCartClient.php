@@ -164,4 +164,9 @@ class OpenCartClient
     {
         return $this->get('api/erp/order_statuses');
     }
+
+    public function createReview(array $data): array
+    {
+        return $this->post('api/erp/review_create', $data);
+    }
 }
