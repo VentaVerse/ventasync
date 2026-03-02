@@ -49,26 +49,24 @@
                 $selectedMfgIds = array_map('intval', (array)$selectedMfgIds);
             @endphp
 
+            <div class="hint" style="margin-bottom:8px;">Type to search, click to add.</div>
+
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
                     <label>Categories</label>
-                    <select name="catalog_category_ids[]" class="input" multiple size="12" style="height:auto; min-height:200px;">
-                        @foreach($catalogCategories as $c)
-                            <option value="{{ $c->category_id }}" {{ in_array((int)$c->category_id, $selectedCatIds) ? 'selected' : '' }}>
-                                {{ $c->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div style="position:relative;">
+                        <input type="text" class="input" id="catSearch" placeholder="Search categories..." autocomplete="off">
+                        <div id="catDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
+                    </div>
+                    <div id="catSelected" style="border:1px solid var(--border); border-radius:var(--radius-md); min-height:40px; margin-top:8px; padding:4px;"></div>
                 </div>
                 <div>
                     <label>Manufacturers</label>
-                    <select name="manufacturer_ids[]" class="input" multiple size="12" style="height:auto; min-height:200px;">
-                        @foreach(($manufacturers ?? collect()) as $m)
-                            <option value="{{ $m->manufacturer_id }}" {{ in_array((int)$m->manufacturer_id, $selectedMfgIds) ? 'selected' : '' }}>
-                                {{ $m->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div style="position:relative;">
+                        <input type="text" class="input" id="mfgSearch" placeholder="Search manufacturers..." autocomplete="off">
+                        <div id="mfgDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
+                    </div>
+                    <div id="mfgSelected" style="border:1px solid var(--border); border-radius:var(--radius-md); min-height:40px; margin-top:8px; padding:4px;"></div>
                 </div>
             </div>
             <div class="hint" style="margin-top:6px;">
@@ -85,4 +83,99 @@
             </div>
         </form>
     </div>
+    <script>
+        function initListPicker(config) {
+            var items = config.items;
+            var selectedIds = config.selectedIds;
+            var searchEl = config.searchEl;
+            var dropdownEl = config.dropdownEl;
+            var listEl = config.listEl;
+            var fieldName = config.fieldName;
+            var selected = new Map();
+
+            selectedIds.forEach(function(id) {
+                var item = items.find(function(i) { return i.id === id; });
+                if (item) selected.set(id, item.name);
+            });
+
+            function render() {
+                listEl.innerHTML = '';
+                if (selected.size === 0) {
+                    listEl.innerHTML = '<div style="padding:8px; color:var(--text-muted); font-size:13px;">None selected</div>';
+                    return;
+                }
+                selected.forEach(function(name, id) {
+                    var row = document.createElement('div');
+                    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:4px 8px;';
+                    var span = document.createElement('span');
+                    span.textContent = name;
+                    row.appendChild(span);
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.innerHTML = '&times;';
+                    btn.style.cssText = 'background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-muted); padding:0 4px; line-height:1;';
+                    btn.addEventListener('click', function() { selected.delete(id); render(); });
+                    row.appendChild(btn);
+                    var inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = fieldName;
+                    inp.value = id;
+                    row.appendChild(inp);
+                    listEl.appendChild(row);
+                });
+            }
+
+            function showDropdown(filter) {
+                var lower = filter.toLowerCase();
+                var filtered = items.filter(function(i) {
+                    return !selected.has(i.id) && i.name.toLowerCase().indexOf(lower) !== -1;
+                });
+                if (filtered.length === 0 || filter === '') {
+                    dropdownEl.style.display = 'none';
+                    return;
+                }
+                dropdownEl.innerHTML = '';
+                filtered.slice(0, 50).forEach(function(item) {
+                    var div = document.createElement('div');
+                    div.textContent = item.name;
+                    div.style.cssText = 'padding:6px 10px; cursor:pointer;';
+                    div.addEventListener('mouseenter', function() { div.style.background = 'var(--surface-hover)'; });
+                    div.addEventListener('mouseleave', function() { div.style.background = ''; });
+                    div.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        selected.set(item.id, item.name);
+                        searchEl.value = '';
+                        dropdownEl.style.display = 'none';
+                        render();
+                    });
+                    dropdownEl.appendChild(div);
+                });
+                dropdownEl.style.display = 'block';
+            }
+
+            searchEl.addEventListener('input', function() { showDropdown(searchEl.value.trim()); });
+            searchEl.addEventListener('focus', function() { if (searchEl.value.trim()) showDropdown(searchEl.value.trim()); });
+            searchEl.addEventListener('blur', function() { setTimeout(function() { dropdownEl.style.display = 'none'; }, 150); });
+
+            render();
+        }
+
+        initListPicker({
+            items: @json($catalogCategories->map(fn($c) => ['id' => (int)$c->category_id, 'name' => $c->name])),
+            selectedIds: @json($selectedCatIds),
+            searchEl: document.getElementById('catSearch'),
+            dropdownEl: document.getElementById('catDropdown'),
+            listEl: document.getElementById('catSelected'),
+            fieldName: 'catalog_category_ids[]'
+        });
+
+        initListPicker({
+            items: @json(($manufacturers ?? collect())->map(fn($m) => ['id' => (int)$m->manufacturer_id, 'name' => $m->name])),
+            selectedIds: @json($selectedMfgIds),
+            searchEl: document.getElementById('mfgSearch'),
+            dropdownEl: document.getElementById('mfgDropdown'),
+            listEl: document.getElementById('mfgSelected'),
+            fieldName: 'manufacturer_ids[]'
+        });
+    </script>
 @endsection
