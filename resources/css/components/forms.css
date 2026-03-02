@@ -32,6 +32,27 @@ label.required::after { content: ' *'; color: var(--danger); font-weight: 700; }
 .field-error { font-size: 12px; color: var(--danger); margin-top: 4px; }
 .input-error { border-color: var(--danger) !important; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
 
+/* Input group (prefix + input) */
+.input-group {
+    display: flex; align-items: stretch;
+}
+.input-group .input {
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
+    flex: 1; min-width: 0;
+}
+.input-group-prefix {
+    display: flex; align-items: center;
+    padding: 0 12px;
+    background: var(--surface-alt, #f1f5f9);
+    border: 1px solid #cbd5e1;
+    border-right: none;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    font-size: 14px; font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    user-select: none;
+}
+
 /* Section heading (inside forms) */
 .section-title {
     margin: 24px 0 12px;

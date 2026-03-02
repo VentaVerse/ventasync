@@ -969,26 +969,61 @@
   window.setupTypeahead = setupTypeahead;
 
   document.addEventListener('DOMContentLoaded', function(){
+    function updateMfgPrefix(mfgName) {
+      var prefix = document.getElementById('name_mfg_prefix');
+      var nameField = document.getElementById('product_name');
+      if (!prefix || !nameField) return;
+      var name = (mfgName || '').trim();
+      if (name) {
+        prefix.textContent = name;
+        prefix.style.display = '';
+        // Strip old manufacturer prefix from name field if present
+        var current = (nameField.value || '').trim();
+        if (current.toLowerCase().indexOf(name.toLowerCase()) === 0) {
+          nameField.value = current.substring(name.length).replace(/^\s+/, '');
+        }
+      } else {
+        prefix.style.display = 'none';
+        prefix.textContent = '';
+      }
+    }
+
+    // On form submit, prepend manufacturer prefix back into the name value
+    var prodForm = document.getElementById('product_name');
+    if (prodForm && prodForm.closest('form')) {
+      prodForm.closest('form').addEventListener('submit', function() {
+        var prefix = document.getElementById('name_mfg_prefix');
+        var nameField = document.getElementById('product_name');
+        if (!prefix || !nameField) return;
+        var mfg = (prefix.textContent || '').trim();
+        var current = (nameField.value || '').trim();
+        if (mfg && current && current.toLowerCase().indexOf(mfg.toLowerCase()) !== 0) {
+          nameField.value = mfg + ' ' + current;
+        } else if (mfg && !current) {
+          nameField.value = mfg;
+        }
+      });
+    }
+
     setupTypeahead({
       inputId: 'manufacturer_search',
       hiddenId: 'manufacturer_id',
       listId: 'manufacturer_list',
       url: '/api/catalog/manufacturers?term=',
       onSelect: function(item) {
-        var nameField = document.querySelector('input[name="name"]');
-        if (!nameField) return;
-        var current = (nameField.value || '').trim();
-        var mfgName = (item.name || '').trim();
-        if (!mfgName) return;
-        // Auto-prefix if name is empty or doesn't already start with the manufacturer name
-        if (current === '') {
-          nameField.value = mfgName + ' ';
+        updateMfgPrefix(item.name);
+        var nameField = document.getElementById('product_name');
+        if (nameField && !(nameField.value || '').trim()) {
           nameField.focus();
-        } else if (current.toLowerCase().indexOf(mfgName.toLowerCase()) !== 0) {
-          nameField.value = mfgName + ' ' + current;
         }
       }
     });
+
+    // Initialize prefix on page load (for edit forms with existing manufacturer)
+    var mfgInput = document.getElementById('manufacturer_search');
+    if (mfgInput && (mfgInput.value || '').trim()) {
+      updateMfgPrefix(mfgInput.value.trim());
+    }
     setupTypeahead({
       inputId: 'category_search',
       listId: 'category_list',

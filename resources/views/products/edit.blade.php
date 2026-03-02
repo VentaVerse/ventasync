@@ -43,7 +43,10 @@
             <div class="form-grid">
                 <div class="full">
                     <label class="required">Name</label>
-                    <input class="input" name="name" value="{{ old('name', html_entity_decode($product->name ?? '')) }}" required>
+                    <div class="input-group">
+                        <span class="input-group-prefix" id="name_mfg_prefix" style="display:none;"></span>
+                        <input class="input" name="name" id="product_name" value="{{ old('name', html_entity_decode($product->name ?? '')) }}" required>
+                    </div>
                     @error('name')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
