@@ -182,8 +182,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shopee/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('shopee.products.sync_quantity');
         Route::post('/shopee/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('shopee.products.sync_price');
         Route::post('/shopee/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('shopee.products.unlink');
+        Route::post('/shopee/products/{productId}/delete', [ShopeeProductController::class, 'deleteFromShopee'])->name('shopee.products.delete');
         Route::post('/shopee/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('shopee.products.bulk_sync_quantity');
         Route::post('/shopee/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('shopee.products.bulk_sync_price');
+        Route::post('/shopee/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('shopee.products.bulk_delete');
         Route::post('/shopee/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('shopee.products.link_unmatched');
         Route::post('/shopee/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('shopee.products.dismiss_unmatched');
         Route::get('/shopee/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('shopee.products.search_catalog');

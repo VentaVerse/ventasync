@@ -10,6 +10,7 @@ use App\Models\ShopeeProductLink;
 use App\Models\ShopeeProfile;
 use App\Models\ShopeeSetting;
 use App\Models\ShopeeUnmatchedItem;
+use App\Services\ActivityLogger;
 use App\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -975,6 +976,130 @@ class ShopeeProductController extends Controller
         $deleted = ShopeeProductLink::query()->where('product_id', $productId)->delete();
 
         return redirect()->back()->with('status', "Unlinked product from Shopee ($deleted link(s) removed, cache cleared). You can now re-sync.");
+    }
+
+    // ── Delete Product from Shopee ────────────────────────────────
+
+    public function deleteFromShopee(int $productId, ShopeeClient $client)
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return redirect()->back()->with('error', 'Missing Shopee credentials. Configure Shopee settings first.');
+        }
+
+        $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+        if (!$link || !$link->shopee_item_id) {
+            return redirect()->back()->with('error', 'Product is not linked to a Shopee item.');
+        }
+
+        $itemId = (int) $link->shopee_item_id;
+        $path = '/api/v2/product/delete_item';
+
+        $result = $client->shopPost(
+            $setting->mode ?? 'live',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            $path,
+            [],
+            ['item_id' => $itemId]
+        );
+
+        ShopeeApiLog::safeCreate([
+            'pack'            => 'shopee.product.delete_item',
+            'method'          => 'POST',
+            'api_path'        => $path,
+            'auth_required'   => true,
+            'request_params'  => ['item_id' => $itemId, 'product_id' => $productId],
+            'response_status' => (int) ($result['status'] ?? 0),
+            'ok'              => (bool) ($result['ok'] ?? false),
+            'response_body'   => $result['body'] ?? null,
+        ]);
+
+        $body = $result['body'] ?? [];
+        $respError = is_array($body) ? ($body['error'] ?? '') : '';
+        $respMsg = is_array($body) ? ($body['message'] ?? '') : '';
+
+        if (($result['ok'] ?? false) && $respError === '') {
+            // Remove links and cache entries for this item
+            ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
+            ShopeeProductLink::query()->where('product_id', $productId)->delete();
+
+            ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee');
+
+            return redirect()->back()->with('status', 'Product deleted from Shopee (item ' . $itemId . ').');
+        }
+
+        $errorMsg = $respError ?: $respMsg ?: 'Unknown error';
+        return redirect()->back()->with('error', 'Delete failed: ' . $errorMsg);
+    }
+
+    public function bulkDeleteFromShopee(Request $request, ShopeeClient $client)
+    {
+        $productIds = $request->input('product_ids', []);
+        if (!is_array($productIds) || empty($productIds)) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return redirect()->back()->with('error', 'Missing Shopee credentials. Configure Shopee settings first.');
+        }
+
+        $okCount = 0;
+        $errCount = 0;
+        $path = '/api/v2/product/delete_item';
+
+        foreach ($productIds as $productId) {
+            $productId = (int) $productId;
+            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            if (!$link || !$link->shopee_item_id) {
+                $errCount++;
+                continue;
+            }
+
+            $itemId = (int) $link->shopee_item_id;
+
+            $result = $client->shopPost(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id,
+                (string) $setting->partner_key,
+                (string) $setting->access_token,
+                (int) $setting->shop_id,
+                $path,
+                [],
+                ['item_id' => $itemId]
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack'            => 'shopee.product.delete_item.bulk',
+                'method'          => 'POST',
+                'api_path'        => $path,
+                'auth_required'   => true,
+                'request_params'  => ['item_id' => $itemId, 'product_id' => $productId],
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok'              => (bool) ($result['ok'] ?? false),
+                'response_body'   => $result['body'] ?? null,
+            ]);
+
+            $body = $result['body'] ?? [];
+            $respError = is_array($body) ? ($body['error'] ?? '') : '';
+
+            if (($result['ok'] ?? false) && $respError === '') {
+                ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
+                ShopeeProductLink::query()->where('product_id', $productId)->delete();
+                $okCount++;
+            } else {
+                $errCount++;
+            }
+
+            usleep(200000); // 200ms rate limit
+        }
+
+        ActivityLogger::log('deleted', 'Shopee Product', null, 'Bulk deleted ' . $okCount . ' product(s) from Shopee');
+
+        return redirect()->back()->with('status', "Bulk Delete: {$okCount} deleted, {$errCount} failed out of " . count($productIds) . " selected.");
     }
 
     // ── Rebuild Shopee Item Cache ──────────────────────────────────
