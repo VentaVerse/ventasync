@@ -3831,7 +3831,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     return array_fill_keys($urls, null);
 }
 
-    private function buildLazadaProductCreatePayload(LazadaProduct $listing, ?LazadaSetting $setting = null, ?LazadaClient $client = null): array
+    private function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null): array
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
