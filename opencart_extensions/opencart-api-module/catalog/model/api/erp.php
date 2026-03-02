@@ -411,24 +411,7 @@ class ModelApiErp extends Model
 
         $productId = (int)$this->db->getLastId();
 
-        // Upsert ADV Profit product_cost table
-        if (isset($data['cost_amount']) || isset($data['cost_percentage']) || isset($data['cost_additional'])) {
-            $this->db->query(
-                "INSERT INTO " . DB_PREFIX . "product_cost SET
-                    product_id = '" . $productId . "',
-                    cost = '" . (float)($data['cost'] ?? 0) . "',
-                    cost_amount = '" . (float)($data['cost_amount'] ?? 0) . "',
-                    cost_percentage = '" . (float)($data['cost_percentage'] ?? 0) . "',
-                    cost_additional = '" . (float)($data['cost_additional'] ?? 0) . "',
-                    costing_method = '0',
-                    supplier_id = '0'
-                 ON DUPLICATE KEY UPDATE
-                    cost = VALUES(cost),
-                    cost_amount = VALUES(cost_amount),
-                    cost_percentage = VALUES(cost_percentage),
-                    cost_additional = VALUES(cost_additional)"
-            );
-        }
+        // Cost/profit tracking is handled by the ERP, not OpenCart
 
         // Insert product description
         $this->db->query(
@@ -880,24 +863,7 @@ class ModelApiErp extends Model
             );
         }
 
-        // Upsert ADV Profit product_cost table
-        if (array_key_exists('cost_amount', $data) || array_key_exists('cost_percentage', $data) || array_key_exists('cost_additional', $data)) {
-            $this->db->query(
-                "INSERT INTO " . DB_PREFIX . "product_cost SET
-                    product_id = '" . (int)$product_id . "',
-                    cost = '" . (float)($data['cost'] ?? 0) . "',
-                    cost_amount = '" . (float)($data['cost_amount'] ?? 0) . "',
-                    cost_percentage = '" . (float)($data['cost_percentage'] ?? 0) . "',
-                    cost_additional = '" . (float)($data['cost_additional'] ?? 0) . "',
-                    costing_method = '0',
-                    supplier_id = '0'
-                 ON DUPLICATE KEY UPDATE
-                    cost = VALUES(cost),
-                    cost_amount = VALUES(cost_amount),
-                    cost_percentage = VALUES(cost_percentage),
-                    cost_additional = VALUES(cost_additional)"
-            );
-        }
+        // Cost/profit tracking is handled by the ERP, not OpenCart
 
         // Update description if name or description provided
         $descSets = [];
