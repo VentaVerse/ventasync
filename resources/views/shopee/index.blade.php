@@ -26,8 +26,8 @@
 {{-- ═══ Tabs ═══ --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab active" data-tab="sp-tab-settings" type="button">Settings</button>
-    <button class="tab" data-tab="sp-tab-explorer" type="button">API Explorer</button>
     <button class="tab" data-tab="sp-tab-status" type="button">Status Mapping</button>
+    <button class="tab" data-tab="sp-tab-explorer" type="button">API Explorer</button>
     <button class="tab" data-tab="sp-tab-logs" type="button">
         API Logs
         @if($logCount > 0)

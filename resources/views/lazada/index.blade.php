@@ -31,8 +31,8 @@
 {{-- ═══ Tabs ═══ --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab active" data-tab="lz-tab-settings" type="button">Settings</button>
-    <button class="tab" data-tab="lz-tab-explorer" type="button">API Explorer</button>
     <button class="tab" data-tab="lz-tab-status" type="button">Status Mapping</button>
+    <button class="tab" data-tab="lz-tab-explorer" type="button">API Explorer</button>
     <button class="tab" data-tab="lz-tab-logs" type="button">
         API Logs
         @if($logCount > 0)

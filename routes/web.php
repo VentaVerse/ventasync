@@ -416,6 +416,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/pedallion/products/{productId}/sync-qty', [PedallionProductController::class, 'syncQty'])->name('pedallion.products.sync_qty');
         Route::post('/pedallion/products/{productId}/sync-price', [PedallionProductController::class, 'syncPrice'])->name('pedallion.products.sync_price');
         Route::post('/pedallion/products/{productId}/delete', [PedallionProductController::class, 'deleteFromPedallion'])->name('pedallion.products.delete');
+        Route::post('/pedallion/products/{productId}/sync', [PedallionProductController::class, 'sync'])->name('pedallion.products.sync');
+        Route::post('/pedallion/products/bulk-sync', [PedallionProductController::class, 'bulkSync'])->name('pedallion.products.bulk_sync');
+        Route::post('/pedallion/products/bulk-unlink', [PedallionProductController::class, 'bulkUnlink'])->name('pedallion.products.bulk_unlink');
         Route::post('/pedallion/products/bulk-push', [PedallionProductController::class, 'bulkPush'])->name('pedallion.products.bulk_push');
         Route::post('/pedallion/products/bulk-sync-qty', [PedallionProductController::class, 'bulkSyncQty'])->name('pedallion.products.bulk_sync_qty');
         Route::post('/pedallion/products/bulk-sync-price', [PedallionProductController::class, 'bulkSyncPrice'])->name('pedallion.products.bulk_sync_price');
