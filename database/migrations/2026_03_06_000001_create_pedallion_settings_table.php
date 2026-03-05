@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('pedallion_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('base_url', 255)->default('https://api.pedallion.com/v1');
+            $table->string('base_url', 255)->default('https://api.pedallion.com/api/v1');
             $table->text('api_key')->nullable();
             $table->boolean('enabled')->default(false);
             $table->boolean('logging_enabled')->default(false);
