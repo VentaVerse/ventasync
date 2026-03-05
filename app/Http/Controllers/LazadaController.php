@@ -295,8 +295,12 @@ class LazadaController extends Controller
             'api_logging' => (bool) $request->input('api_logging'),
         ]);
 
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'api_logging' => $setting->api_logging]);
+        }
+
         $state = $setting->api_logging ? 'enabled' : 'disabled';
-        return back()->with('status', "Lazada API logging {$state}.");
+        return redirect()->route('lazada.index', ['tab' => 'logs'])->with('status', "Lazada API logging {$state}.");
     }
 
     public function clearApiLogs()
@@ -304,7 +308,7 @@ class LazadaController extends Controller
         $count = LazadaApiLog::count();
         LazadaApiLog::truncate();
 
-        return back()->with('status', "Deleted {$count} Lazada API log entries.");
+        return redirect()->route('lazada.index', ['tab' => 'logs'])->with('status', "Deleted {$count} Lazada API log entries.");
     }
 
     /**

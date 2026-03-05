@@ -25,9 +25,9 @@
 
 {{-- ═══ Tabs ═══ --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
-    <button class="tab {{ !$hasResult ? 'active' : '' }}" data-tab="sp-tab-settings" type="button">Settings</button>
+    <button class="tab active" data-tab="sp-tab-settings" type="button">Settings</button>
     <button class="tab" data-tab="sp-tab-explorer" type="button">API Explorer</button>
-    <button class="tab {{ $hasResult ? 'active' : '' }}" data-tab="sp-tab-logs" type="button">
+    <button class="tab" data-tab="sp-tab-logs" type="button">
         API Logs
         @if($logCount > 0)
             <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
@@ -38,7 +38,7 @@
 {{-- ╔══════════════════════════════════════════════════════════════════╗
      ║  TAB 1 — SETTINGS                                              ║
      ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-settings" class="{{ $hasResult ? 'hidden' : '' }}">
+<div id="sp-tab-settings">
 
     {{-- Environment Toggle --}}
     <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
@@ -676,30 +676,25 @@
 {{-- ╔══════════════════════════════════════════════════════════════════╗
      ║  TAB 3 — API LOGS                                              ║
      ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-logs" class="{{ !$hasResult ? 'hidden' : '' }}">
+<div id="sp-tab-logs" class="hidden">
 
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
         <div>
             <span class="font-semibold text-sm">API Logging</span>
             <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
         </div>
-        <form method="POST" action="{{ route('shopee.toggle_logging') }}">
-            @csrf
-            <label class="d-flex items-center gap-10" style="cursor:pointer;">
-                <span style="position:relative; display:inline-block; width:44px; height:24px;">
-                    <input type="hidden" name="api_logging" value="0">
-                    <input type="checkbox" name="api_logging" value="1"
-                           {{ ($setting->api_logging ?? true) ? 'checked' : '' }}
-                           onchange="this.form.submit()"
-                           style="position:absolute; opacity:0; width:0; height:0;">
-                    <span style="position:absolute; inset:0; background:{{ ($setting->api_logging ?? true) ? 'var(--accent)' : 'var(--border)' }}; border-radius:12px; transition:background 0.2s;"></span>
-                    <span style="position:absolute; top:2px; left:{{ ($setting->api_logging ?? true) ? '22px' : '2px' }}; width:20px; height:20px; background:#fff; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
-                </span>
-                <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
-                    {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
-                </span>
-            </label>
-        </form>
+        <label class="d-flex items-center gap-10" style="cursor:pointer;" id="sp-log-toggle">
+            <span style="position:relative; display:inline-block; width:44px; height:24px;">
+                <input type="checkbox" id="sp-log-cb" value="1"
+                       {{ ($setting->api_logging ?? true) ? 'checked' : '' }}
+                       style="position:absolute; opacity:0; width:0; height:0;">
+                <span id="sp-log-track" style="position:absolute; inset:0; background:{{ ($setting->api_logging ?? true) ? 'var(--accent)' : 'var(--border)' }}; border-radius:12px; transition:background 0.2s;"></span>
+                <span id="sp-log-knob" style="position:absolute; top:2px; left:{{ ($setting->api_logging ?? true) ? '22px' : '2px' }}; width:20px; height:20px; background:#fff; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+            </span>
+            <span id="sp-log-label" class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
+                {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
+            </span>
+        </label>
     </div>
 
     @if($result)
@@ -742,7 +737,7 @@
                         @foreach($logs as $log)
                             <tr>
                                 <td>{{ $log->created_at }}</td>
-                                <td>{{ $log->method }}</td>
+                                <td><span class="badge {{ $log->ok ? 'badge-green' : 'badge-red' }}">{{ $log->method }}</span></td>
                                 <td>
                                     @if(!empty($log->pack))
                                         <div class="hint" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
@@ -798,6 +793,39 @@
     });
 })();
 
+// API Logging toggle (no refresh)
+(function(){
+    var cb = document.getElementById('sp-log-cb');
+    if (!cb) return;
+    var track = document.getElementById('sp-log-track');
+    var knob = document.getElementById('sp-log-knob');
+    var label = document.getElementById('sp-log-label');
+
+    cb.addEventListener('change', function(){
+        var enabled = cb.checked;
+        track.style.background = enabled ? 'var(--accent)' : 'var(--border)';
+        knob.style.left = enabled ? '22px' : '2px';
+        label.textContent = enabled ? 'Enabled' : 'Disabled';
+        label.className = 'text-sm ' + (enabled ? 'font-bold' : 'text-muted');
+
+        fetch('{{ route("shopee.toggle_logging") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ api_logging: enabled ? 1 : 0 })
+        }).catch(function(){
+            cb.checked = !enabled;
+            track.style.background = !enabled ? 'var(--accent)' : 'var(--border)';
+            knob.style.left = !enabled ? '22px' : '2px';
+            label.textContent = !enabled ? 'Enabled' : 'Disabled';
+            label.className = 'text-sm ' + (!enabled ? 'font-bold' : 'text-muted');
+        });
+    });
+})();
+
 function spCopy(id, btn) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -814,16 +842,28 @@ function spCopy(id, btn) {
 (function(){
     var ids = ['sp-tab-settings', 'sp-tab-explorer', 'sp-tab-logs'];
     var tabs = document.querySelectorAll('[data-tab^="sp-tab-"]');
+    var storageKey = 'sp-active-tab';
+
+    function switchTab(tabId) {
+        tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.tab === tabId); });
+        ids.forEach(function(id){
+            var el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', id !== tabId);
+        });
+    }
+
     tabs.forEach(function(btn){
         btn.addEventListener('click', function(){
-            tabs.forEach(function(t){ t.classList.remove('active'); });
-            btn.classList.add('active');
-            ids.forEach(function(id){
-                var el = document.getElementById(id);
-                if (el) el.classList.toggle('hidden', id !== btn.dataset.tab);
-            });
+            switchTab(btn.dataset.tab);
+            localStorage.setItem(storageKey, btn.dataset.tab);
         });
     });
+
+    // Restore tab: URL param > localStorage > $hasResult default
+    var urlTab = new URLSearchParams(window.location.search).get('tab');
+    var saved = urlTab ? ('sp-tab-' + urlTab) : localStorage.getItem(storageKey);
+    if (!saved && {{ $hasResult ? 'true' : 'false' }}) saved = 'sp-tab-logs';
+    if (saved && ids.indexOf(saved) !== -1) switchTab(saved);
 })();
 
 // Explorer JS

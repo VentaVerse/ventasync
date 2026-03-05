@@ -566,8 +566,12 @@ public function buildAuthUrl(ShopeeClient $client)
             'api_logging' => (bool) $request->input('api_logging'),
         ]);
 
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'api_logging' => $setting->api_logging]);
+        }
+
         $state = $setting->api_logging ? 'enabled' : 'disabled';
-        return back()->with('status', "Shopee API logging {$state}.");
+        return redirect()->route('shopee.index', ['tab' => 'logs'])->with('status', "Shopee API logging {$state}.");
     }
 
     public function clearApiLogs()
@@ -575,7 +579,7 @@ public function buildAuthUrl(ShopeeClient $client)
         $count = ShopeeApiLog::count();
         ShopeeApiLog::truncate();
 
-        return back()->with('status', "Deleted {$count} Shopee API log entries.");
+        return redirect()->route('shopee.index', ['tab' => 'logs'])->with('status', "Deleted {$count} Shopee API log entries.");
     }
 
     public function explorerRun(Request $request, ShopeeClient $client)
