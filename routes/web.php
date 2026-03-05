@@ -390,6 +390,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/pedallion/api-logs', [PedallionController::class, 'clearApiLogs'])->name('pedallion.clear_api_logs');
         Route::post('/pedallion/explorer/run', [PedallionController::class, 'explorerRun'])->name('pedallion.explorer_run');
         Route::post('/pedallion/order-status-map', [PedallionController::class, 'saveOrderStatusMap'])->name('pedallion.order_status_map');
+        Route::post('/pedallion/fetch-order-statuses', [PedallionController::class, 'fetchOrderStatuses'])->name('pedallion.fetch_order_statuses');
         Route::post('/pedallion/sync-days', [PedallionController::class, 'saveSyncDays'])->name('pedallion.sync_days');
 
         // Categories & Manufacturers

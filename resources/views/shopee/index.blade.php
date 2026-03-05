@@ -27,6 +27,7 @@
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab active" data-tab="sp-tab-settings" type="button">Settings</button>
     <button class="tab" data-tab="sp-tab-explorer" type="button">API Explorer</button>
+    <button class="tab" data-tab="sp-tab-status" type="button">Status Mapping</button>
     <button class="tab" data-tab="sp-tab-logs" type="button">
         API Logs
         @if($logCount > 0)
@@ -307,95 +308,6 @@
     </div>
     </div>
 
-    {{-- Order Status Mapping --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Order Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            When Shopee orders are synced, each Shopee status is mapped to an ERP order status below.
-        </div>
-
-        <form method="POST" action="{{ route('shopee.order_status_map') }}">
-            @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:45%;">Shopee Status</th>
-                        <th>ERP Order Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($shopeeStatuses as $key => $label)
-                    <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
-                        </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
-            </div>
-        </form>
-    </div>
-
-    {{-- Return Status Mapping --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Return Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            When Shopee returns are synced, each return status is mapped to an ERP order status below.
-        </div>
-
-        <form method="POST" action="{{ route('shopee.return_status_map') }}">
-            @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:45%;">Shopee Return Status</th>
-                        <th>ERP Order Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($shopeeReturnStatuses as $key => $label)
-                    <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
-                        </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
-                                <option value="">(not mapped)</option>
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($returnStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
-            </div>
-        </form>
-    </div>
-
     {{-- Logistics Channels --}}
     <div class="card mb-16">
         <h3 class="section-title mt-0">Logistics Channels</h3>
@@ -674,7 +586,103 @@
 </div>
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  TAB 3 — API LOGS                                              ║
+     ║  TAB 3 — STATUS MAPPING                                        ║
+     ╚══════════════════════════════════════════════════════════════════╝ --}}
+<div id="sp-tab-status" class="hidden">
+
+    {{-- Order Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Order Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            When Shopee orders are synced, each Shopee status is mapped to an ERP order status below.
+        </div>
+
+        <form method="POST" action="{{ route('shopee.order_status_map') }}">
+            @csrf
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Shopee Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($shopeeStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+
+    {{-- Return Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Return Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            When Shopee returns are synced, each return status is mapped to an ERP order status below.
+        </div>
+
+        <form method="POST" action="{{ route('shopee.return_status_map') }}">
+            @csrf
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Shopee Return Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($shopeeReturnStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                <option value="">(not mapped)</option>
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($returnStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+{{-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  TAB 4 — API LOGS                                              ║
      ╚══════════════════════════════════════════════════════════════════╝ --}}
 <div id="sp-tab-logs" class="hidden">
 
@@ -840,7 +848,7 @@ function spCopy(id, btn) {
 
 // Tab switching
 (function(){
-    var ids = ['sp-tab-settings', 'sp-tab-explorer', 'sp-tab-logs'];
+    var ids = ['sp-tab-settings', 'sp-tab-explorer', 'sp-tab-status', 'sp-tab-logs'];
     var tabs = document.querySelectorAll('[data-tab^="sp-tab-"]');
     var storageKey = 'sp-active-tab';
 

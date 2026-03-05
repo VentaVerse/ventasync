@@ -32,6 +32,7 @@
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab active" data-tab="lz-tab-settings" type="button">Settings</button>
     <button class="tab" data-tab="lz-tab-explorer" type="button">API Explorer</button>
+    <button class="tab" data-tab="lz-tab-status" type="button">Status Mapping</button>
     <button class="tab" data-tab="lz-tab-logs" type="button">
         API Logs
         @if($logCount > 0)
@@ -299,95 +300,6 @@
     </div>
     </div>
 
-    {{-- Order Status Mapping --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Order Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            When Lazada orders are synced, each Lazada status is mapped to an ERP order status below. Statuses marked with a dot trigger stock subtraction.
-        </div>
-
-        <form method="POST" action="{{ route('lazada.order_status_map') }}">
-            @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:45%;">Lazada Status</th>
-                        <th>ERP Order Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($lazadaStatuses as $key => $label)
-                    <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
-                        </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
-            </div>
-        </form>
-    </div>
-
-    {{-- Reverse Order Status Mapping --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Reverse Order Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            Map each Lazada reverse order status to an ERP order status. Useful for organizing returned orders and handling product quantity adjustments. Statuses marked with a dot trigger stock subtraction.
-        </div>
-
-        <form method="POST" action="{{ route('lazada.reverse_status_map') }}">
-            @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:45%;">Reverse Status</th>
-                        <th>ERP Order Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($reverseStatuses as $key => $label)
-                    <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
-                        </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
-                                <option value="">(not mapped)</option>
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($reverseStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
-            </div>
-        </form>
-    </div>
-
     {{-- Order Sync & Cronjob Setup --}}
     <div class="card mb-16">
         <h3 class="section-title mt-0">Order Sync & Cronjob Setup</h3>
@@ -649,7 +561,103 @@
 </div>
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  TAB 3 — API LOGS                                              ║
+     ║  TAB 3 — STATUS MAPPING                                        ║
+     ╚══════════════════════════════════════════════════════════════════╝ --}}
+<div id="lz-tab-status" class="hidden">
+
+    {{-- Order Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Order Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            When Lazada orders are synced, each Lazada status is mapped to an ERP order status below.
+        </div>
+
+        <form method="POST" action="{{ route('lazada.order_status_map') }}">
+            @csrf
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Lazada Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($lazadaStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+
+    {{-- Reverse Order Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Reverse Order Status Mapping</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            Map each Lazada reverse order status to an ERP order status.
+        </div>
+
+        <form method="POST" action="{{ route('lazada.reverse_status_map') }}">
+            @csrf
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Reverse Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($reverseStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                <option value="">(not mapped)</option>
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($reverseStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+{{-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  TAB 4 — API LOGS                                              ║
      ╚══════════════════════════════════════════════════════════════════╝ --}}
 <div id="lz-tab-logs" class="hidden">
 
@@ -782,7 +790,7 @@ function lazCopy(id, btn) {
 
 // Tab switching
 (function(){
-    var ids = ['lz-tab-settings', 'lz-tab-explorer', 'lz-tab-logs'];
+    var ids = ['lz-tab-settings', 'lz-tab-explorer', 'lz-tab-status', 'lz-tab-logs'];
     var tabs = document.querySelectorAll('[data-tab^="lz-tab-"]');
     var storageKey = 'lz-active-tab';
 
