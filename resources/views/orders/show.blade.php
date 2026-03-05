@@ -172,7 +172,11 @@
                     @endif
                 </td>
                 <td>
-                    <div class="font-semibold">{{ $p->name }}</div>
+                    @if($catalogProduct)
+                        <a href="{{ route('products.edit', $catalogProduct->product_id) }}" class="font-semibold" style="color:var(--accent);">{{ $p->name }}</a>
+                    @else
+                        <div class="font-semibold">{{ $p->name }}</div>
+                    @endif
                     @if($p->options->count())
                         @foreach($p->options as $opt)
                             <small class="text-secondary">{{ $opt->name }}: {{ $opt->value }}</small><br>

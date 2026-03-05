@@ -2,6 +2,34 @@
 @section('breadcrumb', 'Marketplace / Reviews')
 
 @section('content')
+
+{{-- Fetch / Delete bar --}}
+<div class="card mb-16">
+    <form method="POST" action="{{ route('reviews.fetch') }}" id="formFetchReviews" class="d-flex gap-12 flex-wrap items-center">
+        @csrf
+        <div>
+            <label class="text-xs text-secondary">From</label>
+            <input type="date" name="date_from" value="{{ old('date_from') }}" class="input" style="width:auto;" required>
+        </div>
+        <div>
+            <label class="text-xs text-secondary">To</label>
+            <input type="date" name="date_to" value="{{ old('date_to') }}" class="input" style="width:auto;" required>
+        </div>
+        <div class="d-flex gap-8" style="align-self:flex-end;">
+            <button type="submit" class="btn" id="btnFetchReviews">Fetch Reviews</button>
+            <button type="submit" class="btn danger" formaction="{{ route('reviews.delete_all') }}" onclick="return confirm('Delete ALL reviews? This cannot be undone.')">Delete All</button>
+        </div>
+        <div class="text-secondary text-xs" style="flex:1;">
+            Fetches reviews from Shopee &amp; Lazada for the selected date range.
+        </div>
+    </form>
+</div>
+
+@if(session('review_result'))
+    @php $rr = session('review_result'); @endphp
+    <div class="alert {{ ($rr['ok'] ?? false) ? 'success' : 'error' }} mb-16">{{ $rr['message'] ?? '' }}</div>
+@endif
+
 <div class="card">
     <div class="page-header">
         <h2>Marketplace Reviews</h2>
@@ -11,9 +39,13 @@
                 &middot; {{ $pendingCount }} pending
             </span>
             @if($pendingCount > 0)
+                <form method="POST" action="{{ route('reviews.push_all') }}" style="display:inline;" onsubmit="return confirm('Push ALL pending/error reviews to OpenCart? This runs in the background.')">
+                    @csrf
+                    <button class="btn" type="submit">Push All to OC</button>
+                </form>
                 <form method="POST" action="{{ route('reviews.bulk_push') }}" id="bulkForm" onsubmit="return confirm('Push all selected reviews to OpenCart?')">
                     @csrf
-                    <button class="btn" type="submit" id="bulkPushBtn" disabled>Push Selected</button>
+                    <button class="btn secondary" type="submit" id="bulkPushBtn" disabled>Push Selected</button>
                 </form>
             @endif
         </div>
@@ -104,7 +136,7 @@
                     @foreach($reviews as $review)
                         <tr>
                             <td>
-                                @if($review->oc_sync_status === 'pending')
+                                @if(in_array($review->oc_sync_status, ['pending', 'error']))
                                     <input type="checkbox" class="review-cb" value="{{ $review->id }}">
                                 @endif
                             </td>
@@ -163,10 +195,10 @@
                             </td>
                             <td class="d-flex gap-4">
                                 <a href="{{ route('reviews.show', $review->id) }}" class="btn secondary" style="font-size:11px; padding:2px 8px;">View</a>
-                                @if($review->oc_sync_status === 'pending')
+                                @if(in_array($review->oc_sync_status, ['pending', 'error']))
                                     <form method="POST" action="{{ route('reviews.push', $review->id) }}" style="display:inline;">
                                         @csrf
-                                        <button class="btn" style="font-size:11px; padding:2px 8px;" type="submit">Push</button>
+                                        <button class="btn{{ $review->oc_sync_status === 'error' ? ' danger' : '' }}" style="font-size:11px; padding:2px 8px;" type="submit">{{ $review->oc_sync_status === 'error' ? 'Retry' : 'Push' }}</button>
                                     </form>
                                 @endif
                             </td>
@@ -177,7 +209,7 @@
         </div>
 
         <div class="mt-16">
-            {{ $reviews->links() }}
+            {{ $reviews->onEachSide(1)->links('vendor.pagination.simple') }}
         </div>
     @endif
 </div>

@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Log;
 class LazadaSyncReviews extends Command
 {
     protected $signature = 'lazada:sync-reviews
-        {--days=7 : How many days back to sync on first run}';
+        {--days=7 : How many days back to sync on first run}
+        {--limit=0 : Max products to check (0 = all)}';
 
     protected $description = 'Sync product reviews from Lazada';
 
@@ -45,7 +46,7 @@ class LazadaSyncReviews extends Command
             ? $setting->last_review_sync_at
             : null;
 
-        // Step 1: Get review IDs via history list (max 7-day windows)
+        // Build time window
         $tz = new \DateTimeZone('Asia/Manila');
 
         if ($lastSync) {
@@ -58,132 +59,137 @@ class LazadaSyncReviews extends Command
 
         $this->info('  Review window: ' . $from->format('Y-m-d H:i:s') . ' to ' . $to->format('Y-m-d H:i:s'));
 
-        $allReviewIds = [];
-        $windowMaxDays = 7;
+        $limit = (int) $this->option('limit');
 
-        // Slide through time in 7-day windows
-        $windowFrom = clone $from;
-        while ($windowFrom < $to) {
-            $windowTo = clone $windowFrom;
-            $windowTo->modify("+{$windowMaxDays} days");
-            if ($windowTo > $to) $windowTo = clone $to;
+        // Get Lazada item IDs (newest first — more likely to have reviews)
+        $lpQuery = LazadaProduct::query()
+            ->whereNotNull('lazada_item_id')
+            ->where('lazada_item_id', '!=', '')
+            ->orderByRaw('CAST(lazada_item_id AS UNSIGNED) DESC');
 
-            $page = 1;
-            $pageSize = 50;
+        if ($limit > 0) $lpQuery->limit($limit);
 
-            for ($p = 0; $p < 20; $p++) {
-                $params = [
-                    'start_date' => $windowFrom->format('Y-m-d'),
-                    'end_date'   => $windowTo->format('Y-m-d'),
-                    'page_no'    => $page,
-                    'page_size'  => $pageSize,
-                ];
+        $lazadaProducts = $lpQuery->get(['lazada_item_id', 'product_id']);
 
-                $res = $this->runSignedApiCall($client, $setting, 'GET', '/review/seller/history/list', $params, 'lazada.review.history_list');
-
-                if (!($res['ok'] ?? false)) {
-                    $body = $res['body'] ?? [];
-                    $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
-                    $this->error('  API error: ' . $msg);
-                    Cache::put('lazada_sync_paused', $msg, now()->addMinutes(10));
-                    LazadaSetting::query()->update(['last_review_sync_at' => now()]);
-                    return 1;
-                }
-
-                $body = $res['body'] ?? [];
-                $dataNode = $body['data'] ?? $body;
-                $reviews = $dataNode['list'] ?? $dataNode['review_list'] ?? $dataNode['data'] ?? [];
-                if (!is_array($reviews)) $reviews = [];
-
-                foreach ($reviews as $r) {
-                    $rid = (string) ($r['review_id'] ?? $r['id'] ?? '');
-                    if ($rid !== '') {
-                        $allReviewIds[$rid] = $r; // store basic info for fallback
-                    }
-                }
-
-                if (count($reviews) < $pageSize) break;
-                $page++;
-            }
-
-            $windowFrom = clone $windowTo;
-        }
-
-        if (empty($allReviewIds)) {
-            $this->info('  No new reviews found.');
+        if ($lazadaProducts->isEmpty()) {
+            $this->info('  No Lazada products found.');
             LazadaSetting::query()->update(['last_review_sync_at' => now()]);
-            $this->info('Done.');
             return 0;
         }
 
-        $this->info('  Found ' . count($allReviewIds) . ' review ID(s). Fetching details...');
+        $totalItems = $lazadaProducts->count();
+        $this->info("  Found {$totalItems} Lazada product(s). Fetching reviews per item...");
 
-        // Step 2: Fetch review details in batches
+        // Build product_id lookup
+        $lazadaProductMap = $lazadaProducts->pluck('product_id', 'lazada_item_id')->all();
+
+        $windowMaxDays = 7;
         $created = 0;
         $updated = 0;
         $errors = 0;
+        $itemsChecked = 0;
 
-        // Build product_id lookup from lazada_products
-        $lazadaProductMap = LazadaProduct::query()
-            ->whereNotNull('lazada_item_id')
-            ->pluck('product_id', 'lazada_item_id')
-            ->all();
+        // Process each product: get IDs → fetch details → save immediately
+        foreach ($lazadaProducts as $lp) {
+            if (Cache::get('lazada_sync_paused')) break;
 
-        $reviewIdBatches = array_chunk(array_keys($allReviewIds), 20);
+            $itemId = (string) $lp->lazada_item_id;
+            $itemsChecked++;
+            $itemReviewIds = [];
 
-        foreach ($reviewIdBatches as $batch) {
-            $params = [
-                'review_id_list' => json_encode(array_map('intval', $batch)),
-            ];
+            // Collect review IDs for this item across all 7-day windows
+            $windowFrom = clone $from;
+            while ($windowFrom < $to) {
+                $windowTo = clone $windowFrom;
+                $windowTo->modify("+{$windowMaxDays} days");
+                if ($windowTo > $to) $windowTo = clone $to;
 
-            $res = $this->runSignedApiCall($client, $setting, 'GET', '/review/seller/list/v2', $params, 'lazada.review.detail');
+                $page = 1;
 
-            if (!($res['ok'] ?? false)) {
-                $errors += count($batch);
-                continue;
-            }
+                for ($p = 0; $p < 100; $p++) {
+                    $params = [
+                        'item_id'    => $itemId,
+                        'start_time' => (string) ($windowFrom->getTimestamp() * 1000),
+                        'end_time'   => (string) ($windowTo->getTimestamp() * 1000),
+                        'current'    => $page,
+                    ];
 
-            $body = $res['body'] ?? [];
-            $dataNode = $body['data'] ?? $body;
-            $reviewList = $dataNode['list'] ?? $dataNode['review_list'] ?? $dataNode['data'] ?? [];
-            if (!is_array($reviewList)) $reviewList = [];
+                    $res = $this->runSignedApiCall($client, $setting, 'GET', '/review/seller/history/list', $params, 'lazada.review.history_list');
 
-            foreach ($reviewList as $r) {
-                if (!is_array($r)) continue;
+                    $body = $res['body'] ?? [];
+                    $bodyCode = is_array($body) ? ($body['code'] ?? '') : '';
 
-                $reviewId = (string) ($r['review_id'] ?? $r['id'] ?? '');
-                if ($reviewId === '') continue;
+                    if ($bodyCode === 'SellerCallLimit' || $bodyCode === 'ApiCallLimit') {
+                        $this->warn("  Rate limited at item {$itemsChecked}/{$totalItems}. Pausing...");
+                        Cache::put('lazada_sync_paused', 'ApiCallLimit', now()->addMinutes(10));
+                        break 3;
+                    }
 
-                try {
-                    $wasNew = $this->saveReview($r, $reviewId, $lazadaProductMap);
-                    if ($wasNew) $created++;
-                    else $updated++;
-                } catch (\Throwable $e) {
-                    $errors++;
-                    Log::warning('Lazada review sync: failed for review ' . $reviewId, ['error' => $e->getMessage()]);
+                    if (!($res['ok'] ?? false) || ($bodyCode !== '' && $bodyCode !== '0')) {
+                        break;
+                    }
+
+                    $dataNode = $body['data'] ?? $body;
+                    $idList = $dataNode['id_list'] ?? [];
+                    if (!is_array($idList)) $idList = [];
+
+                    foreach ($idList as $rid) {
+                        $rid = (string) $rid;
+                        if ($rid !== '') $itemReviewIds[] = $rid;
+                    }
+
+                    $total = (int) ($dataNode['total'] ?? 0);
+                    $pageSize = (int) ($dataNode['page_size'] ?? 10);
+                    if ($pageSize < 1) $pageSize = 10;
+                    if ($page * $pageSize >= $total) break;
+                    $page++;
                 }
+
+                $windowFrom = clone $windowTo;
             }
 
-            // If detail API returned fewer than the batch, save remaining from history data
-            $returnedIds = collect($reviewList)->pluck('review_id')->map(fn ($v) => (string) $v)->all();
-            foreach ($batch as $rid) {
-                if (in_array($rid, $returnedIds)) continue;
-                $fallback = $allReviewIds[$rid] ?? null;
-                if ($fallback && is_array($fallback)) {
-                    try {
-                        $wasNew = $this->saveReview($fallback, $rid, $lazadaProductMap);
-                        if ($wasNew) $created++;
-                        else $updated++;
-                    } catch (\Throwable $e) {
-                        $errors++;
+            // Fetch details and save immediately for this item's reviews
+            if (!empty($itemReviewIds)) {
+                foreach (array_chunk($itemReviewIds, 20) as $batch) {
+                    $res = $this->runSignedApiCall($client, $setting, 'GET', '/review/seller/list/v2', [
+                        'id_list' => json_encode(array_map('intval', $batch)),
+                    ], 'lazada.review.detail');
+
+                    if (!($res['ok'] ?? false)) {
+                        $errors += count($batch);
+                        continue;
+                    }
+
+                    $body = $res['body'] ?? [];
+                    $dataNode = $body['data'] ?? $body;
+                    $reviewList = $dataNode['list'] ?? $dataNode['review_list'] ?? $dataNode['data'] ?? [];
+                    if (!is_array($reviewList)) $reviewList = [];
+
+                    foreach ($reviewList as $r) {
+                        if (!is_array($r)) continue;
+                        $reviewId = (string) ($r['review_id'] ?? $r['id'] ?? '');
+                        if ($reviewId === '') continue;
+
+                        try {
+                            $wasNew = $this->saveReview($r, $reviewId, $lazadaProductMap);
+                            if ($wasNew) $created++;
+                            else $updated++;
+                        } catch (\Throwable $e) {
+                            $errors++;
+                            Log::warning('Lazada review sync: failed for review ' . $reviewId, ['error' => $e->getMessage()]);
+                        }
                     }
                 }
+
+                $this->info("  [{$itemsChecked}/{$totalItems}] item {$itemId}: " . count($itemReviewIds) . " review(s) — total: {$created} new, {$updated} updated");
             }
+
+            // No extra delay — rate limiting handled in runSignedApiCall
         }
 
         LazadaSetting::query()->update(['last_review_sync_at' => now()]);
 
-        $this->info("  Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} error(s)" : ''));
+        $this->info("  Checked {$itemsChecked} item(s). Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} error(s)" : ''));
         $this->info('Done.');
         return 0;
     }
@@ -206,7 +212,7 @@ class LazadaSyncReviews extends Command
 
         // Extract videos
         $videos = [];
-        $videoList = $r['videos'] ?? $r['video_list'] ?? [];
+        $videoList = $r['review_videos'] ?? $r['videos'] ?? $r['video_list'] ?? [];
         if (is_array($videoList)) {
             foreach ($videoList as $vid) {
                 $url = is_string($vid) ? $vid : ($vid['video_url'] ?? $vid['url'] ?? null);
@@ -228,22 +234,27 @@ class LazadaSyncReviews extends Command
         }
 
         // Use product_rating as primary (1-5), fall back to overall_rating
-        $rating = (int) ($r['product_rating'] ?? $r['rating'] ?? $r['overall_rating'] ?? 5);
+        // Ratings may be nested: {"ratings": {"product_rating": "2", "overall_rating": "2", ...}}
+        $ratings = $r['ratings'] ?? [];
+        $rating = (int) ($ratings['product_rating'] ?? $r['product_rating'] ?? $ratings['overall_rating'] ?? $r['rating'] ?? $r['overall_rating'] ?? 5);
         $rating = max(1, min(5, $rating));
 
-        $reviewedAt = $r['review_date'] ?? $r['create_time'] ?? $r['created_at'] ?? null;
-        if ($reviewedAt && !is_numeric($reviewedAt)) {
+        // create_time is millisecond timestamp (e.g. "1658235676532")
+        $reviewedAt = $r['create_time'] ?? $r['submit_time'] ?? $r['review_date'] ?? $r['created_at'] ?? null;
+        if ($reviewedAt && is_numeric($reviewedAt)) {
+            $ts = (int) $reviewedAt;
+            if ($ts > 9999999999) $ts = (int) ($ts / 1000); // ms to seconds
+            $reviewedAt = date('Y-m-d H:i:s', $ts);
+        } elseif ($reviewedAt && !is_numeric($reviewedAt)) {
             $ts = strtotime($reviewedAt);
             $reviewedAt = $ts ? date('Y-m-d H:i:s', $ts) : null;
-        } elseif ($reviewedAt && is_numeric($reviewedAt)) {
-            $reviewedAt = date('Y-m-d H:i:s', (int) $reviewedAt);
         }
 
         $reviewData = [
             'product_id'        => $productId,
             'platform_item_id'  => $itemId ?: null,
             'platform_order_id' => (string) ($r['trade_order_id'] ?? $r['order_id'] ?? ''),
-            'author'            => (string) ($r['buyer_name'] ?? $r['reviewer_name'] ?? $r['buyer'] ?? ''),
+            'author'            => (string) ($r['buyer_name'] ?? $r['reviewer_name'] ?? $r['buyer'] ?? '') ?: 'Lazada Buyer',
             'rating'            => $rating,
             'comment'           => (string) ($r['review_content'] ?? $r['content'] ?? $r['comment'] ?? ''),
             'images'            => !empty($images) ? $images : null,
@@ -336,17 +347,24 @@ class LazadaSyncReviews extends Command
             $result = ['status' => 0, 'ok' => false, 'body' => ['message' => 'API call failed']];
         }
 
-        LazadaApiLog::safeCreate([
-            'pack'            => $pack,
-            'method'          => $method,
-            'api_path'        => $apiPath,
-            'auth_required'   => true,
-            'request_params'  => $params,
-            'response_status' => (int) ($result['status'] ?? 0),
-            'ok'              => (bool) ($result['ok'] ?? false),
-            'response_body'   => $result['body'] ?? null,
-            'user_id'         => null,
-        ]);
+        // Only log errors or review detail calls (history list creates too many empty entries)
+        $isOk = (bool) ($result['ok'] ?? false);
+        $bodyCode = is_array($result['body'] ?? null) ? ($result['body']['code'] ?? '') : '';
+        $shouldLog = !$isOk || ($bodyCode !== '' && $bodyCode !== '0') || $pack === 'lazada.review.detail';
+
+        if ($shouldLog) {
+            LazadaApiLog::safeCreate([
+                'pack'            => $pack,
+                'method'          => $method,
+                'api_path'        => $apiPath,
+                'auth_required'   => true,
+                'request_params'  => $params,
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok'              => $isOk,
+                'response_body'   => $result['body'] ?? null,
+                'user_id'         => null,
+            ]);
+        }
 
         return $result;
     }

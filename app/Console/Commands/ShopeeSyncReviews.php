@@ -161,9 +161,8 @@ class ShopeeSyncReviews extends Command
                 // Check if this review is older than our last sync
                 $createTime = $c['create_time'] ?? null;
                 if ($lastSync && $createTime && (int) $createTime < $lastSync) {
-                    // We've hit reviews from before our last sync — check if we
-                    // already have it and stop paginating after this page
                     $hitOldReview = true;
+                    continue; // Skip saving reviews older than the target date
                 }
 
                 // Extract images (check media.image_url_list + legacy fields)

@@ -8,6 +8,7 @@ use App\Models\OpenCartSetting;
 use App\Services\OpenCart\OpenCartClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Process;
 
 class ReviewController extends Controller
 {
@@ -116,8 +117,8 @@ class ReviewController extends Controller
     {
         $review = MarketplaceReview::findOrFail($id);
 
-        if ($review->oc_sync_status !== 'pending') {
-            return redirect()->back()->with('error', 'Review is not in pending status.');
+        if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
+            return redirect()->back()->with('error', 'Review is not in pending or error status.');
         }
 
         if (!$review->product_id) {
@@ -177,8 +178,8 @@ class ReviewController extends Controller
     {
         $review = MarketplaceReview::findOrFail($id);
 
-        if ($review->oc_sync_status !== 'pending') {
-            return redirect()->back()->with('error', 'Review is not in pending status.');
+        if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
+            return redirect()->back()->with('error', 'Review is not in pending or error status.');
         }
 
         $review->update(['oc_sync_status' => 'skipped']);
@@ -195,7 +196,7 @@ class ReviewController extends Controller
         }
 
         $reviews = MarketplaceReview::whereIn('id', $ids)
-            ->where('oc_sync_status', 'pending')
+            ->whereIn('oc_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
             ->get();
 
@@ -254,5 +255,70 @@ class ReviewController extends Controller
         }
 
         return redirect()->back()->with('status', "Pushed {$pushed} review(s)." . ($errors > 0 ? " {$errors} failed." : ''));
+    }
+
+    public function fetch(Request $request)
+    {
+        $data = $request->validate([
+            'date_from' => 'required|date',
+            'date_to'   => 'required|date|after_or_equal:date_from',
+        ]);
+
+        $from = $data['date_from'];
+        $daysBack = max(1, (int) now()->diffInDays(\Carbon\Carbon::parse($from)) + 1);
+
+        // Set sync timestamps so commands fetch from our target date
+        \App\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+        \App\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+
+        // Run both commands in background (they take minutes due to API rate limits)
+        $php = PHP_BINARY ?: '/usr/bin/php';
+        $artisan = base_path('artisan');
+
+        Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
+        Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
+
+        return redirect()->route('reviews.index')->with('review_result', [
+            'ok'      => true,
+            'message' => 'Fetching reviews in background (Shopee + Lazada). Refresh the page in a few minutes to see results.',
+        ]);
+    }
+
+    public function pushAll(Request $request)
+    {
+        $count = MarketplaceReview::whereIn('oc_sync_status', ['pending', 'error'])
+            ->whereNotNull('product_id')
+            ->count();
+
+        if ($count === 0) {
+            return redirect()->back()->with('review_result', [
+                'ok'      => false,
+                'message' => 'No pending or error reviews with mapped products to push.',
+            ]);
+        }
+
+        $php = PHP_BINARY ?: '/usr/bin/php';
+        $artisan = base_path('artisan');
+        Process::start([$php, $artisan, 'opencart:push-reviews']);
+
+        return redirect()->route('reviews.index')->with('review_result', [
+            'ok'      => true,
+            'message' => "Pushing {$count} review(s) to OpenCart in background. Refresh the page in a few minutes.",
+        ]);
+    }
+
+    public function deleteAll(Request $request)
+    {
+        $count = MarketplaceReview::count();
+        MarketplaceReview::query()->truncate();
+
+        // Reset sync timestamps so next fetch starts fresh
+        \App\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
+        \App\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
+
+        return redirect()->route('reviews.index')->with('review_result', [
+            'ok'      => true,
+            'message' => "Deleted {$count} review(s). Sync timestamps reset.",
+        ]);
     }
 }

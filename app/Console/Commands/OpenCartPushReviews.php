@@ -33,7 +33,7 @@ class OpenCartPushReviews extends Command
 
         // Get all pending reviews that have a resolved product_id
         $pendingReviews = MarketplaceReview::query()
-            ->where('oc_sync_status', 'pending')
+            ->whereIn('oc_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
             ->get();
 
@@ -74,8 +74,8 @@ class OpenCartPushReviews extends Command
             foreach ($pendingReviews as $review) {
                 $ocProductId = $linkMap[$review->product_id] ?? null;
 
-                // Skip if already pushed/errored by a previous store in this run
-                if ($review->oc_sync_status !== 'pending') {
+                // Skip if already pushed by a previous store in this run
+                if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
                     continue;
                 }
 
