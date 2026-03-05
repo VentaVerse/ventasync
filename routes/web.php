@@ -38,6 +38,11 @@ use App\Http\Controllers\ProductVendorController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReorderController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\PedallionController;
+use App\Http\Controllers\PedallionCategoryController;
+use App\Http\Controllers\PedallionProductController;
+use App\Http\Controllers\PedallionProfileController;
+use App\Http\Controllers\PedallionOrderController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
@@ -376,6 +381,47 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/opencart/{store}/orders', [OrderController::class, 'opencartIndex'])->name('opencart.orders.index');
     });
 
+    // Pedallion
+    Route::middleware(['perm:manage_pedallion'])->group(function () {
+        Route::get('/pedallion', [PedallionController::class, 'index'])->name('pedallion.index');
+        Route::post('/pedallion/save', [PedallionController::class, 'save'])->name('pedallion.save');
+        Route::post('/pedallion/test', [PedallionController::class, 'testConnection'])->name('pedallion.test');
+        Route::post('/pedallion/toggle-logging', [PedallionController::class, 'toggleLogging'])->name('pedallion.toggle_logging');
+        Route::delete('/pedallion/api-logs', [PedallionController::class, 'clearApiLogs'])->name('pedallion.clear_api_logs');
+        Route::post('/pedallion/explorer/run', [PedallionController::class, 'explorerRun'])->name('pedallion.explorer_run');
+        Route::post('/pedallion/order-status-map', [PedallionController::class, 'saveOrderStatusMap'])->name('pedallion.order_status_map');
+        Route::post('/pedallion/sync-days', [PedallionController::class, 'saveSyncDays'])->name('pedallion.sync_days');
+
+        // Categories & Manufacturers
+        Route::get('/pedallion/categories', [PedallionCategoryController::class, 'index'])->name('pedallion.categories.index');
+        Route::post('/pedallion/categories/fetch', [PedallionCategoryController::class, 'fetch'])->name('pedallion.categories.fetch');
+        Route::post('/pedallion/manufacturers/fetch', [PedallionCategoryController::class, 'fetchManufacturers'])->name('pedallion.manufacturers.fetch');
+
+        // Profiles
+        Route::get('/pedallion/profiles', [PedallionProfileController::class, 'index'])->name('pedallion.profiles.index');
+        Route::get('/pedallion/profiles/create', [PedallionProfileController::class, 'create'])->name('pedallion.profiles.create');
+        Route::post('/pedallion/profiles', [PedallionProfileController::class, 'store'])->name('pedallion.profiles.store');
+        Route::get('/pedallion/profiles/{id}/edit', [PedallionProfileController::class, 'edit'])->name('pedallion.profiles.edit');
+        Route::put('/pedallion/profiles/{id}', [PedallionProfileController::class, 'update'])->name('pedallion.profiles.update');
+        Route::delete('/pedallion/profiles/{id}', [PedallionProfileController::class, 'destroy'])->name('pedallion.profiles.destroy');
+        Route::get('/pedallion/profiles/{id}/products', [PedallionProfileController::class, 'products'])->name('pedallion.profiles.products');
+        Route::post('/pedallion/profiles/{id}/sync-products', [PedallionProfileController::class, 'syncProducts'])->name('pedallion.profiles.sync_products');
+
+        // Products
+        Route::get('/pedallion/products', [PedallionProductController::class, 'index'])->name('pedallion.products.index');
+        Route::post('/pedallion/products/link', [PedallionProductController::class, 'link'])->name('pedallion.products.link');
+        Route::delete('/pedallion/products/{id}/unlink', [PedallionProductController::class, 'unlink'])->name('pedallion.products.unlink');
+        Route::post('/pedallion/products/{id}/push', [PedallionProductController::class, 'push'])->name('pedallion.products.push');
+        Route::post('/pedallion/products/bulk-push', [PedallionProductController::class, 'bulkPush'])->name('pedallion.products.bulk_push');
+        Route::post('/pedallion/products/push-qty', [PedallionProductController::class, 'pushQty'])->name('pedallion.products.push_qty');
+    });
+
+    // Pedallion Orders
+    Route::middleware(['perm:manage_pedallion_orders'])->group(function () {
+        Route::get('/pedallion/orders', [PedallionOrderController::class, 'index'])->name('pedallion.orders.index');
+        Route::get('/pedallion/orders/{id}', [PedallionOrderController::class, 'show'])->name('pedallion.orders.show');
+    });
+
     // Users
     Route::middleware(['perm:manage_users'])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -512,6 +558,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('reviews.push')->whereNumber('id');
         Route::post('/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('reviews.skip')->whereNumber('id');
         Route::post('/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('reviews.bulk_push');
+        Route::post('/reviews/fetch', [ReviewController::class, 'fetch'])->name('reviews.fetch');
+        Route::post('/reviews/push-all', [ReviewController::class, 'pushAll'])->name('reviews.push_all');
+        Route::post('/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('reviews.delete_all');
     });
 
     // Product Vendors (buying prices)
