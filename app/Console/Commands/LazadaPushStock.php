@@ -127,14 +127,17 @@ class LazadaPushStock extends Command
 
     /**
      * Phase 1: For listings that have a lazada_item_id but no cached variants,
+     * OR whose cached variants don't cover all ERP option SKUs (stale cache),
      * fetch variant details from the Lazada API and cache them.
      * Capped at 20 API calls per run to keep execution time bounded.
      */
     private function resolveUnknownVariants(object $setting, LazadaClient $client, string $pfx): void
     {
         $maxFetches = 20;
+        $fetched = 0;
 
-        $listings = LazadaProduct::query()
+        // Part A: Listings with NO cached variants at all
+        $noVariants = LazadaProduct::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -142,12 +145,54 @@ class LazadaPushStock extends Command
             ->limit($maxFetches)
             ->get();
 
-        if ($listings->isEmpty()) return;
+        if ($noVariants->isNotEmpty()) {
+            $this->info("Resolving variants for {$noVariants->count()} listing(s) with no cached variants...");
+            foreach ($noVariants as $listing) {
+                $this->fetchAndCacheLazadaVariants($listing, $setting, $client, $pfx);
+                $fetched++;
+            }
+        }
 
-        $this->info("Resolving variants for {$listings->count()} listing(s) from Lazada API...");
+        // Part B: Listings with cached variants that don't cover all ERP option SKUs (stale cache)
+        $remaining = $maxFetches - $fetched;
+        if ($remaining <= 0) return;
 
-        foreach ($listings as $listing) {
+        $staleListings = LazadaProduct::query()
+            ->where('product_id', '>', 0)
+            ->whereNotNull('lazada_item_id')
+            ->where('lazada_item_id', '!=', '')
+            ->whereHas('variants', fn ($q) => $q->whereNotNull('sku_id'))
+            ->limit($remaining)
+            ->get();
+
+        $refreshed = 0;
+        foreach ($staleListings as $listing) {
+            $cachedSkus = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                ->whereNotNull('sku_id')
+                ->pluck('seller_sku')
+                ->map(fn ($s) => trim((string) $s))
+                ->toArray();
+
+            $erpSkus = DB::table($pfx . 'product_option_value')
+                ->where('product_id', (int) $listing->product_id)
+                ->whereNotNull('sku')
+                ->where('sku', '!=', '')
+                ->pluck('sku')
+                ->map(fn ($s) => trim((string) $s))
+                ->filter(fn ($s) => $s !== '')
+                ->toArray();
+
+            if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
+                continue; // Cache is up-to-date
+            }
+
             $this->fetchAndCacheLazadaVariants($listing, $setting, $client, $pfx);
+            $refreshed++;
+            if ($refreshed >= $remaining) break;
+        }
+
+        if ($refreshed > 0) {
+            $this->info("Refreshed stale variant cache for {$refreshed} listing(s).");
         }
     }
 
@@ -193,8 +238,17 @@ class LazadaPushStock extends Command
                         ->where('product_option_value_id', $povId)
                         ->value('quantity');
                     $qty = max(0, (int) ($erpQty ?? 0));
+                } elseif (!empty($erpOptionQty)) {
+                    // Product has ERP option values but this Lazada variant couldn't be matched.
+                    // Use 0 to avoid pushing the parent sum (which would overcount).
+                    $qty = 0;
+                    Log::warning('Lazada push-stock: unmatched variant, defaulting to 0', [
+                        'product_id' => $product->product_id,
+                        'lazada_seller_sku' => $sellerSku,
+                        'lazada_sku_id' => $skuId,
+                    ]);
                 } else {
-                    // No variant mapping — use base product quantity
+                    // No option values at all — simple product, use base product quantity
                     $qty = max(0, (int) ($product->quantity ?? 0));
                 }
             }

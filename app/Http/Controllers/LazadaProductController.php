@@ -634,11 +634,30 @@ private function resolveLazadaSkuIds(LazadaProduct $listing, object $setting, La
         foreach ($cached as $v) {
             $map[trim((string) $v->seller_sku)] = (int) $v->sku_id;
         }
-        return $map;
+
+        // Check if all ERP option SKUs are covered by the cache.
+        // If not, the cache is stale — re-fetch from Lazada API.
+        $pfx = (string) config('catalog.prefix');
+        $erpSkus = DB::table($pfx . 'product_option_value')
+            ->where('product_id', (int) $listing->product_id)
+            ->whereNotNull('sku')
+            ->where('sku', '!=', '')
+            ->pluck('sku')
+            ->map(fn ($s) => trim((string) $s))
+            ->filter(fn ($s) => $s !== '')
+            ->toArray();
+
+        $missingSkus = array_diff($erpSkus, array_keys($map));
+        if (empty($missingSkus)) {
+            return $map;
+        }
+
+        // Stale cache — re-fetch from API to pick up new/renamed Lazada variants
     }
 
     // Fetch from API and cache
     $variants = $this->fetchAndCacheLazadaVariants($listing, $setting, $client);
+    $map = [];
     foreach ($variants as $v) {
         $map[trim((string) $v['seller_sku'])] = (int) $v['sku_id'];
     }
