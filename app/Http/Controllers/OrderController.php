@@ -733,8 +733,16 @@ class OrderController extends Controller
     {
         $query = Order::where('track_payments', true);
 
-        // Filter by payment status
         $filter = $request->input('filter', 'all');
+        $search = trim($request->input('search', ''));
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('firstname', 'like', "%{$search}%")
+                  ->orWhere('lastname', 'like', "%{$search}%")
+                  ->orWhere('order_id', $search);
+            });
+        }
 
         $orders = $query->orderByDesc('date_added')->get();
 
@@ -769,6 +777,7 @@ class OrderController extends Controller
         return view('orders.payments_report', [
             'rows' => $rows,
             'filter' => $filter,
+            'search' => $search,
         ]);
     }
 }
