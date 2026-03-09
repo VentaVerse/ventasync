@@ -63,7 +63,7 @@
         @php
             $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
             $count = $tab_counts[$key] ?? null;
-            $qs = array_merge(request()->query(), ['tab' => $key]);
+            $qs = array_merge(request()->except('page'), ['tab' => $key]);
             $showBadge = in_array($key, ['PENDING', 'SHIPPING', 'FAILED_DELIVERY']);
         @endphp
         <a href="{{ route('shopee.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">

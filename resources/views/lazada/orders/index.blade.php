@@ -64,7 +64,7 @@
             @php
                 $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
                 $count = $tab_counts[$key] ?? null;
-                $qs = array_merge(request()->query(), ['tab' => $key]);
+                $qs = array_merge(request()->except('page'), ['tab' => $key]);
                 $showBadge = in_array($key, ['TO_SHIP', 'SHIPPING', 'FAILED_DELIVERY']);
             @endphp
             <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
@@ -145,7 +145,7 @@
                 @foreach($fdNav as $k => $lbl)
                     @php
                         $isActive = ($fs === $k) || ($fs === '' && $k === 'failed_delivery');
-                        $qs = array_merge(request()->query(), ['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k]);
+                        $qs = array_merge(request()->except('page'), ['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k]);
                         $count = $fd_sub_counts[$k] ?? null;
                     @endphp
                     <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
