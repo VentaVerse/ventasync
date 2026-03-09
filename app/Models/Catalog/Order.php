@@ -109,4 +109,9 @@ class Order extends BaseModel
     {
         return $this->hasMany(OrderTotal::class, 'order_id', 'order_id');
     }
+
+    public function payments()
+    {
+        return $this->hasMany(\App\Models\OrderPayment::class, 'order_id', 'order_id');
+    }
 }

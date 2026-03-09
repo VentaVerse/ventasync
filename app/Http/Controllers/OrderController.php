@@ -11,6 +11,7 @@ use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\OpenCartSetting;
+use App\Models\OrderPayment;
 use App\Models\ShopeeOrder;
 use App\Services\ActivityLogger;
 use App\Services\FcmService;
@@ -265,7 +266,10 @@ class OrderController extends Controller
         // Look up marketplace fees from the source order
         $marketplaceFees = self::resolveMarketplaceFees($order);
 
-        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees'));
+        $payments = OrderPayment::where('order_id', (int) $id)->orderBy('paid_at')->get();
+        $totalPaid = $payments->sum('amount');
+
+        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees', 'payments', 'totalPaid'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -657,5 +661,50 @@ class OrderController extends Controller
         }
 
         return ['total' => 0, 'items' => [], 'source' => $source];
+    }
+
+    // ── Order Payments ──────────────────────────────────────
+
+    public function storePayment(Request $request, $id)
+    {
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+
+        $request->validate([
+            'amount'         => 'required|numeric|min:0.0001',
+            'payment_method' => 'required|string|max:64',
+            'paid_at'        => 'required|date',
+            'reference_no'   => 'nullable|string|max:128',
+            'notes'          => 'nullable|string',
+        ]);
+
+        OrderPayment::create([
+            'order_id'       => $order->order_id,
+            'amount'         => $request->amount,
+            'payment_method' => $request->payment_method,
+            'paid_at'        => $request->paid_at,
+            'reference_no'   => $request->reference_no,
+            'notes'          => $request->notes,
+            'created_by'     => auth()->id(),
+            'created_at'     => now(),
+        ]);
+
+        ActivityLogger::log('created', 'Order Payment', $order->order_id,
+            '#' . $order->order_id . ' — ' . number_format((float) $request->amount, 2) . ' via ' . $request->payment_method);
+
+        return redirect()->route('orders.show', $order->order_id)->with('status', 'Payment recorded.');
+    }
+
+    public function destroyPayment($id, $paymentId)
+    {
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+        $payment = OrderPayment::where('order_id', $order->order_id)->findOrFail($paymentId);
+
+        $amount = $payment->amount;
+        $payment->delete();
+
+        ActivityLogger::log('deleted', 'Order Payment', $order->order_id,
+            '#' . $order->order_id . ' — ' . number_format((float) $amount, 2) . ' removed');
+
+        return redirect()->route('orders.show', $order->order_id)->with('status', 'Payment deleted.');
     }
 }

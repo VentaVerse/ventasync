@@ -493,6 +493,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
+        Route::post('/orders/{id}/payments', [OrderController::class, 'storePayment'])->name('orders.store_payment');
+        Route::delete('/orders/{id}/payments/{paymentId}', [OrderController::class, 'destroyPayment'])->name('orders.destroy_payment');
     });
 
     // Reports

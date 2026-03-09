@@ -298,6 +298,109 @@
         </table>
     </div>
 
+    {{-- Payments --}}
+    @php
+        $payments = $payments ?? collect();
+        $totalPaid = (float) ($totalPaid ?? 0);
+        $orderTotal = (float) $order->total;
+        $balance = $orderTotal - $totalPaid;
+    @endphp
+    <h3 class="section-title mt-24">
+        Payments
+        @if($balance <= 0 && $orderTotal > 0)
+            <span class="badge badge-green" style="font-size:11px; margin-left:8px;">Paid in Full</span>
+        @elseif($totalPaid > 0)
+            <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ number_format($balance, 2) }}</span>
+        @endif
+    </h3>
+
+    @if($payments->count())
+    <div class="table-wrap mb-12">
+        <table class="table" style="width:100%;">
+            <thead>
+            <tr>
+                <th>Date</th>
+                <th>Method</th>
+                <th>Reference</th>
+                <th class="text-right">Amount</th>
+                <th>Notes</th>
+                <th style="width:40px;"></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach($payments as $p)
+            <tr>
+                <td>{{ $p->paid_at->format('M d, Y') }}</td>
+                <td>{{ $p->payment_method }}</td>
+                <td class="text-muted">{{ $p->reference_no ?: '—' }}</td>
+                <td class="text-right font-semibold">{{ number_format((float) $p->amount, 2) }}</td>
+                <td class="text-muted text-sm">{{ $p->notes ?: '' }}</td>
+                <td>
+                    <form method="POST" action="{{ route('orders.destroy_payment', [$order->order_id, $p->id]) }}" onsubmit="return confirm('Delete this payment?')">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn small danger" title="Delete">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            @endforeach
+            <tr style="border-top:2px solid var(--border);">
+                <td colspan="3" class="text-right font-semibold">Total Paid</td>
+                <td class="text-right font-semibold">{{ number_format($totalPaid, 2) }}</td>
+                <td colspan="2"></td>
+            </tr>
+            @if($balance > 0)
+            <tr>
+                <td colspan="3" class="text-right font-semibold" style="color:var(--warning);">Remaining Balance</td>
+                <td class="text-right font-semibold" style="color:var(--warning);">{{ number_format($balance, 2) }}</td>
+                <td colspan="2"></td>
+            </tr>
+            @endif
+            </tbody>
+        </table>
+    </div>
+    @elseif($orderTotal > 0)
+        <p class="text-muted mb-12">No payments recorded.</p>
+    @endif
+
+    {{-- Add Payment Form --}}
+    <form method="POST" action="{{ route('orders.store_payment', $order->order_id) }}" class="mb-24">
+        @csrf
+        <div class="d-flex gap-12 items-end flex-wrap">
+            <div>
+                <label class="font-semibold">Date</label>
+                <input type="date" name="paid_at" class="input" value="{{ date('Y-m-d') }}" required style="min-width:140px;">
+            </div>
+            <div>
+                <label class="font-semibold">Amount</label>
+                <input type="number" name="amount" class="input" step="0.01" min="0.01" required placeholder="0.00" style="min-width:120px;" {{ $balance > 0 ? 'value=' . number_format($balance, 2, '.', '') : '' }}>
+            </div>
+            <div>
+                <label class="font-semibold">Method</label>
+                <select name="payment_method" class="input" required style="min-width:140px;">
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="GCash">GCash</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Check">Check</option>
+                    <option value="Maya">Maya</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div>
+                <label class="font-semibold">Reference #</label>
+                <input type="text" name="reference_no" class="input" placeholder="Transaction/check #" style="min-width:140px;">
+            </div>
+            <div style="flex:1; min-width:140px;">
+                <label class="font-semibold">Notes</label>
+                <input type="text" name="notes" class="input" placeholder="Optional">
+            </div>
+            <div>
+                <button class="btn" type="submit">Add Payment</button>
+            </div>
+        </div>
+    </form>
+
     {{-- Status Update --}}
     <h3 class="section-title mt-24">Update Status</h3>
     <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
