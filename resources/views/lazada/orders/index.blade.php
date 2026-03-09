@@ -65,7 +65,7 @@
                 $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
                 $count = $tab_counts[$key] ?? null;
                 $qs = array_merge(request()->query(), ['tab' => $key]);
-                $showBadge = in_array($key, ['TO_SHIP', 'SHIPPING']);
+                $showBadge = in_array($key, ['TO_SHIP', 'SHIPPING', 'FAILED_DELIVERY']);
             @endphp
             <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                 <span>{{ $label }}</span>
