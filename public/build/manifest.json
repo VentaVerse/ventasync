@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-LYqRv-1M.css",
+    "file": "assets/app-B4IM7PsX.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -8,10 +8,25 @@
       "app.css"
     ]
   },
+  "resources/css/modern.css": {
+    "file": "assets/modern-BnGUNrYB.css",
+    "src": "resources/css/modern.css",
+    "isEntry": true,
+    "name": "modern",
+    "names": [
+      "modern.css"
+    ]
+  },
   "resources/js/app.js": {
     "file": "assets/app-BuG9aa18.js",
     "name": "app",
     "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/modern.js": {
+    "file": "assets/modern-B9lRrDWB.js",
+    "name": "modern",
+    "src": "resources/js/modern.js",
     "isEntry": true
   }
 }
