@@ -357,6 +357,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/opencart/sync-date', [\App\Http\Controllers\OpenCartController::class, 'saveSyncDate'])->name('opencart.sync_date');
         Route::post('/opencart/push', [\App\Http\Controllers\OpenCartController::class, 'pushNow'])->name('opencart.push');
         Route::post('/opencart/push-qty', [\App\Http\Controllers\OpenCartController::class, 'pushQtyNow'])->name('opencart.push_qty');
+        Route::post('/opencart/{store}/products/{product}/push', [\App\Http\Controllers\OpenCartController::class, 'pushProduct'])->name('opencart.products.push');
         Route::post('/opencart/verify-password', [\App\Http\Controllers\OpenCartController::class, 'verifyPassword'])->name('opencart.verify_password');
         Route::post('/opencart/fetch-oc-statuses', [\App\Http\Controllers\OpenCartController::class, 'fetchOcStatuses'])->name('opencart.fetch_oc_statuses');
         Route::post('/opencart/save-status-map', [\App\Http\Controllers\OpenCartController::class, 'saveOrderStatusMap'])->name('opencart.save_status_map');
@@ -582,6 +583,13 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/products/{productId}/vendors/{id}', [ProductVendorController::class, 'destroy'])->name('products.vendors.destroy');
         Route::delete('/products/{id}/vendors', [ProductVendorController::class, 'destroyBulk'])->name('products.vendors.destroy_bulk');
     });
+
+    // Theme toggle
+    Route::post('/theme/toggle', function () {
+        $current = session('theme', 'vanilla');
+        session(['theme' => $current === 'vanilla' ? 'modern' : 'vanilla']);
+        return back();
+    })->name('theme.toggle');
 });
 
 require __DIR__.'/auth.php';
