@@ -131,7 +131,7 @@
         @php
             $fs = $fd_subtab ?? request()->query('fd_sub', 'failed_delivery');
             $fdNav = [
-                'failed_delivery' => 'Failed Delivery',
+                'failed_delivery' => 'Shipped Back',
                 'lost_damaged' => 'Lost & Damaged',
             ];
         @endphp

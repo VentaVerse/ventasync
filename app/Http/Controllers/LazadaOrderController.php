@@ -171,6 +171,8 @@ class LazadaOrderController extends Controller
             if (!empty($statuses)) {
                 if ($k === 'TO_SHIP') {
                     $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['pending', 'repacked'])->count();
+                } elseif ($k === 'FAILED_DELIVERY') {
+                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['shipped_back'])->count();
                 } else {
                     $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
                 }
