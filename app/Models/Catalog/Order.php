@@ -75,6 +75,11 @@ class Order extends BaseModel
         'oe_import',
         'marketplace_source',
         'marketplace_order_id',
+        'track_payments',
+    ];
+
+    protected $casts = [
+        'track_payments' => 'boolean',
     ];
 
     public function getTable()

@@ -707,4 +707,68 @@ class OrderController extends Controller
 
         return redirect()->route('orders.show', $order->order_id)->with('status', 'Payment deleted.');
     }
+
+    public function togglePayments($id)
+    {
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+        $newState = !$order->track_payments;
+
+        // If disabling and payments exist, prevent it
+        if (!$newState && $order->payments()->count() > 0) {
+            return redirect()->route('orders.show', $order->order_id)
+                ->with('error', 'Cannot disable payment tracking while payments exist. Delete all payments first.');
+        }
+
+        $order->update(['track_payments' => $newState]);
+
+        $action = $newState ? 'enabled' : 'disabled';
+        ActivityLogger::log('updated', 'Order', $order->order_id,
+            '#' . $order->order_id . ' — payment tracking ' . $action);
+
+        return redirect()->route('orders.show', $order->order_id)
+            ->with('status', 'Payment tracking ' . $action . '.');
+    }
+
+    public function paymentsReport(Request $request)
+    {
+        $query = Order::where('track_payments', true);
+
+        // Filter by payment status
+        $filter = $request->input('filter', 'all');
+
+        $orders = $query->orderByDesc('date_added')->get();
+
+        // Eager load payments and compute balances
+        $orderIds = $orders->pluck('order_id');
+        $paymentsByOrder = OrderPayment::whereIn('order_id', $orderIds)
+            ->get()
+            ->groupBy('order_id');
+
+        $rows = $orders->map(function ($order) use ($paymentsByOrder) {
+            $payments = $paymentsByOrder->get($order->order_id, collect());
+            $totalPaid = (float) $payments->sum('amount');
+            $orderTotal = (float) $order->total;
+            $balance = $orderTotal - $totalPaid;
+            $isPaid = $balance <= 0 && $orderTotal > 0;
+
+            return (object) [
+                'order' => $order,
+                'total_paid' => $totalPaid,
+                'balance' => $balance,
+                'is_paid' => $isPaid,
+                'payment_count' => $payments->count(),
+            ];
+        });
+
+        if ($filter === 'paid') {
+            $rows = $rows->filter(fn ($r) => $r->is_paid);
+        } elseif ($filter === 'unpaid') {
+            $rows = $rows->filter(fn ($r) => !$r->is_paid);
+        }
+
+        return view('orders.payments_report', [
+            'rows' => $rows,
+            'filter' => $filter,
+        ]);
+    }
 }

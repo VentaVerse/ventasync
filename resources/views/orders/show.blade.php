@@ -305,14 +305,22 @@
         $orderTotal = (float) $order->total;
         $balance = $orderTotal - $totalPaid;
     @endphp
-    <h3 class="section-title mt-24">
-        Payments
-        @if($balance <= 0 && $orderTotal > 0)
-            <span class="badge badge-green" style="font-size:11px; margin-left:8px;">Paid in Full</span>
-        @elseif($totalPaid > 0)
-            <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ number_format($balance, 2) }}</span>
-        @endif
-    </h3>
+
+    @if($order->track_payments)
+    <div class="d-flex items-center justify-between mt-24 mb-12" style="padding-bottom:8px; border-bottom:2px solid var(--border);">
+        <h3 style="margin:0; font-size:15px; font-weight:600;">
+            Payments
+            @if($balance <= 0 && $orderTotal > 0)
+                <span class="badge badge-green" style="font-size:11px; margin-left:8px;">Paid in Full</span>
+            @elseif($totalPaid > 0)
+                <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ number_format($balance, 2) }}</span>
+            @endif
+        </h3>
+        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
+            @csrf
+            <button type="submit" class="btn small secondary" onclick="return confirm('Disable payment tracking for this order?')">Disable Tracking</button>
+        </form>
+    </div>
 
     @if($payments->count())
     <div class="table-wrap mb-12">
@@ -400,6 +408,16 @@
             </div>
         </div>
     </form>
+    @else
+    {{-- Payment tracking disabled — show enable button --}}
+    <div class="mt-24 mb-24" style="display:flex; align-items:center; gap:12px;">
+        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
+            @csrf
+            <button type="submit" class="btn small">Enable Payment Tracking</button>
+        </form>
+        <span class="text-muted text-sm">Track partial payments for this order</span>
+    </div>
+    @endif
 
     {{-- Status Update --}}
     <h3 class="section-title mt-24">Update Status</h3>

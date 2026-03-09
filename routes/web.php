@@ -495,6 +495,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
         Route::post('/orders/{id}/payments', [OrderController::class, 'storePayment'])->name('orders.store_payment');
         Route::delete('/orders/{id}/payments/{paymentId}', [OrderController::class, 'destroyPayment'])->name('orders.destroy_payment');
+        Route::post('/orders/{id}/toggle-payments', [OrderController::class, 'togglePayments'])->name('orders.toggle_payments');
+        Route::get('/order-payments', [OrderController::class, 'paymentsReport'])->name('orders.payments_report');
     });
 
     // Reports
