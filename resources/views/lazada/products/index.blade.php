@@ -306,13 +306,7 @@
                 <div>{{ $p ? number_format((float)$p->price, 2) : '-' }}</div>
                 @if($optRows && count($optRows) > 0)
                     @foreach($optRows as $or)
-                        @php
-                            $opDelta = (float)($or->option_price ?? 0);
-                            $opPrefix = (string)($or->option_price_prefix ?? '+');
-                            $basePrice = $p ? (float)$p->price : 0;
-                            $opFull = $opPrefix === '-' ? $basePrice - $opDelta : $basePrice + $opDelta;
-                        @endphp
-                        <div class="text-xs text-muted">{{ number_format($opFull, 2) }}</div>
+                        <div class="text-xs text-muted">{{ number_format((float)($or->option_absolute_price ?? 0), 2) }}</div>
                     @endforeach
                 @endif
             </td>

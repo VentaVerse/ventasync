@@ -370,7 +370,7 @@
                                 <tr>
                                     <td>{{ $erpLabel }}</td>
                                     <td>{{ $v->sku }}</td>
-                                    <td>{{ $v->price_prefix }}{{ $v->price }}</td>
+                                    <td>{{ number_format((float)($v->absolute_price ?? 0), 2) }}</td>
                                     <td>{{ $v->quantity }}</td>
                                     <td>
                                         <input class="input" name="variants[{{ $v->product_option_value_id }}][seller_sku]" value="{{ old('variants.'.$v->product_option_value_id.'.seller_sku', $m?->seller_sku) }}" placeholder="Optional override">

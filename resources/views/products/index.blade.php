@@ -119,10 +119,7 @@
                         $ovImg = trim((string)($or->option_image ?? ''));
                         $ovSrc = $ovImg !== '' ? asset('storage/' . ltrim($ovImg, '/')) : '';
 
-                        $base = (float)($p->price ?? 0);
-                        $adj  = (float)($or->price ?? 0);
-                        $pp   = (string)($or->price_prefix ?? '+');
-                        $final = $base + (($pp === '-') ? (-1 * $adj) : $adj);
+                        $final = (float)($or->absolute_price ?? 0);
                     @endphp
                     <tr class="option-row">
                         <td></td>

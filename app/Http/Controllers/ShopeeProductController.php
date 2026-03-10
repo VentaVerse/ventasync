@@ -158,8 +158,7 @@ class ShopeeProductController extends Controller
                     'ovd.name as option_value_name',
                     'pov.sku as option_sku',
                     'pov.quantity as option_quantity',
-                    'pov.price as option_price',
-                    'pov.price_prefix as option_price_prefix',
+                    'pov.absolute_price as option_absolute_price',
                 ]);
 
             $optionRowsByProductId = $optionRows->groupBy(fn($r) => (int) $r->product_id);
@@ -2079,18 +2078,15 @@ class ShopeeProductController extends Controller
                 $basePrice = max(0, (float) ($productRow->price ?? 0));
                 $price = $basePrice;
 
-                // If linked via option SKU, apply option price modifier (+ or -)
+                // If linked via option SKU, use absolute_price
                 if ($sku !== '') {
                     $pov = DB::table($pfx . 'product_option_value')
                         ->where('product_id', $productId)
                         ->where('sku', $sku)
-                        ->first(['price', 'price_prefix']);
+                        ->first(['absolute_price']);
 
-                    if ($pov && (float) $pov->price > 0) {
-                        $modifier = (float) $pov->price;
-                        $price = ($pov->price_prefix === '-')
-                            ? max(0, $basePrice - $modifier)
-                            : $basePrice + $modifier;
+                    if ($pov && $pov->absolute_price !== null) {
+                        $price = max(0, (float) $pov->absolute_price);
                     }
                 }
 

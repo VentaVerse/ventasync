@@ -600,6 +600,9 @@ class OpenCartProductSync
      */
     private function buildOptionsPayload(int $productId, string $pfx, int $langId): array
     {
+        // Get base product price for back-calculating +/- from absolute
+        $basePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
+
         $productOptions = DB::table($pfx . 'product_option AS po')
             ->join($pfx . 'option_description AS od', function ($join) use ($langId) {
                 $join->on('po.option_id', '=', 'od.option_id')
@@ -624,10 +627,9 @@ class OpenCartProductSync
                 ->where('pov.product_option_id', (int) $po->product_option_id)
                 ->select(
                     'ovd.name', 'pov.sku', 'pov.quantity', 'pov.subtract',
-                    'pov.price', 'pov.price_prefix',
+                    'pov.absolute_price', 'pov.absolute_cost',
                     'pov.weight', 'pov.weight_prefix',
-                    'pov.points', 'pov.points_prefix',
-                    'pov.cost', 'pov.cost_amount', 'pov.cost_percentage', 'pov.cost_additional', 'pov.cost_prefix'
+                    'pov.points', 'pov.points_prefix'
                 )
                 ->get();
 
@@ -635,23 +637,31 @@ class OpenCartProductSync
                 'option_name' => $po->option_name,
                 'type'        => $po->type,
                 'required'    => (int) $po->required,
-                'values'      => $values->map(fn($v) => [
-                    'name'            => $v->name,
-                    'sku'             => $v->sku ?? '',
-                    'quantity'        => (int) $v->quantity,
-                    'subtract'        => (int) $v->subtract,
-                    'price'           => (float) $v->price,
-                    'price_prefix'    => $v->price_prefix ?? '+',
-                    'weight'          => (float) $v->weight,
-                    'weight_prefix'   => $v->weight_prefix ?? '+',
-                    'points'          => (int) $v->points,
-                    'points_prefix'   => $v->points_prefix ?? '+',
-                    'cost'            => (float) ($v->cost ?? 0),
-                    'cost_amount'     => (float) ($v->cost_amount ?? 0),
-                    'cost_percentage' => (float) ($v->cost_percentage ?? 0),
-                    'cost_additional' => (float) ($v->cost_additional ?? 0),
-                    'cost_prefix'     => $v->cost_prefix ?? '+',
-                ])->toArray(),
+                'values'      => $values->map(function ($v) use ($basePrice) {
+                    // Translate absolute price/cost to +/- for OpenCart
+                    $absPrice = (float) ($v->absolute_price ?? $basePrice);
+                    $priceDelta = $absPrice - $basePrice;
+
+                    $absCost = (float) ($v->absolute_cost ?? 0);
+
+                    return [
+                        'name'            => $v->name,
+                        'sku'             => $v->sku ?? '',
+                        'quantity'        => (int) $v->quantity,
+                        'subtract'        => (int) $v->subtract,
+                        'price'           => abs($priceDelta),
+                        'price_prefix'    => $priceDelta >= 0 ? '+' : '-',
+                        'weight'          => (float) $v->weight,
+                        'weight_prefix'   => $v->weight_prefix ?? '+',
+                        'points'          => (int) $v->points,
+                        'points_prefix'   => $v->points_prefix ?? '+',
+                        'cost'            => $absCost,
+                        'cost_amount'     => $absCost,
+                        'cost_percentage' => 0,
+                        'cost_additional' => 0,
+                        'cost_prefix'     => '+',
+                    ];
+                })->toArray(),
             ];
         }
 
@@ -892,6 +902,12 @@ class OpenCartProductSync
 
                 $corePoId = $poMap[$coreOptionId] ?? 0;
 
+                // Compute absolute price from base + modifier
+                $basePrice    = (float) ($raw['price'] ?? 0);
+                $ovPrice      = (float) ($ov['price'] ?? 0);
+                $ovPrefix     = $ov['price_prefix'] ?? '+';
+                $absolutePrice = $basePrice + ($ovPrefix === '+' ? $ovPrice : -$ovPrice);
+
                 DB::table($pfx . 'product_option_value')->insert([
                     'product_option_id' => $corePoId,
                     'product_id'        => $coreProductId,
@@ -902,6 +918,7 @@ class OpenCartProductSync
                     'subtract'          => (int) ($ov['subtract'] ?? 1),
                     'price'             => $ov['price'] ?? 0,
                     'price_prefix'      => $ov['price_prefix'] ?? '+',
+                    'absolute_price'    => $absolutePrice,
                     'weight'            => $ov['weight'] ?? 0,
                     'weight_prefix'     => $ov['weight_prefix'] ?? '+',
                     'points'            => (int) ($ov['points'] ?? 0),
@@ -909,6 +926,9 @@ class OpenCartProductSync
                 ]);
             }
         });
+
+        // Sync product_option_combinations from freshly-inserted POV rows
+        $this->syncCombinationsFromPov($coreProductId);
 
         $this->syncSubTable('product_special', $coreProductId, function () use ($pfx, $coreProductId, $raw) {
             if (!isset($raw['specials']) || !is_array($raw['specials'])) return;
@@ -1204,6 +1224,97 @@ class OpenCartProductSync
             $fn();
         } catch (\Throwable $e) {
             Log::warning("OpenCart product sync: {$table} failed for product {$productId}", [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * After pulling POV rows from OpenCart, create/update combination rows.
+     * For 1-option products: 1 combo per POV. For 2-option: Cartesian product.
+     */
+    private function syncCombinationsFromPov(int $productId): void
+    {
+        try {
+            $pfx = config('catalog.prefix');
+
+            // Delete existing combinations for this product
+            DB::table('product_option_combination_values')
+                ->whereIn('combination_id', function ($q) use ($productId) {
+                    $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
+                })
+                ->delete();
+            DB::table('product_option_combinations')->where('product_id', $productId)->delete();
+
+            // Get all POV rows grouped by product_option_id
+            $povRows = DB::table($pfx . 'product_option_value')
+                ->where('product_id', $productId)
+                ->orderBy('product_option_id')
+                ->get();
+
+            if ($povRows->isEmpty()) return;
+
+            $grouped = $povRows->groupBy('product_option_id');
+            $groupCount = $grouped->count();
+            $now = now();
+
+            if ($groupCount === 1) {
+                // 1-option: 1 combo per POV
+                $sortOrder = 0;
+                foreach ($povRows as $pov) {
+                    $comboId = DB::table('product_option_combinations')->insertGetId([
+                        'product_id' => $productId,
+                        'sku' => $pov->sku ?? '',
+                        'quantity' => (int) $pov->quantity,
+                        'absolute_price' => (float) ($pov->absolute_price ?? 0),
+                        'absolute_cost' => (float) ($pov->absolute_cost ?? 0),
+                        'subtract' => (int) ($pov->subtract ?? 1),
+                        'sort_order' => $sortOrder++,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                    DB::table('product_option_combination_values')->insert([
+                        'combination_id' => $comboId,
+                        'product_option_value_id' => (int) $pov->product_option_value_id,
+                    ]);
+                }
+            } elseif ($groupCount >= 2) {
+                // 2-option: Cartesian product of first two groups
+                $groups = $grouped->values();
+                $group1 = $groups[0];
+                $group2 = $groups[1];
+                $basePrice = (float) DB::table($pfx . 'product')->where('product_id', $productId)->value('price');
+                $sortOrder = 0;
+
+                foreach ($group1 as $pov1) {
+                    foreach ($group2 as $pov2) {
+                        // Combination price = base + delta1 + delta2
+                        $delta1 = ($pov1->price_prefix ?? '+') === '+' ? (float) $pov1->price : -(float) $pov1->price;
+                        $delta2 = ($pov2->price_prefix ?? '+') === '+' ? (float) $pov2->price : -(float) $pov2->price;
+                        $comboPrice = $basePrice + $delta1 + $delta2;
+
+                        $comboSku = ($pov1->sku ?? '') . ($pov2->sku ? '-' . $pov2->sku : '');
+
+                        $comboId = DB::table('product_option_combinations')->insertGetId([
+                            'product_id' => $productId,
+                            'sku' => $comboSku,
+                            'quantity' => (int) $pov1->quantity,
+                            'absolute_price' => $comboPrice,
+                            'absolute_cost' => 0,
+                            'subtract' => 1,
+                            'sort_order' => $sortOrder++,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]);
+                        DB::table('product_option_combination_values')->insert([
+                            ['combination_id' => $comboId, 'product_option_value_id' => (int) $pov1->product_option_value_id],
+                            ['combination_id' => $comboId, 'product_option_value_id' => (int) $pov2->product_option_value_id],
+                        ]);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("OpenCart product sync: combinations failed for product {$productId}", [
                 'error' => $e->getMessage(),
             ]);
         }

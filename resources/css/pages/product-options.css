@@ -1,0 +1,47 @@
+/* ============================================================
+   PRODUCT OPTIONS
+   Options builder for 1-option and 2-option (combination) modes
+   ============================================================ */
+
+/* ---- Layout ---- */
+.opt-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.opt-col { flex: 1; min-width: 280px; }
+.opt-card { padding: 14px; }
+.opt-header { align-items: flex-end; }
+.opt-add-value-wrap { max-width: 300px; }
+.opt-add-value-wrap .input { flex: 1; }
+
+/* ---- Table ---- */
+.opt-table { min-width: 600px; }
+.opt-table th.opt-col-value { min-width: 160px; }
+.opt-table th.opt-col-opt { min-width: 120px; }
+.opt-table th.opt-col-sku { min-width: 100px; }
+.opt-table th.opt-col-qty { width: 90px; }
+.opt-table th.opt-col-price { width: 120px; }
+.opt-table th.opt-col-cost { width: 120px; }
+.opt-table th.opt-col-profit { width: 90px; }
+.opt-table th.opt-col-margin { width: 80px; }
+.opt-table th.opt-col-actions { width: 40px; }
+
+/* ---- Value label (in combo grid rows) ---- */
+.opt-value-label { font-weight: 600; font-size: 13px; }
+
+/* ---- Metrics ---- */
+.opt-metric { font-size: 12px; font-weight: 600; }
+.opt-metric-positive { color: var(--success); }
+.opt-metric-negative { color: var(--danger); }
+
+/* ---- Value list inputs (2-option mode) ---- */
+#opt1-value-list .input,
+#opt2-value-list .input { max-width: 260px; }
+
+/* ---- Buttons ---- */
+.opt-btn-sm { padding: 6px 14px; }
+.opt-btn-remove { padding: 8px 16px; }
+.opt-btn-row-remove { padding: 4px 10px; font-size: 13px; }
+
+/* ---- Quantity auto-calc ---- */
+.opt-qty-readonly { opacity: 0.85; }
+
+/* ---- Overflow wrapper ---- */
+.opt-table-scroll { overflow-x: auto; }

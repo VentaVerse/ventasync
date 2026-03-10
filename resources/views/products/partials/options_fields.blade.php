@@ -6,516 +6,671 @@
 @endif
 
 {{--
-  NOTE:
-  This partial is included by both the Product Create and Product Edit forms.
-  Do NOT open a nested <form> here (it breaks HTML and prevents Create from rendering because it has no product id yet).
-  The parent form (products.store / products.update) will submit these option fields.
+  Absolute Pricing Options Builder
+  - 1-option: editable rows (name/sku/qty/price/cost per value)
+  - 2-option: combination grid (Option1 x Option2)
+  - Auto-creates global option/value records on save
 --}}
 
-<div id="options-root"></div>
+<div id="options-root">
+    <input type="hidden" name="_options_format" value="absolute">
+    {{-- Option 1 + Option 2 side by side --}}
+    <div class="opt-row">
+        {{-- Option 1 --}}
+        <div id="option1-group" class="d-none opt-col">
+            <div class="card opt-card">
+                <div class="d-flex gap-10 flex-wrap opt-header">
+                    <div style="flex:1; min-width:160px;">
+                        <label class="required">Option 1 Name</label>
+                        <input class="input" id="opt1-name-input" placeholder="e.g. Cable Length, Color" autocomplete="off">
+                    </div>
+                    <div>
+                        <button class="btn danger opt-btn-remove" type="button" id="remove-opt1-btn">Remove</button>
+                    </div>
+                </div>
 
-<div class="d-flex gap-10 items-center mt-12">
+                {{-- Option 1 values (editable list — visible in 2-option mode only) --}}
+                <div class="mt-8 d-none" id="opt1-values-section">
+                    <label>Values</label>
+                    <div id="opt1-value-list"></div>
+                    <div class="d-flex gap-6 mt-4 opt-add-value-wrap">
+                        <input class="input" id="opt1-new-value" placeholder="Value name, Enter to add" autocomplete="off">
+                        <button class="btn secondary opt-btn-sm" type="button" id="opt1-add-value-btn">Add</button>
+                    </div>
+                </div>
+
+                {{-- Add Option 2 button (inside opt1 card) --}}
+                <div id="add-opt2-wrapper" class="d-none mt-8">
+                    <button class="btn secondary opt-btn-sm" type="button" id="add-opt2-btn">+ Add Option 2</button>
+                </div>
+            </div>
+        </div>
+
+        {{-- Option 2 (2-option mode only) --}}
+        <div id="option2-group" class="d-none opt-col">
+            <div class="card opt-card">
+                <div class="d-flex gap-10 flex-wrap opt-header">
+                    <div style="flex:1; min-width:160px;">
+                        <label class="required">Option 2 Name</label>
+                        <input class="input" id="opt2-name-input" placeholder="e.g. Size, Plug Type" autocomplete="off">
+                    </div>
+                    <div>
+                        <button class="btn danger opt-btn-remove" type="button" id="remove-opt2-btn">Remove</button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <label>Values</label>
+                    <div id="opt2-value-list"></div>
+                    <div class="d-flex gap-6 mt-4 opt-add-value-wrap">
+                        <input class="input" id="opt2-new-value" placeholder="Value name, Enter to add" autocomplete="off">
+                        <button class="btn secondary opt-btn-sm" type="button" id="opt2-add-value-btn">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Values / Combination table --}}
+    <div id="data-table-wrap" class="d-none mt-12">
+        <div class="opt-table-scroll">
+            <table class="table opt-table" id="data-table">
+                <thead id="data-thead"></thead>
+                <tbody id="data-tbody"></tbody>
+            </table>
+        </div>
+        <div class="mt-6">
+            <button class="btn secondary opt-btn-sm" type="button" id="add-row-btn">+ Add Value</button>
+        </div>
+    </div>
+</div>
+
+<div id="add-option-wrapper" class="mt-12">
     <button class="btn secondary" type="button" id="add-option-btn">Add Option</button>
 </div>
 
-<template id="tpl-option">
-    <div class="card mt-16" style="padding:14px;">
-        <div class="d-flex gap-10 flex-wrap" style="align-items:end;">
-            <div style="min-width:260px; flex:1;">
-                <label class="required">Option</label>
-                <select class="input js-option-select"></select>
-                <input type="hidden" class="js-option-id" />
-            </div>
-            <div style="width:180px;">
-                <label>Required</label>
-                <select class="input js-option-required">
-                    <option value="0">No</option>
-                    <option value="1">Yes</option>
-                </select>
-            </div>
-            <div style="width:140px; margin-left:auto;">
-                <button class="btn danger" type="button" data-action="remove-option" style="width:100%;">Remove</button>
-            </div>
-        </div>
-
-        <div class="hint mt-12">For select/radio/checkbox: add values below. For text/date/time/file: the value is stored in OpenCart's product_option.value.</div>
-
-        <div class="js-values mt-12"></div>
-
-        <div class="d-flex gap-10 items-center mt-12">
-            <button class="btn secondary" type="button" data-action="add-value">Add Value</button>
-        </div>
-    </div>
-</template>
-
-<template id="tpl-value-row">
-    <div class="card mt-8" style="padding:0; overflow:hidden;">
-        <div class="d-flex" style="align-items:stretch;">
-            {{-- Left: Option name --}}
-            <div class="js-row-option-label" style="width:120px; flex-shrink:0; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; padding:8px; font-weight:600; font-size:13px; border-right:1px solid var(--border-light); text-align:center;">
-                —
-            </div>
-            {{-- Right: Fields grid --}}
-            <div style="flex:1; min-width:0; padding:10px;">
-                <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:8px; align-items:end;">
-                    <div>
-                        <label class="required">Value</label>
-                        <select class="input js-value-select"></select>
-                        <input type="hidden" class="js-value-id" />
-                    </div>
-                    <div>
-                        <label>SKU</label>
-                        <input class="input js-row-sku" placeholder="optional">
-                    </div>
-                    <div>
-                        <label>Quantity</label>
-                        <input class="input js-row-qty" type="number" value="0">
-                    </div>
-                    <div>
-                        <label>Subtract</label>
-                        <label class="toggle-switch" style="display:block; margin-top:6px;">
-                            <input type="checkbox" class="js-row-subtract-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <select class="js-row-subtract" hidden><option value="1" selected>Yes</option><option value="0">No</option></select>
-                    </div>
-                    <div>
-                        <label>Price</label>
-                        <div class="d-flex gap-2">
-                            <select class="input js-row-price-prefix" style="width:34px; flex-shrink:0; padding:6px 1px; text-align:center;"><option value="+">+</option><option value="-">-</option></select>
-                            <input class="input js-row-price" type="number" step="0.01" value="0" style="flex:1; min-width:0;">
-                        </div>
-                    </div>
-                    <div>
-                        <label>Cost</label>
-                        <div class="d-flex gap-2">
-                            <select class="input js-row-cost-prefix" style="width:34px; flex-shrink:0; padding:6px 1px; text-align:center;"><option value="+">+</option><option value="-">-</option></select>
-                            <input class="input js-row-cost" type="number" step="0.01" value="0" style="flex:1; min-width:0;">
-                        </div>
-                    </div>
-                    <div>
-                        <label>Weight</label>
-                        <div class="d-flex gap-2">
-                            <select class="input js-row-weight-prefix" style="width:34px; flex-shrink:0; padding:6px 1px; text-align:center;"><option value="+">+</option><option value="-">-</option></select>
-                            <input class="input js-row-weight" type="number" step="0.01" value="0" style="flex:1; min-width:0;">
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <label>&nbsp;</label>
-                        <button class="btn danger" type="button" data-action="remove-value" style="padding:6px 12px;">X</button>
-                    </div>
-                </div>
-                {{-- Metrics row --}}
-                <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-top:6px;">
-                    <div>
-                        <label style="font-size:11px; color:var(--text-muted);">Full Price</label>
-                        <input class="input js-row-full-price" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
-                    </div>
-                    <div>
-                        <label style="font-size:11px; color:var(--text-muted);">Full Cost</label>
-                        <input class="input js-row-full-cost" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
-                    </div>
-                    <div>
-                        <label style="font-size:11px; color:var(--text-muted);">Profit</label>
-                        <input class="input js-row-profit" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
-                    </div>
-                    <div>
-                        <label style="font-size:11px; color:var(--text-muted);">Margin</label>
-                        <input class="input js-row-margin" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
-                    </div>
-                    <div>
-                        <label style="font-size:11px; color:var(--text-muted);">Markup</label>
-                        <input class="input js-row-markup" type="text" readonly tabindex="-1" style="background:var(--surface-alt); font-weight:600; text-align:right; font-size:12px; padding:4px 6px;">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</template>
-
-
 @push('scripts')
 <script>
-const ALL_OPTIONS = @json($allOptions ?? []);
-const EXISTING = @json($existingOptions ?? []);
+'use strict';
 
-function escHtml(s){
-  return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-}
+const EXISTING_OPTION  = @json($existingOptions->first() ?? null);
+const EXISTING_OPTION2 = @json($existingOptions->count() > 1 ? $existingOptions->get(1) : null);
+const EXISTING_VALUES  = @json($existingOptions->first() ? ($existingOptions->first()->values ?? []) : []);
+const EXISTING_VALUES2 = @json($existingOptions->count() > 1 ? ($existingOptions->get(1)->values ?? []) : []);
+const EXISTING_COMBOS  = @json($existingCombinations ?? []);
 
-function wordStartMatch(text, term){
-  if(!text || !term) return false;
-  const h = String(text).toLowerCase();
-  const t = String(term).trim().toLowerCase();
-  if(t === '') return false;
-  return !!h.match(new RegExp('(^|[^a-z0-9])' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-}
+// State
+let opt1Values = []; // [{name, option_value_id?, sku, quantity, absolute_price, absolute_cost}]
+let opt2Values = []; // [{name, option_value_id?}]
+let comboData  = {}; // key "v1|v2" → {sku, quantity, absolute_price, absolute_cost} (2-option)
+let mode       = 'none'; // 'none' | 'one' | 'two'
 
-async function fetchValues(optionId){
-  const res = await fetch(`/api/catalog/options/${optionId}/values`);
-  if(!res.ok) return [];
-  return await res.json();
-}
+// ---- DOM refs ----
+const $opt1Group      = document.getElementById('option1-group');
+const $opt2Group      = document.getElementById('option2-group');
+const $opt2Wrapper    = document.getElementById('add-opt2-wrapper');
+const $addOptWrapper  = document.getElementById('add-option-wrapper');
+const $tableWrap      = document.getElementById('data-table-wrap');
+const $addRowBtn      = document.getElementById('add-row-btn');
+const $thead          = document.getElementById('data-thead');
+const $tbody          = document.getElementById('data-tbody');
+const $opt1Name       = document.getElementById('opt1-name-input');
+const $opt2Name       = document.getElementById('opt2-name-input');
+const $opt1ValList    = document.getElementById('opt1-value-list');
+const $opt1ValSection = document.getElementById('opt1-values-section');
+const $opt2ValList    = document.getElementById('opt2-value-list');
+const $optionsRoot    = document.getElementById('options-root');
 
-function buildOptionSelect(selectEl, selectedId){
-  selectEl.innerHTML = '';
-  const opt0 = document.createElement('option');
-  opt0.value = '';
-  opt0.textContent = 'Select...';
-  selectEl.appendChild(opt0);
+// ---- Helpers ----
 
-  for(const o of ALL_OPTIONS){
-    const opt = document.createElement('option');
-    opt.value = o.option_id;
-    opt.textContent = o.name;
-    if(String(selectedId) === String(o.option_id)) opt.selected = true;
-    selectEl.appendChild(opt);
-  }
-}
-
-function buildValueSelect(selectEl, values, selectedId){
-  selectEl.innerHTML = '';
-  const opt0 = document.createElement('option');
-  opt0.value = '';
-  opt0.textContent = 'Select...';
-  selectEl.appendChild(opt0);
-
-  for(const v of values){
-    const opt = document.createElement('option');
-    opt.value = v.option_value_id;
-    opt.textContent = v.name;
-    if(String(selectedId) === String(v.option_value_id)) opt.selected = true;
-    selectEl.appendChild(opt);
-  }
-}
-
-function getOptionType(optionId){
-  const o = ALL_OPTIONS.find(x => String(x.option_id) === String(optionId));
-  return o ? o.type : '';
-}
-
-function buildValueRow(valuesList, seed){
-  const tpl = document.getElementById('tpl-value-row');
-  const row = tpl.content.firstElementChild.cloneNode(true);
-
-  const select = row.querySelector('.js-value-select');
-  const hidden = row.querySelector('.js-value-id');
-
-  buildValueSelect(select, valuesList, seed?.option_value_id ?? '');
-
-  select.addEventListener('change', () => {
-    hidden.value = select.value || '';
-  });
-
-  hidden.value = seed?.option_value_id ?? '';
-
-  row.querySelector('.js-row-sku').value = seed?.sku ?? '';
-  row.querySelector('.js-row-qty').value = seed?.quantity ?? 0;
-
-  // Toggle switch ↔ hidden select sync
-  var subtractSelect = row.querySelector('.js-row-subtract');
-  var subtractToggle = row.querySelector('.js-row-subtract-toggle');
-  var subtractVal = String(seed?.subtract ?? 1);
-  subtractSelect.value = subtractVal;
-  subtractToggle.checked = subtractVal === '1';
-  subtractToggle.addEventListener('change', function() { subtractSelect.value = this.checked ? '1' : '0'; });
-
-  row.querySelector('.js-row-price-prefix').value = seed?.price_prefix ?? '+';
-  row.querySelector('.js-row-price').value = seed?.price ?? 0;
-  row.querySelector('.js-row-weight-prefix').value = seed?.weight_prefix ?? '+';
-  row.querySelector('.js-row-weight').value = seed?.weight ?? 0;
-  row.querySelector('.js-row-cost-prefix').value = seed?.cost_prefix ?? '+';
-  row.querySelector('.js-row-cost').value = seed?.cost ?? 0;
-
-  // Cost & profit fields
-  var pricePrefixIn = row.querySelector('.js-row-price-prefix');
-  var priceIn = row.querySelector('.js-row-price');
-  var costPrefixIn = row.querySelector('.js-row-cost-prefix');
-  var costIn = row.querySelector('.js-row-cost');
-  var fullPriceOut = row.querySelector('.js-row-full-price');
-  var fullCostOut = row.querySelector('.js-row-full-cost');
-  var profitOut = row.querySelector('.js-row-profit');
-  var marginOut = row.querySelector('.js-row-margin');
-  var markupOut = row.querySelector('.js-row-markup');
-
-  function calcOptionCost() {
-    var basePrice = parseFloat((document.getElementById('product_price') || {}).value) || 0;
-    var baseCost = parseFloat((document.getElementById('product_cost') || {}).value) || 0;
-    var priceDelta = parseFloat(priceIn.value) || 0;
-    var costDelta = parseFloat(costIn.value) || 0;
-
-    var fullPrice = pricePrefixIn.value === '-' ? basePrice - priceDelta : basePrice + priceDelta;
-    var fullCost = costPrefixIn.value === '-' ? baseCost - costDelta : baseCost + costDelta;
-    var profit = fullPrice - fullCost;
-
-    if (fullPriceOut) { fullPriceOut.value = fullPrice.toFixed(2); }
-    if (fullCostOut) { fullCostOut.value = fullCost.toFixed(2); }
-    if (profitOut) { profitOut.value = profit.toFixed(2); profitOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
-    if (marginOut) { marginOut.value = fullPrice > 0 ? (profit / fullPrice * 100).toFixed(2) + '%' : '0%'; marginOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
-    if (markupOut) { markupOut.value = fullCost > 0 ? (profit / fullCost * 100).toFixed(2) + '%' : '0%'; markupOut.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
-  }
-  [pricePrefixIn, priceIn, costPrefixIn, costIn].forEach(function(el) { el.addEventListener('input', calcOptionCost); el.addEventListener('change', calcOptionCost); });
-  calcOptionCost();
-
-  // Store calcOptionCost on the row so we can trigger it from base price/cost changes
-  row._calcOptionCost = calcOptionCost;
-
-  row.querySelector('[data-action="remove-value"]').addEventListener('click', () => {
-    row.remove();
-    recalcAndLockProductQuantity();
-  });
-
-  return row;
-}
-
-function buildOptionBlock(seed){
-  const tpl = document.getElementById('tpl-option');
-  const block = tpl.content.firstElementChild.cloneNode(true);
-
-  const sel = block.querySelector('.js-option-select');
-  const hid = block.querySelector('.js-option-id');
-  const req = block.querySelector('.js-option-required');
-  const valuesRoot = block.querySelector('.js-values');
-
-  buildOptionSelect(sel, seed?.option_id ?? '');
-
-  hid.value = seed?.option_id ?? '';
-  req.value = String(seed?.required ?? 0);
-
-  async function refreshValues(){
-    valuesRoot.innerHTML = '';
-    const optionId = sel.value;
-    if(!optionId) return;
-
-    hid.value = optionId;
-
-    const type = getOptionType(optionId);
-    if(!['select','radio','checkbox'].includes(type)){
-      // non-valued options: nothing to render for values
-      return;
+function createEl(tag, attrs, textContent) {
+    const el = document.createElement(tag);
+    if (attrs) {
+        Object.keys(attrs).forEach(key => {
+            if (key === 'className') {
+                el.className = attrs[key];
+            } else if (key.startsWith('data-')) {
+                el.dataset[key.slice(5)] = attrs[key];
+            } else {
+                el.setAttribute(key, attrs[key]);
+            }
+        });
     }
+    if (textContent !== undefined) el.textContent = textContent;
+    return el;
+}
 
-    const valuesList = await fetchValues(optionId);
-    const optionName = sel.options[sel.selectedIndex]?.textContent || '—';
+function createInput(className, type, value, attrs) {
+    const el = createEl('input', Object.assign({ className: 'input ' + className, type: type || 'text' }, attrs || {}));
+    el.value = value !== undefined && value !== null ? value : '';
+    return el;
+}
 
-    const existing = (seed?.values ?? []).map(v => ({
-      option_value_id: v.option_value_id,
-      sku: v.sku ?? '',
-      quantity: v.quantity ?? 0,
-      subtract: (v.subtract ?? 1),
-      price_prefix: v.price_prefix ?? '+',
-      price: v.price ?? 0,
-      weight_prefix: v.weight_prefix ?? '+',
-      weight: v.weight ?? 0,
-      cost_prefix: v.cost_prefix ?? '+',
-      cost: v.cost ?? 0,
-    }));
+function clearChildren(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+}
 
-    function addRow(seed) {
-      const row = buildValueRow(valuesList, seed);
-      row.querySelector('.js-row-option-label').textContent = optionName;
-      valuesRoot.appendChild(row);
-      return row;
+function comboKey(v1, v2) {
+    return v1 + '|' + (v2 || '');
+}
+
+// ---- Mode management ----
+
+function setMode(newMode) {
+    mode = newMode;
+    $opt1Group.classList.toggle('d-none', mode === 'none');
+    $opt2Group.classList.toggle('d-none', mode !== 'two');
+    $opt2Wrapper.classList.toggle('d-none', mode !== 'one');
+    $addOptWrapper.classList.toggle('d-none', mode !== 'none');
+    $tableWrap.classList.toggle('d-none', mode === 'none' || opt1Values.length === 0);
+    $addRowBtn.classList.toggle('d-none', mode !== 'one');
+    // Option 1 chip UI only in 2-option mode
+    $opt1ValSection.classList.toggle('d-none', mode !== 'two');
+    if (mode === 'two') renderOpt1List();
+    renderTable();
+    recalcProductQty();
+}
+
+// ---- Value list rendering (2-option mode — editable inputs) ----
+
+function renderValueList(container, values, onRemove, onRename) {
+    clearChildren(container);
+    values.forEach((v, i) => {
+        const row = createEl('div', { className: 'd-flex gap-6 items-center mt-4' });
+        const input = createInput('js-opt-val-name', 'text', v.name, { placeholder: 'Value name' });
+        input.addEventListener('change', () => {
+            const newName = input.value.trim();
+            if (newName && newName !== v.name) {
+                onRename(i, v.name, newName);
+            }
+        });
+        row.appendChild(input);
+        const removeBtn = createEl('button', { className: 'btn danger opt-btn-row-remove', type: 'button', title: 'Remove' }, '\u00d7');
+        removeBtn.addEventListener('click', () => onRemove(i));
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+    });
+}
+
+function remapComboKeys(optNum, oldName, newName) {
+    const updated = {};
+    Object.keys(comboData).forEach(key => {
+        const parts = key.split('|');
+        if (optNum === 1 && parts[0] === oldName) {
+            updated[newName + '|' + (parts[1] || '')] = comboData[key];
+        } else if (optNum === 2 && parts[1] === oldName) {
+            updated[parts[0] + '|' + newName] = comboData[key];
+        } else {
+            updated[key] = comboData[key];
+        }
+    });
+    comboData = updated;
+}
+
+function renderOpt1List() {
+    renderValueList($opt1ValList, opt1Values,
+        (i) => {
+            saveTableToState();
+            opt1Values.splice(i, 1);
+            renderOpt1List();
+            renderTable();
+            recalcProductQty();
+        },
+        (i, oldName, newName) => {
+            saveTableToState();
+            remapComboKeys(1, oldName, newName);
+            opt1Values[i].name = newName;
+            renderTable();
+        }
+    );
+}
+
+function renderOpt2List() {
+    renderValueList($opt2ValList, opt2Values,
+        (i) => {
+            saveTableToState();
+            opt2Values.splice(i, 1);
+            renderOpt2List();
+            renderTable();
+            recalcProductQty();
+        },
+        (i, oldName, newName) => {
+            saveTableToState();
+            remapComboKeys(2, oldName, newName);
+            opt2Values[i].name = newName;
+            renderTable();
+        }
+    );
+}
+
+function addOpt1Value(name) {
+    name = (name || '').trim();
+    if (!name || opt1Values.some(v => v.name.toLowerCase() === name.toLowerCase())) return;
+    opt1Values.push({ name, sku: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    renderOpt1List();
+    renderTable();
+    recalcProductQty();
+}
+
+function addOpt2Value(name) {
+    name = (name || '').trim();
+    if (!name || opt2Values.some(v => v.name.toLowerCase() === name.toLowerCase())) return;
+    opt2Values.push({ name });
+    renderOpt2List();
+    renderTable();
+    recalcProductQty();
+}
+
+// ---- Table state ----
+
+function saveTableToState() {
+    if (mode === 'one') {
+        $tbody.querySelectorAll('tr').forEach((row, i) => {
+            if (i >= opt1Values.length) return;
+            const nameInput = row.querySelector('.js-value-name');
+            if (nameInput) opt1Values[i].name = nameInput.value.trim();
+            const skuInput = row.querySelector('.js-sku');
+            if (skuInput) opt1Values[i].sku = skuInput.value;
+            const qtyInput = row.querySelector('.js-qty');
+            if (qtyInput) opt1Values[i].quantity = parseInt(qtyInput.value || '0', 10);
+            const priceInput = row.querySelector('.js-price');
+            if (priceInput) opt1Values[i].absolute_price = parseFloat(priceInput.value || '0');
+            const costInput = row.querySelector('.js-cost');
+            if (costInput) opt1Values[i].absolute_cost = parseFloat(costInput.value || '0');
+        });
+    } else if (mode === 'two') {
+        $tbody.querySelectorAll('tr').forEach(row => {
+            const key = row.dataset.comboKey;
+            if (!key) return;
+            comboData[key] = {
+                sku: row.querySelector('.js-sku').value || '',
+                quantity: parseInt(row.querySelector('.js-qty').value || '0', 10),
+                absolute_price: parseFloat(row.querySelector('.js-price').value || '0'),
+                absolute_cost: parseFloat(row.querySelector('.js-cost').value || '0'),
+            };
+        });
     }
+}
 
-    if(existing.length === 0){
-      addRow(null);
+function calcRowMetrics(row) {
+    const price  = parseFloat(row.querySelector('.js-price').value) || 0;
+    const cost   = parseFloat(row.querySelector('.js-cost').value) || 0;
+    const profit = price - cost;
+    const margin = price > 0 ? (profit / price * 100) : 0;
+    const cls    = profit >= 0 ? 'opt-metric-positive' : 'opt-metric-negative';
+
+    const profitEl = row.querySelector('.js-profit');
+    if (profitEl) {
+        profitEl.textContent = profit.toFixed(2);
+        profitEl.className = 'opt-metric ' + cls;
+    }
+    const marginEl = row.querySelector('.js-margin');
+    if (marginEl) {
+        marginEl.textContent = margin.toFixed(1) + '%';
+        marginEl.className = 'opt-metric ' + cls;
+    }
+}
+
+function bindRowEvents(tr) {
+    const priceEl = tr.querySelector('.js-price');
+    const costEl  = tr.querySelector('.js-cost');
+    const qtyEl   = tr.querySelector('.js-qty');
+    if (priceEl) priceEl.addEventListener('input', () => calcRowMetrics(tr));
+    if (costEl)  costEl.addEventListener('input', () => calcRowMetrics(tr));
+    if (qtyEl)   qtyEl.addEventListener('input', () => recalcProductQty());
+}
+
+// ---- Table rendering (no innerHTML for user data) ----
+
+function buildHeaderRow(is2) {
+    const tr = document.createElement('tr');
+    if (is2) {
+        const th1 = createEl('th', { className: 'opt-col-opt' }, $opt1Name.value || 'Option 1');
+        const th2 = createEl('th', { className: 'opt-col-opt' }, $opt2Name.value || 'Option 2');
+        tr.appendChild(th1);
+        tr.appendChild(th2);
     } else {
-      for(const ev of existing){
-        addRow(ev);
-      }
+        tr.appendChild(createEl('th', { className: 'opt-col-value' }, 'Value'));
+    }
+    tr.appendChild(createEl('th', { className: 'opt-col-sku' }, 'SKU'));
+    tr.appendChild(createEl('th', { className: 'opt-col-qty' }, 'Qty'));
+    tr.appendChild(createEl('th', { className: 'opt-col-price' }, 'Price'));
+    tr.appendChild(createEl('th', { className: 'opt-col-cost' }, 'Cost'));
+    tr.appendChild(createEl('th', { className: 'opt-col-profit' }, 'Profit'));
+    tr.appendChild(createEl('th', { className: 'opt-col-margin' }, 'Margin'));
+    tr.appendChild(createEl('th', { className: 'opt-col-actions' }));
+    return tr;
+}
+
+function buildComboRow(v1Name, v2Name, data) {
+    const tr = document.createElement('tr');
+    tr.dataset.comboKey = comboKey(v1Name, v2Name);
+
+    const td1 = createEl('td', { className: 'opt-value-label' }, v1Name);
+    const td2 = createEl('td', { className: 'opt-value-label' }, v2Name);
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+
+    const tdSku   = document.createElement('td');
+    tdSku.appendChild(createInput('js-sku', 'text', data.sku));
+    tr.appendChild(tdSku);
+
+    const tdQty   = document.createElement('td');
+    tdQty.appendChild(createInput('js-qty', 'number', data.quantity));
+    tr.appendChild(tdQty);
+
+    const tdPrice = document.createElement('td');
+    tdPrice.appendChild(createInput('js-price', 'number', data.absolute_price, { step: '0.01' }));
+    tr.appendChild(tdPrice);
+
+    const tdCost  = document.createElement('td');
+    tdCost.appendChild(createInput('js-cost', 'number', data.absolute_cost, { step: '0.01' }));
+    tr.appendChild(tdCost);
+
+    const tdProfit = document.createElement('td');
+    tdProfit.appendChild(createEl('span', { className: 'opt-metric js-profit' }, '\u2014'));
+    tr.appendChild(tdProfit);
+
+    const tdMargin = document.createElement('td');
+    tdMargin.appendChild(createEl('span', { className: 'opt-metric js-margin' }, '\u2014'));
+    tr.appendChild(tdMargin);
+
+    tr.appendChild(document.createElement('td'));
+
+    bindRowEvents(tr);
+    calcRowMetrics(tr);
+    return tr;
+}
+
+function buildOneOptRow(v, idx) {
+    const tr = document.createElement('tr');
+    tr.dataset.rowIdx = idx;
+
+    // Value name (editable input)
+    const tdName = document.createElement('td');
+    const nameInput = createInput('js-value-name', 'text', v.name, { placeholder: 'Value name' });
+    tdName.appendChild(nameInput);
+    tr.appendChild(tdName);
+
+    const tdSku = document.createElement('td');
+    tdSku.appendChild(createInput('js-sku', 'text', v.sku || ''));
+    tr.appendChild(tdSku);
+
+    const tdQty = document.createElement('td');
+    tdQty.appendChild(createInput('js-qty', 'number', v.quantity || 0));
+    tr.appendChild(tdQty);
+
+    const tdPrice = document.createElement('td');
+    tdPrice.appendChild(createInput('js-price', 'number', v.absolute_price || 0, { step: '0.01' }));
+    tr.appendChild(tdPrice);
+
+    const tdCost = document.createElement('td');
+    tdCost.appendChild(createInput('js-cost', 'number', v.absolute_cost || 0, { step: '0.01' }));
+    tr.appendChild(tdCost);
+
+    const tdProfit = document.createElement('td');
+    tdProfit.appendChild(createEl('span', { className: 'opt-metric js-profit' }, '\u2014'));
+    tr.appendChild(tdProfit);
+
+    const tdMargin = document.createElement('td');
+    tdMargin.appendChild(createEl('span', { className: 'opt-metric js-margin' }, '\u2014'));
+    tr.appendChild(tdMargin);
+
+    const tdActions = document.createElement('td');
+    const removeBtn = createEl('button', { className: 'btn danger opt-btn-row-remove', type: 'button', title: 'Remove' }, '\u00d7');
+    removeBtn.addEventListener('click', () => {
+        saveTableToState();
+        opt1Values.splice(idx, 1);
+        renderTable();
+        recalcProductQty();
+    });
+    tdActions.appendChild(removeBtn);
+    tr.appendChild(tdActions);
+
+    bindRowEvents(tr);
+    calcRowMetrics(tr);
+    return tr;
+}
+
+function renderTable() {
+    saveTableToState();
+    clearChildren($thead);
+    clearChildren($tbody);
+
+    if (opt1Values.length === 0) {
+        $tableWrap.classList.add('d-none');
+        return;
     }
 
-    block.querySelector('[data-action="add-value"]').onclick = () => {
-      addRow(null);
-      recalcAndLockProductQuantity();
+    $tableWrap.classList.remove('d-none');
+
+    const is2 = mode === 'two' && opt2Values.length > 0;
+
+    $thead.appendChild(buildHeaderRow(is2));
+
+    if (is2) {
+        opt1Values.forEach(v1 => {
+            opt2Values.forEach(v2 => {
+                const key = comboKey(v1.name, v2.name);
+                const d = comboData[key] || { sku: '', quantity: 0, absolute_price: 0, absolute_cost: 0 };
+                $tbody.appendChild(buildComboRow(v1.name, v2.name, d));
+            });
+        });
+    } else {
+        opt1Values.forEach((v, idx) => {
+            $tbody.appendChild(buildOneOptRow(v, idx));
+        });
+    }
+}
+
+// ---- Product quantity sync ----
+
+function recalcProductQty() {
+    const qtyInput = document.getElementById('product_quantity') || document.querySelector('input[name="quantity"]');
+    if (!qtyInput) return;
+    const hint = document.getElementById('qty_hint');
+
+    if (mode !== 'none' && opt1Values.length > 0) {
+        let total = 0;
+        $tbody.querySelectorAll('.js-qty').forEach(el => {
+            const v = parseInt(el.value || '0', 10);
+            if (!isNaN(v)) total += v;
+        });
+        qtyInput.readOnly = true;
+        qtyInput.value = total;
+        qtyInput.classList.add('opt-qty-readonly');
+        qtyInput.title = 'Auto-calculated from option quantities';
+        if (hint) hint.classList.remove('d-none');
+    } else {
+        qtyInput.readOnly = false;
+        qtyInput.classList.remove('opt-qty-readonly');
+        qtyInput.title = '';
+        if (hint) hint.classList.add('d-none');
+    }
+}
+
+// ---- beforeSubmit (generates hidden inputs for form) ----
+
+function beforeSubmit() {
+    $optionsRoot.querySelectorAll('input[data-gen]').forEach(el => el.remove());
+
+    if (mode === 'none' || opt1Values.length === 0) return;
+
+    saveTableToState();
+
+    const addHidden = (name, value) => {
+        const el = createEl('input', { type: 'hidden', name: name, 'data-gen': '1' });
+        el.value = value;
+        $optionsRoot.appendChild(el);
     };
 
-    // IMPORTANT:
-    // On Edit, the option value rows are populated asynchronously (fetchValues).
-    // If we calculate the total before these rows are rendered, Product Quantity
-    // will momentarily show 0 on refresh even though saved values exist.
-    // Recalculate after rendering to keep the UI consistent.
-    recalcAndLockProductQuantity();
-  }
+    const opt1Name = $opt1Name.value.trim();
+    if (!opt1Name) return;
 
-  sel.addEventListener('change', refreshValues);
+    if (mode === 'two' && opt2Values.length > 0) {
+        const opt2Name = $opt2Name.value.trim();
+        if (!opt2Name) return;
 
-  block.querySelector('[data-action="remove-option"]').addEventListener('click', () => {
-    block.remove();
-    recalcAndLockProductQuantity();
-  });
+        addHidden('option1_name', opt1Name);
+        addHidden('option2_name', opt2Name);
 
-  refreshValues();
+        opt1Values.forEach((v, i) => addHidden('option1_values[' + i + ']', v.name));
+        opt2Values.forEach((v, i) => addHidden('option2_values[' + i + ']', v.name));
 
-  return block;
+        let ci = 0;
+        opt1Values.forEach(v1 => {
+            opt2Values.forEach(v2 => {
+                const key = comboKey(v1.name, v2.name);
+                const d = comboData[key] || {};
+                addHidden('combinations[' + ci + '][opt1]', v1.name);
+                addHidden('combinations[' + ci + '][opt2]', v2.name);
+                addHidden('combinations[' + ci + '][sku]', d.sku || '');
+                addHidden('combinations[' + ci + '][quantity]', d.quantity || 0);
+                addHidden('combinations[' + ci + '][absolute_price]', d.absolute_price || 0);
+                addHidden('combinations[' + ci + '][absolute_cost]', d.absolute_cost || 0);
+                ci++;
+            });
+        });
+    } else {
+        addHidden('option_name', opt1Name);
+
+        opt1Values.forEach((v, idx) => {
+            addHidden('values[' + idx + '][name]', v.name);
+            addHidden('values[' + idx + '][sku]', v.sku || '');
+            addHidden('values[' + idx + '][quantity]', v.quantity || 0);
+            addHidden('values[' + idx + '][absolute_price]', v.absolute_price || 0);
+            addHidden('values[' + idx + '][absolute_cost]', v.absolute_cost || 0);
+            if (v.option_value_id) {
+                addHidden('values[' + idx + '][option_value_id]', v.option_value_id);
+            }
+        });
+    }
 }
 
-function beforeSubmit(e){
-  const root = document.getElementById('options-root');
+// ---- Event listeners ----
 
-  // Remove any previously generated hidden inputs (we generate fresh every submit)
-  root.querySelectorAll('input[type="hidden"][data-gen="1"]').forEach(el => el.remove());
+document.getElementById('add-option-btn').addEventListener('click', () => {
+    setMode('one');
+    $opt1Name.focus();
+});
 
-  const blocks = Array.from(root.querySelectorAll(':scope > .card'));
-  let idx = 0;
+document.getElementById('remove-opt1-btn').addEventListener('click', () => {
+    opt1Values = [];
+    opt2Values = [];
+    comboData = {};
+    renderOpt1List();
+    renderOpt2List();
+    $opt1Name.value = '';
+    $opt2Name.value = '';
+    setMode('none');
+});
 
-  for(const b of blocks){
-    const optionId = b.querySelector('.js-option-select').value || '';
-    if(!optionId) continue;
+document.getElementById('add-opt2-btn').addEventListener('click', () => {
+    setMode('two');
+    $opt2Name.focus();
+});
 
-    const required = b.querySelector('.js-option-required').value || '0';
-
-    // Base fields
-    const i1 = document.createElement('input');
-    i1.type = 'hidden'; i1.name = `options[${idx}][option_id]`; i1.value = optionId; i1.dataset.gen = '1';
-    root.appendChild(i1);
-
-    const i2 = document.createElement('input');
-    i2.type = 'hidden'; i2.name = `options[${idx}][required]`; i2.value = required; i2.dataset.gen = '1';
-    root.appendChild(i2);
-
-    // Values (if present)
-    const rows = Array.from(b.querySelectorAll('.js-values .card'));
-    let vIdx = 0;
-    for(const r of rows){
-      const valId = r.querySelector('.js-value-select')?.value || '';
-      if(!valId) continue;
-
-      const sku = r.querySelector('.js-row-sku').value || '';
-      const qty = r.querySelector('.js-row-qty').value || '0';
-      const subtract = r.querySelector('.js-row-subtract').value || '1';
-      const pp = r.querySelector('.js-row-price-prefix').value || '+';
-      const price = r.querySelector('.js-row-price').value || '0';
-      const wp = r.querySelector('.js-row-weight-prefix').value || '+';
-      const weight = r.querySelector('.js-row-weight').value || '0';
-
-      const add = (n,v) => {
-        const el = document.createElement('input');
-        el.type='hidden'; el.name=n; el.value=v; el.dataset.gen='1';
-        root.appendChild(el);
-      };
-
-      const cp = r.querySelector('.js-row-cost-prefix').value || '+';
-      const cost = r.querySelector('.js-row-cost').value || '0';
-
-      add(`options[${idx}][values][${vIdx}][option_value_id]`, valId);
-      add(`options[${idx}][values][${vIdx}][sku]`, sku);
-      add(`options[${idx}][values][${vIdx}][quantity]`, qty);
-      add(`options[${idx}][values][${vIdx}][subtract]`, subtract);
-      add(`options[${idx}][values][${vIdx}][price_prefix]`, pp);
-      add(`options[${idx}][values][${vIdx}][price]`, price);
-      add(`options[${idx}][values][${vIdx}][weight_prefix]`, wp);
-      add(`options[${idx}][values][${vIdx}][weight]`, weight);
-      add(`options[${idx}][values][${vIdx}][cost_prefix]`, cp);
-      add(`options[${idx}][values][${vIdx}][cost]`, cost);
-
-      vIdx++;
-    }
-
-    idx++;
-  }
-}
-
-function recalcAndLockProductQuantity(){
-  const root = document.getElementById('options-root');
-  if(!root) return;
-
-  const qtyInput = document.getElementById('product_quantity') || document.querySelector('input[name="quantity"]');
-  if(!qtyInput) return;
-
-  const hint = document.getElementById('qty_hint');
-
-  const optionBlocks = Array.from(root.querySelectorAll(':scope > .card'));
-  const hasAnyOptionBlock = optionBlocks.length > 0;
-
-  // Sum option quantities in real-time.
-  // Note: We intentionally do NOT require a value to be selected to count its quantity.
-  // This allows the Product Quantity to update immediately while the user is still filling out rows.
-  let total = 0;
-  for(const b of optionBlocks){
-    const optionId = b.querySelector('.js-option-select')?.value || '';
-    if(!optionId) continue;
-    const rows = Array.from(b.querySelectorAll('.js-values .card'));
-    for(const r of rows){
-      const v = parseInt(r.querySelector('.js-row-qty')?.value || '0', 10);
-      if(!Number.isNaN(v) && v > 0) total += v;
-    }
-  }
-
-  if(hasAnyOptionBlock){
-    qtyInput.readOnly = true;
-    qtyInput.value = String(total);
-    qtyInput.setAttribute('aria-readonly', 'true');
-    qtyInput.style.opacity = '0.85';
-    qtyInput.title = 'Auto-calculated from option quantities';
-    if(hint) hint.style.display = 'block';
-  } else {
-    qtyInput.readOnly = false;
-    qtyInput.removeAttribute('aria-readonly');
-    qtyInput.style.opacity = '';
-    qtyInput.title = '';
-    if(hint) hint.style.display = 'none';
-  }
-}
-
-// init
-const root = document.getElementById('options-root');
-if(root){
-  EXISTING.forEach(seed => root.appendChild(buildOptionBlock(seed)));
-  document.getElementById('add-option-btn')?.addEventListener('click', () => {
-    root.appendChild(buildOptionBlock(null));
-    recalcAndLockProductQuantity();
-  });
-
-  // hook submit only for this tab's form
-  const form = root.closest('form');
-  form?.addEventListener('submit', (e) => {
-    recalcAndLockProductQuantity();
-    beforeSubmit(e);
-  });
-
-  // Live recalc when option qty changes
-  root.addEventListener('input', (e) => {
-    const t = e.target;
-    if(t && (t.classList?.contains('js-row-qty') || t.classList?.contains('js-row-sku') || t.classList?.contains('js-row-price') || t.classList?.contains('js-row-weight'))){
-      recalcAndLockProductQuantity();
-    }
-  });
-  // Some browsers/UI interactions (spinner buttons, autofill) may not reliably emit 'input'
-  // in all cases, so we also listen to 'change' and 'keyup' for quantity fields.
-  root.addEventListener('change', (e) => {
-    const t = e.target;
-    if(t && (t.classList?.contains('js-option-select') || t.classList?.contains('js-value-select') || t.classList?.contains('js-row-qty'))){
-      recalcAndLockProductQuantity();
-    }
-  });
-  root.addEventListener('keyup', (e) => {
-    const t = e.target;
-    if(t && t.classList?.contains('js-row-qty')){
-      recalcAndLockProductQuantity();
-    }
-  });
-
-  // Recalculate all option profits when base product price or cost changes
-  function recalcAllOptionCosts() {
-    root.querySelectorAll('.js-values .card').forEach(function(row) {
-      if (row._calcOptionCost) row._calcOptionCost();
+document.getElementById('remove-opt2-btn').addEventListener('click', () => {
+    opt2Values = [];
+    renderOpt2List();
+    $opt2Name.value = '';
+    const newData = {};
+    opt1Values.forEach(v1 => {
+        const key = comboKey(v1.name, null);
+        const found = Object.keys(comboData).find(k => k.startsWith(v1.name + '|'));
+        if (found) newData[key] = comboData[found];
     });
-  }
-  var basePriceEl = document.getElementById('product_price');
-  var baseCostEl = document.getElementById('product_cost');
-  if (basePriceEl) { basePriceEl.addEventListener('input', recalcAllOptionCosts); basePriceEl.addEventListener('change', recalcAllOptionCosts); }
-  if (baseCostEl) { baseCostEl.addEventListener('input', recalcAllOptionCosts); baseCostEl.addEventListener('change', recalcAllOptionCosts); }
+    comboData = newData;
+    setMode('one');
+});
 
-  // Also listen on cost breakdown inputs that update product_cost
-  ['cost_amount', 'cost_percentage', 'cost_additional'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) { el.addEventListener('input', function() { setTimeout(recalcAllOptionCosts, 50); }); }
-  });
+$addRowBtn.addEventListener('click', () => {
+    saveTableToState();
+    opt1Values.push({ name: '', sku: '', quantity: 0, absolute_price: 0, absolute_cost: 0 });
+    renderTable();
+    const rows = $tbody.querySelectorAll('tr');
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) {
+        const nameInput = lastRow.querySelector('.js-value-name');
+        if (nameInput) nameInput.focus();
+    }
+    recalcProductQty();
+});
 
-  // Initial
-  recalcAndLockProductQuantity();
+// Opt1 add value (2-option mode)
+function handleAddOpt1() {
+    const input = document.getElementById('opt1-new-value');
+    addOpt1Value(input.value);
+    input.value = '';
+    input.focus();
+}
+document.getElementById('opt1-add-value-btn').addEventListener('click', handleAddOpt1);
+document.getElementById('opt1-new-value').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); handleAddOpt1(); }
+});
+
+// Opt2 add value
+function handleAddOpt2() {
+    const input = document.getElementById('opt2-new-value');
+    addOpt2Value(input.value);
+    input.value = '';
+    input.focus();
+}
+document.getElementById('opt2-add-value-btn').addEventListener('click', handleAddOpt2);
+document.getElementById('opt2-new-value').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); handleAddOpt2(); }
+});
+
+// Form submit hook
+const form = $optionsRoot.closest('form');
+if (form) {
+    form.addEventListener('submit', () => {
+        recalcProductQty();
+        beforeSubmit();
+    });
+}
+
+// ---- Load existing data ----
+
+if (EXISTING_OPTION) {
+    EXISTING_VALUES.forEach(v => {
+        opt1Values.push({
+            name: v.option_value_name || v.name,
+            option_value_id: v.option_value_id,
+            sku: v.sku || '',
+            quantity: v.quantity || 0,
+            absolute_price: parseFloat(v.absolute_price) || 0,
+            absolute_cost: parseFloat(v.absolute_cost) || 0,
+        });
+    });
+
+    $opt1Name.value = EXISTING_OPTION.option_name || EXISTING_OPTION.name || '';
+
+    if (EXISTING_OPTION2) {
+        EXISTING_VALUES2.forEach(v => {
+            opt2Values.push({ name: v.option_value_name || v.name, option_value_id: v.option_value_id });
+        });
+        $opt2Name.value = EXISTING_OPTION2.option_name || EXISTING_OPTION2.name || '';
+        renderOpt1List();
+        renderOpt2List();
+
+        if (EXISTING_COMBOS.length > 0) {
+            EXISTING_COMBOS.forEach(c => {
+                const key = comboKey(c.opt1_name, c.opt2_name);
+                comboData[key] = {
+                    sku: c.sku || '',
+                    quantity: c.quantity || 0,
+                    absolute_price: parseFloat(c.absolute_price) || 0,
+                    absolute_cost: parseFloat(c.absolute_cost) || 0,
+                };
+            });
+        }
+        setMode('two');
+    } else {
+        setMode('one');
+    }
+} else {
+    recalcProductQty();
 }
 </script>
 @endpush

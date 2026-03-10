@@ -334,6 +334,42 @@ class OpenCartController extends Controller
         }
     }
 
+    public function pushProduct(int $store, int $product)
+    {
+        $setting = OpenCartSetting::where('id', $store)->where('enabled', true)->first();
+        if (!$setting) {
+            return back()->with('error', "Store #{$store} not found or disabled.");
+        }
+
+        try {
+            $client = new OpenCartClient($setting);
+            $ping = $client->ping();
+            if (!$ping['ok']) {
+                return back()->with('error', 'Cannot connect to OpenCart: ' . ($ping['body']['error'] ?? 'unknown'));
+            }
+
+            $sync = new \App\Services\OpenCart\OpenCartProductSync($client, $setting);
+            $result = $sync->push([$product]);
+
+            $pfx = config('catalog.prefix');
+            $langId = (int) config('catalog.default_language_id');
+            $name = DB::table($pfx . 'product_description')
+                ->where('product_id', $product)
+                ->where('language_id', $langId)
+                ->value('name') ?? "Product #{$product}";
+
+            if ($result['failed'] > 0) {
+                $err = $result['errors'][0] ?? 'Unknown error';
+                return back()->with('error', "Failed to push {$name}: {$err}");
+            }
+
+            $action = $result['created'] > 0 ? 'Created' : 'Updated';
+            return back()->with('status', "{$action} \"{$name}\" on {$setting->store_name}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Push failed: ' . $e->getMessage());
+        }
+    }
+
     public function pushQtyNow(Request $request)
     {
         $storeId = $request->input('store_id');

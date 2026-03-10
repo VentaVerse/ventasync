@@ -53,7 +53,7 @@
                     <th style="width:90px;">Status</th>
                     <th style="width:100px;">OC Link</th>
                     <th style="width:100px;">Source</th>
-                    <th style="width:80px;"></th>
+                    <th style="width:140px;"></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -97,9 +97,13 @@
                                 <span class="text-muted text-sm">Filter</span>
                             @endif
                         </td>
-                        <td>
+                        <td class="d-flex gap-4">
+                            <form method="POST" action="{{ route('opencart.products.push', [$setting->id, $p->product_id]) }}">
+                                @csrf
+                                <button type="submit" class="btn small" onclick="return confirm('Push this product to {{ $setting->store_name }}?');">Push</button>
+                            </form>
                             @if($isManual)
-                                <form method="POST" action="{{ route('opencart.profiles.removeProduct', [$setting->id, $profile->id, $p->product_id]) }}" style="margin:0;" onsubmit="return confirm('Remove from profile?');">
+                                <form method="POST" action="{{ route('opencart.profiles.removeProduct', [$setting->id, $profile->id, $p->product_id]) }}" onsubmit="return confirm('Remove from profile?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Remove</button>

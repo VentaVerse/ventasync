@@ -165,18 +165,6 @@ class LazadaProductController extends Controller
         return round($price, 2);
     }
 
-    private function computeVariantPrice(float $basePrice, float $delta, ?string $prefix): float
-    {
-        $prefix = trim((string)$prefix);
-        if ($prefix === '-') {
-            return $basePrice - $delta;
-        }
-        if ($prefix === '=') {
-            return $delta;
-        }
-        // Default '+'
-        return $basePrice + $delta;
-    }
 
     /**
      * Convert an ERP product image path into an absolute URL that Lazada can fetch.
@@ -820,8 +808,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     'ovd.name as option_value_name',
                     'pov.sku as option_sku',
                     'pov.quantity as option_quantity',
-                    'pov.price as option_price',
-                    'pov.price_prefix as option_price_prefix',
+                    'pov.absolute_price as option_absolute_price',
                 ]);
 
             $optionRowsByProductId = $optionRows->groupBy(fn ($r) => (int) $r->product_id);
@@ -2096,7 +2083,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
             ->whereNotNull('pov.sku')
             ->where('pov.sku', '!=', '')
             ->orderBy('pov.product_option_value_id')
-            ->get(['pov.product_id', 'pov.sku', 'pov.price', 'pov.price_prefix']);
+            ->get(['pov.product_id', 'pov.sku', 'pov.absolute_price']);
         $variantPriceByProductId = $vrows->groupBy(fn($r) => (int)$r->product_id);
     }
 
@@ -2139,9 +2126,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
             foreach ($variants as $vr) {
                 $vSku = trim((string)($vr->sku ?? ''));
                 if ($vSku === '') continue;
-                $adj = (float)($vr->price ?? 0);
-                $prefix = (string)($vr->price_prefix ?? '+');
-                $vPrice = $prefix === '-' ? ($basePrice - $adj) : ($basePrice + $adj);
+                $vPrice = (float)($vr->absolute_price ?? $basePrice);
                 if ($vPrice < 0) $vPrice = 0;
                 $variantSkus[] = ['seller_sku' => $vSku, 'price' => $vPrice];
             }
@@ -2529,8 +2514,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'pov.option_value_id',
                 'pov.sku',
                 'pov.quantity',
-                'pov.price',
-                'pov.price_prefix',
+                'pov.absolute_price',
                 'od.name as option_name',
                 'ovd.name as option_value_name',
             ]);
@@ -3229,7 +3213,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $povRows = DB::table($pfx.'product_option_value')
             ->where('product_id', (int)$listing->product_id)
             ->orderBy('product_option_value_id')
-            ->get(['product_option_value_id','sku','quantity','price','price_prefix']);
+            ->get(['product_option_value_id','sku','quantity','absolute_price']);
 
         $map = LazadaProductVariant::query()
             ->where('lazada_product_id', $listing->id)
@@ -3285,18 +3269,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                     $usedSellerSkus[$candidate] = true;
                 }
 
-                // OpenCart product_option_value.price is a delta using price_prefix.
-                // Lazada needs the final absolute price.
-                $erpPrice = $this->computeVariantPrice($basePrice, (float)$r->price, (string)($r->price_prefix ?? '+'));
-                $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
-                // Apply markup to variant price
+                $erpPrice = (float)($r->absolute_price ?? $basePrice);
+                $finalPrice = $m && $m->price !== null ? (float)$m->price : $erpPrice;
                 $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
                 $skus[] = [
                     'product_option_value_id' => (int)$r->product_option_value_id,
                     'seller_sku' => $candidate,
                     'price' => $finalPrice,
                     'quantity' => $m && $m->quantity !== null ? (int)$m->quantity : (int)$r->quantity,
-                    'price_prefix' => (string)($r->price_prefix ?? '+'),
                 ];
             }
         } else {
@@ -3308,7 +3288,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'seller_sku' => $fallbackBaseSku,
                 'price' => (float)$singlePrice,
                 'quantity' => (int)($product->quantity ?? 0),
-                'price_prefix' => '+',
             ];
         }
 
@@ -3938,8 +3917,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                 'pov.option_value_id',
                 'pov.sku',
                 'pov.quantity',
-                'pov.price',
-                'pov.price_prefix',
+                'pov.absolute_price',
                 'od.name as option_name',
                 'ovd.name as option_value_name',
             ]);
@@ -4034,9 +4012,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                     $usedSellerSkus[$candidate] = true;
                 }
 
-                // OpenCart product_option_value.price is a delta using price_prefix.
-                // Lazada needs the final absolute price.
-                $erpPrice = $this->computeVariantPrice($basePrice, (float)$r->price, (string)($r->price_prefix ?? '+'));
+                $erpPrice = (float)($r->absolute_price ?? $basePrice);
                 $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
                 // Apply markup to variant price
                 $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
@@ -5070,8 +5046,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     }
 
     /**
-     * For ERP products with options, compute variant prices = base +/- option adjustment.
-     * NOTE: OpenCart stores option value price as an adjustment (price + price_prefix).
+     * For ERP products with options, get variant prices from absolute_price column.
      */
     private function getErpVariantPricesByProductId(int $productId, float $basePrice): array
     {
@@ -5082,7 +5057,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             ->whereNotNull('pov.sku')
             ->where('pov.sku', '!=', '')
             ->orderBy('pov.product_option_value_id')
-            ->get(['pov.sku', 'pov.price', 'pov.price_prefix']);
+            ->get(['pov.sku', 'pov.absolute_price']);
 
         $out = [];
         foreach ($rows as $r) {
@@ -5091,22 +5066,9 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                 continue;
             }
 
-            $adj = (float) ($r->price ?? 0);
-            $prefix = (string) ($r->price_prefix ?? '+');
-
-            $price = $basePrice;
-            if ($prefix === '-') {
-                $price = $basePrice - $adj;
-            } else {
-                $price = $basePrice + $adj;
-            }
-            if ($price < 0) {
-                $price = 0;
-            }
-
             $out[] = [
                 'seller_sku' => $sku,
-                'price' => $price,
+                'price' => max(0, (float) ($r->absolute_price ?? $basePrice)),
             ];
         }
 

@@ -43,6 +43,22 @@ class ProductController extends Controller
 
         return $hasAnyValue ? $sum : null;
     }
+
+    private function totalAbsoluteOptionsQuantity(Request $request): ?int
+    {
+        $values = $request->input('values', []);
+        if (is_array($values) && !empty($values)) {
+            return array_sum(array_map(fn($v) => (int) ($v['quantity'] ?? 0), $values));
+        }
+
+        $combos = $request->input('combinations', []);
+        if (is_array($combos) && !empty($combos)) {
+            return array_sum(array_map(fn($c) => (int) ($c['quantity'] ?? 0), $combos));
+        }
+
+        return null;
+    }
+
     private function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
     {
         $manufacturerId = (int) ($manufacturerId ?? 0);
@@ -253,40 +269,53 @@ if ($q !== '') {
         if (isset($row->name)) $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
-    // Fetch option value rows for products on this page (for list display)
+    // Fetch combination rows for products on this page (for list display)
     $pageIds = $products->pluck('product_id')->map(fn($v) => (int)$v)->all();
     $optionRowsByProduct = [];
     if (!empty($pageIds)) {
-        $optRows = DB::table($p.'product_option_value as pov')
-            ->join($p.'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
-                  ->where('od.language_id', '=', $langId);
-            })
-            ->join($p.'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                  ->where('ovd.language_id', '=', $langId);
-            })
-            ->leftJoin($p.'option_value as ov', 'pov.option_value_id', '=', 'ov.option_value_id')
-            ->whereIn('pov.product_id', $pageIds)
-            ->orderBy('pov.product_id')
-            ->orderBy('od.name')
-            ->orderBy('ovd.name')
-            ->get([
-                'pov.product_id',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
-                'ov.image as option_image',
-                'pov.quantity',
-                'pov.price',
-                'pov.price_prefix',
-            ]);
+        $comboRows = DB::table('product_option_combinations as c')
+            ->whereIn('c.product_id', $pageIds)
+            ->orderBy('c.product_id')
+            ->orderBy('c.sort_order')
+            ->get(['c.id', 'c.product_id', 'c.sku', 'c.quantity', 'c.absolute_price']);
 
-        foreach ($optRows as $r) {
-            $pid = (int) $r->product_id;
-            $r->option_name = html_entity_decode((string)$r->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $r->option_value_name = html_entity_decode((string)$r->option_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Load pivot → option value names + option group names for each combo
+        $comboIds = $comboRows->pluck('id')->all();
+        $pivotData = []; // combo_id → [{value_name, option_name}]
+        if (!empty($comboIds)) {
+            $pivots = DB::table('product_option_combination_values as cv')
+                ->join($p.'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                ->join($p.'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                      ->where('ovd.language_id', '=', $langId);
+                })
+                ->join($p.'option_description as od', function ($j) use ($langId) {
+                    $j->on('pov.option_id', '=', 'od.option_id')
+                      ->where('od.language_id', '=', $langId);
+                })
+                ->join($p.'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
+                ->whereIn('cv.combination_id', $comboIds)
+                ->orderBy('po.product_option_id')
+                ->get(['cv.combination_id', 'ovd.name as value_name', 'od.name as option_name']);
+
+            foreach ($pivots as $pv) {
+                $pivotData[(int) $pv->combination_id][] = [
+                    'value_name' => html_entity_decode((string) $pv->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    'option_name' => html_entity_decode((string) $pv->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                ];
+            }
+        }
+
+        foreach ($comboRows as $c) {
+            $pid = (int) $c->product_id;
+            $entries = $pivotData[(int) $c->id] ?? [];
+            $valueNames = array_map(fn($e) => $e['value_name'], $entries);
+            $optionNames = array_unique(array_map(fn($e) => $e['option_name'], $entries));
+            $c->option_value_name = implode(' + ', $valueNames);
+            $c->option_name = implode(' / ', $optionNames);
+            $c->option_image = null;
             $optionRowsByProduct[$pid] ??= [];
-            $optionRowsByProduct[$pid][] = $r;
+            $optionRowsByProduct[$pid][] = $c;
         }
 
         foreach ($products as $row) {
@@ -309,22 +338,10 @@ if ($q !== '') {
 $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        // Option master list (needed for client-side tab switching like OpenCart)
-        $allOptions = DB::table($pfx.'option as o')
-            ->join($pfx.'option_description as od', function ($j) use ($langId) {
-                $j->on('o.option_id', '=', 'od.option_id')
-                  ->where('od.language_id', '=', $langId);
-            })
-            ->orderBy('od.name')
-            ->get(['o.option_id', 'o.type', 'od.name']);
-
-        foreach ($allOptions as $o) {
-            $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        }
-
         $existingOptions = collect();
+        $existingCombinations = [];
 
-        return view('products.create', compact('allOptions', 'existingOptions'));
+        return view('products.create', compact('existingOptions', 'existingCombinations'));
     }
 
 
@@ -572,7 +589,9 @@ public function store(Request $request)
         }
 
         // If options exist, quantity must be forced from option quantities (server-side enforcement).
-        $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
+        $forcedQty = $request->has('_options_format')
+            ? $this->totalAbsoluteOptionsQuantity($request)
+            : $this->totalOptionsQuantity($request->input('options', []));
 
         $productId = DB::transaction(function () use ($request, $langId, $resolvedManufacturerId, $categoryIds, $pfx, $forcedQty) {
             $p = new Product();
@@ -630,9 +649,13 @@ public function store(Request $request)
                 ]);
             }
 
-            // Save product options (OpenCart-like: options can be set during Add/Edit)
-            $options = $request->input('options', []);
-            $this->saveProductOptions((int) $p->product_id, $options);
+            // Save product options
+            if ($request->has('_options_format')) {
+                $this->saveAbsoluteOptions((int) $p->product_id, $request);
+            } else {
+                $options = $request->input('options', []);
+                $this->saveProductOptions((int) $p->product_id, $options);
+            }
 
             // Save product images (main + additional)
             if ($request->has('images_json')) {
@@ -824,21 +847,7 @@ public function store(Request $request)
 
         $manufacturerName = $product->manufacturer_name ?? null;
 
-        $allOptions = [];
         $existingOptions = collect();
-
-        // Option master list
-            $allOptions = DB::table($pfx.'option as o')
-                ->join($pfx.'option_description as od', function ($j) use ($langId) {
-                    $j->on('o.option_id', '=', 'od.option_id')
-                      ->where('od.language_id', '=', $langId);
-                })
-                ->orderBy('od.name')
-                ->get(['o.option_id', 'o.type', 'od.name']);
-
-            foreach ($allOptions as $o) {
-                $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
 
             // Existing product options + values
             $existingOptions = DB::table($pfx.'product_option as po')
@@ -880,6 +889,8 @@ public function store(Request $request)
                         'pov.subtract',
                         'pov.price_prefix',
                         'pov.price',
+                        'pov.absolute_price',
+                        'pov.absolute_cost',
                         'pov.weight_prefix',
                         'pov.weight',
                         'pov.cost',
@@ -891,11 +902,14 @@ public function store(Request $request)
                     $existingValuesByPoId[(int)$r->product_option_id][] = [
                         'product_option_value_id' => (int)$r->product_option_value_id,
                         'option_value_id' => (int)$r->option_value_id,
+                        'option_value_name' => $r->option_value_name,
                         'name' => $r->option_value_name,
                         'quantity' => (int)$r->quantity,
                         'subtract' => (int)($r->subtract ?? 1),
                         'price_prefix' => (string)$r->price_prefix,
                         'price' => (string)$r->price,
+                        'absolute_price' => (float)($r->absolute_price ?? 0),
+                        'absolute_cost' => (float)($r->absolute_cost ?? 0),
                         'weight_prefix' => (string)($r->weight_prefix ?? '+'),
                         'weight' => (string)($r->weight ?? 0),
                         'sku' => (string)($r->sku ?? ''),
@@ -907,10 +921,45 @@ public function store(Request $request)
 
             foreach ($existingOptions as $o) {
                 $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $o->option_name = $o->name;
                 $o->values = $existingValuesByPoId[(int)$o->product_option_id] ?? [];
             }
 
-        
+            // Load combinations for 2-option products
+            $existingCombinations = [];
+            if ($existingOptions->count() > 1) {
+                $combos = DB::table('product_option_combinations as c')
+                    ->where('c.product_id', (int) $id)
+                    ->orderBy('c.sort_order')
+                    ->get();
+
+                foreach ($combos as $combo) {
+                    $pivotRows = DB::table('product_option_combination_values as cv')
+                        ->join($pfx.'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+                        ->join($pfx.'option_value_description as ovd', function ($j) use ($langId) {
+                            $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                              ->where('ovd.language_id', '=', $langId);
+                        })
+                        ->join($pfx.'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
+                        ->where('cv.combination_id', $combo->id)
+                        ->orderBy('po.product_option_id')
+                        ->get(['ovd.name', 'po.product_option_id']);
+
+                    $opt1Name = $pivotRows->first()->name ?? '';
+                    $opt2Name = $pivotRows->count() > 1 ? $pivotRows->get(1)->name : '';
+
+                    $existingCombinations[] = [
+                        'id' => (int) $combo->id,
+                        'opt1_name' => html_entity_decode($opt1Name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                        'opt2_name' => html_entity_decode($opt2Name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                        'sku' => $combo->sku,
+                        'quantity' => (int) $combo->quantity,
+                        'absolute_price' => (float) $combo->absolute_price,
+                        'absolute_cost' => (float) $combo->absolute_cost,
+                    ];
+                }
+            }
+
         // Images (main + additional)
         $productImages = [];
         if (!empty($product->image)) {
@@ -942,7 +991,7 @@ $productVendors = \App\Models\ProductVendor::with('vendor:id,name')
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
         $vendors = \App\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'currency_code']);
 
-return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'allOptions', 'existingOptions', 'productImages', 'returnUrl', 'productVendors', 'currencies', 'vendors'));
+return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'productVendors', 'currencies', 'vendors'));
     }
 
     public function update(Request $request, $id)
@@ -1004,7 +1053,9 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         $pfx = config('catalog.prefix');
 
         // If options exist, quantity must be forced from option quantities (server-side enforcement).
-        $forcedQty = $this->totalOptionsQuantity($request->input('options', []));
+        $forcedQty = $request->has('_options_format')
+            ? $this->totalAbsoluteOptionsQuantity($request)
+            : $this->totalOptionsQuantity($request->input('options', []));
 
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
         $originalAttrs = null;
@@ -1089,9 +1140,13 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
                 ]);
             }
 
-            // Save product options (OpenCart-like: options can be set during Add/Edit)
-            $options = $request->input('options', []);
-            $this->saveProductOptions((int) $id, $options, $skuChanges);
+            // Save product options
+            if ($request->has('_options_format')) {
+                $this->saveAbsoluteOptions((int) $id, $request, $skuChanges);
+            } else {
+                $options = $request->input('options', []);
+                $this->saveProductOptions((int) $id, $options, $skuChanges);
+            }
             // Save product images (main + additional)
             if ($request->has('images_json')) {
                 $items = $this->imagesFromRequest($request->input('images_json'));
@@ -1195,7 +1250,430 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
 
     
 
-/**
+// ---- Absolute-pricing options (new UI) ----
+
+    private function findOrCreateOption(string $name): int
+    {
+        $pfx = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $existing = DB::table($pfx . 'option_description')
+            ->where('language_id', $langId)
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->first();
+
+        if ($existing) return (int) $existing->option_id;
+
+        $optionId = DB::table($pfx . 'option')->insertGetId([
+            'type' => 'select',
+            'sort_order' => 0,
+        ]);
+
+        DB::table($pfx . 'option_description')->insert([
+            'option_id' => $optionId,
+            'language_id' => $langId,
+            'name' => $name,
+        ]);
+
+        return (int) $optionId;
+    }
+
+    private function findOrCreateOptionValue(int $optionId, string $name): int
+    {
+        $pfx = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $existing = DB::table($pfx . 'option_value_description')
+            ->where('option_id', $optionId)
+            ->where('language_id', $langId)
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->first();
+
+        if ($existing) return (int) $existing->option_value_id;
+
+        $optionValueId = DB::table($pfx . 'option_value')->insertGetId([
+            'option_id' => $optionId,
+            'image' => '',
+            'sort_order' => 0,
+        ]);
+
+        DB::table($pfx . 'option_value_description')->insert([
+            'option_value_id' => $optionValueId,
+            'option_id' => $optionId,
+            'language_id' => $langId,
+            'name' => $name,
+        ]);
+
+        return (int) $optionValueId;
+    }
+
+    private function ensureProductOption(int $productId, int $optionId): int
+    {
+        $pfx = config('catalog.prefix');
+
+        $existing = DB::table($pfx . 'product_option')
+            ->where('product_id', $productId)
+            ->where('option_id', $optionId)
+            ->first();
+
+        if ($existing) return (int) $existing->product_option_id;
+
+        return DB::table($pfx . 'product_option')->insertGetId([
+            'product_id' => $productId,
+            'option_id' => $optionId,
+            'value' => '',
+            'required' => 1,
+        ]);
+    }
+
+    private function clearProductOptions(int $productId): void
+    {
+        $pfx = config('catalog.prefix');
+
+        DB::table('product_option_combination_values')
+            ->whereIn('combination_id', function ($q) use ($productId) {
+                $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
+            })->delete();
+        DB::table('product_option_combinations')->where('product_id', $productId)->delete();
+
+        $deletedPovIds = DB::table($pfx . 'product_option_value')
+            ->where('product_id', $productId)
+            ->pluck('product_option_value_id')
+            ->map(fn($v) => (int) $v)
+            ->all();
+
+        DB::table($pfx . 'product_option_value')->where('product_id', $productId)->delete();
+        DB::table($pfx . 'product_option')->where('product_id', $productId)->delete();
+
+        if (!empty($deletedPovIds)) {
+            DB::table('lazada_product_variants')
+                ->whereIn('product_option_value_id', $deletedPovIds)
+                ->update(['product_option_value_id' => null]);
+        }
+    }
+
+    private function saveAbsoluteOptions(int $productId, Request $request, array &$skuChanges = []): void
+    {
+        $optionName = trim($request->input('option_name', ''));
+        $option1Name = trim($request->input('option1_name', ''));
+
+        if ($optionName === '' && $option1Name === '') {
+            $this->clearProductOptions($productId);
+            return;
+        }
+
+        if ($option1Name !== '') {
+            $this->saveAbsoluteTwoOptions($productId, $request, $skuChanges);
+        } else {
+            $this->saveAbsoluteOneOption($productId, $request, $skuChanges);
+        }
+    }
+
+    private function saveAbsoluteOneOption(int $productId, Request $request, array &$skuChanges = []): void
+    {
+        $pfx = config('catalog.prefix');
+        $optionName = trim($request->input('option_name', ''));
+        $values = $request->input('values', []);
+        if (!is_array($values)) $values = [];
+
+        $optionId = $this->findOrCreateOption($optionName);
+
+        // Remove product_options for other option_ids (user switched option)
+        $stalePos = DB::table($pfx . 'product_option')
+            ->where('product_id', $productId)
+            ->where('option_id', '!=', $optionId)
+            ->pluck('product_option_id');
+
+        if ($stalePos->isNotEmpty()) {
+            $stalePovIds = DB::table($pfx . 'product_option_value')
+                ->whereIn('product_option_id', $stalePos)
+                ->pluck('product_option_value_id')
+                ->map(fn($v) => (int) $v)->all();
+
+            DB::table($pfx . 'product_option_value')->whereIn('product_option_id', $stalePos)->delete();
+            DB::table($pfx . 'product_option')->whereIn('product_option_id', $stalePos)->delete();
+
+            if (!empty($stalePovIds)) {
+                DB::table('lazada_product_variants')
+                    ->whereIn('product_option_value_id', $stalePovIds)
+                    ->update(['product_option_value_id' => null]);
+            }
+        }
+
+        $productOptionId = $this->ensureProductOption($productId, $optionId);
+
+        // Index existing POVs
+        $existingPovs = DB::table($pfx . 'product_option_value')
+            ->where('product_option_id', $productOptionId)
+            ->get()
+            ->keyBy('option_value_id');
+
+        $seenOptionValueIds = [];
+
+        foreach ($values as $v) {
+            if (!is_array($v)) continue;
+            $valueName = trim($v['name'] ?? '');
+            if ($valueName === '') continue;
+
+            $optionValueId = !empty($v['option_value_id'])
+                ? (int) $v['option_value_id']
+                : $this->findOrCreateOptionValue($optionId, $valueName);
+
+            $seenOptionValueIds[] = $optionValueId;
+
+            $data = [
+                'sku' => trim((string) ($v['sku'] ?? '')),
+                'quantity' => (int) ($v['quantity'] ?? 0),
+                'subtract' => 1,
+                'price' => 0,
+                'price_prefix' => '+',
+                'absolute_price' => (float) ($v['absolute_price'] ?? 0),
+                'weight' => 0,
+                'weight_prefix' => '+',
+                'cost' => 0,
+                'cost_prefix' => '+',
+                'cost_amount' => 0,
+                'cost_percentage' => 0,
+                'cost_additional' => 0,
+                'absolute_cost' => (float) ($v['absolute_cost'] ?? 0),
+            ];
+
+            if (isset($existingPovs[$optionValueId])) {
+                $old = $existingPovs[$optionValueId];
+
+                $oldSku = trim((string) ($old->sku ?? ''));
+                if ($oldSku !== '' && $data['sku'] !== $oldSku) {
+                    $skuChanges['option_skus'][(int) $old->product_option_value_id] = [
+                        'old' => $oldSku, 'new' => $data['sku']
+                    ];
+                }
+
+                if ((int) ($old->quantity ?? 0) !== $data['quantity']) {
+                    StockHistoryLogger::log(
+                        productId: $productId,
+                        optionValueId: (int) $old->product_option_value_id,
+                        orderId: null,
+                        type: 'set',
+                        qtyBefore: (int) $old->quantity,
+                        qtyAfter: $data['quantity'],
+                        source: 'manual',
+                        note: "Manual edit (option) — qty {$old->quantity} → {$data['quantity']}",
+                    );
+                }
+
+                DB::table($pfx . 'product_option_value')
+                    ->where('product_option_value_id', $old->product_option_value_id)
+                    ->update(array_merge($data, ['product_option_id' => $productOptionId]));
+            } else {
+                DB::table($pfx . 'product_option_value')->insert(array_merge($data, [
+                    'product_option_id' => $productOptionId,
+                    'product_id' => $productId,
+                    'option_id' => $optionId,
+                    'option_value_id' => $optionValueId,
+                    'points' => 0,
+                    'points_prefix' => '+',
+                ]));
+            }
+        }
+
+        // Remove old values not in new list
+        $deletedPovIds = [];
+        foreach ($existingPovs as $ovId => $row) {
+            if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
+                $deletedPovIds[] = (int) $row->product_option_value_id;
+                DB::table($pfx . 'product_option_value')
+                    ->where('product_option_value_id', $row->product_option_value_id)
+                    ->delete();
+            }
+        }
+        if (!empty($deletedPovIds)) {
+            DB::table('lazada_product_variants')
+                ->whereIn('product_option_value_id', $deletedPovIds)
+                ->update(['product_option_value_id' => null]);
+        }
+
+        // Rebuild combinations (1 combo per value)
+        DB::table('product_option_combination_values')
+            ->whereIn('combination_id', function ($q) use ($productId) {
+                $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
+            })->delete();
+        DB::table('product_option_combinations')->where('product_id', $productId)->delete();
+
+        $now = now();
+        $sort = 0;
+        $povRows = DB::table($pfx . 'product_option_value')
+            ->where('product_option_id', $productOptionId)
+            ->get();
+
+        foreach ($povRows as $pov) {
+            $comboId = DB::table('product_option_combinations')->insertGetId([
+                'product_id' => $productId,
+                'sku' => $pov->sku ?? '',
+                'quantity' => (int) $pov->quantity,
+                'absolute_price' => (float) ($pov->absolute_price ?? 0),
+                'absolute_cost' => (float) ($pov->absolute_cost ?? 0),
+                'subtract' => 1,
+                'sort_order' => $sort++,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            DB::table('product_option_combination_values')->insert([
+                'combination_id' => $comboId,
+                'product_option_value_id' => (int) $pov->product_option_value_id,
+            ]);
+        }
+    }
+
+    private function saveAbsoluteTwoOptions(int $productId, Request $request, array &$skuChanges = []): void
+    {
+        $pfx = config('catalog.prefix');
+        $opt1Name = trim($request->input('option1_name', ''));
+        $opt2Name = trim($request->input('option2_name', ''));
+        $opt1ValueNames = $request->input('option1_values', []);
+        $opt2ValueNames = $request->input('option2_values', []);
+        $combinations = $request->input('combinations', []);
+
+        if (!is_array($opt1ValueNames)) $opt1ValueNames = [];
+        if (!is_array($opt2ValueNames)) $opt2ValueNames = [];
+        if (!is_array($combinations)) $combinations = [];
+
+        $optionId1 = $this->findOrCreateOption($opt1Name);
+        $optionId2 = $this->findOrCreateOption($opt2Name);
+
+        // Remove product_options for other option_ids
+        $keepOptionIds = [$optionId1, $optionId2];
+        $stalePos = DB::table($pfx . 'product_option')
+            ->where('product_id', $productId)
+            ->whereNotIn('option_id', $keepOptionIds)
+            ->pluck('product_option_id');
+
+        if ($stalePos->isNotEmpty()) {
+            $stalePovIds = DB::table($pfx . 'product_option_value')
+                ->whereIn('product_option_id', $stalePos)
+                ->pluck('product_option_value_id')
+                ->map(fn($v) => (int) $v)->all();
+
+            DB::table($pfx . 'product_option_value')->whereIn('product_option_id', $stalePos)->delete();
+            DB::table($pfx . 'product_option')->whereIn('product_option_id', $stalePos)->delete();
+
+            if (!empty($stalePovIds)) {
+                DB::table('lazada_product_variants')
+                    ->whereIn('product_option_value_id', $stalePovIds)
+                    ->update(['product_option_value_id' => null]);
+            }
+        }
+
+        $poId1 = $this->ensureProductOption($productId, $optionId1);
+        $poId2 = $this->ensureProductOption($productId, $optionId2);
+
+        // Sync POV rows for each option (structural — pricing lives in combinations)
+        $opt1PovMap = $this->syncOptionValues($productId, $optionId1, $poId1, $opt1ValueNames);
+        $opt2PovMap = $this->syncOptionValues($productId, $optionId2, $poId2, $opt2ValueNames);
+
+        // Rebuild combinations
+        DB::table('product_option_combination_values')
+            ->whereIn('combination_id', function ($q) use ($productId) {
+                $q->select('id')->from('product_option_combinations')->where('product_id', $productId);
+            })->delete();
+        DB::table('product_option_combinations')->where('product_id', $productId)->delete();
+
+        $now = now();
+        $sort = 0;
+
+        foreach ($combinations as $combo) {
+            if (!is_array($combo)) continue;
+            $v1Name = trim($combo['opt1'] ?? '');
+            $v2Name = trim($combo['opt2'] ?? '');
+            if ($v1Name === '' || $v2Name === '') continue;
+
+            $pov1Id = $opt1PovMap[strtolower($v1Name)] ?? null;
+            $pov2Id = $opt2PovMap[strtolower($v2Name)] ?? null;
+            if (!$pov1Id || !$pov2Id) continue;
+
+            $comboId = DB::table('product_option_combinations')->insertGetId([
+                'product_id' => $productId,
+                'sku' => trim((string) ($combo['sku'] ?? '')),
+                'quantity' => (int) ($combo['quantity'] ?? 0),
+                'absolute_price' => (float) ($combo['absolute_price'] ?? 0),
+                'absolute_cost' => (float) ($combo['absolute_cost'] ?? 0),
+                'subtract' => 1,
+                'sort_order' => $sort++,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            DB::table('product_option_combination_values')->insert([
+                ['combination_id' => $comboId, 'product_option_value_id' => $pov1Id],
+                ['combination_id' => $comboId, 'product_option_value_id' => $pov2Id],
+            ]);
+        }
+    }
+
+    /**
+     * Sync product_option_value rows for one option. Returns map: lowercase_name => pov_id
+     */
+    private function syncOptionValues(int $productId, int $optionId, int $productOptionId, array $valueNames): array
+    {
+        $pfx = config('catalog.prefix');
+        $map = [];
+
+        $existingPovs = DB::table($pfx . 'product_option_value')
+            ->where('product_option_id', $productOptionId)
+            ->get()
+            ->keyBy('option_value_id');
+
+        $seenOptionValueIds = [];
+
+        foreach ($valueNames as $name) {
+            $name = trim($name);
+            if ($name === '') continue;
+
+            $optionValueId = $this->findOrCreateOptionValue($optionId, $name);
+            $seenOptionValueIds[] = $optionValueId;
+
+            if (!isset($existingPovs[$optionValueId])) {
+                $povId = DB::table($pfx . 'product_option_value')->insertGetId([
+                    'product_option_id' => $productOptionId,
+                    'product_id' => $productId,
+                    'option_id' => $optionId,
+                    'option_value_id' => $optionValueId,
+                    'sku' => '',
+                    'quantity' => 0,
+                    'subtract' => 1,
+                    'price' => 0,
+                    'price_prefix' => '+',
+                    'absolute_price' => 0,
+                    'weight' => 0,
+                    'weight_prefix' => '+',
+                    'cost' => 0,
+                    'cost_prefix' => '+',
+                    'cost_amount' => 0,
+                    'cost_percentage' => 0,
+                    'cost_additional' => 0,
+                    'absolute_cost' => 0,
+                    'points' => 0,
+                    'points_prefix' => '+',
+                ]);
+                $map[strtolower($name)] = $povId;
+            } else {
+                $map[strtolower($name)] = (int) $existingPovs[$optionValueId]->product_option_value_id;
+            }
+        }
+
+        // Remove old values not in new list
+        foreach ($existingPovs as $ovId => $row) {
+            if (!in_array((int) $ovId, $seenOptionValueIds, true)) {
+                DB::table($pfx . 'product_option_value')
+                    ->where('product_option_value_id', $row->product_option_value_id)
+                    ->delete();
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Persist product options in OpenCart tables (product_option / product_option_value).
      * Uses upsert strategy to preserve product_option_value_id across edits,
      * since downstream systems (Lazada/Shopee variant mappings) reference these IDs.
