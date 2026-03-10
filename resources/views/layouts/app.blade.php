@@ -448,6 +448,43 @@
                     </details>
                 </div>
                 @endif
+                {{-- Extension Nav Groups --}}
+                @if(!empty($extensionNavGroups ?? []))
+                    @foreach($extensionNavGroups as $extNav)
+                        @php
+                            $extPerm = $extNav['permission'] ?? '';
+                            $canViewExt = $extPerm === '' || (auth()->user() && auth()->user()->hasPermission($extPerm));
+                            $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
+                            $extIsOpen = false;
+                            foreach ($extRoutes as $er) {
+                                if (\Route::has($er) && request()->routeIs(str_replace('.', '.', $er) . '*')) { $extIsOpen = true; break; }
+                            }
+                        @endphp
+                        @if($canViewExt)
+                        <div class="nav-group">
+                            <details {{ $extIsOpen ? 'open' : '' }}>
+                                <summary class="{{ $extIsOpen ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+                                    <span class="label">{{ $extNav['group'] }}</span>
+                                    <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                                </summary>
+                                <div class="nav-sub-wrap">
+                                    <div class="nav-sub">
+                                        @foreach($extNav['items'] ?? [] as $extItem)
+                                            @if(\Route::has($extItem['route']))
+                                            <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
+                                                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg></span>
+                                                <span class="label">{{ $extItem['label'] }}</span>
+                                            </a>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                        @endif
+                    @endforeach
+                @endif
             </nav>
         </div>
 
