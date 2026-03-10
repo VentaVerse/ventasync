@@ -14,17 +14,17 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Company Name</label>
-                <input class="input" name="company_name" value="{{ old('company_name', $setting->company_name) }}" required>
+                <input class="input" name="company_name" value="{{ old('company_name', $setting->company_name) }}">
             </div>
 
             <div class="full">
                 <label class="required">From Email</label>
-                <input class="input" type="email" name="from_email" value="{{ old('from_email', $setting->from_email) }}" required>
+                <input class="input" type="email" name="from_email" value="{{ old('from_email', $setting->from_email) }}">
             </div>
 
             <div class="full">
                 <label class="required">Timezone</label>
-                <select name="timezone" class="input" required>
+                <select name="timezone" class="input">
                     @foreach(timezone_identifiers_list() as $tz)
                         <option value="{{ $tz }}" {{ old('timezone', $setting->timezone ?? 'Asia/Manila') === $tz ? 'selected' : '' }}>{{ $tz }}</option>
                     @endforeach
@@ -36,7 +36,7 @@
                 <label class="required">Activity Log Retention (days)</label>
                 <input class="input" type="number" name="activity_log_retention_days"
                        value="{{ old('activity_log_retention_days', $setting->activity_log_retention_days ?? 90) }}"
-                       min="7" max="3650" required style="width:160px;">
+                       min="7" max="3650" style="width:160px;">
                 <div class="hint">Logs older than this many days will be cleared when using "Clear Old Logs" or via the scheduled cleanup.</div>
             </div>
 
@@ -110,10 +110,13 @@
 
     document.getElementById('btnPurgeRaw').addEventListener('click', function () {
         var days = document.getElementById('purgeDays').value;
-        if (!days || days < 1) { alert('Please enter a valid number of days.'); return; }
-        if (!confirm('Purge raw API data older than ' + days + ' days? This cannot be undone.')) return;
+        if (!days || days < 1) { showFlashError('Please enter a valid number of days.'); return; }
 
         var btn = this;
+
+        confirmModal('Purge raw API data older than ' + days + ' days? This cannot be undone.').then(function (ok) {
+            if (!ok) return;
+
         var resultEl = document.getElementById('purgeResult');
         btn.classList.add('is-loading');
         btn.disabled = true;
@@ -144,6 +147,8 @@
             resultEl.style.display = '';
             resultEl.innerHTML = '<div class="alert danger"><span>Network error: ' + err.message + '</span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>';
         });
+
+        }); // end confirmModal .then()
     });
 </script>
 @endpush

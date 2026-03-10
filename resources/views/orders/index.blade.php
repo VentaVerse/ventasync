@@ -51,7 +51,7 @@
         </div>
     </form>
 
-    <form id="ord-bulk-form" method="POST" action="{{ route('orders.bulk') }}" onsubmit="return window.__confirmOrdBulkDelete();">
+    <form id="ord-bulk-form" method="POST" action="{{ route('orders.bulk') }}" onsubmit="return window.__confirmOrdBulkDelete(event);">
         @csrf
     </form>
 
@@ -139,7 +139,7 @@
                     <div class="d-flex gap-6 items-center">
                         <a class="btn small" href="{{ route('orders.show', $o->order_id) }}">View</a>
                         <a class="btn small secondary" href="{{ route('orders.edit', $o->order_id) }}">Edit</a>
-                        <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" onsubmit="return confirm('Delete this order?')">
+                        <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" data-confirm="Delete this order?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>
@@ -183,13 +183,19 @@
                 b.addEventListener('change', updateSelectAllState);
             });
 
-            window.__confirmOrdBulkDelete = function () {
+            window.__confirmOrdBulkDelete = function (e) {
+                var form = e.target;
+                if (form._confirmed) { form._confirmed = false; return true; }
                 var selected = checks().filter(function (b) { return b.checked; }).length;
                 if (selected === 0) {
-                    alert('Please select at least one order.');
+                    showFlashError('Please select at least one order.');
                     return false;
                 }
-                return confirm('Delete selected orders? This cannot be undone.');
+                e.preventDefault();
+                confirmModal('Delete selected orders? This cannot be undone.').then(function (ok) {
+                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+                });
+                return false;
             };
 
             updateSelectAllState();

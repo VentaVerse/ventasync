@@ -55,21 +55,37 @@ class ProductOptionController extends Controller
             return $this->removeAllOptions($p, $id);
         }
 
-        // Validate SKU uniqueness
+        // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
+        $parentProduct = DB::table($p . 'product')->where('product_id', $id)->first(['price', 'sku']);
+        $basePrice = (float) $parentProduct->price;
+
         $skuRule = new UniqueSku($id);
         $skuErrors = [];
+        $seenSkus = [];
+        $parentSku = strtolower(trim((string) ($parentProduct->sku ?? '')));
+        if ($parentSku !== '') {
+            $seenSkus[$parentSku] = true;
+        }
         foreach ($values as $vi => $v) {
             $sku = trim((string) ($v['sku'] ?? ''));
             if ($sku === '') continue;
+            $skuLower = strtolower($sku);
+            if ($skuLower === $parentSku) {
+                $skuErrors[] = "The SKU \"{$sku}\" is already used as this product's parent SKU.";
+                continue;
+            }
+            if (isset($seenSkus[$skuLower])) {
+                $skuErrors[] = "Duplicate SKU \"{$sku}\" within this product's options.";
+                continue;
+            }
+            $seenSkus[$skuLower] = true;
             $skuRule->validate("values.{$vi}.sku", $sku, function (string $msg) use (&$skuErrors) {
                 $skuErrors[] = $msg;
             });
         }
         if (!empty($skuErrors)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['sku' => $skuErrors]);
+            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $skuErrors]);
         }
-
-        $basePrice = (float) DB::table($p . 'product')->where('product_id', $id)->value('price');
         $skuChanges = ['product_sku' => null, 'option_skus' => []];
 
         DB::transaction(function () use ($p, $id, $langId, $optionName, $values, $basePrice, &$skuChanges) {
@@ -265,21 +281,37 @@ class ProductOptionController extends Controller
             'combinations.*.absolute_cost' => 'nullable|numeric',
         ]);
 
-        // Validate SKU uniqueness
+        // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
+        $parentProduct = DB::table($p . 'product')->where('product_id', $id)->first(['price', 'sku']);
+        $basePrice = (float) $parentProduct->price;
+
         $skuRule = new UniqueSku($id);
         $skuErrors = [];
+        $seenSkus = [];
+        $parentSku = strtolower(trim((string) ($parentProduct->sku ?? '')));
+        if ($parentSku !== '') {
+            $seenSkus[$parentSku] = true;
+        }
         foreach ($validated['combinations'] as $ci => $c) {
             $sku = trim((string) ($c['sku'] ?? ''));
             if ($sku === '') continue;
+            $skuLower = strtolower($sku);
+            if ($skuLower === $parentSku) {
+                $skuErrors[] = "The SKU \"{$sku}\" is already used as this product's parent SKU.";
+                continue;
+            }
+            if (isset($seenSkus[$skuLower])) {
+                $skuErrors[] = "Duplicate SKU \"{$sku}\" within this product's combinations.";
+                continue;
+            }
+            $seenSkus[$skuLower] = true;
             $skuRule->validate("combinations.{$ci}.sku", $sku, function (string $msg) use (&$skuErrors) {
                 $skuErrors[] = $msg;
             });
         }
         if (!empty($skuErrors)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['sku' => $skuErrors]);
+            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $skuErrors]);
         }
-
-        $basePrice = (float) DB::table($p . 'product')->where('product_id', $id)->value('price');
 
         DB::transaction(function () use ($p, $id, $langId, $validated, $basePrice) {
             $opt1Name = trim($validated['option1_name']);

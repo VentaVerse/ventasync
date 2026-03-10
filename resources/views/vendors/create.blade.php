@@ -22,7 +22,7 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}" required>
+                <input class="input" name="name" value="{{ old('name') }}">
             </div>
 
             <div>
@@ -51,7 +51,7 @@
 
             <div>
                 <label class="required">Status</label>
-                <select class="input" name="status" required>
+                <select class="input" name="status">
                     <option value="1" {{ old('status', '1') == '1' ? 'selected' : '' }}>Active</option>
                     <option value="0" {{ old('status') == '0' ? 'selected' : '' }}>Inactive</option>
                 </select>

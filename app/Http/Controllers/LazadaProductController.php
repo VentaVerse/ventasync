@@ -716,7 +716,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             })->whereNull('lazada_deleted_at');
         }
 
-        // If search query, find matching product IDs first
+        // If search query, find matching product IDs + also search Lazada item ID directly
         if ($q !== '') {
             $searchProductIds = DB::table($pfx . 'product as p')
                 ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -731,7 +731,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 ->pluck('p.product_id')
                 ->toArray();
 
-            $query->whereIn('product_id', $searchProductIds);
+            $query->where(function ($qb) use ($searchProductIds, $q) {
+                $qb->whereIn('product_id', $searchProductIds)
+                    ->orWhere('lazada_item_id', 'like', '%' . $q . '%');
+            });
         }
 
         // Manufacturer filter — find matching ERP product IDs, then filter Lazada query
@@ -824,14 +827,18 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Build a map: lazada_product_id => first profile name (for sorting)
         $profileNames = $allProfiles;
 
+        // Separate unlinked products (always pinned to top of list)
+        $unlinked = $listings->filter(fn ($l) => !is_null($l->unlinked_at));
+        $linked = $listings->filter(fn ($l) => is_null($l->unlinked_at));
+
         // Apply sort in-memory using the attached ERP product info.
-        $listings = $listings->sortBy(function ($l) use ($sort, $productsById, $profileNames) {
-            $pid = (int)($l->product_id ?? 0);
+        $linked = $linked->sortBy(function ($l) use ($sort, $productsById, $profileNames) {
+            $pid = (int)$l->product_id;
             $p = $productsById->get($pid);
 
             // "ID" column in Lazada Products UI refers to the ERP Product ID.
             if ($sort === 'id') {
-                return (int)($l->product_id ?? 0);
+                return $pid;
             }
 
             if ($sort === 'lazada_item_id') {
@@ -883,13 +890,15 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 return sprintf('%d|%s', $isNull, $mfgName);
             }
 
-            return (int)($l->product_id ?? 0);
+            return $pid;
         });
 
         if ($dir === 'desc') {
-            $listings = $listings->reverse();
+            $linked = $linked->reverse();
         }
-        $listings = $listings->values();
+
+        // Unlinked products pinned to top, then sorted linked products
+        $listings = $unlinked->values()->merge($linked->values());
 
         // Paginate in-memory (50 per page)
         $perPage = 50;
@@ -1355,14 +1364,40 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $productId = $listing->product_id;
         $itemId = $listing->lazada_item_id;
-        $variantCount = $listing->variants()->count();
 
-        // Cascade deletes variants via FK
+        // Mark as unlinked — product_id stays so display info is preserved
+        $listing->lazada_item_id = null;
+        $listing->unlinked_at = now();
+        $listing->save();
+
+        // Remove cached Lazada variants so sync jobs skip this listing
+        $listing->variants()->delete();
+
+        $label = $itemId ? "Lazada item {$itemId}" : "listing #{$id}";
+
+        return redirect()->back()->with('status', "Unlinked ERP product #{$productId} from {$label}.");
+    }
+
+    // ── Remove unlinked listing from local list ─────────────────────
+
+    public function removeFromList(int $id)
+    {
+        $listing = LazadaProduct::query()->findOrFail($id);
+
+        if (!$listing->unlinked_at) {
+            return redirect()->back()->with('error', 'Cannot remove a linked product. Unlink it first.');
+        }
+
+        $itemId = $listing->lazada_item_id;
+
+        // Delete variant mappings and the listing record locally — does NOT touch Lazada
+        $listing->variants()->delete();
+        $listing->profiles()->detach();
         $listing->delete();
 
         $label = $itemId ? "Lazada item {$itemId}" : "listing #{$id}";
 
-        return redirect()->back()->with('status', "Unlinked ERP product #{$productId} from {$label} ({$variantCount} variant(s) removed). The Lazada listing is NOT deleted — only the ERP link was removed.");
+        return redirect()->back()->with('status', "Removed {$label} from the local list. The Lazada listing was not affected.");
     }
 
     /**
@@ -1453,6 +1488,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             try {
                 $listing->lazada_item_id = (string) $matchedItemId;
                 $listing->lazada_deleted_at = null;
+                $listing->unlinked_at = null;
                 $listing->save();
             } catch (\Throwable $ex) {
                 // keep status log; avoid throwing in production
@@ -1547,6 +1583,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                     $listing->lazada_item_id = $itemId;
                 }
                 $listing->lazada_deleted_at = null;
+                $listing->unlinked_at = null;
                 $listing->save();
                 // Persist Lazada sku_id and shop_sku (returned from /product/create) into variants table.
                 // Also resolve product_option_value_id so push-stock can map SKU → ERP qty.
@@ -4427,6 +4464,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             if (empty($listing->lazada_item_id)) {
                 $listing->lazada_item_id = $item->lazada_item_id;
                 $listing->lazada_deleted_at = null;
+                $listing->unlinked_at = null;
                 $listing->save();
             }
         } else {
@@ -4915,7 +4953,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
             foreach ($p['skus'] ?? [] as $s) {
                 $sellerSku = $s['SellerSku'] ?? ($s['seller_sku'] ?? ($s['SellerSKU'] ?? null));
-                if ($sellerSku !== null && trim((string) $sellerSku) === $sku) {
+                if ($sellerSku !== null && strcasecmp(trim((string) $sellerSku), $sku) === 0) {
                     $matchedItemIds[(string) $itemId] = true;
                 }
             }
@@ -5074,4 +5112,5 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
         return $out;
     }
+
 }

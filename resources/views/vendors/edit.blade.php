@@ -23,7 +23,7 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $vendor->name) }}" required>
+                <input class="input" name="name" value="{{ old('name', $vendor->name) }}">
             </div>
 
             <div>
@@ -52,7 +52,7 @@
 
             <div>
                 <label class="required">Status</label>
-                <select class="input" name="status" required>
+                <select class="input" name="status">
                     <option value="1" {{ old('status', (string) $vendor->status) == '1' ? 'selected' : '' }}>Active</option>
                     <option value="0" {{ old('status', (string) $vendor->status) == '0' ? 'selected' : '' }}>Inactive</option>
                 </select>
@@ -120,7 +120,7 @@
 
     <div class="mt-16 d-flex justify-start">
         <button class="btn danger" type="button"
-            onclick="if(confirm('Delete this vendor?')) document.getElementById('delete-vendor-form').submit();">
+            data-confirm="Delete this vendor?" data-confirm-submit="delete-vendor-form">
             Delete
         </button>
     </div>

@@ -23,7 +23,7 @@
         </form>
     </div>
 
-    <form id="manufacturer-bulk-form" method="POST" action="{{ route('manufacturers.bulk_delete') }}" onsubmit="return window.__confirmManufacturerBulkDelete();">
+    <form id="manufacturer-bulk-form" method="POST" action="{{ route('manufacturers.bulk_delete') }}" onsubmit="return window.__confirmManufacturerBulkDelete(event);">
         @csrf
     </form>
 
@@ -47,7 +47,7 @@
                 <td>{{ (int)$m->sort_order }}</td>
                 <td class="d-flex gap-8 items-center">
                     <a class="btn small" href="{{ route('manufacturers.edit', $m->manufacturer_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('manufacturers.destroy', $m->manufacturer_id) }}" onsubmit="return confirm('Delete this manufacturer?')">
+                    <form method="POST" action="{{ route('manufacturers.destroy', $m->manufacturer_id) }}" data-confirm="Delete this manufacturer?">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>
@@ -88,13 +88,19 @@
                 b.addEventListener('change', updateSelectAllState);
             });
 
-            window.__confirmManufacturerBulkDelete = function () {
+            window.__confirmManufacturerBulkDelete = function (e) {
+                var form = e.target;
+                if (form._confirmed) { form._confirmed = false; return true; }
                 var selected = checks().filter(function (b) { return b.checked; }).length;
                 if (selected === 0) {
-                    alert('Please select at least one manufacturer.');
+                    showFlashError('Please select at least one manufacturer.');
                     return false;
                 }
-                return confirm('Delete selected manufacturers? This cannot be undone.');
+                e.preventDefault();
+                confirmModal('Delete selected manufacturers? This cannot be undone.').then(function (ok) {
+                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+                });
+                return false;
             };
 
             updateSelectAllState();

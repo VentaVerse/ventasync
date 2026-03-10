@@ -18,7 +18,7 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $orderStatus->name) }}" required maxlength="32">
+                <input class="input" name="name" value="{{ old('name', $orderStatus->name) }}" maxlength="32">
             </div>
             <div class="full">
                 <label>
@@ -44,7 +44,7 @@
 
     <div class="mt-16 d-flex">
         <button class="btn danger" type="button"
-            onclick="if(confirm('Delete this order status?')) document.getElementById('delete-os-form').submit();">
+            data-confirm="Delete this order status?" data-confirm-submit="delete-os-form">
             Delete
         </button>
     </div>

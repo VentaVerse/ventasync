@@ -405,7 +405,7 @@
                         @csrf
                         <button class="btn" type="submit">Build Payload</button>
                     </form>
-                    <form method="POST" action="{{ route('lazada.products.push_sample', $listing->id) }}" onsubmit="return confirm('Send a SAMPLE push to Lazada now? This is Phase 3 testing and may return QC errors.');">
+                    <form method="POST" action="{{ route('lazada.products.push_sample', $listing->id) }}" data-confirm="Send a SAMPLE push to Lazada now? This is Phase 3 testing and may return QC errors.">
                         @csrf
                         <button class="btn" type="submit">Push Sample to Lazada</button>
                     </form>

@@ -36,7 +36,7 @@
 
             <div>
                 <label>Profile Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="name" class="input" value="{{ old('name', $profile->name) }}" placeholder="e.g. Guitar Pedals" required>
+                <input type="text" name="name" class="input" value="{{ old('name', $profile->name) }}" placeholder="e.g. Guitar Pedals">
             </div>
 
             <h3 class="section-title" style="margin-top:20px;">Product Filter</h3>

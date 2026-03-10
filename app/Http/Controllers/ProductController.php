@@ -1212,6 +1212,35 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         return redirect()->route('products.index')->with('status','Saved');
     }
 
+    /**
+     * AJAX: check if SKUs are already used by another product.
+     * POST { skus: ['ABC','DEF'], exclude_product_id: 123 }
+     * Returns { taken: { 'abc': 'product' | 'option_value' } }
+     */
+    public function checkSkus(Request $request)
+    {
+        $skus = array_filter(array_map('trim', (array) $request->input('skus', [])));
+        $excludeId = (int) $request->input('exclude_product_id', 0);
+        $p = (string) config('catalog.prefix');
+
+        $taken = [];
+        foreach ($skus as $sku) {
+            if ($sku === '') continue;
+            $key = strtolower($sku);
+            if (isset($taken[$key])) continue;
+
+            $pq = DB::table($p . 'product')->where('sku', $sku);
+            if ($excludeId) $pq->where('product_id', '!=', $excludeId);
+            if ($pq->exists()) { $taken[$key] = 'product'; continue; }
+
+            $oq = DB::table($p . 'product_option_value')->where('sku', $sku);
+            if ($excludeId) $oq->where('product_id', '!=', $excludeId);
+            if ($oq->exists()) { $taken[$key] = 'option_value'; continue; }
+        }
+
+        return response()->json(['taken' => (object) $taken]);
+    }
+
     public function bulkAction(Request $request)
     {
         $action = (string) $request->input('action', '');
@@ -1362,9 +1391,14 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             return;
         }
 
-        // Validate SKU uniqueness across all option value SKUs
+        // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
         $skuRule = new UniqueSku($productId);
         $errors = [];
+        $seenSkus = [];
+        $parentSku = strtolower(trim((string) $request->input('sku', '')));
+        if ($parentSku !== '') {
+            $seenSkus[$parentSku] = true;
+        }
 
         $valueSources = $request->input('values', []);
         $comboSources = $request->input('combinations', []);
@@ -1372,6 +1406,16 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         foreach ((is_array($valueSources) ? $valueSources : []) as $v) {
             $sku = trim((string) ($v['sku'] ?? ''));
             if ($sku === '') continue;
+            $skuLower = strtolower($sku);
+            if ($skuLower === $parentSku) {
+                $errors[] = "The SKU \"{$sku}\" is already used as this product's parent SKU.";
+                continue;
+            }
+            if (isset($seenSkus[$skuLower])) {
+                $errors[] = "Duplicate SKU \"{$sku}\" within this product's options.";
+                continue;
+            }
+            $seenSkus[$skuLower] = true;
             $skuRule->validate('sku', $sku, function (string $msg) use (&$errors) {
                 $errors[] = $msg;
             });
@@ -1379,6 +1423,16 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         foreach ((is_array($comboSources) ? $comboSources : []) as $c) {
             $sku = trim((string) ($c['sku'] ?? ''));
             if ($sku === '') continue;
+            $skuLower = strtolower($sku);
+            if ($skuLower === $parentSku) {
+                $errors[] = "The SKU \"{$sku}\" is already used as this product's parent SKU.";
+                continue;
+            }
+            if (isset($seenSkus[$skuLower])) {
+                $errors[] = "Duplicate SKU \"{$sku}\" within this product's combinations.";
+                continue;
+            }
+            $seenSkus[$skuLower] = true;
             $skuRule->validate('sku', $sku, function (string $msg) use (&$errors) {
                 $errors[] = $msg;
             });
@@ -1711,13 +1765,28 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
         // Normalize
         $options = array_values(array_filter($options ?? [], fn ($o) => is_array($o)));
 
-        // Validate SKU uniqueness across product.sku and product_option_value.sku
+        // Validate SKU uniqueness (cross-product + intra-form + vs parent SKU)
+        $parentSku = strtolower(trim((string) DB::table($p . 'product')->where('product_id', $productId)->value('sku')));
         $skuRule = new UniqueSku($productId);
         $errors = [];
+        $seenSkus = [];
+        if ($parentSku !== '') {
+            $seenSkus[$parentSku] = true;
+        }
         foreach ($options as $oi => $opt) {
             foreach (($opt['values'] ?? []) as $vi => $v) {
                 $sku = trim((string) ($v['sku'] ?? ''));
                 if ($sku === '') continue;
+                $skuLower = strtolower($sku);
+                if ($skuLower === $parentSku) {
+                    $errors[] = "The SKU \"{$sku}\" is already used as this product's parent SKU.";
+                    continue;
+                }
+                if (isset($seenSkus[$skuLower])) {
+                    $errors[] = "Duplicate SKU \"{$sku}\" within this product's options.";
+                    continue;
+                }
+                $seenSkus[$skuLower] = true;
                 $skuRule->validate("options.{$oi}.values.{$vi}.sku", $sku, function (string $msg) use (&$errors) {
                     $errors[] = $msg;
                 });

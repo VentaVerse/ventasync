@@ -18,7 +18,7 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $manufacturer->name) }}" required>
+                <input class="input" name="name" value="{{ old('name', $manufacturer->name) }}">
             </div>
 
             <div>
@@ -39,7 +39,7 @@
 
     <div class="mt-16 d-flex justify-start">
         <button class="btn danger" type="button"
-            onclick="if(confirm('Delete this manufacturer?')) document.getElementById('delete-manufacturer-form').submit();">
+            data-confirm="Delete this manufacturer?" data-confirm-submit="delete-manufacturer-form">
             Delete
         </button>
     </div>

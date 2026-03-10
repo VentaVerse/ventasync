@@ -614,6 +614,8 @@
             </div>
         @endif
 
+        <div id="js-flash-container"></div>
+
         @yield('content')
 
         </div>{{-- .content-inner --}}
@@ -830,6 +832,78 @@
         }, { passive: true });
     })();
 })();
+</script>
+
+{{-- Global JS flash utility – replaces alert() across the app --}}
+<script>
+window.showFlashError = function(message) {
+    var container = document.getElementById('js-flash-container');
+    if (!container) return;
+    var existing = container.querySelector('.alert');
+    if (existing) existing.remove();
+    var div = document.createElement('div');
+    div.className = 'alert danger';
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('style', 'width:18px;height:18px;flex-shrink:0;margin-top:1px;');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    var c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx','12'); c.setAttribute('cy','12'); c.setAttribute('r','10');
+    var l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l1.setAttribute('x1','15'); l1.setAttribute('y1','9'); l1.setAttribute('x2','9'); l1.setAttribute('y2','15');
+    var l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l2.setAttribute('x1','9'); l2.setAttribute('y1','9'); l2.setAttribute('x2','15'); l2.setAttribute('y2','15');
+    svg.appendChild(c); svg.appendChild(l1); svg.appendChild(l2);
+    div.appendChild(svg);
+    var span = document.createElement('span');
+    span.textContent = message;
+    div.appendChild(span);
+    var btn = document.createElement('button');
+    btn.className = 'alert-close';
+    btn.setAttribute('aria-label', 'Close');
+    btn.textContent = '\u00d7';
+    btn.addEventListener('click', function() { div.remove(); });
+    div.appendChild(btn);
+    container.appendChild(div);
+    div.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+window.showFlashSuccess = function(message) {
+    var container = document.getElementById('js-flash-container');
+    if (!container) return;
+    var existing = container.querySelector('.alert');
+    if (existing) existing.remove();
+    var div = document.createElement('div');
+    div.className = 'alert success';
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('style', 'width:18px;height:18px;flex-shrink:0;margin-top:1px;');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', 'M22 11.08V12a10 10 0 1 1-5.93-9.14');
+    var pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    pl.setAttribute('points', '22 4 12 14.01 9 11.01');
+    svg.appendChild(p); svg.appendChild(pl);
+    div.appendChild(svg);
+    var span = document.createElement('span');
+    span.textContent = message;
+    div.appendChild(span);
+    var btn = document.createElement('button');
+    btn.className = 'alert-close';
+    btn.setAttribute('aria-label', 'Close');
+    btn.textContent = '\u00d7';
+    btn.addEventListener('click', function() { div.remove(); });
+    div.appendChild(btn);
+    container.appendChild(div);
+    div.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
 </script>
 
 @stack('scripts')
@@ -1189,6 +1263,82 @@
         d.textContent = s;
         return d.innerHTML;
     }
+})();
+</script>
+
+{{-- Global confirm modal --}}
+<div class="modal-backdrop" id="confirm-modal">
+    <div class="modal" style="max-width:440px;">
+        <div class="modal-header">
+            <h3 id="confirm-modal-title">Confirm</h3>
+            <button class="modal-close" type="button" id="confirm-modal-close">&times;</button>
+        </div>
+        <p id="confirm-modal-message" style="margin:0 0 20px; line-height:1.5;"></p>
+        <div class="d-flex justify-end gap-8">
+            <button class="btn secondary" type="button" id="confirm-modal-cancel">Cancel</button>
+            <button class="btn danger" type="button" id="confirm-modal-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var backdrop = document.getElementById('confirm-modal');
+    var msgEl = document.getElementById('confirm-modal-message');
+    var okBtn = document.getElementById('confirm-modal-ok');
+    var cancelBtn = document.getElementById('confirm-modal-cancel');
+    var closeBtn = document.getElementById('confirm-modal-close');
+    var resolver = null;
+
+    function close(result) {
+        backdrop.classList.remove('active');
+        if (resolver) { resolver(result); resolver = null; }
+    }
+
+    cancelBtn.addEventListener('click', function() { close(false); });
+    closeBtn.addEventListener('click', function() { close(false); });
+    backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) close(false);
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && backdrop.classList.contains('active')) close(false);
+    });
+
+    window.confirmModal = function(message) {
+        msgEl.textContent = message;
+        backdrop.classList.add('active');
+        okBtn.focus();
+        return new Promise(function(resolve) { resolver = resolve; });
+    };
+
+    okBtn.addEventListener('click', function() { close(true); });
+
+    // Global interceptor: any element with data-confirm gets the modal
+    document.addEventListener('submit', function(e) {
+        var form = e.target;
+        var msg = form.getAttribute('data-confirm');
+        if (!msg) return;
+        if (form._confirmed) { form._confirmed = false; return; }
+        e.preventDefault();
+        confirmModal(msg).then(function(ok) {
+            if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+        });
+    }, true);
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-confirm]');
+        if (!btn || btn.tagName === 'FORM') return;
+        var msg = btn.getAttribute('data-confirm');
+        var submitId = btn.getAttribute('data-confirm-submit');
+        e.preventDefault();
+        e.stopPropagation();
+        confirmModal(msg).then(function(ok) {
+            if (!ok) return;
+            if (submitId) {
+                var f = document.getElementById(submitId);
+                if (f) { f._confirmed = true; f.requestSubmit ? f.requestSubmit() : f.submit(); }
+            }
+        });
+    }, true);
 })();
 </script>
 </body>

@@ -720,7 +720,7 @@
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
             @if($logCount > 0)
-                <form method="POST" action="{{ route('shopee.clear_api_logs') }}" onsubmit="return confirm('Delete all Shopee API logs?')">
+                <form method="POST" action="{{ route('shopee.clear_api_logs') }}" data-confirm="Delete all Shopee API logs?">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn small danger">Delete All Logs</button>
@@ -1020,7 +1020,7 @@ function spCopy(id, btn) {
             Object.keys(data).forEach(function(k){ buildRow(k, data[k]); });
             syncToJson();
         } else {
-            alert('No sample data for: ' + path + '\nSelect an endpoint first.');
+            showFlashError('No sample data for: ' + path + '. Select an endpoint first.');
         }
     });
 

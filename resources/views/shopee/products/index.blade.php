@@ -10,9 +10,9 @@
             <div class="text-muted text-sm">Push catalog products to Shopee and sync stock/price.</div>
         </div>
         <div class="page-header-actions">
-            <form method="POST" action="{{ route('shopee.products.rebuild_cache') }}" style="margin:0; display:inline;">
+            <form method="POST" action="{{ route('shopee.products.rebuild_cache') }}" style="margin:0; display:inline;" data-confirm="Rebuild the Shopee product cache? This scans all Shopee items and may take a minute.">
                 @csrf
-                <button type="submit" class="btn secondary" onclick="return confirm('Rebuild the Shopee product cache? This scans all Shopee items and may take a minute.')">Rebuild Cache</button>
+                <button type="submit" class="btn secondary">Rebuild Cache</button>
             </form>
             <a class="btn secondary" href="{{ route('shopee.profiles.index') }}">Profiles</a>
             <a class="btn" href="{{ route('shopee.products.add') }}">Add Product</a>
@@ -185,6 +185,7 @@
             </div>
         </div>
 
+
         <div class="table-wrap">
             <table class="table" id="shopeeProductsTable">
                 <thead>
@@ -332,6 +333,7 @@
                                             </button>
                                         </form>
                                     @endif
+                                    @if($link)
                                     <form method="POST" action="{{ route('shopee.products.sync_quantity', $p->product_id) }}" style="margin:0;">
                                         @csrf
                                         <button type="submit" class="action-item">
@@ -346,16 +348,15 @@
                                             Sync Price
                                         </button>
                                     </form>
-                                    @if($link)
                                         <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('shopee.products.unlink', $p->product_id) }}" style="margin:0;" onsubmit="return confirm('Unlink this product from Shopee? This removes the link only — the Shopee listing is not deleted. You can re-sync afterwards.')">
+                                        <form method="POST" action="{{ route('shopee.products.unlink', $p->product_id) }}" style="margin:0;" data-confirm="Unlink this product from Shopee? This removes the link only — the Shopee listing is not deleted. You can re-sync afterwards.">
                                             @csrf
                                             <button type="submit" class="action-item" style="color:var(--danger);">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                                                 Unlink from Shopee
                                             </button>
                                         </form>
-                                        <form method="POST" action="{{ route('shopee.products.delete', $p->product_id) }}" style="margin:0;" onsubmit="return confirm('Delete this product from Shopee? This cannot be undone.')">
+                                        <form method="POST" action="{{ route('shopee.products.delete', $p->product_id) }}" style="margin:0;" data-confirm="Delete this product from Shopee? This cannot be undone.">
                                             @csrf
                                             <button type="submit" class="action-item" style="color:var(--danger);">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -436,53 +437,102 @@
     rowChecks().forEach(function(b){ b.addEventListener('change', updateState); });
 
     // Bulk action forms: inject selected product IDs as hidden inputs
+    function injectBulkIds(form, ids) {
+        form.querySelectorAll('input[name="product_ids[]"]').forEach(function(n){ n.remove(); });
+        ids.forEach(function(id){
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'product_ids[]';
+            inp.value = id;
+            form.appendChild(inp);
+        });
+    }
+
+    function submitBulkForm(form, ids) {
+        injectBulkIds(form, ids);
+
+        // Show loading overlay
+        var overlay = document.getElementById('loadingOverlay');
+        var msg = document.getElementById('loadingMsg');
+        if (overlay) {
+            if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
+            overlay.classList.add('active');
+        }
+        form.querySelector('button[type="submit"]').disabled = true;
+        form._confirmed = true;
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
+
     document.querySelectorAll('form.bulk-action-form').forEach(function(form){
+        // For data-confirm forms, inject IDs so the global confirm handler
+        // submits the form with IDs already present
+        if (form.getAttribute('data-confirm')) {
+            form.addEventListener('submit', function(e) {
+                var hasIds = form.querySelectorAll('input[name="product_ids[]"]').length > 0;
+
+                if (hasIds) {
+                    // Re-submit after confirm — show loading overlay and let through
+                    var overlay = document.getElementById('loadingOverlay');
+                    var msg = document.getElementById('loadingMsg');
+                    var count = form.querySelectorAll('input[name="product_ids[]"]').length;
+                    if (overlay) {
+                        if (msg) msg.textContent = 'Processing ' + count + ' item(s)...';
+                        overlay.classList.add('active');
+                    }
+                    return;
+                }
+
+                // First submit — inject IDs before global data-confirm handler shows modal
+                var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
+                if (!ids.length) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    showFlashError('Please select at least 1 product.');
+                    return;
+                }
+                injectBulkIds(form, ids);
+            });
+            return;
+        }
+
         form.addEventListener('submit', function(e){
+            if (form._confirmed) { form._confirmed = false; return; }
+
+            e.preventDefault();
             form.querySelectorAll('input[name="product_ids[]"]').forEach(function(n){ n.remove(); });
 
             var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
             if (!ids.length) {
-                e.preventDefault();
-                alert('Please select at least 1 product.');
+                showFlashError('Please select at least 1 product.');
                 return;
             }
 
             if (form.classList.contains('bulk-push-form')) {
-                if (!confirm('Push ' + ids.length + ' selected product(s) to Shopee? Already-linked products will be skipped.')) {
-                    e.preventDefault();
-                    return;
-                }
+                confirmModal('Push ' + ids.length + ' selected product(s) to Shopee? Already-linked products will be skipped.').then(function(ok) {
+                    if (!ok) return;
+                    submitBulkForm(form, ids);
+                });
+                return;
             }
 
             if (form.classList.contains('bulk-delete-form')) {
-                if (!confirm('Delete ' + ids.length + ' selected product(s) from Shopee? This cannot be undone.')) {
-                    e.preventDefault();
-                    return;
-                }
+                confirmModal('Delete ' + ids.length + ' selected product(s) from Shopee? This cannot be undone.').then(function(ok) {
+                    if (!ok) return;
+                    submitBulkForm(form, ids);
+                });
+                return;
             }
 
-            ids.forEach(function(id){
-                var inp = document.createElement('input');
-                inp.type = 'hidden';
-                inp.name = 'product_ids[]';
-                inp.value = id;
-                form.appendChild(inp);
-            });
-
-            // Show loading overlay
-            var overlay = document.getElementById('loadingOverlay');
-            var msg = document.getElementById('loadingMsg');
-            if (overlay) {
-                if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
-                overlay.classList.add('active');
-            }
-            form.querySelector('button[type="submit"]').disabled = true;
+            // No confirm needed — submit directly
+            submitBulkForm(form, ids);
         });
     });
 
     // Loading overlay for individual action forms
     document.querySelectorAll('.action-menu form').forEach(function(form) {
-        form.addEventListener('submit', function() {
+        form.addEventListener('submit', function(e) {
+            // Skip if submission was prevented (e.g. confirm modal cancelled)
+            if (e.defaultPrevented) return;
             var overlay = document.getElementById('loadingOverlay');
             var msg = document.getElementById('loadingMsg');
             if (overlay) {
@@ -528,6 +578,12 @@
         if (openMenu && !e.target.closest('.action-menu')) {
             closeMenu();
         }
+    });
+
+    // Close bulk update dropdown on outside click
+    document.addEventListener('click', function(e) {
+        var dd = document.getElementById('bulk-update-dropdown');
+        if (dd && !dd.contains(e.target)) dd.classList.remove('open');
     });
 
     // ── Unmatched Items: Product Search ──────────────────────────

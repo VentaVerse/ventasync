@@ -316,9 +316,9 @@
                 <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ number_format($balance, 2) }}</span>
             @endif
         </h3>
-        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
+        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}" data-confirm="Disable payment tracking for this order?">
             @csrf
-            <button type="submit" class="btn small secondary" onclick="return confirm('Disable payment tracking for this order?')">Disable Tracking</button>
+            <button type="submit" class="btn small secondary">Disable Tracking</button>
         </form>
     </div>
 
@@ -344,7 +344,7 @@
                 <td class="text-right font-semibold">{{ number_format((float) $p->amount, 2) }}</td>
                 <td class="text-muted text-sm">{{ $p->notes ?: '' }}</td>
                 <td>
-                    <form method="POST" action="{{ route('orders.destroy_payment', [$order->order_id, $p->id]) }}" onsubmit="return confirm('Delete this payment?')">
+                    <form method="POST" action="{{ route('orders.destroy_payment', [$order->order_id, $p->id]) }}" data-confirm="Delete this payment?">
                         @csrf @method('DELETE')
                         <button type="submit" class="btn small danger" title="Delete">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -378,15 +378,15 @@
         <div class="d-flex gap-12 items-end flex-wrap">
             <div>
                 <label class="font-semibold">Date</label>
-                <input type="date" name="paid_at" class="input" value="{{ date('Y-m-d') }}" required style="min-width:140px;">
+                <input type="date" name="paid_at" class="input" value="{{ date('Y-m-d') }}" style="min-width:140px;">
             </div>
             <div>
                 <label class="font-semibold">Amount</label>
-                <input type="number" name="amount" class="input" step="0.01" min="0.01" required placeholder="0.00" style="min-width:120px;" {{ $balance > 0 ? 'value=' . number_format($balance, 2, '.', '') : '' }}>
+                <input type="number" name="amount" class="input" step="0.01" min="0.01" placeholder="0.00" style="min-width:120px;" {{ $balance > 0 ? 'value=' . number_format($balance, 2, '.', '') : '' }}>
             </div>
             <div>
                 <label class="font-semibold">Method</label>
-                <select name="payment_method" class="input" required style="min-width:140px;">
+                <select name="payment_method" class="input" style="min-width:140px;">
                     <option value="Bank Transfer">Bank Transfer</option>
                     <option value="GCash">GCash</option>
                     <option value="Cash">Cash</option>

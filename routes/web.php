@@ -79,6 +79,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::post('/products/bulk', [ProductController::class, 'bulkAction'])->name('products.bulk');
+        Route::post('/products/check-skus', [ProductController::class, 'checkSkus'])->name('products.check_skus');
         Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
         Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
@@ -274,6 +275,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/products/{id}/upload', [LazadaProductController::class, 'uploadToLazada'])->whereNumber('id')->name('lazada.products.upload');
         Route::post('/lazada/products/{id}/delete/lazada', [LazadaProductController::class, 'deleteFromLazada'])->whereNumber('id')->name('lazada.products.delete_lazada');
         Route::post('/lazada/products/{id}/unlink', [LazadaProductController::class, 'unlink'])->whereNumber('id')->name('lazada.products.unlink');
+        Route::post('/lazada/products/{id}/remove', [LazadaProductController::class, 'removeFromList'])->whereNumber('id')->name('lazada.products.remove');
         Route::post('/lazada/products/{id}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('id')->name('lazada.products.sync_lazada_id');
 
         Route::post('/lazada/products/bulk/upload', [LazadaProductController::class, 'bulkUploadToLazada'])->name('lazada.products.bulk_upload');

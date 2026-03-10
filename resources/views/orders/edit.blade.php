@@ -19,7 +19,7 @@
         <div class="form-grid">
             <div>
                 <label class="required">First Name</label>
-                <input class="input" name="firstname" value="{{ old('firstname', $order->firstname) }}" required maxlength="32">
+                <input class="input" name="firstname" value="{{ old('firstname', $order->firstname) }}" maxlength="32">
             </div>
             <div>
                 <label>Last Name</label>
@@ -241,7 +241,7 @@
 
     <div class="mt-20 d-flex">
         <button class="btn danger" type="button"
-            onclick="if(confirm('Delete this order and its history?')) document.getElementById('delete-order-form').submit();">
+            data-confirm="Delete this order and its history?" data-confirm-submit="delete-order-form">
             Delete Order
         </button>
     </div>

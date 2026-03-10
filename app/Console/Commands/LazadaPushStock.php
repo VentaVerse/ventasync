@@ -36,6 +36,8 @@ class LazadaPushStock extends Command
         // Only load listings that actually have cached variant sku_ids — skip the rest at DB level
         $query = LazadaProduct::query()
             ->where('product_id', '>', 0)
+            ->whereNotNull('lazada_item_id')
+            ->where('lazada_item_id', '!=', '')
             ->whereHas('variants', fn ($q) => $q->whereNotNull('sku_id'));
 
         if ($this->option('product-ids')) {

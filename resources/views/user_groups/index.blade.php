@@ -31,7 +31,7 @@
                     <td>{{ $g->name }}</td>
                     <td class="d-flex gap-8 items-center">
                         <a class="btn small" href="{{ route('user_groups.edit', $g->id) }}">Edit</a>
-                        <form method="POST" action="{{ route('user_groups.destroy', $g->id) }}" onsubmit="return confirm('Delete this group?')">
+                        <form method="POST" action="{{ route('user_groups.destroy', $g->id) }}" data-confirm="Delete this group?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>

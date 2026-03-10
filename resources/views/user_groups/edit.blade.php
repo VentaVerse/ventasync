@@ -18,7 +18,7 @@
         <div class="form-grid">
             <div class="full">
                 <label>Group Name</label>
-                <input class="input" name="name" value="{{ old('name', $group->name) }}" required>
+                <input class="input" name="name" value="{{ old('name', $group->name) }}">
             </div>
 
             <div class="full">
@@ -31,7 +31,7 @@
 
     </form>
 
-    <form id="user-group-delete-form" method="POST" action="{{ route('user_groups.destroy', $group->id) }}" onsubmit="return confirm('Delete this group?')" class="hidden">
+    <form id="user-group-delete-form" method="POST" action="{{ route('user_groups.destroy', $group->id) }}" data-confirm="Delete this group?" class="hidden">
         @csrf
         @method('DELETE')
     </form>

@@ -29,7 +29,7 @@
         </form>
     </div>
 
-    <form id="product-bulk-form" method="POST" action="{{ route('products.bulk') }}" onsubmit="return window.__confirmProductBulkAction();">
+    <form id="product-bulk-form" method="POST" action="{{ route('products.bulk') }}">
         @csrf
     </form>
 
@@ -104,7 +104,7 @@
                         <a class="btn small secondary" href="{{ route('products.sales', $p->product_id) }}?back={{ urlencode(request()->fullUrl()) }}">Sales</a>
                         <a class="btn small secondary" href="{{ route('products.stock_history', $p->product_id) }}?back={{ urlencode(request()->fullUrl()) }}">Stock</a>
                         <a class="btn small" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
-                        <form method="POST" action="{{ route('products.destroy', $p->product_id) }}" onsubmit="return confirm('Delete this product?')">
+                        <form method="POST" action="{{ route('products.destroy', $p->product_id) }}" data-confirm="Delete this product?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>
@@ -183,24 +183,36 @@
             b.addEventListener('change', updateSelectAllState);
         });
 
-        window.__confirmProductBulkAction = function () {
-            var actionEl = document.querySelector('select[name="action"][form="product-bulk-form"]');
-            var action = actionEl ? actionEl.value : '';
-            var selected = checks().filter(function (b) { return b.checked; }).length;
+        var bulkForm = document.getElementById('product-bulk-form');
+        var bulkConfirmed = false;
+        if (bulkForm) {
+            bulkForm.addEventListener('submit', function(e) {
+                var actionEl = document.querySelector('select[name="action"][form="product-bulk-form"]');
+                var action = actionEl ? actionEl.value : '';
+                var selected = checks().filter(function (b) { return b.checked; }).length;
 
-            if (!action) {
-                alert('Please choose an action first.');
-                return false;
-            }
-            if (selected === 0) {
-                alert('Please select at least one product.');
-                return false;
-            }
-            if (action === 'delete') {
-                return confirm('Delete selected products? This cannot be undone.');
-            }
-            return true;
-        };
+                if (!action) {
+                    e.preventDefault();
+                    showFlashError('Please choose an action first.');
+                    return;
+                }
+                if (selected === 0) {
+                    e.preventDefault();
+                    showFlashError('Please select at least one product.');
+                    return;
+                }
+                if (action === 'delete' && !bulkConfirmed) {
+                    e.preventDefault();
+                    confirmModal('Delete selected products? This cannot be undone.').then(function(ok) {
+                        if (!ok) return;
+                        bulkConfirmed = true;
+                        bulkForm.submit();
+                    });
+                    return;
+                }
+                bulkConfirmed = false;
+            });
+        }
 
         updateSelectAllState();
     })();

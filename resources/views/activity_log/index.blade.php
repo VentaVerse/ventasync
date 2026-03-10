@@ -6,7 +6,7 @@
     <div class="page-header">
         <h2>Activity Log</h2>
         <div class="page-header-actions">
-            <form method="POST" action="{{ route('activity_log.clear') }}" onsubmit="return confirm('Clear logs older than {{ $retentionDays }} days?')">
+            <form method="POST" action="{{ route('activity_log.clear') }}" data-confirm="Clear logs older than {{ $retentionDays }} days?">
                 @csrf
                 <button class="btn secondary" type="submit">Clear Old Logs ({{ $retentionDays }}+ days)</button>
             </form>

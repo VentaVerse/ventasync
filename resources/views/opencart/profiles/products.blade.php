@@ -10,7 +10,7 @@
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('opencart.profiles.edit', [$setting->id, $profile->id]) }}">Edit Profile</a>
             <a class="btn secondary" href="{{ route('opencart.profiles.index', $setting->id) }}">Back to Profiles</a>
-            <button class="btn" type="submit" form="push-form" onclick="return confirmPush();">Push Selected</button>
+            <button class="btn" type="submit" form="push-form" onclick="return confirmPush(event);">Push Selected</button>
         </div>
     </div>
 
@@ -98,12 +98,12 @@
                             @endif
                         </td>
                         <td class="d-flex gap-4">
-                            <form method="POST" action="{{ route('opencart.products.push', [$setting->id, $p->product_id]) }}">
+                            <form method="POST" action="{{ route('opencart.products.push', [$setting->id, $p->product_id]) }}" data-confirm="Push this product to {{ $setting->store_name }}?">
                                 @csrf
-                                <button type="submit" class="btn small" onclick="return confirm('Push this product to {{ $setting->store_name }}?');">Push</button>
+                                <button type="submit" class="btn small">Push</button>
                             </form>
                             @if($isManual)
-                                <form method="POST" action="{{ route('opencart.profiles.removeProduct', [$setting->id, $profile->id, $p->product_id]) }}" onsubmit="return confirm('Remove from profile?');">
+                                <form method="POST" action="{{ route('opencart.profiles.removeProduct', [$setting->id, $profile->id, $p->product_id]) }}" data-confirm="Remove from profile?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Remove</button>
@@ -164,13 +164,18 @@
             });
         }
 
-        window.confirmPush = function () {
+        window.confirmPush = function (e) {
             var selected = checks().filter(function (b) { return b.checked; }).length;
             if (selected === 0) {
-                alert('Please select at least one product.');
+                showFlashError('Please select at least one product.');
                 return false;
             }
-            return confirm('Push ' + selected + ' product(s) to {{ $setting->store_name }}?');
+            if (e && e.preventDefault) e.preventDefault();
+            var form = document.getElementById('push-form');
+            confirmModal('Push ' + selected + ' product(s) to {{ $setting->store_name }}?').then(function (ok) {
+                if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+            });
+            return false;
         };
 
         // ── Manual product search ──
@@ -239,7 +244,7 @@
             addBtn.addEventListener('click', function () {
                 var selected = document.querySelectorAll('.manual-row-check:checked');
                 if (selected.length === 0) {
-                    alert('Select at least one product to add.');
+                    showFlashError('Select at least one product to add.');
                     return;
                 }
                 document.getElementById('add-products-form').submit();

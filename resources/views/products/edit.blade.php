@@ -10,10 +10,6 @@
         </div>
     </div>
 
-    @if ($errors->any())
-        <div class="alert danger">{{ $errors->first() }}</div>
-    @endif
-
     <form method="POST" action="{{ route('products.update', $product->product_id) }}">
         @csrf
         @method('PUT')
@@ -45,7 +41,7 @@
                     <label class="required">Name</label>
                     <div class="input-group">
                         <span class="input-group-prefix" id="name_mfg_prefix" style="display:none;"></span>
-                        <input class="input" name="name" id="product_name" value="{{ old('name', html_entity_decode($product->name ?? '')) }}" required>
+                        <input class="input" name="name" id="product_name" value="{{ old('name', html_entity_decode($product->name ?? '')) }}">
                     </div>
                     @error('name')
                         <div class="field-error">{{ $message }}</div>
@@ -54,7 +50,7 @@
 
                 <div>
                     <label class="required">Model</label>
-                    <input class="input" name="model" value="{{ old('model', $product->model) }}" required>
+                    <input class="input" name="model" value="{{ old('model', $product->model) }}">
                     @error('model')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
@@ -62,7 +58,7 @@
 
                 <div>
                     <label class="required">SKU</label>
-                    <input class="input" name="sku" value="{{ old('sku', $product->sku) }}" required>
+                    <input class="input" name="sku" value="{{ old('sku', $product->sku) }}">
                     @error('sku')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
@@ -70,13 +66,13 @@
 
                 <div>
                     <label>Quantity</label>
-                    <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', $product->quantity) }}" required>
+                    <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', $product->quantity) }}">
                     <div class="hint" id="qty_hint" style="display:none;">Quantity is auto-calculated from option quantities.</div>
                 </div>
 
                 <div>
                     <label class="required">Status</label>
-                    <select class="input" name="status" required>
+                    <select class="input" name="status">
                         <option value="1" {{ old('status', (string)$product->status)=='1'?'selected':'' }}>Enabled</option>
                         <option value="0" {{ old('status', (string)$product->status)=='0'?'selected':'' }}>Disabled</option>
                     </select>
@@ -112,7 +108,7 @@
             <div class="form-grid mt-16">
                 <div>
                     <label>Selling Price</label>
-                    <input class="input" name="price" id="product_price" value="{{ old('price', $product->price) }}" required>
+                    <input class="input" name="price" id="product_price" value="{{ old('price', $product->price) }}">
                 </div>
             </div>
 
@@ -411,7 +407,7 @@
                                 saveBtn.textContent = 'Save';
                             } else {
                                 saveBtn.textContent = 'Save';
-                                alert(res.data.error || res.data.message || 'Error saving.');
+                                showFlashError(res.data.error || res.data.message || 'Error saving.');
                             }
                         })
                         .catch(function() { saveBtn.disabled = false; saveBtn.textContent = 'Save'; });
@@ -421,17 +417,19 @@
                     // Remove single row
                     var removeBtn = e.target.closest('.pv-remove-btn');
                     if (removeBtn) {
-                        if (!confirm('Remove this vendor link?')) return;
-                        var pvId = removeBtn.dataset.id;
-                        fetch(baseUrl + '/' + pvId, {
-                            method: 'DELETE',
-                            headers: { 'X-CSRF-TOKEN': csrfToken }
-                        })
-                        .then(function(r) {
-                            if (!r.ok) return;
-                            removeBtn.closest('tr').remove();
-                            groupExistingTable();
-                            checkEmpty();
+                        confirmModal('Remove this vendor link?').then(function(ok) {
+                            if (!ok) return;
+                            var pvId = removeBtn.dataset.id;
+                            fetch(baseUrl + '/' + pvId, {
+                                method: 'DELETE',
+                                headers: { 'X-CSRF-TOKEN': csrfToken }
+                            })
+                            .then(function(r) {
+                                if (!r.ok) return;
+                                removeBtn.closest('tr').remove();
+                                groupExistingTable();
+                                checkEmpty();
+                            });
                         });
                     }
                 });
@@ -508,8 +506,10 @@
                         (function(v, n) {
                             removeBtn.addEventListener('click', function(e) {
                                 e.stopPropagation();
-                                if (!confirm('Remove all entries for ' + n + '?')) return;
-                                bulkRemove(v);
+                                confirmModal('Remove all entries for ' + n + '?').then(function(ok) {
+                                    if (!ok) return;
+                                    bulkRemove(v);
+                                });
                             });
                         })(vid, g.name);
                         wrap.appendChild(removeBtn);
@@ -645,7 +645,7 @@
                     var vendorName = first.querySelector('.pv-var-vendor-input').value;
                     var currencyVal = first.querySelector('.pv-var-currency').value;
                     var minQtyVal = first.querySelector('.pv-var-minqty').value;
-                    if (!vendorId) { alert('Please select a vendor in the first row first.'); return; }
+                    if (!vendorId) { showFlashError('Please select a vendor in the first row first.'); return; }
                     for (var i = 1; i < rows.length; i++) {
                         rows[i].querySelector('.pv-var-vendor').value = vendorId;
                         rows[i].querySelector('.pv-var-vendor-input').value = vendorName;
@@ -674,7 +674,7 @@
 
                 document.getElementById('pv-add-btn').addEventListener('click', function() {
                     var vendorId = document.getElementById('pv-vendor-id').value;
-                    if (!vendorId) { alert('Please select a vendor.'); return; }
+                    if (!vendorId) { showFlashError('Please select a vendor.'); return; }
                     fetch(baseUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
@@ -688,7 +688,7 @@
                     })
                     .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
                     .then(function(res) {
-                        if (!res.ok) { alert(res.data.error || 'Error adding vendor.'); return; }
+                        if (!res.ok) { showFlashError(res.data.error || 'Error adding vendor.'); return; }
                         appendRow(res.data);
                         document.getElementById('pv-vendor-id').value = '';
                         document.getElementById('pv-vendor-search').value = '';
@@ -717,7 +717,7 @@
                             unit_price: parseFloat(tr.querySelector('.pv-var-price').value) || 0,
                         });
                     });
-                    if (options.length === 0) { alert('Please select a vendor for at least one option.'); return; }
+                    if (options.length === 0) { showFlashError('Please select a vendor for at least one option.'); return; }
 
                     btn.disabled = true;
                     btn.textContent = 'Saving…';
@@ -731,7 +731,7 @@
                     .then(function(res) {
                         btn.disabled = false;
                         btn.textContent = 'Add Vendors';
-                        if (!res.ok) { alert(res.data.error || res.data.message || 'Error saving.'); return; }
+                        if (!res.ok) { showFlashError(res.data.error || res.data.message || 'Error saving.'); return; }
                         var count = res.data.length;
                         res.data.forEach(function(pv) { appendRow(pv); });
                         var status = document.getElementById('pv-bulk-status');
@@ -752,7 +752,7 @@
                     .catch(function(err) {
                         btn.disabled = false;
                         btn.textContent = 'Add Vendors';
-                        alert('Network error: ' + (err.message || 'Request failed'));
+                        showFlashError('Network error: ' + (err.message || 'Request failed'));
                     });
                 });
 
@@ -797,13 +797,19 @@
                 // Warn on form submit if vendor fields are filled but unsaved
                 var prodForm = document.querySelector('form[action*="products/"]');
                 if (prodForm) {
+                    var vendorConfirmed = false;
                     prodForm.addEventListener('submit', function(e) {
+                        if (vendorConfirmed) return;
+
                         // Check simple mode
                         var simpleVendor = document.getElementById('pv-vendor-id');
                         if (simpleVendor && simpleVendor.value) {
-                            if (!confirm('You have unsaved vendor data. Continue without saving it?')) {
-                                e.preventDefault(); return;
-                            }
+                            e.preventDefault();
+                            confirmModal('You have unsaved vendor data. Continue without saving it?').then(function(ok) {
+                                if (!ok) return;
+                                vendorConfirmed = true;
+                                prodForm.submit();
+                            });
                             return;
                         }
                         // Check option mode
@@ -812,9 +818,12 @@
                             if (tr.querySelector('.pv-var-vendor').value) hasUnsaved = true;
                         });
                         if (hasUnsaved) {
-                            if (!confirm('You have unsaved vendor data. Continue without saving it?')) {
-                                e.preventDefault();
-                            }
+                            e.preventDefault();
+                            confirmModal('You have unsaved vendor data. Continue without saving it?').then(function(ok) {
+                                if (!ok) return;
+                                vendorConfirmed = true;
+                                prodForm.submit();
+                            });
                         }
                     });
                 }
@@ -825,7 +834,7 @@
 
         <div class="d-flex gap-10 items-center justify-end mt-20">
             <button class="btn" type="submit">Update</button>
-            <button class="btn danger" type="button" onclick="if(confirm('Delete this item?')) document.getElementById('delete-form').submit();">Delete</button>
+            <button class="btn danger" type="button" data-confirm="Delete this item?" data-confirm-submit="delete-form">Delete</button>
         </div>
     </form>
 
@@ -923,17 +932,19 @@
     if (overrideBtn) {
         overrideBtn.addEventListener('click', function() {
             if (!unlocked) {
-                if (!confirm('Cost is normally updated when receiving a PO. Are you sure you want to edit manually?')) return;
-                costFields.forEach(function(el) {
-                    el.removeAttribute('readonly');
-                    el.removeAttribute('tabindex');
-                    el.style.background = '';
+                confirmModal('Cost is normally updated when receiving a PO. Are you sure you want to edit manually?').then(function(ok) {
+                    if (!ok) return;
+                    costFields.forEach(function(el) {
+                        el.removeAttribute('readonly');
+                        el.removeAttribute('tabindex');
+                        el.style.background = '';
+                    });
+                    lockBadge.textContent = 'Manual override';
+                    lockBadge.style.background = 'var(--warning-bg, #fef3c7)';
+                    lockBadge.style.color = 'var(--warning, #d97706)';
+                    overrideBtn.textContent = 'Lock';
+                    unlocked = true;
                 });
-                lockBadge.textContent = 'Manual override';
-                lockBadge.style.background = 'var(--warning-bg, #fef3c7)';
-                lockBadge.style.color = 'var(--warning, #d97706)';
-                overrideBtn.textContent = 'Lock';
-                unlocked = true;
             } else {
                 costFields.forEach(function(el) {
                     el.setAttribute('readonly', true);

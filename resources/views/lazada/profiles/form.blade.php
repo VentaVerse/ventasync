@@ -39,7 +39,7 @@
             {{-- Row 1: Name --}}
             <div>
                 <label>Profile Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="name" class="input" value="{{ old('name', $profile->name) }}" placeholder="e.g. Valeton Multi-FX" required>
+                <input type="text" name="name" class="input" value="{{ old('name', $profile->name) }}" placeholder="e.g. Valeton Multi-FX">
             </div>
 
             {{-- Row 2: Product Filters --}}

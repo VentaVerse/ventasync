@@ -18,7 +18,7 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', html_entity_decode($category->name ?? '')) }}" required>
+                <input class="input" name="name" value="{{ old('name', html_entity_decode($category->name ?? '')) }}">
             </div>
 
             <div>
@@ -35,7 +35,7 @@
 
             <div>
                 <label class="required">Status</label>
-                <select class="input" name="status" required>
+                <select class="input" name="status">
                     <option value="1" {{ old('status', (string)$category->status)=='1'?'selected':'' }}>Enabled</option>
                     <option value="0" {{ old('status', (string)$category->status)=='0'?'selected':'' }}>Disabled</option>
                 </select>
@@ -61,7 +61,7 @@
 </form>
 
 <div class="mt-16 d-flex justify-start">
-    <button class="btn danger" type="button" onclick="if(confirm('Delete this item?')) document.getElementById('delete-form').submit();">Delete</button>
+    <button class="btn danger" type="button" data-confirm="Delete this item?" data-confirm-submit="delete-form">Delete</button>
 </div>
 
 </div>

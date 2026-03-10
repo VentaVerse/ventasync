@@ -18,7 +18,7 @@
         </form>
     </div>
 
-    <form id="vendor-bulk-form" method="POST" action="{{ route('vendors.bulk_delete') }}" onsubmit="return window.__confirmVendorBulkDelete();">
+    <form id="vendor-bulk-form" method="POST" action="{{ route('vendors.bulk_delete') }}" onsubmit="return window.__confirmVendorBulkDelete(event);">
         @csrf
     </form>
 
@@ -86,13 +86,19 @@
                 b.addEventListener('change', updateSelectAllState);
             });
 
-            window.__confirmVendorBulkDelete = function () {
+            window.__confirmVendorBulkDelete = function (e) {
+                var form = e.target;
+                if (form._confirmed) { form._confirmed = false; return true; }
                 var selected = checks().filter(function (b) { return b.checked; }).length;
                 if (selected === 0) {
-                    alert('Please select at least one vendor.');
+                    showFlashError('Please select at least one vendor.');
                     return false;
                 }
-                return confirm('Delete selected vendors? This cannot be undone.');
+                e.preventDefault();
+                confirmModal('Delete selected vendors? This cannot be undone.').then(function (ok) {
+                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+                });
+                return false;
             };
 
             updateSelectAllState();

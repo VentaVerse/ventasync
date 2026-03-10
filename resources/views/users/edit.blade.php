@@ -18,17 +18,17 @@
         <div class="form-grid">
             <div>
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $user->name) }}" required>
+                <input class="input" name="name" value="{{ old('name', $user->name) }}">
             </div>
 
             <div>
                 <label class="required">Username</label>
-                <input class="input" name="username" value="{{ old('username', $user->username) }}" required>
+                <input class="input" name="username" value="{{ old('username', $user->username) }}">
             </div>
 
             <div class="full">
                 <label class="required">Email</label>
-                <input class="input" type="email" name="email" value="{{ old('email', $user->email) }}" required>
+                <input class="input" type="email" name="email" value="{{ old('email', $user->email) }}">
             </div>
 
             <div>
@@ -43,7 +43,7 @@
 
             <div class="full">
                 <label class="required">User Group</label>
-                <select class="input" name="user_group_id" required>
+                <select class="input" name="user_group_id">
                     @foreach($groups as $g)
                         <option value="{{ $g->id }}" {{ (string)old('user_group_id', $user->user_group_id) === (string)$g->id ? 'selected' : '' }}>
                             {{ $g->name }}
@@ -56,7 +56,7 @@
         <div class="mt-16" style="display:flex; justify-content:flex-end; gap:8px;">
             <a class="btn secondary" href="{{ route('activity_log.index', ['user_id' => $user->id]) }}">View Activity Log</a>
             <button class="btn danger" type="button"
-                onclick="if(confirm('Delete this user?')) document.getElementById('delete-user-form').submit();">
+                data-confirm="Delete this user?" data-confirm-submit="delete-user-form">
                 Delete
             </button>
         </div>

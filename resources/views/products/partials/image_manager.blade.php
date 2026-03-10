@@ -179,7 +179,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
   async function uploadFile(file){
     const mid = getManufacturerId();
     if (!mid) {
-      alert('Please select a Manufacturer first.');
+      showFlashError('Please select a Manufacturer first.');
       return;
     }
 
@@ -196,7 +196,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok || !data.ok) {
-      alert(data.message || 'Upload failed.');
+      showFlashError(data.message || 'Upload failed.');
       return;
     }
 
@@ -207,7 +207,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
   async function importFromUrl(url){
     const mid = getManufacturerId();
-    if (!mid) { alert('Please select a Manufacturer first.'); return; }
+    if (!mid) { showFlashError('Please select a Manufacturer first.'); return; }
 
     const resp = await fetch(@json(route('products.images.import_url')), {
       method: 'POST',
@@ -216,7 +216,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     });
 
     const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data.ok) { alert(data.message || 'Import failed.'); return; }
+    if (!resp.ok || !data.ok) { showFlashError(data.message || 'Import failed.'); return; }
 
     items.push({path: data.path, url: data.url});
     render();
@@ -260,23 +260,25 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       del.className = 'pim-server-delete';
       del.innerHTML = '&times;';
       del.title = 'Delete from server';
-      del.addEventListener('click', async (e) => {
+      del.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!confirm('Delete "' + (f.name||'') + '" from server? This cannot be undone.')) return;
-        const resp = await fetch(@json(route('products.images.delete')), {
-          method: 'POST',
-          headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
-          body: JSON.stringify({ path: f.path })
+        confirmModal('Delete "' + (f.name||'') + '" from server? This cannot be undone.').then(async function(ok) {
+          if (!ok) return;
+          const resp = await fetch(@json(route('products.images.delete')), {
+            method: 'POST',
+            headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+            body: JSON.stringify({ path: f.path })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) { showToast(data.message || 'Delete failed','error'); return; }
+          // Remove from cache and re-render
+          cachedServerFiles = cachedServerFiles.filter(x => x.path !== f.path);
+          renderServerFiles();
+          // Also remove from product images if it was added
+          items = items.filter(x => x.path !== f.path);
+          render();
+          showToast('Deleted','info');
         });
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok || !data.ok) { showToast(data.message || 'Delete failed','error'); return; }
-        // Remove from cache and re-render
-        cachedServerFiles = cachedServerFiles.filter(x => x.path !== f.path);
-        renderServerFiles();
-        // Also remove from product images if it was added
-        items = items.filter(x => x.path !== f.path);
-        render();
-        showToast('Deleted','info');
       });
       card.appendChild(del);
 
@@ -290,7 +292,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
   async function loadServerDir(path, startAtManufacturer){
     const mid = getManufacturerId();
-    if (!mid) { alert('Please select a Manufacturer first.'); return; }
+    if (!mid) { showFlashError('Please select a Manufacturer first.'); return; }
     currentServerPath = String(path || '').replace(/\\/g,'/').replace(/^\/+|\/+$/g,'');
 
     serverGrid.innerHTML = '';
@@ -342,7 +344,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
   async function openServerModal(){
     const mid = getManufacturerId();
-    if (!mid) { alert('Please select a Manufacturer first.'); return; }
+    if (!mid) { showFlashError('Please select a Manufacturer first.'); return; }
     modal.setAttribute('aria-hidden','false');
     await loadServerDir('', true);
   }
@@ -412,7 +414,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     input.value = '';
     for (const f of files) {
       const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['jpg','jpeg','png','webp'].includes(ext)) { alert('Only JPG, PNG, and WebP images are allowed.'); continue; }
+      if (!['jpg','jpeg','png','webp'].includes(ext)) { showFlashError('Only JPG, PNG, and WebP images are allowed.'); continue; }
       await uploadFile(f);
     }
   });
@@ -426,7 +428,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     const files = Array.from(e.dataTransfer.files || []);
     for (const f of files) {
       const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['jpg','jpeg','png','webp'].includes(ext)) { alert('Only JPG, PNG, and WebP images are allowed.'); continue; }
+      if (!['jpg','jpeg','png','webp'].includes(ext)) { showFlashError('Only JPG, PNG, and WebP images are allowed.'); continue; }
       await uploadFile(f);
     }
   });

@@ -7,9 +7,9 @@
         <h2>Error Log</h2>
 
         <div class="page-header-actions">
-            <form method="POST" action="{{ route('error_log.clear') }}" style="margin:0;">
+            <form method="POST" action="{{ route('error_log.clear') }}" style="margin:0;" data-confirm="Clear error.log? This cannot be undone.">
                 @csrf
-                <button type="submit" class="btn danger" onclick="return confirm('Clear error.log? This cannot be undone.');">Clear error.log</button>
+                <button type="submit" class="btn danger">Clear error.log</button>
             </form>
 
             <form method="POST" action="{{ route('error_log.test') }}" style="margin:0;">

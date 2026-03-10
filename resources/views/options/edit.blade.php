@@ -35,12 +35,12 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $option->name) }}" required>
+                <input class="input" name="name" value="{{ old('name', $option->name) }}">
             </div>
 
             <div>
                 <label class="required">Type</label>
-                <select class="input" name="type" required>
+                <select class="input" name="type">
                     @foreach(['select','radio','checkbox','text','textarea','file','date','time','datetime'] as $t)
                         <option value="{{ $t }}" {{ old('type', $option->type)===$t?'selected':'' }}>{{ $t }}</option>
                     @endforeach
@@ -49,7 +49,7 @@
 
             <div>
                 <label class="required">Sort Order</label>
-                <input class="input" name="sort_order" type="number" value="{{ old('sort_order', (int)$option->sort_order) }}" required>
+                <input class="input" name="sort_order" type="number" value="{{ old('sort_order', (int)$option->sort_order) }}">
             </div>
         </div>
 
@@ -82,7 +82,7 @@
                     <input class="input" type="number" name="values[{{ $i }}][sort_order]" value="{{ old('values.'.$i.'.sort_order', (int)$v->sort_order) }}">
                 </td>
                 <td class="actions">
-                    <button class="btn danger small" type="submit" form="del-ov-{{ (int)$v->option_value_id }}" onclick="return confirm('Delete this value?');">Delete</button>
+                    <button class="btn danger small" type="button" data-confirm="Delete this value?" data-confirm-submit="del-ov-{{ (int)$v->option_value_id }}">Delete</button>
                 </td>
             </tr>
         @endforeach

@@ -17,7 +17,7 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}" required>
+                <input class="input" name="name" value="{{ old('name') }}">
             </div>
 
             <div>

@@ -9,15 +9,18 @@
         @csrf
         <div>
             <label class="text-xs text-secondary">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from') }}" class="input" style="width:auto;" required>
+            <input type="date" name="date_from" value="{{ old('date_from') }}" class="input" style="width:auto;">
         </div>
         <div>
             <label class="text-xs text-secondary">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to') }}" class="input" style="width:auto;" required>
+            <input type="date" name="date_to" value="{{ old('date_to') }}" class="input" style="width:auto;">
         </div>
         <div class="d-flex gap-8" style="align-self:flex-end;">
             <button type="submit" class="btn" id="btnFetchReviews">Fetch Reviews</button>
-            <button type="submit" class="btn danger" formaction="{{ route('reviews.delete_all') }}" onclick="return confirm('Delete ALL reviews? This cannot be undone.')">Delete All</button>
+            <form method="POST" action="{{ route('reviews.delete_all') }}" style="margin:0; display:inline;" data-confirm="Delete ALL reviews? This cannot be undone.">
+                @csrf
+                <button type="submit" class="btn danger">Delete All</button>
+            </form>
         </div>
         <div class="text-secondary text-xs" style="flex:1;">
             Fetches reviews from Shopee &amp; Lazada for the selected date range.
@@ -39,11 +42,11 @@
                 &middot; {{ $pendingCount }} pending
             </span>
             @if($pendingCount > 0)
-                <form method="POST" action="{{ route('reviews.push_all') }}" style="display:inline;" onsubmit="return confirm('Push ALL pending/error reviews to OpenCart? This runs in the background.')">
+                <form method="POST" action="{{ route('reviews.push_all') }}" style="display:inline;" data-confirm="Push ALL pending/error reviews to OpenCart? This runs in the background.">
                     @csrf
                     <button class="btn" type="submit">Push All to OC</button>
                 </form>
-                <form method="POST" action="{{ route('reviews.bulk_push') }}" id="bulkForm" onsubmit="return confirm('Push all selected reviews to OpenCart?')">
+                <form method="POST" action="{{ route('reviews.bulk_push') }}" id="bulkForm" data-confirm="Push all selected reviews to OpenCart?">
                     @csrf
                     <button class="btn secondary" type="submit" id="bulkPushBtn" disabled>Push Selected</button>
                 </form>

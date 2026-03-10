@@ -194,6 +194,7 @@
             </div>
         </div>
 
+
         <div class="table-wrap">
 <table class="table" id="lazadaListingsTable">
     <thead>
@@ -248,6 +249,7 @@
 
             $isDeleted = !is_null($l->lazada_deleted_at);
             $hasItemId = !is_null($l->lazada_item_id) && (string)$l->lazada_item_id !== '';
+            $isUnlinked = !is_null($l->unlinked_at);
 
             $hasSyncInfo = !is_null($l->last_synced_at) || !is_null($l->last_sync_ok);
             $hasError = $hasSyncInfo && !is_null($l->last_sync_ok) && !$l->last_sync_ok;
@@ -268,6 +270,9 @@
             </td>
             <td>
                 <a href="{{ route('lazada.products.edit', $l->id) }}" class="font-bold" style="text-decoration:none; color:var(--text-primary);">{{ $pName ?: '-' }}</a>
+                @if($isUnlinked)
+                    <span class="badge badge-gray">Unlinked</span>
+                @endif
                 @if($optRows && count($optRows) > 0)
                     <div style="margin-top:4px;">
                         @foreach($optRows as $or)
@@ -363,14 +368,14 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             Edit
                         </a>
-                        <form method="POST" action="{{ route('lazada.products.upload', $l->id) }}" style="margin:0;" onsubmit="return confirm('Upload this product to Lazada?');">
+                        @if(!$hasItemId)
+                        <form method="POST" action="{{ route('lazada.products.upload', $l->id) }}" style="margin:0;" data-confirm="Upload this product to Lazada?">
                             @csrf
                             <button type="submit" class="action-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
                                 Upload
                             </button>
                         </form>
-                        @if(empty($l->lazada_item_id))
                         <form method="POST" action="{{ route('lazada.products.sync_lazada_id', $l->id) }}" style="margin:0;">
                             @csrf
                             <button type="submit" class="action-item">
@@ -379,6 +384,7 @@
                             </button>
                         </form>
                         @endif
+                        @if(!$isUnlinked && $hasItemId)
                         <form method="POST" action="{{ route('lazada.products.sync_quantity', $l->id) }}" style="margin:0;">
                             @csrf
                             <button type="submit" class="action-item">
@@ -394,20 +400,31 @@
                             </button>
                         </form>
                         <div style="border-top:1px solid var(--border-light); margin:4px 0;"></div>
-                        <form method="POST" action="{{ route('lazada.products.unlink', $l->id) }}" style="margin:0;" onsubmit="return confirm('Unlink this product from Lazada ERP? This removes the ERP link only — the Lazada listing is not deleted. You can re-sync afterwards.');">
+                        <form method="POST" action="{{ route('lazada.products.unlink', $l->id) }}" style="margin:0;" data-confirm="Unlink this product? Sync operations will stop but the listing stays visible.">
                             @csrf
                             <button type="submit" class="action-item" style="color:var(--danger);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                                 Unlink from Lazada
                             </button>
                         </form>
-                        <form method="POST" action="{{ route('lazada.products.delete_lazada', $l->id) }}" style="margin:0;" onsubmit="return confirm('Delete this product from Lazada? This cannot be undone.');">
+                        <form method="POST" action="{{ route('lazada.products.delete_lazada', $l->id) }}" style="margin:0;" data-confirm="Delete this product from Lazada? This cannot be undone.">
                             @csrf
                             <button type="submit" class="action-item" style="color:var(--danger);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                 Delete from Lazada
                             </button>
                         </form>
+                        @endif
+                        @if($isUnlinked)
+                        <div style="border-top:1px solid var(--border-light); margin:4px 0;"></div>
+                        <form method="POST" action="{{ route('lazada.products.remove', $l->id) }}" style="margin:0;" data-confirm="Remove this listing from the local list? This does NOT delete anything on Lazada.">
+                            @csrf
+                            <button type="submit" class="action-item" style="color:var(--danger);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                Remove from list
+                            </button>
+                        </form>
+                        @endif
                     </div>
                 </div>
             </td>
@@ -483,32 +500,79 @@
 
     rowChecks().forEach(function(b){ b.addEventListener('change', updateState); });
 
+    // Helper: inject listing_ids[] into a bulk form
+    function injectBulkIds(form, ids) {
+        form.querySelectorAll('input[name="listing_ids[]"]').forEach(function(n){ n.remove(); });
+        ids.forEach(function(id){
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'listing_ids[]';
+            inp.value = id;
+            form.appendChild(inp);
+        });
+    }
+
     // Bulk action forms
     document.querySelectorAll('form.bulk-action-form').forEach(function(form){
+        // data-confirm forms: inject IDs on first submit, show overlay only on confirmed re-submit
+        if (form.getAttribute('data-confirm')) {
+            form.addEventListener('submit', function(e) {
+                var hasIds = form.querySelectorAll('input[name="listing_ids[]"]').length > 0;
+
+                if (hasIds) {
+                    // Re-submit after confirm — show loading overlay and let through
+                    var overlay = document.getElementById('loadingOverlay');
+                    var msg = document.getElementById('loadingMsg');
+                    var count = form.querySelectorAll('input[name="listing_ids[]"]').length;
+                    if (overlay) {
+                        if (msg) msg.textContent = 'Processing ' + count + ' item(s)...';
+                        overlay.classList.add('active');
+                    }
+                    return;
+                }
+
+                // First submit — inject IDs before global data-confirm handler shows modal
+                var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
+                if (!ids.length) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    showFlashError('Please select at least 1 product.');
+                    return;
+                }
+                injectBulkIds(form, ids);
+            });
+            return;
+        }
+
         form.addEventListener('submit', function(e){
             form.querySelectorAll('input[name="listing_ids[]"]').forEach(function(n){ n.remove(); });
 
             var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
             if (!ids.length) {
                 e.preventDefault();
-                alert('Please select at least 1 product.');
+                showFlashError('Please select at least 1 product.');
                 return;
             }
 
             if (form.classList.contains('bulk-delete-form')) {
-                if (!confirm('Delete ' + ids.length + ' selected product(s) from Lazada? This cannot be undone.')) {
-                    e.preventDefault();
-                    return;
-                }
+                e.preventDefault();
+                confirmModal('Delete ' + ids.length + ' selected product(s) from Lazada? This cannot be undone.').then(function(ok) {
+                    if (!ok) return;
+                    injectBulkIds(form, ids);
+                    var overlay = document.getElementById('loadingOverlay');
+                    var msg = document.getElementById('loadingMsg');
+                    if (overlay) {
+                        if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
+                        overlay.classList.add('active');
+                    }
+                    form.querySelector('button[type="submit"]').disabled = true;
+                    form._confirmed = true;
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                });
+                return;
             }
 
-            ids.forEach(function(id){
-                var inp = document.createElement('input');
-                inp.type = 'hidden';
-                inp.name = 'listing_ids[]';
-                inp.value = id;
-                form.appendChild(inp);
-            });
+            injectBulkIds(form, ids);
 
             // Show loading overlay
             var overlay = document.getElementById('loadingOverlay');
@@ -562,7 +626,9 @@
     });
     // ── Loading overlay for individual action forms ─────────────
     document.querySelectorAll('.action-menu form').forEach(function(form) {
-        form.addEventListener('submit', function() {
+        form.addEventListener('submit', function(e) {
+            // Skip if submission was prevented (e.g. confirm modal cancelled)
+            if (e.defaultPrevented) return;
             var overlay = document.getElementById('loadingOverlay');
             var msg = document.getElementById('loadingMsg');
             if (overlay) {
@@ -643,6 +709,12 @@
                 resultsDiv.style.display = 'none';
             }
         });
+    });
+
+    // Close bulk update dropdown on outside click
+    document.addEventListener('click', function(e) {
+        var dd = document.getElementById('bulk-update-dropdown');
+        if (dd && !dd.contains(e.target)) dd.classList.remove('open');
     });
 })();
 </script>

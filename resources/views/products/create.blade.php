@@ -9,10 +9,6 @@
         <a class="btn secondary" href="{{ route('products.index') }}">Back</a>
     </div>
 
-    @if ($errors->any())
-        <div class="alert error mt-12">{{ $errors->first() }}</div>
-    @endif
-
     <form method="POST" action="{{ route('products.store') }}">
         @csrf
 
@@ -46,7 +42,7 @@
                     <label class="required">Name</label>
                     <div class="input-group">
                         <span class="input-group-prefix" id="name_mfg_prefix" style="display:none;"></span>
-                        <input class="input" name="name" id="product_name" value="{{ old('name') }}" required>
+                        <input class="input" name="name" id="product_name" value="{{ old('name') }}">
                     </div>
                     @error('name')
                         <div class="field-error">{{ $message }}</div>
@@ -55,7 +51,7 @@
 
                 <div>
                     <label class="required">Model</label>
-                    <input class="input" name="model" value="{{ old('model') }}" required>
+                    <input class="input" name="model" value="{{ old('model') }}">
                     @error('model')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
@@ -63,7 +59,7 @@
 
                 <div>
                     <label class="required">SKU</label>
-                    <input class="input" name="sku" value="{{ old('sku') }}" required>
+                    <input class="input" name="sku" value="{{ old('sku') }}">
                     @error('sku')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
@@ -71,7 +67,7 @@
 
                 <div>
                     <label>Quantity</label>
-                    <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', '0') }}" required>
+                    <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', '0') }}">
                     @error('quantity')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
@@ -80,7 +76,7 @@
 
                 <div>
                     <label class="required">Status</label>
-                    <select class="input" name="status" required>
+                    <select class="input" name="status">
                         <option value="1" {{ old('status','1')=='1'?'selected':'' }}>Enabled</option>
                         <option value="0" {{ old('status','1')=='0'?'selected':'' }}>Disabled</option>
                     </select>
@@ -121,7 +117,7 @@
                 <div class="form-grid">
                     <div>
                         <label>Selling Price</label>
-                        <input class="input" name="price" id="product_price" value="{{ old('price', '0') }}" required>
+                        <input class="input" name="price" id="product_price" value="{{ old('price', '0') }}">
                         @error('price')
                             <div class="field-error">{{ $message }}</div>
                         @enderror

@@ -42,25 +42,25 @@
 
             <div>
                 <label>Item Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="item_name" class="input" value="{{ old('item_name', $product->name) }}" required maxlength="255">
+                <input type="text" name="item_name" class="input" value="{{ old('item_name', $product->name) }}" maxlength="255">
             </div>
 
             <div style="margin-top:12px;">
                 <label>Description <span style="color:#d11;">*</span></label>
-                <textarea name="description" class="input" rows="6" required maxlength="5000">{{ old('description', strip_tags($product->description ?? '')) }}</textarea>
+                <textarea name="description" class="input" rows="6" maxlength="5000">{{ old('description', strip_tags($product->description ?? '')) }}</textarea>
             </div>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top:12px;">
                 <div>
                     <label>Price <span style="color:#d11;">*</span></label>
-                    <input type="number" name="original_price" class="input" step="0.01" min="0.01" value="{{ old('original_price', number_format($suggestedPrice ?? (float)$product->price, 2, '.', '')) }}" required>
+                    <input type="number" name="original_price" class="input" step="0.01" min="0.01" value="{{ old('original_price', number_format($suggestedPrice ?? (float)$product->price, 2, '.', '')) }}">
                     @if(isset($suggestedPrice) && $suggestedPrice != (float)$product->price)
                         <div class="hint">Base: {{ number_format((float)$product->price, 2) }} + profile markup</div>
                     @endif
                 </div>
                 <div>
                     <label>Stock <span style="color:#d11;">*</span></label>
-                    <input type="number" name="normal_stock" class="input" min="0" value="{{ old('normal_stock', (int)$product->quantity) }}" required>
+                    <input type="number" name="normal_stock" class="input" min="0" value="{{ old('normal_stock', (int)$product->quantity) }}">
                 </div>
                 <div>
                     <label>SKU</label>
@@ -75,19 +75,19 @@
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
                 <div>
                     <label>Weight (kg) <span style="color:#d11;">*</span></label>
-                    <input type="number" name="weight" class="input" step="0.01" min="0.01" value="{{ old('weight', number_format((float)$product->weight, 2, '.', '')) }}" required>
+                    <input type="number" name="weight" class="input" step="0.01" min="0.01" value="{{ old('weight', number_format((float)$product->weight, 2, '.', '')) }}">
                 </div>
                 <div>
                     <label>Length (cm) <span style="color:#d11;">*</span></label>
-                    <input type="number" name="package_length" class="input" min="1" value="{{ old('package_length', max(1, (int)$product->length)) }}" required>
+                    <input type="number" name="package_length" class="input" min="1" value="{{ old('package_length', max(1, (int)$product->length)) }}">
                 </div>
                 <div>
                     <label>Width (cm) <span style="color:#d11;">*</span></label>
-                    <input type="number" name="package_width" class="input" min="1" value="{{ old('package_width', max(1, (int)$product->width)) }}" required>
+                    <input type="number" name="package_width" class="input" min="1" value="{{ old('package_width', max(1, (int)$product->width)) }}">
                 </div>
                 <div>
                     <label>Height (cm) <span style="color:#d11;">*</span></label>
-                    <input type="number" name="package_height" class="input" min="1" value="{{ old('package_height', max(1, (int)$product->height)) }}" required>
+                    <input type="number" name="package_height" class="input" min="1" value="{{ old('package_height', max(1, (int)$product->height)) }}">
                 </div>
             </div>
         </div>
@@ -103,7 +103,7 @@
                     $selectedCatId = (int)old('category_id', $profileCategoryId ?? 0);
                 @endphp
                 <label>Category <span style="color:#d11;">*</span></label>
-                <select name="category_id" class="input" required>
+                <select name="category_id" class="input">
                     <option value="">-- Select Shopee Category --</option>
                     @foreach($shopeeCategories as $c)
                         <option value="{{ (int)$c->category_id }}" {{ $selectedCatId === (int)$c->category_id ? 'selected' : '' }}>

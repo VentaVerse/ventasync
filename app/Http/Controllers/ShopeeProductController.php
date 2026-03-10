@@ -2286,10 +2286,15 @@ class ShopeeProductController extends Controller
             'shop_id' => (int) $setting->shop_id,
         ]);
 
-        $url = $client->baseUrl($setting->mode ?? 'sandbox') . $path . '?' . $query;
+        $url = $client->baseUrl($setting->mode ?? 'live') . $path . '?' . $query;
+
+        $contents = file_get_contents($localPath);
+        if ($contents === false) {
+            return ['status' => 0, 'ok' => false, 'body' => ['error' => 'file_read_failed', 'message' => 'Could not read image file: ' . basename($localPath)]];
+        }
 
         $response = Http::timeout(30)
-            ->attach('image', file_get_contents($localPath), basename($localPath))
+            ->attach('image', $contents, basename($localPath))
             ->post($url);
 
         return ['status' => $response->status(), 'ok' => $response->ok(), 'body' => $response->json() ?? $response->body()];

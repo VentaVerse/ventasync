@@ -79,7 +79,7 @@
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('shopee.profiles.edit', $p->id) }}">Edit</a>
 
-                                <form method="POST" action="{{ route('shopee.profiles.destroy', $p->id) }}" style="margin:0;" onsubmit="return confirm('Delete this profile?');">
+                                <form method="POST" action="{{ route('shopee.profiles.destroy', $p->id) }}" style="margin:0;" data-confirm="Delete this profile?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>

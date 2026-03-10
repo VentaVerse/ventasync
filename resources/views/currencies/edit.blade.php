@@ -22,22 +22,22 @@
         <div class="form-grid">
             <div>
                 <label class="required">Code</label>
-                <input class="input" name="code" value="{{ old('code', $currency->code) }}" required maxlength="3" style="text-transform:uppercase;">
+                <input class="input" name="code" value="{{ old('code', $currency->code) }}" maxlength="3" style="text-transform:uppercase;">
             </div>
 
             <div>
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $currency->name) }}" required>
+                <input class="input" name="name" value="{{ old('name', $currency->name) }}">
             </div>
 
             <div>
                 <label class="required">Symbol</label>
-                <input class="input" name="symbol" value="{{ old('symbol', $currency->symbol) }}" required maxlength="8">
+                <input class="input" name="symbol" value="{{ old('symbol', $currency->symbol) }}" maxlength="8">
             </div>
 
             <div>
                 <label class="required">Exchange Rate</label>
-                <input class="input" name="exchange_rate" value="{{ old('exchange_rate', $currency->exchange_rate) }}" required>
+                <input class="input" name="exchange_rate" value="{{ old('exchange_rate', $currency->exchange_rate) }}">
                 <div class="hint">Rate relative to base currency (PHP)</div>
             </div>
 
@@ -51,7 +51,7 @@
 
             <div>
                 <label class="required">Status</label>
-                <select class="input" name="status" required>
+                <select class="input" name="status">
                     <option value="1" {{ old('status', (string) $currency->status) == '1' ? 'selected' : '' }}>Active</option>
                     <option value="0" {{ old('status', (string) $currency->status) == '0' ? 'selected' : '' }}>Inactive</option>
                 </select>
@@ -67,7 +67,7 @@
 
     <div class="mt-16 d-flex justify-start">
         <button class="btn danger" type="button"
-            onclick="if(confirm('Delete this currency?')) document.getElementById('delete-currency-form').submit();">
+            data-confirm="Delete this currency?" data-confirm-submit="delete-currency-form">
             Delete
         </button>
     </div>

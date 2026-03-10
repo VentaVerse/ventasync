@@ -18,16 +18,6 @@
         <div class="alert success">{{ session('status') }}</div>
     @endif
 
-    @if($errors->any())
-        <div class="alert danger">
-            <strong>Fix the following:</strong>
-            <ul style="margin: 6px 0 0 18px;">
-                @foreach($errors->all() as $e)
-                    <li>{{ $e }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
 
     <div class="card">
         <form method="POST" action="{{ $mode === 'create' ? route('shopee.profiles.store') : route('shopee.profiles.update', $profile->id) }}">
@@ -39,7 +29,7 @@
             {{-- Row 1: Name --}}
             <div>
                 <label>Profile Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="name" class="input" value="{{ old('name', $profile->name) }}" placeholder="e.g. Guitar Pedals" required>
+                <input type="text" name="name" class="input" value="{{ old('name', $profile->name) }}" placeholder="e.g. Guitar Pedals">
             </div>
 
             {{-- Row 2: Product Filters --}}
@@ -100,7 +90,7 @@
             <h3 class="section-title" style="margin-top:20px;">Shopee Mapping</h3>
 
             <div>
-                <label>Shopee Category</label>
+                <label>Shopee Category <span style="color:var(--danger);">*</span></label>
                 <select name="shopee_category_id" class="input">
                     <option value="">-- Select Shopee Category --</option>
                     @foreach(($shopeeCategories ?? collect()) as $c)
@@ -112,7 +102,7 @@
             </div>
 
             {{-- Logistics Channels --}}
-            <h3 class="section-title" style="margin-top:20px;">Logistics Channels</h3>
+            <h3 class="section-title" style="margin-top:20px;">Logistics Channels <span style="color:var(--danger);">*</span></h3>
             <div class="hint" style="margin-bottom:8px;">Select the logistics channels to use when pushing products from this profile.</div>
 
             @php

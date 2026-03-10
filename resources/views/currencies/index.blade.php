@@ -48,7 +48,7 @@
                 <td class="d-flex gap-8 items-center">
                     <a class="btn small" href="{{ route('currencies.edit', $c->id) }}">Edit</a>
                     @if(!$c->is_default)
-                    <form method="POST" action="{{ route('currencies.destroy', $c->id) }}" onsubmit="return confirm('Delete this currency?')">
+                    <form method="POST" action="{{ route('currencies.destroy', $c->id) }}" data-confirm="Delete this currency?">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>

@@ -21,22 +21,22 @@
         <div class="form-grid">
             <div>
                 <label class="required">Code</label>
-                <input class="input" name="code" value="{{ old('code') }}" required maxlength="3" placeholder="e.g. USD" style="text-transform:uppercase;">
+                <input class="input" name="code" value="{{ old('code') }}" maxlength="3" placeholder="e.g. USD" style="text-transform:uppercase;">
             </div>
 
             <div>
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}" required placeholder="e.g. US Dollar">
+                <input class="input" name="name" value="{{ old('name') }}" placeholder="e.g. US Dollar">
             </div>
 
             <div>
                 <label class="required">Symbol</label>
-                <input class="input" name="symbol" value="{{ old('symbol') }}" required maxlength="8" placeholder="e.g. $">
+                <input class="input" name="symbol" value="{{ old('symbol') }}" maxlength="8" placeholder="e.g. $">
             </div>
 
             <div>
                 <label class="required">Exchange Rate</label>
-                <input class="input" name="exchange_rate" value="{{ old('exchange_rate', '1.00000000') }}" required>
+                <input class="input" name="exchange_rate" value="{{ old('exchange_rate', '1.00000000') }}">
                 <div class="hint">Rate relative to base currency (PHP)</div>
             </div>
 
@@ -50,7 +50,7 @@
 
             <div>
                 <label class="required">Status</label>
-                <select class="input" name="status" required>
+                <select class="input" name="status">
                     <option value="1" {{ old('status', '1') == '1' ? 'selected' : '' }}>Active</option>
                     <option value="0" {{ old('status') == '0' ? 'selected' : '' }}>Inactive</option>
                 </select>

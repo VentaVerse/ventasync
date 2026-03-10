@@ -24,7 +24,7 @@
         </form>
     </div>
 
-    <form id="category-bulk-form" method="POST" action="{{ route('categories.bulk') }}" onsubmit="return window.__confirmCategoryBulkAction();">
+    <form id="category-bulk-form" method="POST" action="{{ route('categories.bulk') }}" onsubmit="return window.__confirmCategoryBulkAction(event);">
         @csrf
     </form>
 
@@ -54,7 +54,7 @@
                 <td>{{ (int)$c->status === 1 ? 'Enabled' : 'Disabled' }}</td>
                 <td class="d-flex gap-8 items-center">
                     <a class="btn small" href="{{ route('categories.edit', $c->category_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('categories.destroy', $c->category_id) }}" onsubmit="return confirm('Delete this category?')">
+                    <form method="POST" action="{{ route('categories.destroy', $c->category_id) }}" data-confirm="Delete this category?">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>
@@ -96,18 +96,24 @@
                 b.addEventListener('change', updateSelectAllState);
             });
 
-            window.__confirmCategoryBulkAction = function () {
+            window.__confirmCategoryBulkAction = function (e) {
+                var form = e.target;
+                if (form._confirmed) { form._confirmed = false; return true; }
                 var selected = checks().filter(function (b) { return b.checked; }).length;
                 if (selected === 0) {
-                    alert('Please select at least one category.');
+                    showFlashError('Please select at least one category.');
                     return false;
                 }
                 var action = actionSelect ? (actionSelect.value || '') : '';
                 if (!action) {
-                    alert('Please choose an action.');
+                    showFlashError('Please choose an action.');
                     return false;
                 }
-                return confirm('Apply "' + action + '" to selected categories?');
+                e.preventDefault();
+                confirmModal('Apply "' + action + '" to selected categories?').then(function (ok) {
+                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+                });
+                return false;
             };
 
             updateSelectAllState();

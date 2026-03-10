@@ -35,12 +35,12 @@
         <div class="form-grid">
             <div class="full">
                 <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}" required>
+                <input class="input" name="name" value="{{ old('name') }}">
             </div>
 
             <div>
                 <label class="required">Type</label>
-                <select class="input" name="type" required>
+                <select class="input" name="type">
                     @foreach(['select','radio','checkbox','text','textarea','file','date','time','datetime'] as $t)
                         <option value="{{ $t }}" {{ old('type','select')===$t?'selected':'' }}>{{ $t }}</option>
                     @endforeach
@@ -49,7 +49,7 @@
 
             <div>
                 <label class="required">Sort Order</label>
-                <input class="input" name="sort_order" type="number" value="{{ old('sort_order', 0) }}" required>
+                <input class="input" name="sort_order" type="number" value="{{ old('sort_order', 0) }}">
             </div>
         </div>
 

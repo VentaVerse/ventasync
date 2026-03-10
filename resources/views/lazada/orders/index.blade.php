@@ -521,7 +521,7 @@
                                     <div class="d-flex gap-8 flex-wrap items-center">
                                         {{-- TO PACK (pending): only Pack & Print --}}
                                         @if($isToPack)
-                                            <form method="POST" action="{{ route('lazada.orders.pack_print', ['orderId' => $orderId]) }}" onsubmit="return confirm('Pack this order now? This will create packages and make AWB available.');">
+                                            <form method="POST" action="{{ route('lazada.orders.pack_print', ['orderId' => $orderId]) }}" data-confirm="Pack this order now? This will create packages and make AWB available.">
                                                 @csrf
                                                 <button type="submit" class="btn small">Pack &amp; Print</button>
                                             </form>
@@ -531,12 +531,12 @@
                                         @if($isToArrange)
                                             <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
 
-                                            <form method="POST" action="{{ route('lazada.orders.rts', ['orderId' => $orderId]) }}" onsubmit="return confirm('Arrange Shipment (Ready To Ship) for this order?');">
+                                            <form method="POST" action="{{ route('lazada.orders.rts', ['orderId' => $orderId]) }}" data-confirm="Arrange Shipment (Ready To Ship) for this order?">
                                                 @csrf
                                                 <button type="submit" class="btn small" style="background:#16a34a; border-color:#16a34a; color:#fff;">Arrange Shipment</button>
                                             </form>
 
-                                            <form method="POST" action="{{ route('lazada.orders.recreate_package', ['orderId' => $orderId]) }}" onsubmit="return confirm('Recreate Package (local)? Lazada may still keep the original package. Continue?');">
+                                            <form method="POST" action="{{ route('lazada.orders.recreate_package', ['orderId' => $orderId]) }}" data-confirm="Recreate Package (local)? Lazada may still keep the original package. Continue?">
                                                 @csrf
                                                 <button type="submit" class="btn small secondary">Recreate Package</button>
                                             </form>
@@ -672,7 +672,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var dateTo = fetchForm.querySelector('input[name="date_to"]');
             if (!dateFrom.value || !dateTo.value) {
                 e.preventDefault();
-                alert('Please provide both From and To dates.');
+                showFlashError('Please provide both From and To dates.');
                 return;
             }
             var ov = document.getElementById('lzLoadingOverlay');

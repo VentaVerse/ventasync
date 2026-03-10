@@ -91,11 +91,11 @@
                                     </div>
                                     <div>
                                         <label class="required">Base URL</label>
-                                        <input type="text" name="base_url" class="input" value="{{ $store->base_url }}" placeholder="https://store.example.com" required>
+                                        <input type="text" name="base_url" class="input" value="{{ $store->base_url }}" placeholder="https://store.example.com">
                                     </div>
                                     <div class="full">
                                         <label class="required">API Key</label>
-                                        <input type="password" name="api_key" class="input" value="{{ $store->api_key }}" required>
+                                        <input type="password" name="api_key" class="input" value="{{ $store->api_key }}">
                                         <div class="hint">Must match the key in OpenCart's ERP Sync module.</div>
                                     </div>
                                     <div>
@@ -114,7 +114,7 @@
                             </form>
 
                             <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-light); display:flex; justify-content:flex-end;">
-                                <form method="POST" action="{{ route('opencart.destroy', $store->id) }}" style="display:inline;" onsubmit="return confirm('Delete this store and all its product links? This cannot be undone.')">
+                                <form method="POST" action="{{ route('opencart.destroy', $store->id) }}" style="display:inline;" data-confirm="Delete this store and all its product links? This cannot be undone.">
                                     @csrf
                                     @method('DELETE')
                                     <button class="btn small danger" type="submit">Delete Store</button>
@@ -506,11 +506,11 @@
                             </div>
                             <div>
                                 <label class="required">Base URL</label>
-                                <input type="text" name="base_url" class="input" value="" placeholder="https://store.example.com" required>
+                                <input type="text" name="base_url" class="input" value="" placeholder="https://store.example.com">
                             </div>
                             <div class="full">
                                 <label class="required">API Key</label>
-                                <input type="text" name="api_key" class="input" value="" placeholder="Your shared secret key" required>
+                                <input type="text" name="api_key" class="input" value="" placeholder="Your shared secret key">
                                 <div class="hint">Must match the key set in OpenCart's ERP Sync module settings.</div>
                             </div>
                             <div>
@@ -1022,43 +1022,49 @@
                 return;
             }
 
-            if (confirmMsg && !confirm(confirmMsg)) return;
+            function doPush() {
+                _runningProcesses[key] = true;
+                btn.classList.add('is-loading');
+                btn.disabled = true;
 
-            _runningProcesses[key] = true;
-            btn.classList.add('is-loading');
-            btn.disabled = true;
+                var startToast = ocToast('info', 'Push All Products started. This may take a while...', 0);
 
-            var startToast = ocToast('info', 'Push All Products started. This may take a while...', 0);
+                fetch("{{ route('opencart.push') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ store_id: storeId })
+                })
+                .then(function(res) { return res.json().then(function(json) { return { status: res.status, json: json }; }); })
+                .then(function(r) {
+                    dismissToast(startToast);
+                    if (r.json.status) {
+                        ocToast('success', r.json.status);
+                    } else if (r.json.error) {
+                        ocToast('error', r.json.error);
+                    } else {
+                        ocToast('success', 'Push All Products completed.');
+                    }
+                })
+                .catch(function(e) {
+                    dismissToast(startToast);
+                    ocToast('error', 'Push failed: ' + e.message);
+                })
+                .finally(function() {
+                    delete _runningProcesses[key];
+                    btn.classList.remove('is-loading');
+                    btn.disabled = false;
+                });
+            }
 
-            fetch("{{ route('opencart.push') }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ store_id: storeId })
-            })
-            .then(function(res) { return res.json().then(function(json) { return { status: res.status, json: json }; }); })
-            .then(function(r) {
-                dismissToast(startToast);
-                if (r.json.status) {
-                    ocToast('success', r.json.status);
-                } else if (r.json.error) {
-                    ocToast('error', r.json.error);
-                } else {
-                    ocToast('success', 'Push All Products completed.');
-                }
-            })
-            .catch(function(e) {
-                dismissToast(startToast);
-                ocToast('error', 'Push failed: ' + e.message);
-            })
-            .finally(function() {
-                delete _runningProcesses[key];
-                btn.classList.remove('is-loading');
-                btn.disabled = false;
-            });
+            if (confirmMsg) {
+                confirmModal(confirmMsg).then(function(ok) { if (ok) doPush(); });
+                return;
+            }
+            doPush();
         });
     });
 

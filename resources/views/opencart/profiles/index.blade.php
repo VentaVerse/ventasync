@@ -49,7 +49,7 @@
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('opencart.profiles.products', [$setting->id, $p->id]) }}">Products</a>
                                 <a class="btn small" href="{{ route('opencart.profiles.edit', [$setting->id, $p->id]) }}">Edit</a>
-                                <form method="POST" action="{{ route('opencart.profiles.destroy', [$setting->id, $p->id]) }}" style="margin:0;" onsubmit="return confirm('Delete this profile?');">
+                                <form method="POST" action="{{ route('opencart.profiles.destroy', [$setting->id, $p->id]) }}" style="margin:0;" data-confirm="Delete this profile?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>

@@ -104,7 +104,7 @@
                     <div class="d-flex gap-6 items-center">
                         <a class="btn small" href="{{ route('orders.show', $o->order_id) }}">View</a>
                         <a class="btn small secondary" href="{{ route('orders.edit', $o->order_id) }}">Edit</a>
-                        <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" onsubmit="return confirm('Delete this order?')">
+                        <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" data-confirm="Delete this order?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>

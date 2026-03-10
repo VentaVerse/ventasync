@@ -560,7 +560,7 @@
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
             @if($logCount > 0)
-                <form method="POST" action="{{ route('tiktok.clear_api_logs') }}" onsubmit="return confirm('Delete all TikTok API logs?')">
+                <form method="POST" action="{{ route('tiktok.clear_api_logs') }}" data-confirm="Delete all TikTok API logs?">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn small danger">Delete All Logs</button>

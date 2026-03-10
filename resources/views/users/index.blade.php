@@ -48,7 +48,7 @@
                         <a class="btn small secondary" href="{{ route('activity_log.index', ['user_id' => $u->id]) }}">Activity</a>
                         @if(($u->userGroup->name ?? '') !== 'Administrator')
 
-                        <form method="POST" action="{{ route('users.destroy', $u->id) }}" onsubmit="return confirm('Delete this user?')">
+                        <form method="POST" action="{{ route('users.destroy', $u->id) }}" data-confirm="Delete this user?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>

@@ -134,11 +134,14 @@ class ShopeeProfileController extends Controller
             'catalog_category_ids.*' => 'integer|min:1',
             'manufacturer_ids' => 'nullable|array',
             'manufacturer_ids.*' => 'integer|min:1',
-            'shopee_category_id' => 'nullable|integer|min:1',
-            'logistic_ids' => 'nullable|array',
+            'shopee_category_id' => 'required|integer|min:1',
+            'logistic_ids' => 'required|array',
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
+        ], [
+            'shopee_category_id.required' => 'Shopee Category is required.',
+            'logistic_ids.required' => 'At least one Logistics Channel is required.',
         ]);
 
         $catIds = array_filter($data['catalog_category_ids'] ?? []);
@@ -173,11 +176,14 @@ class ShopeeProfileController extends Controller
             'catalog_category_ids.*' => 'integer|min:1',
             'manufacturer_ids' => 'nullable|array',
             'manufacturer_ids.*' => 'integer|min:1',
-            'shopee_category_id' => 'nullable|integer|min:1',
-            'logistic_ids' => 'nullable|array',
+            'shopee_category_id' => 'required|integer|min:1',
+            'logistic_ids' => 'required|array',
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
+        ], [
+            'shopee_category_id.required' => 'Shopee Category is required.',
+            'logistic_ids.required' => 'At least one Logistics Channel is required.',
         ]);
 
         $catIds = array_filter($data['catalog_category_ids'] ?? []);
