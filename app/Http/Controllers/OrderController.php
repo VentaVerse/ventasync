@@ -607,12 +607,15 @@ class OrderController extends Controller
             if ($paymentFee > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentFee]; $total += $paymentFee; }
             if ($shippingCost > 0) { $items[] = ['label' => 'Shipping Fee', 'amount' => $shippingCost]; $total += $shippingCost; }
 
-            // Other fees (stored as key=>value map)
+            // Other fees: only include actual fee deductions (negative values)
             $otherFees = $fees['other_fees'] ?? [];
             if (is_array($otherFees)) {
                 foreach ($otherFees as $label => $amount) {
-                    $amt = abs((float) $amount);
-                    if ($amt > 0) { $items[] = ['label' => $label, 'amount' => $amt]; $total += $amt; }
+                    if ((float) $amount < 0) {
+                        $amt = abs((float) $amount);
+                        $items[] = ['label' => ucwords(str_replace('_', ' ', $label)), 'amount' => $amt];
+                        $total += $amt;
+                    }
                 }
             }
 

@@ -2083,6 +2083,12 @@ public function reset(Request $request)
         ]);
     }
 
+    private function awbError(string $message)
+    {
+        return response('<html><body style="font-family:system-ui,sans-serif;padding:40px;"><h3 style="color:#dc3545;">AWB Error</h3><p>' . e($message) . '</p></body></html>', 422)
+            ->header('Content-Type', 'text/html');
+    }
+
     public function awbPdf(Request $request, LazadaClient $client, $orderId)
     {
         // Serve saved AWB if it exists locally
@@ -2099,10 +2105,7 @@ public function reset(Request $request)
         // Decrypt Lazada credentials via model method.
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
-            ]);
+            return $this->awbError('Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.');
         }
 
         // Package-based printing: Pack -> PrintAWB (/order/package/document/get)
@@ -2110,27 +2113,15 @@ public function reset(Request $request)
         $items = $this->getOrderItems($client, $setting, $orderId);
 
         if (!$items['ok']) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Failed to fetch order items.',
-                'raw' => $items['raw'],
-            ]);
+            return $this->awbError('Failed to fetch order items.');
         }
 
         if ($items['is_sof']) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Lazada error: 50008 - not support operation for sof order',
-                'raw' => $items['raw'],
-            ]);
+            return $this->awbError('Lazada error: 50008 - not support operation for sof order');
         }
 
         if (count($items['package_ids']) === 0) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Lazada error: 700040 - There are no packages that support printing! Click Pack first to generate packages.',
-                'raw' => $items['raw'],
-            ]);
+            return $this->awbError('No packages support printing. Click Pack first to generate packages.');
         }
 
         $packages = array_map(function ($pid) {
@@ -2161,22 +2152,14 @@ public function reset(Request $request)
         );
 
         if (!($awbRes['ok'] ?? false)) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Failed to retrieve AWB PDF.',
-                'raw' => $awbRes,
-            ]);
+            return $this->awbError('Failed to retrieve AWB PDF.');
         }
 
         $awbBody = $awbRes['body'] ?? [];
 
         // If Lazada returned an API error at the top-level, surface it early
         if (is_array($awbBody) && isset($awbBody['code']) && isset($awbBody['message'])) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Lazada error: ' . $awbBody['code'] . ' - ' . $awbBody['message'],
-                'raw' => $awbRes,
-            ]);
+            return $this->awbError('Lazada error: ' . $awbBody['code'] . ' - ' . $awbBody['message']);
         }
         $dataNode = is_array($awbBody) ? ($awbBody['data'] ?? $awbBody) : $awbBody;
 
@@ -2185,27 +2168,18 @@ public function reset(Request $request)
             $code = (string)$dataNode['code'];
             $msg = (string)$dataNode['message'];
 
-            // Common cases in demo/sandbox or non-eligible orders
             if ($code === '700040') {
-                $msg .= ' (This order has no printable package yet. Usually you can only print AWB after the order item is packed/ready-to-ship and has a package.)';
+                $msg .= ' (No printable package yet — order must be packed/ready-to-ship first.)';
             } elseif ($code === '50008') {
-                $msg .= ' (This looks like an SOF/DBS order type that does not support this printing operation via this API.)';
+                $msg .= ' (SOF/DBS order type — not supported via this API.)';
             }
 
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'Lazada error: ' . $code . ' - ' . $msg,
-                'raw' => $awbRes,
-            ]);
+            return $this->awbError('Lazada error: ' . $code . ' - ' . $msg);
         }
 
         $doc = $this->findDocument($dataNode);
         if (!$doc) {
-            return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
-                'ok' => false,
-                'message' => 'AWB PDF response did not contain a document.',
-                'raw' => $awbRes,
-            ]);
+            return $this->awbError('AWB PDF response did not contain a document.');
         }
 
         // Save-to-server behavior:

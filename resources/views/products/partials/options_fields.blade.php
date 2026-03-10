@@ -4,6 +4,9 @@
 @if(session('error'))
     <div class="alert error">{{ session('error') }}</div>
 @endif
+@error('option_sku')
+    <div class="alert error">{{ $message }}</div>
+@enderror
 
 {{--
   Absolute Pricing Options Builder

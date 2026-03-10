@@ -100,8 +100,8 @@
             <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
             <div class="d-flex gap-10 flex-wrap mt-12">
-                <a href="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}" target="_blank" rel="noopener" class="btn secondary">View Logistics Trace</a>
-                <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" target="_blank" rel="noopener" class="btn">AWB PDF</a>
+                <button type="button" class="btn secondary" id="btnLogisticsTrace" data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}">View Logistics Trace</button>
+                <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn">AWB PDF</a>
             </div>
         </div>
     </div>
@@ -208,11 +208,16 @@
     $lOrderVoucher = (float)($fees['order_voucher'] ?? 0);
     $lOtherFees = $fees['other_fees'] ?? [];
 
-    // Estimate net: paid - commission - payment fee - shipping service cost
+    // Estimate net: item price minus all fee deductions
     $lNet = $lPaidTotal ?: $lSubtotal;
-    if ($lCommission) $lNet += $lCommission; // commission is typically negative
+    if ($lCommission) $lNet += $lCommission;
     if ($lPaymentFee) $lNet += $lPaymentFee;
-    if ($lShippingServiceCost) $lNet -= $lShippingServiceCost;
+    if ($lShippingServiceCost) $lNet += $lShippingServiceCost;
+    if (is_array($lOtherFees)) {
+        foreach ($lOtherFees as $feeAmt) {
+            if ((float) $feeAmt < 0) $lNet += (float) $feeAmt;
+        }
+    }
 
     // Per-item fee breakdown from raw item data
     $itemFees = [];
@@ -308,7 +313,7 @@
                             @endif
                         @endforeach
                     @endif
-                    @if($lNet && ($lCommission || $lPaymentFee || $lShippingServiceCost))
+                    @if($lNet && ($lCommission || $lPaymentFee || $lShippingServiceCost || !empty($lOtherFees)))
                     <tr style="border-top:2px solid var(--border);">
                         <td class="font-bold">Estimated Net</td>
                         <td class="text-right font-bold" style="font-size:1.1em; color:#16a34a;">{{ number_format($lNet, 2) }}</td>
@@ -408,4 +413,106 @@
         <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode(['order' => $raw, 'detail' => $detail, 'fees' => $fees], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
     </details>
 </div>
+
+{{-- Logistics trace modal --}}
+<div id="lzLogisticsModal" class="modal-backdrop">
+    <div class="modal" style="max-width:720px;">
+        <div class="modal-header">
+            <h3>Logistics Trace</h3>
+            <button type="button" class="modal-close" onclick="document.getElementById('lzLogisticsModal').classList.remove('active')">&times;</button>
+        </div>
+        <div id="lzLogisticsBody" class="text-xs mt-16">
+            <div class="text-secondary">Loading…</div>
+        </div>
+        <div class="d-flex gap-10 justify-end mt-16">
+            <button type="button" class="btn secondary" onclick="document.getElementById('lzLogisticsModal').classList.remove('active')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal = document.getElementById('lzLogisticsModal');
+    var body = document.getElementById('lzLogisticsBody');
+    var btn = document.getElementById('btnLogisticsTrace');
+    if (!btn || !modal || !body) return;
+
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('active'); });
+
+    function esc(s) {
+        return String(s || '').replace(/[&<>"']/g, function (c) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[c] || c;
+        });
+    }
+
+    function fmtTime(t) {
+        if (!t) return '';
+        if (typeof t === 'number' && t > 1e12) { var d = new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
+        if (typeof t === 'number' && t > 1e9) return fmtTime(t * 1000);
+        return String(t);
+    }
+
+    function renderTrace(respBody) {
+        var data = (respBody && respBody.data) ? respBody.data : respBody;
+        var traces = [];
+        if (data) {
+            traces = data.traces || data.trace_list || data.traceList || data.events || [];
+            if ((!Array.isArray(traces) || !traces.length) && Array.isArray(data.packages)) {
+                data.packages.forEach(function (p) { traces = traces.concat(p.package_trace_list || p.traceList || []); });
+            }
+            if ((!Array.isArray(traces) || !traces.length) && data.result && Array.isArray(data.result.module)) {
+                data.result.module.forEach(function (m) {
+                    (m.package_detail_info_list || []).forEach(function (p) { traces = traces.concat(p.logistic_detail_info_list || []); });
+                });
+            }
+        }
+        if (!Array.isArray(traces) || !traces.length) {
+            body.textContent = 'No logistics events returned.';
+            return;
+        }
+
+        // Build table using DOM methods (safe from XSS)
+        var wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        var table = document.createElement('table');
+        table.className = 'table';
+        var thead = document.createElement('thead');
+        var hr = document.createElement('tr');
+        ['Time', 'Status', 'Details'].forEach(function (h) { var th = document.createElement('th'); th.textContent = h; if (h === 'Time') th.style.width = '160px'; hr.appendChild(th); });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        var tbody = document.createElement('tbody');
+        traces.forEach(function (t) {
+            var tr = document.createElement('tr');
+            var tdTime = document.createElement('td'); tdTime.textContent = fmtTime(t.event_time||t.time||t.timestamp||t.update_time||'');
+            var tdStatus = document.createElement('td'); tdStatus.className = 'font-bold'; tdStatus.textContent = t.title||t.status||t.event||t.action||'';
+            var tdDetail = document.createElement('td'); tdDetail.textContent = t.description||t.desc||t.detail||t.message||'';
+            tr.appendChild(tdTime); tr.appendChild(tdStatus); tr.appendChild(tdDetail);
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        body.textContent = '';
+        body.appendChild(wrap);
+    }
+
+    btn.addEventListener('click', function () {
+        modal.classList.add('active');
+        body.textContent = 'Loading…';
+        fetch(btn.dataset.url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j || j.ok !== true) throw new Error((j && j.body && j.body.message) || (j && j.message) || 'Failed to fetch');
+                renderTrace(j.body);
+            })
+            .catch(function (e) {
+                body.textContent = '';
+                var err = document.createElement('div');
+                err.style.color = 'var(--danger)';
+                err.textContent = e.message || 'Failed to fetch logistics trace';
+                body.appendChild(err);
+            });
+    });
+})();
+</script>
 @endsection

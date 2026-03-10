@@ -790,6 +790,16 @@
         });
     });
 
+    // ── Reset loading state on browser back (bfcache restore) ──
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+            document.querySelectorAll('.is-loading').forEach(function(btn) {
+                btn.classList.remove('is-loading');
+                btn.disabled = false;
+            });
+        }
+    });
+
     // ── Swipe-to-open sidebar on mobile ──
     (function () {
         var touchStartX = 0;

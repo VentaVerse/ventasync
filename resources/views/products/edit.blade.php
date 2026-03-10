@@ -793,6 +793,31 @@
                     d.textContent = s || '';
                     return d.innerHTML;
                 }
+
+                // Warn on form submit if vendor fields are filled but unsaved
+                var prodForm = document.querySelector('form[action*="products/"]');
+                if (prodForm) {
+                    prodForm.addEventListener('submit', function(e) {
+                        // Check simple mode
+                        var simpleVendor = document.getElementById('pv-vendor-id');
+                        if (simpleVendor && simpleVendor.value) {
+                            if (!confirm('You have unsaved vendor data. Continue without saving it?')) {
+                                e.preventDefault(); return;
+                            }
+                            return;
+                        }
+                        // Check option mode
+                        var hasUnsaved = false;
+                        document.querySelectorAll('#pv-option-tbody tr[data-pov]').forEach(function(tr) {
+                            if (tr.querySelector('.pv-var-vendor').value) hasUnsaved = true;
+                        });
+                        if (hasUnsaved) {
+                            if (!confirm('You have unsaved vendor data. Continue without saving it?')) {
+                                e.preventDefault();
+                            }
+                        }
+                    });
+                }
             });
             </script>
 
@@ -812,16 +837,42 @@
 
 <script>
 (function() {
-    document.querySelectorAll('.tabs .tab').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.tabs .tab').forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
-            document.getElementById('prod-tab-general').classList.add('hidden');
-            document.getElementById('prod-tab-options').classList.add('hidden');
-            document.getElementById('prod-tab-vendor').classList.add('hidden');
-            document.getElementById(btn.dataset.tab).classList.remove('hidden');
+    var tabs = ['prod-tab-general', 'prod-tab-options', 'prod-tab-vendor'];
+    var tabBtns = document.querySelectorAll('.tabs .tab');
+
+    function switchTo(tabId) {
+        tabBtns.forEach(function(b) {
+            b.classList.toggle('active', b.dataset.tab === tabId);
         });
+        tabs.forEach(function(id) {
+            document.getElementById(id).classList.toggle('hidden', id !== tabId);
+        });
+    }
+
+    tabBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() { switchTo(btn.dataset.tab); });
     });
+
+    // On validation error, switch to the first tab that contains an error
+    @if($errors->any())
+    var errorTab = null;
+    var errorKeys = @json($errors->keys());
+    var optionKeys = ['option_sku'];
+    var vendorKeys = [];
+    for (var i = 0; i < errorKeys.length; i++) {
+        if (optionKeys.indexOf(errorKeys[i]) !== -1) { errorTab = 'prod-tab-options'; break; }
+        if (vendorKeys.indexOf(errorKeys[i]) !== -1) { errorTab = 'prod-tab-vendor'; break; }
+    }
+    if (!errorTab) {
+        // Check if any tab panel contains an error element
+        for (var t = 0; t < tabs.length; t++) {
+            if (document.getElementById(tabs[t]).querySelector('.alert.error, .alert.danger, .field-error')) {
+                errorTab = tabs[t]; break;
+            }
+        }
+    }
+    if (errorTab) switchTo(errorTab);
+    @endif
 })();
 </script>
 @endsection

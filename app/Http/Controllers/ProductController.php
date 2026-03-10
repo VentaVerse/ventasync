@@ -1362,6 +1362,32 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             return;
         }
 
+        // Validate SKU uniqueness across all option value SKUs
+        $skuRule = new UniqueSku($productId);
+        $errors = [];
+
+        $valueSources = $request->input('values', []);
+        $comboSources = $request->input('combinations', []);
+
+        foreach ((is_array($valueSources) ? $valueSources : []) as $v) {
+            $sku = trim((string) ($v['sku'] ?? ''));
+            if ($sku === '') continue;
+            $skuRule->validate('sku', $sku, function (string $msg) use (&$errors) {
+                $errors[] = $msg;
+            });
+        }
+        foreach ((is_array($comboSources) ? $comboSources : []) as $c) {
+            $sku = trim((string) ($c['sku'] ?? ''));
+            if ($sku === '') continue;
+            $skuRule->validate('sku', $sku, function (string $msg) use (&$errors) {
+                $errors[] = $msg;
+            });
+        }
+
+        if (!empty($errors)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $errors]);
+        }
+
         if ($option1Name !== '') {
             $this->saveAbsoluteTwoOptions($productId, $request, $skuChanges);
         } else {
@@ -1698,7 +1724,7 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             }
         }
         if (!empty($errors)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['sku' => $errors]);
+            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $errors]);
         }
 
         // Index existing product_option rows by option_id

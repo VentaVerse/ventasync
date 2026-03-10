@@ -93,23 +93,17 @@
         <div class="detail-body">
             <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
-            @if($hasAwbFile || $statusNorm === 'PROCESSED')
-                <div class="mt-12">
+            <div class="d-flex gap-10 flex-wrap mt-12">
+                @if($tracking !== '')
+                    <button type="button" class="btn secondary" id="btnLogisticsTrace" data-url="{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">View Logistics Trace</button>
+                @endif
+                @if($hasAwbFile || $statusNorm === 'PROCESSED')
                     <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn">Print AWB</a>
-                </div>
-            @endif
+                @endif
+            </div>
         </div>
     </div>
 </div>
-
-@if($tracking !== '')
-<div class="card mt-16">
-    <h3 class="section-title mt-0">Tracking History</h3>
-    <div id="trackingHistoryBody">
-        <button type="button" class="btn small" id="btnLoadTracking">Load Tracking Info</button>
-    </div>
-</div>
-@endif
 
 <div class="card">
     <h3 class="section-title mt-0">Items</h3>
@@ -678,68 +672,103 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 @endif
 
-@if($tracking !== '')
+{{-- Logistics trace modal --}}
+<div id="spLogisticsModal" class="modal-backdrop">
+    <div class="modal" style="max-width:720px;">
+        <div class="modal-header">
+            <h3>Logistics Trace</h3>
+            <button type="button" class="modal-close" onclick="document.getElementById('spLogisticsModal').classList.remove('active')">&times;</button>
+        </div>
+        <div id="spLogisticsBody" class="text-xs mt-16">
+            <div class="text-secondary">Loading…</div>
+        </div>
+        <div class="d-flex gap-10 justify-end mt-16">
+            <button type="button" class="btn secondary" onclick="document.getElementById('spLogisticsModal').classList.remove('active')">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('btnLoadTracking');
-    var body = document.getElementById('trackingHistoryBody');
-    if (!btn || !body) return;
+(function () {
+    var modal = document.getElementById('spLogisticsModal');
+    var body = document.getElementById('spLogisticsBody');
+    var btn = document.getElementById('btnLogisticsTrace');
+    if (!btn || !modal || !body) return;
+
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('active'); });
+
+    function fmtTime(ts) {
+        if (!ts) return '';
+        var d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+        if (isNaN(d.getTime())) return String(ts);
+        return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+    }
+
+    function renderTrace(data) {
+        var events = data.tracking_info || [];
+        var status = data.logistics_status || '';
+
+        if (!events.length) {
+            body.textContent = 'No tracking events available.';
+            return;
+        }
+
+        events.sort(function (a, b) { return (b.ctime || 0) - (a.ctime || 0); });
+
+        body.textContent = '';
+
+        if (status) {
+            var statusDiv = document.createElement('div');
+            statusDiv.className = 'text-xs text-secondary';
+            statusDiv.style.marginBottom = '12px';
+            statusDiv.textContent = 'Logistics status: ' + status;
+            body.appendChild(statusDiv);
+        }
+
+        var wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        var table = document.createElement('table');
+        table.className = 'table';
+        var thead = document.createElement('thead');
+        var hr = document.createElement('tr');
+        ['Time', 'Status', 'Description'].forEach(function (h) {
+            var th = document.createElement('th'); th.textContent = h;
+            if (h === 'Time') th.style.width = '160px';
+            hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        var tbody = document.createElement('tbody');
+        events.forEach(function (ev) {
+            var tr = document.createElement('tr');
+            var tdTime = document.createElement('td'); tdTime.textContent = fmtTime(ev.ctime);
+            var tdStatus = document.createElement('td'); tdStatus.className = 'font-bold'; tdStatus.textContent = ev.logistics_status || '';
+            var tdDesc = document.createElement('td'); tdDesc.textContent = ev.description || '';
+            tr.appendChild(tdTime); tr.appendChild(tdStatus); tr.appendChild(tdDesc);
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        body.appendChild(wrap);
+    }
 
     btn.addEventListener('click', function () {
-        btn.disabled = true;
-        btn.textContent = 'Loading…';
-
-        fetch("{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}", {
-            headers: { 'Accept': 'application/json' }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.ok) {
-                body.innerHTML = '<div class="alert warning">' + (data.message || 'Could not load tracking info.') + '</div>' +
-                    '<button type="button" class="btn small mt-12" onclick="location.reload()">Retry</button>';
-                return;
-            }
-
-            var events = data.tracking_info || [];
-            var status = data.logistics_status || '';
-
-            if (events.length === 0) {
-                body.innerHTML = '<div class="text-secondary">No tracking events available yet.</div>' +
-                    (status ? '<div class="text-xs text-secondary" style="margin-top:4px;">Status: <strong>' + status + '</strong></div>' : '');
-                return;
-            }
-
-            // Sort by ctime descending (most recent first)
-            events.sort(function (a, b) { return (b.ctime || 0) - (a.ctime || 0); });
-
-            var html = '';
-            if (status) {
-                html += '<div class="text-xs text-secondary" style="margin-bottom:12px;">Logistics status: <strong>' + status + '</strong></div>';
-            }
-            html += '<div class="tracking-timeline">';
-            events.forEach(function (ev) {
-                var dt = ev.ctime ? new Date(ev.ctime * 1000) : null;
-                var timeStr = dt ? dt.toLocaleString() : '';
-                html += '<div class="tracking-event">';
-                html += '<div class="text-sm">' + (ev.description || '—') + '</div>';
-                if (timeStr) {
-                    html += '<div class="text-xs text-secondary" style="margin-top:2px;">' + timeStr + '</div>';
-                }
-                if (ev.logistics_status) {
-                    html += '<div style="margin-top:2px;"><span style="display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px; background:var(--accent)18; color:var(--accent);">' + ev.logistics_status + '</span></div>';
-                }
-                html += '</div>';
+        modal.classList.add('active');
+        body.textContent = 'Loading…';
+        fetch(btn.dataset.url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j || !j.ok) throw new Error(j.message || 'Failed to fetch');
+                renderTrace(j);
+            })
+            .catch(function (e) {
+                body.textContent = '';
+                var err = document.createElement('div');
+                err.style.color = 'var(--danger)';
+                err.textContent = e.message || 'Failed to fetch tracking info';
+                body.appendChild(err);
             });
-            html += '</div>';
-
-            body.innerHTML = html;
-        })
-        .catch(function () {
-            body.innerHTML = '<div class="alert danger">Network error loading tracking info.</div>' +
-                '<button type="button" class="btn small mt-12" onclick="location.reload()">Retry</button>';
-        });
     });
-});
+})();
 </script>
-@endif
 @endsection
