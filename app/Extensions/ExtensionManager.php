@@ -275,7 +275,7 @@ class ExtensionManager
 
         $filename = basename($files[0], '.php');
 
-        return 'Extensions\\' . ucfirst($id) . '\\' . $filename;
+        return 'Extensions\\' . $id . '\\' . $filename;
     }
 
     /**
