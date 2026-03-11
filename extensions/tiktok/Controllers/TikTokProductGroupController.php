@@ -28,9 +28,9 @@ class TikTokProductGroupController extends Controller
 
         return [
             'setting'     => $s,
-            'app_key'     => $sandbox ? ($d['sandbox_app_key'] ?? '') : ($d['app_key'] ?? ''),
-            'app_secret'  => $sandbox ? ($d['sandbox_app_secret'] ?? '') : ($d['app_secret'] ?? ''),
-            'token'       => $sandbox ? ($d['sandbox_access_token'] ?? '') : ($d['access_token'] ?? ''),
+            'app_key'     => $sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? ''),
+            'app_secret'  => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
+            'token'       => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
             'shop_cipher' => $sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? ''),
         ];
     }
@@ -207,8 +207,8 @@ class TikTokProductGroupController extends Controller
             'catalog_category_ids.*' => 'integer|min:1',
             'manufacturer_ids'       => 'nullable|array',
             'manufacturer_ids.*'     => 'integer|min:1',
-            'markup_type'            => 'nullable|in:fixed,percent',
-            'markup_value'           => 'nullable|numeric|min:0',
+            'markup_percent'         => 'nullable|numeric|min:0',
+            'markup_fixed'           => 'nullable|numeric|min:0',
         ]);
 
         $group = TikTokProductGroup::create([
@@ -216,8 +216,8 @@ class TikTokProductGroupController extends Controller
             'tiktok_category_id'   => $data['tiktok_category_id'],
             'catalog_category_ids' => !empty($data['catalog_category_ids']) ? array_values(array_map('intval', $data['catalog_category_ids'])) : null,
             'manufacturer_ids'     => !empty($data['manufacturer_ids']) ? array_values(array_map('intval', $data['manufacturer_ids'])) : null,
-            'markup_type'          => $data['markup_type'] ?? null,
-            'markup_value'         => $data['markup_value'] ?? null,
+            'markup_percent'       => $data['markup_percent'] ?? null,
+            'markup_fixed'         => $data['markup_fixed'] ?? null,
         ]);
 
         ActivityLogger::log('created', 'TikTok Product Group', $group->id, $group->name);
@@ -237,8 +237,8 @@ class TikTokProductGroupController extends Controller
             'catalog_category_ids.*' => 'integer|min:1',
             'manufacturer_ids'       => 'nullable|array',
             'manufacturer_ids.*'     => 'integer|min:1',
-            'markup_type'            => 'nullable|in:fixed,percent',
-            'markup_value'           => 'nullable|numeric|min:0',
+            'markup_percent'         => 'nullable|numeric|min:0',
+            'markup_fixed'           => 'nullable|numeric|min:0',
         ]);
 
         $group->update([
@@ -246,8 +246,8 @@ class TikTokProductGroupController extends Controller
             'tiktok_category_id'   => $data['tiktok_category_id'],
             'catalog_category_ids' => !empty($data['catalog_category_ids']) ? array_values(array_map('intval', $data['catalog_category_ids'])) : null,
             'manufacturer_ids'     => !empty($data['manufacturer_ids']) ? array_values(array_map('intval', $data['manufacturer_ids'])) : null,
-            'markup_type'          => $data['markup_type'] ?? null,
-            'markup_value'         => $data['markup_value'] ?? null,
+            'markup_percent'       => $data['markup_percent'] ?? null,
+            'markup_fixed'         => $data['markup_fixed'] ?? null,
         ]);
 
         ActivityLogger::log('updated', 'TikTok Product Group', $group->id, $group->name);
@@ -402,14 +402,23 @@ class TikTokProductGroupController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         // Get pivot rows to push (pending or error, unless specific IDs provided)
-        $pivotQuery = $group->groupProducts();
         $specificIds = $request->input('ids');
         if (!empty($specificIds)) {
-            $pivotQuery->whereIn('product_id', array_map('intval', (array) $specificIds));
+            $intIds = array_map('intval', (array) $specificIds);
+            // Ensure pivot rows exist for filter-matched products
+            $existingIds = $group->groupProducts()->whereIn('product_id', $intIds)->pluck('product_id')->toArray();
+            $missingIds = array_diff($intIds, $existingIds);
+            foreach ($missingIds as $pid) {
+                TikTokProductGroupProduct::create([
+                    'tiktok_product_group_id' => $group->id,
+                    'product_id' => $pid,
+                    'sync_status' => 'pending',
+                ]);
+            }
+            $pivotRows = $group->groupProducts()->whereIn('product_id', $intIds)->get();
         } else {
-            $pivotQuery->whereIn('sync_status', ['pending', 'error']);
+            $pivotRows = $group->groupProducts()->whereIn('sync_status', ['pending', 'error'])->get();
         }
-        $pivotRows = $pivotQuery->get();
 
         if ($pivotRows->isEmpty()) {
             return redirect()->route('ext.tiktok.product-groups.products', $id)
@@ -482,6 +491,11 @@ class TikTokProductGroupController extends Controller
 
             if (!empty($imageUris)) {
                 $payload['main_images'] = array_map(fn($uri) => ['uri' => $uri], $imageUris);
+            } elseif (!$isUpdate) {
+                // TikTok requires main_images for new products
+                $pivot->update(['sync_status' => 'error', 'push_error' => 'No product image — TikTok requires at least one main image.']);
+                $failed++;
+                continue;
             }
 
             if ($isUpdate) {

@@ -44,9 +44,10 @@
                         if ($mfgNames->isNotEmpty()) $filterParts[] = 'Mfg: ' . $mfgNames->implode(', ');
                         $filterLabel = !empty($filterParts) ? implode(' | ', $filterParts) : 'Manual only';
 
-                        $markupLabel = '-';
-                        if ($g->markup_type === 'percent') $markupLabel = '+' . $g->markup_value . '%';
-                        elseif ($g->markup_type === 'fixed') $markupLabel = '+' . number_format((float)$g->markup_value, 2);
+                        $parts = [];
+                        if (!empty($g->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$g->markup_percent, 2), '0'), '.') . '%';
+                        if (!empty($g->markup_fixed)) $parts[] = '+' . number_format((float)$g->markup_fixed, 2);
+                        $markupLabel = !empty($parts) ? implode(' ', $parts) : '-';
                     @endphp
                     <tr>
                         <td>{{ $g->id }}</td>

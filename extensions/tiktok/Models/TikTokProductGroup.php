@@ -10,13 +10,12 @@ class TikTokProductGroup extends Model
 
     protected $fillable = [
         'name', 'tiktok_category_id', 'catalog_category_ids', 'manufacturer_ids',
-        'markup_type', 'markup_value',
+        'markup_percent', 'markup_fixed',
     ];
 
     protected $casts = [
         'catalog_category_ids' => 'array',
         'manufacturer_ids' => 'array',
-        'markup_value' => 'decimal:2',
     ];
 
     public function category()
@@ -34,15 +33,16 @@ class TikTokProductGroup extends Model
      */
     public function applyMarkup(float $price): float
     {
-        if (!$this->markup_type || !$this->markup_value) {
-            return $price;
+        $pct = (float) ($this->markup_percent ?? 0);
+        $fix = (float) ($this->markup_fixed ?? 0);
+
+        if ($pct > 0) {
+            $price = $price + ($price * $pct / 100);
+        }
+        if ($fix > 0) {
+            $price = $price + $fix;
         }
 
-        if ($this->markup_type === 'percent') {
-            return $price + ($price * (float) $this->markup_value / 100);
-        }
-
-        // fixed
-        return $price + (float) $this->markup_value;
+        return $price;
     }
 }

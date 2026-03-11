@@ -11,6 +11,46 @@ use Illuminate\Support\Str;
 
 class TikTokController extends Controller
 {
+    // -- Token save helper ------------------------------------------------
+
+    private function saveTokenData(TikTokSetting $raw, bool $sandbox, array $tokenData): void
+    {
+        $access = $tokenData['access_token'] ?? null;
+        $refresh = $tokenData['refresh_token'] ?? null;
+        $expiresIn = $tokenData['access_token_expire_in'] ?? null;
+        $refreshExpiresIn = $tokenData['refresh_token_expire_in'] ?? null;
+
+        $tokenCol = $sandbox ? 'sandbox_access_token' : 'access_token';
+        $refreshCol = $sandbox ? 'sandbox_refresh_token' : 'refresh_token';
+        $expiresCol = $sandbox ? 'sandbox_expires_at' : 'expires_at';
+        $refreshExpiresCol = $sandbox ? 'sandbox_refresh_expires_at' : 'refresh_expires_at';
+
+        if ($access) {
+            $raw->$tokenCol = encrypt((string) $access);
+        }
+        if ($refresh) {
+            $raw->$refreshCol = encrypt((string) $refresh);
+        }
+        // TikTok returns Unix timestamps, not seconds-from-now
+        // Cap at 2037-12-31 to avoid MySQL TIMESTAMP overflow (max 2038-01-19)
+        $maxTs = \Carbon\Carbon::create(2037, 12, 31, 23, 59, 59);
+
+        if (is_numeric($expiresIn)) {
+            $dt = (int) $expiresIn > 1_000_000_000
+                ? \Carbon\Carbon::createFromTimestamp((int) $expiresIn)
+                : now()->addSeconds((int) $expiresIn);
+            $raw->$expiresCol = $dt->greaterThan($maxTs) ? $maxTs : $dt;
+        }
+        if (is_numeric($refreshExpiresIn)) {
+            $dt = (int) $refreshExpiresIn > 1_000_000_000
+                ? \Carbon\Carbon::createFromTimestamp((int) $refreshExpiresIn)
+                : now()->addSeconds((int) $refreshExpiresIn);
+            $raw->$refreshExpiresCol = $dt->greaterThan($maxTs) ? $maxTs : $dt;
+        }
+
+        $raw->save();
+    }
+
     // -- Settings page (3-tab view) ---------------------------------------
 
     public function index()
@@ -128,12 +168,14 @@ class TikTokController extends Controller
         $tokenResult = null;
         $setting = TikTokSetting::query()->first()?->decrypted();
 
-        if ($code !== '' && $stateOk && $setting && $setting->app_key && $setting->app_secret) {
-            $tokenResult = $client->getToken(
-                (string) $setting->app_key,
-                (string) $setting->app_secret,
-                $code
-            );
+        // Determine active credentials based on mode
+        $raw = TikTokSetting::query()->first();
+        $sandbox = $raw && $raw->mode === 'sandbox';
+        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
+        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
+
+        if ($code !== '' && $stateOk && $setting && $activeKey && $activeSecret) {
+            $tokenResult = $client->getToken($activeKey, $activeSecret, $code);
 
             $body = $tokenResult['body'] ?? null;
             $tokenData = is_array($body) ? ($body['data'] ?? $body) : null;
@@ -144,28 +186,28 @@ class TikTokController extends Controller
                 $expiresIn = $tokenData['access_token_expire_in'] ?? null;
                 $refreshExpiresIn = $tokenData['refresh_token_expire_in'] ?? null;
 
-                $raw = TikTokSetting::query()->first() ?? new TikTokSetting();
-
-                if ($access) {
-                    $raw->access_token = encrypt((string) $access);
-                    $saved = true;
-                }
-                if ($refresh) {
-                    $raw->refresh_token = encrypt((string) $refresh);
-                }
-                if (is_numeric($expiresIn)) {
-                    $raw->expires_at = now()->addSeconds((int) $expiresIn);
-                }
-                if (is_numeric($refreshExpiresIn)) {
-                    $raw->refresh_expires_at = now()->addSeconds((int) $refreshExpiresIn);
-                }
-
                 try {
-                    $raw->save();
+                    $this->saveTokenData($raw ?? new TikTokSetting(), $sandbox, $tokenData);
+                    $saved = true;
                 } catch (\Throwable $e) {
                     $saveError = $e->getMessage();
                 }
             }
+        }
+
+        // Log the token exchange
+        if ($tokenResult !== null) {
+            TikTokApiLog::safeCreate([
+                'pack' => 'tiktok.token.get',
+                'method' => 'GET',
+                'api_path' => '/api/v2/token/get (callback)',
+                'auth_required' => false,
+                'request_params' => ['grant_type' => 'authorized_code'],
+                'response_status' => (int) ($tokenResult['status'] ?? 0),
+                'ok' => (bool) ($tokenResult['ok'] ?? false),
+                'response_body' => $tokenResult['body'] ?? null,
+                'user_id' => auth()->id(),
+            ]);
         }
 
         $message = null;
@@ -200,8 +242,13 @@ class TikTokController extends Controller
     {
         $request->validate(['code' => 'required|string']);
 
-        $setting = TikTokSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->app_key || !$setting->app_secret) {
+        $raw = TikTokSetting::query()->first();
+        $setting = $raw?->decrypted();
+        $sandbox = $raw && $raw->mode === 'sandbox';
+        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
+        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
+
+        if (!$setting || !$activeKey || !$activeSecret) {
             return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -209,36 +256,14 @@ class TikTokController extends Controller
             ]);
         }
 
-        $result = $client->getToken(
-            (string) $setting->app_key,
-            (string) $setting->app_secret,
-            (string) $request->input('code')
-        );
+        $result = $client->getToken($activeKey, $activeSecret, (string) $request->input('code'));
 
         // Persist tokens if present
         $body = $result['body'] ?? null;
         $tokenData = is_array($body) ? ($body['data'] ?? $body) : null;
 
-        if ($result['ok'] && is_array($tokenData)) {
-            $access = $tokenData['access_token'] ?? null;
-            $refresh = $tokenData['refresh_token'] ?? null;
-            $expiresIn = $tokenData['access_token_expire_in'] ?? null;
-            $refreshExpiresIn = $tokenData['refresh_token_expire_in'] ?? null;
-
-            $raw = TikTokSetting::query()->first();
-            if ($raw && $access) {
-                $raw->access_token = encrypt((string) $access);
-                if ($refresh) {
-                    $raw->refresh_token = encrypt((string) $refresh);
-                }
-                if (is_numeric($expiresIn)) {
-                    $raw->expires_at = now()->addSeconds((int) $expiresIn);
-                }
-                if (is_numeric($refreshExpiresIn)) {
-                    $raw->refresh_expires_at = now()->addSeconds((int) $refreshExpiresIn);
-                }
-                $raw->save();
-            }
+        if ($result['ok'] && is_array($tokenData) && $raw) {
+            $this->saveTokenData($raw, $sandbox, $tokenData);
         }
 
         TikTokApiLog::safeCreate([
@@ -264,8 +289,14 @@ class TikTokController extends Controller
 
     public function tokenRefresh(TikTokClient $client)
     {
-        $setting = TikTokSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->refresh_token) {
+        $raw = TikTokSetting::query()->first();
+        $setting = $raw?->decrypted();
+        $sandbox = $raw && $raw->mode === 'sandbox';
+        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
+        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
+        $activeRefresh = $sandbox ? ($setting->sandbox_refresh_token ?? '') : ($setting->refresh_token ?? '');
+
+        if (!$setting || !$activeKey || !$activeSecret || !$activeRefresh) {
             return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -273,35 +304,13 @@ class TikTokController extends Controller
             ]);
         }
 
-        $result = $client->refreshToken(
-            (string) $setting->app_key,
-            (string) $setting->app_secret,
-            (string) $setting->refresh_token
-        );
+        $result = $client->refreshToken($activeKey, $activeSecret, $activeRefresh);
 
         $body = $result['body'] ?? null;
         $tokenData = is_array($body) ? ($body['data'] ?? $body) : null;
 
-        if ($result['ok'] && is_array($tokenData)) {
-            $access = $tokenData['access_token'] ?? null;
-            $refresh = $tokenData['refresh_token'] ?? null;
-            $expiresIn = $tokenData['access_token_expire_in'] ?? null;
-            $refreshExpiresIn = $tokenData['refresh_token_expire_in'] ?? null;
-
-            $raw = TikTokSetting::query()->first();
-            if ($raw && $access) {
-                $raw->access_token = encrypt((string) $access);
-                if ($refresh) {
-                    $raw->refresh_token = encrypt((string) $refresh);
-                }
-                if (is_numeric($expiresIn)) {
-                    $raw->expires_at = now()->addSeconds((int) $expiresIn);
-                }
-                if (is_numeric($refreshExpiresIn)) {
-                    $raw->refresh_expires_at = now()->addSeconds((int) $refreshExpiresIn);
-                }
-                $raw->save();
-            }
+        if ($result['ok'] && is_array($tokenData) && $raw) {
+            $this->saveTokenData($raw, $sandbox, $tokenData);
         }
 
         TikTokApiLog::safeCreate([
@@ -327,8 +336,14 @@ class TikTokController extends Controller
 
     public function getShops(TikTokClient $client)
     {
-        $setting = TikTokSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $raw = TikTokSetting::query()->first();
+        $setting = $raw?->decrypted();
+        $sandbox = $raw && $raw->mode === 'sandbox';
+        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
+        $activeSecret = $sandbox ? ($setting->sandbox_app_secret ?? '') : ($setting->app_secret ?? '');
+        $activeToken = $sandbox ? ($setting->sandbox_access_token ?? '') : ($setting->access_token ?? '');
+
+        if (!$setting || !$activeKey || !$activeSecret || !$activeToken) {
             return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -337,12 +352,7 @@ class TikTokController extends Controller
         }
 
         $path = '/authorization/202309/shops';
-        $result = $client->get(
-            (string) $setting->app_key,
-            (string) $setting->app_secret,
-            (string) $setting->access_token,
-            $path
-        );
+        $result = $client->get($activeKey, $activeSecret, $activeToken, $path);
 
         // Persist shop info if present
         $body = $result['body'] ?? null;
@@ -350,14 +360,15 @@ class TikTokController extends Controller
 
         if ($result['ok'] && !empty($shops)) {
             $shop = $shops[0]; // Use first shop
-            $raw = TikTokSetting::query()->first();
-            if ($raw) {
-                $raw->shop_id = $shop['id'] ?? null;
-                $raw->shop_cipher = $shop['cipher'] ?? null;
-                $raw->shop_name = $shop['name'] ?? null;
-                $raw->region = $shop['region'] ?? $raw->region;
-                $raw->save();
-            }
+            $shopIdCol = $sandbox ? 'sandbox_shop_id' : 'shop_id';
+            $cipherCol = $sandbox ? 'sandbox_shop_cipher' : 'shop_cipher';
+            $nameCol = $sandbox ? 'sandbox_shop_name' : 'shop_name';
+
+            $raw->$shopIdCol = $shop['id'] ?? null;
+            $raw->$cipherCol = $shop['cipher'] ?? null;
+            $raw->$nameCol = $shop['name'] ?? null;
+            $raw->region = $shop['region'] ?? $raw->region;
+            $raw->save();
         }
 
         TikTokApiLog::safeCreate([

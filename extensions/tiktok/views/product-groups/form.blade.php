@@ -48,20 +48,22 @@
 
             {{-- Price Markup --}}
             <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
-            <div class="hint" style="margin-bottom:8px;">Optional: add a fixed amount or percentage to the ERP price when pushing to TikTok.</div>
+            <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
 
-            <div style="display:grid; grid-template-columns: 180px 180px; gap:12px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
-                    <label>Markup Type</label>
-                    <select name="markup_type" class="input">
-                        <option value="">None</option>
-                        <option value="fixed" {{ old('markup_type', $group->markup_type) === 'fixed' ? 'selected' : '' }}>Fixed Amount</option>
-                        <option value="percent" {{ old('markup_type', $group->markup_type) === 'percent' ? 'selected' : '' }}>Percentage</option>
-                    </select>
+                    <label>Percentage (%)</label>
+                    <input type="number" name="markup_percent" class="input" step="0.01" min="0"
+                           value="{{ old('markup_percent', $group->markup_percent) }}"
+                           placeholder="e.g. 5">
+                    <div class="hint">% of product price applied first.</div>
                 </div>
                 <div>
-                    <label>Value</label>
-                    <input type="number" name="markup_value" class="input" step="0.01" min="0" value="{{ old('markup_value', $group->markup_value) }}" placeholder="0.00">
+                    <label>Fixed Amount</label>
+                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
+                           value="{{ old('markup_fixed', $group->markup_fixed) }}"
+                           placeholder="e.g. 100">
+                    <div class="hint">Flat amount added after percentage.</div>
                 </div>
             </div>
 

@@ -14,8 +14,8 @@ return new class extends Migration
             $table->string('tiktok_category_id');
             $table->json('catalog_category_ids')->nullable();
             $table->json('manufacturer_ids')->nullable();
-            $table->string('markup_type')->nullable(); // 'fixed' or 'percent'
-            $table->decimal('markup_value', 10, 2)->nullable();
+            $table->decimal('markup_percent', 10, 2)->nullable();
+            $table->decimal('markup_fixed', 10, 2)->nullable();
             $table->timestamps();
         });
     }
