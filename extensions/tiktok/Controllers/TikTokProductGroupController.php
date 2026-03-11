@@ -31,7 +31,7 @@ class TikTokProductGroupController extends Controller
             'app_key'     => $sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? ''),
             'app_secret'  => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
             'token'       => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
-            'shop_cipher' => $sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? ''),
+            'shop_cipher' => $sandbox ? null : ($s->shop_cipher ?? ''),
         ];
     }
 
