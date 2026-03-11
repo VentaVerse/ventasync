@@ -10,73 +10,38 @@
             <div class="text-muted text-sm">Map products to a Shopee category and shared attributes.</div>
         </div>
         <div class="page-header-actions">
+            @if($mode === 'edit')
+                <a class="btn secondary" href="{{ route('shopee.product-groups.products', $group->id) }}">View Products</a>
+            @endif
             <a class="btn" href="{{ route('shopee.product-groups.index') }}">Back to Product Groups</a>
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
+    @if($errors->any())
+        <div class="alert danger">
+            <strong>Fix the following:</strong>
+            <ul style="margin:6px 0 0 18px;">
+                @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+            </ul>
+        </div>
     @endif
 
+    <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('shopee.product-groups.store') : route('shopee.product-groups.update', $group->id) }}">
+        @csrf
+        @if($mode === 'edit') @method('PUT') @endif
 
-    <div class="card">
-        <form method="POST" action="{{ $mode === 'create' ? route('shopee.product-groups.store') : route('shopee.product-groups.update', $group->id) }}">
-            @csrf
-            @if($mode === 'edit')
-                @method('PUT')
-            @endif
-
+        <div class="card">
             {{-- Row 1: Name --}}
             <div>
                 <label>Product Group Name <span style="color:#d11;">*</span></label>
                 <input type="text" name="name" class="input" value="{{ old('name', $group->name) }}" placeholder="e.g. Guitar Pedals">
             </div>
 
-            {{-- Row 2: Product Filters --}}
-            <h3 class="section-title" style="margin-top:20px;">Product Filter</h3>
-            <div class="hint" style="margin-bottom:8px;">Leave both empty to include <strong>all</strong> products. Type to search, click to add.</div>
-
-            @php
-                $selectedCatIds = old('catalog_category_ids', $group->catalog_category_ids ?? []) ?? [];
-                $selectedMfgIds = old('manufacturer_ids', $group->manufacturer_ids ?? []) ?? [];
-                $selectedCatIds = array_map('intval', (array)$selectedCatIds);
-                $selectedMfgIds = array_map('intval', (array)$selectedMfgIds);
-            @endphp
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label>Categories</label>
-                    <div style="position:relative;">
-                        <input type="text" class="input" id="catSearch" placeholder="Search categories..." autocomplete="off">
-                        <div id="catDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
-                    </div>
-                    <div id="catSelected" style="border:1px solid var(--border); border-radius:var(--radius-md); min-height:40px; margin-top:8px; padding:4px;"></div>
-                </div>
-                <div>
-                    <label>Manufacturers</label>
-                    <div style="position:relative;">
-                        <input type="text" class="input" id="mfgSearch" placeholder="Search manufacturers..." autocomplete="off">
-                        <div id="mfgDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
-                    </div>
-                    <div id="mfgSelected" style="border:1px solid var(--border); border-radius:var(--radius-md); min-height:40px; margin-top:8px; padding:4px;"></div>
-                </div>
-            </div>
-            <div class="hint" style="margin-top:6px;">
-                Matching products: <strong>{{ $productCount }}</strong>
-            </div>
-
-            {{-- Row 3: Markup --}}
+            {{-- Price Markup --}}
             <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
             <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label>Fixed Amount</label>
-                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
-                           value="{{ old('markup_fixed', $group->markup_fixed) }}"
-                           placeholder="e.g. 100">
-                    <div class="hint">Flat amount added after percentage.</div>
-                </div>
                 <div>
                     <label>Percentage (%)</label>
                     <input type="number" name="markup_percent" class="input" step="0.01" min="0"
@@ -84,9 +49,16 @@
                            placeholder="e.g. 5">
                     <div class="hint">% of product price applied first.</div>
                 </div>
+                <div>
+                    <label>Fixed Amount</label>
+                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
+                           value="{{ old('markup_fixed', $group->markup_fixed) }}"
+                           placeholder="e.g. 100">
+                    <div class="hint">Flat amount added after percentage.</div>
+                </div>
             </div>
 
-            {{-- Row 4: Shopee Mapping --}}
+            {{-- Shopee Mapping --}}
             <h3 class="section-title" style="margin-top:20px;">Shopee Mapping</h3>
 
             <div>
@@ -127,10 +99,102 @@
             @else
                 <div class="text-muted">No logistics channels cached. <a href="{{ route('shopee.logistics.index') }}">Fetch them from the Logistics page</a> first.</div>
             @endif
+        </div>
 
-            @if($mode === 'edit' && $template && !empty($attributes))
-                {{-- Category Attributes --}}
-                <h3 class="section-title" style="margin-top:20px;">Category Attributes</h3>
+        {{-- Product Assignment (Dual Listbox) --}}
+        <div class="card mt-16">
+            <h3 class="section-title mt-0">Products</h3>
+            <div class="hint" style="margin-bottom:12px;">Use the filters to find products, then move them to the right panel to include in this group.</div>
+
+            {{-- Search Filters --}}
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end; margin-bottom:16px;">
+                <div>
+                    <label class="text-xs text-muted">Search</label>
+                    <input type="text" class="input" id="pl-search" placeholder="Name, SKU or model..." autocomplete="off">
+                </div>
+                <div>
+                    <label class="text-xs text-muted">Category</label>
+                    <select class="input" id="pl-category">
+                        <option value="">All Categories</option>
+                        @foreach($catalogCategories as $cat)
+                            <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-muted">Manufacturer</label>
+                    <select class="input" id="pl-manufacturer">
+                        <option value="">All Manufacturers</option>
+                        @foreach($manufacturers as $mfg)
+                            <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="button" class="btn" id="pl-search-btn">Search</button>
+            </div>
+
+            {{-- Dual Listbox --}}
+            <div style="display:grid; grid-template-columns:1fr 48px 1fr; gap:0; align-items:start;">
+                {{-- Left Panel: Available --}}
+                <div>
+                    <div style="font-weight:600; font-size:13px; margin-bottom:6px;">
+                        Available <span id="pl-left-count" class="text-muted font-normal">(0)</span>
+                    </div>
+                    <div style="border:1px solid var(--border); border-radius:var(--radius-md); height:420px; overflow-y:auto; background:var(--surface);">
+                        <table class="table" style="margin:0;">
+                            <thead style="position:sticky; top:0; background:var(--surface); z-index:1;">
+                                <tr>
+                                    <th style="width:30px; padding:6px 4px;"><input type="checkbox" id="pl-left-check-all"></th>
+                                    <th style="width:50px; padding:6px 4px;">ID</th>
+                                    <th style="padding:6px 4px;">Name</th>
+                                    <th style="width:90px; padding:6px 4px;">SKU</th>
+                                    <th style="width:40px; padding:6px 4px;">Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pl-left-body">
+                                <tr><td colspan="5" class="text-muted text-center" style="padding:40px 8px; font-size:13px;">Use the filters above and click Search</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Middle: Add/Remove Buttons --}}
+                <div style="display:flex; flex-direction:column; gap:8px; align-items:center; padding-top:80px;">
+                    <button type="button" class="btn small" id="pl-add-btn" title="Add selected to group" style="padding:4px 10px; font-size:16px; font-weight:700; line-height:1;">&rsaquo;&rsaquo;</button>
+                    <button type="button" class="btn small secondary" id="pl-remove-btn" title="Remove selected from group" style="padding:4px 10px; font-size:16px; font-weight:700; line-height:1;">&lsaquo;&lsaquo;</button>
+                </div>
+
+                {{-- Right Panel: In Group --}}
+                <div>
+                    <div style="font-weight:600; font-size:13px; margin-bottom:6px;">
+                        In Group <span id="pl-right-count" class="text-muted font-normal">({{ $groupProducts->count() }})</span>
+                    </div>
+                    <div style="border:1px solid var(--border); border-radius:var(--radius-md); height:420px; overflow-y:auto; background:var(--surface);">
+                        <table class="table" style="margin:0;">
+                            <thead style="position:sticky; top:0; background:var(--surface); z-index:1;">
+                                <tr>
+                                    <th style="width:30px; padding:6px 4px;"><input type="checkbox" id="pl-right-check-all"></th>
+                                    <th style="width:50px; padding:6px 4px;">ID</th>
+                                    <th style="padding:6px 4px;">Name</th>
+                                    <th style="width:90px; padding:6px 4px;">SKU</th>
+                                    <th style="width:40px; padding:6px 4px;">Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pl-right-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Hidden inputs for product IDs --}}
+            <div id="pl-hidden-inputs"></div>
+        </div>
+
+        @if($mode === 'edit' && $template && !empty($attributes))
+            {{-- Category Attributes --}}
+            <div class="card mt-16">
+                <h3 class="section-title mt-0">Category Attributes</h3>
                 <div class="hint" style="margin-bottom:8px;">Map shared attribute values for this Shopee category.
                     @if($template->fetched_at)
                         Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}
@@ -173,19 +237,15 @@
                         </div>
                     @endforeach
                 </div>
-            @endif
-
-            <div class="d-flex justify-end gap-8 mt-16">
-                <button class="btn" type="submit">
-                    @if($mode === 'create')
-                        Create Product Group
-                    @else
-                        Save Product Group
-                    @endif
-                </button>
             </div>
-        </form>
-    </div>
+        @endif
+
+        <div class="d-flex justify-end gap-8 mt-16">
+            <button class="btn" type="submit">
+                {{ $mode === 'create' ? 'Create Product Group' : 'Save Product Group' }}
+            </button>
+        </div>
+    </form>
 
     @if($mode === 'edit')
         @if(!$template && $group->shopee_category_id)
@@ -217,118 +277,228 @@
                 </form>
             </div>
         </div>
-
-        {{-- Sync Products --}}
-        <div class="card mt-16">
-            <div class="d-flex justify-between items-center gap-12 flex-wrap">
-                <div>
-                    <h3 class="section-title mt-0">Sync Products</h3>
-                    <div class="hint">Check how many products match this product group's filter criteria.</div>
-                </div>
-                <form method="POST" action="{{ route('shopee.product-groups.sync_products', $group->id) }}">
-                    @csrf
-                    <button class="btn" type="submit" {{ empty($group->shopee_category_id) ? 'disabled' : '' }}>Sync Products</button>
-                </form>
-            </div>
-        </div>
     @endif
 
-    <script>
-        function initListPicker(config) {
-            var items = config.items;
-            var selectedIds = config.selectedIds;
-            var searchEl = config.searchEl;
-            var dropdownEl = config.dropdownEl;
-            var listEl = config.listEl;
-            var fieldName = config.fieldName;
-            var selected = new Map();
+@push('scripts')
+<script>
+(function() {
+    // ── Dual Listbox ────────────────────────────────────────────
+    var searchUrl = @json(route('shopee.product-groups.searchProducts'));
+    @php
+        $rightItemsJson = $groupProducts->map(fn($p) => [
+            'product_id' => (int) $p->product_id,
+            'name'       => $p->name,
+            'sku'        => $p->sku ?: ($p->model ?: ''),
+            'quantity'   => (int) $p->quantity,
+        ]);
+    @endphp
+    var rightItems = @json($rightItemsJson);
 
-            selectedIds.forEach(function(id) {
-                var item = items.find(function(i) { return i.id === id; });
-                if (item) selected.set(id, item.name);
-            });
+    var leftItems = [];
+    var rightSet = {};
+    rightItems.forEach(function(item) { rightSet[item.product_id] = true; });
 
-            function render() {
-                listEl.textContent = '';
-                if (selected.size === 0) {
-                    var emptyDiv = document.createElement('div');
-                    emptyDiv.style.cssText = 'padding:8px; color:var(--text-muted); font-size:13px;';
-                    emptyDiv.textContent = 'None selected';
-                    listEl.appendChild(emptyDiv);
-                    return;
-                }
-                selected.forEach(function(name, id) {
-                    var row = document.createElement('div');
-                    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:4px 8px;';
-                    var span = document.createElement('span');
-                    span.textContent = name;
-                    row.appendChild(span);
-                    var btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.textContent = '\u00D7';
-                    btn.style.cssText = 'background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-muted); padding:0 4px; line-height:1;';
-                    btn.addEventListener('click', function() { selected.delete(id); render(); });
-                    row.appendChild(btn);
-                    var inp = document.createElement('input');
-                    inp.type = 'hidden';
-                    inp.name = fieldName;
-                    inp.value = id;
-                    row.appendChild(inp);
-                    listEl.appendChild(row);
-                });
-            }
+    var leftBody = document.getElementById('pl-left-body');
+    var rightBody = document.getElementById('pl-right-body');
+    var leftCount = document.getElementById('pl-left-count');
+    var rightCount = document.getElementById('pl-right-count');
+    var hiddenDiv = document.getElementById('pl-hidden-inputs');
+    var leftCheckAll = document.getElementById('pl-left-check-all');
+    var rightCheckAll = document.getElementById('pl-right-check-all');
 
-            function showDropdown(filter) {
-                var lower = filter.toLowerCase();
-                var filtered = items.filter(function(i) {
-                    return !selected.has(i.id) && i.name.toLowerCase().indexOf(lower) !== -1;
-                });
-                if (filtered.length === 0 || filter === '') {
-                    dropdownEl.style.display = 'none';
-                    return;
-                }
-                dropdownEl.textContent = '';
-                filtered.slice(0, 50).forEach(function(item) {
-                    var div = document.createElement('div');
-                    div.textContent = item.name;
-                    div.style.cssText = 'padding:6px 10px; cursor:pointer;';
-                    div.addEventListener('mouseenter', function() { div.style.background = 'var(--surface-hover)'; });
-                    div.addEventListener('mouseleave', function() { div.style.background = ''; });
-                    div.addEventListener('mousedown', function(e) {
-                        e.preventDefault();
-                        selected.set(item.id, item.name);
-                        searchEl.value = '';
-                        dropdownEl.style.display = 'none';
-                        render();
-                    });
-                    dropdownEl.appendChild(div);
-                });
-                dropdownEl.style.display = 'block';
-            }
+    function makeRow(item, side) {
+        var tr = document.createElement('tr');
 
-            searchEl.addEventListener('input', function() { showDropdown(searchEl.value.trim()); });
-            searchEl.addEventListener('focus', function() { if (searchEl.value.trim()) showDropdown(searchEl.value.trim()); });
-            searchEl.addEventListener('blur', function() { setTimeout(function() { dropdownEl.style.display = 'none'; }, 150); });
+        var tdCb = document.createElement('td');
+        tdCb.style.cssText = 'padding:4px;';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = side === 'left' ? 'pl-left-check' : 'pl-right-check';
+        cb.value = item.product_id;
+        tdCb.appendChild(cb);
+        tr.appendChild(tdCb);
 
-            render();
+        var tdId = document.createElement('td');
+        tdId.style.cssText = 'padding:4px; font-size:12px;';
+        tdId.textContent = item.product_id;
+        tr.appendChild(tdId);
+
+        var tdName = document.createElement('td');
+        tdName.style.cssText = 'padding:4px; font-size:12px;';
+        tdName.textContent = item.name || '-';
+        tr.appendChild(tdName);
+
+        var tdSku = document.createElement('td');
+        tdSku.style.cssText = 'padding:4px; font-size:12px;';
+        var code = document.createElement('code');
+        code.textContent = item.sku || '-';
+        tdSku.appendChild(code);
+        tr.appendChild(tdSku);
+
+        var tdQty = document.createElement('td');
+        tdQty.style.cssText = 'padding:4px; font-size:12px;';
+        tdQty.textContent = item.quantity;
+        tr.appendChild(tdQty);
+
+        return tr;
+    }
+
+    function makeEmptyRow(msg, colspan) {
+        var tr = document.createElement('tr');
+        var td = document.createElement('td');
+        td.setAttribute('colspan', colspan);
+        td.className = 'text-muted text-center';
+        td.style.cssText = 'padding:40px 8px; font-size:13px;';
+        td.textContent = msg;
+        tr.appendChild(td);
+        return tr;
+    }
+
+    function renderLeft() {
+        var visible = leftItems.filter(function(item) { return !rightSet[item.product_id]; });
+        leftCount.textContent = '(' + visible.length + ')';
+        if (leftCheckAll) leftCheckAll.checked = false;
+        leftBody.textContent = '';
+
+        if (visible.length === 0) {
+            leftBody.appendChild(makeEmptyRow(leftItems.length > 0 ? 'All results already in group' : 'No results', 5));
+            return;
         }
 
-        initListPicker({
-            items: @json($catalogCategories->map(fn($c) => ['id' => (int)$c->category_id, 'name' => $c->name])),
-            selectedIds: @json($selectedCatIds),
-            searchEl: document.getElementById('catSearch'),
-            dropdownEl: document.getElementById('catDropdown'),
-            listEl: document.getElementById('catSelected'),
-            fieldName: 'catalog_category_ids[]'
+        visible.forEach(function(item) {
+            leftBody.appendChild(makeRow(item, 'left'));
+        });
+    }
+
+    function renderRight() {
+        rightCount.textContent = '(' + rightItems.length + ')';
+        if (rightCheckAll) rightCheckAll.checked = false;
+        syncHiddenInputs();
+        rightBody.textContent = '';
+
+        if (rightItems.length === 0) {
+            rightBody.appendChild(makeEmptyRow('No products added', 5));
+            return;
+        }
+
+        rightItems.forEach(function(item) {
+            rightBody.appendChild(makeRow(item, 'right'));
+        });
+    }
+
+    function syncHiddenInputs() {
+        hiddenDiv.textContent = '';
+        rightItems.forEach(function(item) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'product_ids[]';
+            inp.value = item.product_id;
+            hiddenDiv.appendChild(inp);
+        });
+    }
+
+    function doSearch() {
+        var q = document.getElementById('pl-search').value.trim();
+        var catId = document.getElementById('pl-category').value;
+        var mfgId = document.getElementById('pl-manufacturer').value;
+
+        if (q.length < 2 && !catId && !mfgId) {
+            showFlashError('Enter a search term or select a category/manufacturer.');
+            return;
+        }
+
+        var params = [];
+        if (q) params.push('q=' + encodeURIComponent(q));
+        if (catId) params.push('category_id=' + catId);
+        if (mfgId) params.push('manufacturer_id=' + mfgId);
+
+        var btn = document.getElementById('pl-search-btn');
+        btn.disabled = true;
+        btn.textContent = 'Searching...';
+
+        fetch(searchUrl + '?' + params.join('&'), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            leftItems = (data.items || []).map(function(item) {
+                return {
+                    product_id: parseInt(item.product_id),
+                    name: item.name || '',
+                    sku: item.sku || item.model || '',
+                    quantity: parseInt(item.quantity) || 0
+                };
+            });
+            renderLeft();
+        })
+        .catch(function() {
+            leftItems = [];
+            leftBody.textContent = '';
+            leftBody.appendChild(makeEmptyRow('Search failed', 5));
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Search';
+        });
+    }
+
+    // Add selected left items to right
+    document.getElementById('pl-add-btn').addEventListener('click', function() {
+        var checked = leftBody.querySelectorAll('.pl-left-check:checked');
+        if (checked.length === 0) return;
+
+        checked.forEach(function(cb) {
+            var pid = parseInt(cb.value);
+            if (rightSet[pid]) return;
+            var item = leftItems.find(function(i) { return i.product_id === pid; });
+            if (item) {
+                rightItems.push(item);
+                rightSet[pid] = true;
+            }
         });
 
-        initListPicker({
-            items: @json(($manufacturers ?? collect())->map(fn($m) => ['id' => (int)$m->manufacturer_id, 'name' => $m->name])),
-            selectedIds: @json($selectedMfgIds),
-            searchEl: document.getElementById('mfgSearch'),
-            dropdownEl: document.getElementById('mfgDropdown'),
-            listEl: document.getElementById('mfgSelected'),
-            fieldName: 'manufacturer_ids[]'
+        renderLeft();
+        renderRight();
+    });
+
+    // Remove selected right items
+    document.getElementById('pl-remove-btn').addEventListener('click', function() {
+        var checked = rightBody.querySelectorAll('.pl-right-check:checked');
+        if (checked.length === 0) return;
+
+        var removeIds = {};
+        checked.forEach(function(cb) { removeIds[parseInt(cb.value)] = true; });
+
+        rightItems = rightItems.filter(function(item) { return !removeIds[item.product_id]; });
+
+        rightSet = {};
+        rightItems.forEach(function(item) { rightSet[item.product_id] = true; });
+
+        renderLeft();
+        renderRight();
+    });
+
+    // Search button + Enter key
+    document.getElementById('pl-search-btn').addEventListener('click', doSearch);
+    document.getElementById('pl-search').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+    });
+
+    // Check-all toggles
+    if (leftCheckAll) {
+        leftCheckAll.addEventListener('change', function() {
+            leftBody.querySelectorAll('.pl-left-check').forEach(function(cb) { cb.checked = leftCheckAll.checked; });
         });
-    </script>
+    }
+    if (rightCheckAll) {
+        rightCheckAll.addEventListener('change', function() {
+            rightBody.querySelectorAll('.pl-right-check').forEach(function(cb) { cb.checked = rightCheckAll.checked; });
+        });
+    }
+
+    // Initial render
+    renderRight();
+})();
+</script>
+@endpush
 @endsection

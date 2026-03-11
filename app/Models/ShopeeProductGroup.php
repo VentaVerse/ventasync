@@ -24,4 +24,9 @@ class ShopeeProductGroup extends Model
     {
         return $this->hasMany(ShopeeProductGroupAttribute::class, 'shopee_product_group_id');
     }
+
+    public function groupProducts()
+    {
+        return $this->hasMany(ShopeeProductGroupProduct::class, 'shopee_product_group_id');
+    }
 }

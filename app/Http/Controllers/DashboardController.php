@@ -172,12 +172,20 @@ class DashboardController extends Controller
 
         // --- TikTok sync status ---
         $tiktokSyncStatus = null;
+        $tiktokPending = 0;
         if (class_exists(\Extensions\tiktok\Models\TikTokSetting::class) && Schema::hasTable('tiktok_settings')) {
             $ttSetting = \Extensions\tiktok\Models\TikTokSetting::query()->first();
             if ($ttSetting) {
                 $tiktokSyncStatus = (object) [
-                    'expires_at' => $ttSetting->expires_at,
+                    'order_sync_at'  => $ttSetting->last_order_sync_at,
+                    'push_stock_at'  => $ttSetting->last_stock_push_at,
+                    'expires_at'     => $ttSetting->expires_at,
                 ];
+            }
+            if (Schema::hasTable('tiktok_orders')) {
+                $tiktokPending = DB::table('tiktok_orders')
+                    ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
+                    ->count();
             }
         }
 
@@ -231,6 +239,7 @@ class DashboardController extends Controller
             'lazadaSyncStatus' => $lazadaSyncStatus,
             'shopeeSyncStatus' => $shopeeSyncStatus,
             'tiktokSyncStatus' => $tiktokSyncStatus,
+            'tiktokPending' => $tiktokPending,
             'openPos' => $openPos,
             'pendingDelivery' => $pendingDelivery,
             'overduePos' => $overduePos,
@@ -291,6 +300,9 @@ class DashboardController extends Controller
             } elseif ($src === 'lazada') {
                 $label = 'Lazada';
                 $color = '#0F146D';
+            } elseif ($src === 'tiktok') {
+                $label = 'TikTok';
+                $color = '#E60023';
             } elseif (str_starts_with($src, 'opencart:')) {
                 $storeId = (int) str_replace('opencart:', '', $src);
                 $label = $ocStores[$storeId] ?? ('OpenCart #' . $storeId);

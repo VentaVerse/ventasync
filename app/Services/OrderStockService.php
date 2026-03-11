@@ -8,6 +8,7 @@ use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductOptionValue;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
+use Illuminate\Support\Facades\DB;
 
 class OrderStockService
 {
@@ -68,6 +69,13 @@ class OrderStockService
                 // Option-level stock: adjust the specific option value
                 $optionValue->quantity = $optionValue->quantity + ($direction * $orderProduct->quantity);
                 $optionValue->save();
+
+                // Also sync the combination quantity to stay in sync with product_option_value
+                DB::table('product_option_combination_values as cv')
+                    ->join('product_option_combinations as c', 'c.id', '=', 'cv.combination_id')
+                    ->where('cv.product_option_value_id', $optionValue->product_option_value_id)
+                    ->where('c.product_id', $optionValue->product_id)
+                    ->update(['c.quantity' => $optionValue->quantity]);
 
                 StockHistoryLogger::log(
                     productId: (int) $optionValue->product_id,

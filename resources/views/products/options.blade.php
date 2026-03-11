@@ -13,10 +13,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
     <form method="POST" action="{{ route('products.options.update', $product->product_id) }}">
         @csrf
 

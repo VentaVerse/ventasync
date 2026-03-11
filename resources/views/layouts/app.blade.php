@@ -240,10 +240,6 @@
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
                                     <span class="label">Product Groups</span>
                                 </a>
-                                <a href="{{ route('shopee.products.index') }}" class="{{ request()->routeIs('shopee.products.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
-                                    <span class="label">Products</span>
-                                </a>
                                 @endif
 
                                 @if($canLazada)
@@ -260,10 +256,6 @@
                                 <a href="{{ route('lazada.product-groups.index') }}" class="{{ request()->routeIs('lazada.product-groups.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
                                     <span class="label">Product Groups</span>
-                                </a>
-                                <a href="{{ route('lazada.products.index') }}" class="{{ request()->routeIs('lazada.products.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
-                                    <span class="label">Products</span>
                                 </a>
                                 @endif
 

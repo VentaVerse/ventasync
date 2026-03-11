@@ -6,7 +6,7 @@
     <h2>Lazada Settings</h2>
     <div class="page-header-actions">
         <a class="btn small" href="{{ route('lazada.orders.index') }}">Orders</a>
-        <a class="btn" href="{{ route('lazada.products.index') }}">Products</a>
+        <a class="btn" href="{{ route('lazada.product-groups.index') }}">Product Groups</a>
     </div>
 </div>
 

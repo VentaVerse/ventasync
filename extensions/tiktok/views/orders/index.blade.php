@@ -54,8 +54,8 @@
         @php
             $isActive = $active_tab === $key;
             $count = $tab_counts[$key] ?? 0;
-            $qs = array_merge(request()->except('page'), ['tab' => $key]);
-            $showBadge = in_array($key, ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION', 'IN_TRANSIT']);
+            $qs = array_merge(request()->except('page', 'pending_sub'), ['tab' => $key]);
+            $showBadge = in_array($key, ['TO_SHIP', 'IN_TRANSIT']);
         @endphp
         <a href="{{ route('ext.tiktok.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
             <span>{{ $label }}</span>
@@ -66,11 +66,44 @@
     @endforeach
 </div>
 
+{{-- To Ship subtabs: To Pack / To Handover --}}
+@if($active_tab === 'TO_SHIP')
+    @php
+        $ps = $pending_sub ?? 'to_pack';
+        $pendingNav = [
+            'to_pack'     => 'To Pack',
+            'to_handover' => 'To Handover',
+        ];
+    @endphp
+    <div class="card mb-12" style="padding:12px 16px;">
+        <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
+            <div class="font-semibold">To Ship workflow</div>
+            <div class="text-xs text-secondary">Choose the step you are working on</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+            @foreach($pendingNav as $k => $lbl)
+                @php
+                    $isSubActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
+                    $subQs = array_merge(request()->except('page'), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
+                    $subCount = $tab_counts[$k] ?? 0;
+                @endphp
+                <a href="{{ route('ext.tiktok.orders.index', $subQs) }}" class="tab {{ $isSubActive ? 'active' : '' }}">
+                    <span>{{ $lbl }}</span>
+                    @if($subCount > 0)
+                        <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isSubActive ? 'background:#fff; color:#E60023;' : 'background:#E60023; color:#fff;' }}">{{ $subCount }}</span>
+                    @endif
+                </a>
+            @endforeach
+        </div>
+    </div>
+@endif
+
 {{-- Search / Filter --}}
 <div class="card mb-12" style="padding:12px 16px;">
     <form method="GET" action="{{ route('ext.tiktok.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
         <input type="hidden" name="tab" value="{{ $active_tab }}">
         <input type="hidden" name="per_page" value="{{ $per_page }}">
+        @if($pending_sub)<input type="hidden" name="pending_sub" value="{{ $pending_sub }}">@endif
 
         <div>
             <label class="text-xs text-secondary">Order Number</label>
@@ -98,6 +131,7 @@
 <div class="card mb-12" style="padding:12px 16px;">
     <form method="GET" action="{{ route('ext.tiktok.orders.index') }}" class="d-flex gap-10 items-center">
         <input type="hidden" name="tab" value="{{ $active_tab }}">
+        @if($pending_sub)<input type="hidden" name="pending_sub" value="{{ $pending_sub }}">@endif
         <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? '' }}">
         <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? '' }}">
         <input type="hidden" name="sort" value="{{ $sort ?? '' }}">
@@ -145,6 +179,7 @@
                         <th style="width:120px;">Amount</th>
                         <th style="width:140px;">Shipping</th>
                         <th style="width:120px;">Status</th>
+                        <th style="width:200px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -174,6 +209,11 @@
                                 $trackingNo = $firstLi['tracking_number'] ?? $trackingNo;
                             }
 
+                            // Status flags
+                            $isToPack = ($status === 'AWAITING_SHIPMENT');
+                            $isToHandover = ($status === 'AWAITING_COLLECTION');
+                            $isShipped = in_array($status, ['IN_TRANSIT', 'DELIVERED', 'COMPLETED']);
+
                             // Status badge color
                             $badgeClass = match($status) {
                                 'COMPLETED', 'DELIVERED' => 'badge-green',
@@ -187,7 +227,7 @@
 
                         {{-- Order header row --}}
                         <tr>
-                            <td colspan="6" style="padding:10px 12px 6px 12px;">
+                            <td colspan="7" style="padding:10px 12px 6px 12px;">
                                 <div class="d-flex justify-between items-start gap-12">
                                     <div class="text-xs text-secondary" style="line-height:1.35;">
                                         <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
@@ -279,6 +319,23 @@
                                     <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                         <span class="badge {{ $badgeClass }}">{{ $statusLabel }}</span>
                                     </td>
+                                    <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                        <div class="d-flex flex-wrap gap-6">
+                                            @if($isToPack)
+                                                <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" onsubmit="return confirm('Ship this order?')">
+                                                    @csrf
+                                                    <button type="submit" class="btn small">Arrange Shipment</button>
+                                                </form>
+                                            @endif
+                                            @if($isToHandover || $isShipped)
+                                                <a href="{{ route('ext.tiktok.orders.awb', $o->id) }}" target="_blank" class="btn small secondary">AWB</a>
+                                            @endif
+                                            @if($isToHandover || $isShipped)
+                                                <button type="button" class="btn small secondary btnTtTracking"
+                                                        data-url="{{ route('ext.tiktok.orders.tracking', $o->id) }}">Tracking</button>
+                                            @endif
+                                        </div>
+                                    </td>
                                 @endif
                             </tr>
                         @endforeach
@@ -290,4 +347,104 @@
         <div class="mt-16">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
     @endif
 </div>
+{{-- Tracking modal --}}
+<div id="ttTrackingModal" class="modal-backdrop" style="display:none;">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <h3>Tracking</h3>
+            <button type="button" id="btnCloseTtTracking" class="modal-close">&times;</button>
+        </div>
+        <div id="ttTrackingBody" class="mt-12">
+            <div class="text-secondary">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var trackingModal = document.getElementById('ttTrackingModal');
+    var trackingBody = document.getElementById('ttTrackingBody');
+    document.getElementById('btnCloseTtTracking').addEventListener('click', function() {
+        trackingModal.style.display = 'none';
+    });
+    trackingModal.addEventListener('click', function(e) {
+        if (e.target === trackingModal) trackingModal.style.display = 'none';
+    });
+
+    function renderTracking(data) {
+        trackingBody.textContent = '';
+        if (!data.ok) {
+            var err = document.createElement('div');
+            err.className = 'text-danger';
+            err.textContent = data.message || data.body?.message || 'Error loading tracking info.';
+            trackingBody.appendChild(err);
+            return;
+        }
+        var body = data.body?.data || data.body || {};
+        var trackNum = body.tracking_number || '';
+        var provider = body.shipping_provider || '';
+        var events = body.tracking_info || body.events || [];
+
+        if (trackNum) {
+            var d = document.createElement('div');
+            d.className = 'mb-8';
+            d.innerHTML = '<strong>Tracking:</strong> ';
+            var s = document.createElement('span');
+            s.textContent = trackNum;
+            d.appendChild(s);
+            trackingBody.appendChild(d);
+        }
+        if (provider) {
+            var d2 = document.createElement('div');
+            d2.className = 'mb-8';
+            d2.innerHTML = '<strong>Courier:</strong> ';
+            var s2 = document.createElement('span');
+            s2.textContent = provider;
+            d2.appendChild(s2);
+            trackingBody.appendChild(d2);
+        }
+        if (Array.isArray(events) && events.length > 0) {
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'margin-top:12px; border-top:1px solid var(--border); padding-top:12px;';
+            events.forEach(function(ev) {
+                var row = document.createElement('div');
+                row.style.cssText = 'margin-bottom:10px; padding-left:12px; border-left:2px solid var(--accent);';
+                var time = document.createElement('div');
+                time.className = 'text-xs text-secondary';
+                time.textContent = ev.update_time_text || ev.time || '';
+                var desc = document.createElement('div');
+                desc.className = 'text-sm';
+                desc.textContent = ev.description || ev.message || '';
+                row.appendChild(time);
+                row.appendChild(desc);
+                wrap.appendChild(row);
+            });
+            trackingBody.appendChild(wrap);
+        }
+        if (!trackingBody.children.length) {
+            var empty = document.createElement('div');
+            empty.className = 'text-secondary';
+            empty.textContent = 'No tracking info available yet.';
+            trackingBody.appendChild(empty);
+        }
+    }
+
+    document.querySelectorAll('.btnTtTracking').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            trackingBody.textContent = 'Loading...';
+            trackingModal.style.display = '';
+            fetch(btn.dataset.url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+                .then(function(r) { return r.json(); })
+                .then(renderTracking)
+                .catch(function() {
+                    trackingBody.textContent = '';
+                    var err = document.createElement('div');
+                    err.className = 'text-danger';
+                    err.textContent = 'Failed to load tracking info.';
+                    trackingBody.appendChild(err);
+                });
+        });
+    });
+});
+</script>
 @endsection

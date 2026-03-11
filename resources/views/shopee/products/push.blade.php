@@ -14,14 +14,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert danger">{{ session('error') }}</div>
-    @endif
-
     @if($errors->any())
         <div class="alert danger">
             <strong>Fix the following:</strong>

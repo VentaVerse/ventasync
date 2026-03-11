@@ -8,6 +8,7 @@ use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokOrderProduct;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\tiktok\Services\TikTokCatalogOrderSync;
 use Illuminate\Http\Request;
 
 class TikTokOrderController extends Controller
@@ -49,8 +50,7 @@ class TikTokOrderController extends Controller
     // TikTok order status → tab mapping
     private array $tabStatusMap = [
         'UNPAID'           => ['UNPAID'],
-        'AWAITING_SHIPMENT'=> ['AWAITING_SHIPMENT'],
-        'AWAITING_COLLECTION' => ['AWAITING_COLLECTION'],
+        'TO_SHIP'          => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
         'IN_TRANSIT'       => ['IN_TRANSIT'],
         'DELIVERED'        => ['DELIVERED'],
         'COMPLETED'        => ['COMPLETED'],
@@ -73,25 +73,31 @@ class TikTokOrderController extends Controller
         }
 
         $tab = strtoupper((string) $request->query('tab', 'ALL'));
-        $allowedTabs = ['ALL', 'UNPAID', 'AWAITING_SHIPMENT', 'AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
+        $allowedTabs = ['ALL', 'UNPAID', 'TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
         }
 
+        // TO_SHIP has subtabs: to_pack (AWAITING_SHIPMENT) and to_handover (AWAITING_COLLECTION)
+        $pendingSubtab = (string) $request->query('pending_sub', $tab === 'TO_SHIP' ? 'to_pack' : '');
+        if ($tab !== 'TO_SHIP') {
+            $pendingSubtab = '';
+        }
+
         $tabs = [
-            'ALL'                  => 'All',
-            'UNPAID'               => 'Unpaid',
-            'AWAITING_SHIPMENT'    => 'To Ship',
-            'AWAITING_COLLECTION'  => 'To Collect',
-            'IN_TRANSIT'           => 'In Transit',
-            'DELIVERED'            => 'Delivered',
-            'COMPLETED'            => 'Completed',
-            'CANCELLED'            => 'Cancelled',
+            'ALL'          => 'All',
+            'UNPAID'       => 'Unpaid',
+            'TO_SHIP'      => 'To Ship',
+            'IN_TRANSIT'   => 'In Transit',
+            'DELIVERED'    => 'Delivered',
+            'COMPLETED'    => 'Completed',
+            'CANCELLED'    => 'Cancelled',
         ];
 
-        $sortKey = strtolower((string) $request->query('sort', 'created_desc'));
+        $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
+        $sortKey = strtolower((string) $request->query('sort', 'created_' . $defaultDir));
         if (!in_array($sortKey, ['created_asc', 'created_desc'], true)) {
-            $sortKey = 'created_desc';
+            $sortKey = 'created_' . $defaultDir;
         }
         $sortDir = str_ends_with($sortKey, '_asc') ? 'asc' : 'desc';
 
@@ -99,9 +105,19 @@ class TikTokOrderController extends Controller
         $baseCountQuery = TikTokOrder::query();
 
         if ($tab !== 'ALL') {
-            $statuses = $this->tabStatusMap[$tab] ?? [];
-            if (!empty($statuses)) {
-                $query->whereIn('status', $statuses);
+            // Apply subtab filter for TO_SHIP
+            if ($tab === 'TO_SHIP' && $pendingSubtab !== '') {
+                $subStatuses = match ($pendingSubtab) {
+                    'to_pack'     => ['AWAITING_SHIPMENT'],
+                    'to_handover' => ['AWAITING_COLLECTION'],
+                    default       => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+                };
+                $query->whereIn('status', $subStatuses);
+            } else {
+                $statuses = $this->tabStatusMap[$tab] ?? [];
+                if (!empty($statuses)) {
+                    $query->whereIn('status', $statuses);
+                }
             }
         }
 
@@ -119,6 +135,9 @@ class TikTokOrderController extends Controller
         foreach ($this->tabStatusMap as $k => $statuses) {
             $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
         }
+        // Subtab counts for TO_SHIP
+        $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT'])->count();
+        $tab_counts['to_handover'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_COLLECTION'])->count();
 
         $orders = $query
             ->orderBy('order_created_at', $sortDir)
@@ -127,14 +146,15 @@ class TikTokOrderController extends Controller
             ->appends($request->query());
 
         return view('ext-tiktok::orders.index', [
-            'orders'     => $orders,
-            'per_page'   => $perPage,
-            'tabs'       => $tabs,
-            'active_tab' => $tab,
-            'tab_counts' => $tab_counts,
-            'sort'       => $sortKey,
-            'last_result' => session('tiktok_orders_last_result'),
-            'filters'    => [
+            'orders'        => $orders,
+            'per_page'      => $perPage,
+            'tabs'          => $tabs,
+            'active_tab'    => $tab,
+            'pending_sub'   => $pendingSubtab,
+            'tab_counts'    => $tab_counts,
+            'sort'          => $sortKey,
+            'last_result'   => session('tiktok_orders_last_result'),
+            'filters'       => [
                 'order_number' => $orderNumber,
                 'buyer_name'   => $buyerName,
             ],
@@ -200,6 +220,7 @@ class TikTokOrderController extends Controller
 
         $saved = 0;
         $updated = 0;
+        $catalogSync = new TikTokCatalogOrderSync();
 
         foreach ($allOrders as $o) {
             $orderId = (string) ($o['id'] ?? '');
@@ -260,7 +281,18 @@ class TikTokOrderController extends Controller
                     TikTokOrderProduct::create($itemData);
                 }
             }
+
+            // Sync to core ERP catalog order (stock deduction + FCM + history)
+            try {
+                $dbOrder->refresh();
+                $catalogSync->sync($dbOrder);
+            } catch (\Throwable $e) {
+                \Log::warning('TikTok catalog sync failed for order ' . $orderId . ': ' . $e->getMessage());
+            }
         }
+
+        // Update last sync timestamp
+        $c['setting']->update(['last_order_sync_at' => now()]);
 
         return redirect()->route('ext.tiktok.orders.index')
             ->with('tiktok_orders_last_result', [
@@ -309,6 +341,7 @@ class TikTokOrderController extends Controller
         }
 
         $updated = 0;
+        $catalogSync = new TikTokCatalogOrderSync();
 
         foreach ($allOrders as $o) {
             $orderId = (string) ($o['id'] ?? '');
@@ -341,13 +374,117 @@ class TikTokOrderController extends Controller
                     ]);
             }
 
+            // Sync to core ERP catalog order (stock deduction + FCM + history)
+            try {
+                $dbOrder->refresh();
+                $catalogSync->sync($dbOrder);
+            } catch (\Throwable $e) {
+                \Log::warning('TikTok catalog sync failed for order ' . $orderId . ': ' . $e->getMessage());
+            }
+
             $updated++;
         }
+
+        // Update last sync timestamp
+        $c['setting']->update(['last_order_sync_at' => now()]);
 
         return redirect()->route('ext.tiktok.orders.index')
             ->with('tiktok_orders_last_result', [
                 'ok'      => true,
                 'message' => "Updated {$updated} order(s).",
             ]);
+    }
+
+    public function shipOrder(Request $request, $id)
+    {
+        $order = TikTokOrder::findOrFail($id);
+        $c = $this->creds();
+        $client = new TikTokClient();
+
+        $packageData = [];
+        // Allow optional handover_method from the form
+        if ($request->filled('handover_method')) {
+            $packageData['handover_method'] = $request->input('handover_method');
+        }
+
+        $result = $client->shipPackage($c['app_key'], $c['app_secret'], $c['token'], $order->order_id, $packageData, $c['shop_cipher']);
+        $this->logApi('POST', '/fulfillment/202309/packages/ship', $result);
+
+        $apiCode = (int) ($result['body']['code'] ?? -1);
+        $msg = $result['body']['message'] ?? 'Unknown error';
+
+        if ($apiCode !== 0) {
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => 'Ship order failed: ' . $msg,
+            ]);
+        }
+
+        return redirect()->back()->with('tiktok_orders_last_result', [
+            'ok' => true,
+            'message' => "Order {$order->order_id} shipped successfully.",
+        ]);
+    }
+
+    public function awbPdf(Request $request, $id)
+    {
+        $order = TikTokOrder::findOrFail($id);
+
+        // Try to get package_id from raw data
+        $raw = $order->raw ?? [];
+        $packages = $raw['packages'] ?? [];
+        $packageId = $packages[0]['id'] ?? null;
+
+        if (!$packageId) {
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => 'No package found for this order. Ship the order first.',
+            ]);
+        }
+
+        $c = $this->creds();
+        $client = new TikTokClient();
+
+        $documentType = $request->query('type', 'SHIPPING_LABEL');
+        $result = $client->getShippingDocument($c['app_key'], $c['app_secret'], $c['token'], $packageId, $documentType, $c['shop_cipher']);
+        $this->logApi('GET', '/fulfillment/202309/packages/' . $packageId . '/shipping_documents', $result);
+
+        $apiCode = (int) ($result['body']['code'] ?? -1);
+        if ($apiCode !== 0) {
+            $msg = $result['body']['message'] ?? 'Unknown error';
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => 'Failed to get shipping document: ' . $msg,
+            ]);
+        }
+
+        $docUrl = $result['body']['data']['doc_url'] ?? ($result['body']['data']['document_url'] ?? null);
+
+        if (!$docUrl) {
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => 'No document URL returned by TikTok.',
+            ]);
+        }
+
+        return redirect($docUrl);
+    }
+
+    public function tracking($id)
+    {
+        $order = TikTokOrder::findOrFail($id);
+        $c = $this->creds();
+        $client = new TikTokClient();
+
+        $result = $client->getOrderTracking($c['app_key'], $c['app_secret'], $c['token'], $order->order_id, $c['shop_cipher']);
+        $this->logApi('GET', '/fulfillment/202309/orders/' . $order->order_id . '/tracking', $result);
+
+        $apiCode = (int) ($result['body']['code'] ?? -1);
+        $ok = $apiCode === 0;
+
+        return response()->json([
+            'ok'   => $ok,
+            'body' => $result['body'] ?? [],
+        ], $ok ? 200 : 502);
     }
 }

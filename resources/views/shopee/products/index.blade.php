@@ -19,14 +19,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert danger">{{ session('error') }}</div>
-    @endif
-
     {{-- Unmatched Items Section --}}
     @if(isset($unmatchedItems) && $unmatchedItems->count() > 0)
         <div class="card mb-12" id="unmatched-section">

@@ -7,6 +7,7 @@ use App\Models\ShopeeCategoryTemplate;
 use App\Models\ShopeeLogistic;
 use App\Models\ShopeeProductGroup;
 use App\Models\ShopeeProductGroupAttribute;
+use App\Models\ShopeeProductGroupProduct;
 use App\Models\ShopeeSetting;
 use App\Services\ActivityLogger;
 use App\Services\Shopee\ShopeeClient;
@@ -18,29 +19,7 @@ class ShopeeProductGroupController extends Controller
 {
     public function index()
     {
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
         $groups = ShopeeProductGroup::query()->orderByDesc('id')->get();
-
-        // Gather referenced catalog category IDs
-        $catIds = $groups->pluck('catalog_category_ids')->filter()->flatten()->unique()->values()->all();
-        $categoryNames = collect();
-        if (!empty($catIds)) {
-            $categoryNames = DB::table($pfx . 'category_description')
-                ->whereIn('category_id', $catIds)
-                ->where('language_id', $langId)
-                ->pluck('name', 'category_id');
-        }
-
-        // Gather referenced manufacturer IDs
-        $mfgIds = $groups->pluck('manufacturer_ids')->filter()->flatten()->unique()->values()->all();
-        $manufacturerNames = collect();
-        if (!empty($mfgIds)) {
-            $manufacturerNames = DB::table($pfx . 'manufacturer')
-                ->whereIn('manufacturer_id', $mfgIds)
-                ->pluck('name', 'manufacturer_id');
-        }
 
         // Shopee category names
         $shopeeCatIds = $groups->pluck('shopee_category_id')->filter()->unique()->values()->all();
@@ -51,11 +30,16 @@ class ShopeeProductGroupController extends Controller
                 ->pluck('name', 'category_id');
         }
 
+        // Product counts per group (via pivot)
+        $productCounts = DB::table('shopee_product_group_products')
+            ->selectRaw('shopee_product_group_id, COUNT(*) as cnt')
+            ->groupBy('shopee_product_group_id')
+            ->pluck('cnt', 'shopee_product_group_id');
+
         return view('shopee.product-groups.index', [
             'groups' => $groups,
-            'categoryNames' => $categoryNames,
-            'manufacturerNames' => $manufacturerNames,
             'shopeeCategoryNames' => $shopeeCategoryNames,
+            'productCounts' => $productCounts,
         ]);
     }
 
@@ -86,9 +70,7 @@ class ShopeeProductGroupController extends Controller
 
         $shopeeCategories = ShopeeCategory::query()->orderBy('name')->limit(5000)->get();
 
-        $productCount = $this->countMatchingProducts($group);
-
-        // Fetch logistics channels from Shopee API
+        // Fetch logistics channels
         $logistics = $this->fetchLogistics();
 
         // Template & attributes
@@ -112,17 +94,33 @@ class ShopeeProductGroupController extends Controller
             }
         }
 
+        // Load group products for dual-listbox
+        $groupProducts = collect();
+        if ($group->exists) {
+            $productIds = $group->groupProducts()->pluck('product_id')->toArray();
+            if (!empty($productIds)) {
+                $groupProducts = DB::table($pfx . 'product as p')
+                    ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                        $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+                    })
+                    ->whereIn('p.product_id', $productIds)
+                    ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
+                    ->orderBy('pd.name')
+                    ->get();
+            }
+        }
+
         return view('shopee.product-groups.form', [
             'group' => $group,
             'mode' => $mode,
             'catalogCategories' => $catalogCategories,
             'manufacturers' => $manufacturers,
             'shopeeCategories' => $shopeeCategories,
-            'productCount' => $productCount,
             'logistics' => $logistics,
             'template' => $template,
             'attributes' => $attributes,
             'saved' => $saved,
+            'groupProducts' => $groupProducts,
         ]);
     }
 
@@ -130,28 +128,24 @@ class ShopeeProductGroupController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'catalog_category_ids' => 'nullable|array',
-            'catalog_category_ids.*' => 'integer|min:1',
-            'manufacturer_ids' => 'nullable|array',
-            'manufacturer_ids.*' => 'integer|min:1',
             'shopee_category_id' => 'required|integer|min:1',
             'logistic_ids' => 'required|array',
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
+            'product_ids' => 'nullable|array',
+            'product_ids.*' => 'integer|min:1',
         ], [
             'shopee_category_id.required' => 'Shopee Category is required.',
             'logistic_ids.required' => 'At least one Logistics Channel is required.',
         ]);
 
-        $catIds = array_filter($data['catalog_category_ids'] ?? []);
-        $mfgIds = array_filter($data['manufacturer_ids'] ?? []);
         $logIds = array_filter($data['logistic_ids'] ?? []);
 
         $group = ShopeeProductGroup::create([
             'name' => $data['name'],
-            'catalog_category_ids' => !empty($catIds) ? array_values(array_map('intval', $catIds)) : null,
-            'manufacturer_ids' => !empty($mfgIds) ? array_values(array_map('intval', $mfgIds)) : null,
+            'catalog_category_ids' => null,
+            'manufacturer_ids' => null,
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
@@ -162,8 +156,17 @@ class ShopeeProductGroupController extends Controller
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
 
+        // Add products from dual-listbox
+        $productIds = array_map('intval', array_filter($data['product_ids'] ?? []));
+        foreach ($productIds as $pid) {
+            ShopeeProductGroupProduct::create([
+                'shopee_product_group_id' => $group->id,
+                'product_id' => $pid,
+            ]);
+        }
+
         return redirect()->route('shopee.product-groups.edit', $group->id)
-            ->with('status', 'Product group created.');
+            ->with('status', 'Product group created. ' . count($productIds) . ' product(s) assigned.');
     }
 
     public function update(Request $request, int $id)
@@ -172,28 +175,24 @@ class ShopeeProductGroupController extends Controller
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'catalog_category_ids' => 'nullable|array',
-            'catalog_category_ids.*' => 'integer|min:1',
-            'manufacturer_ids' => 'nullable|array',
-            'manufacturer_ids.*' => 'integer|min:1',
             'shopee_category_id' => 'required|integer|min:1',
             'logistic_ids' => 'required|array',
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
             'markup_percent' => 'nullable|numeric|min:0',
+            'product_ids' => 'nullable|array',
+            'product_ids.*' => 'integer|min:1',
         ], [
             'shopee_category_id.required' => 'Shopee Category is required.',
             'logistic_ids.required' => 'At least one Logistics Channel is required.',
         ]);
 
-        $catIds = array_filter($data['catalog_category_ids'] ?? []);
-        $mfgIds = array_filter($data['manufacturer_ids'] ?? []);
         $logIds = array_filter($data['logistic_ids'] ?? []);
 
         $group->update([
             'name' => $data['name'],
-            'catalog_category_ids' => !empty($catIds) ? array_values(array_map('intval', $catIds)) : null,
-            'manufacturer_ids' => !empty($mfgIds) ? array_values(array_map('intval', $mfgIds)) : null,
+            'catalog_category_ids' => null,
+            'manufacturer_ids' => null,
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
@@ -203,6 +202,24 @@ class ShopeeProductGroupController extends Controller
         ActivityLogger::log('updated', 'Shopee Product Group', $group->id, $group->name);
 
         $this->saveGroupAttributes($group, (array) $request->input('attributes', []));
+
+        // Sync product assignments
+        $newProductIds = array_map('intval', array_filter($data['product_ids'] ?? []));
+        $existingProductIds = $group->groupProducts()->pluck('product_id')->toArray();
+
+        $toAdd = array_diff($newProductIds, $existingProductIds);
+        $toRemove = array_diff($existingProductIds, $newProductIds);
+
+        foreach ($toAdd as $pid) {
+            ShopeeProductGroupProduct::create([
+                'shopee_product_group_id' => $group->id,
+                'product_id' => $pid,
+            ]);
+        }
+
+        if (!empty($toRemove)) {
+            $group->groupProducts()->whereIn('product_id', $toRemove)->delete();
+        }
 
         return redirect()->route('shopee.product-groups.edit', $group->id)
             ->with('status', 'Product group saved.');
@@ -220,19 +237,208 @@ class ShopeeProductGroupController extends Controller
             ->with('status', 'Product group "' . e($name) . '" deleted.');
     }
 
-    public function syncProducts(int $id)
+    /**
+     * Products page for a specific product group.
+     */
+    public function products(Request $request, int $id)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
 
-        if (!$group->shopee_category_id) {
-            return redirect()->route('shopee.product-groups.edit', $group->id)
-                ->with('status', 'Set a Shopee category before syncing products.');
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $q = trim((string) $request->input('q'));
+        $syncStatus = (string) $request->input('sync_status', 'all');
+        $erpStatus = (string) $request->input('erp_status', 'all');
+
+        $pivotTable = 'shopee_product_group_products';
+
+        $query = DB::table($pfx . 'product as p')
+            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->join($pivotTable . ' as gp', function ($j) use ($group) {
+                $j->on('p.product_id', '=', 'gp.product_id')
+                    ->where('gp.shopee_product_group_id', '=', $group->id);
+            })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->select(
+                'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
+                'p.quantity', 'p.image', 'p.status',
+                'm.name as manufacturer_name',
+                'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.push_error'
+            );
+
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('pd.name', 'like', "%{$q}%")
+                    ->orWhere('p.sku', 'like', "%{$q}%")
+                    ->orWhere('p.model', 'like', "%{$q}%");
+            });
         }
 
-        $productIds = $this->getMatchingProductIds($group);
+        if ($erpStatus === 'enabled') {
+            $query->where('p.status', 1);
+        } elseif ($erpStatus === 'disabled') {
+            $query->where('p.status', 0);
+        }
 
-        return redirect()->route('shopee.product-groups.edit', $group->id)
-            ->with('status', count($productIds) . ' matching product(s) found.');
+        if ($syncStatus === 'pushed') {
+            $query->whereNotNull('gp.shopee_item_id')->where('gp.shopee_item_id', '!=', '');
+        } elseif ($syncStatus === 'pending') {
+            $query->where(function ($w) {
+                $w->whereNull('gp.shopee_item_id')->orWhere('gp.shopee_item_id', '');
+            })->where('gp.sync_status', '!=', 'error');
+        } elseif ($syncStatus === 'error') {
+            $query->where('gp.sync_status', 'error');
+        }
+
+        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
+
+        // Pivot map for templates
+        $pivotProductIds = $products->pluck('product_id')->toArray();
+        $pivotMap = ShopeeProductGroupProduct::query()
+            ->where('shopee_product_group_id', $group->id)
+            ->whereIn('product_id', $pivotProductIds)
+            ->get()
+            ->keyBy('product_id');
+
+        // Option rows
+        $optionRowsByProductId = collect();
+        if (!empty($pivotProductIds)) {
+            $optionRowsByProductId = DB::table($pfx . 'product_option_value as pov')
+                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                    $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                })
+                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                })
+                ->whereIn('pov.product_id', $pivotProductIds)
+                ->select(
+                    'pov.product_id', 'pov.product_option_value_id',
+                    'od.name as option_name', 'ovd.name as option_value_name',
+                    'pov.quantity as option_quantity', 'pov.sku as option_sku',
+                    'pov.absolute_price as option_absolute_price'
+                )
+                ->orderBy('pov.product_id')
+                ->orderBy('pov.product_option_value_id')
+                ->get()
+                ->groupBy('product_id');
+        }
+
+        // All product IDs in this group (for "Remove from Group" action)
+        $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
+
+        return view('shopee.product-groups.products', [
+            'group' => $group,
+            'products' => $products,
+            'pivotMap' => $pivotMap,
+            'optionRowsByProductId' => $optionRowsByProductId,
+            'manualIds' => $manualIds,
+            'q' => $q,
+            'syncStatus' => $syncStatus,
+            'erpStatus' => $erpStatus,
+        ]);
+    }
+
+    /**
+     * AJAX search for dual-listbox product picker.
+     */
+    public function searchProducts(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $q = trim((string) $request->input('q'));
+        $categoryId = (int) $request->input('category_id', 0);
+        $manufacturerId = (int) $request->input('manufacturer_id', 0);
+
+        if (strlen($q) < 2 && !$categoryId && !$manufacturerId) {
+            return response()->json(['items' => []]);
+        }
+
+        $query = DB::table($pfx . 'product as p')
+            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+            })
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.quantity');
+
+        if ($categoryId > 0) {
+            $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
+                ->where('ptc.category_id', $categoryId);
+        }
+
+        if ($manufacturerId > 0) {
+            $query->where('p.manufacturer_id', $manufacturerId);
+        }
+
+        if (strlen($q) >= 2) {
+            $query->where(function ($w) use ($q) {
+                $w->where('pd.name', 'like', "%{$q}%")
+                    ->orWhere('p.sku', 'like', "%{$q}%")
+                    ->orWhere('p.model', 'like', "%{$q}%");
+            });
+        }
+
+        $rows = $query->distinct()->orderBy('p.product_id', 'desc')->limit(100)->get();
+
+        return response()->json(['items' => $rows]);
+    }
+
+    /**
+     * Add products manually to a group.
+     */
+    public function addProducts(Request $request, int $id)
+    {
+        $group = ShopeeProductGroup::query()->findOrFail($id);
+
+        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
+        if (empty($ids)) {
+            return redirect()->route('shopee.product-groups.products', $group->id)
+                ->with('error', 'No products selected.');
+        }
+
+        $existing = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->toArray();
+        $added = 0;
+        foreach ($ids as $pid) {
+            if (in_array($pid, $existing)) continue;
+            ShopeeProductGroupProduct::create([
+                'shopee_product_group_id' => $group->id,
+                'product_id' => $pid,
+            ]);
+            $added++;
+        }
+
+        return redirect()->route('shopee.product-groups.products', $group->id)
+            ->with('status', "{$added} product(s) added to group.");
+    }
+
+    /**
+     * Remove a single product from the group.
+     */
+    public function removeProduct(int $groupId, int $productId)
+    {
+        $group = ShopeeProductGroup::query()->findOrFail($groupId);
+        $group->groupProducts()->where('product_id', $productId)->delete();
+
+        return redirect()->route('shopee.product-groups.products', $group->id)
+            ->with('status', 'Product removed from group.');
+    }
+
+    /**
+     * Bulk remove products from the group.
+     */
+    public function massRemove(Request $request, int $id)
+    {
+        $group = ShopeeProductGroup::query()->findOrFail($id);
+        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
+
+        if (!empty($ids)) {
+            $group->groupProducts()->whereIn('product_id', $ids)->delete();
+        }
+
+        return redirect()->route('shopee.product-groups.products', $group->id)
+            ->with('status', count($ids) . ' product(s) removed from group.');
     }
 
     public function syncTemplate(Request $request, int $id, ShopeeClient $client)
@@ -296,54 +502,6 @@ class ShopeeProductGroupController extends Controller
     }
 
     // -- Helpers --
-
-    private function getMatchingProductIds(ShopeeProductGroup $group): array
-    {
-        $pfx = (string) config('catalog.prefix');
-        $catIds = $group->catalog_category_ids ?? [];
-        $mfgIds = $group->manufacturer_ids ?? [];
-
-        if (empty($catIds) && empty($mfgIds)) {
-            return DB::table($pfx . 'product')->pluck('product_id')->toArray();
-        }
-
-        $query = DB::table($pfx . 'product as p')->select('p.product_id');
-
-        if (!empty($catIds)) {
-            $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                ->whereIn('ptc.category_id', $catIds);
-        }
-
-        if (!empty($mfgIds)) {
-            $query->whereIn('p.manufacturer_id', $mfgIds);
-        }
-
-        return $query->distinct()->pluck('p.product_id')->toArray();
-    }
-
-    private function countMatchingProducts(ShopeeProductGroup $group): int
-    {
-        $pfx = (string) config('catalog.prefix');
-        $catIds = $group->catalog_category_ids ?? [];
-        $mfgIds = $group->manufacturer_ids ?? [];
-
-        if (empty($catIds) && empty($mfgIds)) {
-            return DB::table($pfx . 'product')->count();
-        }
-
-        $query = DB::table($pfx . 'product as p');
-
-        if (!empty($catIds)) {
-            $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
-                ->whereIn('ptc.category_id', $catIds);
-        }
-
-        if (!empty($mfgIds)) {
-            $query->whereIn('p.manufacturer_id', $mfgIds);
-        }
-
-        return $query->distinct()->count('p.product_id');
-    }
 
     private function saveGroupAttributes(ShopeeProductGroup $group, array $attrs): void
     {

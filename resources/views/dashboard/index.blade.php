@@ -277,10 +277,15 @@
                 @if($tiktokSyncStatus ?? null)
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
-                            <span class="dash-sync-dot {{ (!empty($tiktokSyncStatus->expires_at) && $tiktokSyncStatus->expires_at->isFuture()) ? 'dash-sync-ok' : 'dash-sync-idle' }}"></span>
+                            <span class="dash-sync-dot {{ $syncDotClass($tiktokSyncStatus->order_sync_at ?? null, $tiktokSyncStatus->expires_at ?? null) }}"></span>
                             <span class="font-bold">TikTok Shop</span>
+                            @if(($tiktokPending ?? 0) > 0)
+                                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; background:#E60023; color:#fff;">{{ $tiktokPending }}</span>
+                            @endif
                         </div>
                         <div class="dash-sync-details">
+                            <span class="text-xs">{!! $syncTimeLabelFn('Order sync', $tiktokSyncStatus->order_sync_at ?? null) !!}</span>
+                            <span class="text-xs">{!! $syncTimeLabelFn('Push stock', $tiktokSyncStatus->push_stock_at ?? null) !!}</span>
                             <span class="text-xs">{!! $tokenLabel($tiktokSyncStatus->expires_at ?? null) !!}</span>
                         </div>
                     </div>

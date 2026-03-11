@@ -18,14 +18,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert danger">{{ session('error') }}</div>
-    @endif
-
     <div class="card">
         <div class="table-wrap">
             <table class="table">

@@ -265,15 +265,36 @@ class TikTokClient
 
     // -- Orders -----------------------------------------------------------
 
-    public function searchOrders(string $appKey, string $appSecret, string $accessToken, array $queryParams, ?string $shopCipher = null): array
+    public function searchOrders(string $appKey, string $appSecret, string $accessToken, int $pageSize, array $body = [], ?string $shopCipher = null): array
     {
-        // Search orders: page_size, create_time_ge, create_time_lt are QUERY params, not body
-        return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders/search', $queryParams, [], $shopCipher);
+        // page_size is a query param; dates (create_time_ge, create_time_lt, next_page_token) are POST body
+        return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders/search', ['page_size' => $pageSize], $body, $shopCipher);
     }
 
     public function getOrderDetail(string $appKey, string $appSecret, string $accessToken, array $orderIds, ?string $shopCipher = null): array
     {
         return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders', [], ['order_ids' => $orderIds], $shopCipher);
+    }
+
+    // -- Fulfillment ------------------------------------------------------
+
+    public function shipPackage(string $appKey, string $appSecret, string $accessToken, string $orderId, array $packageData, ?string $shopCipher = null): array
+    {
+        $body = array_merge(['order_id' => $orderId], $packageData);
+        return $this->post($appKey, $appSecret, $accessToken, '/fulfillment/202309/packages/ship', [], $body, $shopCipher);
+    }
+
+    public function getShippingDocument(string $appKey, string $appSecret, string $accessToken, string $packageId, string $documentType = 'SHIPPING_LABEL', ?string $shopCipher = null): array
+    {
+        return $this->get($appKey, $appSecret, $accessToken, '/fulfillment/202309/packages/' . $packageId . '/shipping_documents', [
+            'document_type' => $documentType,
+            'document_size' => 'A6',
+        ], $shopCipher);
+    }
+
+    public function getOrderTracking(string $appKey, string $appSecret, string $accessToken, string $orderId, ?string $shopCipher = null): array
+    {
+        return $this->get($appKey, $appSecret, $accessToken, '/fulfillment/202309/orders/' . $orderId . '/tracking', [], $shopCipher);
     }
 
     // -- Images -----------------------------------------------------------

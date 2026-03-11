@@ -12,10 +12,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
     <div class="card">
         <div class="table-wrap">
             <table class="table">

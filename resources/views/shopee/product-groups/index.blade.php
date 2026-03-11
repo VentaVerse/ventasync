@@ -14,10 +14,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
     <div class="card">
         <div class="table-wrap">
             <table class="table">
@@ -25,28 +21,21 @@
                 <tr>
                     <th style="width:50px;">ID</th>
                     <th>Product Group</th>
-                    <th>Filter</th>
+                    <th style="width:80px;">Products</th>
                     <th>Shopee Category</th>
                     <th>Logistics</th>
                     <th style="width:100px;">Markup</th>
-                    <th style="width:180px;">Actions</th>
+                    <th style="width:220px;">Actions</th>
                 </tr>
                 </thead>
                 <tbody>
                 @forelse($groups as $p)
-                    @php
-                        $catNames = collect($p->catalog_category_ids ?? [])->map(fn($id) => $categoryNames->get($id))->filter()->values();
-                        $mfgNames = collect($p->manufacturer_ids ?? [])->map(fn($id) => $manufacturerNames->get($id))->filter()->values();
-                        $filterParts = [];
-                        if ($catNames->isNotEmpty()) $filterParts[] = $catNames->implode(', ');
-                        if ($mfgNames->isNotEmpty()) $filterParts[] = $mfgNames->implode(', ');
-                        $filterLabel = !empty($filterParts) ? implode(' | ', $filterParts) : 'All Products';
-                    @endphp
+                    @php $pCount = $productCounts->get($p->id, 0); @endphp
                     <tr>
                         <td>{{ $p->id }}</td>
                         <td class="font-bold">{{ $p->name }}</td>
                         <td>
-                            <span class="{{ empty($filterParts) ? 'text-muted' : '' }}">{{ $filterLabel }}</span>
+                            <a href="{{ route('shopee.product-groups.products', $p->id) }}">{{ $pCount }}</a>
                         </td>
                         <td>
                             @if($p->shopee_category_id)
@@ -77,7 +66,8 @@
                         </td>
                         <td>
                             <div class="d-flex gap-6 items-center text-nowrap">
-                                <a class="btn small" href="{{ route('shopee.product-groups.edit', $p->id) }}">Edit</a>
+                                <a class="btn small" href="{{ route('shopee.product-groups.products', $p->id) }}">Products</a>
+                                <a class="btn small secondary" href="{{ route('shopee.product-groups.edit', $p->id) }}">Edit</a>
 
                                 <form method="POST" action="{{ route('shopee.product-groups.destroy', $p->id) }}" style="margin:0;" data-confirm="Delete this product group?">
                                     @csrf

@@ -6,9 +6,6 @@
 @if(session('success'))
     <div class="alert success">{{ session('success') }}</div>
 @endif
-@if(session('error'))
-    <div class="alert danger">{{ session('error') }}</div>
-@endif
 
 <div class="card">
     <div class="page-header">

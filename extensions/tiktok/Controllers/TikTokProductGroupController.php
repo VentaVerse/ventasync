@@ -232,39 +232,58 @@ class TikTokProductGroupController extends Controller
             ->orderBy('name')
             ->get(['manufacturer_id', 'name']);
 
-        $productCount = count($this->getMatchingProductIds($group));
+        // Load current group products for the dual-listbox
+        $groupProducts = collect();
+        if ($group->exists) {
+            $productIds = $group->groupProducts()->pluck('product_id')->toArray();
+            if (!empty($productIds)) {
+                $groupProducts = DB::table($pfx . 'product as p')
+                    ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                        $j->on('p.product_id', '=', 'pd.product_id')
+                            ->where('pd.language_id', '=', $langId);
+                    })
+                    ->whereIn('p.product_id', $productIds)
+                    ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
+                    ->orderBy('pd.name')
+                    ->get();
+            }
+        }
 
         return view('ext-tiktok::product-groups.form', compact(
-            'group', 'mode', 'tiktokCategories', 'catalogCategories', 'manufacturers', 'productCount'
+            'group', 'mode', 'tiktokCategories', 'catalogCategories', 'manufacturers', 'groupProducts'
         ));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'                   => 'required|string|max:255',
-            'tiktok_category_id'     => 'required|string|exists:tiktok_categories,id',
-            'catalog_category_ids'   => 'nullable|array',
-            'catalog_category_ids.*' => 'integer|min:1',
-            'manufacturer_ids'       => 'nullable|array',
-            'manufacturer_ids.*'     => 'integer|min:1',
-            'markup_percent'         => 'nullable|numeric|min:0',
-            'markup_fixed'           => 'nullable|numeric|min:0',
+            'name'               => 'required|string|max:255',
+            'tiktok_category_id' => 'required|string|exists:tiktok_categories,id',
+            'markup_percent'     => 'nullable|numeric|min:0',
+            'markup_fixed'       => 'nullable|numeric|min:0',
         ]);
 
         $group = TikTokProductGroup::create([
-            'name'                 => $data['name'],
-            'tiktok_category_id'   => $data['tiktok_category_id'],
-            'catalog_category_ids' => !empty($data['catalog_category_ids']) ? array_values(array_map('intval', $data['catalog_category_ids'])) : null,
-            'manufacturer_ids'     => !empty($data['manufacturer_ids']) ? array_values(array_map('intval', $data['manufacturer_ids'])) : null,
-            'markup_percent'       => $data['markup_percent'] ?? null,
-            'markup_fixed'         => $data['markup_fixed'] ?? null,
+            'name'               => $data['name'],
+            'tiktok_category_id' => $data['tiktok_category_id'],
+            'markup_percent'     => $data['markup_percent'] ?? null,
+            'markup_fixed'       => $data['markup_fixed'] ?? null,
         ]);
+
+        // Add products from dual-listbox
+        $productIds = array_filter(array_map('intval', (array) $request->input('product_ids', [])));
+        foreach ($productIds as $pid) {
+            TikTokProductGroupProduct::create([
+                'tiktok_product_group_id' => $group->id,
+                'product_id'              => $pid,
+                'sync_status'             => 'pending',
+            ]);
+        }
 
         ActivityLogger::log('created', 'TikTok Product Group', $group->id, $group->name);
 
         return redirect()->route('ext.tiktok.product-groups.edit', $group->id)
-            ->with('status', 'Product group created.');
+            ->with('status', 'Product group created with ' . count($productIds) . ' product(s).');
     }
 
     public function update(Request $request, int $id)
@@ -272,24 +291,40 @@ class TikTokProductGroupController extends Controller
         $group = TikTokProductGroup::findOrFail($id);
 
         $data = $request->validate([
-            'name'                   => 'required|string|max:255',
-            'tiktok_category_id'     => 'required|string|exists:tiktok_categories,id',
-            'catalog_category_ids'   => 'nullable|array',
-            'catalog_category_ids.*' => 'integer|min:1',
-            'manufacturer_ids'       => 'nullable|array',
-            'manufacturer_ids.*'     => 'integer|min:1',
-            'markup_percent'         => 'nullable|numeric|min:0',
-            'markup_fixed'           => 'nullable|numeric|min:0',
+            'name'               => 'required|string|max:255',
+            'tiktok_category_id' => 'required|string|exists:tiktok_categories,id',
+            'markup_percent'     => 'nullable|numeric|min:0',
+            'markup_fixed'       => 'nullable|numeric|min:0',
         ]);
 
         $group->update([
             'name'                 => $data['name'],
             'tiktok_category_id'   => $data['tiktok_category_id'],
-            'catalog_category_ids' => !empty($data['catalog_category_ids']) ? array_values(array_map('intval', $data['catalog_category_ids'])) : null,
-            'manufacturer_ids'     => !empty($data['manufacturer_ids']) ? array_values(array_map('intval', $data['manufacturer_ids'])) : null,
+            'catalog_category_ids' => null,
+            'manufacturer_ids'     => null,
             'markup_percent'       => $data['markup_percent'] ?? null,
             'markup_fixed'         => $data['markup_fixed'] ?? null,
         ]);
+
+        // Sync products from dual-listbox
+        $submittedIds = array_filter(array_map('intval', (array) $request->input('product_ids', [])));
+        $existingPivots = $group->groupProducts()->get()->keyBy('product_id');
+        $existingIds = $existingPivots->keys()->map(fn($k) => (int) $k)->toArray();
+
+        // Add new products
+        foreach (array_diff($submittedIds, $existingIds) as $pid) {
+            TikTokProductGroupProduct::create([
+                'tiktok_product_group_id' => $group->id,
+                'product_id'              => $pid,
+                'sync_status'             => 'pending',
+            ]);
+        }
+
+        // Remove products no longer in the list
+        $toRemove = array_diff($existingIds, $submittedIds);
+        if (!empty($toRemove)) {
+            $group->groupProducts()->whereIn('product_id', $toRemove)->delete();
+        }
 
         ActivityLogger::log('updated', 'TikTok Product Group', $group->id, $group->name);
 
@@ -319,24 +354,61 @@ class TikTokProductGroupController extends Controller
 
         $productIds = $this->getMatchingProductIds($group);
 
+        $emptyPaginator = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+
         if (empty($productIds)) {
             return view('ext-tiktok::product-groups.products', [
-                'group'     => $group,
-                'products'  => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50),
-                'pivotMap'  => collect(),
-                'manualIds' => [],
+                'group'                => $group,
+                'products'             => $emptyPaginator,
+                'pivotMap'             => collect(),
+                'manualIds'            => [],
+                'optionRowsByProductId' => collect(),
+                'q'                    => '',
+                'syncStatus'           => 'all',
+                'erpStatus'            => 'all',
             ]);
         }
 
         $q = trim((string) $request->input('q'));
+        $syncStatus = $request->input('sync_status', 'all');
+        $erpStatus = $request->input('erp_status', 'all');
+
+        // Pivot data for sync status display + filtering
+        $pivotMap = $group->groupProducts()
+            ->whereIn('product_id', $productIds)
+            ->get()
+            ->keyBy('product_id');
+
+        // Filter by sync status
+        if ($syncStatus === 'pushed') {
+            $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'pushed'));
+        } elseif ($syncStatus === 'pending') {
+            $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? 'pending') !== 'pushed'));
+        } elseif ($syncStatus === 'error') {
+            $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'error'));
+        }
+
+        if (empty($productIds)) {
+            return view('ext-tiktok::product-groups.products', [
+                'group'                => $group,
+                'products'             => $emptyPaginator,
+                'pivotMap'             => $pivotMap,
+                'manualIds'            => $group->groupProducts()->pluck('product_id')->toArray(),
+                'optionRowsByProductId' => collect(),
+                'q'                    => $q,
+                'syncStatus'           => $syncStatus,
+                'erpStatus'            => $erpStatus,
+            ]);
+        }
 
         $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->whereIn('p.product_id', $productIds)
-            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image');
+            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'm.name as manufacturer_name');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -346,22 +418,55 @@ class TikTokProductGroupController extends Controller
             });
         }
 
-        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
+        if ($erpStatus === 'enabled') {
+            $query->where('p.status', 1);
+        } elseif ($erpStatus === 'disabled') {
+            $query->where('p.status', 0);
+        }
 
-        // Pivot data for sync status display
-        $pivotMap = $group->groupProducts()
-            ->whereIn('product_id', $productIds)
-            ->get()
-            ->keyBy('product_id');
+        $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
 
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
+        // Preload option rows for display
+        $pageIds = $products->pluck('product_id')->all();
+        $optionRowsByProductId = collect();
+        if (!empty($pageIds)) {
+            $optionRows = DB::table($pfx . 'product_option_value as pov')
+                ->join($pfx . 'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
+                ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
+                    $j->on('po.option_id', '=', 'od.option_id')
+                        ->where('od.language_id', '=', $langId);
+                })
+                ->leftJoin($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        ->where('ovd.language_id', '=', $langId);
+                })
+                ->whereIn('pov.product_id', $pageIds)
+                ->orderBy('pov.product_id')
+                ->orderBy('pov.product_option_id')
+                ->orderBy('pov.product_option_value_id')
+                ->get([
+                    'pov.product_id',
+                    'od.name as option_name',
+                    'ovd.name as option_value_name',
+                    'pov.sku as option_sku',
+                    'pov.quantity as option_quantity',
+                    'pov.absolute_price as option_absolute_price',
+                ]);
+
+            $optionRowsByProductId = $optionRows->groupBy(fn($r) => (int) $r->product_id);
+        }
+
         return view('ext-tiktok::product-groups.products', [
-            'group'     => $group,
-            'products'  => $products,
-            'pivotMap'  => $pivotMap,
-            'manualIds' => $manualIds,
-            'q'         => $q,
+            'group'                => $group,
+            'products'             => $products,
+            'pivotMap'             => $pivotMap,
+            'manualIds'            => $manualIds,
+            'optionRowsByProductId' => $optionRowsByProductId,
+            'q'                    => $q,
+            'syncStatus'           => $syncStatus,
+            'erpStatus'            => $erpStatus,
         ]);
     }
 
@@ -473,24 +578,40 @@ class TikTokProductGroupController extends Controller
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->input('q'));
+        $categoryId = (int) $request->input('category_id', 0);
+        $manufacturerId = (int) $request->input('manufacturer_id', 0);
 
-        if (strlen($q) < 2) {
+        if (strlen($q) < 2 && !$categoryId && !$manufacturerId) {
             return response()->json(['items' => []]);
         }
 
-        $rows = DB::table($pfx . 'product as p')
+        $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->where(function ($w) use ($q) {
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.quantity');
+
+        if ($categoryId > 0) {
+            $query->join($pfx . 'product_to_category as ptc', 'p.product_id', '=', 'ptc.product_id')
+                  ->where('ptc.category_id', $categoryId);
+        }
+
+        if ($manufacturerId > 0) {
+            $query->where('p.manufacturer_id', $manufacturerId);
+        }
+
+        if (strlen($q) >= 2) {
+            $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%");
-            })
-            ->select('p.product_id', 'pd.name', 'p.sku', 'p.price')
+            });
+        }
+
+        $rows = $query->distinct()
             ->orderBy('p.product_id', 'desc')
-            ->limit(50)
+            ->limit(100)
             ->get();
 
         return response()->json(['items' => $rows]);
@@ -672,14 +793,19 @@ class TikTokProductGroupController extends Controller
 
     // ── Push Prices ─────────────────────────────────────────────
 
-    public function pushPrices(int $id)
+    public function pushPrices(Request $request, int $id)
     {
         $group = TikTokProductGroup::findOrFail($id);
         $c = $this->creds();
         $client = new TikTokClient();
         $pfx = (string) config('catalog.prefix');
 
-        $pivotRows = $group->groupProducts()->whereNotNull('tiktok_product_id')->get();
+        $query = $group->groupProducts()->whereNotNull('tiktok_product_id');
+        $specificIds = $request->input('ids');
+        if (!empty($specificIds)) {
+            $query->whereIn('product_id', array_map('intval', (array) $specificIds));
+        }
+        $pivotRows = $query->get();
 
         if ($pivotRows->isEmpty()) {
             return redirect()->route('ext.tiktok.product-groups.products', $id)
@@ -715,14 +841,19 @@ class TikTokProductGroupController extends Controller
 
     // ── Push Stock ──────────────────────────────────────────────
 
-    public function pushStock(int $id)
+    public function pushStock(Request $request, int $id)
     {
         $group = TikTokProductGroup::findOrFail($id);
         $c = $this->creds();
         $client = new TikTokClient();
         $pfx = (string) config('catalog.prefix');
 
-        $pivotRows = $group->groupProducts()->whereNotNull('tiktok_product_id')->get();
+        $query = $group->groupProducts()->whereNotNull('tiktok_product_id');
+        $specificIds = $request->input('ids');
+        if (!empty($specificIds)) {
+            $query->whereIn('product_id', array_map('intval', (array) $specificIds));
+        }
+        $pivotRows = $query->get();
 
         if ($pivotRows->isEmpty()) {
             return redirect()->route('ext.tiktok.product-groups.products', $id)
@@ -750,6 +881,8 @@ class TikTokProductGroupController extends Controller
 
             ($result['ok'] ?? false) ? $ok++ : $fail++;
         }
+
+        $c['setting']->update(['last_stock_push_at' => now()]);
 
         return redirect()->route('ext.tiktok.product-groups.products', $id)
             ->with('status', "Stock pushed — OK: {$ok}, Failed: {$fail}");

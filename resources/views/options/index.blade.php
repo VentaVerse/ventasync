@@ -21,9 +21,6 @@
     @if(session('success'))
         <div class="alert success">{{ session('success') }}</div>
     @endif
-    @if(session('error'))
-        <div class="alert error">{{ session('error') }}</div>
-    @endif
 
     <form id="option-bulk-form" method="POST" action="{{ route('options.bulk_delete') }}" onsubmit="return window.__confirmOptionBulkDelete(event);">
         @csrf

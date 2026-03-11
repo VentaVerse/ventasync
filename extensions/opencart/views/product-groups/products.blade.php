@@ -14,10 +14,6 @@
         </div>
     </div>
 
-    @if(session('status'))
-        <div class="alert success">{{ session('status') }}</div>
-    @endif
-
     {{-- Search --}}
     <div class="toolbar">
         <form method="GET" action="{{ route('ext.opencart.product-groups.products', [$setting->id, $group->id]) }}">

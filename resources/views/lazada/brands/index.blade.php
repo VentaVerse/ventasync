@@ -6,16 +6,9 @@
     <h1>Lazada Brands</h1>
     <div class="page-header-actions">
         <a class="btn" href="{{ route('lazada.index') }}">Lazada API</a>
-        <a class="btn" href="{{ route('lazada.products.index') }}">Products</a>
+        <a class="btn" href="{{ route('lazada.product-groups.index') }}">Product Groups</a>
     </div>
 </div>
-
-@if(session('status'))
-    <div class="alert success">{{ session('status') }}</div>
-@endif
-@if(session('error'))
-    <div class="alert danger">{{ session('error') }}</div>
-@endif
 
 <div class="card">
     <div class="d-flex items-center justify-between gap-12 flex-wrap">
