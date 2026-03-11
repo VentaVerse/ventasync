@@ -1,0 +1,10 @@
+{
+    "id": "opencart",
+    "name": "OpenCart",
+    "version": "1.0.0",
+    "description": "OpenCart store integration — product sync, order sync, product groups, and marketplace reviews",
+    "author": "VentaSync",
+    "license_required": true,
+    "permissions": ["manage_opencart", "manage_opencart_orders", "manage_reviews"],
+    "nav": []
+}

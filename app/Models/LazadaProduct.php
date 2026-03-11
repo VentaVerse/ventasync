@@ -23,9 +23,9 @@ class LazadaProduct extends Model
         return $this->hasMany(LazadaProductAttribute::class, 'lazada_product_id');
     }
 
-    public function profiles()
+    public function groups()
     {
-        return $this->belongsToMany(LazadaProfile::class, 'lazada_product_profile');
+        return $this->belongsToMany(LazadaProductGroup::class, 'lazada_product_group_products');
     }
 
     public function variants()

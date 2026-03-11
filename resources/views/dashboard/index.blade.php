@@ -88,9 +88,9 @@
             <div class="dash-stat-label">Shopee Pending</div>
         </div>
     </a>
-    @if($syncStatuses->isNotEmpty())
+    @if(Route::has('ext.opencart.orders.index') && $syncStatuses->isNotEmpty())
         @foreach($syncStatuses as $store)
-            <a href="{{ route('opencart.orders.index', $store->id) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
+            <a href="{{ route('ext.opencart.orders.index', $store->id) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
                 <div class="dash-stat-icon">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
@@ -103,9 +103,10 @@
     @endif
 </div>
 
-{{-- Purchasing stats --}}
+{{-- Purchasing stats (from extension) --}}
+@if(Route::has('ext.purchasing.purchase_orders.index'))
 <div class="dash-stats">
-    <a href="{{ route('purchase_orders.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
+    <a href="{{ route('ext.purchasing.purchase_orders.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
@@ -114,7 +115,7 @@
             <div class="dash-stat-label">Open POs</div>
         </div>
     </a>
-    <a href="{{ route('purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
+    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
         </div>
@@ -123,7 +124,7 @@
             <div class="dash-stat-label">Pending Delivery</div>
         </div>
     </a>
-    <a href="{{ route('purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
+    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
@@ -132,7 +133,7 @@
             <div class="dash-stat-label">Overdue POs</div>
         </div>
     </a>
-    <a href="{{ route('purchase_orders.index', ['status' => 'received']) }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
+    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'received']) }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
@@ -142,6 +143,7 @@
         </div>
     </a>
 </div>
+@endif
 
 {{-- Sales chart --}}
 <div class="card mb-16">

@@ -7,7 +7,7 @@ use App\Models\ShopeeCategory;
 use App\Models\ShopeeItemCache;
 use App\Models\ShopeeLogistic;
 use App\Models\ShopeeProductLink;
-use App\Models\ShopeeProfile;
+use App\Models\ShopeeProductGroup;
 use App\Models\ShopeeSetting;
 use App\Models\ShopeeUnmatchedItem;
 use App\Services\ActivityLogger;
@@ -26,11 +26,11 @@ class ShopeeProductController extends Controller
         $q = trim((string) $request->get('q', ''));
         $syncStatus = (string) $request->get('sync_status', 'all');
         $manufacturerFilter = (string) $request->get('manufacturer', 'all');
-        $profileFilter = (string) $request->get('profile', 'all');
+        $groupFilter = (string) $request->get('group', 'all');
         $erpStatus = (string) $request->get('erp_status', 'all');
 
-        // Build profile → product mapping
-        $profileMapping = $this->getProfileProductMapping();
+        // Build product group → product mapping
+        $groupMapping = $this->getGroupProductMapping();
 
         $query = DB::table($pfx . 'product as p')
             ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -50,26 +50,26 @@ class ShopeeProductController extends Controller
                 'm.name as manufacturer_name'
             );
 
-        // Profile filter
-        if ($profileFilter === 'none') {
-            // Show products NOT matching any profile
-            $allMatchedIds = $profileMapping['ids'];
+        // Product group filter
+        if ($groupFilter === 'none') {
+            // Show products NOT matching any product group
+            $allMatchedIds = $groupMapping['ids'];
             if ($allMatchedIds === null || empty($allMatchedIds)) {
-                // No profiles or no matches — show all products
+                // No product groups or no matches — show all products
             } else {
                 $query->whereNotIn('p.product_id', $allMatchedIds);
             }
-        } elseif ($profileFilter !== 'all') {
-            // Show products matching a specific profile
-            $specificIds = $this->getProductIdsByProfile((int) $profileFilter);
+        } elseif ($groupFilter !== 'all') {
+            // Show products matching a specific product group
+            $specificIds = $this->getProductIdsByGroup((int) $groupFilter);
             if (empty($specificIds)) {
                 $query->whereRaw('1=0');
             } else {
                 $query->whereIn('p.product_id', $specificIds);
             }
         } else {
-            // Default: show products matching at least one profile + products with existing Shopee links
-            $allMatchedIds = $profileMapping['ids'] ?? [];
+            // Default: show products matching at least one product group + products with existing Shopee links
+            $allMatchedIds = $groupMapping['ids'] ?? [];
             $linkedIds = ShopeeProductLink::query()->pluck('product_id')->unique()->toArray();
             $allVisibleIds = array_values(array_unique(array_merge($allMatchedIds, $linkedIds)));
             if (empty($allVisibleIds)) {
@@ -175,15 +175,15 @@ class ShopeeProductController extends Controller
             ->orderBy('name')
             ->pluck('name', 'manufacturer_id');
 
-        // Profile list for filter dropdown
-        $allProfiles = ShopeeProfile::query()->orderBy('name')->pluck('name', 'id');
+        // Product group list for filter dropdown
+        $allGroups = ShopeeProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
-        // Compute profile names for products on this page
-        $profileMap = $profileMapping['map'];
-        $pageProfileMap = collect();
+        // Compute product group names for products on this page
+        $groupMap = $groupMapping['map'];
+        $pageGroupMap = collect();
         foreach ($products as $p) {
             $pid = (int) $p->product_id;
-            $pageProfileMap[$pid] = $profileMap[$pid] ?? [];
+            $pageGroupMap[$pid] = $groupMap[$pid] ?? [];
         }
 
         return view('shopee.products.index', [
@@ -192,11 +192,11 @@ class ShopeeProductController extends Controller
             'shopeeLinks' => $shopeeLinks,
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
-            'profileFilter' => $profileFilter,
+            'groupFilter' => $groupFilter,
             'erpStatus' => $erpStatus,
             'allManufacturers' => $allManufacturers,
-            'allProfiles' => $allProfiles,
-            'profilesByProductId' => $pageProfileMap,
+            'allGroups' => $allGroups,
+            'groupsByProductId' => $pageGroupMap,
             'unmatchedItems' => $unmatchedItems,
             'optionRowsByProductId' => $optionRowsByProductId,
         ]);
@@ -273,12 +273,12 @@ class ShopeeProductController extends Controller
 
         $logistics = $this->fetchLogistics();
 
-        // Find matching profile for this product to pre-select logistics & category + markup
-        $matchingProfile = $this->findProfileForProduct($productId, $product->manufacturer_id);
-        $profileLogisticIds = $matchingProfile ? ($matchingProfile->logistic_ids ?? []) : [];
-        $profileCategoryId = $matchingProfile ? ($matchingProfile->shopee_category_id ?? null) : null;
+        // Find matching product group for this product to pre-select logistics & category + markup
+        $matchingGroup = $this->findGroupForProduct($productId, $product->manufacturer_id);
+        $groupLogisticIds = $matchingGroup ? ($matchingGroup->logistic_ids ?? []) : [];
+        $groupCategoryId = $matchingGroup ? ($matchingGroup->shopee_category_id ?? null) : null;
 
-        // Apply profile price markup (query params from Add Product page override profile)
+        // Apply product group price markup (query params from Add Product page override group)
         $basePrice = (float) $product->price;
         $qMarkupPct = $request->query('markup_percent');
         $qMarkupFixed = $request->query('markup_fixed');
@@ -288,13 +288,13 @@ class ShopeeProductController extends Controller
             $markupPct = $qMarkupPct !== null ? (float) $qMarkupPct : 0;
             $markupFixed = $qMarkupFixed !== null ? (float) $qMarkupFixed : 0;
         } else {
-            $markupPct = $matchingProfile ? (float) ($matchingProfile->markup_percent ?? 0) : 0;
-            $markupFixed = $matchingProfile ? (float) ($matchingProfile->markup_fixed ?? 0) : 0;
+            $markupPct = $matchingGroup ? (float) ($matchingGroup->markup_percent ?? 0) : 0;
+            $markupFixed = $matchingGroup ? (float) ($matchingGroup->markup_fixed ?? 0) : 0;
         }
         $suggestedPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
 
         if ($qCategoryId !== null) {
-            $profileCategoryId = (int) $qCategoryId ?: null;
+            $groupCategoryId = (int) $qCategoryId ?: null;
         }
 
         return view('shopee.products.push', [
@@ -302,9 +302,9 @@ class ShopeeProductController extends Controller
             'images' => $images,
             'shopeeCategories' => $shopeeCategories,
             'logistics' => $logistics,
-            'profileLogisticIds' => $profileLogisticIds,
-            'profileCategoryId' => $profileCategoryId,
-            'profileName' => $matchingProfile ? $matchingProfile->name : null,
+            'groupLogisticIds' => $groupLogisticIds,
+            'groupCategoryId' => $groupCategoryId,
+            'groupName' => $matchingGroup ? $matchingGroup->name : null,
             'suggestedPrice' => $suggestedPrice,
         ]);
     }
@@ -454,7 +454,7 @@ class ShopeeProductController extends Controller
             ->with('status', 'Product pushed to Shopee. Item ID: ' . $itemId);
     }
 
-    // ── Push Direct (auto-populate from product + profile) ─────────
+    // ── Push Direct (auto-populate from product + product group) ─────────
 
     public function pushDirect(int $productId, ShopeeClient $client)
     {
@@ -492,15 +492,15 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Push failed: Product is disabled. Enable it first.');
         }
 
-        // Resolve profile for category + logistics
-        $profile = $this->findProfileForProduct($productId, $product->manufacturer_id);
-        if (!$profile || !$profile->shopee_category_id) {
-            return redirect()->back()->with('error', 'Push failed: No Shopee Profile with a category found for this product. Assign a profile first or use the push form.');
+        // Resolve product group for category + logistics
+        $group = $this->findGroupForProduct($productId, $product->manufacturer_id);
+        if (!$group || !$group->shopee_category_id) {
+            return redirect()->back()->with('error', 'Push failed: No Shopee Product Group with a category found for this product. Assign a product group first or use the push form.');
         }
 
-        $logisticIds = $profile->logistic_ids ?? [];
+        $logisticIds = $group->logistic_ids ?? [];
         if (empty($logisticIds)) {
-            return redirect()->back()->with('error', 'Push failed: Profile "' . $profile->name . '" has no logistics channels configured.');
+            return redirect()->back()->with('error', 'Push failed: Product Group "' . $group->name . '" has no logistics channels configured.');
         }
 
         // Validate required fields
@@ -579,10 +579,10 @@ class ShopeeProductController extends Controller
             $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
         }
 
-        // Apply profile price markup
+        // Apply product group price markup
         $basePrice = (float) $product->price;
-        $markupPct = (float) ($profile->markup_percent ?? 0);
-        $markupFixed = (float) ($profile->markup_fixed ?? 0);
+        $markupPct = (float) ($group->markup_percent ?? 0);
+        $markupFixed = (float) ($group->markup_fixed ?? 0);
         $sellingPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
 
         $payload = [
@@ -597,7 +597,7 @@ class ShopeeProductController extends Controller
                 'package_width' => $pkgWidth,
                 'package_height' => $pkgHeight,
             ],
-            'category_id' => (int) $profile->shopee_category_id,
+            'category_id' => (int) $group->shopee_category_id,
             'image' => ['image_id_list' => $imageIds],
             'logistic_info' => $logisticInfo,
             'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
@@ -686,9 +686,9 @@ class ShopeeProductController extends Controller
                 continue;
             }
 
-            $profile = $this->findProfileForProduct($productId, $product->manufacturer_id);
-            if (!$profile || !$profile->shopee_category_id || empty($profile->logistic_ids ?? [])) {
-                $errors[] = "#{$productId}: No profile/category/logistics";
+            $group = $this->findGroupForProduct($productId, $product->manufacturer_id);
+            if (!$group || !$group->shopee_category_id || empty($group->logistic_ids ?? [])) {
+                $errors[] = "#{$productId}: No product group/category/logistics";
                 $errCount++;
                 continue;
             }
@@ -741,12 +741,12 @@ class ShopeeProductController extends Controller
 
             // Build payload
             $logisticInfo = [];
-            foreach ($profile->logistic_ids as $lid) {
+            foreach ($group->logistic_ids as $lid) {
                 $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
             }
 
             $basePrice = (float) $product->price;
-            $sellingPrice = round($basePrice + ($basePrice * (float) ($profile->markup_percent ?? 0) / 100) + (float) ($profile->markup_fixed ?? 0), 2);
+            $sellingPrice = round($basePrice + ($basePrice * (float) ($group->markup_percent ?? 0) / 100) + (float) ($group->markup_fixed ?? 0), 2);
 
             $payload = [
                 'original_price' => $sellingPrice,
@@ -760,7 +760,7 @@ class ShopeeProductController extends Controller
                     'package_width' => max(1, (int) $product->width),
                     'package_height' => max(1, (int) $product->height),
                 ],
-                'category_id' => (int) $profile->shopee_category_id,
+                'category_id' => (int) $group->shopee_category_id,
                 'image' => ['image_id_list' => $imageIds],
                 'logistic_info' => $logisticInfo,
                 'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
@@ -2090,11 +2090,11 @@ class ShopeeProductController extends Controller
                     }
                 }
 
-                // Apply profile price markup
-                $profile = $this->findProfileForProduct($productId, $productRow->manufacturer_id ?? null);
-                if ($profile) {
-                    $markupPct = (float) ($profile->markup_percent ?? 0);
-                    $markupFixed = (float) ($profile->markup_fixed ?? 0);
+                // Apply product group price markup
+                $group = $this->findGroupForProduct($productId, $productRow->manufacturer_id ?? null);
+                if ($group) {
+                    $markupPct = (float) ($group->markup_percent ?? 0);
+                    $markupFixed = (float) ($group->markup_fixed ?? 0);
                     $price = $price + ($price * $markupPct / 100) + $markupFixed;
                 }
 
@@ -2171,10 +2171,10 @@ class ShopeeProductController extends Controller
         return 0;
     }
 
-    private function findProfileForProduct(int $productId, ?int $manufacturerId): ?ShopeeProfile
+    private function findGroupForProduct(int $productId, ?int $manufacturerId): ?ShopeeProductGroup
     {
         $pfx = (string) config('catalog.prefix');
-        $profiles = ShopeeProfile::all();
+        $groups = ShopeeProductGroup::all();
 
         // Get category IDs for this product
         $productCatIds = DB::table($pfx . 'product_to_category')
@@ -2182,38 +2182,38 @@ class ShopeeProductController extends Controller
             ->pluck('category_id')
             ->toArray();
 
-        foreach ($profiles as $profile) {
-            $catIds = $profile->catalog_category_ids ?? [];
-            $mfgIds = $profile->manufacturer_ids ?? [];
+        foreach ($groups as $group) {
+            $catIds = $group->catalog_category_ids ?? [];
+            $mfgIds = $group->manufacturer_ids ?? [];
 
-            // If profile has no filters, it matches all products
+            // If product group has no filters, it matches all products
             if (empty($catIds) && empty($mfgIds)) {
-                return $profile;
+                return $group;
             }
 
             $catMatch = empty($catIds) || !empty(array_intersect($catIds, $productCatIds));
             $mfgMatch = empty($mfgIds) || in_array($manufacturerId, $mfgIds);
 
             if ($catMatch && $mfgMatch) {
-                return $profile;
+                return $group;
             }
         }
 
         return null;
     }
 
-    private function getProfileProductMapping(): array
+    private function getGroupProductMapping(): array
     {
-        $profiles = ShopeeProfile::all();
-        if ($profiles->isEmpty()) return ['ids' => null, 'map' => []];
+        $groups = ShopeeProductGroup::all();
+        if ($groups->isEmpty()) return ['ids' => null, 'map' => []];
 
         $pfx = (string) config('catalog.prefix');
         $allIds = collect();
         $map = [];
 
-        foreach ($profiles as $profile) {
-            $catIds = $profile->catalog_category_ids ?? [];
-            $mfgIds = $profile->manufacturer_ids ?? [];
+        foreach ($groups as $group) {
+            $catIds = $group->catalog_category_ids ?? [];
+            $mfgIds = $group->manufacturer_ids ?? [];
 
             $q = DB::table($pfx . 'product as p')->select('p.product_id');
 
@@ -2229,21 +2229,21 @@ class ShopeeProductController extends Controller
             $allIds = $allIds->merge($pids);
 
             foreach ($pids as $pid) {
-                $map[(int) $pid][] = $profile->name;
+                $map[(int) $pid][] = $group->name;
             }
         }
 
         return ['ids' => $allIds->unique()->values()->all(), 'map' => $map];
     }
 
-    private function getProductIdsByProfile(int $profileId): array
+    private function getProductIdsByGroup(int $groupId): array
     {
-        $profile = ShopeeProfile::find($profileId);
-        if (!$profile) return [];
+        $group = ShopeeProductGroup::find($groupId);
+        if (!$group) return [];
 
         $pfx = (string) config('catalog.prefix');
-        $catIds = $profile->catalog_category_ids ?? [];
-        $mfgIds = $profile->manufacturer_ids ?? [];
+        $catIds = $group->catalog_category_ids ?? [];
+        $mfgIds = $group->manufacturer_ids ?? [];
 
         $q = DB::table($pfx . 'product as p')->select('p.product_id');
 

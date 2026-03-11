@@ -11,7 +11,7 @@ use App\Http\Controllers\ShopeeController;
 use App\Http\Controllers\ShopeeOrderController;
 use App\Http\Controllers\ShopeeCategoryController;
 use App\Http\Controllers\ShopeeCategoryAttributeController;
-use App\Http\Controllers\ShopeeProfileController;
+use App\Http\Controllers\ShopeeProductGroupController;
 use App\Http\Controllers\ShopeeProductController;
 use App\Http\Controllers\ShopeeLogisticsController;
 use App\Http\Controllers\ProductOptionController;
@@ -24,32 +24,17 @@ use App\Http\Controllers\LazadaProductController;
 use App\Http\Controllers\LazadaCategoryController;
 use App\Http\Controllers\LazadaCategoryAttributeController;
 use App\Http\Controllers\LazadaOrderController;
-use App\Http\Controllers\LazadaProfileController;
-use App\Http\Controllers\TikTokController;
+use App\Http\Controllers\LazadaProductGroupController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
-use App\Http\Controllers\OpenCartProfileController;
-use App\Http\Controllers\ReportController;
+
 use App\Http\Controllers\CurrencyController;
-use App\Http\Controllers\VendorController;
-use App\Http\Controllers\ProductVendorController;
-use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\ReorderController;
-use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\PedallionController;
-use App\Http\Controllers\PedallionCategoryController;
-use App\Http\Controllers\PedallionProductController;
-use App\Http\Controllers\PedallionProfileController;
-use App\Http\Controllers\PedallionOrderController;
 
 Route::get('/', [ShopeeController::class, 'root'])->name('root');
 
 // Lazada OAuth callback must be publicly accessible so Lazada can redirect back with `code`.
 // Keeping it outside auth/perm middleware prevents losing the code behind login redirects.
 Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
-
-// TikTok Shop OAuth callback must be publicly accessible.
-Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
 
 
 
@@ -166,15 +151,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/shopee/logistics', [ShopeeLogisticsController::class, 'index'])->name('shopee.logistics.index');
         Route::post('/shopee/logistics/fetch', [ShopeeLogisticsController::class, 'fetch'])->name('shopee.logistics.fetch');
 
-        // Shopee Profiles
-        Route::get('/shopee/profiles', [ShopeeProfileController::class, 'index'])->name('shopee.profiles.index');
-        Route::get('/shopee/profiles/create', [ShopeeProfileController::class, 'create'])->name('shopee.profiles.create');
-        Route::post('/shopee/profiles', [ShopeeProfileController::class, 'store'])->name('shopee.profiles.store');
-        Route::get('/shopee/profiles/{id}/edit', [ShopeeProfileController::class, 'edit'])->name('shopee.profiles.edit');
-        Route::put('/shopee/profiles/{id}', [ShopeeProfileController::class, 'update'])->name('shopee.profiles.update');
-        Route::delete('/shopee/profiles/{id}', [ShopeeProfileController::class, 'destroy'])->name('shopee.profiles.destroy');
-        Route::post('/shopee/profiles/{id}/sync-products', [ShopeeProfileController::class, 'syncProducts'])->name('shopee.profiles.sync_products');
-        Route::post('/shopee/profiles/{id}/template/sync', [ShopeeProfileController::class, 'syncTemplate'])->name('shopee.profiles.template_sync');
+        // Shopee Product Groups
+        Route::get('/shopee/product-groups', [ShopeeProductGroupController::class, 'index'])->name('shopee.product-groups.index');
+        Route::get('/shopee/product-groups/create', [ShopeeProductGroupController::class, 'create'])->name('shopee.product-groups.create');
+        Route::post('/shopee/product-groups', [ShopeeProductGroupController::class, 'store'])->name('shopee.product-groups.store');
+        Route::get('/shopee/product-groups/{id}/edit', [ShopeeProductGroupController::class, 'edit'])->name('shopee.product-groups.edit');
+        Route::put('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('shopee.product-groups.update');
+        Route::delete('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('shopee.product-groups.destroy');
+        Route::post('/shopee/product-groups/{id}/sync-products', [ShopeeProductGroupController::class, 'syncProducts'])->name('shopee.product-groups.sync_products');
+        Route::post('/shopee/product-groups/{id}/template/sync', [ShopeeProductGroupController::class, 'syncTemplate'])->name('shopee.product-groups.template_sync');
 
         // Shopee Products
         Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('shopee.products.index');
@@ -248,15 +233,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/order/items/get', [LazadaController::class, 'orderItemsGet'])->name('lazada.order_items_get');
         Route::post('/lazada/order/awb/pdf', [LazadaController::class, 'awbPdfGet'])->name('lazada.awb_pdf_get');
 
-        // Lazada Profiles
-        Route::get('/lazada/profiles', [LazadaProfileController::class, 'index'])->name('lazada.profiles.index');
-        Route::get('/lazada/profiles/create', [LazadaProfileController::class, 'create'])->name('lazada.profiles.create');
-        Route::post('/lazada/profiles', [LazadaProfileController::class, 'store'])->name('lazada.profiles.store');
-        Route::get('/lazada/profiles/{id}/edit', [LazadaProfileController::class, 'edit'])->whereNumber('id')->name('lazada.profiles.edit');
-        Route::put('/lazada/profiles/{id}', [LazadaProfileController::class, 'update'])->whereNumber('id')->name('lazada.profiles.update');
-        Route::delete('/lazada/profiles/{id}', [LazadaProfileController::class, 'destroy'])->whereNumber('id')->name('lazada.profiles.destroy');
-        Route::post('/lazada/profiles/{id}/sync-products', [LazadaProfileController::class, 'syncProducts'])->whereNumber('id')->name('lazada.profiles.sync_products');
-        Route::post('/lazada/profiles/{id}/template/sync', [LazadaProfileController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.profiles.template_sync');
+        // Lazada Product Groups
+        Route::get('/lazada/product-groups', [LazadaProductGroupController::class, 'index'])->name('lazada.product-groups.index');
+        Route::get('/lazada/product-groups/create', [LazadaProductGroupController::class, 'create'])->name('lazada.product-groups.create');
+        Route::post('/lazada/product-groups', [LazadaProductGroupController::class, 'store'])->name('lazada.product-groups.store');
+        Route::get('/lazada/product-groups/{id}/edit', [LazadaProductGroupController::class, 'edit'])->whereNumber('id')->name('lazada.product-groups.edit');
+        Route::put('/lazada/product-groups/{id}', [LazadaProductGroupController::class, 'update'])->whereNumber('id')->name('lazada.product-groups.update');
+        Route::delete('/lazada/product-groups/{id}', [LazadaProductGroupController::class, 'destroy'])->whereNumber('id')->name('lazada.product-groups.destroy');
+        Route::post('/lazada/product-groups/{id}/sync-products', [LazadaProductGroupController::class, 'syncProducts'])->whereNumber('id')->name('lazada.product-groups.sync_products');
+        Route::post('/lazada/product-groups/{id}/template/sync', [LazadaProductGroupController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.product-groups.template_sync');
 
         // Lazada Products
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('lazada.products.index');
@@ -331,107 +316,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/orders/{orderId}/cancel', [LazadaOrderController::class, 'cancel'])->name('lazada.orders.cancel');
     });
 
-    // TikTok Shop
-    Route::middleware(['perm:manage_tiktok'])->group(function () {
-        Route::get('/tiktok', [TikTokController::class, 'index'])->name('tiktok.index');
-        Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('tiktok.authorize');
-        Route::post('/tiktok/save', [TikTokController::class, 'save'])->name('tiktok.save');
-        Route::post('/tiktok/toggle-mode', [TikTokController::class, 'toggleMode'])->name('tiktok.toggle_mode');
-        Route::post('/tiktok/token/get', [TikTokController::class, 'tokenGet'])->name('tiktok.token_get');
-        Route::post('/tiktok/token/refresh', [TikTokController::class, 'tokenRefresh'])->name('tiktok.token_refresh');
-        Route::post('/tiktok/shops', [TikTokController::class, 'getShops'])->name('tiktok.shops');
-        Route::post('/tiktok/explorer/run', [TikTokController::class, 'explorerRun'])->name('tiktok.explorer_run');
-        Route::post('/tiktok/packs/run', [TikTokController::class, 'packsRun'])->name('tiktok.packs_run');
-        Route::post('/tiktok/toggle-logging', [TikTokController::class, 'toggleLogging'])->name('tiktok.toggle_logging');
-        Route::delete('/tiktok/api-logs', [TikTokController::class, 'clearApiLogs'])->name('tiktok.clear_api_logs');
-        Route::post('/tiktok/sync-days', [TikTokController::class, 'saveSyncDays'])->name('tiktok.sync_days');
-    });
-
-    // OpenCart
-    Route::middleware(['perm:manage_opencart'])->group(function () {
-        Route::get('/opencart', [\App\Http\Controllers\OpenCartController::class, 'index'])->name('opencart.index');
-        Route::post('/opencart/save', [\App\Http\Controllers\OpenCartController::class, 'save'])->name('opencart.save');
-        Route::delete('/opencart/{id}', [\App\Http\Controllers\OpenCartController::class, 'destroy'])->name('opencart.destroy');
-        Route::post('/opencart/test', [\App\Http\Controllers\OpenCartController::class, 'testConnection'])->name('opencart.test');
-        Route::post('/opencart/sync', [\App\Http\Controllers\OpenCartController::class, 'syncNow'])->name('opencart.sync');
-        Route::post('/opencart/sync-date', [\App\Http\Controllers\OpenCartController::class, 'saveSyncDate'])->name('opencart.sync_date');
-        Route::post('/opencart/push', [\App\Http\Controllers\OpenCartController::class, 'pushNow'])->name('opencart.push');
-        Route::post('/opencart/push-qty', [\App\Http\Controllers\OpenCartController::class, 'pushQtyNow'])->name('opencart.push_qty');
-        Route::post('/opencart/verify-password', [\App\Http\Controllers\OpenCartController::class, 'verifyPassword'])->name('opencart.verify_password');
-        Route::post('/opencart/fetch-oc-statuses', [\App\Http\Controllers\OpenCartController::class, 'fetchOcStatuses'])->name('opencart.fetch_oc_statuses');
-        Route::post('/opencart/save-status-map', [\App\Http\Controllers\OpenCartController::class, 'saveOrderStatusMap'])->name('opencart.save_status_map');
-        Route::post('/opencart/save-review-settings', [\App\Http\Controllers\OpenCartController::class, 'saveReviewSettings'])->name('opencart.save_review_settings');
-
-        // OpenCart per-store profiles
-        Route::get('/opencart/{store}/profiles', [OpenCartProfileController::class, 'index'])->name('opencart.profiles.index');
-        Route::get('/opencart/{store}/profiles/create', [OpenCartProfileController::class, 'create'])->name('opencart.profiles.create');
-        Route::post('/opencart/{store}/profiles', [OpenCartProfileController::class, 'store'])->name('opencart.profiles.store');
-        Route::get('/opencart/{store}/profiles/{profile}/edit', [OpenCartProfileController::class, 'edit'])->name('opencart.profiles.edit');
-        Route::put('/opencart/{store}/profiles/{profile}', [OpenCartProfileController::class, 'update'])->name('opencart.profiles.update');
-        Route::delete('/opencart/{store}/profiles/{profile}', [OpenCartProfileController::class, 'destroy'])->name('opencart.profiles.destroy');
-        Route::get('/opencart/{store}/profiles/{profile}/products', [OpenCartProfileController::class, 'products'])->name('opencart.profiles.products');
-        Route::post('/opencart/{store}/profiles/{profile}/push', [OpenCartProfileController::class, 'push'])->name('opencart.profiles.push');
-        Route::post('/opencart/{store}/profiles/{profile}/add-products', [OpenCartProfileController::class, 'addProducts'])->name('opencart.profiles.addProducts');
-        Route::delete('/opencart/{store}/profiles/{profile}/products/{product}', [OpenCartProfileController::class, 'removeProduct'])->name('opencart.profiles.removeProduct');
-        Route::get('/opencart/{store}/profiles/search-products', [OpenCartProfileController::class, 'searchProducts'])->name('opencart.profiles.searchProducts');
-    });
-
-    // OpenCart Orders (separate permission from OpenCart settings/profiles)
-    Route::middleware(['perm:manage_opencart_orders'])->group(function () {
-        Route::get('/opencart/{store}/orders', [OrderController::class, 'opencartIndex'])->name('opencart.orders.index');
-    });
-
-    // Pedallion
-    Route::middleware(['perm:manage_pedallion'])->group(function () {
-        Route::get('/pedallion', [PedallionController::class, 'index'])->name('pedallion.index');
-        Route::post('/pedallion/save', [PedallionController::class, 'save'])->name('pedallion.save');
-        Route::post('/pedallion/test', [PedallionController::class, 'testConnection'])->name('pedallion.test');
-        Route::post('/pedallion/toggle-logging', [PedallionController::class, 'toggleLogging'])->name('pedallion.toggle_logging');
-        Route::delete('/pedallion/api-logs', [PedallionController::class, 'clearApiLogs'])->name('pedallion.clear_api_logs');
-        Route::post('/pedallion/explorer/run', [PedallionController::class, 'explorerRun'])->name('pedallion.explorer_run');
-        Route::post('/pedallion/order-status-map', [PedallionController::class, 'saveOrderStatusMap'])->name('pedallion.order_status_map');
-        Route::post('/pedallion/fetch-order-statuses', [PedallionController::class, 'fetchOrderStatuses'])->name('pedallion.fetch_order_statuses');
-        Route::post('/pedallion/sync-days', [PedallionController::class, 'saveSyncDays'])->name('pedallion.sync_days');
-
-        // Categories & Manufacturers
-        Route::get('/pedallion/categories', [PedallionCategoryController::class, 'index'])->name('pedallion.categories.index');
-        Route::post('/pedallion/categories/fetch', [PedallionCategoryController::class, 'fetch'])->name('pedallion.categories.fetch');
-        Route::post('/pedallion/manufacturers/fetch', [PedallionCategoryController::class, 'fetchManufacturers'])->name('pedallion.manufacturers.fetch');
-
-        // Profiles
-        Route::get('/pedallion/profiles', [PedallionProfileController::class, 'index'])->name('pedallion.profiles.index');
-        Route::get('/pedallion/profiles/create', [PedallionProfileController::class, 'create'])->name('pedallion.profiles.create');
-        Route::post('/pedallion/profiles', [PedallionProfileController::class, 'store'])->name('pedallion.profiles.store');
-        Route::get('/pedallion/profiles/{id}/edit', [PedallionProfileController::class, 'edit'])->name('pedallion.profiles.edit');
-        Route::put('/pedallion/profiles/{id}', [PedallionProfileController::class, 'update'])->name('pedallion.profiles.update');
-        Route::delete('/pedallion/profiles/{id}', [PedallionProfileController::class, 'destroy'])->name('pedallion.profiles.destroy');
-        Route::get('/pedallion/profiles/{id}/products', [PedallionProfileController::class, 'products'])->name('pedallion.profiles.products');
-        Route::post('/pedallion/profiles/{id}/sync-products', [PedallionProfileController::class, 'syncProducts'])->name('pedallion.profiles.sync_products');
-
-        // Products
-        Route::get('/pedallion/products', [PedallionProductController::class, 'index'])->name('pedallion.products.index');
-        Route::post('/pedallion/products/link', [PedallionProductController::class, 'link'])->name('pedallion.products.link');
-        Route::delete('/pedallion/products/{id}/unlink', [PedallionProductController::class, 'unlink'])->name('pedallion.products.unlink');
-        Route::post('/pedallion/products/{productId}/push', [PedallionProductController::class, 'push'])->name('pedallion.products.push');
-        Route::post('/pedallion/products/{productId}/sync-qty', [PedallionProductController::class, 'syncQty'])->name('pedallion.products.sync_qty');
-        Route::post('/pedallion/products/{productId}/sync-price', [PedallionProductController::class, 'syncPrice'])->name('pedallion.products.sync_price');
-        Route::post('/pedallion/products/{productId}/delete', [PedallionProductController::class, 'deleteFromPedallion'])->name('pedallion.products.delete');
-        Route::post('/pedallion/products/{productId}/sync', [PedallionProductController::class, 'sync'])->name('pedallion.products.sync');
-        Route::post('/pedallion/products/bulk-sync', [PedallionProductController::class, 'bulkSync'])->name('pedallion.products.bulk_sync');
-        Route::post('/pedallion/products/bulk-unlink', [PedallionProductController::class, 'bulkUnlink'])->name('pedallion.products.bulk_unlink');
-        Route::post('/pedallion/products/bulk-push', [PedallionProductController::class, 'bulkPush'])->name('pedallion.products.bulk_push');
-        Route::post('/pedallion/products/bulk-sync-qty', [PedallionProductController::class, 'bulkSyncQty'])->name('pedallion.products.bulk_sync_qty');
-        Route::post('/pedallion/products/bulk-sync-price', [PedallionProductController::class, 'bulkSyncPrice'])->name('pedallion.products.bulk_sync_price');
-        Route::post('/pedallion/products/bulk-delete', [PedallionProductController::class, 'bulkDelete'])->name('pedallion.products.bulk_delete');
-        Route::post('/pedallion/products/push-qty', [PedallionProductController::class, 'pushQty'])->name('pedallion.products.push_qty');
-    });
-
-    // Pedallion Orders
-    Route::middleware(['perm:manage_pedallion_orders'])->group(function () {
-        Route::get('/pedallion/orders', [PedallionOrderController::class, 'index'])->name('pedallion.orders.index');
-        Route::get('/pedallion/orders/{id}', [PedallionOrderController::class, 'show'])->name('pedallion.orders.show');
-    });
-
     // Users
     Route::middleware(['perm:manage_users'])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -468,6 +352,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/currencies/update-rates', [CurrencyController::class, 'updateRates'])->name('currencies.update_rates');
         Route::get('/api/currencies', [CurrencyController::class, 'lookup'])->name('api.currencies');
 
+        // Error Log
+        Route::get('/error-log', [\App\Http\Controllers\ErrorLogController::class, 'index'])->name('error_log.index');
+        Route::post('/error-log/clear', [\App\Http\Controllers\ErrorLogController::class, 'clear'])->name('error_log.clear');
+        Route::post('/error-log/test', [\App\Http\Controllers\ErrorLogController::class, 'test'])->name('error_log.test');
+
         // Extensions
         Route::get('/extensions', [\App\Http\Controllers\ExtensionController::class, 'index'])->name('extensions.index');
         Route::post('/extensions/install', [\App\Http\Controllers\ExtensionController::class, 'install'])->name('extensions.install');
@@ -494,18 +383,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/order-payments', [OrderController::class, 'paymentsReport'])->name('orders.payments_report');
     });
 
-    // Reports
-    Route::middleware(['perm:manage_reports'])->group(function () {
-        Route::get('/reports/orders', [ReportController::class, 'orders'])->name('reports.orders');
-        Route::get('/reports/orders/export', [ReportController::class, 'exportOrders'])->name('reports.orders.export');
-        Route::get('/reports/products', [ReportController::class, 'products'])->name('reports.products');
-        Route::get('/reports/products/export', [ReportController::class, 'exportProducts'])->name('reports.products.export');
-        Route::get('/reports/payouts', [ReportController::class, 'payouts'])->name('reports.payouts');
-        Route::get('/reports/payouts/export', [ReportController::class, 'exportPayouts'])->name('reports.payouts.export');
-        Route::get('/reports/categories', [ReportController::class, 'categories'])->name('reports.categories');
-        Route::get('/reports/fees', [ReportController::class, 'fees'])->name('reports.fees');
-        Route::get('/reports/inventory', [ReportController::class, 'inventory'])->name('reports.inventory');
-    });
 
     // Order Statuses
     Route::middleware(['perm:manage_order_statuses'])->group(function () {
@@ -518,69 +395,6 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/order-statuses/{id}', [OrderStatusController::class, 'destroy'])->name('order_statuses.destroy');
     });
 
-    // Purchasing
-    Route::middleware(['perm:manage_purchasing'])->group(function () {
-        // Vendors
-        Route::get('/vendors', [VendorController::class, 'index'])->name('vendors.index');
-        Route::get('/vendors/create', [VendorController::class, 'create'])->name('vendors.create');
-        Route::post('/vendors', [VendorController::class, 'store'])->name('vendors.store');
-        Route::get('/vendors/{id}/edit', [VendorController::class, 'edit'])->name('vendors.edit');
-        Route::put('/vendors/{id}', [VendorController::class, 'update'])->name('vendors.update');
-        Route::delete('/vendors/{id}', [VendorController::class, 'destroy'])->name('vendors.destroy');
-        Route::post('/vendors/bulk-delete', [VendorController::class, 'bulkDestroy'])->name('vendors.bulk_delete');
-        Route::get('/api/vendors', [VendorController::class, 'lookup'])->name('api.vendors');
-
-        // Purchase Orders
-        Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase_orders.index');
-        Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase_orders.create');
-        Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase_orders.store');
-        Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])->name('purchase_orders.show');
-        Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase_orders.edit');
-        Route::put('/purchase-orders/{id}', [PurchaseOrderController::class, 'update'])->name('purchase_orders.update');
-        Route::delete('/purchase-orders/{id}', [PurchaseOrderController::class, 'destroy'])->name('purchase_orders.destroy');
-        Route::post('/purchase-orders/{id}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase_orders.update_status');
-        Route::get('/purchase-orders/{id}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase_orders.receive');
-        Route::post('/purchase-orders/{id}/receive', [PurchaseOrderController::class, 'processReceive'])->name('purchase_orders.process_receive');
-        Route::get('/purchase-orders/{id}/pdf', [PurchaseOrderController::class, 'pdf'])->name('purchase_orders.pdf');
-        Route::get('/api/purchase-orders/products', [PurchaseOrderController::class, 'productSearch'])->name('api.purchase_orders.products');
-
-        // Duplicate, Email, Payments, Attachments
-        Route::post('/purchase-orders/{id}/duplicate', [PurchaseOrderController::class, 'duplicate'])->name('purchase_orders.duplicate');
-        Route::post('/purchase-orders/{id}/email-test', [PurchaseOrderController::class, 'emailTest'])->name('purchase_orders.email_test');
-        Route::post('/purchase-orders/{id}/email-vendor', [PurchaseOrderController::class, 'emailVendor'])->name('purchase_orders.email_vendor');
-        Route::post('/purchase-orders/{id}/payment', [PurchaseOrderController::class, 'recordPayment'])->name('purchase_orders.record_payment');
-        Route::put('/purchase-orders/{id}/payment/{paymentId}', [PurchaseOrderController::class, 'updatePayment'])->name('purchase_orders.update_payment');
-        Route::delete('/purchase-orders/{id}/payment/{paymentId}', [PurchaseOrderController::class, 'deletePayment'])->name('purchase_orders.delete_payment');
-        Route::post('/purchase-orders/{id}/attachments', [PurchaseOrderController::class, 'uploadAttachment'])->name('purchase_orders.upload_attachment');
-        Route::delete('/purchase-orders/{id}/attachments/{attachmentId}', [PurchaseOrderController::class, 'deleteAttachment'])->name('purchase_orders.delete_attachment');
-        Route::get('/purchase-orders/{id}/attachments/{attachmentId}/download', [PurchaseOrderController::class, 'downloadAttachment'])->name('purchase_orders.download_attachment');
-
-        // Reorder Suggestions
-        Route::get('/reorder-suggestions', [ReorderController::class, 'index'])->name('reorder.index');
-        Route::post('/reorder-suggestions/create-pos', [ReorderController::class, 'createFromReorder'])->name('reorder.create_pos');
-    });
-
-    // Reviews
-    Route::middleware(['perm:manage_reviews'])->group(function () {
-        Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
-        Route::get('/reviews/{id}', [ReviewController::class, 'show'])->name('reviews.show')->whereNumber('id');
-        Route::post('/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('reviews.push')->whereNumber('id');
-        Route::post('/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('reviews.skip')->whereNumber('id');
-        Route::post('/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('reviews.bulk_push');
-        Route::post('/reviews/fetch', [ReviewController::class, 'fetch'])->name('reviews.fetch');
-        Route::post('/reviews/push-all', [ReviewController::class, 'pushAll'])->name('reviews.push_all');
-        Route::post('/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('reviews.delete_all');
-    });
-
-    // Product Vendors (buying prices)
-    Route::middleware(['perm:manage_products'])->group(function () {
-        Route::get('/products/{id}/vendors', [ProductVendorController::class, 'index'])->name('products.vendors.index');
-        Route::post('/products/{id}/vendors', [ProductVendorController::class, 'store'])->name('products.vendors.store');
-        Route::post('/products/{id}/vendors/bulk', [ProductVendorController::class, 'storeBulk'])->name('products.vendors.store_bulk');
-        Route::put('/products/{productId}/vendors/{id}', [ProductVendorController::class, 'update'])->name('products.vendors.update');
-        Route::delete('/products/{productId}/vendors/{id}', [ProductVendorController::class, 'destroy'])->name('products.vendors.destroy');
-        Route::delete('/products/{id}/vendors', [ProductVendorController::class, 'destroyBulk'])->name('products.vendors.destroy_bulk');
-    });
 });
 
 require __DIR__.'/auth.php';

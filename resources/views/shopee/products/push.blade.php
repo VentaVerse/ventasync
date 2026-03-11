@@ -55,7 +55,7 @@
                     <label>Price <span style="color:#d11;">*</span></label>
                     <input type="number" name="original_price" class="input" step="0.01" min="0.01" value="{{ old('original_price', number_format($suggestedPrice ?? (float)$product->price, 2, '.', '')) }}">
                     @if(isset($suggestedPrice) && $suggestedPrice != (float)$product->price)
-                        <div class="hint">Base: {{ number_format((float)$product->price, 2) }} + profile markup</div>
+                        <div class="hint">Base: {{ number_format((float)$product->price, 2) }} + group markup</div>
                     @endif
                 </div>
                 <div>
@@ -95,12 +95,12 @@
         {{-- Shopee Category --}}
         <div class="card mt-16">
             <h3 class="section-title mt-0">Shopee Category</h3>
-            @if(!empty($profileName) && !empty($profileCategoryId))
-                <div class="hint" style="margin-bottom:8px;">Pre-selected from profile: <strong>{{ $profileName }}</strong></div>
+            @if(!empty($groupName) && !empty($groupCategoryId))
+                <div class="hint" style="margin-bottom:8px;">Pre-selected from product group: <strong>{{ $groupName }}</strong></div>
             @endif
             <div>
                 @php
-                    $selectedCatId = (int)old('category_id', $profileCategoryId ?? 0);
+                    $selectedCatId = (int)old('category_id', $groupCategoryId ?? 0);
                 @endphp
                 <label>Category <span style="color:#d11;">*</span></label>
                 <select name="category_id" class="input">
@@ -120,10 +120,10 @@
             @if(!empty($logistics))
                 @php
                     $oldIds = old('logistic_ids');
-                    $profileLids = array_map('intval', $profileLogisticIds ?? []);
+                    $groupLids = array_map('intval', $groupLogisticIds ?? []);
                 @endphp
-                @if(!empty($profileName) && !empty($profileLids))
-                    <div class="hint" style="margin-bottom:8px;">Pre-selected from profile: <strong>{{ $profileName }}</strong>. Select at least one. <span style="color:#d11;">*</span></div>
+                @if(!empty($groupName) && !empty($groupLids))
+                    <div class="hint" style="margin-bottom:8px;">Pre-selected from product group: <strong>{{ $groupName }}</strong>. Select at least one. <span style="color:#d11;">*</span></div>
                 @else
                     <div class="hint" style="margin-bottom:8px;">Select at least one logistics channel. <span style="color:#d11;">*</span></div>
                 @endif
@@ -133,11 +133,11 @@
                             $lid = (int)($ch['logistic_id'] ?? 0);
                             $lname = (string)($ch['logistic_name'] ?? 'Channel #' . $lid);
                             $enabled = (bool)($ch['enabled'] ?? false);
-                            // Priority: old input > profile logistics > API enabled flag
+                            // Priority: old input > product group logistics > API enabled flag
                             if (is_array($oldIds)) {
                                 $isChecked = in_array($lid, array_map('intval', $oldIds));
-                            } elseif (!empty($profileLids)) {
-                                $isChecked = in_array($lid, $profileLids);
+                            } elseif (!empty($groupLids)) {
+                                $isChecked = in_array($lid, $groupLids);
                             } else {
                                 $isChecked = $enabled;
                             }

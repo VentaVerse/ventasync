@@ -14,7 +14,7 @@
                 @csrf
                 <button type="submit" class="btn secondary">Rebuild Cache</button>
             </form>
-            <a class="btn secondary" href="{{ route('shopee.profiles.index') }}">Profiles</a>
+            <a class="btn secondary" href="{{ route('shopee.product-groups.index') }}">Product Groups</a>
             <a class="btn" href="{{ route('shopee.products.add') }}">Add Product</a>
         </div>
     </div>
@@ -123,12 +123,12 @@
                 </select>
             </div>
             <div>
-                <label class="text-xs text-muted">Profile</label>
-                <select name="profile" class="input">
-                    <option value="all" {{ ($profileFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Profiles</option>
-                    <option value="none" {{ ($profileFilter ?? '') === 'none' ? 'selected' : '' }}>No Profile</option>
-                    @foreach(($allProfiles ?? collect()) as $pId => $pName)
-                        <option value="{{ $pId }}" {{ (string)($profileFilter ?? '') === (string)$pId ? 'selected' : '' }}>{{ $pName }}</option>
+                <label class="text-xs text-muted">Product Group</label>
+                <select name="group" class="input">
+                    <option value="all" {{ ($groupFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Groups</option>
+                    <option value="none" {{ ($groupFilter ?? '') === 'none' ? 'selected' : '' }}>No Group</option>
+                    @foreach(($allGroups ?? collect()) as $pId => $pName)
+                        <option value="{{ $pId }}" {{ (string)($groupFilter ?? '') === (string)$pId ? 'selected' : '' }}>{{ $pName }}</option>
                     @endforeach
                 </select>
             </div>
@@ -150,7 +150,7 @@
             </div>
             <div class="d-flex gap-6">
                 <button type="submit" class="btn small">Filter</button>
-                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
+                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($groupFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
                     <a href="{{ route('shopee.products.index') }}" class="btn small secondary">Clear</a>
                 @endif
             </div>
@@ -196,7 +196,7 @@
                     <th>Product Name</th>
                     <th>SKU</th>
                     <th>Manufacturer</th>
-                    <th style="width:120px;">Profile</th>
+                    <th style="width:120px;">Group</th>
                     <th style="width:60px;">Stock</th>
                     <th style="width:80px;">Price</th>
                     <th>Shopee ID</th>
@@ -211,7 +211,7 @@
                     @php
                         $links = $shopeeLinks->get($p->product_id, collect());
                         $link = $links->first();
-                        $pProfiles = isset($profilesByProductId) ? ($profilesByProductId[$p->product_id] ?? []) : [];
+                        $pGroups = isset($groupsByProductId) ? ($groupsByProductId[$p->product_id] ?? []) : [];
                     @endphp
                     <tr>
                         <td><input type="checkbox" class="row-check" value="{{ $p->product_id }}"></td>
@@ -247,8 +247,8 @@
                         <td><code>{{ $p->sku ?: '-' }}</code></td>
                         <td>{{ $p->manufacturer_name ?? '-' }}</td>
                         <td>
-                            @if(count($pProfiles) > 0)
-                                <span class="text-xs">{{ $pProfiles[0] }}@if(count($pProfiles) > 1) <span class="text-muted">(+{{ count($pProfiles) - 1 }})</span>@endif</span>
+                            @if(count($pGroups) > 0)
+                                <span class="text-xs">{{ $pGroups[0] }}@if(count($pGroups) > 1) <span class="text-muted">(+{{ count($pGroups) - 1 }})</span>@endif</span>
                             @else
                                 <span class="text-muted">-</span>
                             @endif
@@ -370,7 +370,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="14" class="text-muted">No products found. Create a <a href="{{ route('shopee.profiles.index') }}">Shopee Profile</a> to filter catalog products.</td>
+                        <td colspan="14" class="text-muted">No products found. Create a <a href="{{ route('shopee.product-groups.index') }}">Shopee Product Group</a> to filter catalog products.</td>
                     </tr>
                 @endforelse
                 </tbody>

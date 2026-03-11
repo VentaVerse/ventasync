@@ -9,7 +9,6 @@ use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\OrderStatus;
 use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
-use App\Models\OpenCartSyncLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -106,36 +105,42 @@ class DashboardController extends Controller
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.marketplace_source']);
 
         // OpenCart store names for display
-        $ocStoreNames = DB::table('opencart_settings')->pluck('store_name', 'id')->all();
+        $ocStoreNames = Schema::hasTable('opencart_settings')
+            ? DB::table('opencart_settings')->pluck('store_name', 'id')->all()
+            : [];
 
         // --- OpenCart sync status per store ---
-        $syncStatuses = DB::table('opencart_settings as s')
-            ->where('s.enabled', true)
-            ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
-            ->map(function ($store) {
-                $lastLog = OpenCartSyncLog::where('opencart_setting_id', $store->id)
-                    ->orderByDesc('id')
-                    ->first(['status', 'entity_type', 'completed_at', 'error_message']);
-                $store->last_status = $lastLog->status ?? null;
-                $store->last_entity = $lastLog->entity_type ?? null;
-                $store->last_completed = $lastLog->completed_at ?? null;
-                $store->last_error = $lastLog->error_message ?? null;
+        if (class_exists(\Extensions\opencart\Models\OpenCartSyncLog::class) && Schema::hasTable('opencart_settings')) {
+            $syncStatuses = DB::table('opencart_settings as s')
+                ->where('s.enabled', true)
+                ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
+                ->map(function ($store) {
+                    $lastLog = \Extensions\opencart\Models\OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                        ->orderByDesc('id')
+                        ->first(['status', 'entity_type', 'completed_at', 'error_message']);
+                    $store->last_status = $lastLog->status ?? null;
+                    $store->last_entity = $lastLog->entity_type ?? null;
+                    $store->last_completed = $lastLog->completed_at ?? null;
+                    $store->last_error = $lastLog->error_message ?? null;
 
-                // Last successful push qty timestamp
-                $lastPushQty = OpenCartSyncLog::where('opencart_setting_id', $store->id)
-                    ->where('entity_type', 'product_qty')
-                    ->where('direction', 'push')
-                    ->where('status', 'completed')
-                    ->orderByDesc('id')
-                    ->value('completed_at');
-                $store->last_push_qty_at = $lastPushQty;
+                    // Last successful push qty timestamp
+                    $lastPushQty = \Extensions\opencart\Models\OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                        ->where('entity_type', 'product_qty')
+                        ->where('direction', 'push')
+                        ->where('status', 'completed')
+                        ->orderByDesc('id')
+                        ->value('completed_at');
+                    $store->last_push_qty_at = $lastPushQty;
 
+                    return $store;
+                });
+            $syncStatuses = $syncStatuses->map(function ($store) use ($pendingByStore) {
+                $store->pending_count = $pendingByStore[$store->id] ?? 0;
                 return $store;
             });
-        $syncStatuses = $syncStatuses->map(function ($store) use ($pendingByStore) {
-            $store->pending_count = $pendingByStore[$store->id] ?? 0;
-            return $store;
-        });
+        } else {
+            $syncStatuses = collect();
+        }
 
         // --- Lazada sync status (from settings table, independent of API logging) ---
         $lazadaSyncStatus = null;
@@ -167,8 +172,8 @@ class DashboardController extends Controller
 
         // --- TikTok sync status ---
         $tiktokSyncStatus = null;
-        if (Schema::hasTable('tiktok_settings')) {
-            $ttSetting = \App\Models\TikTokSetting::query()->first();
+        if (class_exists(\Extensions\tiktok\Models\TikTokSetting::class) && Schema::hasTable('tiktok_settings')) {
+            $ttSetting = \Extensions\tiktok\Models\TikTokSetting::query()->first();
             if ($ttSetting) {
                 $tiktokSyncStatus = (object) [
                     'expires_at' => $ttSetting->expires_at,
@@ -176,16 +181,22 @@ class DashboardController extends Controller
             }
         }
 
-        // --- Purchase Order stats ---
-        $openPos = \App\Models\PurchaseOrder::whereIn('status', ['draft', 'approved', 'ordered'])->count();
-        $pendingDelivery = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])->count();
-        $overduePos = \App\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])
-            ->where('expected_delivery_date', '<', now()->toDateString())->count();
-        $monthlyPoSpend = (float) \App\Models\PurchaseOrder::where('status', 'received')
-            ->whereMonth('received_at', now()->month)
-            ->whereYear('received_at', now()->year)
-            ->selectRaw('SUM(total * exchange_rate) as spend')
-            ->value('spend');
+        // --- Purchase Order stats (from purchasing extension) ---
+        $openPos = 0;
+        $pendingDelivery = 0;
+        $overduePos = 0;
+        $monthlyPoSpend = 0;
+        if (class_exists(\Extensions\purchasing\Models\PurchaseOrder::class)) {
+            $openPos = \Extensions\purchasing\Models\PurchaseOrder::whereIn('status', ['draft', 'approved', 'ordered'])->count();
+            $pendingDelivery = \Extensions\purchasing\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])->count();
+            $overduePos = \Extensions\purchasing\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])
+                ->where('expected_delivery_date', '<', now()->toDateString())->count();
+            $monthlyPoSpend = (float) \Extensions\purchasing\Models\PurchaseOrder::where('status', 'received')
+                ->whereMonth('received_at', now()->month)
+                ->whereYear('received_at', now()->year)
+                ->selectRaw('SUM(total * exchange_rate) as spend')
+                ->value('spend');
+        }
 
         // --- Greeting ---
         $hour = (int) now()->format('H');
@@ -267,9 +278,9 @@ class DashboardController extends Controller
             ->get();
 
         // Map OC store names
-        $ocStores = DB::table('opencart_settings')
-            ->pluck('store_name', 'id')
-            ->toArray();
+        $ocStores = Schema::hasTable('opencart_settings')
+            ? DB::table('opencart_settings')->pluck('store_name', 'id')->toArray()
+            : [];
 
         $slices = [];
         foreach ($rows as $row) {

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\OrderStatus;
-use App\Models\OpenCartSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -41,7 +40,9 @@ class DashboardController extends Controller
               ->orWhere('name', 'like', '%processing%');
         })->pluck('order_status_id');
 
-        $ocStores = OpenCartSetting::where('enabled', true)->get(['id', 'store_name']);
+        $ocStores = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
+            ? \Extensions\opencart\Models\OpenCartSetting::where('enabled', true)->get(['id', 'store_name'])
+            : collect();
         $storePending = [];
         foreach ($ocStores as $store) {
             $count = DB::table($pfx . 'order')

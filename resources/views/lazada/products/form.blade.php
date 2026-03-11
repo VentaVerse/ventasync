@@ -45,10 +45,10 @@
                         @if(!empty($productRow->model))&middot; Model: <strong>{{ $productRow->model }}</strong> @endif
                         @if(isset($productRow->price))&middot; Price: <strong>{{ number_format((float)$productRow->price, 2) }}</strong> @endif
                     </div>
-                    @php $linkedProfiles = $listing->profiles; @endphp
-                    @if($linkedProfiles->count() > 0)
+                    @php $linkedGroups = $listing->groups; @endphp
+                    @if($linkedGroups->count() > 0)
                         <div class="text-muted text-sm" style="margin-top:2px;">
-                            Profile: <strong>{{ $linkedProfiles->first()->name }}</strong>@if($linkedProfiles->count() > 1) <span class="text-muted">(+{{ $linkedProfiles->count() - 1 }})</span>@endif
+                            Product Group: <strong>{{ $linkedGroups->first()->name }}</strong>@if($linkedGroups->count() > 1) <span class="text-muted">(+{{ $linkedGroups->count() - 1 }})</span>@endif
                         </div>
                     @endif
                 </div>
@@ -125,9 +125,9 @@
             </div>
 
             @php
-                $profileMarkup = $listing->profiles->first();
-                $effectiveFixed = old('markup_fixed', $listing->markup_fixed ?? ($profileMarkup->markup_fixed ?? null));
-                $effectivePercent = old('markup_percent', $listing->markup_percent ?? ($profileMarkup->markup_percent ?? null));
+                $groupMarkup = $listing->groups->first();
+                $effectiveFixed = old('markup_fixed', $listing->markup_fixed ?? ($groupMarkup->markup_fixed ?? null));
+                $effectivePercent = old('markup_percent', $listing->markup_percent ?? ($groupMarkup->markup_percent ?? null));
             @endphp
 
             <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
@@ -152,17 +152,17 @@
                 </div>
             </div>
 
-            @if($profileMarkup)
+            @if($groupMarkup)
                 <div class="hint" style="margin-top:8px;">
                     @php
                         $parts = [];
-                        if (!empty($profileMarkup->markup_fixed)) $parts[] = '+' . number_format((float)$profileMarkup->markup_fixed, 2);
-                        if (!empty($profileMarkup->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$profileMarkup->markup_percent, 2), '0'), '.') . '%';
+                        if (!empty($groupMarkup->markup_fixed)) $parts[] = '+' . number_format((float)$groupMarkup->markup_fixed, 2);
+                        if (!empty($groupMarkup->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$groupMarkup->markup_percent, 2), '0'), '.') . '%';
                     @endphp
                     @if(!empty($parts))
-                        From profile <strong>{{ $profileMarkup->name }}</strong>: {{ implode(' & ', $parts) }}.
+                        From product group <strong>{{ $groupMarkup->name }}</strong>: {{ implode(' & ', $parts) }}.
                     @endif
-                    Changing the values above overrides the profile.
+                    Changing the values above overrides the product group.
                 </div>
             @endif
 
@@ -211,7 +211,7 @@
                                 $key = (string)$a['key'];
                                 $suggest = $suggested[$key] ?? null;
                                 $rawSaved = $saved[$key] ?? '';
-                                $isFromProfile = !array_key_exists($key, ($productOwnAttrs ?? [])) && array_key_exists($key, ($profileAttrs ?? []));
+                                $isFromGroup = !array_key_exists($key, ($productOwnAttrs ?? [])) && array_key_exists($key, ($groupAttrs ?? []));
                                 $val = old('attributes.'.$key, $saved[$key] ?? ($suggest ?? ''));
                                 $options = $a['options'] ?? [];
                                 $isSelect = is_array($options) && count($options) > 0;
@@ -278,8 +278,8 @@
                                         </div>
                                     @endif
 
-                                    @if($isFromProfile)
-                                        <div class="hint" style="margin-top:4px; color: var(--accent);">Inherited from profile — save to override.</div>
+                                    @if($isFromGroup)
+                                        <div class="hint" style="margin-top:4px; color: var(--accent);">Inherited from product group — save to override.</div>
                                     @endif
 
                                     @if(!$isSelect && !($isMapVal ?? false) && empty($saved[$key] ?? null) && empty(old('attributes.'.$key)) && !empty($suggest))

@@ -1,0 +1,21 @@
+{
+    "id": "tiktok",
+    "name": "TikTok Shop",
+    "version": "1.0.0",
+    "description": "TikTok Shop integration — OAuth, product sync, API explorer",
+    "author": "VentaSync",
+    "license_required": true,
+    "permissions": ["manage_tiktok"],
+    "nav": [
+        {
+            "group": "TikTok Shop",
+            "icon": "video",
+            "permission": "manage_tiktok",
+            "priority": 45,
+            "items": [
+                { "label": "Settings", "route": "ext.tiktok.index" },
+                { "label": "Product Groups", "route": "ext.tiktok.product-groups.index" }
+            ]
+        }
+    ]
+}

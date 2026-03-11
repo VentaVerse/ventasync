@@ -10,7 +10,6 @@ use App\Models\Catalog\Product;
 use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
-use App\Models\OpenCartSetting;
 use App\Models\OrderPayment;
 use App\Models\ShopeeOrder;
 use App\Services\ActivityLogger;
@@ -72,7 +71,9 @@ class OrderController extends Controller
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
         // Build opencart store ID → name map for the Source column
-        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
+            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+            : [];
 
         return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'ocStoreNames'));
     }
@@ -108,11 +109,13 @@ class OrderController extends Controller
         $productImages = self::resolveOrderProductImages($orders->getCollection());
         $lazadaImages = self::resolveLazadaImages($orders->getCollection());
         $statuses = OrderStatus::orderBy('order_status_id')->get();
-        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
+            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+            : [];
 
         $storeLabel = ($ocStoreNames[$store] ?? '') ?: ('OpenCart #' . $store);
 
-        return view('opencart.orders.index', compact(
+        return view('ext-opencart::orders.index', compact(
             'orders',
             'q',
             'statusId',

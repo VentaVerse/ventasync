@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Models\LazadaOrder;
 use App\Models\LazadaSetting;
 use App\Models\Catalog\OrderStatus;
-use App\Models\OpenCartSetting;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSetting;
 use App\Models\Setting;
@@ -90,8 +89,8 @@ class AppServiceProvider extends ServiceProvider
 
             // Share enabled OpenCart stores for sidebar per-store links
             try {
-                if (Schema::hasTable('opencart_settings')) {
-                    $stores = OpenCartSetting::where('enabled', true)->get();
+                if (class_exists(\Extensions\opencart\Models\OpenCartSetting::class) && Schema::hasTable('opencart_settings')) {
+                    $stores = \Extensions\opencart\Models\OpenCartSetting::where('enabled', true)->get();
                     $pendingByStore = [];
 
                     $pfx = (string) config('catalog.prefix');

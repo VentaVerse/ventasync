@@ -7,7 +7,6 @@ use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use App\Models\OpenCartSetting;
 use App\Services\FcmService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
@@ -53,7 +52,9 @@ class OrderController extends Controller
             ->orderBy($sort, $dir)
             ->paginate(25);
 
-        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
+            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+            : [];
 
         $orders->getCollection()->transform(function ($order) use ($ocStoreNames) {
             return [
@@ -88,7 +89,9 @@ class OrderController extends Controller
         // Resolve product images from catalog
         $productImages = $this->resolveProductImages($products);
 
-        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
+        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
+            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
+            : [];
 
         return response()->json([
             'order' => [

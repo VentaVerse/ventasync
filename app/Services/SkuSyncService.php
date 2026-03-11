@@ -6,14 +6,10 @@ use App\Models\LazadaApiLog;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\LazadaSetting;
-use App\Models\OpenCartProductLink;
-use App\Models\OpenCartSetting;
 use App\Models\ShopeeApiLog;
 use App\Models\ShopeeProductLink;
 use App\Models\ShopeeSetting;
 use App\Services\Lazada\LazadaClient;
-use App\Services\OpenCart\OpenCartClient;
-use App\Services\OpenCart\OpenCartProductSync;
 use App\Services\Shopee\ShopeeClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -51,14 +47,18 @@ class SkuSyncService
 
     private function syncOpenCart(int $productId): ?string
     {
-        $stores = OpenCartSetting::where('enabled', true)->get();
+        if (!class_exists(\Extensions\opencart\Models\OpenCartSetting::class)) {
+            return null;
+        }
+
+        $stores = \Extensions\opencart\Models\OpenCartSetting::where('enabled', true)->get();
         if ($stores->isEmpty()) {
             return null;
         }
 
         $results = [];
         foreach ($stores as $setting) {
-            $link = OpenCartProductLink::where('opencart_setting_id', $setting->id)
+            $link = \Extensions\opencart\Models\OpenCartProductLink::where('opencart_setting_id', $setting->id)
                 ->where('product_id', $productId)
                 ->first();
             if (!$link) {
@@ -66,8 +66,8 @@ class SkuSyncService
             }
 
             try {
-                $client = new OpenCartClient($setting);
-                $sync = new OpenCartProductSync($client, $setting);
+                $client = new \Extensions\opencart\Services\OpenCart\OpenCartClient($setting);
+                $sync = new \Extensions\opencart\Services\OpenCart\OpenCartProductSync($client, $setting);
                 $result = $sync->push([$productId]);
                 $ok = ($result['failed'] ?? 0) === 0;
                 $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');

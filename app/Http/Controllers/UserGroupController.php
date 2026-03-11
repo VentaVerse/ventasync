@@ -116,7 +116,17 @@ class UserGroupController extends Controller
         $original = $group->getAttributes();
         $group->name = $request->name;
         $group->save();
-        $group->permissions()->sync($request->permissions ?? []);
+
+        $permissionIds = $request->permissions ?? [];
+
+        // Safeguard: Administrator group must always keep core permissions
+        if (strtolower($group->name) === 'administrator') {
+            $coreKeys = ['manage_settings', 'manage_user_groups', 'manage_users'];
+            $coreIds = Permission::whereIn('key', $coreKeys)->pluck('id')->all();
+            $permissionIds = array_values(array_unique(array_merge($permissionIds, $coreIds)));
+        }
+
+        $group->permissions()->sync($permissionIds);
 
         $changes = ActivityLogger::diff($original, $group->getAttributes(), ['name']);
         ActivityLogger::log('updated', 'User Group', $group->id, $group->name, $changes);

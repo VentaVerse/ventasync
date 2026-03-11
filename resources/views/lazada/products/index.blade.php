@@ -10,7 +10,7 @@
             <div class="text-muted text-sm">Map catalog products to Lazada category + required attributes.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('lazada.profiles.index') }}">Profiles</a>
+            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">Product Groups</a>
             <a class="btn" href="{{ route('lazada.products.create') }}">Add Product</a>
         </div>
     </div>
@@ -113,12 +113,12 @@
                 </select>
             </div>
             <div>
-                <label class="text-xs text-muted">Profile</label>
-                <select name="profile" class="input">
-                    <option value="all" {{ ($profileFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Profiles</option>
-                    <option value="none" {{ ($profileFilter ?? '') === 'none' ? 'selected' : '' }}>No Profile</option>
-                    @foreach(($allProfiles ?? collect()) as $pId => $pName)
-                        <option value="{{ $pId }}" {{ (string)($profileFilter ?? '') === (string)$pId ? 'selected' : '' }}>{{ $pName }}</option>
+                <label class="text-xs text-muted">Product Group</label>
+                <select name="group" class="input">
+                    <option value="all" {{ ($groupFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Groups</option>
+                    <option value="none" {{ ($groupFilter ?? '') === 'none' ? 'selected' : '' }}>No Group</option>
+                    @foreach(($allGroups ?? collect()) as $gId => $gName)
+                        <option value="{{ $gId }}" {{ (string)($groupFilter ?? '') === (string)$gId ? 'selected' : '' }}>{{ $gName }}</option>
                     @endforeach
                 </select>
             </div>
@@ -143,7 +143,7 @@
             @if(!empty($dir))<input type="hidden" name="dir" value="{{ $dir }}">@endif
             <div class="d-flex gap-6">
                 <button type="submit" class="btn small">Filter</button>
-                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($profileFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
+                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($groupFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
                     <a href="{{ route('lazada.products.index') }}" class="btn small secondary">Clear</a>
                 @endif
             </div>
@@ -225,7 +225,7 @@
         <th><a href="{{ $sortUrl('product') }}" style="text-decoration:none; color:inherit;">Product Name{!! $sortIcon('product') !!}</a></th>
         <th>SKU</th>
         <th><a href="{{ $sortUrl('manufacturer') }}" style="text-decoration:none; color:inherit;">Manufacturer{!! $sortIcon('manufacturer') !!}</a></th>
-        <th style="width:120px;"><a href="{{ $sortUrl('profile') }}" style="text-decoration:none; color:inherit;">Profile{!! $sortIcon('profile') !!}</a></th>
+        <th style="width:120px;"><a href="{{ $sortUrl('group') }}" style="text-decoration:none; color:inherit;">Group{!! $sortIcon('group') !!}</a></th>
         <th style="width:60px;"><a href="{{ $sortUrl('quantity') }}" style="text-decoration:none; color:inherit;">Stock{!! $sortIcon('quantity') !!}</a></th>
         <th style="width:80px;"><a href="{{ $sortUrl('price') }}" style="text-decoration:none; color:inherit;">Price{!! $sortIcon('price') !!}</a></th>
         <th style="width:130px;"><a href="{{ $sortUrl('lazada_item_id') }}" style="text-decoration:none; color:inherit;">Lazada ID{!! $sortIcon('lazada_item_id') !!}</a></th>
@@ -288,9 +288,9 @@
             <td><code>{{ $pSku ?: '-' }}</code></td>
             <td>{{ $pMfg ?: '-' }}</td>
             <td>
-                @if($l->profiles->count() > 0)
-                    @php $firstProf = $l->profiles->first(); @endphp
-                    <a href="{{ route('lazada.profiles.edit', $firstProf->id) }}" class="text-xs">{{ $firstProf->name }}@if($l->profiles->count() > 1) <span class="text-muted">(+{{ $l->profiles->count() - 1 }})</span>@endif</a>
+                @if($l->groups->count() > 0)
+                    @php $firstGrp = $l->groups->first(); @endphp
+                    <a href="{{ route('lazada.product-groups.edit', $firstGrp->id) }}" class="text-xs">{{ $firstGrp->name }}@if($l->groups->count() > 1) <span class="text-muted">(+{{ $l->groups->count() - 1 }})</span>@endif</a>
                 @else
                     <span class="text-muted">-</span>
                 @endif

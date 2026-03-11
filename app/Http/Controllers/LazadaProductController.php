@@ -9,7 +9,7 @@ use App\Models\LazadaApiLog;
 use App\Models\LazadaImageLink;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductAttribute;
-use App\Models\LazadaProfileAttribute;
+use App\Models\LazadaProductGroupAttribute;
 use App\Models\LazadaProductVariant;
 use App\Models\LazadaSetting;
 use App\Services\ActivityLogger;
@@ -681,14 +681,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!in_array($syncStatus, ['all', 'not_uploaded', 'uploaded', 'deleted'], true)) {
             $syncStatus = 'all';
         }
-        $profileFilter = $request->query('profile', 'all');
+        $groupFilter = $request->query('group', 'all');
         $manufacturerFilter = (string) $request->query('manufacturer', 'all');
         $erpStatus = (string) $request->query('erp_status', 'all');
 
         // Sorting (UI-driven). Keep this strict to avoid injection / unexpected behavior.
         $sort = (string) $request->query('sort', 'id');
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['id', 'product', 'profile', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status', 'manufacturer'];
+        $allowedSorts = ['id', 'product', 'group', 'lazada_item_id', 'quantity', 'product_status', 'lazada_status', 'manufacturer'];
         if (!in_array($sort, $allowedSorts, true)) {
             $sort = 'id';
         }
@@ -696,12 +696,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         // Build filtered query
         $query = LazadaProduct::query();
 
-        // Profile filter (applied at DB level via pivot)
-        if ($profileFilter !== 'all') {
-            if ($profileFilter === 'none') {
-                $query->whereDoesntHave('profiles');
+        // Product group filter (applied at DB level via pivot)
+        if ($groupFilter !== 'all') {
+            if ($groupFilter === 'none') {
+                $query->whereDoesntHave('groups');
             } else {
-                $query->whereHas('profiles', fn ($q) => $q->where('lazada_profiles.id', (int) $profileFilter));
+                $query->whereHas('groups', fn ($q) => $q->where('lazada_product_groups.id', (int) $groupFilter));
             }
         }
 
@@ -818,21 +818,21 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         }
 
-        // All profiles for filter dropdown
-        $allProfiles = \App\Models\LazadaProfile::query()->orderBy('name')->pluck('name', 'id');
+        // All product groups for filter dropdown
+        $allGroups = \App\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
-        // Eager-load profiles for each listing (for display + sort)
-        $listings->load('profiles');
+        // Eager-load groups for each listing (for display + sort)
+        $listings->load('groups');
 
-        // Build a map: lazada_product_id => first profile name (for sorting)
-        $profileNames = $allProfiles;
+        // Build a map: lazada_product_id => first group name (for sorting)
+        $groupNames = $allGroups;
 
         // Separate unlinked products (always pinned to top of list)
         $unlinked = $listings->filter(fn ($l) => !is_null($l->unlinked_at));
         $linked = $listings->filter(fn ($l) => is_null($l->unlinked_at));
 
         // Apply sort in-memory using the attached ERP product info.
-        $linked = $linked->sortBy(function ($l) use ($sort, $productsById, $profileNames) {
+        $linked = $linked->sortBy(function ($l) use ($sort, $productsById, $groupNames) {
             $pid = (int)$l->product_id;
             $p = $productsById->get($pid);
 
@@ -856,11 +856,11 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 return sprintf('%d|%s|%s', $isNull, mb_strtolower($name), mb_strtolower($sku));
             }
 
-            if ($sort === 'profile') {
-                $firstProfile = $l->profiles->first();
-                $profName = $firstProfile ? mb_strtolower((string) $firstProfile->name) : '';
-                $isNull = $profName === '' ? 1 : 0;
-                return sprintf('%d|%s', $isNull, $profName);
+            if ($sort === 'group') {
+                $firstGroup = $l->groups->first();
+                $grpName = $firstGroup ? mb_strtolower((string) $firstGroup->name) : '';
+                $isNull = $grpName === '' ? 1 : 0;
+                return sprintf('%d|%s', $isNull, $grpName);
             }
 
             if ($sort === 'quantity') {
@@ -926,7 +926,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'productsById' => $productsById,
             'productThumbsById' => $productThumbsById,
             'optionRowsByProductId' => $optionRowsByProductId,
-            'allProfiles' => $allProfiles,
+            'allGroups' => $allGroups,
             'allManufacturers' => $allManufacturers,
             'sort' => $sort,
             'dir' => $dir,
@@ -934,7 +934,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'syncStatus' => $syncStatus,
             'manufacturerFilter' => $manufacturerFilter,
             'erpStatus' => $erpStatus,
-            'profileFilter' => $profileFilter,
+            'groupFilter' => $groupFilter,
             'paginator' => $paginator,
             'unmatchedItems' => $unmatchedItems,
         ]);
@@ -1096,14 +1096,14 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $basePrice = 0;
         }
 
-        // Resolve effective markup (listing-level first, then profile fallback)
+        // Resolve effective markup (listing-level first, then group fallback)
         $fixedMarkup = $listing->markup_fixed;
         $percentMarkup = $listing->markup_percent;
         if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkProfile = $listing->profiles()->first();
-            if ($mkProfile) {
-                $fixedMarkup = $mkProfile->markup_fixed;
-                $percentMarkup = $mkProfile->markup_percent;
+            $mkGroup = $listing->groups()->first();
+            if ($mkGroup) {
+                $fixedMarkup = $mkGroup->markup_fixed;
+                $percentMarkup = $mkGroup->markup_percent;
             }
         }
 
@@ -1392,7 +1392,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Delete variant mappings and the listing record locally — does NOT touch Lazada
         $listing->variants()->delete();
-        $listing->profiles()->detach();
+        $listing->groups()->detach();
         $listing->delete();
 
         $label = $itemId ? "Lazada item {$itemId}" : "listing #{$id}";
@@ -2182,14 +2182,14 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
             ]];
         }
 
-        // Apply listing/profile markup to all variant prices
+        // Apply listing/group markup to all variant prices
         $fixedMarkup = $listing->markup_fixed;
         $percentMarkup = $listing->markup_percent;
         if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkProfile = $listing->profiles()->first();
-            if ($mkProfile) {
-                $fixedMarkup = $mkProfile->markup_fixed;
-                $percentMarkup = $mkProfile->markup_percent;
+            $mkGroup = $listing->groups()->first();
+            if ($mkGroup) {
+                $fixedMarkup = $mkGroup->markup_fixed;
+                $percentMarkup = $mkGroup->markup_percent;
             }
         }
         foreach ($variantSkus as &$vs) {
@@ -2427,7 +2427,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'attributes' => [],
             'saved' => [],
             'suggested' => [],
-            'profileAttrs' => [],
+            'groupAttrs' => [],
             'productOwnAttrs' => [],
             'productImageUrl' => null,
             'brands' => collect(),
@@ -2520,18 +2520,18 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->pluck('value', 'attribute_key')
             ->toArray();
 
-        // Auto-populate from linked profile: profile values serve as defaults
-        $profileAttrs = [];
-        $firstProfile = $listing->profiles()->first();
-        if ($firstProfile) {
-            $profileAttrs = LazadaProfileAttribute::query()
-                ->where('lazada_profile_id', $firstProfile->id)
+        // Auto-populate from linked product group: group values serve as defaults
+        $groupAttrs = [];
+        $firstGroup = $listing->groups()->first();
+        if ($firstGroup) {
+            $groupAttrs = LazadaProductGroupAttribute::query()
+                ->where('lazada_product_group_id', $firstGroup->id)
                 ->pluck('value', 'attribute_key')
                 ->toArray();
         }
 
-        // Merge: product's own values take priority over profile defaults
-        $saved = array_merge($profileAttrs, $productOwnSaved);
+        // Merge: product's own values take priority over group defaults
+        $saved = array_merge($groupAttrs, $productOwnSaved);
 
         // Variants: use OpenCart-style product_option_value rows
         $variants = DB::table($pfx.'product_option_value as pov')
@@ -2603,7 +2603,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variantMap' => $variantMap,
             'productRow' => $productRow,
             'suggested' => $suggested,
-            'profileAttrs' => $profileAttrs,
+            'groupAttrs' => $groupAttrs,
             'productOwnAttrs' => $productOwnSaved,
             'productImageUrl' => $productImageUrl,
             'brands' => collect(),
@@ -2646,12 +2646,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $fixedMarkup = $listing->markup_fixed;
         $percentMarkup = $listing->markup_percent;
 
-        // Fall back to profile markup if product has none
+        // Fall back to group markup if product has none
         if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkProfile = $listing->profiles()->first();
-            if ($mkProfile) {
-                $fixedMarkup = $mkProfile->markup_fixed;
-                $percentMarkup = $mkProfile->markup_percent;
+            $mkGroup = $listing->groups()->first();
+            if ($mkGroup) {
+                $fixedMarkup = $mkGroup->markup_fixed;
+                $percentMarkup = $mkGroup->markup_percent;
             }
         }
 
@@ -3267,10 +3267,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $effectiveFixed = $listing->markup_fixed;
         $effectivePercent = $listing->markup_percent;
         if ($effectiveFixed === null && $effectivePercent === null) {
-            $mkProfile = $listing->profiles()->first();
-            if ($mkProfile) {
-                $effectiveFixed = $mkProfile->markup_fixed;
-                $effectivePercent = $mkProfile->markup_percent;
+            $mkGroup = $listing->groups()->first();
+            if ($mkGroup) {
+                $effectiveFixed = $mkGroup->markup_fixed;
+                $effectivePercent = $mkGroup->markup_percent;
             }
         }
 
@@ -3989,10 +3989,10 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         $effectiveFixed = $listing->markup_fixed;
         $effectivePercent = $listing->markup_percent;
         if ($effectiveFixed === null && $effectivePercent === null) {
-            $mkProfile = $listing->profiles()->first();
-            if ($mkProfile) {
-                $effectiveFixed = $mkProfile->markup_fixed;
-                $effectivePercent = $mkProfile->markup_percent;
+            $mkGroup = $listing->groups()->first();
+            if ($mkGroup) {
+                $effectiveFixed = $mkGroup->markup_fixed;
+                $effectivePercent = $mkGroup->markup_percent;
             }
         }
 

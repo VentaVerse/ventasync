@@ -984,12 +984,16 @@ public function store(Request $request)
             $returnUrl = route('products.index');
         }
 
-$productVendors = \App\Models\ProductVendor::with('vendor:id,name')
-            ->where('product_id', (int) $id)
-            ->orderBy('id')
-            ->get();
+$productVendors = collect();
+        $vendors = collect();
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
-        $vendors = \App\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'currency_code']);
+        if (class_exists(\Extensions\purchasing\Models\ProductVendor::class)) {
+            $productVendors = \Extensions\purchasing\Models\ProductVendor::with('vendor:id,name')
+                ->where('product_id', (int) $id)
+                ->orderBy('id')
+                ->get();
+            $vendors = \Extensions\purchasing\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'currency_code']);
+        }
 
 return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'productVendors', 'currencies', 'vendors'));
     }

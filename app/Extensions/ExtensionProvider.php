@@ -48,7 +48,7 @@ abstract class ExtensionProvider extends ServiceProvider
     {
         $routeFile = $this->basePath . '/routes/web.php';
         if (file_exists($routeFile)) {
-            parent::loadRoutesFrom($routeFile);
+            $this->app['router']->middleware('web')->group($routeFile);
         }
     }
 

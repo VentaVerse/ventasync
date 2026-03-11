@@ -3,6 +3,7 @@
 namespace App\Extensions;
 
 use App\Models\Extension;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
@@ -159,6 +160,7 @@ class ExtensionManager
             ]
         );
 
+        $this->syncPermissions($id);
         $this->clearCache();
 
         return true;
@@ -169,6 +171,8 @@ class ExtensionManager
      */
     public function uninstall(string $id, bool $deleteFiles = false): bool
     {
+        $this->removePermissions($id);
+
         $extension = Extension::find($id);
 
         if ($extension) {
@@ -200,6 +204,7 @@ class ExtensionManager
 
         $extension->update(['enabled' => true]);
 
+        $this->syncPermissions($id);
         $this->clearCache();
 
         return true;
@@ -218,6 +223,7 @@ class ExtensionManager
 
         $extension->update(['enabled' => false]);
 
+        $this->removePermissions($id);
         $this->clearCache();
 
         return true;
@@ -276,6 +282,72 @@ class ExtensionManager
         $filename = basename($files[0], '.php');
 
         return 'Extensions\\' . $id . '\\' . $filename;
+    }
+
+    /**
+     * Insert permission rows declared in the extension manifest.
+     * Grants them to the Administrator group automatically.
+     */
+    protected function syncPermissions(string $id): void
+    {
+        if (!Schema::hasTable('permissions')) {
+            return;
+        }
+
+        $manifest = $this->getManifest($id);
+        $keys = $manifest['permissions'] ?? [];
+
+        if (empty($keys)) {
+            return;
+        }
+
+        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
+
+        foreach ($keys as $key) {
+            $label = ucwords(str_replace('_', ' ', $key));
+
+            $permId = DB::table('permissions')->where('key', $key)->value('id');
+
+            if (!$permId) {
+                $permId = DB::table('permissions')->insertGetId([
+                    'key'   => $key,
+                    'label' => $label,
+                ]);
+            }
+
+            // Grant to Administrator group
+            if ($adminGroupId) {
+                DB::table('user_group_permissions')->updateOrInsert([
+                    'user_group_id' => $adminGroupId,
+                    'permission_id' => $permId,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Remove permission rows declared in the extension manifest
+     * and clean up any user_group_permissions pivot entries.
+     */
+    protected function removePermissions(string $id): void
+    {
+        if (!Schema::hasTable('permissions')) {
+            return;
+        }
+
+        $manifest = $this->getManifest($id);
+        $keys = $manifest['permissions'] ?? [];
+
+        if (empty($keys)) {
+            return;
+        }
+
+        $permIds = DB::table('permissions')->whereIn('key', $keys)->pluck('id')->all();
+
+        if (!empty($permIds)) {
+            DB::table('user_group_permissions')->whereIn('permission_id', $permIds)->delete();
+            DB::table('permissions')->whereIn('id', $permIds)->delete();
+        }
     }
 
     /**
