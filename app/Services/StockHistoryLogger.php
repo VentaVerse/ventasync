@@ -51,6 +51,7 @@ class StockHistoryLogger
     {
         if ($marketplaceSource === 'lazada') return 'lazada_sync';
         if ($marketplaceSource === 'shopee') return 'shopee_sync';
+        if ($marketplaceSource === 'tiktok') return 'tiktok_sync';
         if (str_starts_with($marketplaceSource, 'opencart')) return 'opencart_sync';
         return 'order';
     }

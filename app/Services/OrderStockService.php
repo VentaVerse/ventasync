@@ -49,6 +49,7 @@ class OrderStockService
         $sourceLabel = match ($source) {
             'lazada_sync'   => 'Lazada',
             'shopee_sync'   => 'Shopee',
+            'tiktok_sync'   => 'TikTok',
             'opencart_sync' => 'OpenCart',
             default         => '',
         };

@@ -234,6 +234,14 @@ class ShopeeCatalogOrderSync
                     }
                 }
 
+                // Fallback: resolve option value by variation name
+                if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
+                    $variation = trim($item['variation'] ?? '');
+                    if ($variation !== '') {
+                        $resolvedOptionValueId = $this->resolveOptionByVariation($pfx, $resolvedProductId, $variation);
+                    }
+                }
+
                 $productCost = 0;
                 if ($resolvedProductId > 0) {
                     $baseCost = (float) DB::table($pfx . 'product')
@@ -341,5 +349,47 @@ class ShopeeCatalogOrderSync
             $shopeeOrder->catalog_order_id = $catalogOrder->order_id;
             $shopeeOrder->saveQuietly();
         });
+    }
+
+    /**
+     * Resolve a product_option_value_id by parsing the variation string and
+     * matching against option value names on the product.
+     * Handles formats like "Red", "Color Family:Black", "Color: Red, Size: M".
+     */
+    private function resolveOptionByVariation(string $pfx, int $productId, string $variation): int
+    {
+        $langId = (int) config('catalog.default_language_id');
+
+        // Extract candidate value names from the variation string
+        // Split by comma first (handles "Color: Red, Size: M")
+        $parts = array_map('trim', explode(',', $variation));
+        $candidates = [];
+        foreach ($parts as $part) {
+            // If it contains ":" or "Family:", take the part after the last ":"
+            if (str_contains($part, ':')) {
+                $after = trim(substr($part, strrpos($part, ':') + 1));
+                if ($after !== '') {
+                    $candidates[] = $after;
+                }
+            }
+            // Also try the whole part as-is
+            $candidates[] = $part;
+        }
+
+        $candidates = array_unique(array_filter($candidates));
+        if (empty($candidates)) {
+            return 0;
+        }
+
+        $match = DB::table($pfx . 'product_option_value as pov')
+            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                    ->where('ovd.language_id', '=', $langId);
+            })
+            ->where('pov.product_id', $productId)
+            ->whereIn('ovd.name', $candidates)
+            ->first(['pov.product_option_value_id']);
+
+        return $match ? (int) $match->product_option_value_id : 0;
     }
 }
