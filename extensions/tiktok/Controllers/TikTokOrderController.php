@@ -49,11 +49,10 @@ class TikTokOrderController extends Controller
 
     // TikTok order status → tab mapping
     private array $tabStatusMap = [
-        'UNPAID'           => ['UNPAID'],
+        'UNPAID'           => ['UNPAID', 'ON_HOLD'],
         'TO_SHIP'          => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
-        'IN_TRANSIT'       => ['IN_TRANSIT'],
-        'DELIVERED'        => ['DELIVERED'],
-        'COMPLETED'        => ['COMPLETED'],
+        'SHIPPING'         => ['IN_TRANSIT'],
+        'DELIVERED'        => ['DELIVERED', 'COMPLETED'],
         'CANCELLED'        => ['CANCELLED'],
     ];
 
@@ -73,7 +72,7 @@ class TikTokOrderController extends Controller
         }
 
         $tab = strtoupper((string) $request->query('tab', 'ALL'));
-        $allowedTabs = ['ALL', 'UNPAID', 'TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
+        $allowedTabs = ['ALL', 'UNPAID', 'TO_SHIP', 'SHIPPING', 'DELIVERED', 'CANCELLED'];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
         }
@@ -88,9 +87,8 @@ class TikTokOrderController extends Controller
             'ALL'          => 'All',
             'UNPAID'       => 'Unpaid',
             'TO_SHIP'      => 'To Ship',
-            'IN_TRANSIT'   => 'In Transit',
+            'SHIPPING'     => 'Shipping',
             'DELIVERED'    => 'Delivered',
-            'COMPLETED'    => 'Completed',
             'CANCELLED'    => 'Cancelled',
         ];
 
@@ -401,13 +399,27 @@ class TikTokOrderController extends Controller
         $c = $this->creds();
         $client = new TikTokClient();
 
-        $packageData = [];
-        // Allow optional handover_method from the form
-        if ($request->filled('handover_method')) {
-            $packageData['handover_method'] = $request->input('handover_method');
+        // Get package IDs from the order's raw data
+        $raw = $order->raw ?? [];
+        $packages = $raw['packages'] ?? [];
+
+        if (empty($packages)) {
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => 'No packages found in order data. Try syncing orders first.',
+            ]);
         }
 
-        $result = $client->shipPackage($c['app_key'], $c['app_secret'], $c['token'], $order->order_id, $packageData, $c['shop_cipher']);
+        $body = [
+            'order_id' => $order->order_id,
+            'packages' => array_map(fn($p) => ['id' => $p['id']], $packages),
+        ];
+
+        if ($request->filled('handover_method')) {
+            $body['handover_method'] = $request->input('handover_method');
+        }
+
+        $result = $client->shipPackage($c['app_key'], $c['app_secret'], $c['token'], $body, $c['shop_cipher']);
         $this->logApi('POST', '/fulfillment/202309/packages/ship', $result);
 
         $apiCode = (int) ($result['body']['code'] ?? -1);
@@ -420,15 +432,31 @@ class TikTokOrderController extends Controller
             ]);
         }
 
+        // Update order status to AWAITING_COLLECTION
+        $order->update(['status' => 'AWAITING_COLLECTION']);
+
         return redirect()->back()->with('tiktok_orders_last_result', [
             'ok' => true,
             'message' => "Order {$order->order_id} shipped successfully.",
+            'awb_url' => route('ext.tiktok.orders.awb', $order->id),
         ]);
     }
 
     public function awbPdf(Request $request, $id)
     {
         $order = TikTokOrder::findOrFail($id);
+        $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', $order->order_id);
+
+        // Serve saved AWB if it exists locally
+        $awbDir = storage_path('app/tiktok-awb');
+        $awbPath = $awbDir . '/' . $safeOrderId . '.pdf';
+
+        if (file_exists($awbPath)) {
+            return response(file_get_contents($awbPath), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="AWB-TT-' . $safeOrderId . '.pdf"',
+            ]);
+        }
 
         // Try to get package_id from raw data
         $raw = $order->raw ?? [];
@@ -467,7 +495,29 @@ class TikTokOrderController extends Controller
             ]);
         }
 
-        return redirect($docUrl);
+        // Download and save locally (best-effort)
+        try {
+            $pdfResponse = \Illuminate\Support\Facades\Http::timeout(30)->get($docUrl);
+            if ($pdfResponse->ok()) {
+                $bin = $pdfResponse->body();
+                if (str_starts_with($bin, '%PDF') || str_contains(strtolower($pdfResponse->header('content-type') ?? ''), 'pdf')) {
+                    if (!is_dir($awbDir)) {
+                        mkdir($awbDir, 0755, true);
+                    }
+                    file_put_contents($awbPath, $bin);
+
+                    return response($bin, 200, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Disposition' => 'inline; filename="AWB-TT-' . $safeOrderId . '.pdf"',
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fall through to redirect
+        }
+
+        // Fallback: redirect to TikTok's URL
+        return redirect()->away($docUrl);
     }
 
     public function tracking($id)

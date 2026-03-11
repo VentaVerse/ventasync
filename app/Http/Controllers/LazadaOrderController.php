@@ -200,7 +200,7 @@ class LazadaOrderController extends Controller
         $live_statuses = [];
 
         // Detect which orders have saved AWB PDFs locally
-        $awbDir = storage_path('app/lazada/awb');
+        $awbDir = storage_path('app/lazada-awb');
         $savedAwbs = [];
         foreach ($orders as $o) {
             $oid = preg_replace('/[^0-9A-Za-z_-]/', '', $o->order_id ?? '');
@@ -1471,7 +1471,7 @@ class LazadaOrderController extends Controller
 
         // Delete old local AWB so the next Pack & Print fetches a fresh one
         $safeId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
-        $awbPath = 'lazada/awb/' . ($safeId !== '' ? $safeId : 'awb') . '.pdf';
+        $awbPath = 'lazada-awb/' . ($safeId !== '' ? $safeId : 'awb') . '.pdf';
         Storage::disk('local')->delete($awbPath);
 
         // Refresh local order status from API
@@ -2093,7 +2093,7 @@ public function reset(Request $request)
     {
         // Serve saved AWB if it exists locally
         $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
-        $localPath = storage_path('app/lazada/awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf');
+        $localPath = storage_path('app/lazada-awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf');
 
         if (file_exists($localPath)) {
             return response(file_get_contents($localPath), 200, [
@@ -2186,7 +2186,7 @@ public function reset(Request $request)
         // When the user opens the AWB, we also store it into local storage (best-effort) so the server
         // keeps a copy. This avoids extra UI changes and matches the "automatic into the server" request.
         $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string)$orderId);
-        $storePath = 'lazada/awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf';
+        $storePath = 'lazada-awb/' . ($safeOrderId !== '' ? $safeOrderId : 'awb') . '.pdf';
 
         if (($doc['type'] ?? '') === 'url') {
             $url = (string)($doc['value'] ?? '');

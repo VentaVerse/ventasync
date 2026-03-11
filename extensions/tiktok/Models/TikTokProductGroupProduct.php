@@ -12,7 +12,7 @@ class TikTokProductGroupProduct extends Model
 
     protected $fillable = [
         'tiktok_product_group_id', 'product_id', 'tiktok_product_id',
-        'sync_status', 'last_pushed_at', 'push_error',
+        'tiktok_sku_id', 'sync_status', 'last_pushed_at', 'push_error',
     ];
 
     protected $casts = [

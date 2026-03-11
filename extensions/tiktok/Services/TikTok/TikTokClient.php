@@ -214,6 +214,11 @@ class TikTokClient
         return $this->put($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId, [], $data, $shopCipher);
     }
 
+    public function getProduct(string $appKey, string $appSecret, string $accessToken, string $productId, ?string $shopCipher = null): array
+    {
+        return $this->get($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId, [], $shopCipher);
+    }
+
     // -- Signed DELETE ----------------------------------------------------
 
     public function delete(string $appKey, string $appSecret, string $accessToken, string $path, array $queryParams = [], array $body = [], ?string $shopCipher = null): array
@@ -278,9 +283,8 @@ class TikTokClient
 
     // -- Fulfillment ------------------------------------------------------
 
-    public function shipPackage(string $appKey, string $appSecret, string $accessToken, string $orderId, array $packageData, ?string $shopCipher = null): array
+    public function shipPackage(string $appKey, string $appSecret, string $accessToken, array $body, ?string $shopCipher = null): array
     {
-        $body = array_merge(['order_id' => $orderId], $packageData);
         return $this->post($appKey, $appSecret, $accessToken, '/fulfillment/202309/packages/ship', [], $body, $shopCipher);
     }
 

@@ -55,7 +55,7 @@
             $isActive = $active_tab === $key;
             $count = $tab_counts[$key] ?? 0;
             $qs = array_merge(request()->except('page', 'pending_sub'), ['tab' => $key]);
-            $showBadge = in_array($key, ['TO_SHIP', 'IN_TRANSIT']);
+            $showBadge = in_array($key, ['UNPAID', 'TO_SHIP', 'SHIPPING']);
         @endphp
         <a href="{{ route('ext.tiktok.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
             <span>{{ $label }}</span>
@@ -218,7 +218,7 @@
                             $badgeClass = match($status) {
                                 'COMPLETED', 'DELIVERED' => 'badge-green',
                                 'CANCELLED' => 'badge-red',
-                                'UNPAID' => 'badge-yellow',
+                                'UNPAID', 'ON_HOLD' => 'badge-yellow',
                                 'IN_TRANSIT' => 'badge-blue',
                                 default => '',
                             };
@@ -362,6 +362,10 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    @if(!empty($last_result['awb_url']))
+        window.open(@json($last_result['awb_url']), '_blank');
+    @endif
+
     var trackingModal = document.getElementById('ttTrackingModal');
     var trackingBody = document.getElementById('ttTrackingBody');
     document.getElementById('btnCloseTtTracking').addEventListener('click', function() {

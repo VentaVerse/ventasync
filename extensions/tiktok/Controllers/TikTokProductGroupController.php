@@ -675,21 +675,38 @@ class TikTokProductGroupController extends Controller
                 continue;
             }
 
-            // Upload image
+            // Upload images (main + additional from product_image table)
             $imageUris = [];
-            $imgPath = trim((string) ($erp->image ?? ''));
-            if ($imgPath !== '') {
+            $imgCipher = $c['sandbox'] ? null : $c['shop_cipher'];
+
+            $allImages = [];
+            $mainImg = trim((string) ($erp->image ?? ''));
+            if ($mainImg !== '') {
+                $allImages[] = $mainImg;
+            }
+            $additionalImages = DB::table($pfx . 'product_image')
+                ->where('product_id', $erp->product_id)
+                ->orderBy('sort_order')
+                ->pluck('image')
+                ->toArray();
+            $allImages = array_merge($allImages, $additionalImages);
+
+            // TikTok allows max 9 main images
+            $allImages = array_slice($allImages, 0, 9);
+
+            foreach ($allImages as $imgPath) {
+                $imgPath = trim((string) $imgPath);
+                if ($imgPath === '') continue;
                 $fullPath = public_path('storage/' . ltrim($imgPath, '/'));
-                if (file_exists($fullPath)) {
-                    $imageData = $this->squareImage($fullPath) ?: file_get_contents($fullPath);
-                    $imgCipher = $c['sandbox'] ? null : $c['shop_cipher'];
-                    $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], $imageData, $imgCipher);
-                    $this->logApi('POST', '/product/202309/images/upload', $imgResult);
-                    if ($imgResult['ok'] ?? false) {
-                        $uri = $imgResult['body']['data']['uri'] ?? null;
-                        if ($uri) {
-                            $imageUris[] = $uri;
-                        }
+                if (!file_exists($fullPath)) continue;
+
+                $imageData = $this->squareImage($fullPath) ?: file_get_contents($fullPath);
+                $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], $imageData, $imgCipher);
+                $this->logApi('POST', '/product/202309/images/upload', $imgResult);
+                if ($imgResult['ok'] ?? false) {
+                    $uri = $imgResult['body']['data']['uri'] ?? null;
+                    if ($uri) {
+                        $imageUris[] = $uri;
                     }
                 }
             }
@@ -709,6 +726,50 @@ class TikTokProductGroupController extends Controller
                 $title = str_pad($title, 25, ' — Product from ERP');
             }
 
+            // Build SKUs — check for product options (variants)
+            $optionValues = $this->getProductOptionValues($pfx, $erp->product_id);
+            $skus = [];
+
+            if (!empty($optionValues)) {
+                // Multi-variant: one SKU per option value, custom attribute name from OpenCart option
+                $optionName = $optionValues[0]->option_name;
+                foreach ($optionValues as $ov) {
+                    $ovPrice = $this->resolveOptionPrice((float) $erp->price, $ov);
+                    $ovPrice = $group->applyMarkup($ovPrice);
+                    $skus[] = [
+                        'seller_sku' => $ov->sku ?: ($erp->sku . '-' . $ov->option_value_id),
+                        'sales_attributes' => [
+                            ['name' => $optionName, 'value_name' => $ov->value_name],
+                        ],
+                        'price' => [
+                            'amount'   => (string) round($ovPrice),
+                            'currency' => 'PHP',
+                        ],
+                        'inventory' => [
+                            array_filter([
+                                'warehouse_id' => $c['warehouse_id'] ?: null,
+                                'quantity' => max(0, (int) $ov->quantity),
+                            ]),
+                        ],
+                    ];
+                }
+            } else {
+                // Single-variant product (no options)
+                $skus[] = [
+                    'seller_sku' => $erp->sku ?: $erp->model ?: (string) $erp->product_id,
+                    'price' => [
+                        'amount'   => (string) round($price),
+                        'currency' => 'PHP',
+                    ],
+                    'inventory' => [
+                        array_filter([
+                            'warehouse_id' => $c['warehouse_id'] ?: null,
+                            'quantity' => max(0, (int) $erp->quantity),
+                        ]),
+                    ],
+                ];
+            }
+
             $payload = [
                 'title'            => $title,
                 'description'      => $desc,
@@ -718,21 +779,7 @@ class TikTokProductGroupController extends Controller
                     'unit'  => 'KILOGRAM',
                     'value' => (string) $weight,
                 ],
-                'skus'           => [
-                    [
-                        'seller_sku' => $erp->sku ?: $erp->model ?: (string) $erp->product_id,
-                        'price'      => [
-                            'amount'   => (string) round($price),
-                            'currency' => 'PHP',
-                        ],
-                        'inventory'  => [
-                            array_filter([
-                                'warehouse_id' => $c['warehouse_id'] ?: null,
-                                'quantity' => max(0, (int) $erp->quantity),
-                            ]),
-                        ],
-                    ],
-                ],
+                'skus'             => $skus,
             ];
 
             // Add package dimensions if available
@@ -770,8 +817,22 @@ class TikTokProductGroupController extends Controller
 
             if ($apiOk) {
                 $ttProductId = $result['body']['data']['product_id'] ?? $pivot->tiktok_product_id;
+                $returnedSkus = $result['body']['data']['skus'] ?? [];
+
+                // Store SKU IDs — JSON keyed by option_value_id for multi-variant, plain string for single
+                if (!empty($optionValues) && count($returnedSkus) > 0) {
+                    $skuMap = [];
+                    foreach ($optionValues as $i => $ov) {
+                        $skuMap[$ov->option_value_id] = $returnedSkus[$i]['id'] ?? null;
+                    }
+                    $ttSkuId = json_encode($skuMap);
+                } else {
+                    $ttSkuId = $returnedSkus[0]['id'] ?? $pivot->tiktok_sku_id;
+                }
+
                 $pivot->update([
                     'tiktok_product_id' => $ttProductId,
+                    'tiktok_sku_id'     => $ttSkuId,
                     'sync_status'       => 'pushed',
                     'last_pushed_at'    => now(),
                     'push_error'        => null,
@@ -821,13 +882,41 @@ class TikTokProductGroupController extends Controller
 
         foreach ($pivotRows as $pivot) {
             $basePrice = (float) ($erpPrices->get($pivot->product_id) ?? 0);
-            $price = $group->applyMarkup($basePrice);
 
-            // Price/stock updates need shop_cipher
+            // Check if multi-variant (JSON SKU IDs)
+            $skuIdRaw = $pivot->tiktok_sku_id;
+            $skuMap = $this->parseSkuIds($skuIdRaw);
+
+            if ($skuMap === null) {
+                // Single-variant — fetch SKU ID from API if needed
+                if (!$skuIdRaw) {
+                    $detail = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $c['shop_cipher']);
+                    $skuIdRaw = $detail['body']['data']['skus'][0]['id'] ?? null;
+                    if ($skuIdRaw) {
+                        $pivot->update(['tiktok_sku_id' => $skuIdRaw]);
+                    }
+                }
+                if (!$skuIdRaw) { $fail++; continue; }
+
+                $price = $group->applyMarkup($basePrice);
+                $skuPayload = [['id' => $skuIdRaw, 'price' => ['amount' => (string) round($price), 'currency' => 'PHP']]];
+            } else {
+                // Multi-variant — build price update for each option value
+                $optionValues = collect($this->getProductOptionValues($pfx, $pivot->product_id))->keyBy('option_value_id');
+                $skuPayload = [];
+                foreach ($skuMap as $ovId => $ttSkuId) {
+                    if (!$ttSkuId) continue;
+                    $ov = $optionValues->get($ovId);
+                    $ovPrice = $ov ? $group->applyMarkup($this->resolveOptionPrice($basePrice, $ov)) : $group->applyMarkup($basePrice);
+                    $skuPayload[] = ['id' => $ttSkuId, 'price' => ['amount' => (string) round($ovPrice), 'currency' => 'PHP']];
+                }
+                if (empty($skuPayload)) { $fail++; continue; }
+            }
+
             $result = $client->updatePrice(
                 $c['app_key'], $c['app_secret'], $c['token'],
                 $pivot->tiktok_product_id,
-                [['price' => ['amount' => (string) round($price), 'currency' => 'PHP']]],
+                $skuPayload,
                 $c['shop_cipher']
             );
             $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/prices/update', $result);
@@ -868,13 +957,40 @@ class TikTokProductGroupController extends Controller
         $fail = 0;
 
         foreach ($pivotRows as $pivot) {
-            $qty = max(0, (int) ($erpQty->get($pivot->product_id) ?? 0));
+            // Check if multi-variant (JSON SKU IDs)
+            $skuIdRaw = $pivot->tiktok_sku_id;
+            $skuMap = $this->parseSkuIds($skuIdRaw);
 
-            // Price/stock updates need shop_cipher
+            if ($skuMap === null) {
+                // Single-variant
+                if (!$skuIdRaw) {
+                    $detail = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $c['shop_cipher']);
+                    $skuIdRaw = $detail['body']['data']['skus'][0]['id'] ?? null;
+                    if ($skuIdRaw) {
+                        $pivot->update(['tiktok_sku_id' => $skuIdRaw]);
+                    }
+                }
+                if (!$skuIdRaw) { $fail++; continue; }
+
+                $qty = max(0, (int) ($erpQty->get($pivot->product_id) ?? 0));
+                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [array_filter(['warehouse_id' => $c['warehouse_id'] ?: null, 'quantity' => $qty])]]];
+            } else {
+                // Multi-variant — build inventory for each option value
+                $optionValues = collect($this->getProductOptionValues($pfx, $pivot->product_id))->keyBy('option_value_id');
+                $skuPayload = [];
+                foreach ($skuMap as $ovId => $ttSkuId) {
+                    if (!$ttSkuId) continue;
+                    $ov = $optionValues->get($ovId);
+                    $qty = $ov ? max(0, (int) $ov->quantity) : 0;
+                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [array_filter(['warehouse_id' => $c['warehouse_id'] ?: null, 'quantity' => $qty])]];
+                }
+                if (empty($skuPayload)) { $fail++; continue; }
+            }
+
             $result = $client->updateInventory(
                 $c['app_key'], $c['app_secret'], $c['token'],
                 $pivot->tiktok_product_id,
-                [['inventory' => [['quantity' => $qty]]]],
+                $skuPayload,
                 $c['shop_cipher']
             );
             $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/inventory/update', $result);
@@ -886,5 +1002,73 @@ class TikTokProductGroupController extends Controller
 
         return redirect()->route('ext.tiktok.product-groups.products', $id)
             ->with('status', "Stock pushed — OK: {$ok}, Failed: {$fail}");
+    }
+
+    // ── Variant Helpers ──────────────────────────────────────────
+
+    /**
+     * Get product option values for variant-type options (select, radio).
+     * Returns option values with their names, SKUs, quantities, and prices.
+     */
+    private function getProductOptionValues(string $pfx, int $productId): array
+    {
+        return DB::table($pfx . 'product_option_value as pov')
+            ->join($pfx . 'product_option as po', 'po.product_option_id', '=', 'pov.product_option_id')
+            ->join($pfx . 'option as o', 'o.option_id', '=', 'po.option_id')
+            ->join($pfx . 'option_description as od', function ($j) {
+                $j->on('od.option_id', '=', 'o.option_id')
+                    ->where('od.language_id', '=', 1);
+            })
+            ->join($pfx . 'option_value_description as ovd', function ($j) {
+                $j->on('ovd.option_value_id', '=', 'pov.option_value_id')
+                    ->where('ovd.language_id', '=', 1);
+            })
+            ->where('pov.product_id', $productId)
+            ->whereIn('o.type', ['select', 'radio'])
+            ->orderBy('po.product_option_id')
+            ->orderBy('pov.product_option_value_id')
+            ->select(
+                'pov.product_option_value_id',
+                'pov.option_value_id',
+                'pov.sku',
+                'pov.quantity',
+                'pov.price',
+                'pov.price_prefix',
+                'pov.absolute_price',
+                'ovd.name as value_name',
+                'od.name as option_name'
+            )
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * Resolve the effective price for an option value.
+     */
+    private function resolveOptionPrice(float $basePrice, object $ov): float
+    {
+        $absPrice = (float) ($ov->absolute_price ?? 0);
+        if ($absPrice > 0) {
+            return $absPrice;
+        }
+
+        $modifier = (float) ($ov->price ?? 0);
+        if ($ov->price_prefix === '-') {
+            return max(0, $basePrice - $modifier);
+        }
+        return $basePrice + $modifier;
+    }
+
+    /**
+     * Parse tiktok_sku_id value. Returns assoc array (option_value_id => sku_id)
+     * for multi-variant products, or null for single-variant.
+     */
+    private function parseSkuIds(?string $skuIdRaw): ?array
+    {
+        if (!$skuIdRaw || $skuIdRaw[0] !== '{') {
+            return null;
+        }
+        $decoded = json_decode($skuIdRaw, true);
+        return is_array($decoded) ? $decoded : null;
     }
 }
