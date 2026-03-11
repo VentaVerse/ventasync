@@ -371,6 +371,16 @@ class TikTokController extends Controller
             $raw->$cipherCol = $shop['cipher'] ?? null;
             $raw->$nameCol = $shop['name'] ?? null;
             $raw->region = $shop['region'] ?? $raw->region;
+
+            // Fetch warehouse ID
+            $shopCipher = $sandbox ? null : ($shop['cipher'] ?? null);
+            $whResult = $client->get($activeKey, $activeSecret, $activeToken, '/logistics/202309/warehouses', [], $shopCipher);
+            $warehouses = ($whResult['ok'] ?? false) ? ($whResult['body']['data']['warehouses'] ?? []) : [];
+            if (!empty($warehouses)) {
+                $whCol = $sandbox ? 'sandbox_warehouse_id' : 'warehouse_id';
+                $raw->$whCol = $warehouses[0]['id'] ?? null;
+            }
+
             $raw->save();
         }
 

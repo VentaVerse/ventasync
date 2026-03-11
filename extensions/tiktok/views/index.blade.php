@@ -179,7 +179,7 @@
                         <div style="margin-top:12px; padding:10px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border);">
                             <div class="text-xs text-muted" style="margin-bottom:4px;">Shop Info</div>
                             <div><strong>{{ $setting->shop_name ?? '—' }}</strong></div>
-                            <div class="text-xs text-muted" style="margin-top:4px;">ID: {{ $setting->shop_id ?? '—' }} &middot; Cipher: {{ Str::limit($setting->shop_cipher ?? '—', 24) }} &middot; Region: {{ strtoupper($setting->region ?? '—') }}</div>
+                            <div class="text-xs text-muted" style="margin-top:4px;">ID: {{ $setting->shop_id ?? '—' }} &middot; Cipher: {{ Str::limit($setting->shop_cipher ?? '—', 24) }} &middot; Region: {{ strtoupper($setting->region ?? '—') }} &middot; Warehouse: {{ $setting->warehouse_id ?? '—' }}</div>
                         </div>
                     @endif
                 </div>

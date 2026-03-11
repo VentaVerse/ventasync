@@ -19,6 +19,7 @@ class TikTokSetting extends Model
         'shop_id',
         'shop_cipher',
         'shop_name',
+        'warehouse_id',
         'redirect_uri',
         'region',
         'sync_last_days',
@@ -34,6 +35,7 @@ class TikTokSetting extends Model
         'sandbox_shop_id',
         'sandbox_shop_cipher',
         'sandbox_shop_name',
+        'sandbox_warehouse_id',
         'sandbox_redirect_uri',
     ];
 

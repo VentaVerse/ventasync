@@ -31,7 +31,8 @@ class TikTokProductGroupController extends Controller
             'app_key'     => $sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? ''),
             'app_secret'  => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
             'token'       => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
-            'shop_cipher' => $sandbox ? null : ($s->shop_cipher ?? ''),
+            'shop_cipher'  => $sandbox ? null : ($s->shop_cipher ?? ''),
+            'warehouse_id' => $sandbox ? ($s->sandbox_warehouse_id ?? '') : ($s->warehouse_id ?? ''),
         ];
     }
 
@@ -483,7 +484,10 @@ class TikTokProductGroupController extends Controller
                             'currency' => 'PHP',
                         ],
                         'inventory'  => [
-                            ['quantity' => max(0, (int) $erp->quantity)],
+                            array_filter([
+                                'warehouse_id' => $c['warehouse_id'] ?: null,
+                                'quantity' => max(0, (int) $erp->quantity),
+                            ]),
                         ],
                     ],
                 ],
