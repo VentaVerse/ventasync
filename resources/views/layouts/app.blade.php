@@ -61,6 +61,7 @@
             $canLazada = $u && $u->hasPermission('manage_lazada');
             $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
             $canLazadaOrders = $u && $u->hasPermission('manage_lazada_orders');
+            $canTikTok = $u && $u->hasPermission('manage_tiktok');
             $canOpencart = $u && $u->hasPermission('manage_opencart');
             $canOpencartOrders = $u && $u->hasPermission('manage_opencart_orders');
             $canSettingsParent = $u && $u->hasPermission('manage_settings');
@@ -105,6 +106,16 @@
                     <span class="label">Shopee Orders</span>
                     @if(($shopeePendingCount ?? 0) > 0)
                         <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $shopeePendingCount }}</span>
+                    @endif
+                </a>
+                @endif
+
+                @if($canTikTok && Route::has('ext.tiktok.orders.index'))
+                <a href="{{ route('ext.tiktok.orders.index', ['tab' => 'AWAITING_SHIPMENT']) }}" class="{{ request()->routeIs('ext.tiktok.orders.*') ? 'active' : '' }}">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                    <span class="label">TikTok Orders</span>
+                    @if(($tiktokPendingCount ?? 0) > 0)
+                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $tiktokPendingCount }}</span>
                     @endif
                 </a>
                 @endif

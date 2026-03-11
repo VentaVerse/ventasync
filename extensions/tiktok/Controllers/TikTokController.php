@@ -372,13 +372,26 @@ class TikTokController extends Controller
             $raw->$nameCol = $shop['name'] ?? null;
             $raw->region = $shop['region'] ?? $raw->region;
 
-            // Fetch warehouse ID
-            $shopCipher = $sandbox ? null : ($shop['cipher'] ?? null);
-            $whResult = $client->get($activeKey, $activeSecret, $activeToken, '/logistics/202309/warehouses', [], $shopCipher);
+            // Fetch warehouse ID (always needs shop_cipher)
+            $whResult = $client->get($activeKey, $activeSecret, $activeToken, '/logistics/202309/warehouses', [], $shop['cipher'] ?? null);
+            TikTokApiLog::safeCreate([
+                'pack' => 'tiktok.warehouses',
+                'method' => 'GET',
+                'api_path' => '/logistics/202309/warehouses',
+                'auth_required' => true,
+                'request_params' => [],
+                'response_status' => (int) ($whResult['status'] ?? 0),
+                'ok' => (bool) ($whResult['ok'] ?? false),
+                'response_body' => $whResult['body'] ?? null,
+                'user_id' => auth()->id(),
+            ]);
             $warehouses = ($whResult['ok'] ?? false) ? ($whResult['body']['data']['warehouses'] ?? []) : [];
             if (!empty($warehouses)) {
+                // Prefer SALES_WAREHOUSE over RETURN_WAREHOUSE
+                $salesWh = collect($warehouses)->firstWhere('type', 'SALES_WAREHOUSE');
+                $whId = ($salesWh['id'] ?? null) ?: ($warehouses[0]['id'] ?? null);
                 $whCol = $sandbox ? 'sandbox_warehouse_id' : 'warehouse_id';
-                $raw->$whCol = $warehouses[0]['id'] ?? null;
+                $raw->$whCol = $whId;
             }
 
             $raw->save();

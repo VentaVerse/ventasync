@@ -27,13 +27,53 @@ class TikTokProductGroupController extends Controller
         $sandbox = $s->mode === 'sandbox';
 
         return [
-            'setting'     => $s,
-            'app_key'     => $sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? ''),
-            'app_secret'  => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
-            'token'       => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
-            'shop_cipher'  => $sandbox ? null : ($s->shop_cipher ?? ''),
+            'setting'      => $s,
+            'sandbox'      => $sandbox,
+            'app_key'      => $sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? ''),
+            'app_secret'   => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
+            'token'        => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
+            'shop_cipher'  => $sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? ''),
             'warehouse_id' => $sandbox ? ($s->sandbox_warehouse_id ?? '') : ($s->warehouse_id ?? ''),
         ];
+    }
+
+    private function squareImage(string $filePath): ?string
+    {
+        $info = @getimagesize($filePath);
+        if (!$info) return null;
+
+        [$w, $h, $type] = $info;
+        $src = match ($type) {
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($filePath),
+            IMAGETYPE_PNG  => @imagecreatefrompng($filePath),
+            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($filePath) : null,
+            default => null,
+        };
+        if (!$src) return null;
+
+        // Already square (within 2px tolerance)
+        if (abs($w - $h) <= 2) {
+            $data = file_get_contents($filePath);
+            imagedestroy($src);
+            return $data;
+        }
+
+        $size = max($w, $h);
+        $canvas = imagecreatetruecolor($size, $size);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        imagefill($canvas, 0, 0, $white);
+
+        $x = (int) (($size - $w) / 2);
+        $y = (int) (($size - $h) / 2);
+        imagecopy($canvas, $src, $x, $y, 0, 0, $w, $h);
+        imagedestroy($src);
+
+        ob_start();
+        imagejpeg($canvas, null, 90);
+        $data = ob_get_clean();
+        imagedestroy($canvas);
+
+        return $data ?: null;
     }
 
     private function getMatchingProductIds(TikTokProductGroup $group): array
@@ -364,6 +404,70 @@ class TikTokProductGroupController extends Controller
             ->with('status', 'Product removed from group.');
     }
 
+    public function massRemove(Request $request, int $id)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $ids = array_filter(array_map('intval', (array) $request->input('ids', [])));
+
+        if (empty($ids)) {
+            return redirect()->route('ext.tiktok.product-groups.products', $id)
+                ->with('status', 'No products selected.');
+        }
+
+        $deleted = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
+            ->whereIn('product_id', $ids)
+            ->delete();
+
+        return redirect()->route('ext.tiktok.product-groups.products', $id)
+            ->with('status', $deleted . ' product(s) removed from group.');
+    }
+
+    public function deleteFromTikTok(Request $request, int $id)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $ids = array_filter(array_map('intval', (array) $request->input('ids', [])));
+
+        if (empty($ids)) {
+            return redirect()->route('ext.tiktok.product-groups.products', $id)
+                ->with('status', 'No products selected.');
+        }
+
+        $c = $this->creds();
+        $client = new TikTokClient();
+
+        // Collect TikTok product IDs for selected products
+        $pivots = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
+            ->whereIn('product_id', $ids)
+            ->whereNotNull('tiktok_product_id')
+            ->get();
+
+        if ($pivots->isEmpty()) {
+            return redirect()->route('ext.tiktok.product-groups.products', $id)
+                ->with('status', 'No pushed products found among selected.');
+        }
+
+        $ttIds = $pivots->pluck('tiktok_product_id')->toArray();
+        $result = $client->deleteProducts($c['app_key'], $c['app_secret'], $c['token'], $ttIds, $c['shop_cipher']);
+        $this->logApi('DELETE', '/product/202309/products', $result);
+
+        $apiCode = (int) ($result['body']['code'] ?? -1);
+        $apiOk = ($result['ok'] ?? false) && $apiCode === 0;
+
+        if ($apiOk) {
+            // Clear tiktok_product_id and reset sync status
+            TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
+                ->whereIn('product_id', $ids)
+                ->update(['tiktok_product_id' => null, 'sync_status' => 'pending', 'push_error' => null]);
+
+            return redirect()->route('ext.tiktok.product-groups.products', $id)
+                ->with('status', count($ttIds) . ' product(s) deleted from TikTok Shop.');
+        }
+
+        $msg = $result['body']['message'] ?? 'Unknown error';
+        return redirect()->route('ext.tiktok.product-groups.products', $id)
+            ->with('status', 'TikTok delete failed: ' . $msg);
+    }
+
     public function searchProducts(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
@@ -434,7 +538,7 @@ class TikTokProductGroupController extends Controller
                     ->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds)
-            ->select('p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image')
+            ->select('p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height')
             ->get()
             ->keyBy('product_id');
 
@@ -456,7 +560,9 @@ class TikTokProductGroupController extends Controller
             if ($imgPath !== '') {
                 $fullPath = public_path('storage/' . ltrim($imgPath, '/'));
                 if (file_exists($fullPath)) {
-                    $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], file_get_contents($fullPath), $c['shop_cipher']);
+                    $imageData = $this->squareImage($fullPath) ?: file_get_contents($fullPath);
+                    $imgCipher = $c['sandbox'] ? null : $c['shop_cipher'];
+                    $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], $imageData, $imgCipher);
                     $this->logApi('POST', '/product/202309/images/upload', $imgResult);
                     if ($imgResult['ok'] ?? false) {
                         $uri = $imgResult['body']['data']['uri'] ?? null;
@@ -469,18 +575,33 @@ class TikTokProductGroupController extends Controller
 
             $price = $group->applyMarkup((float) $erp->price);
             $title = $erp->name ?: ('Product ' . $erp->product_id);
-            $desc = strip_tags((string) ($erp->description ?? $title));
+            $desc = trim(strip_tags((string) ($erp->description ?? '')));
+            if (strlen($desc) < 1) {
+                $desc = $title;
+            }
             $isUpdate = (bool) $pivot->tiktok_product_id;
 
+            $weight = max(0.01, (float) ($erp->weight ?? 0));
+
+            // Pad title to meet TikTok's 25-char minimum
+            if (mb_strlen($title) < 25) {
+                $title = str_pad($title, 25, ' — Product from ERP');
+            }
+
             $payload = [
-                'title'       => $title,
-                'description' => $desc ?: $title,
-                'category_id' => $group->tiktok_category_id,
-                'skus'        => [
+                'title'            => $title,
+                'description'      => $desc,
+                'category_id'      => $group->tiktok_category_id,
+                'category_version' => 'v2',
+                'package_weight' => [
+                    'unit'  => 'KILOGRAM',
+                    'value' => (string) $weight,
+                ],
+                'skus'           => [
                     [
                         'seller_sku' => $erp->sku ?: $erp->model ?: (string) $erp->product_id,
                         'price'      => [
-                            'amount'   => (string) round($price * 100), // cents
+                            'amount'   => (string) round($price),
                             'currency' => 'PHP',
                         ],
                         'inventory'  => [
@@ -492,6 +613,19 @@ class TikTokProductGroupController extends Controller
                     ],
                 ],
             ];
+
+            // Add package dimensions if available
+            $length = (float) ($erp->length ?? 0);
+            $width  = (float) ($erp->width ?? 0);
+            $height = (float) ($erp->height ?? 0);
+            if ($length > 0 && $width > 0 && $height > 0) {
+                $payload['package_dimensions'] = [
+                    'unit'   => 'CENTIMETER',
+                    'length' => (string) $length,
+                    'width'  => (string) $width,
+                    'height' => (string) $height,
+                ];
+            }
 
             if (!empty($imageUris)) {
                 $payload['main_images'] = array_map(fn($uri) => ['uri' => $uri], $imageUris);
@@ -510,7 +644,10 @@ class TikTokProductGroupController extends Controller
                 $this->logApi('POST', '/product/202309/products', $result);
             }
 
-            if ($result['ok'] ?? false) {
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+            $apiOk = ($result['ok'] ?? false) && $apiCode === 0;
+
+            if ($apiOk) {
                 $ttProductId = $result['body']['data']['product_id'] ?? $pivot->tiktok_product_id;
                 $pivot->update([
                     'tiktok_product_id' => $ttProductId,
@@ -560,10 +697,11 @@ class TikTokProductGroupController extends Controller
             $basePrice = (float) ($erpPrices->get($pivot->product_id) ?? 0);
             $price = $group->applyMarkup($basePrice);
 
+            // Price/stock updates need shop_cipher
             $result = $client->updatePrice(
                 $c['app_key'], $c['app_secret'], $c['token'],
                 $pivot->tiktok_product_id,
-                [['price' => ['amount' => (string) round($price * 100), 'currency' => 'PHP']]],
+                [['price' => ['amount' => (string) round($price), 'currency' => 'PHP']]],
                 $c['shop_cipher']
             );
             $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/prices/update', $result);
@@ -601,6 +739,7 @@ class TikTokProductGroupController extends Controller
         foreach ($pivotRows as $pivot) {
             $qty = max(0, (int) ($erpQty->get($pivot->product_id) ?? 0));
 
+            // Price/stock updates need shop_cipher
             $result = $client->updateInventory(
                 $c['app_key'], $c['app_secret'], $c['token'],
                 $pivot->tiktok_product_id,

@@ -87,6 +87,19 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('lazadaPendingCount', 0);
             }
 
+            // TikTok pending count (new → awaiting shipment)
+            try {
+                if (Schema::hasTable('tiktok_orders')) {
+                    $view->with('tiktokPendingCount', \Extensions\tiktok\Models\TikTokOrder::query()
+                        ->whereIn('status', ['UNPAID', 'AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
+                        ->count());
+                } else {
+                    $view->with('tiktokPendingCount', 0);
+                }
+            } catch (\Throwable $e) {
+                $view->with('tiktokPendingCount', 0);
+            }
+
             // Share enabled OpenCart stores for sidebar per-store links
             try {
                 if (class_exists(\Extensions\opencart\Models\OpenCartSetting::class) && Schema::hasTable('opencart_settings')) {

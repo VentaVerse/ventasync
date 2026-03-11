@@ -20,6 +20,8 @@
                 <button class="btn secondary" type="submit">Push Stock</button>
             </form>
 
+            <button class="btn danger" type="button" onclick="confirmDeleteFromTikTok()">Delete from TikTok</button>
+            <button class="btn danger" type="button" onclick="confirmMassRemove()">Remove Selected</button>
             <button class="btn" type="submit" form="push-form" onclick="return confirmPush(event);">Push Selected</button>
         </div>
     </div>
@@ -38,6 +40,16 @@
 
     {{-- Push form --}}
     <form id="push-form" method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}">
+        @csrf
+    </form>
+
+    {{-- Mass remove form --}}
+    <form id="mass-remove-form" method="POST" action="{{ route('ext.tiktok.product-groups.massRemove', $group->id) }}">
+        @csrf
+    </form>
+
+    {{-- Delete from TikTok form --}}
+    <form id="delete-tiktok-form" method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}">
         @csrf
     </form>
 
@@ -173,6 +185,36 @@
                 checks().forEach(function (b) { b.checked = selectAll.checked; });
             });
         }
+
+        window.confirmMassRemove = function () {
+            var selected = checks().filter(function (b) { return b.checked; });
+            if (selected.length === 0) { showFlashError('Please select at least one product.'); return; }
+            confirmModal('Remove ' + selected.length + ' product(s) from this group?').then(function (ok) {
+                if (!ok) return;
+                var form = document.getElementById('mass-remove-form');
+                selected.forEach(function (b) {
+                    var h = document.createElement('input');
+                    h.type = 'hidden'; h.name = 'ids[]'; h.value = b.value;
+                    form.appendChild(h);
+                });
+                form.submit();
+            });
+        };
+
+        window.confirmDeleteFromTikTok = function () {
+            var selected = checks().filter(function (b) { return b.checked; });
+            if (selected.length === 0) { showFlashError('Please select at least one product.'); return; }
+            confirmModal('Delete ' + selected.length + ' product(s) from TikTok Shop? This cannot be undone.').then(function (ok) {
+                if (!ok) return;
+                var form = document.getElementById('delete-tiktok-form');
+                selected.forEach(function (b) {
+                    var h = document.createElement('input');
+                    h.type = 'hidden'; h.name = 'ids[]'; h.value = b.value;
+                    form.appendChild(h);
+                });
+                form.submit();
+            });
+        };
 
         window.confirmPush = function (e) {
             var selected = checks().filter(function (b) { return b.checked; }).length;

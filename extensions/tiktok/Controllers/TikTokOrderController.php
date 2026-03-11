@@ -1,0 +1,353 @@
+<?php
+
+namespace Extensions\tiktok\Controllers;
+
+use App\Http\Controllers\Controller;
+use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\tiktok\Models\TikTokOrder;
+use Extensions\tiktok\Models\TikTokOrderProduct;
+use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Illuminate\Http\Request;
+
+class TikTokOrderController extends Controller
+{
+    private function creds(): array
+    {
+        $s = TikTokSetting::first();
+        if (!$s) {
+            abort(404, 'TikTok settings not configured.');
+        }
+        $d = $s->decrypted();
+        $sandbox = $s->mode === 'sandbox';
+
+        return [
+            'setting'     => $s,
+            'sandbox'     => $sandbox,
+            'app_key'     => $sandbox ? ($d->sandbox_app_key ?? '') : ($d->app_key ?? ''),
+            'app_secret'  => $sandbox ? ($d->sandbox_app_secret ?? '') : ($d->app_secret ?? ''),
+            'token'       => $sandbox ? ($d->sandbox_access_token ?? '') : ($d->access_token ?? ''),
+            'shop_cipher' => $sandbox ? ($s->sandbox_shop_cipher ?? '') : ($s->shop_cipher ?? ''),
+        ];
+    }
+
+    private function logApi(string $method, string $path, array $result): void
+    {
+        TikTokApiLog::safeCreate([
+            'pack'            => 'order-sync',
+            'method'          => $method,
+            'api_path'        => $path,
+            'auth_required'   => true,
+            'request_params'  => [],
+            'response_status' => $result['status'] ?? 0,
+            'ok'              => $result['ok'] ?? false,
+            'response_body'   => $result['body'] ?? [],
+            'user_id'         => auth()->id(),
+        ]);
+    }
+
+    // TikTok order status → tab mapping
+    private array $tabStatusMap = [
+        'UNPAID'           => ['UNPAID'],
+        'AWAITING_SHIPMENT'=> ['AWAITING_SHIPMENT'],
+        'AWAITING_COLLECTION' => ['AWAITING_COLLECTION'],
+        'IN_TRANSIT'       => ['IN_TRANSIT'],
+        'DELIVERED'        => ['DELIVERED'],
+        'COMPLETED'        => ['COMPLETED'],
+        'CANCELLED'        => ['CANCELLED'],
+    ];
+
+    public function index(Request $request)
+    {
+        $filters = $request->validate([
+            'order_number' => ['nullable', 'string', 'max:80'],
+            'buyer_name'   => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $orderNumber = trim((string) ($filters['order_number'] ?? ''));
+        $buyerName = trim((string) ($filters['buyer_name'] ?? ''));
+
+        $perPage = (int) $request->query('per_page', 10);
+        if (!in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $tab = strtoupper((string) $request->query('tab', 'ALL'));
+        $allowedTabs = ['ALL', 'UNPAID', 'AWAITING_SHIPMENT', 'AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
+        if (!in_array($tab, $allowedTabs, true)) {
+            $tab = 'ALL';
+        }
+
+        $tabs = [
+            'ALL'                  => 'All',
+            'UNPAID'               => 'Unpaid',
+            'AWAITING_SHIPMENT'    => 'To Ship',
+            'AWAITING_COLLECTION'  => 'To Collect',
+            'IN_TRANSIT'           => 'In Transit',
+            'DELIVERED'            => 'Delivered',
+            'COMPLETED'            => 'Completed',
+            'CANCELLED'            => 'Cancelled',
+        ];
+
+        $sortKey = strtolower((string) $request->query('sort', 'created_desc'));
+        if (!in_array($sortKey, ['created_asc', 'created_desc'], true)) {
+            $sortKey = 'created_desc';
+        }
+        $sortDir = str_ends_with($sortKey, '_asc') ? 'asc' : 'desc';
+
+        $query = TikTokOrder::query()->with('products');
+        $baseCountQuery = TikTokOrder::query();
+
+        if ($tab !== 'ALL') {
+            $statuses = $this->tabStatusMap[$tab] ?? [];
+            if (!empty($statuses)) {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        // Search
+        if ($orderNumber !== '') {
+            $query->where('order_id', 'like', '%' . $orderNumber . '%');
+        }
+        if ($buyerName !== '') {
+            $query->where('buyer_name', 'like', '%' . $buyerName . '%');
+        }
+
+        // Badge counts
+        $tab_counts = [];
+        $tab_counts['ALL'] = (clone $baseCountQuery)->count();
+        foreach ($this->tabStatusMap as $k => $statuses) {
+            $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
+        }
+
+        $orders = $query
+            ->orderBy('order_created_at', $sortDir)
+            ->orderBy('created_at', $sortDir)
+            ->paginate($perPage)
+            ->appends($request->query());
+
+        return view('ext-tiktok::orders.index', [
+            'orders'     => $orders,
+            'per_page'   => $perPage,
+            'tabs'       => $tabs,
+            'active_tab' => $tab,
+            'tab_counts' => $tab_counts,
+            'sort'       => $sortKey,
+            'last_result' => session('tiktok_orders_last_result'),
+            'filters'    => [
+                'order_number' => $orderNumber,
+                'buyer_name'   => $buyerName,
+            ],
+        ]);
+    }
+
+    public function fetch(Request $request)
+    {
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
+        $data = $request->validate([
+            'date_from' => 'required|date',
+            'date_to'   => 'required|date|after_or_equal:date_from',
+        ]);
+
+        $c = $this->creds();
+        $client = new TikTokClient();
+
+        $tz = new \DateTimeZone('Asia/Manila');
+        $from = (new \DateTime($data['date_from'], $tz))->setTime(0, 0, 0)->getTimestamp();
+        $to = (new \DateTime($data['date_to'], $tz))->setTime(23, 59, 59)->getTimestamp();
+
+        $allOrders = [];
+        $nextToken = '';
+        $pageSize = 50;
+        $pages = 0;
+        $maxPages = 20;
+
+        // Search returns full order details including line items
+        while ($pages < $maxPages) {
+            $body = [
+                'create_time_ge' => $from,
+                'create_time_lt' => $to,
+            ];
+            if ($nextToken !== '') {
+                $body['next_page_token'] = $nextToken;
+            }
+
+            $result = $client->searchOrders($c['app_key'], $c['app_secret'], $c['token'], $pageSize, $body, $c['shop_cipher']);
+            $this->logApi('POST', '/order/202309/orders/search', $result);
+
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+            if ($apiCode !== 0) {
+                $msg = $result['body']['message'] ?? 'Unknown error';
+                return redirect()->route('ext.tiktok.orders.index')
+                    ->with('tiktok_orders_last_result', ['ok' => false, 'message' => 'Search orders failed: ' . $msg]);
+            }
+
+            $orderList = $result['body']['data']['orders'] ?? [];
+            $allOrders = array_merge($allOrders, $orderList);
+
+            $nextToken = $result['body']['data']['next_page_token'] ?? '';
+            if ($nextToken === '' || count($orderList) < $pageSize) {
+                break;
+            }
+            $pages++;
+        }
+
+        if (empty($allOrders)) {
+            return redirect()->route('ext.tiktok.orders.index')
+                ->with('tiktok_orders_last_result', ['ok' => true, 'message' => 'No orders found in date range.']);
+        }
+
+        $saved = 0;
+        $updated = 0;
+
+        foreach ($allOrders as $o) {
+            $orderId = (string) ($o['id'] ?? '');
+            if ($orderId === '') continue;
+
+            $status = $o['status'] ?? null;
+            $createdAt = isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null;
+            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
+
+            $buyer = $o['recipient_address']['name'] ?? '';
+
+            $existing = TikTokOrder::where('order_id', $orderId)->first();
+
+            $orderData = [
+                'region'           => $c['setting']->region ?? 'PH',
+                'order_id'         => $orderId,
+                'status'           => $status,
+                'order_created_at' => $createdAt,
+                'order_updated_at' => $updatedAt,
+                'raw'              => $o,
+                'buyer_name'       => $buyer,
+            ];
+
+            if ($existing) {
+                $existing->update($orderData);
+                $dbOrder = $existing;
+                $updated++;
+            } else {
+                $dbOrder = TikTokOrder::create($orderData);
+                $saved++;
+            }
+
+            // Sync line items
+            $lineItems = $o['line_items'] ?? [];
+            $existingItemIds = $dbOrder->products()->pluck('order_line_item_id')->toArray();
+
+            foreach ($lineItems as $li) {
+                $lineItemId = (string) ($li['id'] ?? '');
+                $itemData = [
+                    'tiktok_order_id'   => $dbOrder->id,
+                    'order_line_item_id'=> $lineItemId,
+                    'sku'               => $li['seller_sku'] ?? $li['sku_id'] ?? '',
+                    'name'              => $li['product_name'] ?? '',
+                    'variation'         => $li['sku_name'] ?? '',
+                    'quantity'          => (int) ($li['quantity'] ?? 1),
+                    'item_price'        => (float) ($li['original_price'] ?? 0),
+                    'sale_price'        => (float) ($li['sale_price'] ?? 0),
+                    'status'            => $li['display_status'] ?? $status,
+                    'image'             => $li['sku_image'] ?? $li['product_image'] ?? '',
+                    'raw'               => $li,
+                ];
+
+                if (in_array($lineItemId, $existingItemIds)) {
+                    TikTokOrderProduct::where('tiktok_order_id', $dbOrder->id)
+                        ->where('order_line_item_id', $lineItemId)
+                        ->update($itemData);
+                } else {
+                    TikTokOrderProduct::create($itemData);
+                }
+            }
+        }
+
+        return redirect()->route('ext.tiktok.orders.index')
+            ->with('tiktok_orders_last_result', [
+                'ok' => true,
+                'message' => "Fetched " . count($allOrders) . " order(s). Saved: {$saved}, Updated: {$updated}.",
+            ]);
+    }
+
+    public function updateStatuses(Request $request)
+    {
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
+        $c = $this->creds();
+        $client = new TikTokClient();
+
+        // Re-fetch recent orders (last 30 days) to refresh statuses
+        $from = now()->subDays(30)->startOfDay()->getTimestamp();
+        $to = now()->endOfDay()->getTimestamp();
+
+        $allOrders = [];
+        $nextToken = '';
+        $pageSize = 50;
+        $pages = 0;
+
+        while ($pages < 20) {
+            $body = [
+                'create_time_ge' => $from,
+                'create_time_lt' => $to,
+            ];
+            if ($nextToken !== '') {
+                $body['next_page_token'] = $nextToken;
+            }
+
+            $result = $client->searchOrders($c['app_key'], $c['app_secret'], $c['token'], $pageSize, $body, $c['shop_cipher']);
+            $this->logApi('POST', '/order/202309/orders/search', $result);
+
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+            if ($apiCode !== 0) break;
+
+            $orderList = $result['body']['data']['orders'] ?? [];
+            $allOrders = array_merge($allOrders, $orderList);
+
+            $nextToken = $result['body']['data']['next_page_token'] ?? '';
+            if ($nextToken === '' || count($orderList) < $pageSize) break;
+            $pages++;
+        }
+
+        $updated = 0;
+
+        foreach ($allOrders as $o) {
+            $orderId = (string) ($o['id'] ?? '');
+            if ($orderId === '') continue;
+
+            $dbOrder = TikTokOrder::where('order_id', $orderId)->first();
+            if (!$dbOrder) continue;
+
+            $newStatus = $o['status'] ?? $dbOrder->status;
+            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
+            $buyer = $o['recipient_address']['name'] ?? $dbOrder->buyer_name;
+
+            $dbOrder->update([
+                'status'           => $newStatus,
+                'order_updated_at' => $updatedAt,
+                'raw'              => $o,
+                'buyer_name'       => $buyer,
+            ]);
+
+            // Update line item statuses
+            foreach ($o['line_items'] ?? [] as $li) {
+                $lineItemId = (string) ($li['id'] ?? '');
+                if ($lineItemId === '') continue;
+
+                TikTokOrderProduct::where('tiktok_order_id', $dbOrder->id)
+                    ->where('order_line_item_id', $lineItemId)
+                    ->update([
+                        'status' => $li['display_status'] ?? $newStatus,
+                        'raw'    => $li,
+                    ]);
+            }
+
+            $updated++;
+        }
+
+        return redirect()->route('ext.tiktok.orders.index')
+            ->with('tiktok_orders_last_result', [
+                'ok'      => true,
+                'message' => "Updated {$updated} order(s).",
+            ]);
+    }
+}

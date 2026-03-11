@@ -1,6 +1,7 @@
 <?php
 
 use Extensions\tiktok\Controllers\TikTokController;
+use Extensions\tiktok\Controllers\TikTokOrderController;
 use Extensions\tiktok\Controllers\TikTokProductGroupController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,8 +36,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/tiktok/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
         Route::post('/tiktok/product-groups/{id}/add-products', [TikTokProductGroupController::class, 'addProducts'])->name('ext.tiktok.product-groups.addProducts');
         Route::delete('/tiktok/product-groups/{id}/products/{product}', [TikTokProductGroupController::class, 'removeProduct'])->name('ext.tiktok.product-groups.removeProduct');
+        Route::post('/tiktok/product-groups/{id}/mass-remove', [TikTokProductGroupController::class, 'massRemove'])->name('ext.tiktok.product-groups.massRemove');
+        Route::post('/tiktok/product-groups/{id}/delete-from-tiktok', [TikTokProductGroupController::class, 'deleteFromTikTok'])->name('ext.tiktok.product-groups.deleteFromTikTok');
         Route::post('/tiktok/product-groups/{id}/push', [TikTokProductGroupController::class, 'push'])->name('ext.tiktok.product-groups.push');
         Route::post('/tiktok/product-groups/{id}/push-prices', [TikTokProductGroupController::class, 'pushPrices'])->name('ext.tiktok.product-groups.pushPrices');
         Route::post('/tiktok/product-groups/{id}/push-stock', [TikTokProductGroupController::class, 'pushStock'])->name('ext.tiktok.product-groups.pushStock');
+
+        // Orders
+        Route::get('/tiktok/orders', [TikTokOrderController::class, 'index'])->name('ext.tiktok.orders.index');
+        Route::post('/tiktok/orders/fetch', [TikTokOrderController::class, 'fetch'])->name('ext.tiktok.orders.fetch');
+        Route::post('/tiktok/orders/update-statuses', [TikTokOrderController::class, 'updateStatuses'])->name('ext.tiktok.orders.updateStatuses');
     });
 });

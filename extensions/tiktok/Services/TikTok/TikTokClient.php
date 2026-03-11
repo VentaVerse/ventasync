@@ -129,7 +129,7 @@ class TikTokClient
             $params['shop_cipher'] = $shopCipher;
         }
 
-        $jsonBody = !empty($body) ? json_encode($body) : null;
+        $jsonBody = !empty($body) ? json_encode($body) : '{}';
         $params['sign'] = $this->generateSign($path, $params, $jsonBody, $appSecret);
 
         $url = self::BASE_URL . $path . '?' . http_build_query($params);
@@ -139,7 +139,7 @@ class TikTokClient
                 'x-tts-access-token' => $accessToken,
                 'Content-Type' => 'application/json',
             ])
-            ->withBody($jsonBody ?? '{}', 'application/json')
+            ->withBody($jsonBody, 'application/json')
             ->post($url);
 
         return [
@@ -185,7 +185,7 @@ class TikTokClient
 
     public function getCategories(string $appKey, string $appSecret, string $accessToken, ?string $shopCipher = null): array
     {
-        return $this->get($appKey, $appSecret, $accessToken, '/product/202309/categories', [], $shopCipher);
+        return $this->get($appKey, $appSecret, $accessToken, '/product/202309/categories', ['category_version' => 'v2'], $shopCipher);
     }
 
     public function getCategoryAttributes(string $appKey, string $appSecret, string $accessToken, string $categoryId, ?string $shopCipher = null): array
@@ -214,6 +214,43 @@ class TikTokClient
         return $this->put($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId, [], $data, $shopCipher);
     }
 
+    // -- Signed DELETE ----------------------------------------------------
+
+    public function delete(string $appKey, string $appSecret, string $accessToken, string $path, array $queryParams = [], array $body = [], ?string $shopCipher = null): array
+    {
+        $params = array_merge($queryParams, [
+            'app_key' => $appKey,
+            'timestamp' => time(),
+        ]);
+        if ($shopCipher) {
+            $params['shop_cipher'] = $shopCipher;
+        }
+
+        $jsonBody = !empty($body) ? json_encode($body) : null;
+        $params['sign'] = $this->generateSign($path, $params, $jsonBody, $appSecret);
+
+        $url = self::BASE_URL . $path . '?' . http_build_query($params);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'x-tts-access-token' => $accessToken,
+                'Content-Type' => 'application/json',
+            ])
+            ->withBody($jsonBody ?? '{}', 'application/json')
+            ->delete($url);
+
+        return [
+            'status' => $response->status(),
+            'ok' => $response->ok(),
+            'body' => $response->json() ?? $response->body(),
+        ];
+    }
+
+    public function deleteProducts(string $appKey, string $appSecret, string $accessToken, array $productIds, ?string $shopCipher = null): array
+    {
+        return $this->delete($appKey, $appSecret, $accessToken, '/product/202309/products', [], ['product_ids' => $productIds], $shopCipher);
+    }
+
     // -- Price & Stock ----------------------------------------------------
 
     public function updatePrice(string $appKey, string $appSecret, string $accessToken, string $productId, array $skus, ?string $shopCipher = null): array
@@ -224,6 +261,19 @@ class TikTokClient
     public function updateInventory(string $appKey, string $appSecret, string $accessToken, string $productId, array $skus, ?string $shopCipher = null): array
     {
         return $this->post($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId . '/inventory/update', [], ['skus' => $skus], $shopCipher);
+    }
+
+    // -- Orders -----------------------------------------------------------
+
+    public function searchOrders(string $appKey, string $appSecret, string $accessToken, array $queryParams, ?string $shopCipher = null): array
+    {
+        // Search orders: page_size, create_time_ge, create_time_lt are QUERY params, not body
+        return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders/search', $queryParams, [], $shopCipher);
+    }
+
+    public function getOrderDetail(string $appKey, string $appSecret, string $accessToken, array $orderIds, ?string $shopCipher = null): array
+    {
+        return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders', [], ['order_ids' => $orderIds], $shopCipher);
     }
 
     // -- Images -----------------------------------------------------------
