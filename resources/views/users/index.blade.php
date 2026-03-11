@@ -45,7 +45,9 @@
                     </td>
                     <td class="d-flex gap-8 items-center">
                         <a class="btn small" href="{{ route('users.edit', $u->id) }}">Edit</a>
-                        <a class="btn small secondary" href="{{ route('activity_log.index', ['user_id' => $u->id]) }}">Activity</a>
+                        @if(Route::has('ext.audit.activity-log.index'))
+                        <a class="btn small secondary" href="{{ route('ext.audit.activity-log.index', ['user_id' => $u->id]) }}">Activity</a>
+                        @endif
                         @if(($u->userGroup->name ?? '') !== 'Administrator')
 
                         <form method="POST" action="{{ route('users.destroy', $u->id) }}" data-confirm="Delete this user?">

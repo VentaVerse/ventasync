@@ -26,8 +26,6 @@ use App\Http\Controllers\LazadaCategoryAttributeController;
 use App\Http\Controllers\LazadaOrderController;
 use App\Http\Controllers\LazadaProfileController;
 use App\Http\Controllers\TikTokController;
-use App\Http\Controllers\ErrorLogController;
-use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OpenCartProfileController;
@@ -478,18 +476,6 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/extensions/{id}/license', [\App\Http\Controllers\ExtensionController::class, 'updateLicense'])->name('extensions.update-license');
     });
 
-    // Error Log
-    Route::middleware(['perm:manage_error_log'])->group(function () {
-        Route::get('/error-log', [ErrorLogController::class, 'index'])->name('error_log.index');
-        Route::post('/error-log/clear', [ErrorLogController::class, 'clear'])->name('error_log.clear');
-        Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
-    });
-
-    // Activity Log
-    Route::middleware(['perm:manage_activity_log'])->group(function () {
-        Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity_log.index');
-        Route::post('/activity-log/clear', [ActivityLogController::class, 'clear'])->name('activity_log.clear');
-    });
 
     // Orders
     Route::middleware(['perm:manage_orders'])->group(function () {

@@ -54,7 +54,9 @@
         </div>
 
         <div class="mt-16" style="display:flex; justify-content:flex-end; gap:8px;">
-            <a class="btn secondary" href="{{ route('activity_log.index', ['user_id' => $user->id]) }}">View Activity Log</a>
+            @if(Route::has('ext.audit.activity-log.index'))
+            <a class="btn secondary" href="{{ route('ext.audit.activity-log.index', ['user_id' => $user->id]) }}">View Activity Log</a>
+            @endif
             <button class="btn danger" type="button"
                 data-confirm="Delete this user?" data-confirm-submit="delete-user-form">
                 Delete

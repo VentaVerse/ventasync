@@ -7,6 +7,7 @@ use App\Models\Catalog\Order;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 class SearchController extends Controller
 {
@@ -102,7 +103,7 @@ class SearchController extends Controller
                 'category' => 'Activity',
                 'label' => ucfirst($log->action) . ' ' . ($log->subject_type ?? ''),
                 'sub' => $log->subject_label,
-                'url' => route('activity_log.index', ['q' => $q]),
+                'url' => Route::has('ext.audit.activity-log.index') ? route('ext.audit.activity-log.index', ['q' => $q]) : '#',
             ];
         }
 
