@@ -22,7 +22,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/tiktok/toggle-logging', [TikTokController::class, 'toggleLogging'])->name('ext.tiktok.toggle_logging');
         Route::delete('/tiktok/api-logs', [TikTokController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
         Route::post('/tiktok/sync-days', [TikTokController::class, 'saveSyncDays'])->name('ext.tiktok.sync_days');
-        Route::post('/tiktok/order-tab-map', [TikTokController::class, 'saveOrderTabMap'])->name('ext.tiktok.order_tab_map');
+        Route::post('/tiktok/order-status-map', [TikTokController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
 
         // Product groups — static routes first to avoid {id} capture
         Route::get('/tiktok/product-groups/search-products', [TikTokProductGroupController::class, 'searchProducts'])->name('ext.tiktok.product-groups.searchProducts');

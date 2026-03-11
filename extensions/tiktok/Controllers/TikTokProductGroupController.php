@@ -719,7 +719,7 @@ class TikTokProductGroupController extends Controller
             }
             $isUpdate = (bool) $pivot->tiktok_product_id;
 
-            $weight = max(0.01, (float) ($erp->weight ?? 0));
+            $weight = max(0.01, round((float) ($erp->weight ?? 0), 2));
 
             // Pad title to meet TikTok's 25-char minimum
             if (mb_strlen($title) < 25) {

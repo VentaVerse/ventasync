@@ -334,53 +334,107 @@
     {{-- Order Status Mapping --}}
     <div class="card mb-16">
         <h3 class="section-title mt-0">Order Status Mapping</h3>
-        <div class="hint" style="margin-bottom:12px;">
-            Map TikTok API statuses to order tabs. Comma-separated values.
-            Available statuses: <code>UNPAID</code>, <code>ON_HOLD</code>, <code>AWAITING_SHIPMENT</code>, <code>AWAITING_COLLECTION</code>, <code>IN_TRANSIT</code>, <code>DELIVERED</code>, <code>COMPLETED</code>, <code>CANCELLED</code>
+        <div class="hint" style="margin-bottom:14px;">
+            When TikTok orders are synced, each TikTok status is mapped to an ERP order status below.
         </div>
-        <form method="POST" action="{{ route('ext.tiktok.order_tab_map') }}">
+
+        <form method="POST" action="{{ route('ext.tiktok.order_status_map') }}">
             @csrf
-            @php
-                $tabLabels = [
-                    'UNPAID'    => 'Unpaid',
-                    'TO_SHIP'   => 'To Ship',
-                    'SHIPPING'  => 'Shipping',
-                    'DELIVERED' => 'Delivered',
-                    'CANCELLED' => 'Cancelled',
-                ];
-            @endphp
-            <div style="display:grid; grid-template-columns:120px 1fr; gap:8px 12px; align-items:center; max-width:600px;">
-                @foreach($tabLabels as $key => $label)
-                    <label style="font-weight:600; font-size:13px;">{{ $label }}</label>
-                    <input class="input" type="text" name="tab_{{ $key }}" value="{{ implode(', ', $orderTabMap[$key] ?? []) }}" placeholder="e.g. UNPAID, ON_HOLD">
-                @endforeach
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:45%;">TikTok Status</th>
+                        <th>ERP Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($tikTokStatuses as $key => $label)
+                    <tr>
+                        <td style="vertical-align:middle;">
+                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
+                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        </td>
+                        <td>
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                                @foreach($erpOrderStatuses as $os)
+                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
+                                        {{ $os->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
             </div>
-            <button class="btn small mt-12" type="submit">Save Mapping</button>
+            <div style="margin-top:14px;">
+                <button class="btn" type="submit">Save Mapping</button>
+            </div>
         </form>
     </div>
 
-    {{-- Cronjob Guide --}}
+    {{-- Cronjob Commands --}}
     <div class="card mb-16">
-        <h3 class="section-title mt-0">Cronjob Setup</h3>
-        <div class="hint" style="margin-bottom:12px;">
-            Add these cron jobs to automate TikTok Shop sync. Run <code>crontab -e</code> and add the lines below.
+        <h3 class="section-title mt-0">Cronjob Commands</h3>
+        <div class="hint" style="margin-bottom:14px;">
+            Add these commands to your hosting panel's scheduled tasks (HestiaCP, cPanel, etc.).
         </div>
-        <div style="display:flex; flex-direction:column; gap:14px;">
+
+        @php
+            $artisanPath = '/usr/bin/php ' . base_path('artisan');
+        @endphp
+
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
             <div>
-                <strong>1. Sync Orders</strong> <span class="text-muted text-xs">(every 15 minutes)</span>
-                <pre style="margin:6px 0 0; padding:10px 14px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); font-size:12px; overflow-x:auto;">*/15 * * * * cd {{ base_path() }} && php artisan tiktok:sync-orders >> /dev/null 2>&1</pre>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Sync Orders</span>
+                    <span class="text-muted">— Fetch and update TikTok Shop orders</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 15 min</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="tt-cron-sync" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} tiktok:sync-orders</code>
+                    <button type="button" class="btn small secondary" onclick="ttCopy('tt-cron-sync', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
             </div>
             <div>
-                <strong>2. Push Stock</strong> <span class="text-muted text-xs">(every 30 minutes)</span>
-                <pre style="margin:6px 0 0; padding:10px 14px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); font-size:12px; overflow-x:auto;">*/30 * * * * cd {{ base_path() }} && php artisan tiktok:push-stock >> /dev/null 2>&1</pre>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Push Stock</span>
+                    <span class="text-muted">— Push ERP stock quantities to TikTok Shop</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 30 min</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="tt-cron-stock" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} tiktok:push-stock</code>
+                    <button type="button" class="btn small secondary" onclick="ttCopy('tt-cron-stock', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
             </div>
             <div>
-                <strong>3. Refresh Token</strong> <span class="text-muted text-xs">(daily at 3AM)</span>
-                <pre style="margin:6px 0 0; padding:10px 14px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); font-size:12px; overflow-x:auto;">0 3 * * * cd {{ base_path() }} && php artisan tiktok:refresh-token >> /dev/null 2>&1</pre>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Refresh Token</span>
+                    <span class="text-muted">— Refresh TikTok access token before expiry</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">daily at 3 AM</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="tt-cron-token" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} tiktok:refresh-token</code>
+                    <button type="button" class="btn small secondary" onclick="ttCopy('tt-cron-token', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
             </div>
         </div>
+
+        <details>
+            <summary style="cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-secondary); user-select:none;">How to set up cronjobs</summary>
+            <ol style="margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-secondary); line-height:1.8;">
+                <li>Go to your hosting panel (HestiaCP, cPanel, etc.)</li>
+                <li>Find <strong style="color:var(--text-primary);">Cron Jobs</strong> or <strong style="color:var(--text-primary);">Scheduled Tasks</strong></li>
+                <li>Set the interval (e.g. <code style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background:#f1f5f9; padding:1px 6px; border-radius:4px; color:#0f172a;">*/15 * * * *</code> for every 15 minutes)</li>
+                <li>Paste the command into the command field</li>
+                <li>Save</li>
+            </ol>
+        </details>
+
         <div class="hint" style="margin-top:12px;">
-            <strong>Note:</strong> These commands will be available once TikTok artisan commands are created. For now, use the manual buttons on the Orders and Product Groups pages.
+            <strong>Note:</strong> These artisan commands will be available once created. For now, use the manual buttons on the Orders and Product Groups pages.
         </div>
     </div>
 
@@ -664,6 +718,18 @@
 
 @push('scripts')
 <script>
+// Copy helper for cronjob commands
+function ttCopy(id, btn) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var text = el.textContent || el.innerText;
+    navigator.clipboard.writeText(text).then(function() {
+        var orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = orig; }, 1500);
+    });
+}
+
 // Environment toggle
 (function(){
     var toggle = document.getElementById('tt-mode-toggle');

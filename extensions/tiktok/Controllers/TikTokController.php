@@ -4,9 +4,11 @@ namespace Extensions\tiktok\Controllers;
 
 use App\Http\Controllers\Controller;
 use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\tiktok\Models\TikTokOrderStatusMap;
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class TikTokController extends Controller
@@ -62,12 +64,27 @@ class TikTokController extends Controller
             ->limit(25)
             ->get();
 
-        $defaultTabMap = [
-            'UNPAID'    => ['UNPAID', 'ON_HOLD'],
-            'TO_SHIP'   => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
-            'SHIPPING'  => ['IN_TRANSIT'],
-            'DELIVERED' => ['DELIVERED', 'COMPLETED'],
-            'CANCELLED' => ['CANCELLED'],
+        // Order status mapping data
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $orderStatusMap = TikTokOrderStatusMap::where('context', 'order')
+            ->pluck('order_status_id', 'tiktok_status')->all();
+
+        $erpOrderStatuses = DB::table($pfx . 'order_status')
+            ->where('language_id', $langId)
+            ->orderBy('order_status_id')
+            ->get(['order_status_id', 'name']);
+
+        $tikTokStatuses = [
+            'UNPAID'              => 'Unpaid',
+            'ON_HOLD'             => 'On Hold',
+            'AWAITING_SHIPMENT'   => 'Awaiting Shipment',
+            'AWAITING_COLLECTION' => 'Awaiting Collection',
+            'IN_TRANSIT'          => 'In Transit',
+            'DELIVERED'           => 'Delivered',
+            'COMPLETED'           => 'Completed',
+            'CANCELLED'           => 'Cancelled',
         ];
 
         return view('ext-tiktok::index', [
@@ -75,7 +92,9 @@ class TikTokController extends Controller
             'defaultRedirect' => url('/tiktok/callback'),
             'result' => session('tiktok_result'),
             'logs' => $logs,
-            'orderTabMap' => $setting->order_tab_map ?? $defaultTabMap,
+            'orderStatusMap' => $orderStatusMap,
+            'erpOrderStatuses' => $erpOrderStatuses,
+            'tikTokStatuses' => $tikTokStatuses,
         ]);
     }
 
@@ -695,22 +714,23 @@ class TikTokController extends Controller
 
     // -- Save order tab mapping -------------------------------------------
 
-    public function saveOrderTabMap(Request $request)
+    public function saveOrderStatusMap(Request $request)
     {
-        $setting = TikTokSetting::query()->first();
-        if (!$setting) {
-            return back()->with('error', 'TikTok settings not found.');
-        }
+        $map = $request->input('map', []);
 
-        $tabs = ['UNPAID', 'TO_SHIP', 'SHIPPING', 'DELIVERED', 'CANCELLED'];
-        $map = [];
-        foreach ($tabs as $tab) {
-            $raw = trim((string) $request->input("tab_{$tab}", ''));
-            $statuses = array_filter(array_map('trim', explode(',', $raw)));
-            $map[$tab] = array_values(array_map('strtoupper', $statuses));
-        }
+        foreach ($map as $tikTokStatus => $orderStatusId) {
+            $tikTokStatus = strtoupper(trim($tikTokStatus));
+            $orderStatusId = (int) $orderStatusId;
 
-        $setting->update(['order_tab_map' => $map]);
+            if ($tikTokStatus === '' || $orderStatusId <= 0) {
+                continue;
+            }
+
+            TikTokOrderStatusMap::updateOrCreate(
+                ['tiktok_status' => $tikTokStatus, 'context' => 'order'],
+                ['order_status_id' => $orderStatusId]
+            );
+        }
 
         return back()->with('status', 'Order status mapping saved.');
     }
