@@ -62,11 +62,20 @@ class TikTokController extends Controller
             ->limit(25)
             ->get();
 
+        $defaultTabMap = [
+            'UNPAID'    => ['UNPAID', 'ON_HOLD'],
+            'TO_SHIP'   => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+            'SHIPPING'  => ['IN_TRANSIT'],
+            'DELIVERED' => ['DELIVERED', 'COMPLETED'],
+            'CANCELLED' => ['CANCELLED'],
+        ];
+
         return view('ext-tiktok::index', [
             'setting' => $setting?->decrypted(),
             'defaultRedirect' => url('/tiktok/callback'),
             'result' => session('tiktok_result'),
             'logs' => $logs,
+            'orderTabMap' => $setting->order_tab_map ?? $defaultTabMap,
         ]);
     }
 
@@ -682,5 +691,27 @@ class TikTokController extends Controller
             : 'Order sync window cleared (defaults to 15 days).';
 
         return back()->with('status', $msg);
+    }
+
+    // -- Save order tab mapping -------------------------------------------
+
+    public function saveOrderTabMap(Request $request)
+    {
+        $setting = TikTokSetting::query()->first();
+        if (!$setting) {
+            return back()->with('error', 'TikTok settings not found.');
+        }
+
+        $tabs = ['UNPAID', 'TO_SHIP', 'SHIPPING', 'DELIVERED', 'CANCELLED'];
+        $map = [];
+        foreach ($tabs as $tab) {
+            $raw = trim((string) $request->input("tab_{$tab}", ''));
+            $statuses = array_filter(array_map('trim', explode(',', $raw)));
+            $map[$tab] = array_values(array_map('strtoupper', $statuses));
+        }
+
+        $setting->update(['order_tab_map' => $map]);
+
+        return back()->with('status', 'Order status mapping saved.');
     }
 }

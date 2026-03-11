@@ -47,14 +47,21 @@ class TikTokOrderController extends Controller
         ]);
     }
 
-    // TikTok order status → tab mapping
-    private array $tabStatusMap = [
-        'UNPAID'           => ['UNPAID', 'ON_HOLD'],
-        'TO_SHIP'          => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
-        'SHIPPING'         => ['IN_TRANSIT'],
-        'DELIVERED'        => ['DELIVERED', 'COMPLETED'],
-        'CANCELLED'        => ['CANCELLED'],
+    // Default TikTok order status → tab mapping
+    private const DEFAULT_TAB_MAP = [
+        'UNPAID'    => ['UNPAID', 'ON_HOLD'],
+        'TO_SHIP'   => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+        'SHIPPING'  => ['IN_TRANSIT'],
+        'DELIVERED' => ['DELIVERED', 'COMPLETED'],
+        'CANCELLED' => ['CANCELLED'],
     ];
+
+    private function getTabStatusMap(): array
+    {
+        $setting = TikTokSetting::first();
+        $custom = $setting->order_tab_map ?? null;
+        return is_array($custom) && !empty($custom) ? $custom : self::DEFAULT_TAB_MAP;
+    }
 
     public function index(Request $request)
     {
@@ -112,7 +119,7 @@ class TikTokOrderController extends Controller
                 };
                 $query->whereIn('status', $subStatuses);
             } else {
-                $statuses = $this->tabStatusMap[$tab] ?? [];
+                $statuses = $this->getTabStatusMap()[$tab] ?? [];
                 if (!empty($statuses)) {
                     $query->whereIn('status', $statuses);
                 }
@@ -130,7 +137,7 @@ class TikTokOrderController extends Controller
         // Badge counts
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
-        foreach ($this->tabStatusMap as $k => $statuses) {
+        foreach ($this->getTabStatusMap() as $k => $statuses) {
             $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
         }
         // Subtab counts for TO_SHIP

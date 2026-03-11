@@ -331,6 +331,59 @@
         </form>
     </div>
 
+    {{-- Order Status Mapping --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Order Status Mapping</h3>
+        <div class="hint" style="margin-bottom:12px;">
+            Map TikTok API statuses to order tabs. Comma-separated values.
+            Available statuses: <code>UNPAID</code>, <code>ON_HOLD</code>, <code>AWAITING_SHIPMENT</code>, <code>AWAITING_COLLECTION</code>, <code>IN_TRANSIT</code>, <code>DELIVERED</code>, <code>COMPLETED</code>, <code>CANCELLED</code>
+        </div>
+        <form method="POST" action="{{ route('ext.tiktok.order_tab_map') }}">
+            @csrf
+            @php
+                $tabLabels = [
+                    'UNPAID'    => 'Unpaid',
+                    'TO_SHIP'   => 'To Ship',
+                    'SHIPPING'  => 'Shipping',
+                    'DELIVERED' => 'Delivered',
+                    'CANCELLED' => 'Cancelled',
+                ];
+            @endphp
+            <div style="display:grid; grid-template-columns:120px 1fr; gap:8px 12px; align-items:center; max-width:600px;">
+                @foreach($tabLabels as $key => $label)
+                    <label style="font-weight:600; font-size:13px;">{{ $label }}</label>
+                    <input class="input" type="text" name="tab_{{ $key }}" value="{{ implode(', ', $orderTabMap[$key] ?? []) }}" placeholder="e.g. UNPAID, ON_HOLD">
+                @endforeach
+            </div>
+            <button class="btn small mt-12" type="submit">Save Mapping</button>
+        </form>
+    </div>
+
+    {{-- Cronjob Guide --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Cronjob Setup</h3>
+        <div class="hint" style="margin-bottom:12px;">
+            Add these cron jobs to automate TikTok Shop sync. Run <code>crontab -e</code> and add the lines below.
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+                <strong>1. Sync Orders</strong> <span class="text-muted text-xs">(every 15 minutes)</span>
+                <pre style="margin:6px 0 0; padding:10px 14px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); font-size:12px; overflow-x:auto;">*/15 * * * * cd {{ base_path() }} && php artisan tiktok:sync-orders >> /dev/null 2>&1</pre>
+            </div>
+            <div>
+                <strong>2. Push Stock</strong> <span class="text-muted text-xs">(every 30 minutes)</span>
+                <pre style="margin:6px 0 0; padding:10px 14px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); font-size:12px; overflow-x:auto;">*/30 * * * * cd {{ base_path() }} && php artisan tiktok:push-stock >> /dev/null 2>&1</pre>
+            </div>
+            <div>
+                <strong>3. Refresh Token</strong> <span class="text-muted text-xs">(daily at 3AM)</span>
+                <pre style="margin:6px 0 0; padding:10px 14px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); font-size:12px; overflow-x:auto;">0 3 * * * cd {{ base_path() }} && php artisan tiktok:refresh-token >> /dev/null 2>&1</pre>
+            </div>
+        </div>
+        <div class="hint" style="margin-top:12px;">
+            <strong>Note:</strong> These commands will be available once TikTok artisan commands are created. For now, use the manual buttons on the Orders and Product Groups pages.
+        </div>
+    </div>
+
     {{-- Setup Guide --}}
     <div class="card mb-16">
         <h3 class="section-title mt-0">Setup Guide</h3>

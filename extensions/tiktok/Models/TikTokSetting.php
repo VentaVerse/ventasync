@@ -23,6 +23,7 @@ class TikTokSetting extends Model
         'redirect_uri',
         'region',
         'sync_last_days',
+        'order_tab_map',
         'api_logging',
         'last_order_sync_at',
         'last_stock_push_at',
@@ -41,6 +42,7 @@ class TikTokSetting extends Model
 
     protected $casts = [
         'api_logging' => 'boolean',
+        'order_tab_map' => 'array',
         'expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
         'sandbox_expires_at' => 'datetime',
