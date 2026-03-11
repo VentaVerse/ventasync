@@ -129,9 +129,12 @@ class TikTokController extends Controller
 
     public function redirectToAuth(TikTokClient $client)
     {
-        $setting = TikTokSetting::query()->first()?->decrypted();
+        $raw = TikTokSetting::query()->first();
+        $setting = $raw?->decrypted();
+        $sandbox = $raw && $raw->mode === 'sandbox';
+        $activeKey = $sandbox ? ($setting->sandbox_app_key ?? '') : ($setting->app_key ?? '');
 
-        if (!$setting || !$setting->app_key) {
+        if (!$setting || !$activeKey) {
             return redirect()->route('ext.tiktok.index')->with('tiktok_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
@@ -142,7 +145,7 @@ class TikTokController extends Controller
         $state = Str::random(24);
         session(['tiktok_oauth_state' => $state]);
 
-        $url = $client->authUrl((string) $setting->app_key, $state);
+        $url = $client->authUrl($activeKey, $state);
 
         return redirect()->away($url);
     }
