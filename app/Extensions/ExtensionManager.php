@@ -173,6 +173,17 @@ class ExtensionManager
     {
         $this->removePermissions($id);
 
+        // Clear data from tables declared in manifest
+        $manifest = $this->getManifest($id);
+        $tables = $manifest['tables'] ?? [];
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        foreach ($tables as $table) {
+            if (Schema::hasTable($table)) {
+                DB::table($table)->truncate();
+            }
+        }
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
         $extension = Extension::find($id);
 
         if ($extension) {

@@ -369,6 +369,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/extensions', [\App\Http\Controllers\ExtensionController::class, 'index'])->name('extensions.index');
         Route::post('/extensions/install', [\App\Http\Controllers\ExtensionController::class, 'install'])->name('extensions.install');
         Route::post('/extensions/{id}/toggle', [\App\Http\Controllers\ExtensionController::class, 'toggle'])->name('extensions.toggle');
+        Route::post('/extensions/{id}/reinstall', [\App\Http\Controllers\ExtensionController::class, 'reinstall'])->name('extensions.reinstall');
         Route::delete('/extensions/{id}', [\App\Http\Controllers\ExtensionController::class, 'uninstall'])->name('extensions.uninstall');
         Route::put('/extensions/{id}/license', [\App\Http\Controllers\ExtensionController::class, 'updateLicense'])->name('extensions.update-license');
     });

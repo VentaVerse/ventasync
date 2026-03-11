@@ -119,12 +119,21 @@ class ExtensionController extends Controller
         return back()->with('success', "Extension '{$manifest['name']}' installed successfully.");
     }
 
+    public function reinstall(ExtensionManager $manager, string $id)
+    {
+        $manager->install($id);
+
+        Artisan::call('migrate', ['--force' => true]);
+
+        return back()->with('success', "Extension '{$id}' installed.");
+    }
+
     public function uninstall(ExtensionManager $manager, string $id)
     {
         $extension = Extension::find($id);
         $name = $extension->name ?? $id;
 
-        $manager->uninstall($id, true);
+        $manager->uninstall($id, false);
 
         return back()->with('success', "Extension '{$name}' uninstalled.");
     }

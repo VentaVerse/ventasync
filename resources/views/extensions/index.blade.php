@@ -78,10 +78,15 @@
                                 {{ $ext['enabled'] ? 'Disable' : 'Enable' }}
                             </button>
                         </form>
-                        <form method="POST" action="{{ route('extensions.uninstall', $ext['id']) }}" onsubmit="return confirm('Uninstall this extension? All extension files will be deleted.')" style="display:inline;">
+                        <form method="POST" action="{{ route('extensions.uninstall', $ext['id']) }}" data-confirm="Uninstall {{ $ext['name'] }}? All extension data and database tables will be deleted. Files will be kept so you can reinstall later." style="display:inline;">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Uninstall</button>
+                        </form>
+                    @else
+                        <form method="POST" action="{{ route('extensions.reinstall', $ext['id']) }}" style="display:inline;">
+                            @csrf
+                            <button class="btn small" type="submit">Install</button>
                         </form>
                     @endif
                 </td>
