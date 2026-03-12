@@ -109,7 +109,10 @@
                         <td>{{ $p->product_id }}</td>
                         <td>
                             @if($src)
-                                <img src="{{ $src }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" loading="lazy" onerror="this.style.display='none';">
+                                <span class="thumb-magnify">
+                                    <img src="{{ $src }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" loading="lazy" onerror="this.closest('.thumb-magnify').style.display='none';">
+                                    <img src="{{ $src }}" alt="" class="thumb-preview">
+                                </span>
                             @else
                                 <span class="text-muted text-xs">-</span>
                             @endif
@@ -376,42 +379,15 @@
             if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
             overlay.classList.add('active');
         }
-        form.querySelector('button[type="submit"]').disabled = true;
-        form._confirmed = true;
-        form.requestSubmit ? form.requestSubmit() : form.submit();
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        form.submit();
     }
 
     // Bulk action forms
     document.querySelectorAll('form.bulk-action-form').forEach(function(form){
-        if (form.getAttribute('data-confirm')) {
-            form.addEventListener('submit', function(e) {
-                var hasIds = form.querySelectorAll('input[name="ids[]"]').length > 0;
-                if (hasIds) {
-                    var overlay = document.getElementById('loadingOverlay');
-                    var msg = document.getElementById('loadingMsg');
-                    var count = form.querySelectorAll('input[name="ids[]"]').length;
-                    if (overlay) {
-                        if (msg) msg.textContent = 'Processing ' + count + ' item(s)...';
-                        overlay.classList.add('active');
-                    }
-                    return;
-                }
-                var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
-                if (!ids.length) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    showFlashError('Please select at least 1 product.');
-                    return;
-                }
-                injectBulkIds(form, ids);
-            });
-            return;
-        }
-
         form.addEventListener('submit', function(e){
-            if (form._confirmed) { form._confirmed = false; return; }
             e.preventDefault();
-            form.querySelectorAll('input[name="ids[]"]').forEach(function(n){ n.remove(); });
 
             var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
             if (!ids.length) {
@@ -421,16 +397,14 @@
 
             if (form.classList.contains('bulk-push-form')) {
                 confirmModal('Push ' + ids.length + ' selected product(s) to TikTok Shop? Already-pushed products will be updated.').then(function(ok) {
-                    if (!ok) return;
-                    submitBulkForm(form, ids);
+                    if (ok) submitBulkForm(form, ids);
                 });
                 return;
             }
 
             if (form.classList.contains('bulk-delete-form')) {
                 confirmModal('Delete ' + ids.length + ' selected product(s) from TikTok? This cannot be undone.').then(function(ok) {
-                    if (!ok) return;
-                    submitBulkForm(form, ids);
+                    if (ok) submitBulkForm(form, ids);
                 });
                 return;
             }
@@ -557,6 +531,21 @@
             document.getElementById('add-products-form').submit();
         });
     }
+    // Inject _return field into all POST forms so redirects preserve query string
+    var returnUrl = location.pathname + location.search;
+    document.querySelectorAll('form[method="POST"]').forEach(function(form) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = '_return'; inp.value = returnUrl;
+        form.appendChild(inp);
+    });
+
+    // Dismiss loading overlay when page is restored from bfcache
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+            var overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.remove('active');
+        }
+    });
 })();
 </script>
 @endpush

@@ -47,7 +47,7 @@ class UserGroupController extends Controller
                 'subgroups' => [
                     ['label' => 'Shopee',      'children' => $resolve(['manage_shopee', 'manage_shopee_orders'])],
                     ['label' => 'Lazada',      'children' => $resolve(['manage_lazada', 'manage_lazada_orders'])],
-                    ['label' => 'TikTok Shop', 'children' => $resolve(['manage_tiktok'])],
+                    ['label' => 'TikTok Shop', 'children' => $resolve(['manage_tiktok', 'manage_tiktok_orders'])],
                     ['label' => 'OpenCart',    'children' => $resolve(['manage_opencart', 'manage_opencart_orders'])],
                 ],
             ],

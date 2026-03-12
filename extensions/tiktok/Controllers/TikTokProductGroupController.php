@@ -17,6 +17,15 @@ class TikTokProductGroupController extends Controller
 {
     // ── Helpers ──────────────────────────────────────────────────
 
+    private function productsRedirect(int $id)
+    {
+        $return = request()->input('_return');
+        if ($return && str_starts_with($return, '/')) {
+            return redirect($return);
+        }
+        return redirect()->route('ext.tiktok.product-groups.products', $id);
+    }
+
     private function creds(): array
     {
         $s = TikTokSetting::first();
@@ -153,6 +162,11 @@ class TikTokProductGroupController extends Controller
                     'synced_at'           => $now,
                 ]
             );
+        }
+
+        if (request()->expectsJson()) {
+            $cats = TikTokCategory::where('is_leaf', true)->orderBy('name')->get(['id', 'name']);
+            return response()->json(['ok' => true, 'count' => count($categories), 'categories' => $cats]);
         }
 
         return back()->with('status', count($categories) . ' categories synced.');
@@ -484,7 +498,7 @@ class TikTokProductGroupController extends Controller
         $ids = array_map('intval', (array) $request->input('ids', []));
 
         if (empty($ids)) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No products selected.');
         }
 
@@ -501,7 +515,7 @@ class TikTokProductGroupController extends Controller
             $added++;
         }
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
+        return $this->productsRedirect($id)
             ->with('status', "{$added} product(s) added.");
     }
 
@@ -513,7 +527,7 @@ class TikTokProductGroupController extends Controller
             ->where('product_id', $product)
             ->delete();
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
+        return $this->productsRedirect($id)
             ->with('status', 'Product removed from group.');
     }
 
@@ -523,7 +537,7 @@ class TikTokProductGroupController extends Controller
         $ids = array_filter(array_map('intval', (array) $request->input('ids', [])));
 
         if (empty($ids)) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No products selected.');
         }
 
@@ -531,7 +545,7 @@ class TikTokProductGroupController extends Controller
             ->whereIn('product_id', $ids)
             ->delete();
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
+        return $this->productsRedirect($id)
             ->with('status', $deleted . ' product(s) removed from group.');
     }
 
@@ -541,7 +555,7 @@ class TikTokProductGroupController extends Controller
         $ids = array_filter(array_map('intval', (array) $request->input('ids', [])));
 
         if (empty($ids)) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No products selected.');
         }
 
@@ -555,7 +569,7 @@ class TikTokProductGroupController extends Controller
             ->get();
 
         if ($pivots->isEmpty()) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No pushed products found among selected.');
         }
 
@@ -584,11 +598,11 @@ class TikTokProductGroupController extends Controller
         }
 
         if (!empty($errors)) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('error', 'TikTok delete failed: ' . implode('; ', $errors));
         }
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
+        return $this->productsRedirect($id)
             ->with('status', $deleted . ' product(s) deleted from TikTok Shop.');
     }
 
@@ -666,7 +680,7 @@ class TikTokProductGroupController extends Controller
         }
 
         if ($pivotRows->isEmpty()) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No products to push.');
         }
 
@@ -732,7 +746,11 @@ class TikTokProductGroupController extends Controller
 
             $price = $group->applyMarkup((float) $erp->price);
             $title = $erp->name ?: ('Product ' . $erp->product_id);
-            $desc = trim(strip_tags((string) ($erp->description ?? '')));
+            $rawDesc = (string) ($erp->description ?? '');
+            // Convert block/break tags to newlines before stripping HTML
+            $rawDesc = preg_replace('/<br\s*\/?>/i', "\n", $rawDesc);
+            $rawDesc = preg_replace('/<\/p>\s*/i', "\n\n", $rawDesc);
+            $desc = trim(strip_tags($rawDesc));
             if (strlen($desc) < 1) {
                 $desc = $title;
             }
@@ -742,7 +760,8 @@ class TikTokProductGroupController extends Controller
             }
             $isUpdate = (bool) $pivot->tiktok_product_id;
 
-            $weight = max(0.01, round((float) ($erp->weight ?? 0), 2));
+            // Convert kg to grams — TikTok strips decimals so 0.3 kg would become 3 kg
+            $weightGrams = max(1, (int) round((float) ($erp->weight ?? 0) * 1000));
 
             // Pad title to meet TikTok's 25-char minimum
             if (mb_strlen($title) < 25) {
@@ -799,24 +818,22 @@ class TikTokProductGroupController extends Controller
                 'category_id'      => $group->tiktok_category_id,
                 'category_version' => 'v2',
                 'package_weight' => [
-                    'unit'  => 'KILOGRAM',
-                    'value' => (string) $weight,
+                    'unit'  => 'GRAM',
+                    'value' => (string) $weightGrams,
                 ],
                 'skus'             => $skus,
             ];
 
-            // Add package dimensions if available
-            $length = round((float) ($erp->length ?? 0), 2);
-            $width  = round((float) ($erp->width ?? 0), 2);
-            $height = round((float) ($erp->height ?? 0), 2);
-            if ($length > 0 && $width > 0 && $height > 0) {
-                $payload['package_dimensions'] = [
-                    'unit'   => 'CENTIMETER',
-                    'length' => (string) $length,
-                    'width'  => (string) $width,
-                    'height' => (string) $height,
-                ];
-            }
+            // Package dimensions — integers only (TikTok strips decimals), min 1cm each
+            $length = max(1, (int) round((float) ($erp->length ?? 0)));
+            $width  = max(1, (int) round((float) ($erp->width ?? 0)));
+            $height = max(1, (int) round((float) ($erp->height ?? 0)));
+            $payload['package_dimensions'] = [
+                'unit'   => 'CENTIMETER',
+                'length' => (string) $length,
+                'width'  => (string) $width,
+                'height' => (string) $height,
+            ];
 
             if (!empty($imageUris)) {
                 $payload['main_images'] = array_map(fn($uri) => ['uri' => $uri], $imageUris);
@@ -871,8 +888,7 @@ class TikTokProductGroupController extends Controller
             }
         }
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
-            ->with('status', "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}");
+        return $this->productsRedirect($id)->with('status', "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}");
     }
 
     // ── Push Prices ─────────────────────────────────────────────
@@ -892,7 +908,7 @@ class TikTokProductGroupController extends Controller
         $pivotRows = $query->get();
 
         if ($pivotRows->isEmpty()) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No pushed products to update prices for.');
         }
 
@@ -947,7 +963,7 @@ class TikTokProductGroupController extends Controller
             ($result['ok'] ?? false) ? $ok++ : $fail++;
         }
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
+        return $this->productsRedirect($id)
             ->with('status', "Prices pushed — OK: {$ok}, Failed: {$fail}");
     }
 
@@ -968,7 +984,7 @@ class TikTokProductGroupController extends Controller
         $pivotRows = $query->get();
 
         if ($pivotRows->isEmpty()) {
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
+            return $this->productsRedirect($id)
                 ->with('status', 'No pushed products to update stock for.');
         }
 
@@ -1023,7 +1039,7 @@ class TikTokProductGroupController extends Controller
 
         $c['setting']->update(['last_stock_push_at' => now()]);
 
-        return redirect()->route('ext.tiktok.product-groups.products', $id)
+        return $this->productsRedirect($id)
             ->with('status', "Stock pushed — OK: {$ok}, Failed: {$fail}");
     }
 

@@ -72,7 +72,7 @@ class TikTokOrderController extends Controller
             $perPage = 10;
         }
 
-        $tab = strtoupper((string) $request->query('tab', 'ALL'));
+        $tab = strtoupper((string) $request->query('tab', 'TO_SHIP'));
         $allowedTabs = ['ALL', 'UNPAID', 'TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';

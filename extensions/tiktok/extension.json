@@ -5,7 +5,7 @@
     "description": "TikTok Shop integration — OAuth, product sync, API explorer",
     "author": "VentaSync",
     "license_required": true,
-    "permissions": ["manage_tiktok"],
+    "permissions": ["manage_tiktok", "manage_tiktok_orders"],
     "tables": [
         "tiktok_settings",
         "tiktok_api_logs",

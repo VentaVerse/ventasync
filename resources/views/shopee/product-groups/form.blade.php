@@ -17,15 +17,6 @@
         </div>
     </div>
 
-    @if($errors->any())
-        <div class="alert danger">
-            <strong>Fix the following:</strong>
-            <ul style="margin:6px 0 0 18px;">
-                @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-            </ul>
-        </div>
-    @endif
-
     <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('shopee.product-groups.store') : route('shopee.product-groups.update', $group->id) }}">
         @csrf
         @if($mode === 'edit') @method('PUT') @endif
@@ -63,14 +54,17 @@
 
             <div>
                 <label>Shopee Category <span style="color:var(--danger);">*</span></label>
-                <select name="shopee_category_id" class="input">
-                    <option value="">-- Select Shopee Category --</option>
-                    @foreach(($shopeeCategories ?? collect()) as $c)
-                        <option value="{{ (int)$c->category_id }}" {{ (string)old('shopee_category_id', $group->shopee_category_id) === (string)$c->category_id ? 'selected' : '' }}>
-                            {{ $c->name }} ({{ $c->category_id }})
-                        </option>
-                    @endforeach
-                </select>
+                <div style="display:flex; gap:8px; align-items:start;">
+                    <select name="shopee_category_id" id="shopeeCategorySelect" class="input" style="flex:1;">
+                        <option value="">-- Select Shopee Category --</option>
+                        @foreach(($shopeeCategories ?? collect()) as $c)
+                            <option value="{{ (int)$c->category_id }}" {{ (string)old('shopee_category_id', $group->shopee_category_id) === (string)$c->category_id ? 'selected' : '' }}>
+                                {{ $c->name }} ({{ $c->category_id }})
+                            </option>
+                        @endforeach
+                    </select>
+                    <button type="button" class="btn small secondary" id="refreshCatsBtn" title="Refresh categories from Shopee API">Refresh</button>
+                </div>
             </div>
 
             {{-- Logistics Channels --}}
@@ -99,6 +93,15 @@
             @else
                 <div class="text-muted">No logistics channels cached. <a href="{{ route('shopee.logistics.index') }}">Fetch them from the Logistics page</a> first.</div>
             @endif
+        </div>
+
+        {{-- Category Attributes (loaded via AJAX on category change, or from server on edit) --}}
+        <div class="card mt-16" id="shopee-attributes-card" style="{{ ($template && !empty($attributes)) ? '' : 'display:none;' }}">
+            <div id="shopee-attributes-container">
+                @if($template && !empty($attributes))
+                    @include('shopee.product-groups._attributes', ['attributes' => $attributes, 'saved' => $saved, 'template' => $template])
+                @endif
+            </div>
         </div>
 
         {{-- Product Assignment (Dual Listbox) --}}
@@ -191,55 +194,6 @@
             <div id="pl-hidden-inputs"></div>
         </div>
 
-        @if($mode === 'edit' && $template && !empty($attributes))
-            {{-- Category Attributes --}}
-            <div class="card mt-16">
-                <h3 class="section-title mt-0">Category Attributes</h3>
-                <div class="hint" style="margin-bottom:8px;">Map shared attribute values for this Shopee category.
-                    @if($template->fetched_at)
-                        Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}
-                    @endif
-                </div>
-                <div>
-                    @foreach($attributes as $a)
-                        @php
-                            $key = (string)($a['key'] ?? '');
-                            $val = old('attributes.'.$key, $saved[$key] ?? '');
-                            $options = $a['options'] ?? [];
-                            $isSelect = is_array($options) && count($options) > 0;
-                        @endphp
-                        <div style="display:grid; grid-template-columns: 1fr 2fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); align-items:start;">
-                            <div>
-                                <div class="font-semibold">
-                                    {{ $a['name'] }}
-                                    @if(!empty($a['required']))
-                                        <span class="badge badge-red" style="margin-left:6px;">MANDATORY</span>
-                                    @endif
-                                </div>
-                                <div class="hint" style="margin-top:4px;">{{ $key }}</div>
-                            </div>
-                            <div>
-                                @if($isSelect)
-                                    <select class="input" name="attributes[{{ $key }}]">
-                                        <option value="">-- Select --</option>
-                                        @foreach($options as $opt)
-                                            @php
-                                                $optLabel = is_array($opt) ? (string)($opt['original_value_name'] ?? $opt['display_value_name'] ?? $opt['value_name'] ?? $opt['name'] ?? $opt['value'] ?? '') : (string)$opt;
-                                                $optValue = is_array($opt) ? (string)($opt['original_value_name'] ?? $opt['display_value_name'] ?? $opt['value_name'] ?? $opt['name'] ?? $opt['value'] ?? '') : (string)$opt;
-                                            @endphp
-                                            <option value="{{ $optValue }}" {{ (string)$val === (string)$optValue ? 'selected' : '' }}>{{ $optLabel }}</option>
-                                        @endforeach
-                                    </select>
-                                @else
-                                    <input class="input" name="attributes[{{ $key }}]" value="{{ $val }}" placeholder="Enter value">
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
         <div class="d-flex justify-end gap-8 mt-16">
             <button class="btn" type="submit">
                 {{ $mode === 'create' ? 'Create Product Group' : 'Save Product Group' }}
@@ -247,41 +201,104 @@
         </div>
     </form>
 
-    @if($mode === 'edit')
-        @if(!$template && $group->shopee_category_id)
-            <div class="alert warning mt-16">Template not yet synced. Click <strong>Sync Template</strong> below to fetch category attributes from Shopee.</div>
-        @endif
-
-        {{-- Sync Template --}}
-        <div class="card mt-16">
-            <div class="d-flex justify-between items-center gap-12 flex-wrap">
-                <div>
-                    <h3 class="section-title mt-0">{{ $template ? 'Re-Sync Template' : 'Sync Template' }}</h3>
-                    <div class="hint">
-                        @if($template)
-                            Only use this if Shopee has updated their attributes for this category.
-                        @else
-                            Fetch the category attribute template from Shopee so you can map attribute values above.
-                        @endif
-                    </div>
-                    @if($template && $template->fetched_at)
-                        <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
-                    @endif
-                </div>
-                <form method="POST" action="{{ route('shopee.product-groups.template_sync', $group->id) }}">
-                    @csrf
-                    <input type="hidden" name="shopee_category_id" value="{{ (int)($group->shopee_category_id ?? 0) }}">
-                    <button class="btn" type="submit" {{ empty($group->shopee_category_id) ? 'disabled' : '' }}>
-                        {{ $template ? 'Re-sync Template' : 'Sync Template' }}
-                    </button>
-                </form>
-            </div>
-        </div>
-    @endif
-
 @push('scripts')
 <script>
 (function() {
+    // ── Refresh Categories ──────────────────────────────────────
+    var refreshCatsBtn = document.getElementById('refreshCatsBtn');
+    var catSelect = document.getElementById('shopeeCategorySelect');
+    var refreshCatsUrl = @json(route('shopee.product-groups.refreshCategories'));
+    var fetchAttrsUrl = @json(route('shopee.product-groups.fetchAttributes'));
+    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    if (refreshCatsBtn && catSelect) {
+        refreshCatsBtn.addEventListener('click', function() {
+            refreshCatsBtn.disabled = true;
+            refreshCatsBtn.textContent = 'Refreshing...';
+
+            fetch(refreshCatsUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.categories) {
+                    var curVal = catSelect.value;
+                    catSelect.textContent = '';
+                    var def = document.createElement('option');
+                    def.value = '';
+                    def.textContent = '-- Select Shopee Category --';
+                    catSelect.appendChild(def);
+                    data.categories.forEach(function(c) {
+                        var opt = document.createElement('option');
+                        opt.value = c.category_id;
+                        opt.textContent = c.name + ' (' + c.category_id + ')';
+                        if (String(c.category_id) === String(curVal)) opt.selected = true;
+                        catSelect.appendChild(opt);
+                    });
+                    showFlashSuccess(data.count + ' categories refreshed.');
+                } else {
+                    showFlashError(data.message || 'Failed to refresh categories.');
+                }
+            })
+            .catch(function() { showFlashError('Network error refreshing categories.'); })
+            .finally(function() { refreshCatsBtn.disabled = false; refreshCatsBtn.textContent = 'Refresh'; });
+        });
+    }
+
+    // ── Proactive Attribute Fetch on Category Change ──────────
+    var attrsCard = document.getElementById('shopee-attributes-card');
+    var attrsContainer = document.getElementById('shopee-attributes-container');
+
+    if (catSelect && attrsCard && attrsContainer) {
+        catSelect.addEventListener('change', function() {
+            var catId = catSelect.value;
+            if (!catId) {
+                attrsCard.style.display = 'none';
+                attrsContainer.textContent = '';
+                return;
+            }
+
+            attrsContainer.textContent = '';
+            var loading = document.createElement('div');
+            loading.className = 'text-muted';
+            loading.style.padding = '12px';
+            loading.textContent = 'Fetching attributes...';
+            attrsContainer.appendChild(loading);
+            attrsCard.style.display = '';
+
+            var formData = new FormData();
+            formData.append('shopee_category_id', catId);
+
+            fetch(fetchAttrsUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.html) {
+                    attrsContainer.insertAdjacentHTML('afterbegin', data.html);
+                } else {
+                    attrsContainer.textContent = '';
+                    var msg = document.createElement('div');
+                    msg.className = 'text-muted';
+                    msg.style.padding = '12px';
+                    msg.textContent = 'No attributes found for this category.';
+                    attrsContainer.appendChild(msg);
+                }
+            })
+            .catch(function() {
+                attrsContainer.textContent = '';
+                var msg = document.createElement('div');
+                msg.className = 'text-muted';
+                msg.style.padding = '12px';
+                msg.textContent = 'Failed to fetch attributes.';
+                attrsContainer.appendChild(msg);
+            });
+        });
+    }
+
     // ── Dual Listbox ────────────────────────────────────────────
     var searchUrl = @json(route('shopee.product-groups.searchProducts'));
     @php

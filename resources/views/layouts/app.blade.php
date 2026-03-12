@@ -62,6 +62,7 @@
             $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
             $canLazadaOrders = $u && $u->hasPermission('manage_lazada_orders');
             $canTikTok = $u && $u->hasPermission('manage_tiktok');
+            $canTikTokOrders = $u && $u->hasPermission('manage_tiktok_orders');
             $canOpencart = $u && $u->hasPermission('manage_opencart');
             $canOpencartOrders = $u && $u->hasPermission('manage_opencart_orders');
             $canSettingsParent = $u && $u->hasPermission('manage_settings');
@@ -110,8 +111,8 @@
                 </a>
                 @endif
 
-                @if($canTikTok && Route::has('ext.tiktok.orders.index'))
-                <a href="{{ route('ext.tiktok.orders.index', ['tab' => 'AWAITING_SHIPMENT']) }}" class="{{ request()->routeIs('ext.tiktok.orders.*') ? 'active' : '' }}">
+                @if($canTikTokOrders && Route::has('ext.tiktok.orders.index'))
+                <a href="{{ route('ext.tiktok.orders.index') }}" class="{{ request()->routeIs('ext.tiktok.orders.*') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                     <span class="label">TikTok Orders</span>
                     @if(($tiktokPendingCount ?? 0) > 0)
@@ -228,10 +229,6 @@
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                                     <span class="label">Settings</span>
                                 </a>
-                                <a href="{{ route('shopee.categories.index') }}" class="{{ request()->routeIs('shopee.categories.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
-                                    <span class="label">Categories</span>
-                                </a>
                                 <a href="{{ route('shopee.logistics.index') }}" class="{{ request()->routeIs('shopee.logistics.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
                                     <span class="label">Logistics</span>
@@ -248,10 +245,6 @@
                                 <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                                     <span class="label">Settings</span>
-                                </a>
-                                <a href="{{ route('lazada.categories.index') }}" class="{{ request()->routeIs('lazada.categories.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
-                                    <span class="label">Categories</span>
                                 </a>
                                 <a href="{{ route('lazada.product-groups.index') }}" class="{{ request()->routeIs('lazada.product-groups.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
@@ -302,6 +295,45 @@
                 </div>
                 @endif
 
+                {{-- Extension Nav Groups --}}
+                @if(!empty($extensionNavGroups ?? []))
+                    @foreach($extensionNavGroups as $extNav)
+                        @php
+                            $extPerm = $extNav['permission'] ?? '';
+                            $canViewExt = $extPerm === '' || (auth()->user() && auth()->user()->hasPermission($extPerm));
+                            $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
+                            $extIsOpen = false;
+                            foreach ($extRoutes as $er) {
+                                if (\Route::has($er) && request()->routeIs(str_replace('.', '.', $er) . '*')) { $extIsOpen = true; break; }
+                            }
+                        @endphp
+                        @if($canViewExt)
+                        <div class="nav-group">
+                            <details {{ $extIsOpen ? 'open' : '' }}>
+                                <summary class="{{ $extIsOpen ? 'active' : '' }}">
+                                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+                                    <span class="label">{{ $extNav['group'] }}</span>
+                                    <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                                </summary>
+                                <div class="nav-sub-wrap">
+                                    <div class="nav-sub">
+                                        @foreach($extNav['items'] ?? [] as $extItem)
+                                            @if(\Route::has($extItem['route']))
+                                            <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
+                                                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg></span>
+                                                <span class="label">{{ $extItem['label'] }}</span>
+                                            </a>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                        @endif
+                    @endforeach
+                @endif
+
+                {{-- Settings — always last --}}
                 @if($canSettingsParent)
                 <div class="nav-group">
                     <details {{ (request()->routeIs('users.*') || request()->routeIs('user_groups.*') || request()->routeIs('settings.*') || request()->routeIs('currencies.*') || request()->routeIs('extensions.*') || request()->routeIs('error_log.*')) ? 'open' : '' }}>
@@ -350,43 +382,6 @@
                         </div>
                     </details>
                 </div>
-                @endif
-                {{-- Extension Nav Groups --}}
-                @if(!empty($extensionNavGroups ?? []))
-                    @foreach($extensionNavGroups as $extNav)
-                        @php
-                            $extPerm = $extNav['permission'] ?? '';
-                            $canViewExt = $extPerm === '' || (auth()->user() && auth()->user()->hasPermission($extPerm));
-                            $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
-                            $extIsOpen = false;
-                            foreach ($extRoutes as $er) {
-                                if (\Route::has($er) && request()->routeIs(str_replace('.', '.', $er) . '*')) { $extIsOpen = true; break; }
-                            }
-                        @endphp
-                        @if($canViewExt)
-                        <div class="nav-group">
-                            <details {{ $extIsOpen ? 'open' : '' }}>
-                                <summary class="{{ $extIsOpen ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
-                                    <span class="label">{{ $extNav['group'] }}</span>
-                                    <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
-                                </summary>
-                                <div class="nav-sub-wrap">
-                                    <div class="nav-sub">
-                                        @foreach($extNav['items'] ?? [] as $extItem)
-                                            @if(\Route::has($extItem['route']))
-                                            <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
-                                                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg></span>
-                                                <span class="label">{{ $extItem['label'] }}</span>
-                                            </a>
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                            </details>
-                        </div>
-                        @endif
-                    @endforeach
                 @endif
             </nav>
         </div>
@@ -844,6 +839,21 @@ window.showFlashSuccess = function(message) {
     container.appendChild(div);
     div.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
+
+/* Thumb magnifier — position preview near cursor */
+document.addEventListener('mousemove', function(e) {
+    var mag = e.target.closest('.thumb-magnify');
+    if (!mag) return;
+    var preview = mag.querySelector('.thumb-preview');
+    if (!preview) return;
+    var x = e.clientX + 16;
+    var y = e.clientY - 120;
+    if (x + 250 > window.innerWidth) x = e.clientX - 256;
+    if (y < 8) y = 8;
+    if (y + 248 > window.innerHeight) y = window.innerHeight - 248;
+    preview.style.left = x + 'px';
+    preview.style.top = y + 'px';
+});
 </script>
 
 @stack('scripts')

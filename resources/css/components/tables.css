@@ -37,6 +37,29 @@ tbody tr:hover { background: rgba(59,130,246,.045); }
 tbody tr:last-child td { border-bottom: none; }
 td .truncate { max-width: 420px; }
 
+/* Thumbnail magnifier — hover to see full-size preview */
+.thumb-magnify {
+    position: relative;
+    display: inline-block;
+    cursor: zoom-in;
+}
+.thumb-magnify .thumb-preview {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    width: 240px;
+    height: 240px;
+    object-fit: contain;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    pointer-events: none;
+}
+.thumb-magnify:hover .thumb-preview {
+    display: block;
+}
+
 /* Compact inputs inside table cells */
 td .input {
     height: 34px;

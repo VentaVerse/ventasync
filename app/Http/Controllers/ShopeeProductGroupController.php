@@ -17,6 +17,15 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends Controller
 {
+    private function productsRedirect(int $id)
+    {
+        $return = request()->input('_return');
+        if ($return && str_starts_with($return, '/')) {
+            return redirect($return);
+        }
+        return redirect()->route('shopee.product-groups.products', $id);
+    }
+
     public function index()
     {
         $groups = ShopeeProductGroup::query()->orderByDesc('id')->get();
@@ -402,7 +411,7 @@ class ShopeeProductGroupController extends Controller
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
         if (empty($ids)) {
-            return redirect()->route('shopee.product-groups.products', $group->id)
+            return $this->productsRedirect($group->id)
                 ->with('error', 'No products selected.');
         }
 
@@ -417,7 +426,7 @@ class ShopeeProductGroupController extends Controller
             $added++;
         }
 
-        return redirect()->route('shopee.product-groups.products', $group->id)
+        return $this->productsRedirect($group->id)
             ->with('status', "{$added} product(s) added to group.");
     }
 
@@ -429,7 +438,7 @@ class ShopeeProductGroupController extends Controller
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
         $group->groupProducts()->where('product_id', $productId)->delete();
 
-        return redirect()->route('shopee.product-groups.products', $group->id)
+        return $this->productsRedirect($group->id)
             ->with('status', 'Product removed from group.');
     }
 
@@ -445,8 +454,28 @@ class ShopeeProductGroupController extends Controller
             $group->groupProducts()->whereIn('product_id', $ids)->delete();
         }
 
-        return redirect()->route('shopee.product-groups.products', $group->id)
+        return $this->productsRedirect($group->id)
             ->with('status', count($ids) . ' product(s) removed from group.');
+    }
+
+    public function push(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Push to Shopee is not yet implemented.');
+    }
+
+    public function pushPrices(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Sync Price for Shopee is not yet implemented.');
+    }
+
+    public function pushStock(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Sync Qty for Shopee is not yet implemented.');
+    }
+
+    public function deleteFromShopee(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Delete from Shopee is not yet implemented.');
     }
 
     public function syncTemplate(Request $request, int $id, ShopeeClient $client)
@@ -568,6 +597,136 @@ class ShopeeProductGroupController extends Controller
             ];
         }
         return $out;
+    }
+
+    /**
+     * AJAX: Refresh categories from Shopee API and return updated list.
+     */
+    public function refreshCategories(ShopeeClient $client)
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return response()->json(['ok' => false, 'message' => 'Missing Shopee settings.']);
+        }
+
+        $result = $client->shopGet(
+            $setting->mode ?? 'sandbox',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            '/api/v2/product/get_category',
+            ['language' => $setting->region ?: 'en']
+        );
+
+        $body = $result['body'] ?? null;
+        $nodes = [];
+        if (is_array($body)) {
+            $response = $body['response'] ?? $body;
+            if (isset($response['category_list']) && is_array($response['category_list'])) {
+                $nodes = $response['category_list'];
+            }
+        }
+
+        if (!($result['ok'] ?? false) || empty($nodes)) {
+            $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'Failed')) : 'Failed';
+            return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
+        }
+
+        $rows = [];
+        $this->flattenCategoryTree($nodes, $rows, null, 0);
+        if (empty($rows)) {
+            return response()->json(['ok' => false, 'message' => 'No categories returned.']);
+        }
+
+        $i = 1;
+        foreach ($rows as &$r) { $r['id'] = $i++; }
+        unset($r);
+
+        DB::transaction(function () use ($rows) {
+            DB::table('shopee_categories')->delete();
+            foreach (array_chunk($rows, 1000) as $chunk) {
+                DB::table('shopee_categories')->insert($chunk);
+            }
+        });
+
+        $categories = ShopeeCategory::query()->orderBy('name')->limit(5000)->get(['category_id', 'name']);
+        return response()->json(['ok' => true, 'count' => count($rows), 'categories' => $categories]);
+    }
+
+    private function flattenCategoryTree(array $nodes, array &$rows, ?int $parentId, int $level): void
+    {
+        foreach ($nodes as $n) {
+            if (!is_array($n)) continue;
+            $categoryId = isset($n['category_id']) ? (int) $n['category_id'] : null;
+            $name = (string) ($n['original_category_name'] ?? $n['display_category_name'] ?? $n['category_name'] ?? '');
+            $hasChildren = (bool) ($n['has_children'] ?? false);
+            if (!$categoryId || $name === '') continue;
+            $rows[] = [
+                'category_id' => $categoryId,
+                'parent_id' => $n['parent_category_id'] ?? $parentId,
+                'name' => $name,
+                'level' => $level,
+                'leaf' => !$hasChildren,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            if (!empty($n['children']) && is_array($n['children'])) {
+                $this->flattenCategoryTree($n['children'], $rows, $categoryId, $level + 1);
+            }
+        }
+    }
+
+    /**
+     * AJAX: Sync template for a category and return rendered attribute fields.
+     */
+    public function fetchAttributesAjax(Request $request, ShopeeClient $client)
+    {
+        $categoryId = (int) $request->input('shopee_category_id', 0);
+        if ($categoryId <= 0) {
+            return response()->json(['ok' => false, 'html' => '']);
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Shopee settings.</div>']);
+        }
+
+        $result = $client->shopGet(
+            $setting->mode ?? 'sandbox',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            '/api/v2/product/get_attribute_tree',
+            ['category_id' => $categoryId, 'language' => $setting->region ?: 'en']
+        );
+
+        $body = $result['body'] ?? null;
+        $attrList = null;
+        if (is_array($body)) {
+            $response = $body['response'] ?? $body;
+            $attrList = $response['attribute_list'] ?? $response['attribute_tree'] ?? $response['attributes'] ?? null;
+        }
+
+        $template = ShopeeCategoryTemplate::query()->updateOrCreate(
+            ['category_id' => $categoryId],
+            [
+                'region' => (string) ($setting->region ?? ''),
+                'attributes' => $attrList ?? ($response ?? $body),
+                'fetched_at' => now(),
+            ]
+        );
+
+        $attributes = $this->extractAttributes($template->attributes);
+
+        $html = view('shopee.product-groups._attributes', [
+            'attributes' => $attributes,
+            'saved' => [],
+            'template' => $template,
+        ])->render();
+
+        return response()->json(['ok' => true, 'html' => $html, 'count' => count($attributes)]);
     }
 
     private function fetchLogistics(): array

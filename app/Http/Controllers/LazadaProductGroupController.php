@@ -17,6 +17,15 @@ use Illuminate\Support\Facades\DB;
 
 class LazadaProductGroupController extends Controller
 {
+    private function productsRedirect(int $id)
+    {
+        $return = request()->input('_return');
+        if ($return && str_starts_with($return, '/')) {
+            return redirect($return);
+        }
+        return redirect()->route('lazada.product-groups.products', $id);
+    }
+
     public function index()
     {
         $groups = LazadaProductGroup::query()->orderByDesc('id')->get();
@@ -419,13 +428,13 @@ class LazadaProductGroupController extends Controller
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
         if (empty($ids)) {
-            return redirect()->route('lazada.product-groups.products', $group->id)
+            return $this->productsRedirect($group->id)
                 ->with('error', 'No products selected.');
         }
 
         $added = $this->addProductsToGroup($group, $ids);
 
-        return redirect()->route('lazada.product-groups.products', $group->id)
+        return $this->productsRedirect($group->id)
             ->with('status', "{$added} product(s) added to group.");
     }
 
@@ -437,7 +446,7 @@ class LazadaProductGroupController extends Controller
         $group = LazadaProductGroup::query()->findOrFail($groupId);
         $group->groupProducts()->where('product_id', $productId)->delete();
 
-        return redirect()->route('lazada.product-groups.products', $group->id)
+        return $this->productsRedirect($group->id)
             ->with('status', 'Product removed from group.');
     }
 
@@ -453,8 +462,28 @@ class LazadaProductGroupController extends Controller
             $group->groupProducts()->whereIn('product_id', $ids)->delete();
         }
 
-        return redirect()->route('lazada.product-groups.products', $group->id)
+        return $this->productsRedirect($group->id)
             ->with('status', count($ids) . ' product(s) removed from group.');
+    }
+
+    public function push(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Push to Lazada is not yet implemented.');
+    }
+
+    public function pushPrices(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Sync Price for Lazada is not yet implemented.');
+    }
+
+    public function pushStock(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Sync Qty for Lazada is not yet implemented.');
+    }
+
+    public function deleteFromLazada(Request $request, int $id)
+    {
+        return $this->productsRedirect($id)->with('error', 'Delete from Lazada is not yet implemented.');
     }
 
     public function syncTemplate(Request $request, int $id, LazadaClient $client)
@@ -581,6 +610,129 @@ class LazadaProductGroupController extends Controller
                 );
             }
         }
+    }
+
+    /**
+     * AJAX: Refresh categories from Lazada API and return updated list.
+     */
+    public function refreshCategories(LazadaClient $client)
+    {
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+            return response()->json(['ok' => false, 'message' => 'Missing Lazada settings.']);
+        }
+
+        $timestamp = (string) round(microtime(true) * 1000);
+        $params = [
+            'app_key' => (string) $setting->app_key,
+            'sign_method' => 'sha256',
+            'timestamp' => $timestamp,
+        ];
+        $apiPath = '/category/tree/get';
+        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $result = $client->get((string) $setting->region, $apiPath, $params);
+        $body = $result['body'] ?? null;
+
+        $nodes = [];
+        if (is_array($body)) {
+            if (isset($body['data']) && is_array($body['data'])) {
+                $nodes = $body['data'];
+            } elseif (isset($body['data']['data']) && is_array($body['data']['data'])) {
+                $nodes = $body['data']['data'];
+            }
+        }
+
+        if (!$result['ok'] || empty($nodes)) {
+            $msg = is_array($body) ? ($body['message'] ?? ($body['code'] ?? 'Failed')) : 'Failed';
+            return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
+        }
+
+        $rows = [];
+        $this->flattenCategoryTree($nodes, $rows, null, 0);
+        if (empty($rows)) {
+            return response()->json(['ok' => false, 'message' => 'No categories returned.']);
+        }
+
+        $i = 1;
+        foreach ($rows as &$r) { $r['id'] = $i++; }
+        unset($r);
+
+        DB::transaction(function () use ($rows) {
+            DB::table('lazada_categories')->delete();
+            foreach (array_chunk($rows, 1000) as $chunk) {
+                DB::table('lazada_categories')->insert($chunk);
+            }
+        });
+
+        $categories = LazadaCategory::query()->orderBy('name')->limit(5000)->get(['category_id', 'name']);
+        return response()->json(['ok' => true, 'count' => count($rows), 'categories' => $categories]);
+    }
+
+    private function flattenCategoryTree(array $nodes, array &$rows, ?int $parentId, int $level): void
+    {
+        foreach ($nodes as $n) {
+            if (!is_array($n)) continue;
+            $categoryId = isset($n['category_id']) ? (int) $n['category_id'] : null;
+            $name = isset($n['name']) ? (string) $n['name'] : '';
+            if (!$categoryId || $name === '') continue;
+            $rows[] = [
+                'category_id' => $categoryId,
+                'name' => $name,
+                'leaf' => (bool) ($n['leaf'] ?? false),
+                'var' => array_key_exists('var', $n) ? (bool) $n['var'] : null,
+                'parent_id' => $parentId,
+                'level' => $level,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            if (!empty($n['children']) && is_array($n['children'])) {
+                $this->flattenCategoryTree($n['children'], $rows, $categoryId, $level + 1);
+            }
+        }
+    }
+
+    /**
+     * AJAX: Sync template for a category and return rendered attribute fields.
+     */
+    public function fetchAttributesAjax(Request $request, LazadaClient $client)
+    {
+        $categoryId = (int) $request->input('lazada_category_id', 0);
+        if ($categoryId <= 0) {
+            return response()->json(['ok' => false, 'html' => '']);
+        }
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+            return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Lazada settings.</div>']);
+        }
+
+        $apiPath = '/category/attributes/get';
+        $timestamp = (string) round(microtime(true) * 1000);
+        $params = [
+            'app_key' => (string) $setting->app_key,
+            'sign_method' => 'sha256',
+            'timestamp' => $timestamp,
+            'primary_category_id' => (string) $categoryId,
+        ];
+        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $result = $client->get((string) $setting->region, $apiPath, $params);
+
+        $template = LazadaCategoryTemplate::query()->updateOrCreate(
+            ['region' => (string) $setting->region, 'primary_category_id' => $categoryId],
+            ['template_body' => $result['body'] ?? null, 'fetched_at' => now()]
+        );
+
+        $attributes = $this->extractAttributes($template->template_body);
+        $erpSourceFields = \App\Http\Controllers\LazadaProductController::ERP_SOURCE_FIELDS;
+
+        $html = view('lazada.product-groups._attributes', [
+            'attributes' => $attributes,
+            'saved' => [],
+            'erpSourceFields' => $erpSourceFields,
+            'template' => $template,
+        ])->render();
+
+        return response()->json(['ok' => true, 'html' => $html, 'count' => count($attributes)]);
     }
 
     private function region(): string

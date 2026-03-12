@@ -51,9 +51,25 @@
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
+                <form method="POST" action="{{ route('lazada.product-groups.push', $group->id) }}" class="bulk-action-form bulk-push-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Push to Lazada</button>
+                </form>
+                <form method="POST" action="{{ route('lazada.product-groups.pushPrices', $group->id) }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Price</button>
+                </form>
+                <form method="POST" action="{{ route('lazada.product-groups.pushStock', $group->id) }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Qty</button>
+                </form>
                 <form method="POST" action="{{ route('lazada.product-groups.massRemove', $group->id) }}" class="bulk-action-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small secondary">Remove from Group</button>
+                </form>
+                <form method="POST" action="{{ route('lazada.product-groups.deleteFromLazada', $group->id) }}" class="bulk-action-form bulk-delete-form" data-confirm="Delete selected product(s) from Lazada? This cannot be undone." style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small danger">Delete from Lazada</button>
                 </form>
             </div>
         </div>
@@ -93,7 +109,10 @@
                         <td>{{ $p->product_id }}</td>
                         <td>
                             @if($src)
-                                <img src="{{ $src }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" loading="lazy" onerror="this.style.display='none';">
+                                <span class="thumb-magnify">
+                                    <img src="{{ $src }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" loading="lazy" onerror="this.closest('.thumb-magnify').style.display='none';">
+                                    <img src="{{ $src }}" alt="" class="thumb-preview">
+                                </span>
                             @else
                                 <span class="text-muted text-xs">-</span>
                             @endif
@@ -307,11 +326,23 @@
         });
     }
 
+    function submitBulkForm(form, ids) {
+        injectBulkIds(form, ids);
+        var overlay = document.getElementById('loadingOverlay');
+        var msg = document.getElementById('loadingMsg');
+        if (overlay) {
+            if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
+            overlay.classList.add('active');
+        }
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        form.submit();
+    }
+
     // Bulk action forms
     document.querySelectorAll('form.bulk-action-form').forEach(function(form){
         form.addEventListener('submit', function(e){
             e.preventDefault();
-            form.querySelectorAll('input[name="ids[]"]').forEach(function(n){ n.remove(); });
 
             var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
             if (!ids.length) {
@@ -319,15 +350,22 @@
                 return;
             }
 
-            injectBulkIds(form, ids);
-            var overlay = document.getElementById('loadingOverlay');
-            var msg = document.getElementById('loadingMsg');
-            if (overlay) {
-                if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
-                overlay.classList.add('active');
+            if (form.classList.contains('bulk-push-form')) {
+                confirmModal('Push ' + ids.length + ' selected product(s) to Lazada? Already-pushed products will be updated.').then(function(ok) {
+                    if (ok) submitBulkForm(form, ids);
+                });
+                return;
             }
-            form.querySelector('button[type="submit"]').disabled = true;
-            form.submit();
+
+            if (form.classList.contains('bulk-delete-form')) {
+                confirmModal('Delete ' + ids.length + ' selected product(s) from Lazada? This cannot be undone.').then(function(ok) {
+                    if (ok) submitBulkForm(form, ids);
+                });
+                return;
+            }
+
+            // No confirm needed — submit directly
+            submitBulkForm(form, ids);
         });
     });
 
@@ -435,6 +473,22 @@
             document.getElementById('add-products-form').submit();
         });
     }
+
+    // Inject _return field into all POST forms so redirects preserve query string
+    var returnUrl = location.pathname + location.search;
+    document.querySelectorAll('form[method="POST"]').forEach(function(form) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = '_return'; inp.value = returnUrl;
+        form.appendChild(inp);
+    });
+
+    // Dismiss loading overlay when page is restored from bfcache
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+            var overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.remove('active');
+        }
+    });
 })();
 </script>
 @endpush

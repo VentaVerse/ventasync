@@ -8,10 +8,6 @@
             <div class="text-muted text-sm">Map ERP products to TikTok categories, then push to TikTok Shop.</div>
         </div>
         <div class="page-header-actions">
-            <form method="POST" action="{{ route('ext.tiktok.categories.sync') }}" style="display:inline;">
-                @csrf
-                <button class="btn secondary" type="submit">Refresh Categories</button>
-            </form>
             <a class="btn" href="{{ route('ext.tiktok.product-groups.create') }}">Add Product Group</a>
         </div>
     </div>
@@ -66,7 +62,7 @@
                 @empty
                     <tr>
                         <td colspan="7" class="text-muted">
-                            No product groups yet. Click <strong>Refresh Categories</strong> first, then <strong>Add Product Group</strong>.
+                            No product groups yet. Click <strong>Add Product Group</strong> to get started.
                         </td>
                     </tr>
                 @endforelse

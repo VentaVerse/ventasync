@@ -161,9 +161,15 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('shopee.product-groups.destroy');
         Route::get('/shopee/product-groups/{id}/products', [ShopeeProductGroupController::class, 'products'])->name('shopee.product-groups.products');
         Route::post('/shopee/product-groups/{id}/products/add', [ShopeeProductGroupController::class, 'addProducts'])->name('shopee.product-groups.addProducts');
+        Route::post('/shopee/product-groups/{id}/products/push', [ShopeeProductGroupController::class, 'push'])->name('shopee.product-groups.push');
+        Route::post('/shopee/product-groups/{id}/products/push-prices', [ShopeeProductGroupController::class, 'pushPrices'])->name('shopee.product-groups.pushPrices');
+        Route::post('/shopee/product-groups/{id}/products/push-stock', [ShopeeProductGroupController::class, 'pushStock'])->name('shopee.product-groups.pushStock');
         Route::post('/shopee/product-groups/{id}/products/mass-remove', [ShopeeProductGroupController::class, 'massRemove'])->name('shopee.product-groups.massRemove');
+        Route::post('/shopee/product-groups/{id}/products/delete-from-shopee', [ShopeeProductGroupController::class, 'deleteFromShopee'])->name('shopee.product-groups.deleteFromShopee');
         Route::delete('/shopee/product-groups/{id}/products/{productId}', [ShopeeProductGroupController::class, 'removeProduct'])->name('shopee.product-groups.removeProduct');
         Route::post('/shopee/product-groups/{id}/template/sync', [ShopeeProductGroupController::class, 'syncTemplate'])->name('shopee.product-groups.template_sync');
+        Route::post('/shopee/product-groups/refresh-categories', [ShopeeProductGroupController::class, 'refreshCategories'])->name('shopee.product-groups.refreshCategories');
+        Route::post('/shopee/product-groups/fetch-attributes', [ShopeeProductGroupController::class, 'fetchAttributesAjax'])->name('shopee.product-groups.fetchAttributes');
 
         // Shopee Products
         Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('shopee.products.index');
@@ -247,9 +253,15 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/lazada/product-groups/{id}', [LazadaProductGroupController::class, 'destroy'])->whereNumber('id')->name('lazada.product-groups.destroy');
         Route::get('/lazada/product-groups/{id}/products', [LazadaProductGroupController::class, 'products'])->whereNumber('id')->name('lazada.product-groups.products');
         Route::post('/lazada/product-groups/{id}/products/add', [LazadaProductGroupController::class, 'addProducts'])->whereNumber('id')->name('lazada.product-groups.addProducts');
+        Route::post('/lazada/product-groups/{id}/products/push', [LazadaProductGroupController::class, 'push'])->whereNumber('id')->name('lazada.product-groups.push');
+        Route::post('/lazada/product-groups/{id}/products/push-prices', [LazadaProductGroupController::class, 'pushPrices'])->whereNumber('id')->name('lazada.product-groups.pushPrices');
+        Route::post('/lazada/product-groups/{id}/products/push-stock', [LazadaProductGroupController::class, 'pushStock'])->whereNumber('id')->name('lazada.product-groups.pushStock');
         Route::post('/lazada/product-groups/{id}/products/mass-remove', [LazadaProductGroupController::class, 'massRemove'])->whereNumber('id')->name('lazada.product-groups.massRemove');
+        Route::post('/lazada/product-groups/{id}/products/delete-from-lazada', [LazadaProductGroupController::class, 'deleteFromLazada'])->whereNumber('id')->name('lazada.product-groups.deleteFromLazada');
         Route::delete('/lazada/product-groups/{id}/products/{productId}', [LazadaProductGroupController::class, 'removeProduct'])->whereNumber('id')->name('lazada.product-groups.removeProduct');
         Route::post('/lazada/product-groups/{id}/template/sync', [LazadaProductGroupController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.product-groups.template_sync');
+        Route::post('/lazada/product-groups/refresh-categories', [LazadaProductGroupController::class, 'refreshCategories'])->name('lazada.product-groups.refreshCategories');
+        Route::post('/lazada/product-groups/fetch-attributes', [LazadaProductGroupController::class, 'fetchAttributesAjax'])->name('lazada.product-groups.fetchAttributes');
 
         // Lazada Products
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('lazada.products.index');

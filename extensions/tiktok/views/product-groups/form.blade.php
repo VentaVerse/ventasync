@@ -29,11 +29,14 @@
             <h3 class="section-title" style="margin-top:20px;">TikTok Category <span style="color:#d11;">*</span></h3>
             <div class="hint" style="margin-bottom:8px;">Select a leaf category from TikTok's catalog.</div>
 
-            <div style="position:relative; max-width:500px;">
-                <input type="text" class="input" id="ttCatSearch" placeholder="Search TikTok categories..." autocomplete="off"
-                       value="{{ old('tiktok_category_id', $group->tiktok_category_id) ? ($tiktokCategories->firstWhere('id', old('tiktok_category_id', $group->tiktok_category_id))->name ?? '') : '' }}">
-                <input type="hidden" name="tiktok_category_id" id="ttCatId" value="{{ old('tiktok_category_id', $group->tiktok_category_id) }}">
-                <div id="ttCatDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:250px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
+            <div style="display:flex; gap:8px; align-items:start; max-width:560px;">
+                <div style="position:relative; flex:1;">
+                    <input type="text" class="input" id="ttCatSearch" placeholder="Search TikTok categories..." autocomplete="off"
+                           value="{{ old('tiktok_category_id', $group->tiktok_category_id) ? ($tiktokCategories->firstWhere('id', old('tiktok_category_id', $group->tiktok_category_id))->name ?? '') : '' }}">
+                    <input type="hidden" name="tiktok_category_id" id="ttCatId" value="{{ old('tiktok_category_id', $group->tiktok_category_id) }}">
+                    <div id="ttCatDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:250px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
+                </div>
+                <button type="button" class="btn small secondary" id="ttRefreshCatsBtn" title="Refresh categories from TikTok API">Refresh</button>
             </div>
 
             {{-- Price Markup --}}
@@ -189,6 +192,34 @@
     catSearchEl.addEventListener('input', function() { showCatDropdown(catSearchEl.value.trim()); });
     catSearchEl.addEventListener('focus', function() { if (catSearchEl.value.trim()) showCatDropdown(catSearchEl.value.trim()); });
     catSearchEl.addEventListener('blur', function() { setTimeout(function() { catDropdown.style.display = 'none'; }, 150); });
+
+    // ── Refresh Categories from TikTok API ──────────────────────
+    var ttRefreshBtn = document.getElementById('ttRefreshCatsBtn');
+    var ttSyncUrl = @json(route('ext.tiktok.categories.sync'));
+    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    if (ttRefreshBtn) {
+        ttRefreshBtn.addEventListener('click', function() {
+            ttRefreshBtn.disabled = true;
+            ttRefreshBtn.textContent = 'Refreshing...';
+
+            fetch(ttSyncUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.categories) {
+                    cats = data.categories.map(function(c) { return { id: c.id, name: c.name }; });
+                    showFlashSuccess(data.count + ' categories refreshed.');
+                } else {
+                    showFlashError(data.message || 'Failed to refresh categories.');
+                }
+            })
+            .catch(function() { showFlashError('Network error refreshing categories.'); })
+            .finally(function() { ttRefreshBtn.disabled = false; ttRefreshBtn.textContent = 'Refresh'; });
+        });
+    }
 
     // ── Dual Listbox ────────────────────────────────────────────
     var searchUrl = @json(route('ext.tiktok.product-groups.searchProducts'));

@@ -17,17 +17,6 @@
         </div>
     </div>
 
-    @if($errors->any())
-        <div class="alert danger">
-            <strong>Fix the following:</strong>
-            <ul style="margin: 6px 0 0 18px;">
-                @foreach($errors->all() as $e)
-                    <li>{{ $e }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('lazada.product-groups.store') : route('lazada.product-groups.update', $group->id) }}">
         @csrf
         @if($mode === 'edit') @method('PUT') @endif
@@ -66,14 +55,17 @@
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
                     <label>Lazada Category</label>
-                    <select name="lazada_category_id" class="input">
-                        <option value="">-- Select Lazada Category --</option>
-                        @foreach(($lazadaCategories ?? collect()) as $c)
-                            <option value="{{ (int)$c->category_id }}" {{ (string)old('lazada_category_id', $group->lazada_category_id) === (string)$c->category_id ? 'selected' : '' }}>
-                                {{ $c->name }} ({{ $c->category_id }})
-                            </option>
-                        @endforeach
-                    </select>
+                    <div style="display:flex; gap:8px; align-items:start;">
+                        <select name="lazada_category_id" id="lazadaCategorySelect" class="input" style="flex:1;">
+                            <option value="">-- Select Lazada Category --</option>
+                            @foreach(($lazadaCategories ?? collect()) as $c)
+                                <option value="{{ (int)$c->category_id }}" {{ (string)old('lazada_category_id', $group->lazada_category_id) === (string)$c->category_id ? 'selected' : '' }}>
+                                    {{ $c->name }} ({{ $c->category_id }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <button type="button" class="btn small secondary" id="refreshCatsBtn" title="Refresh categories from Lazada API">Refresh</button>
+                    </div>
                 </div>
                 <div>
                     <label>Brand</label>
@@ -96,6 +88,15 @@
                         <button type="button" class="btn small" id="setNoBrandBtn">No Brand</button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        {{-- Category Attributes (loaded via AJAX on category change, or from server on edit) --}}
+        <div class="card mt-16" id="lazada-attributes-card" style="{{ ($template && !empty($attributes)) ? '' : 'display:none;' }}">
+            <div id="lazada-attributes-container">
+                @if($template && !empty($attributes))
+                    @include('lazada.product-groups._attributes', ['attributes' => $attributes, 'saved' => $saved, 'erpSourceFields' => $erpSourceFields, 'template' => $template])
+                @endif
             </div>
         </div>
 
@@ -189,112 +190,12 @@
             <div id="pl-hidden-inputs"></div>
         </div>
 
-        @if($mode === 'edit' && $template && !empty($attributes))
-            {{-- Category Attributes --}}
-            <div class="card mt-16">
-                <h3 class="section-title mt-0">Category Attributes</h3>
-                <div class="hint" style="margin-bottom:8px;">Map shared attribute values for this Lazada category.
-                    @if($template->fetched_at)
-                        Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}
-                    @endif
-                </div>
-                <div>
-                    @foreach($attributes as $a)
-                        @php
-                            $key = (string)($a['key'] ?? '');
-                            if (strtolower(trim($key)) === 'brand') { continue; }
-                            $val = old('attributes.'.$key, $saved[$key] ?? '');
-                            $options = $a['options'] ?? [];
-                            $isSelect = is_array($options) && count($options) > 0;
-                        @endphp
-                        <div style="display:grid; grid-template-columns: 1fr 2fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); align-items:start;">
-                            <div>
-                                <div class="font-semibold">
-                                    {{ $a['name'] }}
-                                    @if(!empty($a['required']))
-                                        <span class="badge badge-red" style="margin-left:6px;">MANDATORY</span>
-                                    @endif
-                                </div>
-                                <div class="hint" style="margin-top:4px;">{{ $key }}</div>
-                            </div>
-                            <div>
-                                @if($isSelect)
-                                    <select class="input" name="attributes[{{ $key }}]">
-                                        <option value="">-- Select --</option>
-                                        @foreach($options as $opt)
-                                            @php
-                                                $optLabel = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                                                $optValue = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                                            @endphp
-                                            <option value="{{ $optValue }}" {{ (string)$val === (string)$optValue ? 'selected' : '' }}>{{ $optLabel }}</option>
-                                        @endforeach
-                                    </select>
-                                @else
-                                    @php
-                                        $isMapVal = str_starts_with((string)$val, '__map:');
-                                        $mapField = $isMapVal ? substr((string)$val, 6) : '';
-                                        $manualVal = $isMapVal ? '' : $val;
-                                    @endphp
-                                    <div class="attr-row" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                        <select class="input attr-mode-toggle">
-                                            <option value="manual" {{ !$isMapVal ? 'selected' : '' }}>Manual Input</option>
-                                            <option value="product_field" {{ $isMapVal ? 'selected' : '' }}>Product Field</option>
-                                        </select>
-                                        <input class="input attr-manual-input" value="{{ $manualVal }}" placeholder="Enter value" style="{{ $isMapVal ? 'display:none;' : '' }}">
-                                        <select class="input attr-field-select" style="{{ !$isMapVal ? 'display:none;' : '' }}">
-                                            <option value="">-- Select Product Field --</option>
-                                            @foreach($erpSourceFields as $erpKey => $erpLabel)
-                                                <option value="{{ $erpKey }}" {{ $isMapVal && $mapField === $erpKey ? 'selected' : '' }}>{{ $erpLabel }}</option>
-                                            @endforeach
-                                        </select>
-                                        <input type="hidden" name="attributes[{{ $key }}]" class="attr-hidden-value" value="{{ $val }}">
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
         <div class="d-flex justify-end gap-8 mt-16">
             <button class="btn" type="submit">
                 {{ $mode === 'create' ? 'Create Product Group' : 'Save Product Group' }}
             </button>
         </div>
     </form>
-
-    @if($mode === 'edit')
-        @if(!$template && $group->lazada_category_id)
-            <div class="alert warning mt-16">Template not yet synced. Click <strong>Sync Template</strong> below to fetch category attributes from Lazada.</div>
-        @endif
-
-        {{-- Re-Sync Template --}}
-        <div class="card mt-16">
-            <div class="d-flex justify-between items-center gap-12 flex-wrap">
-                <div>
-                    <h3 class="section-title mt-0">{{ $template ? 'Re-Sync Template' : 'Sync Template' }}</h3>
-                    <div class="hint">
-                        @if($template)
-                            Only use this if Lazada has updated their attributes for this category.
-                        @else
-                            Fetch the category attribute template from Lazada so you can map attribute values above.
-                        @endif
-                    </div>
-                    @if($template && $template->fetched_at)
-                        <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
-                    @endif
-                </div>
-                <form method="POST" action="{{ route('lazada.product-groups.template_sync', $group->id) }}">
-                    @csrf
-                    <input type="hidden" name="lazada_category_id" value="{{ (int)($group->lazada_category_id ?? 0) }}">
-                    <button class="btn" type="submit" {{ empty($group->lazada_category_id) ? 'disabled' : '' }}>
-                        {{ $template ? 'Re-sync Template' : 'Sync Template' }}
-                    </button>
-                </form>
-            </div>
-        </div>
-    @endif
 
 @push('scripts')
 <script>
@@ -372,37 +273,139 @@
         setPicked(brandId.value);
     }
 
-    // ── Attribute mode toggle ───────────────────────────────────
-    document.querySelectorAll('.attr-row').forEach(function(row) {
-        var toggle = row.querySelector('.attr-mode-toggle');
-        var manual = row.querySelector('.attr-manual-input');
-        var fieldSelect = row.querySelector('.attr-field-select');
-        var hidden = row.querySelector('.attr-hidden-value');
-        if (!toggle || !manual || !fieldSelect || !hidden) return;
+    // ── Refresh Categories ──────────────────────────────────────
+    var refreshCatsBtn = document.getElementById('refreshCatsBtn');
+    var catSelect = document.getElementById('lazadaCategorySelect');
+    var refreshCatsUrl = @json(route('lazada.product-groups.refreshCategories'));
+    var fetchAttrsUrl = @json(route('lazada.product-groups.fetchAttributes'));
+    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-        function updateHidden() {
-            if (toggle.value === 'product_field') {
-                var f = fieldSelect.value;
-                hidden.value = f ? '__map:' + f : '';
-            } else {
-                hidden.value = manual.value;
-            }
-        }
+    if (refreshCatsBtn && catSelect) {
+        refreshCatsBtn.addEventListener('click', function() {
+            refreshCatsBtn.disabled = true;
+            refreshCatsBtn.textContent = 'Refreshing...';
 
-        toggle.addEventListener('change', function() {
-            if (this.value === 'product_field') {
-                manual.style.display = 'none';
-                fieldSelect.style.display = '';
-            } else {
-                manual.style.display = '';
-                fieldSelect.style.display = 'none';
-            }
-            updateHidden();
+            fetch(refreshCatsUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.categories) {
+                    var curVal = catSelect.value;
+                    catSelect.textContent = '';
+                    var def = document.createElement('option');
+                    def.value = '';
+                    def.textContent = '-- Select Lazada Category --';
+                    catSelect.appendChild(def);
+                    data.categories.forEach(function(c) {
+                        var opt = document.createElement('option');
+                        opt.value = c.category_id;
+                        opt.textContent = c.name + ' (' + c.category_id + ')';
+                        if (String(c.category_id) === String(curVal)) opt.selected = true;
+                        catSelect.appendChild(opt);
+                    });
+                    showFlashSuccess(data.count + ' categories refreshed.');
+                } else {
+                    showFlashError(data.message || 'Failed to refresh categories.');
+                }
+            })
+            .catch(function() { showFlashError('Network error refreshing categories.'); })
+            .finally(function() { refreshCatsBtn.disabled = false; refreshCatsBtn.textContent = 'Refresh'; });
         });
+    }
 
-        manual.addEventListener('input', updateHidden);
-        fieldSelect.addEventListener('change', updateHidden);
-    });
+    // ── Proactive Attribute Fetch on Category Change ──────────
+    var attrsCard = document.getElementById('lazada-attributes-card');
+    var attrsContainer = document.getElementById('lazada-attributes-container');
+
+    if (catSelect && attrsCard && attrsContainer) {
+        catSelect.addEventListener('change', function() {
+            var catId = catSelect.value;
+            if (!catId) {
+                attrsCard.style.display = 'none';
+                attrsContainer.textContent = '';
+                return;
+            }
+
+            attrsContainer.textContent = '';
+            var loading = document.createElement('div');
+            loading.className = 'text-muted';
+            loading.style.padding = '12px';
+            loading.textContent = 'Fetching attributes...';
+            attrsContainer.appendChild(loading);
+            attrsCard.style.display = '';
+
+            var formData = new FormData();
+            formData.append('lazada_category_id', catId);
+
+            fetch(fetchAttrsUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.html) {
+                    attrsContainer.insertAdjacentHTML('afterbegin', data.html);
+                    bindAttrToggles();
+                } else {
+                    attrsContainer.textContent = '';
+                    var msg = document.createElement('div');
+                    msg.className = 'text-muted';
+                    msg.style.padding = '12px';
+                    msg.textContent = 'No attributes found for this category.';
+                    attrsContainer.appendChild(msg);
+                }
+            })
+            .catch(function() {
+                attrsContainer.textContent = '';
+                var msg = document.createElement('div');
+                msg.className = 'text-muted';
+                msg.style.padding = '12px';
+                msg.textContent = 'Failed to fetch attributes.';
+                attrsContainer.appendChild(msg);
+            });
+        });
+    }
+
+    // ── Attribute mode toggle ───────────────────────────────────
+    function bindAttrToggles() {
+        document.querySelectorAll('.attr-row').forEach(function(row) {
+            var toggle = row.querySelector('.attr-mode-toggle');
+            var manual = row.querySelector('.attr-manual-input');
+            var fieldSelect = row.querySelector('.attr-field-select');
+            var hidden = row.querySelector('.attr-hidden-value');
+            if (!toggle || !manual || !fieldSelect || !hidden) return;
+            if (toggle.dataset.bound) return;
+            toggle.dataset.bound = '1';
+
+            function updateHidden() {
+                if (toggle.value === 'product_field') {
+                    var f = fieldSelect.value;
+                    hidden.value = f ? '__map:' + f : '';
+                } else {
+                    hidden.value = manual.value;
+                }
+            }
+
+            toggle.addEventListener('change', function() {
+                if (this.value === 'product_field') {
+                    manual.style.display = 'none';
+                    fieldSelect.style.display = '';
+                } else {
+                    manual.style.display = '';
+                    fieldSelect.style.display = 'none';
+                }
+                updateHidden();
+            });
+
+            manual.addEventListener('input', updateHidden);
+            fieldSelect.addEventListener('change', updateHidden);
+        });
+    }
+
+    bindAttrToggles();
 
     // ── Dual Listbox ────────────────────────────────────────────
     var searchUrl = @json(route('lazada.product-groups.searchProducts'));
