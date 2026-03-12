@@ -12,16 +12,6 @@
         </div>
     </div>
 
-    @if($errors->any())
-        <div class="alert danger">
-            <strong>Fix the following:</strong>
-            <ul style="margin: 6px 0 0 18px;">
-                @foreach($errors->all() as $e)
-                    <li>{{ $e }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
 
     <div class="card">
         <form method="POST" action="{{ $mode === 'create' ? route('ext.opencart.product-groups.store', $setting->id) : route('ext.opencart.product-groups.update', [$setting->id, $group->id]) }}">

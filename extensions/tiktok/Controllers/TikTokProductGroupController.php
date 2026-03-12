@@ -233,20 +233,28 @@ class TikTokProductGroupController extends Controller
             ->get(['manufacturer_id', 'name']);
 
         // Load current group products for the dual-listbox
+        // On validation failure, restore from old('product_ids') so selections aren't lost
+        $oldProductIds = old('product_ids');
         $groupProducts = collect();
-        if ($group->exists) {
+
+        if (!empty($oldProductIds)) {
+            $productIds = array_filter(array_map('intval', (array) $oldProductIds));
+        } elseif ($group->exists) {
             $productIds = $group->groupProducts()->pluck('product_id')->toArray();
-            if (!empty($productIds)) {
-                $groupProducts = DB::table($pfx . 'product as p')
-                    ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
-                        $j->on('p.product_id', '=', 'pd.product_id')
-                            ->where('pd.language_id', '=', $langId);
-                    })
-                    ->whereIn('p.product_id', $productIds)
-                    ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
-                    ->orderBy('pd.name')
-                    ->get();
-            }
+        } else {
+            $productIds = [];
+        }
+
+        if (!empty($productIds)) {
+            $groupProducts = DB::table($pfx . 'product as p')
+                ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                    $j->on('p.product_id', '=', 'pd.product_id')
+                        ->where('pd.language_id', '=', $langId);
+                })
+                ->whereIn('p.product_id', $productIds)
+                ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
+                ->orderBy('pd.name')
+                ->get();
         }
 
         return view('ext-tiktok::product-groups.form', compact(
@@ -552,25 +560,36 @@ class TikTokProductGroupController extends Controller
         }
 
         $ttIds = $pivots->pluck('tiktok_product_id')->toArray();
-        $result = $client->deleteProducts($c['app_key'], $c['app_secret'], $c['token'], $ttIds, $c['shop_cipher']);
-        $this->logApi('DELETE', '/product/202309/products', $result);
+        $deleted = 0;
+        $errors = [];
 
-        $apiCode = (int) ($result['body']['code'] ?? -1);
-        $apiOk = ($result['ok'] ?? false) && $apiCode === 0;
+        // TikTok limits delete to 20 product IDs per request
+        foreach (array_chunk($ttIds, 20) as $chunk) {
+            $result = $client->deleteProducts($c['app_key'], $c['app_secret'], $c['token'], $chunk, $c['shop_cipher']);
+            $this->logApi('DELETE', '/product/202309/products', $result);
 
-        if ($apiOk) {
-            // Clear tiktok_product_id and reset sync status
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+            if (($result['ok'] ?? false) && $apiCode === 0) {
+                $deleted += count($chunk);
+            } else {
+                $errors[] = $result['body']['message'] ?? 'Unknown error';
+            }
+        }
+
+        if ($deleted > 0) {
+            // Clear tiktok_product_id and reset sync status for successfully deleted
             TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
                 ->whereIn('product_id', $ids)
                 ->update(['tiktok_product_id' => null, 'sync_status' => 'pending', 'push_error' => null]);
-
-            return redirect()->route('ext.tiktok.product-groups.products', $id)
-                ->with('status', count($ttIds) . ' product(s) deleted from TikTok Shop.');
         }
 
-        $msg = $result['body']['message'] ?? 'Unknown error';
+        if (!empty($errors)) {
+            return redirect()->route('ext.tiktok.product-groups.products', $id)
+                ->with('error', 'TikTok delete failed: ' . implode('; ', $errors));
+        }
+
         return redirect()->route('ext.tiktok.product-groups.products', $id)
-            ->with('status', 'TikTok delete failed: ' . $msg);
+            ->with('status', $deleted . ' product(s) deleted from TikTok Shop.');
     }
 
     public function searchProducts(Request $request)
@@ -677,7 +696,7 @@ class TikTokProductGroupController extends Controller
 
             // Upload images (main + additional from product_image table)
             $imageUris = [];
-            $imgCipher = $c['sandbox'] ? null : $c['shop_cipher'];
+            // Image upload endpoint does NOT accept shop_cipher
 
             $allImages = [];
             $mainImg = trim((string) ($erp->image ?? ''));
@@ -701,7 +720,7 @@ class TikTokProductGroupController extends Controller
                 if (!file_exists($fullPath)) continue;
 
                 $imageData = $this->squareImage($fullPath) ?: file_get_contents($fullPath);
-                $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], $imageData, $imgCipher);
+                $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], $imageData);
                 $this->logApi('POST', '/product/202309/images/upload', $imgResult);
                 if ($imgResult['ok'] ?? false) {
                     $uri = $imgResult['body']['data']['uri'] ?? null;
@@ -716,6 +735,10 @@ class TikTokProductGroupController extends Controller
             $desc = trim(strip_tags((string) ($erp->description ?? '')));
             if (strlen($desc) < 1) {
                 $desc = $title;
+            }
+            // TikTok description max 10,000 characters
+            if (mb_strlen($desc) > 10000) {
+                $desc = mb_substr($desc, 0, 10000);
             }
             $isUpdate = (bool) $pivot->tiktok_product_id;
 
@@ -783,9 +806,9 @@ class TikTokProductGroupController extends Controller
             ];
 
             // Add package dimensions if available
-            $length = (float) ($erp->length ?? 0);
-            $width  = (float) ($erp->width ?? 0);
-            $height = (float) ($erp->height ?? 0);
+            $length = round((float) ($erp->length ?? 0), 2);
+            $width  = round((float) ($erp->width ?? 0), 2);
+            $height = round((float) ($erp->height ?? 0), 2);
             if ($length > 0 && $width > 0 && $height > 0) {
                 $payload['package_dimensions'] = [
                     'unit'   => 'CENTIMETER',

@@ -88,11 +88,11 @@
                     </div>
                     <div>
                         <label>Shop ID</label>
-                        <input class="input" name="shop_id" value="{{ old('shop_id', $setting->shop_id ?? '') }}">
+                        <input class="input" name="shop_id" autocomplete="off" value="{{ old('shop_id', $setting->shop_id ?? '') }}">
                     </div>
                     <div>
                         <label>Access Token</label>
-                        <input class="input" type="password" name="access_token" value="{{ old('access_token', $setting->access_token ?? '') }}">
+                        <input class="input" type="password" autocomplete="off" name="access_token" value="{{ old('access_token', $setting->access_token ?? '') }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">
@@ -217,11 +217,11 @@
                     </div>
                     <div>
                         <label>Sandbox Shop ID</label>
-                        <input class="input" name="sandbox_shop_id" value="{{ old('sandbox_shop_id', $setting->sandbox_shop_id ?? '') }}">
+                        <input class="input" name="sandbox_shop_id" autocomplete="off" value="{{ old('sandbox_shop_id', $setting->sandbox_shop_id ?? '') }}">
                     </div>
                     <div>
                         <label>Sandbox Access Token</label>
-                        <input class="input" type="password" name="sandbox_access_token" value="{{ old('sandbox_access_token', $setting->sandbox_access_token ?? '') }}">
+                        <input class="input" type="password" autocomplete="off" name="sandbox_access_token" value="{{ old('sandbox_access_token', $setting->sandbox_access_token ?? '') }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">

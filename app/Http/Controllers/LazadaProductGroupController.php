@@ -99,19 +99,27 @@ class LazadaProductGroupController extends Controller
         }
 
         // Load group products for dual-listbox
+        // On validation failure, restore from old('product_ids') so selections aren't lost
+        $oldProductIds = old('product_ids');
         $groupProducts = collect();
-        if ($group->exists) {
+
+        if (!empty($oldProductIds)) {
+            $productIds = array_filter(array_map('intval', (array) $oldProductIds));
+        } elseif ($group->exists) {
             $productIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
-            if (!empty($productIds)) {
-                $groupProducts = DB::table($pfx . 'product as p')
-                    ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
-                        $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
-                    })
-                    ->whereIn('p.product_id', $productIds)
-                    ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
-                    ->orderBy('pd.name')
-                    ->get();
-            }
+        } else {
+            $productIds = [];
+        }
+
+        if (!empty($productIds)) {
+            $groupProducts = DB::table($pfx . 'product as p')
+                ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                    $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
+                })
+                ->whereIn('p.product_id', $productIds)
+                ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.quantity')
+                ->orderBy('pd.name')
+                ->get();
         }
 
         return view('lazada.product-groups.form', [

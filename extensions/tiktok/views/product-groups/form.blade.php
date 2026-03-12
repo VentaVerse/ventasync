@@ -15,15 +15,6 @@
         </div>
     </div>
 
-    @if($errors->any())
-        <div class="alert danger">
-            <strong>Fix the following:</strong>
-            <ul style="margin:6px 0 0 18px;">
-                @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-            </ul>
-        </div>
-    @endif
-
     <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('ext.tiktok.product-groups.store') : route('ext.tiktok.product-groups.update', $group->id) }}">
         @csrf
         @if($mode === 'edit') @method('PUT') @endif

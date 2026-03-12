@@ -395,8 +395,11 @@ class TikTokController extends Controller
             $cipherCol = $sandbox ? 'sandbox_shop_cipher' : 'shop_cipher';
             $nameCol = $sandbox ? 'sandbox_shop_name' : 'shop_name';
 
+            $codeCol = $sandbox ? 'sandbox_shop_code' : 'shop_code';
+
             $raw->$shopIdCol = $shop['id'] ?? null;
             $raw->$cipherCol = $shop['cipher'] ?? null;
+            $raw->$codeCol = $shop['code'] ?? null;
             $raw->$nameCol = $shop['name'] ?? null;
             $raw->region = $shop['region'] ?? $raw->region;
 

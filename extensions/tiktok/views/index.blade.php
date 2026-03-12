@@ -90,12 +90,12 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>App Key</label>
-                        <input class="input" name="app_key" value="{{ old('app_key', $setting->app_key ?? '') }}">
+                        <input class="input" name="app_key" autocomplete="off" value="{{ old('app_key', $setting->app_key ?? '') }}">
                         <div class="hint">From TikTok Shop Partner Center.</div>
                     </div>
                     <div>
                         <label>App Secret</label>
-                        <input class="input" name="app_secret" type="password" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
+                        <input class="input" name="app_secret" type="password" autocomplete="off" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
@@ -176,10 +176,14 @@
                     <div class="hint" style="margin-top:6px;">Fetches your authorized shops and saves the shop_cipher required for API calls.</div>
 
                     @if($hasShop)
-                        <div style="margin-top:12px; padding:10px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border);">
-                            <div class="text-xs text-muted" style="margin-bottom:4px;">Shop Info</div>
+                        <div style="margin-top:12px; padding:10px 14px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border); line-height:1.7;">
+                            <div class="text-xs text-muted" style="margin-bottom:6px;">Shop Info</div>
                             <div><strong>{{ $setting->shop_name ?? '—' }}</strong></div>
-                            <div class="text-xs text-muted" style="margin-top:4px;">ID: {{ $setting->shop_id ?? '—' }} &middot; Cipher: {{ Str::limit($setting->shop_cipher ?? '—', 24) }} &middot; Region: {{ strtoupper($setting->region ?? '—') }} &middot; Warehouse: {{ $setting->warehouse_id ?? '—' }}</div>
+                            <div class="text-xs text-muted">Shop ID: {{ $setting->shop_id ?? '—' }}</div>
+                            <div class="text-xs text-muted">Shop Code: {{ $setting->shop_code ?? '—' }}</div>
+                            <div class="text-xs text-muted">Shop Cipher: {{ $setting->shop_cipher ?? '—' }}</div>
+                            <div class="text-xs text-muted">Region: {{ strtoupper($setting->region ?? '—') }}</div>
+                            <div class="text-xs text-muted">Warehouse: {{ $setting->warehouse_id ?? '—' }}</div>
                         </div>
                     @endif
                 </div>
@@ -224,11 +228,11 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Sandbox App Key</label>
-                        <input class="input" name="sandbox_app_key" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}">
+                        <input class="input" name="sandbox_app_key" autocomplete="off" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}">
                     </div>
                     <div>
                         <label>Sandbox App Secret</label>
-                        <input class="input" name="sandbox_app_secret" type="password" value="{{ old('sandbox_app_secret', $setting->sandbox_app_secret ?? '') }}">
+                        <input class="input" name="sandbox_app_secret" type="password" autocomplete="off" value="{{ old('sandbox_app_secret', $setting->sandbox_app_secret ?? '') }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
