@@ -88,7 +88,7 @@ class TikTokOrderController extends Controller
             'ALL'          => 'All',
             'UNPAID'       => 'Unpaid',
             'TO_SHIP'      => 'To Ship',
-            'IN_TRANSIT'   => 'In Transit',
+            'IN_TRANSIT'   => 'Shipping',
             'DELIVERED'    => 'Delivered',
             'COMPLETED'    => 'Completed',
             'CANCELLED'    => 'Cancelled',
