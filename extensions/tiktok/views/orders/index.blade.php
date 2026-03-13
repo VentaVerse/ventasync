@@ -322,7 +322,7 @@
                                     <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                         <div class="d-flex flex-wrap gap-6">
                                             @if($isToPack)
-                                                <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" onsubmit="return confirm('Ship this order?')">
+                                                <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" data-confirm="Ship this order?">
                                                     @csrf
                                                     <button type="submit" class="btn small">Arrange Shipment</button>
                                                 </form>

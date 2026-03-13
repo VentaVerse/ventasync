@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\StockHistoryLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -167,6 +168,8 @@ class ProductController extends Controller
             ->where('product_id', $id)
             ->exists();
 
+        $oldProductQty = (int) $product->quantity;
+
         if ($hasOptions) {
             $request->validate([
                 'options'            => 'required|array|min:1',
@@ -179,10 +182,28 @@ class ProductController extends Controller
                 $povId = (int) $opt['product_option_value_id'];
                 $qty = (int) $opt['quantity'];
 
+                $oldOptQty = (int) DB::table($p . 'product_option_value')
+                    ->where('product_option_value_id', $povId)
+                    ->where('product_id', $id)
+                    ->value('quantity');
+
                 DB::table($p . 'product_option_value')
                     ->where('product_option_value_id', $povId)
                     ->where('product_id', $id)
                     ->update(['quantity' => $qty]);
+
+                if ($oldOptQty !== $qty) {
+                    StockHistoryLogger::log(
+                        productId: $id,
+                        optionValueId: $povId,
+                        orderId: null,
+                        type: 'set',
+                        qtyBefore: $oldOptQty,
+                        qtyAfter: $qty,
+                        source: 'mobile',
+                        note: "Mobile edit (option) — qty {$oldOptQty} → {$qty}",
+                    );
+                }
 
                 $totalQty += $qty;
             }
@@ -194,17 +215,45 @@ class ProductController extends Controller
                     'quantity'      => $totalQty,
                     'date_modified' => now(),
                 ]);
+
+            if ($oldProductQty !== $totalQty) {
+                StockHistoryLogger::log(
+                    productId: $id,
+                    optionValueId: null,
+                    orderId: null,
+                    type: 'set',
+                    qtyBefore: $oldProductQty,
+                    qtyAfter: $totalQty,
+                    source: 'mobile',
+                    note: "Mobile edit — qty {$oldProductQty} → {$totalQty}",
+                );
+            }
         } else {
             $request->validate([
                 'quantity' => 'required|integer|min:0',
             ]);
 
+            $newQty = (int) $request->input('quantity');
+
             DB::table($p . 'product')
                 ->where('product_id', $id)
                 ->update([
-                    'quantity'      => (int) $request->input('quantity'),
+                    'quantity'      => $newQty,
                     'date_modified' => now(),
                 ]);
+
+            if ($oldProductQty !== $newQty) {
+                StockHistoryLogger::log(
+                    productId: $id,
+                    optionValueId: null,
+                    orderId: null,
+                    type: 'set',
+                    qtyBefore: $oldProductQty,
+                    qtyAfter: $newQty,
+                    source: 'mobile',
+                    note: "Mobile edit — qty {$oldProductQty} → {$newQty}",
+                );
+            }
         }
 
         return $this->showQuantity($id);
