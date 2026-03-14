@@ -117,11 +117,8 @@ const $opt2ValList    = document.getElementById('opt2-value-list');
 const $optionsRoot    = document.getElementById('options-root');
 
 // ---- Event delegation on tbody (catches all dynamic rows) ----
-console.log('[OPTIONS DEBUG] $tbody found:', !!$tbody);
 $tbody.addEventListener('input', function(e) {
-    console.log('[OPTIONS DEBUG] input event on:', e.target.className, 'value:', e.target.value);
     if (e.target.classList.contains('js-price') || e.target.classList.contains('js-cost')) {
-        console.log('[OPTIONS DEBUG] calling calcRowMetrics');
         calcRowMetrics(e.target.closest('tr'));
     }
     if (e.target.classList.contains('js-qty')) {
@@ -304,21 +301,29 @@ function saveTableToState() {
 }
 
 function calcRowMetrics(row) {
-    const price  = parseFloat(row.querySelector('.js-price').value) || 0;
-    const cost   = parseFloat(row.querySelector('.js-cost').value) || 0;
+    const priceInput = row.querySelector('.js-price');
+    const costInput  = row.querySelector('.js-cost');
+    const price  = parseFloat(priceInput ? priceInput.value : 0) || 0;
+    const cost   = parseFloat(costInput ? costInput.value : 0) || 0;
     const profit = price - cost;
     const margin = price > 0 ? (profit / price * 100) : 0;
+    const markup = cost > 0 ? (profit / cost * 100) : 0;
     const cls    = profit >= 0 ? 'opt-metric-positive' : 'opt-metric-negative';
 
     const profitEl = row.querySelector('.js-profit');
     if (profitEl) {
         profitEl.textContent = profit.toFixed(2);
-        profitEl.className = 'opt-metric ' + cls;
+        profitEl.className = 'opt-metric js-profit ' + cls;
     }
     const marginEl = row.querySelector('.js-margin');
     if (marginEl) {
         marginEl.textContent = margin.toFixed(1) + '%';
-        marginEl.className = 'opt-metric ' + cls;
+        marginEl.className = 'opt-metric js-margin ' + cls;
+    }
+    const markupEl = row.querySelector('.js-markup');
+    if (markupEl) {
+        markupEl.textContent = markup.toFixed(1) + '%';
+        markupEl.className = 'opt-metric js-markup ' + cls;
     }
 }
 
@@ -351,6 +356,7 @@ function buildHeaderRow(is2) {
     tr.appendChild(createEl('th', { className: 'opt-col-cost' }, 'Cost'));
     tr.appendChild(createEl('th', { className: 'opt-col-profit' }, 'Profit'));
     tr.appendChild(createEl('th', { className: 'opt-col-margin' }, 'Margin'));
+    tr.appendChild(createEl('th', { className: 'opt-col-markup' }, 'Markup'));
     tr.appendChild(createEl('th', { className: 'opt-col-actions' }));
     return tr;
 }
@@ -387,6 +393,10 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     const tdMargin = document.createElement('td');
     tdMargin.appendChild(createEl('span', { className: 'opt-metric js-margin' }, '\u2014'));
     tr.appendChild(tdMargin);
+
+    const tdMarkup = document.createElement('td');
+    tdMarkup.appendChild(createEl('span', { className: 'opt-metric js-markup' }, '\u2014'));
+    tr.appendChild(tdMarkup);
 
     tr.appendChild(document.createElement('td'));
 
@@ -428,6 +438,10 @@ function buildOneOptRow(v, idx) {
     const tdMargin = document.createElement('td');
     tdMargin.appendChild(createEl('span', { className: 'opt-metric js-margin' }, '\u2014'));
     tr.appendChild(tdMargin);
+
+    const tdMarkup = document.createElement('td');
+    tdMarkup.appendChild(createEl('span', { className: 'opt-metric js-markup' }, '\u2014'));
+    tr.appendChild(tdMarkup);
 
     const tdActions = document.createElement('td');
     const removeBtn = createEl('button', { className: 'btn danger opt-btn-row-remove', type: 'button', title: 'Remove' }, '\u00d7');

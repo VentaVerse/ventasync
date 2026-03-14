@@ -122,10 +122,7 @@ class SkuSyncService
                 $new = $change['new'];
 
                 $variant = LazadaProductVariant::where('lazada_product_id', $listing->id)
-                    ->where(function ($q) use ($old, $povId) {
-                        $q->where('seller_sku', $old)
-                          ->orWhere('product_option_value_id', $povId);
-                    })
+                    ->where('seller_sku', $old)
                     ->first();
 
                 if ($variant) {

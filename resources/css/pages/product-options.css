@@ -22,6 +22,7 @@
 .opt-table th.opt-col-cost { width: 120px; }
 .opt-table th.opt-col-profit { width: 90px; }
 .opt-table th.opt-col-margin { width: 80px; }
+.opt-table th.opt-col-markup { width: 80px; }
 .opt-table th.opt-col-actions { width: 40px; }
 
 /* ---- Value label (in combo grid rows) ---- */
