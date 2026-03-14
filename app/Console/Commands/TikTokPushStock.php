@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\tiktok\Models\TikTokProductGroupProduct;
 use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Models\TikTokProductGroup;
 use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +31,7 @@ class TikTokPushStock extends Command
         $appSecret  = $sandbox ? ($s->sandbox_app_secret ?? '') : ($s->app_secret ?? '');
         $token      = $sandbox ? ($s->sandbox_access_token ?? '') : ($s->access_token ?? '');
         $shopCipher = $sandbox ? ($raw->sandbox_shop_cipher ?? '') : ($raw->shop_cipher ?? '');
+        $warehouseId = $raw->warehouse_id ?: null;
 
         if (!$appKey || !$appSecret || !$token) {
             $this->error('Missing TikTok credentials/token.');
@@ -46,44 +47,90 @@ class TikTokPushStock extends Command
         $pfx = (string) config('catalog.prefix');
         $client = new TikTokClient();
 
-        // Get all product groups with TikTok product IDs
-        $groups = TikTokProductGroup::query()
+        // Get all pivot rows that have been pushed to TikTok
+        $pivotRows = TikTokProductGroupProduct::query()
             ->whereNotNull('tiktok_product_id')
             ->where('tiktok_product_id', '!=', '')
-            ->with('items')
             ->get();
 
-        if ($groups->isEmpty()) {
-            $this->info('No TikTok product groups with linked products.');
+        if ($pivotRows->isEmpty()) {
+            $this->info('No TikTok products linked.');
             $raw->update(['last_stock_push_at' => now()]);
             return 0;
         }
 
-        $this->info("Pushing stock for {$groups->count()} product group(s)...");
+        // Preload ERP product data
+        $productIds = $pivotRows->pluck('product_id')->unique()->values()->all();
+        $erpProducts = DB::table($pfx . 'product')
+            ->whereIn('product_id', $productIds)
+            ->get(['product_id', 'quantity', 'status'])
+            ->keyBy('product_id');
+
+        // Preload option values for all products
+        $erpOptionsByProduct = DB::table($pfx . 'product_option_value')
+            ->whereIn('product_id', $productIds)
+            ->whereNotNull('sku')
+            ->where('sku', '!=', '')
+            ->get(['product_id', 'product_option_value_id', 'option_value_id', 'sku', 'quantity'])
+            ->groupBy('product_id');
+
+        $this->info("Pushing stock for {$pivotRows->count()} product(s)...");
 
         $totalOk = 0;
         $totalErr = 0;
         $skipped = 0;
 
-        foreach ($groups as $group) {
-            $tiktokProductId = (string) $group->tiktok_product_id;
-
-            // Build SKU inventory from the group's ERP product
-            $skus = $this->buildSkuInventory($pfx, $group);
-
-            if (empty($skus)) {
+        foreach ($pivotRows as $pivot) {
+            $product = $erpProducts->get((int) $pivot->product_id);
+            if (!$product || (int) $product->status === 0) {
                 $skipped++;
                 continue;
             }
 
-            $result = $client->updateInventory($appKey, $appSecret, $token, $tiktokProductId, $skus, $shopCipher);
+            $skuIdRaw = $pivot->tiktok_sku_id;
+            $skuMap = $this->parseSkuIds($skuIdRaw);
+
+            if ($skuMap === null) {
+                // Single-variant product
+                if (!$skuIdRaw) {
+                    // Try fetching SKU ID from TikTok API
+                    $detail = $client->getProduct($appKey, $appSecret, $token, $pivot->tiktok_product_id, $shopCipher);
+                    $skuIdRaw = $detail['body']['data']['skus'][0]['id'] ?? null;
+                    if ($skuIdRaw) {
+                        $pivot->update(['tiktok_sku_id' => $skuIdRaw]);
+                    }
+                }
+                if (!$skuIdRaw) {
+                    $totalErr++;
+                    continue;
+                }
+
+                $qty = max(0, (int) ($product->quantity ?? 0));
+                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [array_filter(['warehouse_id' => $warehouseId, 'quantity' => $qty])]]];
+            } else {
+                // Multi-variant — build inventory for each option value
+                $optionValues = $erpOptionsByProduct->get((int) $pivot->product_id, collect())->keyBy('option_value_id');
+                $skuPayload = [];
+                foreach ($skuMap as $ovId => $ttSkuId) {
+                    if (!$ttSkuId) continue;
+                    $ov = $optionValues->get($ovId);
+                    $qty = $ov ? max(0, (int) $ov->quantity) : 0;
+                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [array_filter(['warehouse_id' => $warehouseId, 'quantity' => $qty])]];
+                }
+                if (empty($skuPayload)) {
+                    $totalErr++;
+                    continue;
+                }
+            }
+
+            $result = $client->updateInventory($appKey, $appSecret, $token, $pivot->tiktok_product_id, $skuPayload, $shopCipher);
 
             TikTokApiLog::safeCreate([
                 'pack'            => 'push-stock-cron',
                 'method'          => 'POST',
-                'api_path'        => '/product/202309/products/' . $tiktokProductId . '/inventory/update',
+                'api_path'        => '/product/202309/products/' . $pivot->tiktok_product_id . '/inventory/update',
                 'auth_required'   => true,
-                'request_params'  => ['skus' => $skus],
+                'request_params'  => ['skus' => $skuPayload],
                 'response_status' => $result['status'] ?? 0,
                 'ok'              => $result['ok'] ?? false,
                 'response_body'   => $result['body'] ?? [],
@@ -96,8 +143,10 @@ class TikTokPushStock extends Command
             } else {
                 $totalErr++;
                 $msg = $result['body']['message'] ?? 'Unknown error';
-                Log::warning("TikTok push-stock failed for product {$tiktokProductId}: {$msg}");
+                Log::warning("TikTok push-stock failed for product {$pivot->tiktok_product_id}: {$msg}");
             }
+
+            usleep(300000); // 300ms rate limit
         }
 
         $raw->update(['last_stock_push_at' => now()]);
@@ -106,85 +155,16 @@ class TikTokPushStock extends Command
         return $totalErr > 0 ? 1 : 0;
     }
 
-    private function buildSkuInventory(string $pfx, TikTokProductGroup $group): array
+    /**
+     * Parse tiktok_sku_id value. Returns assoc array (option_value_id => sku_id)
+     * for multi-variant products, or null for single-variant.
+     */
+    private function parseSkuIds(?string $skuIdRaw): ?array
     {
-        $skus = [];
-
-        // Get the first linked ERP product (product groups typically link to one product)
-        $firstItem = $group->items->first();
-        if (!$firstItem || !$firstItem->product_id) {
-            return $skus;
+        if (!$skuIdRaw || $skuIdRaw[0] !== '{') {
+            return null;
         }
-
-        $productId = (int) $firstItem->product_id;
-
-        $product = DB::table($pfx . 'product')
-            ->where('product_id', $productId)
-            ->first(['product_id', 'quantity', 'status']);
-
-        if (!$product || (int) $product->status === 0) {
-            return $skus;
-        }
-
-        // Check for option values (variants)
-        $options = DB::table($pfx . 'product_option_value')
-            ->where('product_id', $productId)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_option_value_id', 'sku', 'quantity']);
-
-        // Get stored SKU mapping from the group's raw data
-        $groupRaw = is_array($group->raw) ? $group->raw : [];
-        $tiktokSkus = $groupRaw['skus'] ?? [];
-
-        if ($options->isNotEmpty()) {
-            // Product has variants — match by seller_sku
-            $erpSkuMap = [];
-            foreach ($options as $opt) {
-                $erpSkuMap[trim((string) $opt->sku)] = max(0, (int) $opt->quantity);
-            }
-
-            foreach ($tiktokSkus as $ttSku) {
-                $ttSkuId = $ttSku['id'] ?? null;
-                $sellerSku = '';
-                foreach ($ttSku['sales_attributes'] ?? [] as $attr) {
-                    if (!empty($attr['sku_img'])) continue;
-                    $sellerSku = $attr['custom_value'] ?? $attr['value_name'] ?? '';
-                }
-                // Try matching by seller_sku in the SKU identifiers
-                foreach ($ttSku['seller_sku'] ?? [] as $ss) {
-                    $sellerSku = $ss;
-                }
-                // Fallback: direct seller_sku field
-                if (isset($ttSku['seller_sku']) && is_string($ttSku['seller_sku'])) {
-                    $sellerSku = $ttSku['seller_sku'];
-                }
-
-                if ($ttSkuId && isset($erpSkuMap[$sellerSku])) {
-                    $skus[] = [
-                        'id' => (string) $ttSkuId,
-                        'inventory' => [
-                            ['quantity' => $erpSkuMap[$sellerSku]],
-                        ],
-                    ];
-                }
-            }
-        } else {
-            // Simple product — push base quantity to all TikTok SKUs
-            $qty = max(0, (int) $product->quantity);
-            foreach ($tiktokSkus as $ttSku) {
-                $ttSkuId = $ttSku['id'] ?? null;
-                if ($ttSkuId) {
-                    $skus[] = [
-                        'id' => (string) $ttSkuId,
-                        'inventory' => [
-                            ['quantity' => $qty],
-                        ],
-                    ];
-                }
-            }
-        }
-
-        return $skus;
+        $decoded = json_decode($skuIdRaw, true);
+        return is_array($decoded) ? $decoded : null;
     }
 }
