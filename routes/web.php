@@ -166,6 +166,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shopee/product-groups/{id}/products/push-stock', [ShopeeProductGroupController::class, 'pushStock'])->name('shopee.product-groups.pushStock');
         Route::post('/shopee/product-groups/{id}/products/mass-remove', [ShopeeProductGroupController::class, 'massRemove'])->name('shopee.product-groups.massRemove');
         Route::post('/shopee/product-groups/{id}/products/delete-from-shopee', [ShopeeProductGroupController::class, 'deleteFromShopee'])->name('shopee.product-groups.deleteFromShopee');
+        Route::post('/shopee/product-groups/{id}/products/{productId}/unlink', [ShopeeProductGroupController::class, 'unlinkProduct'])->name('shopee.product-groups.unlinkProduct');
+        Route::post('/shopee/product-groups/{id}/products/{productId}/link', [ShopeeProductGroupController::class, 'linkProduct'])->name('shopee.product-groups.linkProduct');
         Route::delete('/shopee/product-groups/{id}/products/{productId}', [ShopeeProductGroupController::class, 'removeProduct'])->name('shopee.product-groups.removeProduct');
         Route::post('/shopee/product-groups/{id}/template/sync', [ShopeeProductGroupController::class, 'syncTemplate'])->name('shopee.product-groups.template_sync');
         Route::post('/shopee/product-groups/refresh-categories', [ShopeeProductGroupController::class, 'refreshCategories'])->name('shopee.product-groups.refreshCategories');
@@ -258,6 +260,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/product-groups/{id}/products/push-stock', [LazadaProductGroupController::class, 'pushStock'])->whereNumber('id')->name('lazada.product-groups.pushStock');
         Route::post('/lazada/product-groups/{id}/products/mass-remove', [LazadaProductGroupController::class, 'massRemove'])->whereNumber('id')->name('lazada.product-groups.massRemove');
         Route::post('/lazada/product-groups/{id}/products/delete-from-lazada', [LazadaProductGroupController::class, 'deleteFromLazada'])->whereNumber('id')->name('lazada.product-groups.deleteFromLazada');
+        Route::post('/lazada/product-groups/{id}/products/{productId}/unlink', [LazadaProductGroupController::class, 'unlinkProduct'])->whereNumber('id')->name('lazada.product-groups.unlinkProduct');
+        Route::post('/lazada/product-groups/{id}/products/{productId}/link', [LazadaProductGroupController::class, 'linkProduct'])->whereNumber('id')->name('lazada.product-groups.linkProduct');
         Route::delete('/lazada/product-groups/{id}/products/{productId}', [LazadaProductGroupController::class, 'removeProduct'])->whereNumber('id')->name('lazada.product-groups.removeProduct');
         Route::post('/lazada/product-groups/{id}/template/sync', [LazadaProductGroupController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.product-groups.template_sync');
         Route::post('/lazada/product-groups/refresh-categories', [LazadaProductGroupController::class, 'refreshCategories'])->name('lazada.product-groups.refreshCategories');

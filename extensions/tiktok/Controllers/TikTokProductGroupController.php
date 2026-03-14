@@ -376,6 +376,36 @@ class TikTokProductGroupController extends Controller
 
         $productIds = $this->getMatchingProductIds($group);
 
+        // Auto-fill: detect products already synced to TikTok via other groups
+        if (!empty($productIds)) {
+            $missingPivots = TikTokProductGroupProduct::query()
+                ->where('tiktok_product_group_id', $group->id)
+                ->whereIn('product_id', $productIds)
+                ->whereNull('tiktok_product_id')
+                ->where('sync_status', '!=', 'unlinked')
+                ->get();
+
+            if ($missingPivots->isNotEmpty()) {
+                $missingProductIds = $missingPivots->pluck('product_id')->toArray();
+
+                $existingTikTokIds = DB::table('tiktok_product_group_products')
+                    ->where('tiktok_product_group_id', '!=', $group->id)
+                    ->whereIn('product_id', $missingProductIds)
+                    ->whereNotNull('tiktok_product_id')
+                    ->pluck('tiktok_product_id', 'product_id');
+
+                foreach ($missingPivots as $pivot) {
+                    $ttId = $existingTikTokIds->get($pivot->product_id);
+                    if ($ttId) {
+                        $pivot->update([
+                            'tiktok_product_id' => $ttId,
+                            'sync_status' => 'synced',
+                        ]);
+                    }
+                }
+            }
+        }
+
         $emptyPaginator = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
 
         if (empty($productIds)) {
@@ -403,9 +433,9 @@ class TikTokProductGroupController extends Controller
 
         // Filter by sync status
         if ($syncStatus === 'pushed') {
-            $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'pushed'));
+            $productIds = array_values(array_filter($productIds, fn($pid) => in_array($pivotMap->get($pid)->sync_status ?? '', ['pushed', 'synced'])));
         } elseif ($syncStatus === 'pending') {
-            $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? 'pending') !== 'pushed'));
+            $productIds = array_values(array_filter($productIds, fn($pid) => !in_array($pivotMap->get($pid)->sync_status ?? 'pending', ['pushed', 'synced', 'unlinked'])));
         } elseif ($syncStatus === 'error') {
             $productIds = array_values(array_filter($productIds, fn($pid) => ($pivotMap->get($pid)->sync_status ?? '') === 'error'));
         }
@@ -517,6 +547,50 @@ class TikTokProductGroupController extends Controller
 
         return $this->productsRedirect($id)
             ->with('status', "{$added} product(s) added.");
+    }
+
+    public function unlinkProduct(int $id, int $product)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+
+        TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
+            ->where('product_id', $product)
+            ->update(['sync_status' => 'unlinked']);
+
+        return $this->productsRedirect($id)
+            ->with('status', 'Product unlinked from TikTok.');
+    }
+
+    public function linkProduct(int $id, int $product)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $pivot = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
+            ->where('product_id', $product)
+            ->first();
+
+        if ($pivot) {
+            $status = 'pending';
+            if ($pivot->tiktok_product_id) {
+                $status = 'synced';
+            } else {
+                // Try to find from other groups
+                $ttId = DB::table('tiktok_product_group_products')
+                    ->where('tiktok_product_group_id', '!=', $group->id)
+                    ->where('product_id', $product)
+                    ->whereNotNull('tiktok_product_id')
+                    ->value('tiktok_product_id');
+
+                if ($ttId) {
+                    $pivot->tiktok_product_id = $ttId;
+                    $status = 'synced';
+                }
+            }
+            $pivot->sync_status = $status;
+            $pivot->save();
+        }
+
+        return $this->productsRedirect($id)
+            ->with('status', 'Product re-linked.');
     }
 
     public function removeProduct(int $id, int $product)

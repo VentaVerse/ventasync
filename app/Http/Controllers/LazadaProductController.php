@@ -488,7 +488,7 @@ private function extractCreatedItemId(array $result): ?string
  *
  * This is used to make /product/remove reliable even when variant sku_id mapping isn't stored locally.
  */
-private function fetchSkuIdListByItemId(\App\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
+public function fetchSkuIdListByItemId(\App\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
 {
     $apiPath = '/product/item/get';
     $timestamp = (string) round(microtime(true) * 1000);
@@ -3477,7 +3477,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
      * Lazada requires "inlink" images for product create/update.
      * If we send non-Lazada URLs, QC returns BIZ_CHECK_EXIST_OUTER_MAIN_IMAGE.
      */
-    private function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
+    public function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
     {
         $images = data_get($productPayload, 'Request.Product.Images.Image', []);
         if (!is_array($images) || empty($images)) {
@@ -3866,7 +3866,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     return array_fill_keys($urls, null);
 }
 
-    private function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null): array
+    public function buildLazadaProductCreatePayload(LazadaProduct $listing, ?object $setting = null, ?LazadaClient $client = null): array
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -5058,7 +5058,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
      * For ERP products with options, return variant SellerSku + quantity from product_option_value.
      * If a row has empty sku, it is ignored (can't sync to Lazada without SellerSku).
      */
-    private function getErpVariantStockByProductId(int $productId): array
+    public function getErpVariantStockByProductId(int $productId): array
     {
         $pfx = (string) config('catalog.prefix');
 

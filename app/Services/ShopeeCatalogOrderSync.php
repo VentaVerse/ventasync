@@ -55,7 +55,7 @@ class ShopeeCatalogOrderSync
             $shippingMethod = trim((string) ($raw['shipping_carrier'] ?? ($raw['checkout_shipping_carrier'] ?? '')));
             $paymentMethod = trim((string) ($raw['payment_method'] ?? ''));
             $trackingNumber = trim((string) ($raw['tracking_no'] ?? ($raw['tracking_number'] ?? '')));
-            $total = (float) ($raw['total_amount'] ?? ($raw['escrow_amount'] ?? 0));
+            $apiTotal = (float) ($raw['total_amount'] ?? ($raw['escrow_amount'] ?? 0));
             $currencyCode = trim((string) ($raw['currency'] ?? 'PHP'));
             if ($currencyCode === '') $currencyCode = 'PHP';
 
@@ -124,7 +124,7 @@ class ShopeeCatalogOrderSync
                 'shipping_cost'         => 0,
                 'shipping_code'         => '',
                 'comment'               => '',
-                'total'                 => $total,
+                'total'                 => $apiTotal,
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,
                 'affiliate_id'          => 0,
@@ -162,7 +162,7 @@ class ShopeeCatalogOrderSync
                 try {
                     $firstProduct = $shopeeOrder->products->first();
                     $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($firstname . ' ' . ($lastname ?? ''));
-                    $totalStr = number_format($total, 2) . ' ' . $currencyCode;
+                    $totalStr = number_format($apiTotal, 2) . ' ' . $currencyCode;
                     (new FcmService())->notifyIfNeeded((int) $catalogOrder->order_id, $oldStatusId, $statusId, $itemName, $totalStr, 'shopee');
                 } catch (\Throwable $e) {
                     \Log::warning('FCM notification failed: ' . $e->getMessage());
@@ -294,6 +294,24 @@ class ShopeeCatalogOrderSync
                 }
             }
 
+            // --- Compute correct revenue total ---
+            // Revenue = item selling prices - seller-funded vouchers
+            // Platform vouchers (voucher_from_shopee, coins) do NOT reduce revenue
+            // Buyer-paid shipping is NOT revenue
+            $feeData = is_array($shopeeOrder->fees) ? $shopeeOrder->fees : [];
+            $orderIncome = $feeData['order_income'] ?? $feeData;
+
+            $buyerPaidShipping = abs((float) ($orderIncome['buyer_paid_shipping_fee'] ?? 0));
+            $voucherSeller = abs((float) ($orderIncome['voucher_from_seller'] ?? 0));
+
+            // Use escrow shipping data (Shopee products don't have per-item shipping)
+            if ($buyerPaidShipping > 0 && $shippingTotal == 0) {
+                $shippingTotal = $buyerPaidShipping;
+            }
+
+            $total = $subTotal - $voucherSeller;
+            $catalogOrder->update(['total' => $total]);
+
             // --- Sync order totals ---
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
@@ -312,6 +330,16 @@ class ShopeeCatalogOrderSync
                     'code'       => 'shipping',
                     'title'      => 'Shipping',
                     'value'      => $shippingTotal,
+                    'sort_order' => $sortOrder++,
+                ]);
+            }
+
+            if ($voucherSeller != 0) {
+                OrderTotal::create([
+                    'order_id'   => $catalogOrder->order_id,
+                    'code'       => 'voucher',
+                    'title'      => 'Seller Voucher',
+                    'value'      => -$voucherSeller,
                     'sort_order' => $sortOrder++,
                 ]);
             }

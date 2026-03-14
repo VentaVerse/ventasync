@@ -36,6 +36,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/tiktok/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');
         Route::get('/tiktok/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
         Route::post('/tiktok/product-groups/{id}/add-products', [TikTokProductGroupController::class, 'addProducts'])->name('ext.tiktok.product-groups.addProducts');
+        Route::post('/tiktok/product-groups/{id}/products/{product}/unlink', [TikTokProductGroupController::class, 'unlinkProduct'])->name('ext.tiktok.product-groups.unlinkProduct');
+        Route::post('/tiktok/product-groups/{id}/products/{product}/link', [TikTokProductGroupController::class, 'linkProduct'])->name('ext.tiktok.product-groups.linkProduct');
         Route::delete('/tiktok/product-groups/{id}/products/{product}', [TikTokProductGroupController::class, 'removeProduct'])->name('ext.tiktok.product-groups.removeProduct');
         Route::post('/tiktok/product-groups/{id}/mass-remove', [TikTokProductGroupController::class, 'massRemove'])->name('ext.tiktok.product-groups.massRemove');
         Route::post('/tiktok/product-groups/{id}/delete-from-tiktok', [TikTokProductGroupController::class, 'deleteFromTikTok'])->name('ext.tiktok.product-groups.deleteFromTikTok');

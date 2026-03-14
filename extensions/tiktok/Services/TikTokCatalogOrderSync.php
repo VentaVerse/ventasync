@@ -57,7 +57,7 @@ class TikTokCatalogOrderSync
             if (!is_array($paymentInfo)) $paymentInfo = [];
 
             $paymentMethod = trim((string) ($paymentInfo['payment_method'] ?? ($paymentInfo['payment_method_name'] ?? '')));
-            $total = (float) ($paymentInfo['total_amount'] ?? ($paymentInfo['original_total_product_price'] ?? 0));
+            $apiTotal = (float) ($paymentInfo['total_amount'] ?? ($paymentInfo['original_total_product_price'] ?? 0));
             $currencyCode = trim((string) ($paymentInfo['currency'] ?? 'PHP'));
             if ($currencyCode === '') $currencyCode = 'PHP';
 
@@ -136,7 +136,7 @@ class TikTokCatalogOrderSync
                 'shipping_cost'         => 0,
                 'shipping_code'         => '',
                 'comment'               => '',
-                'total'                 => $total,
+                'total'                 => $apiTotal,
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,
                 'affiliate_id'          => 0,
@@ -174,7 +174,7 @@ class TikTokCatalogOrderSync
                 try {
                     $firstProduct = $tiktokOrder->products->first();
                     $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($firstname . ' ' . $lastname);
-                    $totalStr = number_format($total, 2) . ' ' . $currencyCode;
+                    $totalStr = number_format($apiTotal, 2) . ' ' . $currencyCode;
                     (new FcmService())->notifyIfNeeded((int) $catalogOrder->order_id, $oldStatusId, $statusId, $itemName, $totalStr, 'tiktok');
                 } catch (\Throwable $e) {
                     \Log::warning('FCM notification failed: ' . $e->getMessage());
@@ -305,6 +305,11 @@ class TikTokCatalogOrderSync
                     ]);
                 }
             }
+
+            // --- Compute correct revenue total ---
+            // Revenue = item selling prices (shipping is not revenue)
+            $total = $subTotal;
+            $catalogOrder->update(['total' => $total]);
 
             // --- Sync order totals ---
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();

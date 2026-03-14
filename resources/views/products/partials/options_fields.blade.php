@@ -116,6 +116,19 @@ const $opt1ValSection = document.getElementById('opt1-values-section');
 const $opt2ValList    = document.getElementById('opt2-value-list');
 const $optionsRoot    = document.getElementById('options-root');
 
+// ---- Event delegation on tbody (catches all dynamic rows) ----
+console.log('[OPTIONS DEBUG] $tbody found:', !!$tbody);
+$tbody.addEventListener('input', function(e) {
+    console.log('[OPTIONS DEBUG] input event on:', e.target.className, 'value:', e.target.value);
+    if (e.target.classList.contains('js-price') || e.target.classList.contains('js-cost')) {
+        console.log('[OPTIONS DEBUG] calling calcRowMetrics');
+        calcRowMetrics(e.target.closest('tr'));
+    }
+    if (e.target.classList.contains('js-qty')) {
+        recalcProductQty();
+    }
+});
+
 // ---- Helpers ----
 
 function createEl(tag, attrs, textContent) {
@@ -313,9 +326,11 @@ function bindRowEvents(tr) {
     const priceEl = tr.querySelector('.js-price');
     const costEl  = tr.querySelector('.js-cost');
     const qtyEl   = tr.querySelector('.js-qty');
-    if (priceEl) priceEl.addEventListener('input', () => calcRowMetrics(tr));
-    if (costEl)  costEl.addEventListener('input', () => calcRowMetrics(tr));
-    if (qtyEl)   qtyEl.addEventListener('input', () => recalcProductQty());
+    const recalcPrice = () => calcRowMetrics(tr);
+    const recalcQty = () => recalcProductQty();
+    if (priceEl) { priceEl.addEventListener('input', recalcPrice); priceEl.addEventListener('change', recalcPrice); }
+    if (costEl)  { costEl.addEventListener('input', recalcPrice); costEl.addEventListener('change', recalcPrice); }
+    if (qtyEl)   { qtyEl.addEventListener('input', recalcQty); qtyEl.addEventListener('change', recalcQty); }
 }
 
 // ---- Table rendering (no innerHTML for user data) ----

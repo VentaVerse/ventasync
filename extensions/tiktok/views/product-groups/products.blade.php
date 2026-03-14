@@ -99,8 +99,9 @@
                         $pivot = $pivotMap->get($p->product_id);
                         $img = trim((string)($p->image ?? ''));
                         $src = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-                        $hasTikTokId = $pivot && $pivot->tiktok_product_id;
                         $syncState = $pivot->sync_status ?? 'pending';
+                        $isUnlinked = $syncState === 'unlinked';
+                        $hasTikTokId = $pivot && $pivot->tiktok_product_id && !$isUnlinked;
                         $hasError = $syncState === 'error' && ($pivot->push_error ?? null);
                         $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
                     @endphp
@@ -168,7 +169,11 @@
                             @endif
                         </td>
                         <td>
-                            @if($hasTikTokId)
+                            @if($isUnlinked)
+                                <span class="badge">Unlinked</span>
+                            @elseif($hasTikTokId && $syncState === 'synced')
+                                <span class="badge badge-green">Synced</span>
+                            @elseif($hasTikTokId)
                                 <span class="badge badge-green">Pushed</span>
                             @elseif($syncState === 'error')
                                 <span class="badge badge-red">Error</span>
@@ -243,6 +248,25 @@
                                             <button type="submit" class="action-item" style="color:var(--danger);">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                                 Delete from TikTok
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if($hasTikTokId)
+                                        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
+                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form" data-confirm="Unlink this product from TikTok? The product stays in the group but sync will stop.">
+                                            @csrf
+                                            <button type="submit" class="action-item" style="color:var(--warning);">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                                                Unlink from TikTok
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if($isUnlinked)
+                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                Link to TikTok
                                             </button>
                                         </form>
                                     @endif

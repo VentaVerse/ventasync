@@ -47,7 +47,7 @@
                     <th style="width:100px;">Price</th>
                     <th style="width:80px;">Qty</th>
                     <th style="width:90px;">Status</th>
-                    <th style="width:100px;">OC Link</th>
+                    <th>Sync Status</th>
                     <th style="width:100px;">Source</th>
                     <th style="width:140px;"></th>
                 </tr>
@@ -80,11 +80,28 @@
                         <td>{{ (int)$p->quantity }}</td>
                         <td>{{ (int)$p->status === 1 ? 'Enabled' : 'Disabled' }}</td>
                         <td>
-                            @if($link)
-                                <span class="badge badge-green">OC #{{ $link->oc_product_id }}</span>
-                            @else
-                                <span class="text-muted">Not pushed</span>
-                            @endif
+                            <div class="d-flex gap-4 flex-wrap">
+                                @if($link)
+                                    <span class="badge badge-green" title="{{ $setting->store_name }} #{{ $link->oc_product_id }}">{{ $setting->store_name }} #{{ $link->oc_product_id }}</span>
+                                @endif
+                                @if(isset($otherOcLinks[$p->product_id]))
+                                    @foreach($otherOcLinks[$p->product_id] as $oLink)
+                                        <span class="badge badge-green" title="{{ $otherStoreNames[$oLink->opencart_setting_id] ?? 'OC' }} #{{ $oLink->oc_product_id }}">{{ $otherStoreNames[$oLink->opencart_setting_id] ?? 'OC' }} #{{ $oLink->oc_product_id }}</span>
+                                    @endforeach
+                                @endif
+                                @if($shopeeLinked->has($p->product_id))
+                                    <span class="badge badge-green" title="Shopee Item {{ $shopeeLinked[$p->product_id] }}">Shopee</span>
+                                @endif
+                                @if($lazadaLinked->has($p->product_id))
+                                    <span class="badge badge-green" title="Lazada Item {{ $lazadaLinked[$p->product_id] }}">Lazada</span>
+                                @endif
+                                @if($tiktokLinked->has($p->product_id))
+                                    <span class="badge badge-green" title="TikTok Product {{ $tiktokLinked[$p->product_id] }}">TikTok</span>
+                                @endif
+                                @if(!$link && !isset($otherOcLinks[$p->product_id]) && !$shopeeLinked->has($p->product_id) && !$lazadaLinked->has($p->product_id) && !$tiktokLinked->has($p->product_id))
+                                    <span class="text-muted">Not synced</span>
+                                @endif
+                            </div>
                         </td>
                         <td>
                             @if($isManual)

@@ -2,17 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ShopeeApiLog;
 use App\Models\ShopeeCategory;
 use App\Models\ShopeeCategoryTemplate;
+use App\Models\ShopeeItemCache;
 use App\Models\ShopeeLogistic;
 use App\Models\ShopeeProductGroup;
 use App\Models\ShopeeProductGroupAttribute;
 use App\Models\ShopeeProductGroupProduct;
+use App\Models\ShopeeProductLink;
 use App\Models\ShopeeSetting;
 use App\Services\ActivityLogger;
 use App\Services\Shopee\ShopeeClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends Controller
@@ -301,19 +305,48 @@ class ShopeeProductGroupController extends Controller
         }
 
         if ($syncStatus === 'pushed') {
-            $query->whereNotNull('gp.shopee_item_id')->where('gp.shopee_item_id', '!=', '');
+            $query->whereNotNull('gp.shopee_item_id')->where('gp.shopee_item_id', '!=', '')
+                ->where('gp.sync_status', '!=', 'unlinked');
         } elseif ($syncStatus === 'pending') {
             $query->where(function ($w) {
                 $w->whereNull('gp.shopee_item_id')->orWhere('gp.shopee_item_id', '');
-            })->where('gp.sync_status', '!=', 'error');
+            })->whereNotIn('gp.sync_status', ['error', 'unlinked']);
         } elseif ($syncStatus === 'error') {
             $query->where('gp.sync_status', 'error');
         }
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
 
-        // Pivot map for templates
+        // Auto-fill pivot shopee_item_id from shopee_product_links
         $pivotProductIds = $products->pluck('product_id')->toArray();
+        if (!empty($pivotProductIds)) {
+            $existingLinks = DB::table('shopee_product_links')
+                ->whereIn('product_id', $pivotProductIds)
+                ->pluck('shopee_item_id', 'product_id');
+
+            if ($existingLinks->isNotEmpty()) {
+                $missingPivots = ShopeeProductGroupProduct::query()
+                    ->where('shopee_product_group_id', $group->id)
+                    ->whereIn('product_id', $existingLinks->keys()->toArray())
+                    ->where(function ($w) {
+                        $w->whereNull('shopee_item_id')->orWhere('shopee_item_id', '');
+                    })
+                    ->where('sync_status', '!=', 'unlinked')
+                    ->get();
+
+                foreach ($missingPivots as $pivot) {
+                    $linkId = $existingLinks->get($pivot->product_id);
+                    if ($linkId) {
+                        $pivot->update([
+                            'shopee_item_id' => (string) $linkId,
+                            'sync_status' => 'synced',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // Pivot map for templates
         $pivotMap = ShopeeProductGroupProduct::query()
             ->where('shopee_product_group_id', $group->id)
             ->whereIn('product_id', $pivotProductIds)
@@ -431,6 +464,52 @@ class ShopeeProductGroupController extends Controller
     }
 
     /**
+     * Unlink a product (keep in group but mark as unlinked).
+     */
+    public function unlinkProduct(int $groupId, int $productId)
+    {
+        $group = ShopeeProductGroup::query()->findOrFail($groupId);
+
+        $group->groupProducts()
+            ->where('product_id', $productId)
+            ->update(['sync_status' => 'unlinked']);
+
+        return $this->productsRedirect($group->id)
+            ->with('status', 'Product unlinked from Shopee.');
+    }
+
+    /**
+     * Re-link a previously unlinked product.
+     */
+    public function linkProduct(int $groupId, int $productId)
+    {
+        $group = ShopeeProductGroup::query()->findOrFail($groupId);
+        $pivot = $group->groupProducts()->where('product_id', $productId)->first();
+
+        if ($pivot) {
+            $status = 'synced';
+            // If pivot has no shopee_item_id, try to fill from global links
+            if (empty($pivot->shopee_item_id)) {
+                $linkId = DB::table('shopee_product_links')
+                    ->where('product_id', $productId)
+                    ->value('shopee_item_id');
+
+                if ($linkId) {
+                    $pivot->update(['shopee_item_id' => (string) $linkId, 'sync_status' => $status]);
+                } else {
+                    $pivot->update(['sync_status' => 'pending']);
+                    $status = 'pending';
+                }
+            } else {
+                $pivot->update(['sync_status' => $status]);
+            }
+        }
+
+        return $this->productsRedirect($group->id)
+            ->with('status', 'Product re-linked.');
+    }
+
+    /**
      * Remove a single product from the group.
      */
     public function removeProduct(int $groupId, int $productId)
@@ -458,24 +537,530 @@ class ShopeeProductGroupController extends Controller
             ->with('status', count($ids) . ' product(s) removed from group.');
     }
 
-    public function push(Request $request, int $id)
+    public function push(Request $request, int $id, ShopeeClient $client)
     {
-        return $this->productsRedirect($id)->with('error', 'Push to Shopee is not yet implemented.');
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        }
+
+        if (!$group->shopee_category_id) {
+            return $this->productsRedirect($id)->with('error', 'Product Group has no Shopee category configured. Set a category first.');
+        }
+
+        $logisticIds = $group->logistic_ids ?? [];
+        if (empty($logisticIds)) {
+            return $this->productsRedirect($id)->with('error', 'Product Group has no logistics channels configured.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $okCount = 0;
+        $skipCount = 0;
+        $errCount = 0;
+        $errors = [];
+
+        foreach ($productIds as $productId) {
+            // Skip already linked
+            if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+                $skipCount++;
+                continue;
+            }
+
+            $product = DB::table($pfx . 'product as p')
+                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                    $j->on('p.product_id', '=', 'pd.product_id')
+                      ->where('pd.language_id', '=', $langId);
+                })
+                ->where('p.product_id', $productId)
+                ->first([
+                    'p.product_id', 'pd.name', 'pd.description', 'p.image',
+                    'p.sku', 'p.price', 'p.quantity', 'p.status',
+                    'p.weight', 'p.length', 'p.width', 'p.height',
+                ]);
+
+            if (!$product || (int) $product->status === 0) {
+                $skipCount++;
+                continue;
+            }
+
+            $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            if (trim($itemName) === '' || trim($description) === '' || (float) $product->price <= 0 || (float) $product->weight <= 0) {
+                $errors[] = "#{$productId}: Missing name/description/price/weight";
+                $errCount++;
+                continue;
+            }
+
+            // Upload images
+            $imagePaths = [];
+            if (!empty($product->image)) $imagePaths[] = $product->image;
+            $additionalImages = DB::table($pfx . 'product_image')
+                ->where('product_id', $productId)
+                ->orderBy('sort_order')
+                ->pluck('image')
+                ->toArray();
+            $imagePaths = array_merge($imagePaths, $additionalImages);
+
+            if (empty($imagePaths)) {
+                $errors[] = "#{$productId}: No images";
+                $errCount++;
+                continue;
+            }
+
+            $imageIds = [];
+            foreach ($imagePaths as $imgPath) {
+                $localPath = $this->resolveLocalImagePath($imgPath);
+                if (!$localPath || !file_exists($localPath)) continue;
+
+                $uploadResult = $this->uploadImage($client, $setting, $localPath);
+                if ($uploadResult['ok'] ?? false) {
+                    $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
+                    if ($imgId) $imageIds[] = (string) $imgId;
+                } else {
+                    break;
+                }
+            }
+
+            if (empty($imageIds)) {
+                $errors[] = "#{$productId}: Image upload failed";
+                $errCount++;
+                continue;
+            }
+
+            // Build payload
+            $logisticInfo = [];
+            foreach ($logisticIds as $lid) {
+                $logisticInfo[] = ['logistic_id' => (int) $lid, 'enabled' => true];
+            }
+
+            $basePrice = (float) $product->price;
+            $markupPct = (float) ($group->markup_percent ?? 0);
+            $markupFixed = (float) ($group->markup_fixed ?? 0);
+            $sellingPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
+
+            $payload = [
+                'original_price' => $sellingPrice,
+                'description' => mb_substr($description, 0, 5000),
+                'item_name' => mb_substr($itemName, 0, 255),
+                'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
+                'item_sku' => (string) ($product->sku ?? ''),
+                'weight' => (float) $product->weight,
+                'dimension' => [
+                    'package_length' => max(1, (int) $product->length),
+                    'package_width' => max(1, (int) $product->width),
+                    'package_height' => max(1, (int) $product->height),
+                ],
+                'category_id' => (int) $group->shopee_category_id,
+                'image' => ['image_id_list' => $imageIds],
+                'logistic_info' => $logisticInfo,
+                'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
+            ];
+
+            $path = '/api/v2/product/add_item';
+            $result = $client->shopPost(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id, (string) $setting->partner_key,
+                (string) $setting->access_token, (int) $setting->shop_id,
+                $path, [], $payload
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.add_item.group', 'method' => 'POST', 'api_path' => $path,
+                'auth_required' => true, 'request_params' => $payload,
+                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+
+            $body = $result['body'] ?? [];
+            $itemId = ($result['ok'] ?? false) ? ($body['response']['item_id'] ?? null) : null;
+
+            if ($itemId) {
+                ShopeeProductLink::create([
+                    'product_id' => $productId,
+                    'shopee_item_id' => (int) $itemId,
+                    'shopee_model_id' => null,
+                    'sku' => $product->sku ?? '',
+                ]);
+
+                // Update pivot sync_status
+                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                    ->where('product_id', $productId)
+                    ->update([
+                        'shopee_item_id' => (int) $itemId,
+                        'sync_status' => 'pushed',
+                    ]);
+
+                $okCount++;
+            } else {
+                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
+                $errors[] = "#{$productId}: {$msg}";
+
+                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                    ->where('product_id', $productId)
+                    ->update(['sync_status' => 'error']);
+
+                $errCount++;
+            }
+
+            usleep(300000); // 300ms rate limit between pushes
+        }
+
+        $summary = "Push: {$okCount} pushed";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (already linked or disabled)";
+        if ($errCount > 0) $summary .= ", {$errCount} failed";
+        if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+
+        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
     }
 
-    public function pushPrices(Request $request, int $id)
+    public function pushPrices(Request $request, int $id, ShopeeClient $client)
     {
-        return $this->productsRedirect($id)->with('error', 'Sync Price for Shopee is not yet implemented.');
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get();
+        $skip = count($productIds) - $links->pluck('product_id')->unique()->count();
+
+        $results = $this->pushPriceForLinks($client, $setting, $pfx, $links, $group);
+
+        return $this->productsRedirect($id)
+            ->with('status', "Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).");
     }
 
-    public function pushStock(Request $request, int $id)
+    public function pushStock(Request $request, int $id, ShopeeClient $client)
     {
-        return $this->productsRedirect($id)->with('error', 'Sync Qty for Shopee is not yet implemented.');
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+
+        // Filter out disabled products
+        $enabledIds = DB::table($pfx . 'product')
+            ->whereIn('product_id', $productIds)
+            ->where('status', 1)
+            ->pluck('product_id')
+            ->toArray();
+        $disabledCount = count($productIds) - count($enabledIds);
+
+        $links = ShopeeProductLink::query()->whereIn('product_id', $enabledIds)->get();
+        $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
+
+        $results = $this->pushStockForLinks($client, $setting, $pfx, $links);
+
+        $msg = "Sync Qty: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)";
+        if ($disabledCount > 0) {
+            $msg .= ", {$disabledCount} skipped (disabled)";
+        }
+
+        return $this->productsRedirect($id)->with('status', $msg . '.');
     }
 
-    public function deleteFromShopee(Request $request, int $id)
+    public function deleteFromShopee(Request $request, int $id, ShopeeClient $client)
     {
-        return $this->productsRedirect($id)->with('error', 'Delete from Shopee is not yet implemented.');
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        }
+
+        $okCount = 0;
+        $errCount = 0;
+        $path = '/api/v2/product/delete_item';
+
+        foreach ($productIds as $productId) {
+            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            if (!$link || !$link->shopee_item_id) {
+                $errCount++;
+                continue;
+            }
+
+            $itemId = (int) $link->shopee_item_id;
+
+            $result = $client->shopPost(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id,
+                (string) $setting->partner_key,
+                (string) $setting->access_token,
+                (int) $setting->shop_id,
+                $path,
+                [],
+                ['item_id' => $itemId]
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.product.delete_item.group',
+                'method' => 'POST',
+                'api_path' => $path,
+                'auth_required' => true,
+                'request_params' => ['item_id' => $itemId, 'product_id' => $productId],
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null,
+                'user_id' => auth()->id(),
+            ]);
+
+            $body = $result['body'] ?? [];
+            $respError = is_array($body) ? ($body['error'] ?? '') : '';
+
+            if (($result['ok'] ?? false) && $respError === '') {
+                ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
+                ShopeeProductLink::query()->where('product_id', $productId)->delete();
+
+                // Clear pivot sync data
+                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                    ->where('product_id', $productId)
+                    ->update(['shopee_item_id' => null, 'sync_status' => 'pending']);
+
+                ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee via product group');
+                $okCount++;
+            } else {
+                $errCount++;
+            }
+        }
+
+        return $this->productsRedirect($id)
+            ->with($okCount > 0 ? 'status' : 'error', "Delete from Shopee: {$okCount} deleted, {$errCount} failed.");
+    }
+
+    // ── Sync Helpers ─────────────────────────────────────────────────
+
+    private function parseIds(Request $request): array
+    {
+        $ids = $request->input('ids', []);
+        if (!is_array($ids)) $ids = [];
+        return array_values(array_unique(array_filter(array_map(fn($v) => (int) $v, $ids), fn($v) => $v > 0)));
+    }
+
+    private function pushStockForLinks(ShopeeClient $client, object $setting, string $pfx, $links): array
+    {
+        $ok = 0;
+        $err = 0;
+
+        $grouped = [];
+        foreach ($links as $link) {
+            $grouped[$link->shopee_item_id][] = $link;
+        }
+
+        foreach ($grouped as $itemId => $itemLinks) {
+            $stockList = [];
+
+            foreach ($itemLinks as $link) {
+                $productId = (int) $link->product_id;
+                $sku = trim((string) ($link->sku ?? ''));
+                $modelId = (int) ($link->shopee_model_id ?? 0);
+                $qty = 0;
+
+                if ($sku !== '') {
+                    $povQty = DB::table($pfx . 'product_option_value')
+                        ->where('product_id', $productId)
+                        ->where('sku', $sku)
+                        ->value('quantity');
+
+                    if ($povQty !== null) {
+                        $qty = max(0, (int) $povQty);
+                    } else {
+                        $qty = max(0, (int) (DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity') ?? 0));
+                    }
+                } else {
+                    $qty = max(0, (int) (DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity') ?? 0));
+                }
+
+                $stockList[] = ['model_id' => $modelId, 'seller_stock' => [['stock' => $qty]]];
+            }
+
+            if (empty($stockList)) continue;
+
+            $path = '/api/v2/product/update_stock';
+            $payload = ['item_id' => (int) $itemId, 'stock_list' => $stockList];
+
+            $result = $client->shopPost(
+                $setting->mode ?? 'sandbox',
+                (int) $setting->partner_id, (string) $setting->partner_key,
+                (string) $setting->access_token, (int) $setting->shop_id,
+                $path, [], $payload
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.update_stock', 'method' => 'POST', 'api_path' => $path,
+                'auth_required' => true, 'request_params' => $payload,
+                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+
+            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
+            $syncData = [
+                'last_synced_at' => now(),
+                'last_sync_action' => 'sync_qty',
+                'last_sync_ok' => $isOk,
+                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
+                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
+            ];
+            foreach ($itemLinks as $link) {
+                $link->update($syncData);
+            }
+
+            if ($isOk) {
+                $ok += count($stockList);
+            } else {
+                $err += count($stockList);
+            }
+        }
+
+        return ['ok' => $ok, 'err' => $err];
+    }
+
+    private function pushPriceForLinks(ShopeeClient $client, object $setting, string $pfx, $links, ShopeeProductGroup $group): array
+    {
+        $ok = 0;
+        $err = 0;
+
+        $grouped = [];
+        foreach ($links as $link) {
+            $grouped[$link->shopee_item_id][] = $link;
+        }
+
+        $markupPct = (float) ($group->markup_percent ?? 0);
+        $markupFixed = (float) ($group->markup_fixed ?? 0);
+
+        foreach ($grouped as $itemId => $itemLinks) {
+            $priceList = [];
+
+            foreach ($itemLinks as $link) {
+                $productId = (int) $link->product_id;
+                $sku = trim((string) ($link->sku ?? ''));
+                $modelId = (int) ($link->shopee_model_id ?? 0);
+
+                $productRow = DB::table($pfx . 'product')->where('product_id', $productId)->first(['price']);
+                $price = max(0, (float) ($productRow->price ?? 0));
+
+                if ($sku !== '') {
+                    $pov = DB::table($pfx . 'product_option_value')
+                        ->where('product_id', $productId)
+                        ->where('sku', $sku)
+                        ->first(['absolute_price']);
+
+                    if ($pov && $pov->absolute_price !== null) {
+                        $price = max(0, (float) $pov->absolute_price);
+                    }
+                }
+
+                // Apply product group markup
+                $price = $price + ($price * $markupPct / 100) + $markupFixed;
+
+                $priceList[] = ['model_id' => $modelId, 'original_price' => round($price, 2)];
+            }
+
+            if (empty($priceList)) continue;
+
+            $path = '/api/v2/product/update_price';
+            $payload = ['item_id' => (int) $itemId, 'price_list' => $priceList];
+
+            $result = $client->shopPost(
+                $setting->mode ?? 'sandbox',
+                (int) $setting->partner_id, (string) $setting->partner_key,
+                (string) $setting->access_token, (int) $setting->shop_id,
+                $path, [], $payload
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.update_price', 'method' => 'POST', 'api_path' => $path,
+                'auth_required' => true, 'request_params' => $payload,
+                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+
+            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
+            $syncData = [
+                'last_synced_at' => now(),
+                'last_sync_action' => 'sync_price',
+                'last_sync_ok' => $isOk,
+                'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
+                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
+            ];
+            foreach ($itemLinks as $link) {
+                $link->update($syncData);
+            }
+
+            if ($isOk) {
+                $ok += count($priceList);
+            } else {
+                $err += count($priceList);
+            }
+        }
+
+        return ['ok' => $ok, 'err' => $err];
+    }
+
+    private function resolveLocalImagePath(string $path): ?string
+    {
+        $try = [
+            storage_path('app/public/' . $path),
+            public_path('image/' . $path),
+            public_path($path),
+        ];
+        foreach ($try as $p) {
+            if (file_exists($p)) return $p;
+        }
+        return null;
+    }
+
+    private function uploadImage(ShopeeClient $client, object $setting, string $localPath): array
+    {
+        $path = '/api/v2/media_space/upload_image';
+        $timestamp = time();
+        $sign = $client->signShop(
+            (int) $setting->partner_id, (string) $setting->partner_key,
+            $path, $timestamp, (string) $setting->access_token, (int) $setting->shop_id
+        );
+
+        $query = http_build_query([
+            'partner_id' => (int) $setting->partner_id, 'timestamp' => $timestamp,
+            'sign' => $sign, 'access_token' => (string) $setting->access_token,
+            'shop_id' => (int) $setting->shop_id,
+        ]);
+
+        $url = $client->baseUrl($setting->mode ?? 'live') . $path . '?' . $query;
+
+        $contents = file_get_contents($localPath);
+        if ($contents === false) {
+            return ['status' => 0, 'ok' => false, 'body' => ['error' => 'file_read_failed', 'message' => 'Could not read image file: ' . basename($localPath)]];
+        }
+
+        $response = Http::timeout(30)
+            ->attach('image', $contents, basename($localPath))
+            ->post($url);
+
+        return ['status' => $response->status(), 'ok' => $response->ok(), 'body' => $response->json() ?? $response->body()];
     }
 
     public function syncTemplate(Request $request, int $id, ShopeeClient $client)

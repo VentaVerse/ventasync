@@ -99,8 +99,9 @@
                         $pivot = $pivotMap->get($p->product_id);
                         $img = trim((string)($p->image ?? ''));
                         $src = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-                        $hasLazadaId = !empty($p->lazada_item_id);
                         $syncState = $pivot->sync_status ?? 'pending';
+                        $isUnlinked = $syncState === 'unlinked';
+                        $hasLazadaId = !empty($p->lazada_item_id) && !$isUnlinked;
                         $hasError = $syncState === 'error' && ($pivot->push_error ?? null);
                         $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
                     @endphp
@@ -168,7 +169,9 @@
                             @endif
                         </td>
                         <td>
-                            @if($hasLazadaId)
+                            @if($isUnlinked)
+                                <span class="badge">Unlinked</span>
+                            @elseif($hasLazadaId)
                                 <span class="badge badge-green">Pushed</span>
                             @elseif($syncState === 'error')
                                 <span class="badge badge-red">Error</span>
@@ -201,6 +204,70 @@
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                         Edit Product
                                     </a>
+                                    @if(!$hasLazadaId)
+                                        <form method="POST" action="{{ route('lazada.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form" data-pid="{{ $p->product_id }}">
+                                            @csrf
+                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                                                Push to Lazada
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if($hasLazadaId)
+                                        <form method="POST" action="{{ route('lazada.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                                                Re-push to Lazada
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ route('lazada.product-groups.pushStock', $group->id) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                                Sync Qty
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ route('lazada.product-groups.pushPrices', $group->id) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                                Sync Price
+                                            </button>
+                                        </form>
+                                        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
+                                        <form method="POST" action="{{ route('lazada.product-groups.deleteFromLazada', $group->id) }}" style="margin:0;" class="single-action-form" data-confirm="Delete this product from Lazada? This cannot be undone.">
+                                            @csrf
+                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                                            <button type="submit" class="action-item" style="color:var(--danger);">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                Delete from Lazada
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if($hasLazadaId)
+                                        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
+                                        <form method="POST" action="{{ route('lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form" data-confirm="Unlink this product from Lazada? The product stays in the group but sync will stop.">
+                                            @csrf
+                                            <button type="submit" class="action-item" style="color:var(--warning);">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                                                Unlink from Lazada
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if($isUnlinked)
+                                        <form method="POST" action="{{ route('lazada.product-groups.linkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                Link to Lazada
+                                            </button>
+                                        </form>
+                                    @endif
                                     @if(in_array((int)$p->product_id, $manualIds))
                                         <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
                                         <form method="POST" action="{{ route('lazada.product-groups.removeProduct', [$group->id, $p->product_id]) }}" style="margin:0;" data-confirm="Remove this product from the group?">
@@ -366,6 +433,19 @@
 
             // No confirm needed — submit directly
             submitBulkForm(form, ids);
+        });
+    });
+
+    // Loading overlay for single action forms (in action dropdown)
+    document.querySelectorAll('.action-menu form.single-action-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (e.defaultPrevented) return;
+            var overlay = document.getElementById('loadingOverlay');
+            var msg = document.getElementById('loadingMsg');
+            if (overlay) {
+                if (msg) msg.textContent = 'Processing...';
+                overlay.classList.add('active');
+            }
         });
     });
 
