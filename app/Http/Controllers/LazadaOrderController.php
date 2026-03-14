@@ -124,7 +124,8 @@ class LazadaOrderController extends Controller
                 $query->whereIn('status', $statuses);
             } elseif ($tab === 'FAILED_DELIVERY' && $fdSub !== '') {
                 $fdMap = [
-                    'failed_delivery' => ['failed_delivery', 'shipped_back'],
+                    'failed_delivery' => ['failed_delivery'],
+                    'shipped_back' => ['shipped_back'],
                     'lost_damaged' => ['lost_by_3pl', 'damaged_by_3pl'],
                 ];
                 $statuses = $fdMap[$fdSub] ?? ['failed_delivery'];
@@ -147,7 +148,8 @@ class LazadaOrderController extends Controller
 
         // Counts for FAILED_DELIVERY sub-tabs (DB only)
         $fd_sub_counts = [
-            'failed_delivery' => (clone $baseCountQuery)->whereIn('status', ['failed_delivery', 'shipped_back'])->count(),
+            'failed_delivery' => (clone $baseCountQuery)->whereIn('status', ['failed_delivery'])->count(),
+            'shipped_back' => (clone $baseCountQuery)->whereIn('status', ['shipped_back'])->count(),
             'lost_damaged' => (clone $baseCountQuery)->whereIn('status', ['lost_by_3pl', 'damaged_by_3pl'])->count(),
         ];
         // Search filters (safe, parameter-bound). LazadaOrder currently stores customer info in raw JSON.
@@ -172,7 +174,7 @@ class LazadaOrderController extends Controller
                 if ($k === 'TO_SHIP') {
                     $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['pending', 'repacked'])->count();
                 } elseif ($k === 'FAILED_DELIVERY') {
-                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['shipped_back'])->count();
+                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['failed_delivery', 'shipped_back'])->count();
                 } else {
                     $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
                 }
