@@ -434,6 +434,9 @@ class TikTokOrderController extends Controller
             ]);
         }
 
+        // Update local status so order moves to Handover tab immediately
+        $order->update(['status' => 'AWAITING_COLLECTION']);
+
         $awbUrl = route('ext.tiktok.orders.awb', $order->id);
 
         return redirect()->back()->with('tiktok_orders_last_result', [

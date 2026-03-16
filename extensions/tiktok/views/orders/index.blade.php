@@ -49,6 +49,7 @@
             <div style="margin-top:8px;">
                 <a href="{{ $last_result['awb_url'] }}" target="_blank" class="btn small">Print AWB</a>
             </div>
+            <script>window.open(@json($last_result['awb_url']), '_blank');</script>
         @endif
     </div>
 @endif
