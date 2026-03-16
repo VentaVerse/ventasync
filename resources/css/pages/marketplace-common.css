@@ -14,7 +14,16 @@
 }
 
 /* Order image preview (zoom on hover) */
-.order-img-wrap { position: relative; cursor: zoom-in; z-index: 1; }
+.order-img-wrap {
+    position: relative; cursor: zoom-in; z-index: 1;
+    width: 64px; min-height: 48px; flex-shrink: 0;
+    align-self: stretch; border-radius: 8px; overflow: hidden;
+    background: var(--surface-alt);
+    display: flex; align-items: center; justify-content: center;
+}
+.order-img-wrap img.order-img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+}
 .order-img-preview {
     position: fixed; z-index: 9999; pointer-events: none;
     border-radius: 8px;
