@@ -490,8 +490,6 @@
             $__lazadaExpired = false;
             $__shopeePaused = false;
             $__shopeeExpired = false;
-            $__shopeeExpiringSoon = false;
-            $__shopeeExpiresInMin = null;
             $__tiktokExpired = false;
             try {
                 $__tt = \Extensions\tiktok\Models\TikTokSetting::query()->first();
@@ -503,15 +501,7 @@
             } catch (\Throwable $e) {}
             try {
                 $__sp = \App\Models\ShopeeSetting::query()->first();
-                if ($__sp && $__sp->expires_at) {
-                    $__spExp = \Carbon\Carbon::parse($__sp->expires_at);
-                    if ($__spExp->lte(now())) {
-                        $__shopeeExpired = true;
-                    } elseif ($__spExp->lte(now()->addMinutes(30))) {
-                        $__shopeeExpiringSoon = true;
-                        $__shopeeExpiresInMin = (int) now()->diffInMinutes($__spExp);
-                    }
-                }
+                $__shopeeExpired = $__sp && $__sp->expires_at && strtotime($__sp->expires_at) <= time();
             } catch (\Throwable $e) {}
             $__shopeePaused = \Illuminate\Support\Facades\Cache::get('shopee_sync_paused');
         @endphp
@@ -533,12 +523,7 @@
         @if($__shopeeExpired)
             <div class="alert danger">
                 <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>Shopee:</strong> Access token expired. Sync commands will fail. <a href="{{ route('shopee.index') }}">Refresh token</a></span>
-            </div>
-        @elseif($__shopeeExpiringSoon)
-            <div class="alert warning">
-                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span><strong>Shopee:</strong> Access token expires soon (in {{ $__shopeeExpiresInMin }} min). <a href="{{ route('shopee.index') }}">Refresh token</a></span>
+                <span><strong>Shopee:</strong> Access token expired. Auto-refresh may have failed. <a href="{{ route('shopee.index') }}">Refresh token</a></span>
             </div>
         @endif
 
