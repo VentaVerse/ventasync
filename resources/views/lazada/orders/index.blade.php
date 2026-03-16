@@ -240,13 +240,13 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th style="min-width:420px;">Products</th>
-                        <th style="width:80px;">Qty</th>
-                        <th style="width:120px;">Price</th>
-                        <th style="width:100px;">Amount</th>
-                        <th style="width:120px;">Shipping</th>
-                        <th style="width:100px;">Status</th>
-                        <th style="width:300px;">Actions</th>
+                        <th style="min-width:360px;">Products</th>
+                        <th style="width:110px;">Quantity</th>
+                        <th style="width:140px;">Product Price</th>
+                        <th>Amount</th>
+                        <th>Shipping</th>
+                        <th>Status</th>
+                        <th style="width:280px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>

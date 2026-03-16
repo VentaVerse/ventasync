@@ -16,7 +16,7 @@
 /* Order image preview (zoom on hover) */
 .order-img-wrap {
     position: relative; cursor: zoom-in; z-index: 1;
-    width: 72px; min-height: 56px; flex-shrink: 0;
+    width: 86px; min-height: 56px; flex-shrink: 0;
     align-self: stretch; border-radius: 8px; overflow: hidden;
     background: var(--surface-alt);
 }
