@@ -139,6 +139,24 @@ class TikTokOrderController extends Controller
         $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT'])->count();
         $tab_counts['to_handover'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_COLLECTION'])->count();
 
+        // Courier tally for To Handover
+        $courierCounts = [];
+        if ($tab === 'TO_SHIP') {
+            $handoverOrders = TikTokOrder::query()
+                ->where('status', 'AWAITING_COLLECTION')
+                ->get(['id', 'raw']);
+            foreach ($handoverOrders as $ho) {
+                $hoRaw = is_array($ho->raw) ? $ho->raw : [];
+                $courier = (string)($hoRaw['shipping_provider'] ?? $hoRaw['shipping_provider_name'] ?? '');
+                if ($courier === '' && !empty($hoRaw['line_items'])) {
+                    $courier = (string)(($hoRaw['line_items'][0] ?? [])['shipping_provider_name'] ?? '');
+                }
+                $label = $courier !== '' ? $courier : 'Unknown';
+                $key = mb_strtolower($label);
+                $courierCounts[$key] = ['label' => $label, 'count' => ($courierCounts[$key]['count'] ?? 0) + 1];
+            }
+        }
+
         $orders = $query
             ->orderBy('order_created_at', $sortDir)
             ->orderBy('created_at', $sortDir)
@@ -154,10 +172,20 @@ class TikTokOrderController extends Controller
             'tab_counts'    => $tab_counts,
             'sort'          => $sortKey,
             'last_result'   => session('tiktok_orders_last_result'),
+            'courier_counts' => $courierCounts,
             'filters'       => [
                 'order_number' => $orderNumber,
                 'buyer_name'   => $buyerName,
             ],
+        ]);
+    }
+
+    public function show($id)
+    {
+        $order = TikTokOrder::with('products')->findOrFail($id);
+
+        return view('ext-tiktok::orders.show', [
+            'order' => $order,
         ]);
     }
 

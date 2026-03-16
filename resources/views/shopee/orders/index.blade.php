@@ -283,7 +283,7 @@
                     @endphp
 
                     @if($orderSn)
-                        <tr>
+                        <tr class="order-header-row">
                             <td colspan="7" style="padding:10px 12px 6px 12px;">
                                 <div class="d-flex justify-between items-start gap-12">
                                     <div class="text-xs text-secondary" style="line-height:1.35;">

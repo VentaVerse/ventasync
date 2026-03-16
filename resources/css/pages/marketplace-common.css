@@ -41,10 +41,22 @@
 .order-option-label.lazada-label {
     color: #1e3a5f; background: #dbeafe; border: 1px solid #93c5fd;
 }
+.order-option-label.tiktok-label {
+    color: #9f1239; background: #ffe4e6; border: 1px solid #fda4af;
+}
 .order-option-pill {
     display: inline-block; font-size: 12px; font-weight: 600;
     color: #1e293b; background: #e2e8f0;
     border-radius: 999px; padding: 2px 10px;
+}
+
+/* Order group separator — adds visible gap between orders */
+.order-header-row > td {
+    border-top: 8px solid var(--surface-alt, #f1f5f9);
+    padding-top: 12px;
+}
+.table tbody tr:first-child.order-header-row > td {
+    border-top: none;
 }
 
 /* Action dropdown items (product tables) */

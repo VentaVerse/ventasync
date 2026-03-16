@@ -91,7 +91,7 @@ class AppServiceProvider extends ServiceProvider
             try {
                 if (Schema::hasTable('tiktok_orders')) {
                     $view->with('tiktokPendingCount', \Extensions\tiktok\Models\TikTokOrder::query()
-                        ->whereIn('status', ['UNPAID', 'AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
+                        ->where('status', 'AWAITING_SHIPMENT')
                         ->count());
                 } else {
                     $view->with('tiktokPendingCount', 0);

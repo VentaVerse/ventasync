@@ -4,12 +4,18 @@
 @section('content')
 <style>
     #content {
-        --accent: #E60023;
-        --accent-hover: #c4001e;
-        --accent-light: rgba(230, 0, 35, 0.08);
+        --accent: #1e1e1e;
+        --accent-hover: #000;
+        --accent-light: rgba(0, 0, 0, 0.06);
     }
     #content .input:focus {
-        box-shadow: 0 0 0 3px rgba(230, 0, 35, 0.12);
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+    }
+    #content .btn:not(.secondary) {
+        background: #1e1e1e; color: #fff;
+    }
+    #content .btn:not(.secondary):hover {
+        background: #000;
     }
 </style>
 
@@ -66,7 +72,7 @@
         <a href="{{ route('ext.tiktok.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
             <span>{{ $label }}</span>
             @if($showBadge && $count > 0)
-                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#E60023;' : 'background:#E60023; color:#fff;' }}">{{ $count }}</span>
+                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#1e1e1e;' : 'background:#1e1e1e; color:#fff;' }}">{{ $count }}</span>
             @endif
         </a>
     @endforeach
@@ -96,11 +102,26 @@
                 <a href="{{ route('ext.tiktok.orders.index', $subQs) }}" class="tab {{ $isSubActive ? 'active' : '' }}">
                     <span>{{ $lbl }}</span>
                     @if($subCount > 0)
-                        <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isSubActive ? 'background:#fff; color:#E60023;' : 'background:#E60023; color:#fff;' }}">{{ $subCount }}</span>
+                        <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isSubActive ? 'background:#fff; color:#1e1e1e;' : 'background:#1e1e1e; color:#fff;' }}">{{ $subCount }}</span>
                     @endif
                 </a>
             @endforeach
         </div>
+
+        @if(!empty($courier_counts))
+            <div style="margin-top:10px;">
+                <div class="text-xs text-secondary" style="margin-bottom:6px;">Courier tally (To Handover only)</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    @foreach($courier_counts as $cc)
+                        <span class="badge badge-gray" style="display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                            {{ $cc['label'] }}
+                            <span style="margin-left:2px; font-weight:700; font-size:15px; color:#dc2626;">{{ $cc['count'] }}</span>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 @endif
 
@@ -232,7 +253,7 @@
                         @endphp
 
                         {{-- Order header row --}}
-                        <tr>
+                        <tr class="order-header-row">
                             <td colspan="7" style="padding:10px 12px 6px 12px;">
                                 <div class="d-flex justify-between items-start gap-12">
                                     <div class="text-xs text-secondary" style="line-height:1.35;">
@@ -269,21 +290,24 @@
                             <tr>
                                 <td style="vertical-align:top;">
                                     <div class="d-flex gap-10">
-                                        <div style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                        <div class="order-img-wrap" style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                             @if($img)
-                                                <img src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;" loading="lazy">
+                                                <img class="order-img" src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;" loading="lazy">
                                             @else
                                                 <span class="text-xs text-muted">—</span>
                                             @endif
                                         </div>
                                         <div style="min-width:0;">
-                                            <div class="font-semibold" style="word-break:break-word;">{{ $name ?: '—' }}</div>
+                                            <div class="font-semibold" style="word-break:break-word;">
+                                                <a href="{{ route('ext.tiktok.orders.show', $o->id) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">{{ $name ?: '—' }}</a>
+                                            </div>
                                             <div class="text-xs" style="margin-top:3px;">
                                                 <span class="text-secondary">SKU:</span> <strong>{{ $sku ?: '—' }}</strong>
                                             </div>
                                             @if($variation !== '')
-                                                <div style="margin-top:3px;">
-                                                    <span class="badge badge-gray" style="font-size:11px;">{{ $variation }}</span>
+                                                <div class="order-option-wrap">
+                                                    <span class="order-option-label tiktok-label">Option</span>
+                                                    <span class="order-option-pill">{{ $variation }}</span>
                                                 </div>
                                             @endif
                                         </div>
@@ -452,5 +476,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+    // Image zoom on hover (same pattern as Lazada/Shopee)
+    var preview = document.createElement('div');
+    preview.className = 'order-img-preview';
+    var previewImg = document.createElement('img');
+    preview.appendChild(previewImg);
+    document.body.appendChild(preview);
+    var hideTimer;
+
+    document.addEventListener('mouseenter', function(e) {
+        var wrap = e.target.closest('.order-img-wrap');
+        if (!wrap) return;
+        var img = wrap.querySelector('img.order-img');
+        if (!img || !img.src) return;
+        clearTimeout(hideTimer);
+        previewImg.src = img.src;
+        var rect = wrap.getBoundingClientRect();
+        var top = rect.top + rect.height / 2 - 110;
+        var left = rect.right + 12;
+        if (left + 230 > window.innerWidth) left = rect.left - 232;
+        if (top < 8) top = 8;
+        if (top + 220 > window.innerHeight) top = window.innerHeight - 228;
+        preview.style.top = top + 'px';
+        preview.style.left = left + 'px';
+        preview.classList.add('visible');
+    }, true);
+
+    document.addEventListener('mouseleave', function(e) {
+        var wrap = e.target.closest('.order-img-wrap');
+        if (!wrap) return;
+        hideTimer = setTimeout(function() { preview.classList.remove('visible'); }, 80);
+    }, true);
 </script>
 @endsection
