@@ -434,9 +434,12 @@ class TikTokOrderController extends Controller
             ]);
         }
 
+        $awbUrl = route('ext.tiktok.orders.awb', $order->id);
+
         return redirect()->back()->with('tiktok_orders_last_result', [
             'ok' => true,
             'message' => "Order {$order->order_id} shipped successfully.",
+            'awb_url' => $awbUrl,
         ]);
     }
 

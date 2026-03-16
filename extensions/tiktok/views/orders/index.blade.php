@@ -45,6 +45,11 @@
         @if(!empty($last_result['message']))
             <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
         @endif
+        @if(!empty($last_result['awb_url']))
+            <div style="margin-top:8px;">
+                <a href="{{ $last_result['awb_url'] }}" target="_blank" class="btn small">Print AWB</a>
+            </div>
+        @endif
     </div>
 @endif
 
