@@ -200,7 +200,7 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th style="min-width:360px;">Products</th>
+                        <th style="min-width:280px;">Products</th>
                         <th style="width:110px;">Quantity</th>
                         <th style="width:140px;">Product Price</th>
                         <th>Amount</th>
@@ -483,14 +483,11 @@ document.addEventListener('DOMContentLoaded', function() {
     var previewImg = document.createElement('img');
     preview.appendChild(previewImg);
     document.body.appendChild(preview);
-    var hideTimer;
-
-    document.addEventListener('mouseenter', function(e) {
+    document.addEventListener('mouseover', function(e) {
         var wrap = e.target.closest('.order-img-wrap');
         if (!wrap) return;
         var img = wrap.querySelector('img.order-img');
         if (!img || !img.src) return;
-        clearTimeout(hideTimer);
         previewImg.src = img.src;
         var rect = wrap.getBoundingClientRect();
         var top = rect.top + rect.height / 2 - 110;
@@ -501,12 +498,14 @@ document.addEventListener('DOMContentLoaded', function() {
         preview.style.top = top + 'px';
         preview.style.left = left + 'px';
         preview.classList.add('visible');
-    }, true);
+    }, false);
 
-    document.addEventListener('mouseleave', function(e) {
+    document.addEventListener('mouseout', function(e) {
         var wrap = e.target.closest('.order-img-wrap');
         if (!wrap) return;
-        hideTimer = setTimeout(function() { preview.classList.remove('visible'); }, 80);
-    }, true);
+        var related = e.relatedTarget;
+        if (related && wrap.contains(related)) return;
+        preview.classList.remove('visible');
+    }, false);
 </script>
 @endsection
