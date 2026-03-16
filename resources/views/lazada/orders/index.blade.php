@@ -240,9 +240,6 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th style="width:42px;">
-                            <input type="checkbox" aria-label="Select all" disabled>
-                        </th>
                         <th style="min-width:360px;">Products</th>
                         <th style="width:110px;">Quantity</th>
                         <th style="width:140px;">Product Price</th>
@@ -377,7 +374,7 @@
 
                         @if($orderId)
                             <tr class="order-header-row">
-                                <td colspan="8" style="padding:10px 12px 6px 12px;">
+                                <td colspan="7" style="padding:10px 12px 6px 12px;">
                                     <div class="d-flex justify-between items-start gap-12">
                                     <div class="text-xs text-secondary" style="line-height:1.35;">
                                         <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
@@ -406,16 +403,6 @@
 
                         @foreach($displayItems as $idx => $it)
                         <tr>
-                            @if($idx === 0)
-                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                @if(!$orderId || !$canSelect)
-                                    <span class="text-muted">—</span>
-                                @else
-                                    <input type="checkbox" name="select_order[]" value="{{ $orderId }}">
-                                @endif
-                            </td>
-                            @endif
-
                             <td style="vertical-align:top;">
                                 @php
                                     $itRaw = $it['raw'] ?? $it;
@@ -430,9 +417,9 @@
                                 @endphp
 
                                 <div class="d-flex gap-10">
-                                    <div class="order-img-wrap" style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <div class="order-img-wrap" style="width:56px; height:56px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                         @if($img)
-                                            <img class="order-img" src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
+                                            <img class="order-img" src="{{ $img }}" alt="" style="width:56px; height:56px; object-fit:cover;">
                                         @else
                                             <span class="text-xs text-muted">No image</span>
                                         @endif

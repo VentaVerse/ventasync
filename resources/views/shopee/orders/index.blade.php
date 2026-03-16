@@ -322,9 +322,9 @@
                             @endphp
 
                             <div class="d-flex gap-10">
-                                <div class="order-img-wrap" style="width:44px; height:44px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <div class="order-img-wrap" style="width:56px; height:56px; border-radius:8px; overflow:hidden; background:var(--surface-alt); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                     @if($img)
-                                        <img class="order-img" src="{{ $img }}" alt="" style="width:44px; height:44px; object-fit:cover;">
+                                        <img class="order-img" src="{{ $img }}" alt="" style="width:56px; height:56px; object-fit:cover;">
                                     @else
                                         <span class="text-xs text-muted">No image</span>
                                     @endif
