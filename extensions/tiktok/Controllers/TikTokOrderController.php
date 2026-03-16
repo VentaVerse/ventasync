@@ -449,6 +449,16 @@ class TikTokOrderController extends Controller
     public function awbPdf(Request $request, $id)
     {
         $order = TikTokOrder::findOrFail($id);
+        $safeOrderId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $order->order_id);
+        $awbDir = storage_path('app/tiktok-awb');
+        $awbPath = $awbDir . '/' . $safeOrderId . '.pdf';
+
+        // Serve saved AWB if it exists locally
+        if (file_exists($awbPath)) {
+            return response(file_get_contents($awbPath), 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderId . '.pdf"');
+        }
 
         // Try to get package_id from raw data
         $raw = $order->raw ?? [];
@@ -487,6 +497,25 @@ class TikTokOrderController extends Controller
             ]);
         }
 
+        // Download PDF from TikTok and save locally
+        try {
+            $pdfContent = \Illuminate\Support\Facades\Http::timeout(15)->get($docUrl)->body();
+
+            if ($pdfContent && str_starts_with($pdfContent, '%PDF')) {
+                if (!is_dir($awbDir)) {
+                    mkdir($awbDir, 0755, true);
+                }
+                file_put_contents($awbPath, $pdfContent);
+
+                return response($pdfContent, 200)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderId . '.pdf"');
+            }
+        } catch (\Throwable $e) {
+            // Fall through to redirect if download fails
+        }
+
+        // Fallback: redirect to TikTok URL if local save failed
         return redirect($docUrl);
     }
 
