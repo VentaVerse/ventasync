@@ -52,8 +52,8 @@
 
 /* Order group separator — adds visible gap between orders */
 .order-header-row > td {
-    border-top: 8px solid var(--surface-alt, #f1f5f9);
-    padding-top: 12px;
+    border-top: 16px solid var(--surface-alt, #f1f5f9);
+    padding-top: 14px;
 }
 .table tbody tr:first-child.order-header-row > td {
     border-top: none;
