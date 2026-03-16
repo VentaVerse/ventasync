@@ -184,7 +184,7 @@ class DashboardController extends Controller
             }
             if (Schema::hasTable('tiktok_orders')) {
                 $tiktokPending = DB::table('tiktok_orders')
-                    ->whereIn('status', ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'])
+                    ->where('status', 'AWAITING_SHIPMENT')
                     ->count();
             }
         }
@@ -302,7 +302,7 @@ class DashboardController extends Controller
                 $color = '#0F146D';
             } elseif ($src === 'tiktok') {
                 $label = 'TikTok';
-                $color = '#E60023';
+                $color = '#1e1e1e';
             } elseif (str_starts_with($src, 'opencart:')) {
                 $storeId = (int) str_replace('opencart:', '', $src);
                 $label = $ocStores[$storeId] ?? ('OpenCart #' . $storeId);
