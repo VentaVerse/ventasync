@@ -21,7 +21,7 @@
     background: var(--surface-alt);
 }
 .order-img-wrap img.order-img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
+    width: 100%; height: 100%; object-fit: contain; display: block;
 }
 .order-img-preview {
     position: fixed; z-index: 9999; pointer-events: none;
