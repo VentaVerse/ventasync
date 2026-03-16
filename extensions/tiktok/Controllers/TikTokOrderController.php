@@ -401,7 +401,21 @@ class TikTokOrderController extends Controller
         $c = $this->creds();
         $client = new TikTokClient();
 
-        $packageData = [];
+        // Build packages array from order's raw data
+        $raw = $order->raw ?? [];
+        $rawPackages = $raw['packages'] ?? [];
+
+        if (empty($rawPackages)) {
+            return redirect()->back()->with('tiktok_orders_last_result', [
+                'ok' => false,
+                'message' => 'No packages found for this order.',
+            ]);
+        }
+
+        $packageData = [
+            'packages' => array_map(fn($p) => ['id' => $p['id']], $rawPackages),
+        ];
+
         // Allow optional handover_method from the form
         if ($request->filled('handover_method')) {
             $packageData['handover_method'] = $request->input('handover_method');
