@@ -452,7 +452,7 @@
                                         </div>
                                         @if($variation !== '')
                                             <div class="order-option-wrap">
-                                                <span class="order-option-label">Option</span>
+                                                <span class="order-option-label lazada-label">Option</span>
                                                 <span class="order-option-pill">{{ $variation }}</span>
                                             </div>
                                         @endif

@@ -280,7 +280,7 @@
                             <span class="dash-sync-dot {{ $syncDotClass($tiktokSyncStatus->order_sync_at ?? null, $tiktokSyncStatus->expires_at ?? null) }}"></span>
                             <span class="font-bold">TikTok Shop</span>
                             @if(($tiktokPending ?? 0) > 0)
-                                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; background:#E60023; color:#fff;">{{ $tiktokPending }}</span>
+                                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; background:#1e1e1e; color:#fff;">{{ $tiktokPending }}</span>
                             @endif
                         </div>
                         <div class="dash-sync-details">
