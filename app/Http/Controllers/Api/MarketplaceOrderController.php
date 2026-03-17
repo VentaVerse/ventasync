@@ -7,6 +7,8 @@ use App\Models\LazadaOrder;
 use App\Models\LazadaSetting;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSetting;
+use App\Models\TikTokOrder;
+use App\Models\TikTokSetting;
 use Illuminate\Http\Request;
 
 class MarketplaceOrderController extends Controller
@@ -41,6 +43,19 @@ class MarketplaceOrderController extends Controller
         'to_handover' => ['PROCESSED'],
     ];
 
+    private const TIKTOK_TAB_STATUS_MAP = [
+        'UNPAID'              => ['UNPAID'],
+        'PENDING'             => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+        'SHIPPING'            => ['IN_TRANSIT'],
+        'DELIVERED_COMPLETED' => ['DELIVERED', 'COMPLETED'],
+        'CANCELLED'           => ['CANCELLED'],
+    ];
+
+    private const TIKTOK_PENDING_SUB_MAP = [
+        'to_pack'     => ['AWAITING_SHIPMENT'],
+        'to_handover' => ['AWAITING_COLLECTION'],
+    ];
+
     private const ALLOWED_TABS = [
         'ALL', 'UNPAID', 'PENDING', 'SHIPPING',
         'DELIVERED_COMPLETED', 'CANCELLED', 'FAILED_DELIVERY', 'RETURN',
@@ -48,7 +63,7 @@ class MarketplaceOrderController extends Controller
 
     public function index(Request $request, string $platform)
     {
-        if (!in_array($platform, ['lazada', 'shopee'], true)) {
+        if (!in_array($platform, ['lazada', 'shopee', 'tiktok'], true)) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
 
@@ -65,8 +80,18 @@ class MarketplaceOrderController extends Controller
         }
 
         $isLazada = $platform === 'lazada';
-        $tabStatusMap = $isLazada ? self::LAZADA_TAB_STATUS_MAP : self::SHOPEE_TAB_STATUS_MAP;
-        $pendingSubMap = $isLazada ? self::LAZADA_PENDING_SUB_MAP : self::SHOPEE_PENDING_SUB_MAP;
+        $isTikTok = $platform === 'tiktok';
+
+        if ($isLazada) {
+            $tabStatusMap = self::LAZADA_TAB_STATUS_MAP;
+            $pendingSubMap = self::LAZADA_PENDING_SUB_MAP;
+        } elseif ($isTikTok) {
+            $tabStatusMap = self::TIKTOK_TAB_STATUS_MAP;
+            $pendingSubMap = self::TIKTOK_PENDING_SUB_MAP;
+        } else {
+            $tabStatusMap = self::SHOPEE_TAB_STATUS_MAP;
+            $pendingSubMap = self::SHOPEE_PENDING_SUB_MAP;
+        }
 
         if ($pendingSub !== '' && !array_key_exists($pendingSub, $pendingSubMap)) {
             $pendingSub = '';
@@ -75,13 +100,21 @@ class MarketplaceOrderController extends Controller
         // Determine region
         if ($isLazada) {
             $setting = LazadaSetting::query()->first();
+        } elseif ($isTikTok) {
+            $setting = TikTokSetting::query()->first();
         } else {
             $setting = ShopeeSetting::query()->first();
         }
         $region = $setting->region ?? 'ph';
 
         // Build query
-        $modelClass = $isLazada ? LazadaOrder::class : ShopeeOrder::class;
+        if ($isLazada) {
+            $modelClass = LazadaOrder::class;
+        } elseif ($isTikTok) {
+            $modelClass = TikTokOrder::class;
+        } else {
+            $modelClass = ShopeeOrder::class;
+        }
         $query = $modelClass::query()->where('region', $region);
         $baseCountQuery = $modelClass::query()->where('region', $region);
 
@@ -109,6 +142,11 @@ class MarketplaceOrderController extends Controller
                         ->orWhere('raw->customer_first_name', 'like', $like)
                         ->orWhere('raw->customer_name', 'like', $like)
                         ->orWhere('raw->buyer_name', 'like', $like);
+                });
+            } elseif ($isTikTok) {
+                $query->where(function ($q) use ($like) {
+                    $q->where('order_id', 'like', $like)
+                        ->orWhere('buyer_name', 'like', $like);
                 });
             } else {
                 $query->where(function ($q) use ($like) {
@@ -142,7 +180,7 @@ class MarketplaceOrderController extends Controller
             ->paginate(20);
 
         // Transform
-        $data = $orders->map(function ($order) use ($isLazada) {
+        $data = $orders->map(function ($order) use ($isLazada, $isTikTok) {
             $raw = $order->raw ?? [];
 
             $firstProduct = $order->products()->orderBy('id')->first();
@@ -161,6 +199,14 @@ class MarketplaceOrderController extends Controller
                 $currency = $raw['currency'] ?? '₱';
                 $itemsCount = $order->products()->count();
                 $paymentMethod = $raw['payment_method'] ?? null;
+                $trackingNumber = $raw['tracking_number'] ?? null;
+            } elseif ($isTikTok) {
+                $orderId = $order->order_id;
+                $buyerName = $order->buyer_name ?? '';
+                $totalAmount = isset($raw['payment']['total_amount']) ? (float) $raw['payment']['total_amount'] : null;
+                $currency = $raw['payment']['currency'] ?? '₱';
+                $itemsCount = $order->products()->count();
+                $paymentMethod = $raw['payment']['payment_method_name'] ?? null;
                 $trackingNumber = $raw['tracking_number'] ?? null;
             } else {
                 $orderId = $order->order_sn;
@@ -203,12 +249,20 @@ class MarketplaceOrderController extends Controller
 
     public function show(string $platform, int $id)
     {
-        if (!in_array($platform, ['lazada', 'shopee'], true)) {
+        if (!in_array($platform, ['lazada', 'shopee', 'tiktok'], true)) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
 
         $isLazada = $platform === 'lazada';
-        $modelClass = $isLazada ? LazadaOrder::class : ShopeeOrder::class;
+        $isTikTok = $platform === 'tiktok';
+
+        if ($isLazada) {
+            $modelClass = LazadaOrder::class;
+        } elseif ($isTikTok) {
+            $modelClass = TikTokOrder::class;
+        } else {
+            $modelClass = ShopeeOrder::class;
+        }
         $order = $modelClass::with('products')->find($id);
 
         if (!$order) {
@@ -255,6 +309,38 @@ class MarketplaceOrderController extends Controller
                         'image'     => $first->image ?? $pRaw['product_main_image'] ?? '',
                     ];
                 });
+        } elseif ($isTikTok) {
+            $orderId = (string) $order->order_id;
+            $buyerName = $order->buyer_name ?? '';
+            $payment = $raw['payment'] ?? [];
+            $totalAmount = isset($payment['total_amount']) ? (float) $payment['total_amount'] : null;
+            $currency = $payment['currency'] ?? '₱';
+            $paymentMethod = $payment['payment_method_name'] ?? '';
+            $shippingProvider = $raw['shipping_provider'] ?? $raw['shipping_provider_id'] ?? '';
+            $trackingNumber = $raw['tracking_number'] ?? '';
+
+            $addr = $raw['recipient_address'] ?? [];
+            $shippingName = $addr['name'] ?? $order->buyer_name ?? '';
+            $shippingPhone = $addr['phone_number'] ?? $addr['phone'] ?? '';
+            $shippingAddress = $addr['full_address']
+                ?? trim(implode(', ', array_filter([
+                    $addr['address_detail'] ?? '',
+                    $addr['district'] ?? '',
+                    $addr['city'] ?? '',
+                    $addr['state'] ?? '',
+                    $addr['zipcode'] ?? '',
+                ])));
+
+            $products = $order->products->map(function ($p) {
+                return [
+                    'name'      => $p->name,
+                    'sku'       => $p->sku ?? '',
+                    'variation' => $p->variation ?? '',
+                    'quantity'  => $p->quantity,
+                    'price'     => $p->sale_price ?? $p->item_price ?? 0,
+                    'image'     => $p->image ?? '',
+                ];
+            });
         } else {
             $orderId = $order->order_sn;
             $buyerName = $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '';

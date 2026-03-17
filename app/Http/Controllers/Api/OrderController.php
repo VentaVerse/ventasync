@@ -210,10 +210,18 @@ class OrderController extends Controller
                 ->count();
         }
 
+        $tiktokPending = 0;
+        if (Schema::hasTable('tiktok_orders')) {
+            $tiktokPending = DB::table('tiktok_orders')
+                ->whereIn('status', ['AWAITING_SHIPMENT'])
+                ->count();
+        }
+
         return response()->json([
             'count'          => $count,
             'lazada_pending' => $lazadaPending,
             'shopee_pending' => $shopeePending,
+            'tiktok_pending' => $tiktokPending,
         ]);
     }
 
