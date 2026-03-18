@@ -206,7 +206,7 @@ class OrderController extends Controller
         $shopeePending = 0;
         if (Schema::hasTable('shopee_orders')) {
             $shopeePending = DB::table('shopee_orders')
-                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
+                ->whereIn('status', ['READY_TO_SHIP'])
                 ->count();
         }
 
