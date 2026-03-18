@@ -59,6 +59,9 @@ class OrderStockService
         // Ensure fresh relationship data (products may have just been inserted)
         $order->load('products.options');
 
+        // Resolve default warehouse once for all line items (null if extension not installed)
+        $defaultWarehouse = self::resolveDefaultWarehouse();
+
         foreach ($order->products as $orderProduct) {
             $resolved = self::resolve($orderProduct);
             $product = $resolved['product'];
@@ -87,6 +90,14 @@ class OrderStockService
                     source: $source,
                     note: "$orderLabel — {$type}ed {$orderProduct->quantity} (option)",
                 );
+
+                // Sync warehouse inventory for this option value
+                self::syncWarehouseInventory(
+                    $defaultWarehouse,
+                    (int) $optionValue->product_id,
+                    (int) $optionValue->product_option_value_id,
+                    $direction * $orderProduct->quantity,
+                );
             }
 
             if ($product && (int) $product->subtract) {
@@ -105,7 +116,53 @@ class OrderStockService
                     source: $source,
                     note: "$orderLabel — {$type}ed {$orderProduct->quantity}",
                 );
+
+                // Sync warehouse inventory for product-level (only for products without options)
+                if (!$optionValue) {
+                    self::syncWarehouseInventory(
+                        $defaultWarehouse,
+                        (int) $product->product_id,
+                        0,
+                        $direction * $orderProduct->quantity,
+                    );
+                }
             }
+        }
+    }
+
+    /**
+     * Resolve the default warehouse (null if warehousing extension is not installed).
+     */
+    private static function resolveDefaultWarehouse(): ?object
+    {
+        if (!class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+            return null;
+        }
+
+        return \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+    }
+
+    /**
+     * Sync warehouse inventory for a product/option-value after an order stock adjustment.
+     * Directly increments/decrements the warehouse_inventory row without calling
+     * syncProductTotal() — OrderStockService already manages catalog quantities.
+     */
+    private static function syncWarehouseInventory(?object $warehouse, int $productId, int $povId, int $delta): void
+    {
+        if (!$warehouse || $delta === 0) {
+            return;
+        }
+
+        $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory(
+            $warehouse->id,
+            $productId,
+            $povId,
+        );
+
+        if ($delta >= 0) {
+            $inv->increment('quantity', $delta);
+        } else {
+            $inv->decrement('quantity', abs($delta));
         }
     }
 
