@@ -50,8 +50,15 @@
             }
             $childCount = count($groupChildren);
             $checkedCount = 0;
-            foreach ($groupChildren as $c) {
-                if (in_array($c->id, $selected)) $checkedCount++;
+            $isStandalone = ($childCount === 0);
+            if ($isStandalone) {
+                // Standalone permission: badge reflects parent's own state
+                $childCount = 1;
+                $checkedCount = in_array($pg['parent']->id, $selected) ? 1 : 0;
+            } else {
+                foreach ($groupChildren as $c) {
+                    if (in_array($c->id, $selected)) $checkedCount++;
+                }
             }
         @endphp
 
@@ -75,7 +82,9 @@
                             <div class="perm-parent-desc">{{ $pg['parent']->description }}</div>
                         @endif
                     </div>
-                    <div class="perm-parent-hint">Select All in Group</div>
+                    @if(!$isStandalone)
+                        <div class="perm-parent-hint">Select All in Group</div>
+                    @endif
                 </div>
 
                 {{-- Children: flat list or sub-grouped --}}
@@ -143,6 +152,13 @@
         var checked = 0;
         children.forEach(function(c) { if (c.checked) checked++; });
 
+        // Standalone permission (no children) — badge reflects parent state
+        if (total === 0) {
+            var parent = picker.querySelector('.perm-parent-cb[data-group="' + groupKey + '"]');
+            total = 1;
+            checked = (parent && parent.checked) ? 1 : 0;
+        }
+
         var badge = picker.querySelector('[data-badge-group="' + groupKey + '"]');
         if (badge) {
             badge.textContent = checked + ' / ' + total;
@@ -165,6 +181,11 @@
         if (!parent) return;
         var children = picker.querySelectorAll('.perm-child-cb[data-group="' + groupKey + '"]');
         var total = children.length;
+
+        // Standalone permission (no children) — parent acts as its own toggle,
+        // so preserve its checked state as-is instead of deriving it from children.
+        if (total === 0) return;
+
         var checked = 0;
         children.forEach(function(c) { if (c.checked) checked++; });
 
