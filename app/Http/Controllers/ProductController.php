@@ -1191,6 +1191,15 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             }
         }
 
+        // Sync warehouse inventory for default warehouse
+        if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+            $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+            if ($defaultWh && isset($updatedAttrs['quantity'])) {
+                $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, (int) $id, 0);
+                $inv->update(['quantity' => (int) $updatedAttrs['quantity']]);
+            }
+        }
+
         $returnUrl = $request->input('_return');
         if ($returnUrl && str_starts_with($returnUrl, url('/'))) {
             return redirect($returnUrl)->with('status', $status);
@@ -1209,6 +1218,11 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
             DB::table($pfx.'product_description')->where('product_id', (int) $id)->delete();
             DB::table($pfx.'product')->where('product_id', (int) $id)->delete();
+
+            // Clean up warehouse inventory
+            if (class_exists(\Extensions\warehousing\Models\WarehouseInventory::class)) {
+                \Extensions\warehousing\Models\WarehouseInventory::where('product_id', (int) $id)->delete();
+            }
         });
 
         ActivityLogger::log('deleted', 'Product', (int) $id, $name);
@@ -1270,6 +1284,11 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
                 DB::table($pfx.'product_to_category')->whereIn('product_id', $ids)->delete();
                 DB::table($pfx.'product_description')->whereIn('product_id', $ids)->delete();
                 DB::table($pfx.'product')->whereIn('product_id', $ids)->delete();
+
+                // Clean up warehouse inventory
+                if (class_exists(\Extensions\warehousing\Models\WarehouseInventory::class)) {
+                    \Extensions\warehousing\Models\WarehouseInventory::whereIn('product_id', $ids)->delete();
+                }
             });
 
             return redirect()->route('products.index')->with('status', 'Deleted selected products.');

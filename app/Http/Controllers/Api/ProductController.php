@@ -206,6 +206,15 @@ class ProductController extends Controller
                 }
 
                 $totalQty += $qty;
+
+                // Sync warehouse inventory for this option value
+                if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+                    $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+                    if ($defaultWh) {
+                        $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, $povId);
+                        $inv->update(['quantity' => $qty]);
+                    }
+                }
             }
 
             // Auto-sum: set product quantity to total of option values
@@ -253,6 +262,15 @@ class ProductController extends Controller
                     source: 'mobile',
                     note: "Mobile edit — qty {$oldProductQty} → {$newQty}",
                 );
+            }
+
+            // Sync warehouse inventory for product without options
+            if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+                $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+                if ($defaultWh) {
+                    $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, 0);
+                    $inv->update(['quantity' => $newQty]);
+                }
             }
         }
 
