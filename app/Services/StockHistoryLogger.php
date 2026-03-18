@@ -21,6 +21,7 @@ class StockHistoryLogger
         ?string $note = null,
         ?int $userId = null,
         ?string $userName = null,
+        ?int $warehouseId = null,
     ): void {
         if ($userId === null) {
             $user = Auth::user();
@@ -40,6 +41,7 @@ class StockHistoryLogger
             'note'                    => $note,
             'user_id'                 => $userId,
             'user_name'               => $userName,
+            'warehouse_id'            => $warehouseId,
             'created_at'              => now(),
         ]);
     }
