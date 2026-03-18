@@ -40,6 +40,7 @@
 @import './pages/product-result.css';
 @import './pages/reviews.css';
 @import './pages/product-options.css';
+@import './pages/warehousing.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';

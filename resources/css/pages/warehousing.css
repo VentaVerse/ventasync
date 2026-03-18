@@ -1,0 +1,9 @@
+/* ============================================================
+   WAREHOUSING
+   ============================================================ */
+
+/* Highlight zero or negative inventory cells */
+.inventory-zero {
+    color: var(--danger);
+    font-weight: 600;
+}
