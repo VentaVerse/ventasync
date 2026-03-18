@@ -52,6 +52,12 @@ class UserGroupController extends Controller
                 ],
             ],
             [
+                'key'      => 'warehousing',
+                'label'    => 'Warehousing',
+                'parent'   => $all->get('manage_warehousing'),
+                'children' => [],
+            ],
+            [
                 'key'      => 'settings',
                 'label'    => 'Settings',
                 'parent'   => $all->get('manage_settings'),
