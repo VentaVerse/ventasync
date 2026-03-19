@@ -301,6 +301,8 @@
                         @php
                             $extPerm = $extNav['permission'] ?? '';
                             $canViewExt = $extPerm === '' || (auth()->user() && auth()->user()->hasPermission($extPerm));
+                            // Check if user has the parent permission directly (not via child inference)
+                            $hasParentDirect = $extPerm !== '' && auth()->user() && auth()->user()->userGroup && auth()->user()->userGroup->permissions()->where('key', $extPerm)->exists();
                             $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
                             $extIsOpen = false;
                             foreach ($extRoutes as $er) {
@@ -320,7 +322,7 @@
                                         @foreach($extNav['items'] ?? [] as $extItem)
                                             @php
                                                 $itemPerm = $extItem['permission'] ?? '';
-                                                $canViewItem = $itemPerm === '' || (auth()->user() && (auth()->user()->hasPermission($itemPerm) || auth()->user()->hasPermission($extPerm)));
+                                                $canViewItem = $itemPerm === '' || $hasParentDirect || (auth()->user() && auth()->user()->hasPermission($itemPerm));
                                             @endphp
                                             @if(\Route::has($extItem['route']) && $canViewItem)
                                             <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
