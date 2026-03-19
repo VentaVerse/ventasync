@@ -318,7 +318,11 @@
                                 <div class="nav-sub-wrap">
                                     <div class="nav-sub">
                                         @foreach($extNav['items'] ?? [] as $extItem)
-                                            @if(\Route::has($extItem['route']))
+                                            @php
+                                                $itemPerm = $extItem['permission'] ?? '';
+                                                $canViewItem = $itemPerm === '' || (auth()->user() && (auth()->user()->hasPermission($itemPerm) || auth()->user()->hasPermission($extPerm)));
+                                            @endphp
+                                            @if(\Route::has($extItem['route']) && $canViewItem)
                                             <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
                                                 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg></span>
                                                 <span class="label">{{ $extItem['label'] }}</span>
