@@ -399,6 +399,17 @@
                     <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-returns', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
                 </div>
             </div>
+            <div>
+                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span style="font-weight:600; color:var(--text-primary);">Refresh Token</span>
+                    <span class="text-muted">— Auto-refresh access token before expiry (~2 days)</span>
+                    <span style="margin-left:auto; color:var(--text-muted);">every 6 hours</span>
+                </label>
+                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+                    <code id="laz-cron-refresh" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:refresh-token</code>
+                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-refresh', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+                </div>
+            </div>
         </div>
 
         <details>
