@@ -57,10 +57,10 @@ class TikTokRefreshToken extends Command
                     $raw->{$prefix . 'refresh_token'} = encrypt((string) $refresh);
                 }
                 if (is_numeric($expiresIn)) {
-                    $raw->{$prefix . 'expires_at'} = now()->addSeconds((int) $expiresIn);
+                    $raw->{$prefix . 'expires_at'} = now()->addSeconds(min((int) $expiresIn, 315360000)); // cap at 10 years
                 }
                 if (is_numeric($refreshExpiresIn)) {
-                    $raw->{$prefix . 'refresh_expires_at'} = now()->addSeconds((int) $refreshExpiresIn);
+                    $raw->{$prefix . 'refresh_expires_at'} = now()->addSeconds(min((int) $refreshExpiresIn, 315360000)); // cap at 10 years
                 }
                 $raw->save();
 
