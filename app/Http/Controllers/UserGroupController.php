@@ -63,7 +63,7 @@ class UserGroupController extends Controller
                 'key'      => 'warehousing',
                 'label'    => 'Warehousing',
                 'parent'   => $all->get('manage_warehousing'),
-                'children' => [],
+                'children' => $resolve(['manage_warehouse_locations', 'manage_warehouse_transfers', 'manage_warehouse_inventory']),
             ],
             [
                 'key'      => 'settings',

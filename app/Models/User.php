@@ -48,7 +48,7 @@ class User extends Authenticatable
         'manage_sales' => ['manage_orders', 'manage_order_statuses', 'manage_reports'],
         'manage_marketplace_api' => ['manage_shopee', 'manage_lazada', 'manage_opencart', 'manage_tiktok', 'manage_pedallion', 'manage_shopee_orders', 'manage_lazada_orders', 'manage_opencart_orders', 'manage_tiktok_orders', 'manage_pedallion_orders'],
         'manage_purchasing' => ['manage_vendors', 'manage_purchase_orders'],
-        'manage_warehousing' => [],
+        'manage_warehousing' => ['manage_warehouse_locations', 'manage_warehouse_transfers', 'manage_warehouse_inventory'],
         'manage_settings' => ['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log', 'manage_activity_log'],
     ];
 
