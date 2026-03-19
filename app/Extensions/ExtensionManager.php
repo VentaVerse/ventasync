@@ -299,7 +299,7 @@ class ExtensionManager
      * Insert permission rows declared in the extension manifest.
      * Grants them to the Administrator group automatically.
      */
-    protected function syncPermissions(string $id): void
+    public function syncPermissions(string $id): void
     {
         if (!Schema::hasTable('permissions')) {
             return;
@@ -315,15 +315,22 @@ class ExtensionManager
         $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
 
         foreach ($keys as $key) {
-            $label = ucwords(str_replace('_', ' ', $key));
+            $label = ucwords(str_replace('_', ' ', preg_replace('/^manage_/', '', $key)));
 
-            $permId = DB::table('permissions')->where('key', $key)->value('id');
+            $existing = DB::table('permissions')->where('key', $key)->first();
 
-            if (!$permId) {
+            if (!$existing) {
                 $permId = DB::table('permissions')->insertGetId([
-                    'key'   => $key,
-                    'label' => $label,
+                    'key'         => $key,
+                    'label'       => $label,
+                    'description' => '',
                 ]);
+            } else {
+                $permId = $existing->id;
+                // Fill empty labels
+                if (($existing->label ?? '') === '') {
+                    DB::table('permissions')->where('id', $permId)->update(['label' => $label]);
+                }
             }
 
             // Grant to Administrator group
