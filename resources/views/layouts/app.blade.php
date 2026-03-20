@@ -992,7 +992,7 @@ document.addEventListener('mousemove', function(e) {
         return (data || []).map(function(r){
           var item = Object.assign({}, r);
           item.id = r.id ?? r.manufacturer_id ?? r.category_id ?? r.option_id ?? r.value_id ?? r.option_value_id;
-          item.name = r.name ?? r.path;
+          item.name = r.display_name ?? r.name ?? r.path;
           return item;
         }).filter(function(r){ return r.id !== undefined && r.name; });
       }catch(e){ return []; }
@@ -1006,7 +1006,7 @@ document.addEventListener('mousemove', function(e) {
       }
     });
 
-    input.addEventListener('keyup', function(){
+    function doSearch(){
       var q = (input.value || '').trim();
       if(q.length < 1 && !opts.showAllOnFocus){ hideList(); return; }
       if(q === last) return;
@@ -1016,7 +1016,9 @@ document.addEventListener('mousemove', function(e) {
         var items = await fetchItems(q);
         render(items, q);
       }, 120);
-    });
+    }
+    input.addEventListener('keyup', doSearch);
+    input.addEventListener('input', doSearch);
 
     document.addEventListener('click', function(e){
       if(e.target !== input && !list.contains(e.target)) hideList();
