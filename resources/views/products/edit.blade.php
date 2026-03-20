@@ -241,7 +241,7 @@
                         <tbody>
                         @foreach($productVendors as $pv)
                             <tr data-pv-id="{{ $pv->id }}" data-vendor-id="{{ $pv->vendor_id }}" data-pov-id="{{ $pv->product_option_value_id ?? '' }}">
-                                <td>{{ $pv->vendor->nickname ? $pv->vendor->nickname . ' — ' : '' }}{{ $pv->vendor->name ?? '—' }}</td>
+                                <td>{{ ($pv->vendor->name ?? '—') . ($pv->vendor->nickname ? ' | ' . $pv->vendor->nickname : '') }}</td>
                                 <td class="pv-option-label" data-pov-id="{{ $pv->product_option_value_id }}"></td>
                                 <td><input class="input pv-edit-sku" value="{{ $pv->vendor_sku ?? '' }}" style="width:110px; font-size:12px;"></td>
                                 <td><input class="input pv-edit-minqty" type="number" min="1" value="{{ $pv->min_qty }}" style="width:60px; font-size:12px;"></td>
@@ -792,7 +792,7 @@
                         var ov = optionValues.find(function(v) { return v.product_option_value_id === pv.product_option_value_id; });
                         optionLabel = ov ? ov.label : '#' + pv.product_option_value_id;
                     }
-                    var vendorLabel = pv.vendor ? (pv.vendor.nickname ? pv.vendor.nickname + ' — ' : '') + pv.vendor.name : '—';
+                    var vendorLabel = pv.vendor ? pv.vendor.name + (pv.vendor.nickname ? ' | ' + pv.vendor.nickname : '') : '—';
                     tr.innerHTML = '<td>' + escHtml(vendorLabel) + '</td>'
                         + '<td>' + escHtml(optionLabel) + '</td>'
                         + '<td><input class="input pv-edit-sku" value="' + escHtml(pv.vendor_sku || '') + '" style="width:110px; font-size:12px;"></td>'
