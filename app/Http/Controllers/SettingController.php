@@ -23,6 +23,7 @@ class SettingController extends Controller
 
         $data = $request->validate([
             'company_name'                => ['required', 'string', 'max:255'],
+            'company_email'               => ['nullable', 'email', 'max:255'],
             'phone'                       => ['nullable', 'string', 'max:32'],
             'address_line1'               => ['nullable', 'string', 'max:255'],
             'address_line2'               => ['nullable', 'string', 'max:255'],
@@ -55,7 +56,7 @@ class SettingController extends Controller
         $setting->update($data);
 
         $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
-            'company_name', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
+            'company_name', 'company_email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
             'from_email', 'timezone', 'activity_log_retention_days',
         ]);
         ActivityLogger::log('updated', 'Setting', $setting->id, 'Website Settings', $changes);

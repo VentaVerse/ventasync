@@ -28,6 +28,11 @@
                 </div>
 
                 <div>
+                    <label>Email</label>
+                    <input class="input" type="email" name="company_email" value="{{ old('company_email', $setting->company_email) }}" maxlength="255" placeholder="Company contact email">
+                </div>
+
+                <div>
                     <label>Phone</label>
                     <input class="input" name="phone" value="{{ old('phone', $setting->phone) }}" maxlength="32">
                 </div>
