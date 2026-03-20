@@ -142,6 +142,7 @@ class LazadaController extends Controller
             'processing'          => 'Processing',
             'approved'            => 'Approved',
             'shipped_back'        => 'Shipped Back',
+            'shipped_back_success' => 'Shipped Back (Received)',
             'received'            => 'Received',
             'dispute_in_progress' => 'Dispute in Progress',
             'refund_paid'         => 'Refund Issued',
