@@ -8,6 +8,13 @@ class Setting extends Model
 {
     protected $fillable = [
         'company_name',
+        'phone',
+        'address_line1',
+        'address_line2',
+        'city',
+        'state',
+        'postal_code',
+        'country',
         'from_email',
         'timezone',
         'logo_path',
