@@ -18,7 +18,7 @@
     @csrf
 
     {{-- General Tab --}}
-    <div class="tab-panel active" id="tab-general">
+    <div class="" id="tab-general">
         <div class="card">
             <h3 class="section-title mt-0">Company Information</h3>
             <div class="form-grid">
@@ -73,7 +73,7 @@
     </div>
 
     {{-- Website Settings Tab --}}
-    <div class="tab-panel" id="tab-website">
+    <div class="hidden" id="tab-website">
         <div class="card">
             <h3 class="section-title mt-0">Email & System</h3>
             <div class="form-grid">
@@ -131,7 +131,7 @@
 </form>
 
 {{-- Maintenance Tab --}}
-<div class="tab-panel" id="tab-maintenance">
+<div class="hidden" id="tab-maintenance">
     <div class="card">
         <h3 class="section-title mt-0">Database Maintenance</h3>
         <div class="form-grid">
@@ -154,13 +154,17 @@
 @push('scripts')
 <script>
     // Tab switching
+    var settingsTabs = ['tab-general', 'tab-website', 'tab-maintenance'];
     document.querySelectorAll('.tabs .tab').forEach(function(tab) {
         tab.addEventListener('click', function() {
             document.querySelectorAll('.tabs .tab').forEach(function(t) { t.classList.remove('active'); });
-            document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+            settingsTabs.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
             tab.classList.add('active');
             var panel = document.getElementById(tab.dataset.tab);
-            if (panel) panel.classList.add('active');
+            if (panel) panel.classList.remove('hidden');
         });
     });
 
