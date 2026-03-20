@@ -263,25 +263,34 @@ class ReviewController extends Controller
         $data = $request->validate([
             'date_from' => 'required|date',
             'date_to'   => 'required|date|after_or_equal:date_from',
+            'platform'  => 'nullable|string|in:all,shopee,lazada',
         ]);
 
         $from = $data['date_from'];
+        $platform = $data['platform'] ?? 'all';
         $daysBack = max(1, (int) now()->diffInDays(\Carbon\Carbon::parse($from)) + 1);
 
-        // Set sync timestamps so commands fetch from our target date
-        \App\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
-        \App\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
-
-        // Run both commands in background (they take minutes due to API rate limits)
         $php = PHP_BINARY ?: '/usr/bin/php';
         $artisan = base_path('artisan');
+        $launched = [];
 
-        Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
-        Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
+        if ($platform === 'all' || $platform === 'shopee') {
+            \App\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
+            $launched[] = 'Shopee';
+        }
+
+        if ($platform === 'all' || $platform === 'lazada') {
+            \App\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
+            $launched[] = 'Lazada';
+        }
+
+        $platformLabel = implode(' + ', $launched);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,
-            'message' => 'Fetching reviews in background (Shopee + Lazada). Refresh the page in a few minutes to see results.',
+            'message' => "Fetching reviews in background ({$platformLabel}). Refresh the page in a few minutes to see results.",
         ]);
     }
 

@@ -15,15 +15,20 @@
             <label class="text-xs text-secondary">To</label>
             <input type="date" name="date_to" value="{{ old('date_to') }}" class="input" style="width:auto;">
         </div>
+        <div>
+            <label class="text-xs text-secondary">Platform</label>
+            <select class="input" name="platform">
+                <option value="all">Shopee + Lazada</option>
+                <option value="shopee">Shopee only</option>
+                <option value="lazada">Lazada only</option>
+            </select>
+        </div>
         <div class="d-flex gap-8" style="align-self:flex-end;">
             <button type="submit" class="btn" id="btnFetchReviews">Fetch Reviews</button>
             <form method="POST" action="{{ route('ext.opencart.reviews.delete_all') }}" style="margin:0; display:inline;" data-confirm="Delete ALL reviews? This cannot be undone.">
                 @csrf
                 <button type="submit" class="btn danger">Delete All</button>
             </form>
-        </div>
-        <div class="text-secondary text-xs" style="flex:1;">
-            Fetches reviews from Shopee &amp; Lazada for the selected date range.
         </div>
     </form>
 </div>
