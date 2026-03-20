@@ -961,17 +961,18 @@ document.addEventListener('mousemove', function(e) {
         return;
       }
       filtered.forEach(function(it){
+        var displayLabel = it.display_name || it.name;
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.textContent = it.name;
+        btn.textContent = displayLabel;
         btn.addEventListener('mousedown', function(e){
           e.preventDefault();
           if(isMulti){
-            addTag(it.id, it.name);
+            addTag(it.id, displayLabel);
             input.value = '';
             clearList();
           } else {
-            input.value = it.name;
+            input.value = displayLabel;
             hidden.value = String(it.id);
             clearList();
             input.classList.remove('input-error');
