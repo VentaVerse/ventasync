@@ -135,7 +135,7 @@
                             <div class="font-semibold text-sm">{{ $or->option_value_name ?? '' }}</div>
                             <div class="text-xs text-muted" style="margin-top:2px;">{{ $or->option_name ?? '' }}</div>
                         </td>
-                        <td></td>
+                        <td class="text-xs text-secondary">{{ $or->sku ?: '—' }}</td>
                         <td class="font-semibold">{{ (int)($or->quantity ?? 0) }}</td>
                         <td>{{ number_format($final, 2) }}</td>
                         <td></td>
