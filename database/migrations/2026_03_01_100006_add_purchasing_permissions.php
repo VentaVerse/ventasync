@@ -7,11 +7,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $permissions = ['manage_purchasing', 'manage_vendors', 'manage_purchase_orders'];
+        $permissions = [
+            'manage_purchasing' => ['label' => 'Purchasing', 'description' => 'Full access to all purchasing features'],
+            'manage_vendors' => ['label' => 'Manage Vendors', 'description' => 'Access vendor management'],
+            'manage_purchase_orders' => ['label' => 'Manage Purchase Orders', 'description' => 'Access purchase order management'],
+        ];
 
-        foreach ($permissions as $key) {
+        foreach ($permissions as $key => $meta) {
             DB::table('permissions')->insertOrIgnore([
                 'key' => $key,
+                'label' => $meta['label'],
+                'description' => $meta['description'],
             ]);
         }
 
@@ -19,7 +25,7 @@ return new class extends Migration
         $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
 
         if ($adminGroupId) {
-            $permIds = DB::table('permissions')->whereIn('key', $permissions)->pluck('id');
+            $permIds = DB::table('permissions')->whereIn('key', array_keys($permissions))->pluck('id');
 
             foreach ($permIds as $permId) {
                 DB::table('user_group_permissions')->insertOrIgnore([
