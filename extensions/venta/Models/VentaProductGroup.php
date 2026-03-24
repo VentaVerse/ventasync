@@ -14,6 +14,7 @@ class VentaProductGroup extends Model
         'venta_setting_id',
         'name',
         'venta_category_id',
+        'venta_brand_id',
         'catalog_category_ids',
         'manufacturer_ids',
         'markup_percent',

@@ -147,6 +147,12 @@
                                                 <input type="number" name="sync_last_days" class="input" value="{{ $store->sync_last_days }}" placeholder="e.g. 30" min="1" max="365" style="width:100px;">
                                                 <span class="text-muted text-xs">days</span>
                                             </div>
+                                            <div class="hint">Rolling window — takes priority over fixed date.</div>
+                                        </div>
+                                        <div>
+                                            <label>Sync Orders From</label>
+                                            <input type="date" name="sync_orders_from" class="input" value="{{ $store->sync_orders_from ? $store->sync_orders_from->format('Y-m-d') : '' }}" style="width:180px;">
+                                            <div class="hint">Fixed cutoff date — only orders after this date will be synced. Used as fallback when "Sync Last N Days" is not set.</div>
                                         </div>
                                         <div>
                                             <label class="d-flex items-center gap-8" style="margin-bottom:0;">

@@ -144,6 +144,47 @@ class AppServiceProvider extends ServiceProvider
             } catch (\Throwable $e) {
                 $view->with('opencartStores', collect());
             }
+
+            // Venta stores for sidebar nav
+            try {
+                $view->with('ventaStores', collect());
+                if (class_exists(\Extensions\venta\Models\VentaSetting::class) && Schema::hasTable('venta_settings')) {
+                    $ventaStores = \Extensions\venta\Models\VentaSetting::where('enabled', true)->get();
+                    $ventaPendingByStore = [];
+
+                    if (Schema::hasTable($pfx . 'order')) {
+                        $pendingStatusIds = $pendingStatusIds ?? OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
+
+                        if ($pendingStatusIds->isNotEmpty()) {
+                            $ventaRows = DB::table($pfx . 'order')
+                                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
+                                ->whereIn('order_status_id', $pendingStatusIds)
+                                ->where('marketplace_source', 'like', 'venta:%')
+                                ->groupBy('marketplace_source')
+                                ->get();
+
+                            foreach ($ventaRows as $row) {
+                                $src = (string) ($row->marketplace_source ?? '');
+                                if (str_starts_with($src, 'venta:')) {
+                                    $storeId = (int) str_replace('venta:', '', $src);
+                                    if ($storeId > 0) {
+                                        $ventaPendingByStore[$storeId] = (int) $row->cnt;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $ventaStores = $ventaStores->map(function ($store) use ($ventaPendingByStore) {
+                        $store->pending_count = $ventaPendingByStore[$store->id] ?? 0;
+                        return $store;
+                    });
+
+                    $view->with('ventaStores', $ventaStores);
+                }
+            } catch (\Throwable $e) {
+                $view->with('ventaStores', collect());
+            }
         });
 
         // Capture non-fatal PHP errors (warnings/notices/deprecations) into storage/logs/error.log

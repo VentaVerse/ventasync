@@ -14,11 +14,9 @@ Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
     Route::post('/venta/save-status-map', [VentaController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
     Route::post('/venta/fetch-statuses', [VentaController::class, 'fetchVentaStatuses'])->name('ext.venta.fetch_statuses');
 
-    // Fetch categories from Venta API (AJAX)
+    // Fetch categories/brands from Venta API (AJAX)
     Route::post('/venta/fetch-categories', [VentaController::class, 'fetchCategories'])->name('ext.venta.fetch_categories');
-
-    // Product Groups — nav entry point (redirects to first enabled store)
-    Route::get('/venta/product-groups', [VentaProductGroupController::class, 'navRedirect'])->name('ext.venta.product-groups');
+    Route::post('/venta/fetch-brands', [VentaController::class, 'fetchBrands'])->name('ext.venta.fetch_brands');
 
     // Product Groups (per-store)
     Route::get('/venta/{store}/product-groups', [VentaProductGroupController::class, 'index'])->name('ext.venta.product-groups.index');
@@ -48,7 +46,6 @@ Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
 
 // Venta Orders (separate permission)
 Route::middleware(['auth', 'perm:manage_venta_orders'])->group(function () {
-    Route::get('/venta/orders', [VentaOrderController::class, 'navRedirect'])->name('ext.venta.orders');
     Route::get('/venta/{store}/orders', [VentaOrderController::class, 'index'])->name('ext.venta.orders.index');
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
     Route::get('/venta/{store}/orders/{order}', [VentaOrderController::class, 'show'])->name('ext.venta.orders.show');

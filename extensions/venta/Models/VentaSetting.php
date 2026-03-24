@@ -16,6 +16,7 @@ class VentaSetting extends Model
         'enabled',
         'warehouse_id',
         'sync_last_days',
+        'sync_orders_from',
         'last_order_sync_at',
         'last_product_sync_at',
         'last_category_sync_at',
@@ -25,6 +26,7 @@ class VentaSetting extends Model
     protected $casts = [
         'enabled'              => 'boolean',
         'sync_last_days'       => 'integer',
+        'sync_orders_from'     => 'date',
         'last_order_sync_at'   => 'datetime',
         'last_product_sync_at' => 'datetime',
         'last_category_sync_at'=> 'datetime',

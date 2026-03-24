@@ -126,10 +126,18 @@ class VentaOrderSync
         return $log;
     }
 
+    /**
+     * Resolve the "since" date for order sync.
+     * sync_last_days (rolling window) takes priority over sync_orders_from (fixed date).
+     */
     private function resolveSinceDate(): ?string
     {
         if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
             return now()->subDays($this->setting->sync_last_days)->startOfDay()->toIso8601String();
+        }
+
+        if ($this->setting->sync_orders_from) {
+            return $this->setting->sync_orders_from->startOfDay()->toIso8601String();
         }
 
         return null;

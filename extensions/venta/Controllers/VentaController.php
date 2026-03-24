@@ -5,6 +5,8 @@ namespace Extensions\venta\Controllers;
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
 use Extensions\venta\Models\VentaApiLog;
+use Extensions\venta\Models\VentaBrand;
+use Extensions\venta\Models\VentaCategory;
 use Extensions\venta\Models\VentaOrderStatusMap;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Models\VentaSyncLog;
@@ -52,7 +54,8 @@ class VentaController extends Controller
             'api_token'      => ['required', 'string', 'max:255'],
             'enabled'        => ['nullable'],
             'warehouse_id'   => ['nullable', 'integer'],
-            'sync_last_days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'sync_last_days'   => ['nullable', 'integer', 'min:1', 'max:365'],
+            'sync_orders_from' => ['nullable', 'date'],
         ]);
 
         $data['enabled'] = $request->has('enabled');
@@ -62,22 +65,24 @@ class VentaController extends Controller
         if ($storeId) {
             $setting = VentaSetting::findOrFail((int) $storeId);
             $setting->update([
-                'store_name'     => $data['store_name'] ?? '',
-                'base_url'       => $data['base_url'],
-                'api_token'      => $data['api_token'],
-                'enabled'        => $data['enabled'],
-                'warehouse_id'   => $data['warehouse_id'] ?? $setting->warehouse_id,
-                'sync_last_days' => $data['sync_last_days'] ?? $setting->sync_last_days,
+                'store_name'       => $data['store_name'] ?? '',
+                'base_url'         => $data['base_url'],
+                'api_token'        => $data['api_token'],
+                'enabled'          => $data['enabled'],
+                'warehouse_id'     => $data['warehouse_id'] ?? $setting->warehouse_id,
+                'sync_last_days'   => $data['sync_last_days'] ?? $setting->sync_last_days,
+                'sync_orders_from' => $data['sync_orders_from'] ?? $setting->sync_orders_from,
             ]);
             ActivityLogger::log('updated', 'Venta Store', $setting->id, $setting->store_name ?? $setting->base_url);
         } else {
             $setting = VentaSetting::create([
-                'store_name'     => $data['store_name'] ?? '',
-                'base_url'       => $data['base_url'],
-                'api_token'      => $data['api_token'],
-                'enabled'        => $data['enabled'],
-                'warehouse_id'   => $data['warehouse_id'] ?? null,
-                'sync_last_days' => $data['sync_last_days'] ?? 30,
+                'store_name'       => $data['store_name'] ?? '',
+                'base_url'         => $data['base_url'],
+                'api_token'        => $data['api_token'],
+                'enabled'          => $data['enabled'],
+                'warehouse_id'     => $data['warehouse_id'] ?? null,
+                'sync_last_days'   => $data['sync_last_days'] ?? 30,
+                'sync_orders_from' => $data['sync_orders_from'] ?? null,
             ]);
             ActivityLogger::log('created', 'Venta Store', $setting->id, $setting->store_name ?? $setting->base_url);
         }
@@ -148,10 +153,66 @@ class VentaController extends Controller
             $categories = [];
         }
 
+        // Truncate and repopulate
+        VentaCategory::where('venta_setting_id', $setting->id)->delete();
+        foreach ($categories as $c) {
+            VentaCategory::create([
+                'venta_setting_id'  => $setting->id,
+                'venta_category_id' => $c['id'],
+                'name'              => $c['name'] ?? '',
+                'slug'              => $c['slug'] ?? null,
+                'parent_id'         => $c['parent_id'] ?? null,
+                'is_active'         => $c['is_active'] ?? true,
+            ]);
+        }
+
         return response()->json([
             'ok'         => true,
             'categories' => $categories,
             'count'      => count($categories),
+        ]);
+    }
+
+    public function fetchBrands(Request $request)
+    {
+        $storeId = $request->input('store_id');
+        if (!$storeId) {
+            return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
+        }
+
+        $setting = VentaSetting::find((int) $storeId);
+        if (!$setting) {
+            return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
+        }
+
+        $client = new VentaClient($setting);
+        $result = $client->getBrands();
+
+        if (!$result['ok']) {
+            return response()->json(['ok' => false, 'error' => 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error')]);
+        }
+
+        $brands = $result['body'];
+        if (!is_array($brands)) {
+            $brands = [];
+        }
+
+        // Truncate and repopulate
+        VentaBrand::where('venta_setting_id', $setting->id)->delete();
+        foreach ($brands as $b) {
+            VentaBrand::create([
+                'venta_setting_id' => $setting->id,
+                'venta_brand_id'   => $b['id'],
+                'name'             => $b['name'] ?? '',
+                'slug'             => $b['slug'] ?? null,
+                'is_active'        => $b['is_active'] ?? true,
+            ]);
+        }
+
+        return response()->json([
+            'ok'     => true,
+            'brands' => $brands,
+            'count'  => count($brands),
         ]);
     }
 

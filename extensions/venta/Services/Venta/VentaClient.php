@@ -64,7 +64,7 @@ class VentaClient
 
             $result = [
                 'status' => $resp->status(),
-                'ok'     => $resp->ok(),
+                'ok'     => $resp->successful(),
                 'body'   => $resp->json() ?? [],
             ];
         } catch (\Throwable $e) {
@@ -95,7 +95,7 @@ class VentaClient
 
             $result = [
                 'status' => $resp->status(),
-                'ok'     => $resp->ok(),
+                'ok'     => $resp->successful(),
                 'body'   => $resp->json() ?? [],
             ];
         } catch (\Throwable $e) {
@@ -126,7 +126,7 @@ class VentaClient
 
             $result = [
                 'status' => $resp->status(),
-                'ok'     => $resp->ok(),
+                'ok'     => $resp->successful(),
                 'body'   => $resp->json() ?? [],
             ];
         } catch (\Throwable $e) {

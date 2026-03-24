@@ -15,19 +15,9 @@
         "venta_order_products",
         "venta_order_status_map",
         "venta_sync_logs",
-        "venta_api_logs"
+        "venta_api_logs",
+        "venta_categories",
+        "venta_brands"
     ],
-    "nav": [
-        {
-            "group": "Venta Store",
-            "icon": "shopping-bag",
-            "permission": "manage_venta",
-            "priority": 46,
-            "items": [
-                { "label": "Settings", "route": "ext.venta.index" },
-                { "label": "Product Groups", "route": "ext.venta.product-groups" },
-                { "label": "Orders", "route": "ext.venta.orders", "permission": "manage_venta_orders" }
-            ]
-        }
-    ]
+    "nav": []
 }

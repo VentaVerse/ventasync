@@ -4,6 +4,8 @@ namespace Extensions\venta\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
+use Extensions\venta\Models\VentaBrand;
+use Extensions\venta\Models\VentaCategory;
 use Extensions\venta\Models\VentaProductGroup;
 use Extensions\venta\Models\VentaProductGroupProduct;
 use Extensions\venta\Models\VentaProductLink;
@@ -43,39 +45,18 @@ class VentaProductGroupController extends Controller
     public function index(int $store)
     {
         $setting = $this->store_($store);
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
 
         $groups = VentaProductGroup::where('venta_setting_id', $store)->orderByDesc('id')->get();
 
-        $catIds = $groups->pluck('catalog_category_ids')->filter()->flatten()->unique()->values()->all();
-        $categoryNames = collect();
-        if (!empty($catIds)) {
-            $categoryNames = DB::table($pfx . 'category_description')
-                ->whereIn('category_id', $catIds)
-                ->where('language_id', $langId)
-                ->pluck('name', 'category_id');
-        }
-
-        $mfgIds = $groups->pluck('manufacturer_ids')->filter()->flatten()->unique()->values()->all();
-        $manufacturerNames = collect();
-        if (!empty($mfgIds)) {
-            $manufacturerNames = DB::table($pfx . 'manufacturer')
-                ->whereIn('manufacturer_id', $mfgIds)
-                ->pluck('name', 'manufacturer_id');
-        }
-
         $productCounts = [];
         foreach ($groups as $g) {
-            $productCounts[$g->id] = count($this->getMatchingProductIds($g));
+            $productCounts[$g->id] = $g->products()->count();
         }
 
         return view('ext-venta::product-groups.index', [
-            'setting'           => $setting,
-            'groups'            => $groups,
-            'categoryNames'     => $categoryNames,
-            'manufacturerNames' => $manufacturerNames,
-            'productCounts'     => $productCounts,
+            'setting'       => $setting,
+            'groups'        => $groups,
+            'productCounts' => $productCounts,
         ]);
     }
 
@@ -148,6 +129,7 @@ class VentaProductGroupController extends Controller
         $data = $request->validate([
             'name'              => 'required|string|max:255',
             'venta_category_id' => 'nullable|integer',
+            'venta_brand_id'    => 'nullable|integer',
             'markup_percent'    => 'nullable|numeric|min:0',
             'markup_fixed'      => 'nullable|numeric|min:0',
         ]);
@@ -156,6 +138,7 @@ class VentaProductGroupController extends Controller
             'venta_setting_id'     => $store,
             'name'                 => $data['name'],
             'venta_category_id'    => $data['venta_category_id'] ?? null,
+            'venta_brand_id'       => $data['venta_brand_id'] ?? null,
             'catalog_category_ids' => null,
             'manufacturer_ids'     => null,
             'markup_percent'       => $data['markup_percent'] ?? 0,
@@ -185,6 +168,7 @@ class VentaProductGroupController extends Controller
         $data = $request->validate([
             'name'              => 'required|string|max:255',
             'venta_category_id' => 'nullable|integer',
+            'venta_brand_id'    => 'nullable|integer',
             'markup_percent'    => 'nullable|numeric|min:0',
             'markup_fixed'      => 'nullable|numeric|min:0',
         ]);
@@ -192,6 +176,7 @@ class VentaProductGroupController extends Controller
         $g->update([
             'name'                 => $data['name'],
             'venta_category_id'    => $data['venta_category_id'] ?? $g->venta_category_id,
+            'venta_brand_id'       => $data['venta_brand_id'] ?? $g->venta_brand_id,
             'catalog_category_ids' => null,
             'manufacturer_ids'     => null,
             'markup_percent'       => $data['markup_percent'] ?? $g->markup_percent,
@@ -482,8 +467,24 @@ class VentaProductGroupController extends Controller
                 'description' => strip_tags($prod->description ?? ''),
             ];
 
+            // Send brand as name — Venta API will find-or-create
             if ($prod->brand_name) {
-                $data['brand'] = $prod->brand_name;
+                $data['brand_name'] = $prod->brand_name;
+            }
+
+            // Send categories as names — Venta API will find-or-create
+            $catNames = DB::table($pfx . 'product_to_category as ptc')
+                ->join($pfx . 'category_description as cd', function ($j) use ($langId) {
+                    $j->on('ptc.category_id', '=', 'cd.category_id')
+                        ->where('cd.language_id', '=', $langId);
+                })
+                ->where('ptc.product_id', $pid)
+                ->pluck('cd.name')
+                ->filter()
+                ->values()
+                ->toArray();
+            if (!empty($catNames)) {
+                $data['category_names'] = $catNames;
             }
 
             // Add images

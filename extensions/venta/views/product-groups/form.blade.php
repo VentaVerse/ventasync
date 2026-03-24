@@ -25,20 +25,6 @@
                 <input type="text" name="name" class="input" value="{{ old('name', $group->name) }}" placeholder="e.g. Guitar Pedals">
             </div>
 
-            {{-- Venta Category --}}
-            <h3 class="section-title" style="margin-top:20px;">Venta Category</h3>
-            <div class="hint" style="margin-bottom:8px;">Select a category from your Venta store where products will be uploaded.</div>
-
-            <div style="display:flex; gap:8px; align-items:start; max-width:560px;">
-                <div style="position:relative; flex:1;">
-                    <input type="text" class="input" id="ventaCatSearch" placeholder="Search Venta categories..." autocomplete="off"
-                           value="{{ old('venta_category_id', $group->venta_category_id ?? '') ? (($ventaCategories ?? collect())->firstWhere('id', old('venta_category_id', $group->venta_category_id ?? ''))->name ?? '') : '' }}">
-                    <input type="hidden" name="venta_category_id" id="ventaCatId" value="{{ old('venta_category_id', $group->venta_category_id ?? '') }}">
-                    <div id="ventaCatDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:250px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
-                </div>
-                <button type="button" class="btn small secondary" id="ventaFetchCatsBtn" title="Fetch categories from Venta API">Fetch Categories</button>
-            </div>
-
             {{-- Price Markup --}}
             <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
             <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
@@ -161,70 +147,7 @@
 @push('scripts')
 <script>
 (function() {
-    // ── Venta Category Picker ──────────────────────────────────
-    var ventaCats = @json(($ventaCategories ?? collect())->map(fn($c) => ['id' => $c->id, 'name' => $c->name]));
-    var catSearchEl = document.getElementById('ventaCatSearch');
-    var catDropdown = document.getElementById('ventaCatDropdown');
-    var catHiddenId = document.getElementById('ventaCatId');
-
-    function showVentaCatDropdown(filter) {
-        var lower = filter.toLowerCase();
-        var filtered = ventaCats.filter(function(c) { return c.name.toLowerCase().indexOf(lower) !== -1; });
-        if (filtered.length === 0 || filter === '') { catDropdown.style.display = 'none'; return; }
-        catDropdown.textContent = '';
-        filtered.slice(0, 50).forEach(function(cat) {
-            var div = document.createElement('div');
-            div.textContent = cat.name;
-            div.style.cssText = 'padding:6px 10px; cursor:pointer; font-size:13px;';
-            div.addEventListener('mouseenter', function() { div.style.background = 'var(--surface-hover)'; });
-            div.addEventListener('mouseleave', function() { div.style.background = ''; });
-            div.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                catSearchEl.value = cat.name;
-                catHiddenId.value = cat.id;
-                catDropdown.style.display = 'none';
-            });
-            catDropdown.appendChild(div);
-        });
-        catDropdown.style.display = 'block';
-    }
-
-    catSearchEl.addEventListener('input', function() { showVentaCatDropdown(catSearchEl.value.trim()); });
-    catSearchEl.addEventListener('focus', function() { if (catSearchEl.value.trim()) showVentaCatDropdown(catSearchEl.value.trim()); });
-    catSearchEl.addEventListener('blur', function() { setTimeout(function() { catDropdown.style.display = 'none'; }, 150); });
-
-    // ── Fetch Categories from Venta API ──────────────────────
-    var fetchCatsBtn = document.getElementById('ventaFetchCatsBtn');
     var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    if (fetchCatsBtn) {
-        fetchCatsBtn.addEventListener('click', function() {
-            fetchCatsBtn.disabled = true;
-            fetchCatsBtn.textContent = 'Fetching...';
-
-            fetch(@json(route('ext.venta.fetch_categories')), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ store_id: @json($setting->id) })
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.ok && data.categories) {
-                    ventaCats = data.categories.map(function(c) { return { id: c.id, name: c.name }; });
-                    showFlashSuccess((data.count || ventaCats.length) + ' categories fetched.');
-                } else {
-                    showFlashError(data.message || data.error || 'Failed to fetch categories.');
-                }
-            })
-            .catch(function() { showFlashError('Network error fetching categories.'); })
-            .finally(function() { fetchCatsBtn.disabled = false; fetchCatsBtn.textContent = 'Fetch Categories'; });
-        });
-    }
 
     // ── Dual Listbox ────────────────────────────────────────────
     var searchUrl = @json(route('ext.venta.product-groups.searchProducts', [$setting->id]));
