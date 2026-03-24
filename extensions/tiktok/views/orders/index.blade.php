@@ -218,8 +218,33 @@
                             $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : '';
                             $buyer = $o->buyer_name ?: '';
 
-                            $items = $o->products ? $o->products->toArray() : [];
-                            $itemCount = count($items);
+                            // Consolidate duplicate line items by SKU + name + variation
+                            $rawItems = $o->products ? $o->products->toArray() : [];
+                            $grouped = [];
+                            foreach ($rawItems as $ri) {
+                                $riName = $ri['name'] ?? '';
+                                $riSku = $ri['sku'] ?? '';
+                                $riVariation = $ri['variation'] ?? '';
+                                $riVarNorm = mb_strtolower(trim($riVariation));
+                                if (in_array($riVarNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--', 'default'], true)) {
+                                    $riVariation = '';
+                                }
+                                $riQty = (int) ($ri['quantity'] ?? 1);
+                                if ($riQty < 1) $riQty = 1;
+                                $key = mb_strtolower(trim($riSku)) . '|' . mb_strtolower(trim($riName)) . '|' . mb_strtolower(trim($riVariation));
+                                if (!isset($grouped[$key])) {
+                                    $grouped[$key] = $ri;
+                                    $grouped[$key]['quantity'] = $riQty;
+                                    $grouped[$key]['variation'] = $riVariation;
+                                } else {
+                                    $grouped[$key]['quantity'] += $riQty;
+                                    if (empty($grouped[$key]['image']) && !empty($ri['image'])) {
+                                        $grouped[$key]['image'] = $ri['image'];
+                                    }
+                                }
+                            }
+                            $items = array_values($grouped);
+                            $itemCount = count($rawItems);
                             if (empty($items)) { $items = [[]]; }
                             $lineCount = count($items);
 
