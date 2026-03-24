@@ -561,6 +561,97 @@ class TikTokProductGroupController extends Controller
             ->with('status', 'Product unlinked from TikTok.');
     }
 
+    /**
+     * Sync TikTok product ID for a single product by matching seller_sku via search API.
+     */
+    public function syncId(int $id, int $product)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $pivot = $group->groupProducts()->where('product_id', $product)->first();
+        if (!$pivot) {
+            return redirect()->back()->with('error', 'Product not in this group.');
+        }
+
+        $raw = TikTokSetting::query()->first();
+        if (!$raw) {
+            return redirect()->back()->with('error', 'TikTok settings not configured.');
+        }
+        $s = $raw->decrypted();
+        $sandbox = $raw->mode === 'sandbox';
+        $appKey = $sandbox ? ($s->sandbox_app_key ?? '') : ($s->app_key ?? '');
+        $appSecret = $sandbox ? ($s->sandbox_app_secret ?? '') : ($s->app_secret ?? '');
+        $token = $sandbox ? ($s->sandbox_access_token ?? '') : ($s->access_token ?? '');
+        $shopCipher = $sandbox ? ($raw->sandbox_shop_cipher ?? '') : ($raw->shop_cipher ?? '');
+
+        if (!$appKey || !$appSecret || !$token) {
+            return redirect()->back()->with('error', 'Missing TikTok credentials.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $client = new TikTokClient();
+
+        // Collect all SKUs for this product
+        $productRow = DB::table($pfx . 'product')->where('product_id', $product)->first(['sku', 'model']);
+        $skus = [];
+        if ($productRow->sku && trim($productRow->sku) !== '') $skus[] = strtolower(trim($productRow->sku));
+        if ($productRow->model && trim($productRow->model) !== '') $skus[] = strtolower(trim($productRow->model));
+
+        $optSkus = DB::table($pfx . 'product_option_value')
+            ->where('product_id', $product)
+            ->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')->map(fn($s) => strtolower(trim($s)))->unique()->toArray();
+        $skus = array_unique(array_merge($skus, $optSkus));
+
+        if (empty($skus)) {
+            return redirect()->back()->with('error', 'Product has no SKU to match against TikTok.');
+        }
+
+        // Search all TikTok products (paginated)
+        $matchedProductId = null;
+        $matchedSkuId = null;
+        $pageToken = null;
+
+        for ($page = 0; $page < 30; $page++) {
+            $result = $client->searchProducts($appKey, $appSecret, $token, 50, $pageToken, $shopCipher);
+
+            if (!($result['ok'] ?? false)) break;
+
+            $products = $result['body']['data']['products'] ?? [];
+            if (empty($products)) break;
+
+            foreach ($products as $p) {
+                $ttProductId = $p['id'] ?? null;
+                if (!$ttProductId) continue;
+
+                foreach ($p['skus'] ?? [] as $sku) {
+                    $sellerSku = strtolower(trim($sku['seller_sku'] ?? ''));
+                    if ($sellerSku !== '' && in_array($sellerSku, $skus)) {
+                        $matchedProductId = (string) $ttProductId;
+                        $matchedSkuId = $sku['id'] ?? null;
+                        break 3;
+                    }
+                }
+            }
+
+            $pageToken = $result['body']['data']['next_page_token'] ?? null;
+            if (!$pageToken) break;
+            usleep(300000);
+        }
+
+        if (!$matchedProductId) {
+            return redirect()->back()->with('error', 'No matching product found on TikTok for SKU(s): ' . implode(', ', $skus));
+        }
+
+        // Update pivot with matched TikTok product ID
+        $updateData = ['tiktok_product_id' => $matchedProductId, 'sync_status' => 'pushed'];
+        if ($matchedSkuId) {
+            $updateData['tiktok_sku_id'] = $matchedSkuId;
+        }
+        $pivot->update($updateData);
+
+        return redirect()->back()->with('status', "TikTok product ID {$matchedProductId} synced.");
+    }
+
     public function linkProduct(int $id, int $product)
     {
         $group = TikTokProductGroup::findOrFail($id);

@@ -204,6 +204,18 @@ class TikTokClient
 
     // -- Products ---------------------------------------------------------
 
+    public function searchProducts(string $appKey, string $appSecret, string $accessToken, int $pageSize = 20, ?string $pageToken = null, ?string $shopCipher = null): array
+    {
+        $body = ['page_size' => $pageSize];
+        if ($pageToken) $body['page_token'] = $pageToken;
+        return $this->post($appKey, $appSecret, $accessToken, '/product/202309/products/search', [], $body, $shopCipher);
+    }
+
+    public function getProduct(string $appKey, string $appSecret, string $accessToken, string $productId, ?string $shopCipher = null): array
+    {
+        return $this->get($appKey, $appSecret, $accessToken, '/product/202309/products/' . $productId, [], $shopCipher);
+    }
+
     public function createProduct(string $appKey, string $appSecret, string $accessToken, array $data, ?string $shopCipher = null): array
     {
         return $this->post($appKey, $appSecret, $accessToken, '/product/202309/products', [], $data, $shopCipher);
