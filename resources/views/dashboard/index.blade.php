@@ -70,6 +70,7 @@
             <div class="dash-stat-label">Products</div>
         </div>
     </a>
+    @if(auth()->user()?->hasPermission('manage_lazada_orders'))
     <a href="{{ route('lazada.orders.index', ['tab' => 'PENDING']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -79,6 +80,8 @@
             <div class="dash-stat-label">Lazada Pending</div>
         </div>
     </a>
+    @endif
+    @if(auth()->user()?->hasPermission('manage_shopee_orders'))
     <a href="{{ route('shopee.orders.index', ['tab' => 'PENDING']) }}" class="dash-stat" style="--stat-accent:#ee4d2d; --stat-bg:rgba(238,77,45,.1);">
         <div class="dash-stat-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -88,7 +91,8 @@
             <div class="dash-stat-label">Shopee Pending</div>
         </div>
     </a>
-    @if(Route::has('ext.opencart.orders.index') && $syncStatuses->isNotEmpty())
+    @endif
+    @if(auth()->user()?->hasPermission('manage_opencart_orders') && Route::has('ext.opencart.orders.index') && $syncStatuses->isNotEmpty())
         @foreach($syncStatuses as $store)
             <a href="{{ route('ext.opencart.orders.index', $store->id) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
                 <div class="dash-stat-icon">
@@ -104,7 +108,7 @@
 </div>
 
 {{-- Purchasing stats (from extension) --}}
-@if(Route::has('ext.purchasing.purchase_orders.index'))
+@if(Route::has('ext.purchasing.purchase_orders.index') && auth()->user()?->hasPermission('manage_purchasing'))
 <div class="dash-stats">
     <a href="{{ route('ext.purchasing.purchase_orders.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
         <div class="dash-stat-icon">
@@ -209,7 +213,7 @@
         };
     @endphp
     <div style="display:flex; flex-direction:column; gap:16px;">
-        @if($syncStatuses->isNotEmpty())
+        @if(auth()->user()?->hasPermission('manage_opencart') && $syncStatuses->isNotEmpty())
         <div class="card">
             <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">OpenCart Sync Status</h3>
             <div class="dash-sync-grid">
@@ -245,7 +249,7 @@
         <div class="card">
             <h3 class="section-title mt-0" style="border:0; padding:0; margin:0 0 12px;">Marketplace Sync Status</h3>
             <div class="dash-sync-grid">
-                @if($shopeeSyncStatus)
+                @if($shopeeSyncStatus && auth()->user()?->hasPermission('manage_shopee'))
                     @php $shopeeTokenOk = !empty($shopeeSyncStatus->expires_at) && $shopeeSyncStatus->expires_at->isFuture(); @endphp
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
@@ -260,7 +264,7 @@
                         </div>
                     </div>
                 @endif
-                @if($lazadaSyncStatus)
+                @if($lazadaSyncStatus && auth()->user()?->hasPermission('manage_lazada'))
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
                             <span class="dash-sync-dot {{ $syncDotClass($lazadaSyncStatus->order_sync_at, $lazadaSyncStatus->expires_at ?? null) }}"></span>
@@ -274,7 +278,7 @@
                         </div>
                     </div>
                 @endif
-                @if($tiktokSyncStatus ?? null)
+                @if(($tiktokSyncStatus ?? null) && auth()->user()?->hasPermission('manage_tiktok'))
                     <div class="dash-sync-store">
                         <div class="dash-sync-header">
                             <span class="dash-sync-dot {{ $syncDotClass($tiktokSyncStatus->order_sync_at ?? null, $tiktokSyncStatus->expires_at ?? null) }}"></span>
@@ -302,6 +306,7 @@
     <div class="card">
         <h3 class="section-title mt-0">Quick Links</h3>
         <div class="dash-links">
+            @if(auth()->user()?->hasPermission('manage_lazada_orders'))
             <a href="{{ route('lazada.orders.index') }}">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 <span>Lazada Orders</span>
@@ -311,6 +316,8 @@
                     <span class="dash-link-count">No new orders</span>
                 @endif
             </a>
+            @endif
+            @if(auth()->user()?->hasPermission('manage_shopee_orders'))
             <a href="{{ route('shopee.orders.index') }}">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 <span>Shopee Orders</span>
@@ -320,6 +327,7 @@
                     <span class="dash-link-count">No new orders</span>
                 @endif
             </a>
+            @endif
             <a href="{{ route('orders.index') }}">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
                 <span>Orders</span>
