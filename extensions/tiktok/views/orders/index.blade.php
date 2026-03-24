@@ -359,7 +359,9 @@
                                             @endif
                                             @if($isToHandover || $isShipped)
                                                 <a href="{{ route('ext.tiktok.orders.awb', $o->id) }}" target="_blank" class="btn small secondary">AWB</a>
-                                                <a href="{{ route('ext.tiktok.orders.awb', [$o->id, 'refresh' => 1]) }}" target="_blank" class="btn small secondary" title="Re-download AWB from TikTok">&#8635;</a>
+                                                @if($isToHandover)
+                                                    <a href="{{ route('ext.tiktok.orders.awb', [$o->id, 'refresh' => 1]) }}" target="_blank" class="btn small secondary" title="Re-download AWB from TikTok">&#8635;</a>
+                                                @endif
                                             @endif
                                             @if($isToHandover || $isShipped)
                                                 <button type="button" class="btn small secondary btnTtTracking"
