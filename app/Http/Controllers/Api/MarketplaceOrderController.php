@@ -331,16 +331,19 @@ class MarketplaceOrderController extends Controller
                     $addr['zipcode'] ?? '',
                 ])));
 
-            $products = $order->products->map(function ($p) {
-                return [
-                    'name'      => $p->name,
-                    'sku'       => $p->sku ?? '',
-                    'variation' => $p->variation ?? '',
-                    'quantity'  => $p->quantity,
-                    'price'     => $p->sale_price ?? $p->item_price ?? 0,
-                    'image'     => $p->image ?? '',
-                ];
-            });
+            $products = $order->products
+                ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
+                ->map(function ($group) {
+                    $first = $group->first();
+                    return [
+                        'name'      => $first->name,
+                        'sku'       => $first->sku ?? '',
+                        'variation' => $first->variation ?? '',
+                        'quantity'  => $group->sum('quantity'),
+                        'price'     => $first->sale_price ?? $first->item_price ?? 0,
+                        'image'     => $first->image ?? '',
+                    ];
+                });
         } else {
             $orderId = $order->order_sn;
             $buyerName = $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '';
