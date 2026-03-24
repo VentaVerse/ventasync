@@ -7,11 +7,19 @@
         <h2>Review Detail</h2>
         <div class="page-header-actions d-flex gap-8">
             <a href="{{ route('ext.opencart.reviews.index') }}" class="btn secondary">Back to Reviews</a>
-            @if($review->oc_sync_status === 'pending')
+            @if(in_array($review->oc_sync_status, ['pending', 'error']))
                 <form method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" style="display:inline;">
                     @csrf
                     <button class="btn" type="submit">Push to OpenCart</button>
                 </form>
+            @endif
+            @if(in_array($review->venta_sync_status ?? 'pending', ['pending', 'error']))
+                <form method="POST" action="{{ route('ext.opencart.reviews.push_venta', $review->id) }}" style="display:inline;">
+                    @csrf
+                    <button class="btn" type="submit">Push to Venta</button>
+                </form>
+            @endif
+            @if(in_array($review->oc_sync_status, ['pending', 'error']))
                 <form method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" style="display:inline;">
                     @csrf
                     <button class="btn secondary" type="submit">Skip</button>
@@ -129,6 +137,35 @@
                 @endif
                 @if($review->oc_push_error)
                 <div style="color:#dc2626;"><span class="text-xs text-secondary">Error:</span> {{ $review->oc_push_error }}</div>
+                @endif
+            </div>
+        </div>
+
+        {{-- Venta Sync Status --}}
+        <div class="mb-16" style="background:var(--bg-subtle); padding:16px; border-radius:8px;">
+            <div class="text-xs text-secondary mb-8" style="font-weight:600;">Venta Sync</div>
+            <div class="d-flex gap-16" style="flex-wrap:wrap;">
+                <div>
+                    <span class="text-xs text-secondary">Status:</span>
+                    @php
+                        $vStatusColors = ['pending' => '#64748b', 'pushed' => '#16a34a', 'skipped' => '#d97706', 'error' => '#dc2626'];
+                        $vsc = $vStatusColors[$review->venta_sync_status ?? 'pending'] ?? '#64748b';
+                    @endphp
+                    <span style="display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600; background:{{ $vsc }}15; color:{{ $vsc }};">
+                        {{ ucfirst($review->venta_sync_status ?? 'pending') }}
+                    </span>
+                </div>
+                @if($review->venta_setting_id)
+                <div><span class="text-xs text-secondary">Store ID:</span> {{ $review->venta_setting_id }}</div>
+                @endif
+                @if($review->venta_review_id)
+                <div><span class="text-xs text-secondary">Venta Review ID:</span> {{ $review->venta_review_id }}</div>
+                @endif
+                @if($review->venta_pushed_at)
+                <div><span class="text-xs text-secondary">Pushed:</span> {{ $review->venta_pushed_at->format('M d, Y H:i') }}</div>
+                @endif
+                @if($review->venta_push_error)
+                <div style="color:#dc2626;"><span class="text-xs text-secondary">Error:</span> {{ $review->venta_push_error }}</div>
                 @endif
             </div>
         </div>

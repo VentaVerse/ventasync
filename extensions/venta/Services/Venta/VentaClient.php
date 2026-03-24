@@ -234,6 +234,13 @@ class VentaClient
         return $this->put("variants/{$variantSku}", ['quantity' => $quantity]);
     }
 
+    // ── Convenience: Reviews ────────────────────────────────
+
+    public function createReview(array $data): array
+    {
+        return $this->post('reviews', $data);
+    }
+
     // ── Connectivity ─────────────────────────────────────────
 
     public function ping(): array

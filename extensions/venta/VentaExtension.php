@@ -15,6 +15,7 @@ class VentaExtension extends ExtensionProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Extensions\venta\Commands\VentaSync::class,
+                \Extensions\venta\Commands\VentaPushReviews::class,
             ]);
         }
     }

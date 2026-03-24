@@ -28,6 +28,11 @@ class MarketplaceReview extends Model
         'oc_review_id',
         'oc_pushed_at',
         'oc_push_error',
+        'venta_sync_status',
+        'venta_setting_id',
+        'venta_review_id',
+        'venta_pushed_at',
+        'venta_push_error',
         'raw',
         'reviewed_at',
     ];
@@ -38,7 +43,8 @@ class MarketplaceReview extends Model
         'raw'          => 'array',
         'reviewed_at'  => 'datetime',
         'replied_at'   => 'datetime',
-        'oc_pushed_at' => 'datetime',
+        'oc_pushed_at'    => 'datetime',
+        'venta_pushed_at' => 'datetime',
     ];
 
     // -- Scopes -----------------------------------------------

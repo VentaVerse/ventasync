@@ -47,8 +47,10 @@ Route::middleware(['auth', 'perm:manage_reviews'])->group(function () {
     Route::get('/reviews/{id}', [ReviewController::class, 'show'])->name('ext.opencart.reviews.show')->whereNumber('id');
     Route::post('/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('ext.opencart.reviews.push')->whereNumber('id');
     Route::post('/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('ext.opencart.reviews.skip')->whereNumber('id');
+    Route::post('/reviews/{id}/push-venta', [ReviewController::class, 'pushToVenta'])->name('ext.opencart.reviews.push_venta')->whereNumber('id');
     Route::post('/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('ext.opencart.reviews.bulk_push');
     Route::post('/reviews/fetch', [ReviewController::class, 'fetch'])->name('ext.opencart.reviews.fetch');
     Route::post('/reviews/push-all', [ReviewController::class, 'pushAll'])->name('ext.opencart.reviews.push_all');
+    Route::post('/reviews/push-all-venta', [ReviewController::class, 'pushAllVenta'])->name('ext.opencart.reviews.push_all_venta');
     Route::post('/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('ext.opencart.reviews.delete_all');
 });
