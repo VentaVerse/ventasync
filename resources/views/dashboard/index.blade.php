@@ -92,6 +92,17 @@
         </div>
     </a>
     @endif
+    @if(auth()->user()?->hasPermission('manage_tiktok_orders') && Route::has('ext.tiktok.orders.index'))
+    <a href="{{ route('ext.tiktok.orders.index') }}" class="dash-stat" style="--stat-accent:#1e1e1e; --stat-bg:rgba(30,30,30,.08);">
+        <div class="dash-stat-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="dash-stat-body">
+            <div class="dash-stat-value">{{ number_format($tiktokPending ?? 0) }}</div>
+            <div class="dash-stat-label">TikTok Pending</div>
+        </div>
+    </a>
+    @endif
     @if(auth()->user()?->hasPermission('manage_opencart_orders') && Route::has('ext.opencart.orders.index') && $syncStatuses->isNotEmpty())
         @foreach($syncStatuses as $store)
             <a href="{{ route('ext.opencart.orders.index', $store->id) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
