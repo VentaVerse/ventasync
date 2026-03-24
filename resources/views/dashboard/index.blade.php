@@ -161,6 +161,7 @@
 @endif
 
 {{-- Sales chart --}}
+@if(auth()->user()?->hasPermission('manage_sales'))
 <div class="card mb-16">
     <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
         <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales (Last 30 Days)</h3>
@@ -176,10 +177,12 @@
         <canvas id="salesChart"></canvas>
     </div>
 </div>
+@endif
 
 {{-- Platform distribution + Sync status row --}}
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
     {{-- Platform distribution pie chart --}}
+    @if(auth()->user()?->hasPermission('manage_sales'))
     <div class="card" style="position:relative; z-index:2; overflow:visible;">
         <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:12px;">
             <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="pieTitle">Orders by Platform (Last 30 Days)</h3>
@@ -196,6 +199,7 @@
             <div id="pieLegend" style="flex:1; font-size:13px;"></div>
         </div>
     </div>
+    @endif
 
     {{-- Sync status column --}}
     @php
@@ -334,6 +338,17 @@
                 <span>Shopee Orders</span>
                 @if($shopeePending > 0)
                     <span class="dash-link-count" style="background:#dc2626; color:#fff;">{{ $shopeePending }}</span>
+                @else
+                    <span class="dash-link-count">No new orders</span>
+                @endif
+            </a>
+            @endif
+            @if(auth()->user()?->hasPermission('manage_tiktok_orders') && Route::has('ext.tiktok.orders.index'))
+            <a href="{{ route('ext.tiktok.orders.index') }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>TikTok Orders</span>
+                @if(($tiktokPending ?? 0) > 0)
+                    <span class="dash-link-count" style="background:#dc2626; color:#fff;">{{ $tiktokPending }}</span>
                 @else
                     <span class="dash-link-count">No new orders</span>
                 @endif
