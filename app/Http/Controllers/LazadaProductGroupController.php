@@ -460,6 +460,92 @@ class LazadaProductGroupController extends Controller
     /**
      * Re-link a previously unlinked product.
      */
+    /**
+     * Sync Lazada item ID for a single product by matching seller_sku via /products/get API.
+     */
+    public function syncId(int $groupId, int $productId)
+    {
+        $group = LazadaProductGroup::query()->findOrFail($groupId);
+        $pivot = $group->groupProducts()->where('product_id', $productId)->first();
+        if (!$pivot) {
+            return redirect()->back()->with('error', 'Product not in this group.');
+        }
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+            return redirect()->back()->with('error', 'Missing Lazada credentials.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $client = app(\App\Services\Lazada\LazadaClient::class);
+
+        // Collect all SKUs for this product (parent + option values)
+        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $skus = [];
+        if ($product->sku && trim($product->sku) !== '') $skus[] = trim($product->sku);
+        if ($product->model && trim($product->model) !== '' && !in_array(trim($product->model), $skus)) $skus[] = trim($product->model);
+
+        $optSkus = DB::table($pfx . 'product_option_value')
+            ->where('product_id', $productId)
+            ->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')->map(fn($s) => trim($s))->unique()->toArray();
+        $skus = array_unique(array_merge($skus, $optSkus));
+
+        if (empty($skus)) {
+            return redirect()->back()->with('error', 'Product has no SKU to match against Lazada.');
+        }
+
+        // Search Lazada by each SKU using /products/get with search param
+        $matchedItemId = null;
+        foreach ($skus as $sku) {
+            $apiPath = '/products/get';
+            $timestamp = (string) round(microtime(true) * 1000);
+            $params = [
+                'app_key' => (string) $setting->app_key,
+                'sign_method' => 'sha256',
+                'timestamp' => $timestamp,
+                'access_token' => (string) $setting->access_token,
+                'filter' => 'all',
+                'search' => $sku,
+                'limit' => '50',
+                'offset' => '0',
+            ];
+            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $result = $client->get((string) $setting->region, $apiPath, $params);
+
+            if (!($result['ok'] ?? false)) continue;
+
+            $products = $result['body']['data']['products'] ?? [];
+            foreach ($products as $p) {
+                $itemId = $p['item_id'] ?? ($p['itemId'] ?? null);
+                if (!$itemId) continue;
+
+                foreach ($p['skus'] ?? [] as $s) {
+                    $sellerSku = $s['SellerSku'] ?? ($s['seller_sku'] ?? ($s['SellerSKU'] ?? null));
+                    if ($sellerSku !== null && strcasecmp(trim((string) $sellerSku), $sku) === 0) {
+                        $matchedItemId = (string) $itemId;
+                        break 3;
+                    }
+                }
+            }
+        }
+
+        if (!$matchedItemId) {
+            return redirect()->back()->with('error', 'No matching product found on Lazada for SKU(s): ' . implode(', ', $skus));
+        }
+
+        // Update lazada_products with the matched item ID
+        $lazadaProduct = LazadaProduct::find($pivot->lazada_product_id);
+        if ($lazadaProduct) {
+            $lazadaProduct->update(['lazada_item_id' => $matchedItemId]);
+        }
+
+        // Update sync status
+        $pivot->update(['sync_status' => 'pushed']);
+
+        return redirect()->back()->with('status', "Lazada item ID {$matchedItemId} synced for this product.");
+    }
+
     public function linkProduct(int $groupId, int $productId)
     {
         $group = LazadaProductGroup::query()->findOrFail($groupId);
