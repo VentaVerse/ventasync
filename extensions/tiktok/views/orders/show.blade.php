@@ -91,9 +91,11 @@
         <div class="detail-body">
             <div><span class="text-secondary">Courier:</span> <strong>{{ $shipping !== '' ? $shipping : '—' }}</strong></div>
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $trackingNo !== '' ? $trackingNo : '—' }}</strong></div>
+            @if(in_array($order->status, ['AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED']))
             <div class="d-flex gap-10 flex-wrap mt-12">
                 <a href="{{ route('ext.tiktok.orders.awb', $order->id) }}" target="_blank" class="btn secondary">AWB PDF</a>
             </div>
+            @endif
         </div>
     </div>
 </div>
