@@ -49,6 +49,7 @@ class UserGroupController extends Controller
                     ['label' => 'Lazada',      'children' => $resolve(['manage_lazada', 'manage_lazada_orders'])],
                     ['label' => 'TikTok Shop', 'children' => $resolve(['manage_tiktok', 'manage_tiktok_orders'])],
                     ['label' => 'OpenCart',    'children' => $resolve(['manage_opencart', 'manage_opencart_orders'])],
+                    ['label' => 'Venta',      'children' => $resolve(['manage_venta', 'manage_venta_orders'])],
                     ['label' => 'Pedallion',  'children' => $resolve(['manage_pedallion', 'manage_pedallion_orders'])],
                     ['label' => 'Reviews',    'children' => $resolve(['manage_reviews'])],
                 ],
