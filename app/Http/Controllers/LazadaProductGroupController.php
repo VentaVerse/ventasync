@@ -302,7 +302,7 @@ class LazadaProductGroupController extends Controller
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
                 'm.name as manufacturer_name',
-                'lp.lazada_item_id',
+                'lp.id as lazada_product_id', 'lp.lazada_item_id',
                 'gp.sync_status', 'gp.last_pushed_at', 'gp.push_error'
             );
 
@@ -1561,5 +1561,44 @@ class LazadaProductGroupController extends Controller
             ];
         }
         return $out;
+    }
+
+    /**
+     * Sync Lazada ID for a product in a group — finds the Lazada item by SKU match.
+     * Creates a LazadaProduct record if one doesn't exist yet.
+     */
+    public function syncLazadaId(Request $request, int $groupId, int $productId, LazadaClient $client)
+    {
+        $group = LazadaProductGroup::findOrFail($groupId);
+
+        $pivot = LazadaProductGroupProduct::query()
+            ->where('lazada_product_group_id', $group->id)
+            ->where('product_id', $productId)
+            ->first();
+
+        if (!$pivot) {
+            return back()->with('error', 'Product not found in this group.');
+        }
+
+        // Get or create the LazadaProduct record
+        $listing = null;
+        if ($pivot->lazada_product_id) {
+            $listing = LazadaProduct::find($pivot->lazada_product_id);
+        }
+
+        if (!$listing) {
+            $listing = LazadaProduct::create([
+                'product_id'          => $productId,
+                'primary_category_id' => $group->lazada_category_id,
+                'brand_name_override' => 'No Brand',
+                'markup_fixed'        => $group->markup_fixed,
+                'markup_percent'      => $group->markup_percent,
+            ]);
+            $pivot->update(['lazada_product_id' => $listing->id]);
+        }
+
+        // Delegate to the existing LazadaProductController::syncLazadaId
+        $lazCtrl = app(LazadaProductController::class);
+        return $lazCtrl->syncLazadaId($request, $listing->id, $client);
     }
 }

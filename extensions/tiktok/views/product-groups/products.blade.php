@@ -207,6 +207,13 @@
                                         Edit Product
                                     </a>
                                     @if(!$hasTikTokId)
+                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.syncTikTokId', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                                Sync TikTok ID
+                                            </button>
+                                        </form>
                                         <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form" data-pid="{{ $p->product_id }}">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">

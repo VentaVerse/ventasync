@@ -263,6 +263,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lazada/product-groups/{id}/products/{productId}/unlink', [LazadaProductGroupController::class, 'unlinkProduct'])->whereNumber('id')->name('lazada.product-groups.unlinkProduct');
         Route::post('/lazada/product-groups/{id}/products/{productId}/link', [LazadaProductGroupController::class, 'linkProduct'])->whereNumber('id')->name('lazada.product-groups.linkProduct');
         Route::delete('/lazada/product-groups/{id}/products/{productId}', [LazadaProductGroupController::class, 'removeProduct'])->whereNumber('id')->name('lazada.product-groups.removeProduct');
+        Route::post('/lazada/product-groups/{id}/products/{productId}/sync-id', [LazadaProductGroupController::class, 'syncLazadaId'])->whereNumber('id')->name('lazada.product-groups.syncLazadaId');
         Route::post('/lazada/product-groups/{id}/template/sync', [LazadaProductGroupController::class, 'syncTemplate'])->whereNumber('id')->name('lazada.product-groups.template_sync');
         Route::post('/lazada/product-groups/refresh-categories', [LazadaProductGroupController::class, 'refreshCategories'])->name('lazada.product-groups.refreshCategories');
         Route::post('/lazada/product-groups/fetch-attributes', [LazadaProductGroupController::class, 'fetchAttributesAjax'])->name('lazada.product-groups.fetchAttributes');

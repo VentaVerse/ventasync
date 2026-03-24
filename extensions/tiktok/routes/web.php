@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/tiktok/product-groups/{id}/push', [TikTokProductGroupController::class, 'push'])->name('ext.tiktok.product-groups.push');
         Route::post('/tiktok/product-groups/{id}/push-prices', [TikTokProductGroupController::class, 'pushPrices'])->name('ext.tiktok.product-groups.pushPrices');
         Route::post('/tiktok/product-groups/{id}/push-stock', [TikTokProductGroupController::class, 'pushStock'])->name('ext.tiktok.product-groups.pushStock');
+        Route::post('/tiktok/product-groups/{id}/products/{product}/sync-id', [TikTokProductGroupController::class, 'syncTikTokId'])->name('ext.tiktok.product-groups.syncTikTokId');
 
     });
 

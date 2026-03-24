@@ -51,6 +51,10 @@
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
+                <form method="POST" action="{{ route('shopee.products.sync_ids') }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Shopee ID</button>
+                </form>
                 <form method="POST" action="{{ route('shopee.product-groups.push', $group->id) }}" class="bulk-action-form bulk-push-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small">Push to Shopee</button>
@@ -207,6 +211,13 @@
                                         Edit Product
                                     </a>
                                     @if(!$hasShopeeId)
+                                        <form method="POST" action="{{ route('shopee.products.sync_shopee_id', $p->product_id) }}" style="margin:0;" class="single-action-form">
+                                            @csrf
+                                            <button type="submit" class="action-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                                Sync Shopee ID
+                                            </button>
+                                        </form>
                                         <form method="POST" action="{{ route('shopee.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form" data-pid="{{ $p->product_id }}">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
