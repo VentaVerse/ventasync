@@ -100,7 +100,39 @@
 
 <div class="card">
     <h3 class="section-title mt-0">Items</h3>
-    @if($items->count() === 0)
+    @php
+        // Consolidate duplicate line items by SKU + name + variation
+        $consolidated = [];
+        foreach ($items as $it) {
+            $cName = (string)($it->name ?? '');
+            $cSku = (string)($it->sku ?? '');
+            $cVariation = (string)($it->variation ?? '');
+            $cVarNorm = mb_strtolower(trim($cVariation));
+            if (in_array($cVarNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--', 'default'], true)) {
+                $cVariation = '';
+            }
+            $cQty = (int)($it->quantity ?? 1);
+            if ($cQty < 1) $cQty = 1;
+            $key = mb_strtolower(trim($cSku)) . '|' . mb_strtolower(trim($cName)) . '|' . mb_strtolower(trim($cVariation));
+            if (!isset($consolidated[$key])) {
+                $consolidated[$key] = [
+                    'image' => (string)($it->image ?? ''),
+                    'name' => $cName,
+                    'sku' => $cSku,
+                    'variation' => $cVariation,
+                    'quantity' => $cQty,
+                    'item_price' => (float)($it->item_price ?? 0),
+                    'sale_price' => (float)($it->sale_price ?? 0),
+                ];
+            } else {
+                $consolidated[$key]['quantity'] += $cQty;
+                if (empty($consolidated[$key]['image']) && !empty($it->image)) {
+                    $consolidated[$key]['image'] = (string)$it->image;
+                }
+            }
+        }
+    @endphp
+    @if(empty($consolidated))
         <div class="text-secondary">No items synced yet.</div>
     @else
         <div class="table-wrap">
@@ -116,20 +148,15 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($items as $it)
+                    @foreach($consolidated as $ci)
                         @php
-                            $itRaw = is_array($it->raw ?? null) ? $it->raw : [];
-                            $img = (string)($it->image ?? '');
-                            $name = (string)($it->name ?? '');
-                            $sku = (string)($it->sku ?? '');
-                            $variation = (string)($it->variation ?? '');
-                            $variationNorm = mb_strtolower(trim($variation));
-                            if (in_array($variationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
-                                $variation = '';
-                            }
-                            $qty = (int)($it->quantity ?? 1);
-                            $itemPrice = (float)($it->item_price ?? 0);
-                            $salePrice = (float)($it->sale_price ?? 0);
+                            $img = $ci['image'];
+                            $name = $ci['name'];
+                            $sku = $ci['sku'];
+                            $variation = $ci['variation'];
+                            $qty = $ci['quantity'];
+                            $itemPrice = $ci['item_price'];
+                            $salePrice = $ci['sale_price'];
                         @endphp
                         <tr>
                             <td>
