@@ -481,11 +481,16 @@ class TikTokOrderController extends Controller
         $awbDir = storage_path('app/tiktok-awb');
         $awbPath = $awbDir . '/' . $safeOrderId . '.pdf';
 
-        // Serve saved AWB if it exists locally
-        if (file_exists($awbPath)) {
+        // Serve saved AWB if it exists locally (unless refresh requested)
+        if (file_exists($awbPath) && !$request->boolean('refresh')) {
             return response(file_get_contents($awbPath), 200)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="AWB-' . $safeOrderId . '.pdf"');
+        }
+
+        // Delete cached version if refreshing
+        if (file_exists($awbPath) && $request->boolean('refresh')) {
+            unlink($awbPath);
         }
 
         // Try to get package_id from raw data
