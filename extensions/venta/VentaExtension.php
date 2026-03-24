@@ -1,0 +1,21 @@
+<?php
+
+namespace Extensions\venta;
+
+use App\Extensions\ExtensionProvider;
+
+class VentaExtension extends ExtensionProvider
+{
+    protected string $id = 'venta';
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Extensions\venta\Commands\VentaSync::class,
+            ]);
+        }
+    }
+}

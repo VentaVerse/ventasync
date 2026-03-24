@@ -1,0 +1,33 @@
+{
+    "id": "venta",
+    "name": "Venta Store",
+    "version": "1.0.0",
+    "description": "Venta ecommerce integration — multi-store order sync, inventory push, product groups, categories",
+    "author": "VentaSync",
+    "license_required": true,
+    "permissions": ["manage_venta", "manage_venta_orders"],
+    "tables": [
+        "venta_settings",
+        "venta_product_groups",
+        "venta_product_group_products",
+        "venta_product_links",
+        "venta_orders",
+        "venta_order_products",
+        "venta_order_status_map",
+        "venta_sync_logs",
+        "venta_api_logs"
+    ],
+    "nav": [
+        {
+            "group": "Venta Store",
+            "icon": "shopping-bag",
+            "permission": "manage_venta",
+            "priority": 46,
+            "items": [
+                { "label": "Settings", "route": "ext.venta.index" },
+                { "label": "Product Groups", "route": "ext.venta.product-groups" },
+                { "label": "Orders", "route": "ext.venta.orders", "permission": "manage_venta_orders" }
+            ]
+        }
+    ]
+}
