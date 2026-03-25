@@ -561,12 +561,15 @@ class TikTokOrderController extends Controller
         $result = $client->getOrderTracking($c['app_key'], $c['app_secret'], $c['token'], $order->order_id, $c['shop_cipher']);
         $this->logApi('GET', '/fulfillment/202309/orders/' . $order->order_id . '/tracking', $result);
 
-        $apiCode = (int) ($result['body']['code'] ?? -1);
+        $body = $result['body'] ?? [];
+        $apiCode = (int) ($body['code'] ?? -1);
         $ok = $apiCode === 0;
 
+        // Always return 200 so JS can parse the response and show the error message
         return response()->json([
-            'ok'   => $ok,
-            'body' => $result['body'] ?? [],
-        ], $ok ? 200 : 502);
+            'ok'      => $ok,
+            'body'    => $body,
+            'message' => $ok ? null : ($body['message'] ?? 'TikTok API error (code: ' . $apiCode . ')'),
+        ]);
     }
 }

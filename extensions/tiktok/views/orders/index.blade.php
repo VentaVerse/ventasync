@@ -435,8 +435,12 @@ document.addEventListener('DOMContentLoaded', function() {
             var err = document.createElement('div');
             err.className = 'text-danger';
             var errBody = data.body || {};
-            err.textContent = data.message || errBody.message || 'Error loading tracking info.';
+            var errMsg = data.message || errBody.message || '';
+            if (!errMsg && errBody.code) errMsg = 'TikTok API error (code: ' + errBody.code + ')';
+            if (!errMsg) errMsg = 'Error loading tracking info.';
+            err.textContent = errMsg;
             trackingBody.appendChild(err);
+            console.warn('Tracking API response:', data);
             return;
         }
         var apiBody = data.body || {};
@@ -495,22 +499,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    document.querySelectorAll('.btnTtTracking').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            var url = e.currentTarget.dataset.url;
-            trackingBody.textContent = 'Loading...';
-            trackingModal.style.display = '';
-            fetch(url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
-                .then(function(r) { return r.json(); })
-                .then(renderTracking)
-                .catch(function() {
-                    trackingBody.textContent = '';
-                    var err = document.createElement('div');
-                    err.className = 'text-danger';
-                    err.textContent = 'Failed to load tracking info.';
-                    trackingBody.appendChild(err);
-                });
-        });
+    // Use event delegation so it works regardless of when buttons are rendered
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btnTtTracking');
+        if (!btn) return;
+        var url = btn.dataset.url;
+        if (!url) return;
+        trackingBody.textContent = 'Loading...';
+        trackingModal.style.display = '';
+        fetch(url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r) { return r.json(); })
+            .then(renderTracking)
+            .catch(function(err) {
+                console.error('Tracking fetch error:', err);
+                trackingBody.textContent = '';
+                var errEl = document.createElement('div');
+                errEl.className = 'text-danger';
+                errEl.textContent = 'Failed to load tracking info: ' + (err.message || 'Network error');
+                trackingBody.appendChild(errEl);
+            });
     });
 });
 
