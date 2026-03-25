@@ -543,7 +543,6 @@
         });
         table.appendChild(tbody);
         wrap.appendChild(table);
-        body.textContent = '';
         body.appendChild(wrap);
     }
 
