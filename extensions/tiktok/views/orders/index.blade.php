@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var body = data.body?.data || data.body || {};
         var trackNum = body.tracking_number || '';
         var provider = body.shipping_provider || '';
-        var events = body.tracking_info || body.events || [];
+        var events = body.tracking || body.tracking_info || body.events || [];
 
         if (trackNum) {
             var d = document.createElement('div');
@@ -469,7 +469,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.style.cssText = 'margin-bottom:10px; padding-left:12px; border-left:2px solid var(--accent);';
                 var time = document.createElement('div');
                 time.className = 'text-xs text-secondary';
-                time.textContent = ev.update_time_text || ev.time || '';
+                var ts = ev.update_time_millis || ev.update_time || ev.time || null;
+                if (ts && typeof ts === 'number') {
+                    var dt = new Date(ts > 1e12 ? ts : ts * 1000);
+                    time.textContent = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+                } else {
+                    time.textContent = ev.update_time_text || ev.time || '';
+                }
                 var desc = document.createElement('div');
                 desc.className = 'text-sm';
                 desc.textContent = ev.description || ev.message || '';
