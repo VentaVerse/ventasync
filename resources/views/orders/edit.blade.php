@@ -305,13 +305,14 @@
                 <div id="modal-options-list"></div>
             </div>
 
-            {{-- Quantity --}}
-            <div class="d-flex items-center gap-8" style="margin-bottom:12px;">
-                <label style="font-weight:600;">Qty</label>
-                <input type="number" class="input" id="modal-qty" value="1" min="1" style="width:80px;">
+            {{-- Quantity + Add button --}}
+            <div class="d-flex items-center gap-8" style="justify-content:space-between;">
+                <div class="d-flex items-center gap-8">
+                    <label style="font-weight:600;">Qty</label>
+                    <input type="number" class="input" id="modal-qty" value="1" min="1" style="width:80px;">
+                </div>
+                <button type="button" class="btn" id="modal-add-to-order-btn">Add to Order</button>
             </div>
-
-            <button type="button" class="btn" id="modal-add-to-order-btn">Add to Order</button>
         </div>
 
         {{-- Modal footer --}}
