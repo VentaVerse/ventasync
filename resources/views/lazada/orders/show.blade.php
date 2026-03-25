@@ -34,6 +34,22 @@
     if (is_array($tracking)) $tracking = implode(', ', $tracking);
     $tracking = is_string($tracking) ? trim($tracking) : '';
 
+    // Fallback: get courier and tracking from first item if order-level is empty
+    if (($courier === '' || $tracking === '') && $items->count() > 0) {
+        foreach ($items as $_it) {
+            $_ir = is_array($_it->raw ?? null) ? $_it->raw : [];
+            if ($courier === '') {
+                $_c = $_ir['shipping_provider'] ?? ($_ir['shipment_provider'] ?? '');
+                if (is_string($_c) && trim($_c) !== '') $courier = trim($_c);
+            }
+            if ($tracking === '') {
+                $_t = $_ir['tracking_code'] ?? ($_ir['tracking_code_pre'] ?? '');
+                if (is_string($_t) && trim($_t) !== '') $tracking = trim($_t);
+            }
+            if ($courier !== '' && $tracking !== '') break;
+        }
+    }
+
     $items = $order->products ?? collect();
 @endphp
 
