@@ -469,6 +469,9 @@
         return String(t);
     }
 
+    var lazTrackingNo = @json($tracking);
+    var lazCourier = @json($courier);
+
     function renderTrace(respBody) {
         var data = (respBody && respBody.data) ? respBody.data : respBody;
         var traces = [];
@@ -483,8 +486,39 @@
                 });
             }
         }
+
+        body.textContent = '';
+
+        if (lazTrackingNo) {
+            var tnDiv = document.createElement('div');
+            tnDiv.className = 'mb-8';
+            var tnLabel = document.createElement('strong');
+            tnLabel.textContent = 'Tracking: ';
+            var tnValue = document.createElement('span');
+            tnValue.textContent = lazTrackingNo;
+            tnDiv.appendChild(tnLabel);
+            tnDiv.appendChild(tnValue);
+            body.appendChild(tnDiv);
+        }
+        if (lazCourier) {
+            var scDiv = document.createElement('div');
+            scDiv.className = 'mb-8';
+            var scLabel = document.createElement('strong');
+            scLabel.textContent = 'Courier: ';
+            var scValue = document.createElement('span');
+            scValue.textContent = lazCourier;
+            scDiv.appendChild(scLabel);
+            scDiv.appendChild(scValue);
+            body.appendChild(scDiv);
+        }
+
         if (!Array.isArray(traces) || !traces.length) {
-            body.textContent = 'No logistics events returned.';
+            if (!lazTrackingNo) {
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'text-secondary';
+                emptyDiv.textContent = 'No logistics events returned.';
+                body.appendChild(emptyDiv);
+            }
             return;
         }
 
