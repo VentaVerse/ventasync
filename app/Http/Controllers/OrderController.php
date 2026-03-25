@@ -17,6 +17,7 @@ use App\Services\FcmService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -133,8 +134,9 @@ class OrderController extends Controller
     public function create()
     {
         $statuses = OrderStatus::orderBy('order_status_id')->get();
+        $currencies = DB::table('currencies')->where('status', 1)->orderByDesc('is_default')->orderBy('code')->get();
 
-        return view('orders.create', compact('statuses'));
+        return view('orders.create', compact('statuses', 'currencies'));
     }
 
     public function store(Request $request)
@@ -249,7 +251,164 @@ class OrderController extends Controller
             \Log::warning('FCM notification failed: ' . $e->getMessage());
         }
 
+        // Create order products
+        $products = $request->input('products', []);
+        if (!empty($products)) {
+            $pfx = (string) config('catalog.prefix');
+            $orderTotal = 0;
+
+            foreach ($products as $p) {
+                $qty = (int) ($p['quantity'] ?? 1);
+                $price = (float) ($p['price'] ?? 0);
+                $lineTotal = $price * $qty;
+                $orderTotal += $lineTotal;
+
+                DB::table($pfx . 'order_product')->insert([
+                    'order_id'   => $order->order_id,
+                    'product_id' => (int) ($p['product_id'] ?? 0),
+                    'name'       => $p['name'] ?? '',
+                    'model'      => $p['model'] ?? '',
+                    'quantity'   => $qty,
+                    'price'      => $price,
+                    'total'      => $lineTotal,
+                    'tax'        => 0,
+                    'reward'     => 0,
+                    'cost'       => (float) ($p['cost'] ?? 0),
+                ]);
+            }
+
+            // Update order total from line items
+            $order->update(['total' => $orderTotal]);
+
+            // Create order totals
+            DB::table($pfx . 'order_total')->insert([
+                'order_id'   => $order->order_id,
+                'code'       => 'sub_total',
+                'title'      => 'Sub-Total',
+                'value'      => $orderTotal,
+                'sort_order' => 1,
+            ]);
+            DB::table($pfx . 'order_total')->insert([
+                'order_id'   => $order->order_id,
+                'code'       => 'total',
+                'title'      => 'Total',
+                'value'      => $orderTotal,
+                'sort_order' => 9,
+            ]);
+        }
+
         return redirect()->route('orders.index')->with('status', 'Order created.');
+    }
+
+    public function searchProducts(Request $request)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+        $q = trim((string) $request->input('q'));
+
+        if (strlen($q) < 2) {
+            return response()->json(['items' => []]);
+        }
+
+        $rows = DB::table($pfx . 'product as p')
+            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->where(function ($w) use ($q) {
+                $w->where('pd.name', 'like', "%{$q}%")
+                    ->orWhere('p.sku', 'like', "%{$q}%")
+                    ->orWhere('p.model', 'like', "%{$q}%");
+            })
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.cost', 'p.quantity', 'p.image')
+            ->orderBy('p.product_id', 'desc')
+            ->limit(30)
+            ->get();
+
+        // Attach variations for each product
+        // Priority: product_option_combinations (multi-option combos with real prices)
+        // Fallback: product_option_value (single options)
+        $productIds = $rows->pluck('product_id')->toArray();
+        $combinationsByProduct = [];
+        $optionsByProduct = [];
+
+        if (!empty($productIds)) {
+            // Check for combinations first (these have the real prices/quantities)
+            $combos = DB::table('product_option_combinations as poc')
+                ->whereIn('poc.product_id', $productIds)
+                ->select('poc.id', 'poc.product_id', 'poc.sku', 'poc.quantity', 'poc.absolute_price', 'poc.absolute_cost')
+                ->orderBy('poc.sort_order')
+                ->get();
+
+            if ($combos->isNotEmpty()) {
+                $comboIds = $combos->pluck('id')->toArray();
+                $comboValues = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->select('pocv.combination_id', 'ovd.name as value_name')
+                    ->get()
+                    ->groupBy('combination_id');
+
+                foreach ($combos as $c) {
+                    $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
+                    $combinationsByProduct[$c->product_id][] = (object) [
+                        'combination_id'  => $c->id,
+                        'product_id'      => $c->product_id,
+                        'option_sku'      => $c->sku,
+                        'option_qty'      => (int) $c->quantity,
+                        'absolute_price'  => (float) $c->absolute_price,
+                        'absolute_cost'   => (float) $c->absolute_cost,
+                        'option_price'    => 0,
+                        'price_prefix'    => '+',
+                        'option_cost'     => 0,
+                        'cost_prefix'     => '+',
+                        'value_name'      => $valueNames,
+                        'option_name'     => 'Option',
+                        'is_combination'  => true,
+                    ];
+                }
+            }
+
+            // Also get single option values for products without combinations
+            $optRows = DB::table($pfx . 'product_option_value as pov')
+                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                        ->where('ovd.language_id', '=', $langId);
+                })
+                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                    $j->on('pov.option_id', '=', 'od.option_id')
+                        ->where('od.language_id', '=', $langId);
+                })
+                ->whereIn('pov.product_id', $productIds)
+                ->select(
+                    'pov.product_option_value_id', 'pov.product_id',
+                    'pov.sku as option_sku', 'pov.quantity as option_qty',
+                    'pov.price as option_price', 'pov.price_prefix',
+                    'pov.cost as option_cost', 'pov.cost_prefix',
+                    'pov.absolute_price',
+                    'ovd.name as value_name', 'od.name as option_name'
+                )
+                ->orderBy('pov.product_option_value_id')
+                ->get();
+
+            foreach ($optRows as $o) {
+                $o->is_combination = false;
+                $optionsByProduct[$o->product_id][] = $o;
+            }
+        }
+
+        $items = $rows->map(function ($p) use ($combinationsByProduct, $optionsByProduct) {
+            // Use combinations if available, otherwise fall back to raw option values
+            $p->options = $combinationsByProduct[$p->product_id]
+                ?? $optionsByProduct[$p->product_id]
+                ?? [];
+            return $p;
+        });
+
+        return response()->json(['items' => $items]);
     }
 
     public function show($id)
