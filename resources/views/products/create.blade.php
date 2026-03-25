@@ -213,7 +213,62 @@
                 </div>
             </div>
 
-            <p style="color:#64748b; padding:16px 0;">Vendor links can be added after saving the product.</p>
+            <h3 class="section-title mt-24">Buying Prices</h3>
+            <div id="cv-buying-prices" class="mt-8">
+
+                {{-- Vendor pricing table --}}
+                <div class="table-wrap">
+                    <table id="cv-vendor-table" style="font-size:12px;">
+                        <thead>
+                        <tr>
+                            <th>Vendor</th>
+                            <th style="width:120px;">Vendor SKU</th>
+                            <th style="width:70px;">Min Qty</th>
+                            <th style="width:85px;">Currency</th>
+                            <th style="width:110px;">Unit Price</th>
+                            <th style="width:60px;"></th>
+                        </tr>
+                        </thead>
+                        <tbody id="cv-vendor-tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="cv-empty-msg" class="text-secondary text-xs mt-8">No vendor pricing yet.</div>
+
+                {{-- Add new vendor --}}
+                <div class="mt-16">
+                    <div style="font-size:14px; font-weight:600; margin-bottom:8px;">Add New</div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+                        <div class="typeahead" style="position:relative;">
+                            <label>Vendor</label>
+                            <input class="input" id="cv-vendor-search" placeholder="Type to search..." autocomplete="off" style="width:200px;">
+                            <input type="hidden" id="cv-vendor-id">
+                            <div class="typeahead-list" id="cv-vendor-list"></div>
+                        </div>
+                        <div>
+                            <label>Vendor SKU</label>
+                            <input id="cv-vendor-sku" class="input" style="width:130px;">
+                        </div>
+                        <div>
+                            <label>Min Qty</label>
+                            <input id="cv-min-qty" class="input" type="number" min="1" value="1" style="width:80px;">
+                        </div>
+                        <div>
+                            <label>Currency</label>
+                            <select id="cv-currency" class="input" style="width:100px;">
+                                @foreach($currencies as $c)
+                                    <option value="{{ $c->code }}">{{ $c->code }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label>Unit Price</label>
+                            <input id="cv-unit-price" class="input" type="number" step="0.0001" min="0" style="width:120px;">
+                        </div>
+                        <button type="button" class="btn secondary" id="cv-add-btn">Add</button>
+                    </div>
+                </div>
+            </div>
 
         </div>
 
@@ -274,6 +329,218 @@
 
     [price, amt, pct, add].forEach(function(el) { el.addEventListener('input', calc); });
     calc();
+})();
+</script>
+
+{{-- ===== VENDOR TAB JS ===== --}}
+<script>
+(function() {
+    // Vendor data from server (no AJAX needed)
+    @php
+        $vendorList = ($vendors ?? collect())->map(function ($v) {
+            return ['id' => $v->id, 'name' => $v->name, 'nickname' => $v->nickname ?? '', 'currency_code' => $v->currency_code ?? 'PHP'];
+        })->toArray();
+    @endphp
+    var allVendors = @json($vendorList);
+
+    var vendorRows = [];
+    var nextIdx = 0;
+
+    var tbody = document.getElementById('cv-vendor-tbody');
+    var emptyMsg = document.getElementById('cv-empty-msg');
+    var searchInput = document.getElementById('cv-vendor-search');
+    var vendorIdInput = document.getElementById('cv-vendor-id');
+    var listEl = document.getElementById('cv-vendor-list');
+    var skuInput = document.getElementById('cv-vendor-sku');
+    var minQtyInput = document.getElementById('cv-min-qty');
+    var currencySelect = document.getElementById('cv-currency');
+    var unitPriceInput = document.getElementById('cv-unit-price');
+    var addBtn = document.getElementById('cv-add-btn');
+
+    // ── Restore from old('vendors') on validation failure ──
+    @php
+        $oldVendors = old('vendors', []);
+    @endphp
+    @if(!empty($oldVendors))
+        var oldVendors = @json($oldVendors);
+        for (var oi = 0; oi < oldVendors.length; oi++) {
+            var ov = oldVendors[oi];
+            appendVendorRow({
+                vendor_id: parseInt(ov.vendor_id) || 0,
+                vendor_name: ov.vendor_name || 'Vendor #' + ov.vendor_id,
+                vendor_sku: ov.vendor_sku || '',
+                min_qty: parseInt(ov.min_qty) || 1,
+                currency_code: ov.currency_code || 'PHP',
+                unit_price: parseFloat(ov.unit_price) || 0
+            });
+        }
+    @endif
+
+    // ── Typeahead: filter vendors client-side ──
+    searchInput.addEventListener('input', function() {
+        var term = this.value.trim().toLowerCase();
+        vendorIdInput.value = '';
+        if (term.length < 1) { while (listEl.firstChild) listEl.removeChild(listEl.firstChild); listEl.style.display = 'none'; return; }
+
+        var matches = allVendors.filter(function(v) {
+            var label = (v.name + ' ' + (v.nickname || '')).toLowerCase();
+            return label.indexOf(term) !== -1;
+        }).slice(0, 15);
+
+        // Build list using safe DOM methods
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+
+        if (matches.length === 0) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        matches.forEach(function(v) {
+            var item = document.createElement('div');
+            item.className = 'typeahead-item';
+            item.textContent = v.name + (v.nickname ? ' | ' + v.nickname : '');
+            item.setAttribute('data-id', v.id);
+            item.setAttribute('data-name', v.name + (v.nickname ? ' | ' + v.nickname : ''));
+            item.setAttribute('data-currency', v.currency_code || '');
+            item.addEventListener('click', function() {
+                vendorIdInput.value = v.id;
+                searchInput.value = v.name + (v.nickname ? ' | ' + v.nickname : '');
+                listEl.style.display = 'none';
+                // Auto-select vendor's default currency if available
+                if (v.currency_code) {
+                    for (var ci = 0; ci < currencySelect.options.length; ci++) {
+                        if (currencySelect.options[ci].value === v.currency_code) {
+                            currencySelect.selectedIndex = ci;
+                            break;
+                        }
+                    }
+                }
+            });
+            listEl.appendChild(item);
+        });
+
+        listEl.style.display = '';
+    });
+
+    // Hide dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !listEl.contains(e.target)) {
+            listEl.style.display = 'none';
+        }
+    });
+
+    // ── Add vendor row ──
+    addBtn.addEventListener('click', function() {
+        var vendorId = parseInt(vendorIdInput.value) || 0;
+        if (!vendorId) {
+            if (typeof showFlashError === 'function') showFlashError('Please select a vendor from the list.');
+            return;
+        }
+
+        // Duplicate check
+        for (var di = 0; di < vendorRows.length; di++) {
+            if (vendorRows[di].vendor_id === vendorId) {
+                if (typeof showFlashError === 'function') showFlashError('This vendor has already been added.');
+                return;
+            }
+        }
+
+        var vendorName = searchInput.value.trim();
+        var vendorSku = skuInput.value.trim();
+        var minQty = parseInt(minQtyInput.value) || 1;
+        var currencyCode = currencySelect.value;
+        var unitPrice = parseFloat(unitPriceInput.value) || 0;
+
+        appendVendorRow({
+            vendor_id: vendorId,
+            vendor_name: vendorName,
+            vendor_sku: vendorSku,
+            min_qty: minQty,
+            currency_code: currencyCode,
+            unit_price: unitPrice
+        });
+
+        // Reset inputs
+        searchInput.value = '';
+        vendorIdInput.value = '';
+        skuInput.value = '';
+        minQtyInput.value = '1';
+        unitPriceInput.value = '';
+    });
+
+    function appendVendorRow(data) {
+        var idx = nextIdx++;
+        vendorRows.push({ idx: idx, vendor_id: data.vendor_id });
+
+        var tr = document.createElement('tr');
+        tr.setAttribute('data-cv-idx', idx);
+
+        // Vendor name cell
+        var tdName = document.createElement('td');
+        tdName.textContent = data.vendor_name;
+        tr.appendChild(tdName);
+
+        // Vendor SKU cell
+        var tdSku = document.createElement('td');
+        tdSku.textContent = data.vendor_sku || '\u2014';
+        tr.appendChild(tdSku);
+
+        // Min Qty cell
+        var tdQty = document.createElement('td');
+        tdQty.textContent = data.min_qty;
+        tr.appendChild(tdQty);
+
+        // Currency cell
+        var tdCur = document.createElement('td');
+        tdCur.textContent = data.currency_code;
+        tr.appendChild(tdCur);
+
+        // Unit Price cell
+        var tdPrice = document.createElement('td');
+        tdPrice.style.textAlign = 'right';
+        tdPrice.textContent = parseFloat(data.unit_price).toFixed(4);
+        tr.appendChild(tdPrice);
+
+        // Remove button cell
+        var tdAction = document.createElement('td');
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn danger small';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function() {
+            tr.remove();
+            vendorRows = vendorRows.filter(function(r) { return r.idx !== idx; });
+            toggleEmpty();
+        });
+        tdAction.appendChild(removeBtn);
+        tr.appendChild(tdAction);
+
+        // Hidden inputs for form submission
+        var fields = {
+            vendor_id: data.vendor_id,
+            vendor_name: data.vendor_name,
+            vendor_sku: data.vendor_sku,
+            min_qty: data.min_qty,
+            currency_code: data.currency_code,
+            unit_price: data.unit_price
+        };
+        for (var key in fields) {
+            var hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'vendors[' + idx + '][' + key + ']';
+            hidden.value = fields[key] != null ? fields[key] : '';
+            tr.appendChild(hidden);
+        }
+
+        tbody.appendChild(tr);
+        toggleEmpty();
+    }
+
+    function toggleEmpty() {
+        emptyMsg.style.display = tbody.querySelectorAll('tr').length === 0 ? '' : 'none';
+    }
+
+    toggleEmpty();
 })();
 </script>
 @endpush

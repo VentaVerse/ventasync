@@ -333,7 +333,7 @@ if ($q !== '') {
 
     public function create()
     {
-        
+
         $productImages = [];
 $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
@@ -341,7 +341,13 @@ $pfx = config('catalog.prefix');
         $existingOptions = collect();
         $existingCombinations = [];
 
-        return view('products.create', compact('existingOptions', 'existingCombinations'));
+        $vendors = collect();
+        $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
+        if (class_exists(\Extensions\purchasing\Models\Vendor::class)) {
+            $vendors = \Extensions\purchasing\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'nickname', 'currency_code']);
+        }
+
+        return view('products.create', compact('existingOptions', 'existingCombinations', 'vendors', 'currencies'));
     }
 
 
@@ -666,6 +672,21 @@ public function store(Request $request)
 
             return (int) $p->product_id;
         });
+
+        // Save vendor links
+        $vendorRows = $request->input('vendors', []);
+        if (!empty($vendorRows) && class_exists(\Extensions\purchasing\Models\ProductVendor::class)) {
+            foreach ($vendorRows as $v) {
+                \Extensions\purchasing\Models\ProductVendor::create([
+                    'product_id' => $productId,
+                    'vendor_id' => (int) ($v['vendor_id'] ?? 0),
+                    'vendor_sku' => $v['vendor_sku'] ?? null,
+                    'min_qty' => (int) ($v['min_qty'] ?? 1),
+                    'currency_code' => $v['currency_code'] ?? 'PHP',
+                    'unit_price' => (float) ($v['unit_price'] ?? 0),
+                ]);
+            }
+        }
 
         ActivityLogger::log('created', 'Product', $productId, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')');
 
