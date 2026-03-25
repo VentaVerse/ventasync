@@ -1068,7 +1068,7 @@ class VentaProductGroupController extends Controller
             ->value('image');
 
         if ($mainImage && trim($mainImage) !== '') {
-            $images[] = asset('storage/' . ltrim($mainImage, '/'));
+            $images[] = $this->imageUrl($mainImage);
         }
 
         // Additional images
@@ -1080,10 +1080,20 @@ class VentaProductGroupController extends Controller
 
         foreach ($additionalImages as $img) {
             if ($img && trim($img) !== '') {
-                $images[] = asset('storage/' . ltrim($img, '/'));
+                $images[] = $this->imageUrl($img);
             }
         }
 
         return $images;
+    }
+
+    /**
+     * Convert a relative image path to a fully encoded public URL.
+     */
+    private function imageUrl(string $path): string
+    {
+        $segments = explode('/', ltrim($path, '/'));
+        $encoded = implode('/', array_map('rawurlencode', $segments));
+        return asset('storage/' . $encoded);
     }
 }
