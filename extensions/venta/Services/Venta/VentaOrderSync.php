@@ -76,6 +76,15 @@ class VentaOrderSync
 
                 foreach ($orders as $raw) {
                     try {
+                        // Fetch full order detail (list only returns summary)
+                        $orderId = (int) ($raw['id'] ?? 0);
+                        if ($orderId > 0) {
+                            $detailResult = $this->client->getOrder($orderId);
+                            if (($detailResult['ok'] ?? false) && is_array($detailResult['body'])) {
+                                $raw = array_merge($raw, $detailResult['body']);
+                            }
+                        }
+
                         $wasCreated = $this->upsertOrder($raw, $statusMap);
                         $wasCreated ? $created++ : $updated++;
                     } catch (\Throwable $e) {
@@ -87,6 +96,8 @@ class VentaOrderSync
                             ];
                         }
                     }
+
+                    usleep(200000); // 200ms rate limit between detail fetches
                 }
 
                 if ($onProgress) {
