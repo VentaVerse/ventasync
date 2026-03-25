@@ -705,15 +705,45 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderTrace(data) {
         var events = data.tracking_info || [];
         var status = data.logistics_status || '';
+        var trackNum = data.tracking_number || '';
+        var carrier = data.shipping_carrier || '';
+
+        body.textContent = '';
+
+        if (trackNum) {
+            var tnDiv = document.createElement('div');
+            tnDiv.className = 'mb-8';
+            var tnLabel = document.createElement('strong');
+            tnLabel.textContent = 'Tracking: ';
+            var tnValue = document.createElement('span');
+            tnValue.textContent = trackNum;
+            tnDiv.appendChild(tnLabel);
+            tnDiv.appendChild(tnValue);
+            body.appendChild(tnDiv);
+        }
+        if (carrier) {
+            var scDiv = document.createElement('div');
+            scDiv.className = 'mb-8';
+            var scLabel = document.createElement('strong');
+            scLabel.textContent = 'Courier: ';
+            var scValue = document.createElement('span');
+            scValue.textContent = carrier;
+            scDiv.appendChild(scLabel);
+            scDiv.appendChild(scValue);
+            body.appendChild(scDiv);
+        }
 
         if (!events.length) {
-            body.textContent = 'No tracking events available.';
+            if (!trackNum) {
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'text-secondary';
+                emptyDiv.textContent = 'No tracking events available.';
+                body.appendChild(emptyDiv);
+            }
             return;
         }
 
         events.sort(function (a, b) { return (b.update_time || b.ctime || 0) - (a.update_time || a.ctime || 0); });
-
-        body.textContent = '';
 
         if (status) {
             var statusDiv = document.createElement('div');
