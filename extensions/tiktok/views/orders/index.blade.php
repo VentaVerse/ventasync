@@ -406,7 +406,7 @@
     @endif
 </div>
 {{-- Tracking modal --}}
-<div id="ttTrackingModal" class="modal-backdrop" style="display:none;">
+<div id="ttTrackingModal" class="modal-backdrop">
     <div class="modal" style="max-width:480px;">
         <div class="modal-header">
             <h3>Tracking</h3>
@@ -423,10 +423,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var trackingModal = document.getElementById('ttTrackingModal');
     var trackingBody = document.getElementById('ttTrackingBody');
     document.getElementById('btnCloseTtTracking').addEventListener('click', function() {
-        trackingModal.style.display = 'none';
+        trackingModal.classList.remove('active');
     });
     trackingModal.addEventListener('click', function(e) {
-        if (e.target === trackingModal) trackingModal.style.display = 'none';
+        if (e.target === trackingModal) trackingModal.classList.remove('active');
     });
 
     function renderTracking(data) {
@@ -506,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var url = btn.dataset.url;
         if (!url) return;
         trackingBody.textContent = 'Loading...';
-        trackingModal.style.display = '';
+        trackingModal.classList.add('active');
         fetch(url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
             .then(function(r) { return r.json(); })
             .then(renderTracking)
