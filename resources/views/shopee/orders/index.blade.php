@@ -412,7 +412,7 @@
                                     @if($isToHandover || $isShipped)
                                         <button type="button"
                                                 class="btnShopeeTracking btn small secondary"
-                                                data-url="{{ route('shopee.orders.tracking', ['orderSn' => $orderSn]) }}">
+                                                data-url="{{ route('shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">
                                             Tracking #
                                         </button>
                                     @endif
@@ -497,7 +497,7 @@
 <div id="spTrackingModal" class="modal-backdrop">
     <div class="modal" style="max-width:480px;">
         <div class="modal-header">
-            <h3>Tracking Number</h3>
+            <h3>Tracking</h3>
             <button type="button" id="btnCloseTracking" class="modal-close">&times;</button>
         </div>
         <div id="spTrackingBody" class="mt-12">
@@ -779,34 +779,68 @@ document.addEventListener('DOMContentLoaded', function () {
     var trackingModal = document.getElementById('spTrackingModal');
     var trackingBody = document.getElementById('spTrackingBody');
 
-    document.querySelectorAll('.btnShopeeTracking').forEach(function (el) {
-        el.addEventListener('click', function () {
-            var url = el.getAttribute('data-url');
-            if (!url) return;
-            trackingBody.innerHTML = '<div class="text-secondary">Loading…</div>';
-            trackingModal.style.display = 'flex';
-
-            fetch(url, { headers: { 'Accept': 'application/json' } })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.tracking_number) {
-                        trackingBody.innerHTML = '<div class="font-bold" style="font-size:18px;">' + data.tracking_number + '</div>';
-                    } else {
-                        trackingBody.innerHTML = '<pre class="pre">' + JSON.stringify(data, null, 2) + '</pre>';
-                    }
-                })
-                .catch(function (err) {
-                    trackingBody.innerHTML = '<div class="text-danger">Error: ' + err.message + '</div>';
-                });
-        });
-    });
-
-    var closeTracking = function () { trackingModal.style.display = 'none'; };
+    var closeTracking = function () { trackingModal.classList.remove('active'); };
     var btnCloseTracking = document.getElementById('btnCloseTracking');
     var btnTrackingClose2 = document.getElementById('btnTrackingClose2');
     if (btnCloseTracking) btnCloseTracking.addEventListener('click', closeTracking);
     if (btnTrackingClose2) btnTrackingClose2.addEventListener('click', closeTracking);
     if (trackingModal) trackingModal.addEventListener('click', function (e) { if (e.target === trackingModal) closeTracking(); });
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.btnShopeeTracking');
+        if (!btn) return;
+        var url = btn.getAttribute('data-url');
+        if (!url) return;
+        trackingBody.textContent = 'Loading…';
+        trackingModal.classList.add('active');
+
+        fetch(url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                trackingBody.textContent = '';
+                if (!data.ok) {
+                    var err = document.createElement('div');
+                    err.className = 'text-danger';
+                    err.textContent = data.message || 'Error loading tracking info.';
+                    trackingBody.appendChild(err);
+                    return;
+                }
+
+                var events = data.tracking_info || [];
+                if (!Array.isArray(events) || events.length === 0) {
+                    var empty = document.createElement('div');
+                    empty.className = 'text-secondary';
+                    empty.textContent = 'No tracking info available yet.';
+                    trackingBody.appendChild(empty);
+                    return;
+                }
+
+                events.forEach(function (ev) {
+                    var row = document.createElement('div');
+                    row.style.cssText = 'margin-bottom:10px; padding-left:12px; border-left:2px solid var(--accent);';
+                    var time = document.createElement('div');
+                    time.className = 'text-xs text-secondary';
+                    var ts = ev.update_time || null;
+                    if (ts && typeof ts === 'number') {
+                        var dt = new Date(ts > 1e12 ? ts : ts * 1000);
+                        time.textContent = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+                    }
+                    var desc = document.createElement('div');
+                    desc.className = 'text-sm';
+                    desc.textContent = ev.description || '';
+                    row.appendChild(time);
+                    row.appendChild(desc);
+                    trackingBody.appendChild(row);
+                });
+            })
+            .catch(function (err) {
+                trackingBody.textContent = '';
+                var errEl = document.createElement('div');
+                errEl.className = 'text-danger';
+                errEl.textContent = 'Failed to load tracking info.';
+                trackingBody.appendChild(errEl);
+            });
+    });
 });
 </script>
 <script>
