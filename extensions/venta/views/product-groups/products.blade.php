@@ -63,6 +63,10 @@
                     @csrf
                     <button type="submit" class="btn small">Sync Qty</button>
                 </form>
+                <form method="POST" action="{{ route('ext.venta.product-groups.sync-ids', [$setting->id, $group->id]) }}" class="bulk-action-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="btn small">Sync Venta ID</button>
+                </form>
                 <form method="POST" action="{{ route('ext.venta.product-groups.mass-remove', [$setting->id, $group->id]) }}" class="bulk-action-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small secondary">Remove from Group</button>

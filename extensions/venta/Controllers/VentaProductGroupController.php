@@ -406,6 +406,100 @@ class VentaProductGroupController extends Controller
             ->with('status', "Venta product ID {$matchedVentaId} synced for SKU: {$matchedSku}");
     }
 
+    /**
+     * Mass sync Venta IDs for selected products by SKU matching.
+     */
+    public function syncIds(Request $request, int $store, int $group)
+    {
+        $setting = $this->store_($store);
+        $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
+
+        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
+        if (empty($ids)) {
+            return $this->productsRedirect($store, $group)->with('error', 'No products selected.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $client = new VentaClient($setting);
+
+        $synced = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        foreach ($ids as $pid) {
+            $prod = DB::table($pfx . 'product')->where('product_id', $pid)->first(['sku', 'model']);
+            if (!$prod) { $failed++; continue; }
+
+            $skus = [];
+            if ($prod->sku && trim($prod->sku) !== '') $skus[] = trim($prod->sku);
+            if ($prod->model && trim($prod->model) !== '' && !in_array(trim($prod->model), $skus)) $skus[] = trim($prod->model);
+
+            $optSkus = DB::table($pfx . 'product_option_value')
+                ->where('product_id', $pid)
+                ->whereNotNull('sku')->where('sku', '!=', '')
+                ->pluck('sku')->map(fn($s) => trim($s))->unique()->toArray();
+            $skus = array_unique(array_merge($skus, $optSkus));
+
+            if (empty($skus)) { $skipped++; continue; }
+
+            // Check if already linked
+            $existingLink = VentaProductLink::where('venta_setting_id', $store)
+                ->where('product_id', $pid)
+                ->whereNotNull('venta_product_id')
+                ->first();
+            if ($existingLink) { $skipped++; continue; }
+
+            $matchedVentaId = null;
+            $matchedSku = null;
+
+            foreach ($skus as $sku) {
+                $result = $client->getProducts(perPage: 50, sku: $sku);
+                if (!($result['ok'] ?? false)) continue;
+
+                $ventaProducts = $result['body']['data'] ?? $result['body'] ?? [];
+                foreach ($ventaProducts as $vp) {
+                    $vpId = $vp['id'] ?? null;
+                    $vpSku = $vp['sku'] ?? null;
+
+                    if ($vpId && $vpSku !== null && strcasecmp(trim((string) $vpSku), $sku) === 0) {
+                        $matchedVentaId = (int) $vpId;
+                        $matchedSku = $sku;
+                        break 2;
+                    }
+
+                    foreach ($vp['variants'] ?? [] as $variant) {
+                        $varSku = $variant['sku'] ?? null;
+                        if ($varSku !== null && strcasecmp(trim((string) $varSku), $sku) === 0) {
+                            $matchedVentaId = (int) $vpId;
+                            $matchedSku = $sku;
+                            break 3;
+                        }
+                    }
+                }
+            }
+
+            if (!$matchedVentaId) { $failed++; continue; }
+
+            VentaProductLink::updateOrCreate(
+                ['venta_setting_id' => $store, 'product_id' => $pid],
+                ['venta_product_id' => $matchedVentaId, 'sku' => $matchedSku]
+            );
+
+            VentaProductGroupProduct::where('venta_product_group_id', $g->id)
+                ->where('product_id', $pid)
+                ->update(['sync_status' => 'synced', 'venta_sku' => $matchedSku, 'push_error' => null]);
+
+            $synced++;
+            usleep(200000); // rate limit
+        }
+
+        $msg = "Sync complete. Linked: {$synced}";
+        if ($skipped > 0) $msg .= ", Skipped (already linked/no SKU): {$skipped}";
+        if ($failed > 0) $msg .= ", Not found on Venta: {$failed}";
+
+        return $this->productsRedirect($store, $group)->with('status', $msg);
+    }
+
     // ── Push Products (create/update on Venta) ──────────────
 
     public function pushProducts(Request $request, int $store, int $group)

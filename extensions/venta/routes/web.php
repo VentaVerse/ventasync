@@ -33,6 +33,7 @@ Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
     Route::post('/venta/{store}/product-groups/{group}/push-prices', [VentaProductGroupController::class, 'pushPrices'])->name('ext.venta.product-groups.push-prices');
     Route::post('/venta/{store}/product-groups/{group}/add-products', [VentaProductGroupController::class, 'addProducts'])->name('ext.venta.product-groups.addProducts');
     Route::post('/venta/{store}/product-groups/{group}/mass-remove', [VentaProductGroupController::class, 'massRemove'])->name('ext.venta.product-groups.mass-remove');
+    Route::post('/venta/{store}/product-groups/{group}/sync-ids', [VentaProductGroupController::class, 'syncIds'])->name('ext.venta.product-groups.sync-ids');
     Route::delete('/venta/{store}/product-groups/{group}/products/{product}', [VentaProductGroupController::class, 'removeProduct'])->name('ext.venta.product-groups.removeProduct');
 
     // Product Group — per-product actions
