@@ -32,5 +32,5 @@
 .tab-btn:hover { color: var(--text-primary); background: var(--surface-alt); }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 .tab-btn svg { flex-shrink: 0; }
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
+.venta-tabs .tab-pane { display: none; }
+.venta-tabs .tab-pane.active { display: block; }
