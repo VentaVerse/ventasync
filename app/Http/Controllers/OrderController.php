@@ -76,7 +76,12 @@ class OrderController extends Controller
             ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
-        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'ocStoreNames'));
+        // Build venta store ID → name map
+        $ventaStoreNames = class_exists(\Extensions\venta\Models\VentaSetting::class)
+            ? \Extensions\venta\Models\VentaSetting::pluck('store_name', 'id')->toArray()
+            : [];
+
+        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'ocStoreNames', 'ventaStoreNames'));
     }
 
     public function opencartIndex(Request $request, int $store)

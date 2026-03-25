@@ -406,9 +406,14 @@
                                         <span class="badge badge-indigo">Lazada</span>
                                     @elseif($src === 'shopee')
                                         <span class="badge badge-orange">Shopee</span>
+                                    @elseif($src === 'tiktok')
+                                        <span class="badge" style="background:#1e1e1e; color:#fff;">TikTok</span>
                                     @elseif(str_starts_with($src, 'opencart:'))
                                         @php $storeId = (int) str_replace('opencart:', '', $src); @endphp
                                         <span class="badge badge-dark">{{ $ocStoreNames[$storeId] ?? ('OpenCart #'.$storeId) }}</span>
+                                    @elseif(str_starts_with($src, 'venta:'))
+                                        @php $ventaId = (int) str_replace('venta:', '', $src); @endphp
+                                        <span class="badge badge-green">{{ $ventaStoreNames[$ventaId] ?? ('Venta #'.$ventaId) }}</span>
                                     @elseif($src !== '')
                                         <span class="badge badge-gray">{{ ucfirst($src) }}</span>
                                     @else

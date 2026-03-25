@@ -109,6 +109,10 @@ class DashboardController extends Controller
             ? DB::table('opencart_settings')->pluck('store_name', 'id')->all()
             : [];
 
+        $ventaStoreNames = Schema::hasTable('venta_settings')
+            ? DB::table('venta_settings')->pluck('store_name', 'id')->all()
+            : [];
+
         // --- OpenCart sync status per store ---
         if (class_exists(\Extensions\opencart\Models\OpenCartSyncLog::class) && Schema::hasTable('opencart_settings')) {
             $syncStatuses = DB::table('opencart_settings as s')
@@ -235,6 +239,7 @@ class DashboardController extends Controller
             'chartOrders' => $chartOrders,
             'recentOrders' => $recentOrders,
             'ocStoreNames' => $ocStoreNames,
+            'ventaStoreNames' => $ventaStoreNames,
             'syncStatuses' => $syncStatuses,
             'lazadaSyncStatus' => $lazadaSyncStatus,
             'shopeeSyncStatus' => $shopeeSyncStatus,
@@ -290,6 +295,9 @@ class DashboardController extends Controller
         $ocStores = Schema::hasTable('opencart_settings')
             ? DB::table('opencart_settings')->pluck('store_name', 'id')->toArray()
             : [];
+        $ventaStores = Schema::hasTable('venta_settings')
+            ? DB::table('venta_settings')->pluck('store_name', 'id')->toArray()
+            : [];
 
         $slices = [];
         foreach ($rows as $row) {
@@ -312,6 +320,10 @@ class DashboardController extends Controller
                     2 => '#38bdf8', // Shop B — light blue
                 ];
                 $color = $ocFixedColors[$storeId] ?? sprintf('#%06X', mt_rand(0x333333, 0xCCCCCC));
+            } elseif (str_starts_with($src, 'venta:')) {
+                $storeId = (int) str_replace('venta:', '', $src);
+                $label = $ventaStores[$storeId] ?? ('Venta #' . $storeId);
+                $color = '#059669'; // green
             } else {
                 $label = 'Direct';
                 $color = '#3b82f6';

@@ -18,7 +18,16 @@
             @if($order->marketplace_source === 'lazada')
                 <span class="badge badge-indigo">Lazada</span>
             @elseif($order->marketplace_source === 'shopee')
-                <span class="badge badge-dark">Shopee</span>
+                <span class="badge badge-orange">Shopee</span>
+            @elseif($order->marketplace_source === 'tiktok')
+                <span class="badge" style="background:#1e1e1e; color:#fff;">TikTok</span>
+            @elseif(str_starts_with($order->marketplace_source ?? '', 'venta:'))
+                @php
+                    $ventaId = (int) explode(':', $order->marketplace_source, 2)[1];
+                    $ventaStoreName = class_exists(\Extensions\venta\Models\VentaSetting::class)
+                        ? \Extensions\venta\Models\VentaSetting::where('id', $ventaId)->value('store_name') : null;
+                @endphp
+                <span class="badge badge-green">{{ $ventaStoreName ?: 'Venta #' . $ventaId }}</span>
             @elseif($order->marketplace_source !== '')
                 <span class="badge badge-dark">{{ ucfirst($order->marketplace_source) }}</span>
             @else

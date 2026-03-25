@@ -46,6 +46,10 @@
                     @endforeach
                     <option value="lazada" {{ ($source ?? '') === 'lazada' ? 'selected' : '' }}>Lazada</option>
                     <option value="shopee" {{ ($source ?? '') === 'shopee' ? 'selected' : '' }}>Shopee</option>
+                    <option value="tiktok" {{ ($source ?? '') === 'tiktok' ? 'selected' : '' }}>TikTok</option>
+                    @foreach($ventaStoreNames ?? [] as $ventaId => $ventaName)
+                        <option value="venta:{{ $ventaId }}" {{ ($source ?? '') === 'venta:'.$ventaId ? 'selected' : '' }}>{{ $ventaName ?: 'Venta #'.$ventaId }}</option>
+                    @endforeach
                 </select>
             </div>
         </div>
@@ -120,6 +124,14 @@
                             $ocName = $ocId ? (($ocStoreNames[$ocId] ?? '') ?: '#' . $ocId) : 'OpenCart';
                         @endphp
                         <span class="badge badge-dark">{{ $ocName }}</span>
+                    @elseif($o->marketplace_source === 'tiktok')
+                        <span class="badge" style="background:#1e1e1e; color:#fff;">TikTok</span>
+                    @elseif(str_starts_with($o->marketplace_source ?? '', 'venta:'))
+                        @php
+                            $ventaId = (int) explode(':', $o->marketplace_source, 2)[1];
+                            $ventaName = ($ventaStoreNames[$ventaId] ?? '') ?: 'Venta #' . $ventaId;
+                        @endphp
+                        <span class="badge badge-green">{{ $ventaName }}</span>
                     @elseif(($o->marketplace_source ?? '') !== '')
                         <span class="badge badge-dark">{{ ucfirst($o->marketplace_source) }}</span>
                     @else
