@@ -34,6 +34,9 @@
     if (is_array($tracking)) $tracking = implode(', ', $tracking);
     $tracking = is_string($tracking) ? trim($tracking) : '';
 
+
+    $items = $order->products ?? collect();
+
     // Fallback: get courier and tracking from first item if order-level is empty
     if (($courier === '' || $tracking === '') && $items->count() > 0) {
         foreach ($items as $_it) {
@@ -49,8 +52,6 @@
             if ($courier !== '' && $tracking !== '') break;
         }
     }
-
-    $items = $order->products ?? collect();
 @endphp
 
 <div class="page-header">
