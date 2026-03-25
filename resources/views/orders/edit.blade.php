@@ -621,6 +621,17 @@
             var items = data.items || [];
             modalResults.textContent = '';
 
+            // Add header row
+            var header = document.createElement('div');
+            header.style.cssText = 'display:grid; grid-template-columns:1fr 110px 70px 60px 70px; padding:6px 12px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; border-bottom:2px solid var(--border); gap:8px; position:sticky; top:0; background:var(--surface); z-index:1;';
+            ['Product', 'SKU', 'Price', 'Stock', ''].forEach(function(label, i) {
+                var col = document.createElement('div');
+                col.textContent = label;
+                if (i >= 2 && i <= 3) col.style.textAlign = 'right';
+                header.appendChild(col);
+            });
+            modalResults.appendChild(header);
+
             if (items.length === 0) {
                 var empty = document.createElement('div');
                 empty.style.cssText = 'padding:12px;';
@@ -630,43 +641,47 @@
             } else {
                 items.forEach(function(p) {
                     var row = document.createElement('div');
-                    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-light);';
+                    row.style.cssText = 'display:grid; grid-template-columns:1fr 110px 70px 60px 70px; align-items:center; padding:6px 12px; cursor:pointer; border-bottom:1px solid var(--border-light); font-size:13px; gap:8px;';
                     row.addEventListener('mouseenter', function() { row.style.background = 'var(--surface-hover)'; });
                     row.addEventListener('mouseleave', function() { row.style.background = ''; });
 
-                    var left = document.createElement('div');
+                    var cur = getSelectedCurrency();
+
+                    var nameCol = document.createElement('div');
+                    nameCol.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
                     var nameEl = document.createElement('strong');
                     nameEl.textContent = p.name;
-                    left.appendChild(nameEl);
-                    if (p.sku || p.model) {
-                        var skuEl = document.createElement('code');
-                        skuEl.style.marginLeft = '6px';
-                        skuEl.textContent = p.sku || p.model;
-                        left.appendChild(skuEl);
-                    }
+                    nameCol.appendChild(nameEl);
 
-                    var right = document.createElement('div');
-                    right.style.cssText = 'display:flex; align-items:center; gap:12px;';
-                    var cur = getSelectedCurrency();
-                    var priceSpan = document.createElement('span');
-                    priceSpan.style.fontVariantNumeric = 'tabular-nums';
-                    priceSpan.textContent = cur.symbol + ' ' + convertPrice(parseFloat(p.price)).toFixed(2);
-                    var qtySpan = document.createElement('span');
-                    qtySpan.className = 'text-muted';
-                    qtySpan.textContent = 'Qty: ' + p.quantity;
-                    right.appendChild(priceSpan);
-                    right.appendChild(qtySpan);
+                    var skuCol = document.createElement('div');
+                    var skuCode = document.createElement('code');
+                    skuCode.style.cssText = 'font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;';
+                    skuCode.textContent = p.sku || p.model || '-';
+                    skuCol.appendChild(skuCode);
 
+                    var priceCol = document.createElement('div');
+                    priceCol.style.cssText = 'text-align:right; font-variant-numeric:tabular-nums;';
+                    priceCol.textContent = cur.symbol + ' ' + convertPrice(parseFloat(p.price)).toFixed(2);
+
+                    var qtyCol = document.createElement('div');
+                    qtyCol.style.cssText = 'text-align:right; color:var(--text-muted);';
+                    qtyCol.textContent = p.quantity;
+
+                    var optCol = document.createElement('div');
+                    optCol.style.textAlign = 'right';
                     if (p.options && p.options.length > 0) {
                         var badge = document.createElement('span');
                         badge.className = 'badge';
-                        badge.textContent = p.options.length + ' option' + (p.options.length > 1 ? 's' : '');
-                        badge.style.cssText = 'font-size:11px; margin-left:4px;';
-                        right.appendChild(badge);
+                        badge.style.fontSize = '11px';
+                        badge.textContent = p.options.length + ' opt';
+                        optCol.appendChild(badge);
                     }
 
-                    row.appendChild(left);
-                    row.appendChild(right);
+                    row.appendChild(nameCol);
+                    row.appendChild(skuCol);
+                    row.appendChild(priceCol);
+                    row.appendChild(qtyCol);
+                    row.appendChild(optCol);
 
                     row.addEventListener('click', function() {
                         selectProductForDetail(p);
