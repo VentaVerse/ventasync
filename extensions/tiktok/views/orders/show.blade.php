@@ -94,6 +94,7 @@
             @if(in_array($order->status, ['AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED']))
             <div class="d-flex gap-10 flex-wrap mt-12">
                 <a href="{{ route('ext.tiktok.orders.awb', $order->id) }}" target="_blank" class="btn secondary">AWB PDF</a>
+                <button type="button" class="btn secondary" id="btnShowTracking" data-url="{{ route('ext.tiktok.orders.tracking', $order->id) }}">Tracking</button>
             </div>
             @endif
         </div>
@@ -216,4 +217,82 @@
         <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
     </details>
 </div>
+{{-- Tracking modal --}}
+<div id="ttTrackingModal" class="modal-backdrop">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <h3>Tracking</h3>
+            <button type="button" class="modal-close" onclick="document.getElementById('ttTrackingModal').classList.remove('active')">&times;</button>
+        </div>
+        <div id="ttTrackingBody" class="mt-12">
+            <div class="text-secondary">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var btn = document.getElementById('btnShowTracking');
+    if (!btn) return;
+    var modal = document.getElementById('ttTrackingModal');
+    var body = document.getElementById('ttTrackingBody');
+
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.classList.remove('active'); });
+
+    btn.addEventListener('click', function() {
+        body.textContent = 'Loading...';
+        modal.classList.add('active');
+        fetch(btn.dataset.url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                body.textContent = '';
+                if (!data.ok) {
+                    var err = document.createElement('div');
+                    err.className = 'text-danger';
+                    err.textContent = (data.body || {}).message || 'Error loading tracking info.';
+                    body.appendChild(err);
+                    return;
+                }
+                var apiBody = data.body || {};
+                var trackData = apiBody.data || apiBody;
+                var events = trackData.tracking || trackData.tracking_info || [];
+
+                if (!Array.isArray(events) || events.length === 0) {
+                    var empty = document.createElement('div');
+                    empty.className = 'text-secondary';
+                    empty.textContent = 'No tracking info available yet.';
+                    body.appendChild(empty);
+                    return;
+                }
+
+                events.forEach(function(ev) {
+                    var row = document.createElement('div');
+                    row.style.cssText = 'margin-bottom:10px; padding-left:12px; border-left:2px solid var(--accent);';
+                    var time = document.createElement('div');
+                    time.className = 'text-xs text-secondary';
+                    var ts = ev.update_time_millis || ev.update_time || null;
+                    if (ts && typeof ts === 'number') {
+                        var dt = new Date(ts > 1e12 ? ts : ts * 1000);
+                        time.textContent = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+                    } else {
+                        time.textContent = ev.update_time_text || '';
+                    }
+                    var desc = document.createElement('div');
+                    desc.className = 'text-sm';
+                    desc.textContent = ev.description || '';
+                    row.appendChild(time);
+                    row.appendChild(desc);
+                    body.appendChild(row);
+                });
+            })
+            .catch(function(err) {
+                body.textContent = '';
+                var errEl = document.createElement('div');
+                errEl.className = 'text-danger';
+                errEl.textContent = 'Failed to load tracking info.';
+                body.appendChild(errEl);
+            });
+    });
+})();
+</script>
 @endsection
