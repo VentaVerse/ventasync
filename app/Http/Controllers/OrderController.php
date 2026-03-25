@@ -260,7 +260,7 @@ class OrderController extends Controller
                 $lineTotal = $price * $qty;
                 $orderTotal += $lineTotal;
 
-                DB::table($pfx . 'order_product')->insert([
+                $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
                     'order_id'   => $order->order_id,
                     'product_id' => (int) ($p['product_id'] ?? 0),
                     'name'       => $p['name'] ?? '',
@@ -272,6 +272,24 @@ class OrderController extends Controller
                     'reward'     => 0,
                     'cost'       => (float) ($p['cost'] ?? 0),
                 ]);
+
+                // Save option value if selected
+                $povId = (int) ($p['option_value_id'] ?? 0);
+                if ($povId > 0 && $orderProductId) {
+                    $pov = DB::table($pfx . 'product_option_value')
+                        ->where('product_option_value_id', $povId)
+                        ->first(['product_option_id', 'option_value_id']);
+
+                    DB::table($pfx . 'order_option')->insert([
+                        'order_id'                 => $order->order_id,
+                        'order_product_id'         => $orderProductId,
+                        'product_option_id'        => $pov->product_option_id ?? 0,
+                        'product_option_value_id'  => $povId,
+                        'name'                     => $p['option_name'] ?? '',
+                        'value'                    => $p['option_value'] ?? '',
+                        'type'                     => 'select',
+                    ]);
+                }
             }
 
             // Update order total from line items
