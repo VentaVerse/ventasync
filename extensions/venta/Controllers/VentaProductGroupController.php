@@ -464,7 +464,7 @@ class VentaProductGroupController extends Controller
                 'quantity'    => (int) $prod->quantity,
                 'weight'      => (float) ($prod->weight ?? 0),
                 'status'      => (bool) $prod->status,
-                'description' => strip_tags($prod->description ?? ''),
+                'description' => $prod->description ?? '',
             ];
 
             // Send brand as name — Venta API will find-or-create
