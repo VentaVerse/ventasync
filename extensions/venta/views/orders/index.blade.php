@@ -116,11 +116,11 @@
                     <td>{{ $o->tracking_number ?: '—' }}</td>
                     <td class="text-nowrap">{{ $o->order_created_at ? $o->order_created_at->format('M d, Y H:i') : '—' }}</td>
                     <td>
-                        <div class="d-flex gap-4">
+                        <div class="d-flex gap-6 items-center">
                             <a class="btn small" href="{{ route('ext.venta.orders.show', [$setting->id, $o->id]) }}">View</a>
-                            <form method="POST" action="{{ route('ext.venta.orders.destroy', [$setting->id, $o->id]) }}" data-confirm="Delete this Venta order? This only removes it from the ERP mirror." style="margin:0;">
+                            <form method="POST" action="{{ route('ext.venta.orders.destroy', [$setting->id, $o->id]) }}" data-confirm="Delete this Venta order?" style="margin:0;">
                                 @csrf @method('DELETE')
-                                <button class="btn small danger" type="submit">&times;</button>
+                                <button class="btn danger small" type="submit">Delete</button>
                             </form>
                         </div>
                     </td>
