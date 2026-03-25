@@ -273,7 +273,7 @@ class VentaOrderSync
         $contact = $raw['contact'] ?? [];
         $customer = $raw['customer'] ?? [];
         $shipping = $raw['shipping_address'] ?? [];
-        $billing = $raw['billing_address'] ?? [];
+        $billing = is_array($raw['billing_address'] ?? null) ? $raw['billing_address'] : $shipping;
         $totals = $raw['totals'] ?? [];
 
         $firstname = trim($shipping['first_name'] ?? ($contact['name'] ?? ($customer['name'] ?? '')));
@@ -313,8 +313,8 @@ class VentaOrderSync
                 'payment_firstname'      => trim($billing['first_name'] ?? $firstname),
                 'payment_lastname'       => trim($billing['last_name'] ?? $lastname),
                 'payment_company'        => '',
-                'payment_address_1'      => trim($billing['address_1'] ?? ''),
-                'payment_address_2'      => '',
+                'payment_address_1'      => trim(implode(', ', array_filter([$billing['address_1'] ?? '', $billing['barangay'] ?? '']))),
+                'payment_address_2'      => trim($billing['district'] ?? ''),
                 'payment_city'           => trim($billing['city'] ?? ''),
                 'payment_postcode'       => trim($billing['postcode'] ?? ''),
                 'payment_country'        => trim($billing['country_code'] ?? ''),
@@ -329,8 +329,8 @@ class VentaOrderSync
                 'shipping_firstname'     => $firstname,
                 'shipping_lastname'      => $lastname,
                 'shipping_company'       => '',
-                'shipping_address_1'     => trim($shipping['address_1'] ?? ''),
-                'shipping_address_2'     => '',
+                'shipping_address_1'     => trim(implode(', ', array_filter([$shipping['address_1'] ?? '', $shipping['barangay'] ?? '']))),
+                'shipping_address_2'     => trim($shipping['district'] ?? ''),
                 'shipping_city'          => trim($shipping['city'] ?? ''),
                 'shipping_postcode'      => trim($shipping['postcode'] ?? ''),
                 'shipping_country'       => trim($shipping['country_code'] ?? ''),
