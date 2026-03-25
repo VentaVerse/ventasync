@@ -100,8 +100,8 @@
             <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
             <div class="d-flex gap-10 flex-wrap mt-12">
-                <button type="button" class="btn secondary" id="btnLogisticsTrace" data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}">View Logistics Trace</button>
-                <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn">AWB PDF</a>
+                <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn" style="background:#0F146D; border-color:#0F146D; color:#fff;">AWB PDF</a>
+                <button type="button" class="btn" style="background:#0F146D; border-color:#0F146D; color:#fff;" id="btnLogisticsTrace" data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}">Tracking</button>
             </div>
         </div>
     </div>

@@ -180,12 +180,47 @@ class TikTokOrderController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $order = TikTokOrder::with('products')->findOrFail($id);
+        $apiError = false;
+
+        if ($request->boolean('refresh')) {
+            try {
+                $c = $this->creds();
+                $client = new TikTokClient();
+                $result = $client->getProduct($c['app_key'], $c['app_secret'], $c['token'], $order->order_id, $c['shop_cipher']);
+
+                // Use the order detail endpoint instead
+                $detailResult = $client->post(
+                    $c['app_key'], $c['app_secret'], $c['token'],
+                    '/order/202309/orders',
+                    [],
+                    ['order_ids' => [$order->order_id]],
+                    $c['shop_cipher']
+                );
+
+                if (($detailResult['ok'] ?? false) && is_array($detailResult['body'])) {
+                    $orders = $detailResult['body']['data']['orders'] ?? [];
+                    if (!empty($orders[0])) {
+                        $detail = $orders[0];
+                        $order->status = $detail['status'] ?? $order->status;
+                        $order->raw = $detail;
+                        $order->buyer_name = $detail['recipient_address']['name'] ?? ($detail['buyer_name'] ?? $order->buyer_name);
+                        $order->save();
+                        $order->load('products');
+                    }
+                } else {
+                    $apiError = true;
+                }
+            } catch (\Throwable $e) {
+                $apiError = true;
+            }
+        }
 
         return view('ext-tiktok::orders.show', [
             'order' => $order,
+            'api_error' => $apiError,
         ]);
     }
 

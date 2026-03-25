@@ -64,8 +64,16 @@
     </div>
     <div class="page-header-actions">
         <a href="{{ route('ext.tiktok.orders.index') }}" class="btn secondary">← Back to Orders</a>
+        <a href="{{ route('ext.tiktok.orders.show', ['id' => $order->id, 'refresh' => 1]) }}" class="btn secondary">Refresh from TikTok</a>
     </div>
 </div>
+
+@if($api_error ?? false)
+    <div class="alert warning">
+        <strong>Note</strong>
+        <div style="margin-top:6px;">Could not refresh from TikTok API. Showing cached data.</div>
+    </div>
+@endif
 
 <div class="detail-grid">
     <div class="detail-section">
@@ -93,8 +101,8 @@
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $trackingNo !== '' ? $trackingNo : '—' }}</strong></div>
             @if(in_array($order->status, ['AWAITING_COLLECTION', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED']))
             <div class="d-flex gap-10 flex-wrap mt-12">
-                <a href="{{ route('ext.tiktok.orders.awb', $order->id) }}" target="_blank" class="btn secondary">AWB PDF</a>
-                <button type="button" class="btn secondary" id="btnShowTracking" data-url="{{ route('ext.tiktok.orders.tracking', $order->id) }}">Tracking</button>
+                <a href="{{ route('ext.tiktok.orders.awb', $order->id) }}" target="_blank" class="btn" style="background:#1e1e1e; border-color:#1e1e1e; color:#fff;">AWB PDF</a>
+                <button type="button" class="btn" style="background:#1e1e1e; border-color:#1e1e1e; color:#fff;" id="btnShowTracking" data-url="{{ route('ext.tiktok.orders.tracking', $order->id) }}">Tracking</button>
             </div>
             @endif
         </div>

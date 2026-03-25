@@ -95,8 +95,8 @@
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
             @if(in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED']))
             <div class="d-flex gap-10 flex-wrap mt-12">
-                <button type="button" class="btn secondary" id="btnLogisticsTrace" data-url="{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">Tracking</button>
-                <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn secondary">AWB PDF</a>
+                <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;">AWB PDF</a>
+                <button type="button" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;" id="btnLogisticsTrace" data-url="{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">Tracking</button>
             </div>
             @endif
         </div>
