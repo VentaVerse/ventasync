@@ -52,13 +52,11 @@
         @endforeach
     </div>
 
-    <form id="venta-bulk-delete-form" method="POST" action="{{ route('ext.venta.orders.bulk_delete', $setting->id) }}" style="display:none;">
+    <form id="venta-bulk-delete-form" method="POST" action="{{ route('ext.venta.orders.bulk_delete', $setting->id) }}" data-confirm="Delete selected Venta orders?" style="display:none; padding:8px 16px; margin-bottom:12px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); align-items:center; gap:10px;">
         @csrf
-    </form>
-    <div id="venta-bulk-bar" style="display:none; padding:8px 16px; margin-bottom:12px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); align-items:center; gap:10px;">
         <span class="text-sm font-bold"><span id="venta-bulk-count">0</span> selected</span>
-        <button type="submit" form="venta-bulk-delete-form" class="btn small danger" data-confirm="Delete selected Venta orders?">Delete Selected</button>
-    </div>
+        <button type="submit" class="btn small danger">Delete Selected</button>
+    </form>
 
     {{-- Search --}}
     <form method="GET" action="{{ route('ext.venta.orders.index', $setting->id) }}">
@@ -140,7 +138,7 @@
 <script>
 (function() {
     var selectAll = document.getElementById('venta-select-all');
-    var bulkBar = document.getElementById('venta-bulk-bar');
+    var bulkBar = document.getElementById('venta-bulk-delete-form');
     var bulkCount = document.getElementById('venta-bulk-count');
     function checks() { return Array.from(document.querySelectorAll('.venta-order-check')); }
 
