@@ -4,14 +4,13 @@ namespace Extensions\venta\Commands;
 
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
-use Extensions\venta\Services\Venta\VentaCategorySync;
 use Extensions\venta\Services\Venta\VentaOrderSync;
 use Illuminate\Console\Command;
 
 class VentaSync extends Command
 {
     protected $signature = 'venta:sync
-        {entity : Entity to sync (orders|categories|all)}
+        {entity : Entity to sync (orders)}
         {--store= : Store ID (venta_settings.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--max-pages=0 : Stop after N pages (0 = unlimited)}
@@ -24,7 +23,7 @@ class VentaSync extends Command
         $storeId = $this->option('store');
         $entity = $this->argument('entity');
 
-        $allowed = ['orders', 'categories', 'all'];
+        $allowed = ['orders'];
         if (!in_array($entity, $allowed)) {
             $this->error("Invalid entity '{$entity}'. Allowed: " . implode(', ', $allowed));
             return 1;
@@ -63,31 +62,7 @@ class VentaSync extends Command
     {
         $client = new VentaClient($setting);
 
-        $entities = $entity === 'all'
-            ? ['categories', 'orders']
-            : [$entity];
-
-        foreach ($entities as $e) {
-            match ($e) {
-                'categories' => $this->syncCategories($client, $setting),
-                'orders'     => $this->syncOrders($client, $setting),
-            };
-        }
-    }
-
-    private function syncCategories(VentaClient $client, VentaSetting $setting): void
-    {
-        $this->info('  Syncing categories...');
-
-        $sync = new VentaCategorySync($client, $setting);
-        $log = $sync->pull();
-
-        if ($log->status === 'failed') {
-            $this->error('  Category sync failed: ' . ($log->error_message ?? 'Unknown'));
-            return;
-        }
-
-        $this->info("  Categories: {$log->records_processed} processed");
+        $this->syncOrders($client, $setting);
     }
 
     private function syncOrders(VentaClient $client, VentaSetting $setting): void

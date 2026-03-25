@@ -264,10 +264,20 @@
                                             </div>
                                         </div>
                                         <div>
-                                            <div class="text-xs text-muted" style="margin-bottom:4px;">Full Sync (orders + categories)</div>
+                                            <div class="text-xs text-muted" style="margin-bottom:4px;">Push Stock — every 15 min</div>
                                             <div class="oc-cron-box">
-                                                <code id="venta-cron-all-{{ $store->id }}">{{ $artisanPath }} venta:sync all --store={{ $store->id }}</code>
-                                                <button type="button" class="btn small secondary oc-copy-btn" onclick="ventaCopyCron('venta-cron-all-{{ $store->id }}')" title="Copy to clipboard">
+                                                <code id="venta-cron-stock-{{ $store->id }}">{{ $artisanPath }} venta:push-stock --store={{ $store->id }}</code>
+                                                <button type="button" class="btn small secondary oc-copy-btn" onclick="ventaCopyCron('venta-cron-stock-{{ $store->id }}')" title="Copy to clipboard">
+                                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                    Copy
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-muted" style="margin-bottom:4px;">Push Reviews — daily</div>
+                                            <div class="oc-cron-box">
+                                                <code id="venta-cron-reviews-{{ $store->id }}">{{ $artisanPath }} venta:push-reviews --store={{ $store->id }}</code>
+                                                <button type="button" class="btn small secondary oc-copy-btn" onclick="ventaCopyCron('venta-cron-reviews-{{ $store->id }}')" title="Copy to clipboard">
                                                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                                     Copy
                                                 </button>
