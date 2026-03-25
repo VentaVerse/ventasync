@@ -93,14 +93,12 @@
         <div class="detail-body">
             <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
+            @if(in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED']))
             <div class="d-flex gap-10 flex-wrap mt-12">
-                @if($tracking !== '')
-                    <button type="button" class="btn secondary" id="btnLogisticsTrace" data-url="{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">View Logistics Trace</button>
-                @endif
-                @if($hasAwbFile || $statusNorm === 'PROCESSED')
-                    <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn">Print AWB</a>
-                @endif
+                <button type="button" class="btn secondary" id="btnLogisticsTrace" data-url="{{ route('shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">Tracking</button>
+                <a href="{{ route('shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn secondary">AWB PDF</a>
             </div>
+            @endif
         </div>
     </div>
 </div>
@@ -713,7 +711,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        events.sort(function (a, b) { return (b.ctime || 0) - (a.ctime || 0); });
+        events.sort(function (a, b) { return (b.update_time || b.ctime || 0) - (a.update_time || a.ctime || 0); });
 
         body.textContent = '';
 
@@ -741,7 +739,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var tbody = document.createElement('tbody');
         events.forEach(function (ev) {
             var tr = document.createElement('tr');
-            var tdTime = document.createElement('td'); tdTime.textContent = fmtTime(ev.ctime);
+            var tdTime = document.createElement('td'); tdTime.textContent = fmtTime(ev.update_time || ev.ctime);
             var tdStatus = document.createElement('td'); tdStatus.className = 'font-bold'; tdStatus.textContent = ev.logistics_status || '';
             var tdDesc = document.createElement('td'); tdDesc.textContent = ev.description || '';
             tr.appendChild(tdTime); tr.appendChild(tdStatus); tr.appendChild(tdDesc);
