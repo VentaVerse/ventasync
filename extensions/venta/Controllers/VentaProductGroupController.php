@@ -974,7 +974,7 @@ class VentaProductGroupController extends Controller
             ->value('image');
 
         if ($mainImage && trim($mainImage) !== '') {
-            $images[] = $mainImage;
+            $images[] = asset('storage/' . ltrim($mainImage, '/'));
         }
 
         // Additional images
@@ -984,6 +984,12 @@ class VentaProductGroupController extends Controller
             ->pluck('image')
             ->toArray();
 
-        return array_merge($images, $additionalImages);
+        foreach ($additionalImages as $img) {
+            if ($img && trim($img) !== '') {
+                $images[] = asset('storage/' . ltrim($img, '/'));
+            }
+        }
+
+        return $images;
     }
 }
