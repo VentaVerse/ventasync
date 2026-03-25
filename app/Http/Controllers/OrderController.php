@@ -715,6 +715,15 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('status', 'No items selected.');
         }
 
+        // Restore stock for each order before deleting
+        $orders = Order::with('products.options')->whereIn('order_id', $ids)->get();
+        foreach ($orders as $order) {
+            $currentStatusId = (int) $order->order_status_id;
+            if ($currentStatusId > 0) {
+                OrderStockService::adjustStock($order, $currentStatusId, 0);
+            }
+        }
+
         Order::whereIn('order_id', $ids)->delete();
         OrderHistory::whereIn('order_id', $ids)->delete();
 
@@ -722,7 +731,7 @@ class OrderController extends Controller
             ActivityLogger::log('deleted', 'Order', $orderId, '#' . $orderId);
         }
 
-        return redirect()->route('orders.index')->with('status', 'Deleted selected orders.');
+        return redirect()->route('orders.index')->with('status', 'Deleted selected orders. Stock restored.');
     }
 
     /**
