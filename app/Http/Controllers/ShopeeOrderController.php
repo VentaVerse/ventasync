@@ -357,7 +357,10 @@ class ShopeeOrderController extends Controller
                     (string) $setting->access_token,
                     (int) $setting->shop_id,
                     '/api/v2/order/get_order_detail',
-                    ['order_sn_list' => $orderSn]
+                    [
+                        'order_sn_list' => $orderSn,
+                        'response_optional_fields' => 'buyer_username,recipient_address,total_amount,item_list,pay_time,shipping_carrier,tracking_no,payment_method,order_chargeable_weight_gram,note,currency',
+                    ]
                 );
 
                 ShopeeApiLog::safeCreate([
