@@ -488,13 +488,14 @@ class OrderController extends Controller
     {
         $order = Order::where('order_id', (int) $id)->firstOrFail();
         $statuses = OrderStatus::orderBy('order_status_id')->get();
+        $currencies = DB::table('currencies')->where('status', 1)->orderByDesc('is_default')->orderBy('code')->get();
         $history = OrderHistory::where('order_id', (int) $id)
             ->orderByDesc('date_added')
             ->get();
         $products = $order->products()->with('options')->get();
         $orderTotals = $order->totals()->orderBy('sort_order')->get();
 
-        return view('orders.edit', compact('order', 'statuses', 'history', 'products', 'orderTotals'));
+        return view('orders.edit', compact('order', 'statuses', 'currencies', 'history', 'products', 'orderTotals'));
     }
 
     public function update(Request $request, $id)
@@ -509,6 +510,7 @@ class OrderController extends Controller
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
             'comment'          => 'nullable|string',
+            'currency_code'    => 'nullable|string|max:3',
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
@@ -544,19 +546,96 @@ class OrderController extends Controller
             'total'              => $request->total ?? 0,
             'order_status_id'    => $request->order_status_id,
             'tracking_number'    => $request->tracking_number ?? '',
+            'currency_code'      => $request->currency_code ?? $order->currency_code,
             'date_modified'      => now(),
         ]);
 
-        // Add history entry if status changed
-        if ((int) $oldStatusId !== (int) $request->order_status_id) {
-            OrderHistory::create(array_merge($this->currentUser(), [
-                'order_id'        => $order->order_id,
-                'order_status_id' => (int) $request->order_status_id,
-                'notify'          => 0,
-                'comment'         => $request->history_comment ?? '',
-                'date_added'      => now(),
-            ]));
+        // Rebuild order products from submitted data
+        $products = $request->input('products', []);
+        $pfx = (string) config('catalog.prefix');
 
+        // Delete existing order products and their options
+        $existingProductIds = DB::table($pfx . 'order_product')
+            ->where('order_id', $order->order_id)
+            ->pluck('order_product_id')
+            ->toArray();
+
+        if (!empty($existingProductIds)) {
+            DB::table($pfx . 'order_option')
+                ->whereIn('order_product_id', $existingProductIds)
+                ->delete();
+        }
+        DB::table($pfx . 'order_product')
+            ->where('order_id', $order->order_id)
+            ->delete();
+
+        // Recreate from submitted data
+        $orderTotal = 0;
+        if (!empty($products)) {
+            foreach ($products as $p) {
+                $qty = (int) ($p['quantity'] ?? 1);
+                $price = (float) ($p['price'] ?? 0);
+                $lineTotal = $price * $qty;
+                $orderTotal += $lineTotal;
+
+                $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                    'order_id'   => $order->order_id,
+                    'product_id' => (int) ($p['product_id'] ?? 0),
+                    'name'       => $p['name'] ?? '',
+                    'model'      => $p['model'] ?? '',
+                    'quantity'   => $qty,
+                    'price'      => $price,
+                    'total'      => $lineTotal,
+                    'tax'        => 0,
+                    'reward'     => 0,
+                    'cost'       => (float) ($p['cost'] ?? 0),
+                ]);
+
+                // Create order option if present
+                if (!empty($p['option_value_id'])) {
+                    DB::table($pfx . 'order_option')->insert([
+                        'order_id'                  => $order->order_id,
+                        'order_product_id'          => $orderProductId,
+                        'product_option_id'         => 0,
+                        'product_option_value_id'   => (int) $p['option_value_id'],
+                        'name'                      => $p['option_name'] ?? '',
+                        'value'                     => $p['option_value'] ?? '',
+                        'type'                      => 'select',
+                    ]);
+                }
+            }
+
+            // Update order total and totals table
+            $order->update(['total' => $orderTotal]);
+
+            DB::table($pfx . 'order_total')->where('order_id', $order->order_id)->delete();
+            DB::table($pfx . 'order_total')->insert([
+                'order_id'   => $order->order_id,
+                'code'       => 'sub_total',
+                'title'      => 'Sub-Total',
+                'value'      => $orderTotal,
+                'sort_order' => 1,
+            ]);
+            DB::table($pfx . 'order_total')->insert([
+                'order_id'   => $order->order_id,
+                'code'       => 'total',
+                'title'      => 'Total',
+                'value'      => $orderTotal,
+                'sort_order' => 9,
+            ]);
+        }
+
+        // Always log history entry on update
+        OrderHistory::create(array_merge($this->currentUser(), [
+            'order_id'        => $order->order_id,
+            'order_status_id' => (int) $request->order_status_id,
+            'notify'          => 0,
+            'comment'         => $request->comment ?? '',
+            'date_added'      => now(),
+        ]));
+
+        // Adjust stock if status changed
+        if ((int) $oldStatusId !== (int) $request->order_status_id) {
             // Adjust stock based on status transition
             OrderStockService::adjustStock($order, (int) $oldStatusId, (int) $request->order_status_id);
         }

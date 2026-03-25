@@ -319,7 +319,24 @@
     var noProductsRow = document.getElementById('no-products-row');
     var totalDisplay = document.getElementById('order-total-display');
     var totalHidden = document.getElementById('order-total-hidden');
-    var lineItems = []; // each: { product_id, name, model, sku, basePrice (PHP), baseCost (PHP), qty, option_value_id, option_name, option_value }
+    // Restore line items from old() on validation failure
+    @php
+        $oldProducts = collect(old('products', []))->values()->map(function ($p) {
+            return [
+                'product_id'      => (int) ($p['product_id'] ?? 0),
+                'name'            => $p['name'] ?? '',
+                'model'           => $p['model'] ?? '',
+                'sku'             => $p['model'] ?? '',
+                'basePrice'       => (float) ($p['price'] ?? 0),
+                'baseCost'        => (float) ($p['cost'] ?? 0),
+                'qty'             => (int) ($p['quantity'] ?? 1),
+                'option_value_id' => $p['option_value_id'] ?? null,
+                'option_name'     => $p['option_name'] ?? '',
+                'option_value'    => $p['option_value'] ?? '',
+            ];
+        })->toArray();
+    @endphp
+    var lineItems = @json($oldProducts);
 
     function recalcTotal() {
         var total = 0;
