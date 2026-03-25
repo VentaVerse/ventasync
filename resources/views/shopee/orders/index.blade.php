@@ -806,12 +806,37 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
+                if (data.tracking_number) {
+                    var tnDiv = document.createElement('div');
+                    tnDiv.className = 'mb-8';
+                    var tnLabel = document.createElement('strong');
+                    tnLabel.textContent = 'Tracking: ';
+                    var tnValue = document.createElement('span');
+                    tnValue.textContent = data.tracking_number;
+                    tnDiv.appendChild(tnLabel);
+                    tnDiv.appendChild(tnValue);
+                    trackingBody.appendChild(tnDiv);
+                }
+                if (data.shipping_carrier) {
+                    var scDiv = document.createElement('div');
+                    scDiv.className = 'mb-8';
+                    var scLabel = document.createElement('strong');
+                    scLabel.textContent = 'Courier: ';
+                    var scValue = document.createElement('span');
+                    scValue.textContent = data.shipping_carrier;
+                    scDiv.appendChild(scLabel);
+                    scDiv.appendChild(scValue);
+                    trackingBody.appendChild(scDiv);
+                }
+
                 var events = data.tracking_info || [];
                 if (!Array.isArray(events) || events.length === 0) {
-                    var empty = document.createElement('div');
-                    empty.className = 'text-secondary';
-                    empty.textContent = 'No tracking info available yet.';
-                    trackingBody.appendChild(empty);
+                    if (!data.tracking_number) {
+                        var empty = document.createElement('div');
+                        empty.className = 'text-secondary';
+                        empty.textContent = 'No tracking info available yet.';
+                        trackingBody.appendChild(empty);
+                    }
                     return;
                 }
 

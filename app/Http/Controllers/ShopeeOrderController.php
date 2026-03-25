@@ -1056,11 +1056,31 @@ class ShopeeOrderController extends Controller
         $body = $res['body'] ?? [];
         $respData = $body['response'] ?? $body;
 
+        // Also fetch tracking number
+        $trackRes = $client->shopGet(
+            $setting->mode ?? 'live',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            '/api/v2/logistics/get_tracking_number',
+            ['order_sn' => $orderSn]
+        );
+        $trackBody = $trackRes['body'] ?? [];
+        $trackResp = $trackBody['response'] ?? $trackBody;
+        $trackingNo = trim((string) ($trackResp['tracking_number'] ?? ''));
+
+        // Get shipping carrier from order raw
+        $order = \App\Models\ShopeeOrder::where('order_sn', $orderSn)->first();
+        $raw = is_array($order->raw ?? null) ? $order->raw : [];
+        $carrier = (string) ($raw['shipping_carrier'] ?? '');
+
         return response()->json([
-            'ok'            => (bool) ($res['ok'] ?? false),
-            'tracking_info' => $respData['tracking_info'] ?? [],
+            'ok'              => (bool) ($res['ok'] ?? false),
+            'tracking_number' => $trackingNo,
+            'shipping_carrier' => $carrier,
+            'tracking_info'   => $respData['tracking_info'] ?? [],
             'logistics_status' => $respData['logistics_status'] ?? null,
-            'body'          => $respData,
         ]);
     }
 

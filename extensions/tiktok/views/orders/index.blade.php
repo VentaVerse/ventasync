@@ -445,8 +445,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         var apiBody = data.body || {};
         var body = apiBody.data || apiBody;
-        var trackNum = body.tracking_number || '';
-        var provider = body.shipping_provider || '';
+        var trackNum = data.tracking_number || body.tracking_number || '';
+        var provider = data.shipping_carrier || body.shipping_provider || '';
         var events = body.tracking || body.tracking_info || body.events || [];
 
         if (trackNum) {

@@ -255,13 +255,41 @@
                 }
                 var apiBody = data.body || {};
                 var trackData = apiBody.data || apiBody;
+                var trackNum = data.tracking_number || trackData.tracking_number || '';
+                var provider = data.shipping_carrier || trackData.shipping_provider || '';
+
+                if (trackNum) {
+                    var tnDiv = document.createElement('div');
+                    tnDiv.className = 'mb-8';
+                    var tnLabel = document.createElement('strong');
+                    tnLabel.textContent = 'Tracking: ';
+                    var tnValue = document.createElement('span');
+                    tnValue.textContent = trackNum;
+                    tnDiv.appendChild(tnLabel);
+                    tnDiv.appendChild(tnValue);
+                    body.appendChild(tnDiv);
+                }
+                if (provider) {
+                    var scDiv = document.createElement('div');
+                    scDiv.className = 'mb-8';
+                    var scLabel = document.createElement('strong');
+                    scLabel.textContent = 'Courier: ';
+                    var scValue = document.createElement('span');
+                    scValue.textContent = provider;
+                    scDiv.appendChild(scLabel);
+                    scDiv.appendChild(scValue);
+                    body.appendChild(scDiv);
+                }
+
                 var events = trackData.tracking || trackData.tracking_info || [];
 
                 if (!Array.isArray(events) || events.length === 0) {
-                    var empty = document.createElement('div');
-                    empty.className = 'text-secondary';
-                    empty.textContent = 'No tracking info available yet.';
-                    body.appendChild(empty);
+                    if (!trackNum) {
+                        var empty = document.createElement('div');
+                        empty.className = 'text-secondary';
+                        empty.textContent = 'No tracking info available yet.';
+                        body.appendChild(empty);
+                    }
                     return;
                 }
 

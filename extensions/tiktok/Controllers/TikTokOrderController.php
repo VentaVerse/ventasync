@@ -565,11 +565,20 @@ class TikTokOrderController extends Controller
         $apiCode = (int) ($body['code'] ?? -1);
         $ok = $apiCode === 0;
 
-        // Always return 200 so JS can parse the response and show the error message
+        // Get tracking number and courier from order raw data
+        $raw = is_array($order->raw) ? $order->raw : [];
+        $trackingNo = (string) ($raw['tracking_number'] ?? '');
+        $carrier = (string) ($raw['shipping_provider'] ?? '');
+        if (!$carrier && !empty($raw['line_items'])) {
+            $carrier = (string) (($raw['line_items'][0] ?? [])['shipping_provider_name'] ?? '');
+        }
+
         return response()->json([
-            'ok'      => $ok,
-            'body'    => $body,
-            'message' => $ok ? null : ($body['message'] ?? 'TikTok API error (code: ' . $apiCode . ')'),
+            'ok'               => $ok,
+            'body'             => $body,
+            'tracking_number'  => $trackingNo,
+            'shipping_carrier' => $carrier,
+            'message'          => $ok ? null : ($body['message'] ?? 'TikTok API error (code: ' . $apiCode . ')'),
         ]);
     }
 }
