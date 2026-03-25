@@ -371,22 +371,30 @@ class OrderController extends Controller
                     ->get()
                     ->groupBy('combination_id');
 
+                // Also get POV IDs for each combination
+                $comboPovMap = DB::table('product_option_combination_values')
+                    ->whereIn('combination_id', $comboIds)
+                    ->get(['combination_id', 'product_option_value_id'])
+                    ->groupBy('combination_id');
+
                 foreach ($combos as $c) {
                     $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
+                    $povIds = ($comboPovMap->get($c->id) ?? collect())->pluck('product_option_value_id')->toArray();
                     $combinationsByProduct[$c->product_id][] = (object) [
-                        'combination_id'  => $c->id,
-                        'product_id'      => $c->product_id,
-                        'option_sku'      => $c->sku,
-                        'option_qty'      => (int) $c->quantity,
-                        'absolute_price'  => (float) $c->absolute_price,
-                        'absolute_cost'   => (float) $c->absolute_cost,
-                        'option_price'    => 0,
-                        'price_prefix'    => '+',
-                        'option_cost'     => 0,
-                        'cost_prefix'     => '+',
-                        'value_name'      => $valueNames,
-                        'option_name'     => 'Option',
-                        'is_combination'  => true,
+                        'combination_id'          => $c->id,
+                        'product_option_value_id' => $povIds[0] ?? null,
+                        'product_id'              => $c->product_id,
+                        'option_sku'              => $c->sku,
+                        'option_qty'              => (int) $c->quantity,
+                        'absolute_price'          => (float) $c->absolute_price,
+                        'absolute_cost'           => (float) $c->absolute_cost,
+                        'option_price'            => 0,
+                        'price_prefix'            => '+',
+                        'option_cost'             => 0,
+                        'cost_prefix'             => '+',
+                        'value_name'              => $valueNames,
+                        'option_name'             => 'Option',
+                        'is_combination'          => true,
                     ];
                 }
             }
@@ -671,7 +679,18 @@ class OrderController extends Controller
     public function destroy($id)
     {
         $orderId = (int) $id;
-        Order::where('order_id', $orderId)->delete();
+        $order = Order::with('products.options')->where('order_id', $orderId)->first();
+
+        if ($order) {
+            // Restore stock if order was in a subtract status
+            $currentStatusId = (int) $order->order_status_id;
+            if ($currentStatusId > 0) {
+                OrderStockService::adjustStock($order, $currentStatusId, 0);
+            }
+
+            $order->delete();
+        }
+
         OrderHistory::where('order_id', $orderId)->delete();
 
         ActivityLogger::log('deleted', 'Order', $orderId, '#' . $orderId);
