@@ -234,9 +234,6 @@ class OrderController extends Controller
             'date_added'      => $now,
         ]));
 
-        // Adjust stock based on new status
-        OrderStockService::adjustStock($order, 0, (int) $request->order_status_id);
-
         ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
         try {
@@ -296,6 +293,10 @@ class OrderController extends Controller
                 'sort_order' => 9,
             ]);
         }
+
+        // Adjust stock based on new status (after products are inserted)
+        $order->load('products');
+        OrderStockService::adjustStock($order, 0, (int) $request->order_status_id);
 
         return redirect()->route('orders.index')->with('status', 'Order created.');
     }
