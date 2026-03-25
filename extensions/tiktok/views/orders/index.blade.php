@@ -434,11 +434,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!data.ok) {
             var err = document.createElement('div');
             err.className = 'text-danger';
-            err.textContent = data.message || data.body?.message || 'Error loading tracking info.';
+            var errBody = data.body || {};
+            err.textContent = data.message || errBody.message || 'Error loading tracking info.';
             trackingBody.appendChild(err);
             return;
         }
-        var body = data.body?.data || data.body || {};
+        var apiBody = data.body || {};
+        var body = apiBody.data || apiBody;
         var trackNum = body.tracking_number || '';
         var provider = body.shipping_provider || '';
         var events = body.tracking || body.tracking_info || body.events || [];
@@ -494,10 +496,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.querySelectorAll('.btnTtTracking').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            var url = e.currentTarget.dataset.url;
             trackingBody.textContent = 'Loading...';
             trackingModal.style.display = '';
-            fetch(btn.dataset.url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+            fetch(url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
                 .then(function(r) { return r.json(); })
                 .then(renderTracking)
                 .catch(function() {
