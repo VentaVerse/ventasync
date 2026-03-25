@@ -52,6 +52,14 @@
         @endforeach
     </div>
 
+    <form id="venta-bulk-delete-form" method="POST" action="{{ route('ext.venta.orders.bulk_delete', $setting->id) }}" style="display:none;">
+        @csrf
+    </form>
+    <div id="venta-bulk-bar" style="display:none; padding:8px 16px; margin-bottom:12px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); align-items:center; gap:10px;">
+        <span class="text-sm font-bold"><span id="venta-bulk-count">0</span> selected</span>
+        <button type="submit" form="venta-bulk-delete-form" class="btn small danger" data-confirm="Delete selected Venta orders?">Delete Selected</button>
+    </div>
+
     {{-- Search --}}
     <form method="GET" action="{{ route('ext.venta.orders.index', $setting->id) }}">
         @if($currentStatus)
@@ -73,6 +81,7 @@
         <table class="table">
             <thead>
             <tr>
+                <th style="width:36px;"><input type="checkbox" id="venta-select-all"></th>
                 <th style="width:70px;">ID</th>
                 <th>Order #</th>
                 <th>Customer</th>
@@ -97,6 +106,7 @@
                     };
                 @endphp
                 <tr>
+                    <td><input type="checkbox" class="venta-order-check" name="ids[]" value="{{ $o->id }}" form="venta-bulk-delete-form"></td>
                     <td>{{ $o->id }}</td>
                     <td class="font-bold">{{ $o->venta_order_number ?: $o->venta_order_id }}</td>
                     <td>{{ $o->customer_name ?: '—' }}</td>
@@ -106,11 +116,17 @@
                     <td>{{ $o->tracking_number ?: '—' }}</td>
                     <td class="text-nowrap">{{ $o->order_created_at ? $o->order_created_at->format('M d, Y H:i') : '—' }}</td>
                     <td>
-                        <a class="btn small" href="{{ route('ext.venta.orders.show', [$setting->id, $o->id]) }}">View</a>
+                        <div class="d-flex gap-4">
+                            <a class="btn small" href="{{ route('ext.venta.orders.show', [$setting->id, $o->id]) }}">View</a>
+                            <form method="POST" action="{{ route('ext.venta.orders.destroy', [$setting->id, $o->id]) }}" data-confirm="Delete this Venta order? This only removes it from the ERP mirror." style="margin:0;">
+                                @csrf @method('DELETE')
+                                <button class="btn small danger" type="submit">&times;</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="text-center text-muted" style="padding:24px;">No orders found.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted" style="padding:24px;">No orders found.</td></tr>
             @endforelse
             </tbody>
         </table>
@@ -120,4 +136,34 @@
         {{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}
     </div>
 </div>
+@push('scripts')
+<script>
+(function() {
+    var selectAll = document.getElementById('venta-select-all');
+    var bulkBar = document.getElementById('venta-bulk-bar');
+    var bulkCount = document.getElementById('venta-bulk-count');
+    function checks() { return Array.from(document.querySelectorAll('.venta-order-check')); }
+
+    function update() {
+        var boxes = checks();
+        var checked = boxes.filter(function(b) { return b.checked; }).length;
+        bulkBar.style.display = checked > 0 ? 'flex' : 'none';
+        bulkCount.textContent = checked;
+        if (selectAll) {
+            selectAll.checked = checked === boxes.length && boxes.length > 0;
+            selectAll.indeterminate = checked > 0 && checked < boxes.length;
+        }
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            checks().forEach(function(b) { b.checked = selectAll.checked; });
+            update();
+        });
+    }
+    checks().forEach(function(b) { b.addEventListener('change', update); });
+    update();
+})();
+</script>
+@endpush
 @endsection

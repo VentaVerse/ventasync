@@ -3,7 +3,9 @@
 namespace Extensions\venta\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\ActivityLogger;
 use Extensions\venta\Models\VentaOrder;
+use Extensions\venta\Models\VentaOrderProduct;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
 use Extensions\venta\Services\Venta\VentaOrderSync;
@@ -104,5 +106,36 @@ class VentaOrderController extends Controller
             'setting' => $setting,
             'order'   => $ventaOrder,
         ]);
+    }
+
+    public function destroy(int $store, int $order)
+    {
+        $ventaOrder = VentaOrder::where('venta_setting_id', $store)->findOrFail($order);
+        $ref = $ventaOrder->venta_order_id;
+
+        VentaOrderProduct::where('venta_order_id', $ventaOrder->id)->delete();
+        $ventaOrder->delete();
+
+        ActivityLogger::log('deleted', 'VentaOrder', $ref, 'Venta #' . $ref);
+
+        return redirect()->route('ext.venta.orders.index', $store)->with('status', "Venta order #{$ref} deleted.");
+    }
+
+    public function bulkDelete(Request $request, int $store)
+    {
+        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
+        if (empty($ids)) {
+            return back()->with('error', 'No orders selected.');
+        }
+
+        $orders = VentaOrder::where('venta_setting_id', $store)->whereIn('id', $ids)->get();
+        foreach ($orders as $o) {
+            VentaOrderProduct::where('venta_order_id', $o->id)->delete();
+            $o->delete();
+        }
+
+        ActivityLogger::log('deleted', 'VentaOrder', null, 'Bulk deleted ' . $orders->count() . ' Venta orders');
+
+        return back()->with('status', $orders->count() . ' Venta order(s) deleted.');
     }
 }
