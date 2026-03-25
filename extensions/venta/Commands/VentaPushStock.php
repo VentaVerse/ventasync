@@ -76,13 +76,13 @@ class VentaPushStock extends Command
                 if ($variants && $variants->count() > 0) {
                     $allOk = true;
                     foreach ($variants as $ov) {
-                        $result = $client->pushVariantStock(trim($ov->sku), (int) $ov->quantity);
+                        $result = $client->pushVariantStock(trim($ov->sku), max(0, (int) $ov->quantity));
                         if (!$result['ok']) $allOk = false;
                     }
-                    $client->pushStock($sku, (int) $product->quantity);
+                    $client->pushStock($sku, max(0, (int) $product->quantity));
                     $allOk ? $ok++ : $err++;
                 } else {
-                    $result = $client->pushStock($sku, (int) $product->quantity);
+                    $result = $client->pushStock($sku, max(0, (int) $product->quantity));
                     $result['ok'] ? $ok++ : $err++;
                 }
 

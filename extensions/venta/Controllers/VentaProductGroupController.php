@@ -766,18 +766,18 @@ class VentaProductGroupController extends Controller
                 // Push variant-level stock
                 $allOk = true;
                 foreach ($variants as $ov) {
-                    $result = $client->pushVariantStock(trim($ov->sku), (int) $ov->quantity);
+                    $result = $client->pushVariantStock(trim($ov->sku), max(0, (int) $ov->quantity));
                     if (!$result['ok']) {
                         $allOk = false;
                     }
                 }
 
                 // Also push parent stock
-                $result = $client->pushStock($sku, (int) $product->quantity);
+                $result = $client->pushStock($sku, max(0, (int) $product->quantity));
                 $allOk ? $okCount++ : $errCount++;
             } else {
                 // Simple product — push parent stock only
-                $result = $client->pushStock($sku, (int) $product->quantity);
+                $result = $client->pushStock($sku, max(0, (int) $product->quantity));
                 $result['ok'] ? $okCount++ : $errCount++;
             }
         }
