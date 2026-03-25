@@ -15,16 +15,19 @@
 
     $buyer = (string)($detail['customer_name'] ?? $detail['customer_first_name'] ?? $detail['buyer_name'] ?? $raw['customer_name'] ?? $raw['customer_first_name'] ?? $raw['buyer_name'] ?? '');
 
-    $receiverName = (string)($detail['address_shipping']['first_name'] ?? $detail['address_shipping']['customer_name'] ?? $detail['receiver_name'] ?? $detail['shipping_address']['name'] ?? '');
+    $addr = $detail['address_shipping'] ?? $raw['address_shipping'] ?? $detail['shipping_address'] ?? $raw['shipping_address'] ?? [];
+    if (!is_array($addr)) $addr = [];
+
+    $receiverName = (string)($addr['first_name'] ?? $addr['customer_name'] ?? $detail['receiver_name'] ?? '');
     if ($receiverName === '') { $receiverName = $buyer; }
 
-    $phone = (string)($detail['address_shipping']['phone'] ?? $detail['address_shipping']['phone2'] ?? $detail['receiver_phone'] ?? $detail['shipping_address']['phone'] ?? '');
-    $address1 = (string)($detail['address_shipping']['address1'] ?? $detail['address_shipping']['address'] ?? $detail['shipping_address']['address1'] ?? $detail['shipping_address']['address'] ?? '');
-    $address2 = (string)($detail['address_shipping']['address2'] ?? $detail['shipping_address']['address2'] ?? '');
-    $city = (string)($detail['address_shipping']['city'] ?? $detail['shipping_address']['city'] ?? '');
-    $province = (string)($detail['address_shipping']['province'] ?? $detail['shipping_address']['province'] ?? $detail['address_shipping']['state'] ?? $detail['shipping_address']['state'] ?? '');
-    $postcode = (string)($detail['address_shipping']['post_code'] ?? $detail['address_shipping']['postcode'] ?? $detail['shipping_address']['post_code'] ?? $detail['shipping_address']['postcode'] ?? '');
-    $country = (string)($detail['address_shipping']['country'] ?? $detail['shipping_address']['country'] ?? '');
+    $phone = (string)($addr['phone'] ?? $addr['phone2'] ?? '');
+    $address1 = (string)($addr['address1'] ?? $addr['address'] ?? '');
+    $address2 = (string)($addr['address2'] ?? '');
+    $city = (string)($addr['city'] ?? '');
+    $province = (string)($addr['province'] ?? $addr['state'] ?? '');
+    $postcode = (string)($addr['post_code'] ?? $addr['postcode'] ?? '');
+    $country = (string)($addr['country'] ?? '');
 
     $courier = $detail['shipping_provider'] ?? $detail['shipping_provider_type'] ?? $detail['shipping_provider_name'] ?? $raw['shipping_provider'] ?? $raw['shipping_provider_type'] ?? $raw['shipping_provider_name'] ?? null;
     if (is_array($courier)) $courier = implode(', ', $courier);
