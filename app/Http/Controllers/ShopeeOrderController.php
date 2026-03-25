@@ -379,6 +379,26 @@ class ShopeeOrderController extends Controller
                     $orderList = $respData['order_list'] ?? [];
                     if (!empty($orderList) && is_array($orderList[0] ?? null)) {
                         $detail = $orderList[0];
+
+                        // Fetch tracking number if not in detail
+                        if (empty($detail['tracking_no'])) {
+                            try {
+                                $trackRes = $client->shopGet(
+                                    $setting->mode ?? 'live',
+                                    (int) $setting->partner_id,
+                                    (string) $setting->partner_key,
+                                    (string) $setting->access_token,
+                                    (int) $setting->shop_id,
+                                    '/api/v2/logistics/get_tracking_number',
+                                    ['order_sn' => $orderSn]
+                                );
+                                $trackNo = trim((string) (($trackRes['body']['response'] ?? [])['tracking_number'] ?? ''));
+                                if ($trackNo !== '') {
+                                    $detail['tracking_no'] = $trackNo;
+                                }
+                            } catch (\Throwable $e) {}
+                        }
+
                         $order->raw = $detail;
                         $order->status = $detail['order_status'] ?? $order->status;
                         $order->save();
