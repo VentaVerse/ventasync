@@ -557,6 +557,9 @@ class VentaProductGroupController extends Controller
                 'cost'        => (float) ($prod->cost ?? 0),
                 'quantity'    => (int) $prod->quantity,
                 'weight'      => (float) ($prod->weight ?? 0),
+                'length'      => (float) ($prod->length ?? 0),
+                'width'       => (float) ($prod->width ?? 0),
+                'height'      => (float) ($prod->height ?? 0),
                 'status'      => (bool) $prod->status,
                 'description' => $prod->description ?? '',
             ];
