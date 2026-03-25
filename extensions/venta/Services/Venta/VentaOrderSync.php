@@ -363,7 +363,7 @@ class VentaOrderSync
                 'marketplace_source'     => $marketplaceSource,
                 'marketplace_order_id'   => $ventaOrderId,
                 'oe_import'              => 0,
-                'date_modified'          => $raw['updated_at'] ?? now()->toDateTimeString(),
+                'date_modified'          => isset($raw['updated_at']) ? \Carbon\Carbon::parse($raw['updated_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString(),
             ];
 
             if ($existing) {
@@ -374,7 +374,7 @@ class VentaOrderSync
                     ->where('order_id', $coreOrderId)
                     ->update($orderData);
             } else {
-                $orderData['date_added'] = $raw['created_at'] ?? now()->toDateTimeString();
+                $orderData['date_added'] = isset($raw['created_at']) ? \Carbon\Carbon::parse($raw['created_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString();
                 $coreOrderId = DB::table($pfx . 'order')->insertGetId($orderData, 'order_id');
                 $created = true;
             }
