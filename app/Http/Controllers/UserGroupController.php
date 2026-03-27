@@ -67,6 +67,12 @@ class UserGroupController extends Controller
                 'children' => $resolve(['manage_warehouse_locations', 'manage_warehouse_transfers', 'manage_warehouse_inventory']),
             ],
             [
+                'key'      => 'pettycash',
+                'label'    => 'Petty Cash',
+                'parent'   => $all->get('manage_petty_cash'),
+                'children' => $resolve(['view_own_petty_cash']),
+            ],
+            [
                 'key'      => 'settings',
                 'label'    => 'Settings',
                 'parent'   => $all->get('manage_settings'),

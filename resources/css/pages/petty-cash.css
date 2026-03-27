@@ -1,0 +1,78 @@
+/* ============================================================
+   PETTY CASH
+   ============================================================ */
+.pc-balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.pc-balance-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    transition: box-shadow var(--transition-fast);
+}
+
+.pc-balance-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.pc-balance-card .pc-name {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.pc-balance-card .pc-amount {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.pc-balance-card .pc-amount.positive { color: var(--success); }
+.pc-balance-card .pc-amount.negative { color: var(--danger); }
+
+.pc-balance-card .pc-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pc-filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 16px;
+}
+
+.pc-filters label {
+    font-size: 12px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.pc-filters .input {
+    font-size: 13px;
+}
+
+.pc-type-toggle {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.pc-type-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+}

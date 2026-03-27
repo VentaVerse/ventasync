@@ -41,6 +41,7 @@
 @import './pages/reviews.css';
 @import './pages/product-options.css';
 @import './pages/warehousing.css';
+@import './pages/petty-cash.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';
