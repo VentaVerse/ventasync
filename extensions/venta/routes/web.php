@@ -12,6 +12,8 @@ Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
     Route::delete('/venta/{id}', [VentaController::class, 'destroy'])->name('ext.venta.destroy');
     Route::post('/venta/test', [VentaController::class, 'testConnection'])->name('ext.venta.test');
     Route::post('/venta/save-status-map', [VentaController::class, 'saveOrderStatusMap'])->name('ext.venta.save_status_map');
+    Route::post('/venta/{id}/toggle-api-logging', [VentaController::class, 'toggleApiLogging'])->name('ext.venta.toggle_api_logging');
+    Route::delete('/venta/{id}/api-logs', [VentaController::class, 'clearApiLogs'])->name('ext.venta.clear_api_logs');
     Route::post('/venta/fetch-statuses', [VentaController::class, 'fetchVentaStatuses'])->name('ext.venta.fetch_statuses');
 
     // Fetch categories/brands from Venta API (AJAX)

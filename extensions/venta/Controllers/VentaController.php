@@ -277,4 +277,23 @@ class VentaController extends Controller
 
         return response()->json(['status' => 'Order status mapping saved.']);
     }
+
+    public function toggleApiLogging($id)
+    {
+        $store = VentaSetting::findOrFail($id);
+        $store->update(['api_logging' => !$store->api_logging]);
+
+        return redirect()->route('ext.venta.index')
+            ->with('status', 'API logging ' . ($store->api_logging ? 'enabled' : 'disabled') . ' for ' . $store->store_name . '.');
+    }
+
+    public function clearApiLogs($id)
+    {
+        $store = VentaSetting::findOrFail($id);
+        $count = VentaApiLog::where('venta_setting_id', $store->id)->count();
+        VentaApiLog::where('venta_setting_id', $store->id)->delete();
+
+        return redirect()->route('ext.venta.index')
+            ->with('status', $count . ' API log(s) deleted for ' . $store->store_name . '.');
+    }
 }

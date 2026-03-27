@@ -14,6 +14,7 @@ class VentaSetting extends Model
         'base_url',
         'api_token',
         'enabled',
+        'api_logging',
         'warehouse_id',
         'sync_last_days',
         'sync_orders_from',
@@ -26,6 +27,7 @@ class VentaSetting extends Model
 
     protected $casts = [
         'enabled'              => 'boolean',
+        'api_logging'          => 'boolean',
         'sync_last_days'       => 'integer',
         'sync_orders_from'     => 'date',
         'last_order_sync_at'   => 'datetime',

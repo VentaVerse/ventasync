@@ -32,6 +32,10 @@ class VentaClient
 
     private function logCall(string $method, string $path, ?array $requestBody, array $result, int $durationMs): void
     {
+        if ($this->setting && !$this->setting->api_logging) {
+            return;
+        }
+
         $responseBody = $result['body'] ?? [];
 
         // Truncate large payloads to prevent DB bloat

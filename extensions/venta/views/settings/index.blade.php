@@ -300,6 +300,25 @@
 
                             {{-- Tab: API Logs --}}
                             <div class="tab-pane" id="tab-api-logs-{{ $store->id }}">
+                                <div class="d-flex items-center justify-between mb-12" style="flex-wrap:wrap; gap:8px;">
+                                    <form method="POST" action="{{ route('ext.venta.toggle_api_logging', $store->id) }}">
+                                        @csrf
+                                        <label class="d-flex items-center gap-8" style="cursor:pointer;">
+                                            <button type="submit" class="btn small {{ $store->api_logging ? 'danger' : '' }}">
+                                                {{ $store->api_logging ? 'Disable Logging' : 'Enable Logging' }}
+                                            </button>
+                                            <span class="text-xs {{ $store->api_logging ? 'text-success' : 'text-muted' }}">
+                                                Logging is {{ $store->api_logging ? 'ON' : 'OFF' }}
+                                            </span>
+                                        </label>
+                                    </form>
+                                    <form method="POST" action="{{ route('ext.venta.clear_api_logs', $store->id) }}" data-confirm="Delete all API logs for this store?">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn small danger">Delete All Logs</button>
+                                    </form>
+                                </div>
+
                                 @php $storeApiLogs = ($apiLogs ?? collect())->where('venta_setting_id', $store->id); @endphp
                                 @if($storeApiLogs->count() > 0)
                                     <div class="table-wrap">
