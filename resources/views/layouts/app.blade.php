@@ -366,7 +366,7 @@
                                         @foreach($extNav['items'] ?? [] as $extItem)
                                             @php
                                                 $itemPerm = $extItem['permission'] ?? '';
-                                                $canViewItem = $itemPerm === '' || $hasParentDirect || (auth()->user() && auth()->user()->hasPermission($itemPerm));
+                                                $canViewItem = $itemPerm === '' || (auth()->user() && auth()->user()->hasPermission($itemPerm));
                                             @endphp
                                             @if(\Route::has($extItem['route']) && $canViewItem)
                                             <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
