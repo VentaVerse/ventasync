@@ -69,8 +69,8 @@ class UserGroupController extends Controller
             [
                 'key'      => 'pettycash',
                 'label'    => 'Petty Cash',
-                'parent'   => $all->get('manage_petty_cash'),
-                'children' => $resolve(['view_own_petty_cash']),
+                'parent'   => $all->get('view_own_petty_cash'),
+                'children' => $resolve(['pettycash_add_credits', 'pettycash_view_all_staff', 'pettycash_manage_all']),
             ],
             [
                 'key'      => 'settings',
