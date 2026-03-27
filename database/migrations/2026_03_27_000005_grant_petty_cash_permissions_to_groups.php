@@ -2,11 +2,26 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // Register the extension if not already registered
+        if (Schema::hasTable('extensions') && !DB::table('extensions')->where('id', 'pettycash')->exists()) {
+            DB::table('extensions')->insert([
+                'id'          => 'pettycash',
+                'name'        => 'Petty Cash',
+                'version'     => '1.1.0',
+                'description' => 'Staff petty cash tracking',
+                'author'      => 'Xenon ERP',
+                'enabled'     => 1,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
+        }
+
         // Ensure all petty cash permissions exist
         $permissions = [
             ['key' => 'view_petty_cash', 'label' => 'Petty Cash', 'description' => 'See the Petty Cash nav group'],
@@ -15,28 +30,35 @@ return new class extends Migration
         ];
 
         foreach ($permissions as $p) {
-            $exists = DB::table('permissions')->where('key', $p['key'])->exists();
-            if (!$exists) {
+            if (!DB::table('permissions')->where('key', $p['key'])->exists()) {
                 DB::table('permissions')->insert($p);
             }
         }
 
-        // Grant all 3 to admin group (group 1)
-        $adminPerms = ['view_petty_cash', 'view_petty_cash_transactions', 'manage_petty_cash_settings'];
-        foreach ($adminPerms as $key) {
-            $permId = DB::table('permissions')->where('key', $key)->value('id');
-            if ($permId && !DB::table('user_group_permissions')->where('user_group_id', 1)->where('permission_id', $permId)->exists()) {
-                DB::table('user_group_permissions')->insert(['user_group_id' => 1, 'permission_id' => $permId]);
+        // Find group IDs by name (not hardcoded)
+        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
+        $staffGroupId = DB::table('user_groups')->where('name', 'Staff')->value('id');
+
+        // Grant all 3 to admin group
+        if ($adminGroupId) {
+            foreach (['view_petty_cash', 'view_petty_cash_transactions', 'manage_petty_cash_settings'] as $key) {
+                $permId = DB::table('permissions')->where('key', $key)->value('id');
+                if ($permId) {
+                    DB::table('user_group_permissions')->updateOrInsert(
+                        ['user_group_id' => $adminGroupId, 'permission_id' => $permId]
+                    );
+                }
             }
         }
 
-        // Grant view_petty_cash + view_petty_cash_transactions to staff group (group 2) if it exists
-        if (DB::table('user_groups')->where('id', 2)->exists()) {
-            $staffPerms = ['view_petty_cash', 'view_petty_cash_transactions'];
-            foreach ($staffPerms as $key) {
+        // Grant view permissions to staff group
+        if ($staffGroupId) {
+            foreach (['view_petty_cash', 'view_petty_cash_transactions'] as $key) {
                 $permId = DB::table('permissions')->where('key', $key)->value('id');
-                if ($permId && !DB::table('user_group_permissions')->where('user_group_id', 2)->where('permission_id', $permId)->exists()) {
-                    DB::table('user_group_permissions')->insert(['user_group_id' => 2, 'permission_id' => $permId]);
+                if ($permId) {
+                    DB::table('user_group_permissions')->updateOrInsert(
+                        ['user_group_id' => $staffGroupId, 'permission_id' => $permId]
+                    );
                 }
             }
         }
