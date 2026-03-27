@@ -70,7 +70,7 @@ class UserGroupController extends Controller
                 'key'      => 'pettycash',
                 'label'    => 'Petty Cash',
                 'parent'   => $all->get('view_petty_cash'),
-                'children' => $resolve(['manage_petty_cash_settings']),
+                'children' => $resolve(['view_petty_cash_transactions', 'manage_petty_cash_settings']),
             ],
             [
                 'key'      => 'settings',
