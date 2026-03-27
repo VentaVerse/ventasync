@@ -345,8 +345,15 @@
                         @php
                             $extPerm = $extNav['permission'] ?? '';
                             $canViewExt = $extPerm === '' || (auth()->user() && auth()->user()->hasPermission($extPerm));
-                            // Check if user has the parent permission directly (not via child inference)
-                            $hasParentDirect = $extPerm !== '' && auth()->user() && auth()->user()->userGroup && auth()->user()->userGroup->permissions()->where('key', $extPerm)->exists();
+                            // Also show group if user has permission for any child item
+                            if (!$canViewExt && auth()->user()) {
+                                foreach ($extNav['items'] ?? [] as $_item) {
+                                    if (!empty($_item['permission']) && auth()->user()->hasPermission($_item['permission'])) {
+                                        $canViewExt = true;
+                                        break;
+                                    }
+                                }
+                            }
                             $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
                             $extIsOpen = false;
                             foreach ($extRoutes as $er) {
