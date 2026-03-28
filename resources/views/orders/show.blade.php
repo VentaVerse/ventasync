@@ -128,7 +128,15 @@
     </div>
 
     {{-- Products --}}
-    <h3 class="section-title">Products</h3>
+    <div class="d-flex items-center justify-between">
+        <h3 class="section-title" style="margin-bottom:0;">Products</h3>
+        @if($products->contains(fn($p) => !$p->cost || (float)$p->cost == 0))
+            <form method="POST" action="{{ route('orders.backfill_costs', $order->order_id) }}" style="margin:0;">
+                @csrf
+                <button type="submit" class="btn small secondary" title="Update products with missing costs from current catalog data">Backfill Missing Costs</button>
+            </form>
+        @endif
+    </div>
     @if($products->count())
     @php
         $totalRevenue = 0;
@@ -196,7 +204,9 @@
                 <td class="text-right">{{ $p->quantity }}</td>
                 <td class="text-right">{{ number_format($p->price, 2) }}</td>
                 <td class="text-right font-semibold">{{ number_format($p->total, 2) }}</td>
-                <td class="text-right text-secondary">{{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}</td>
+                <td class="text-right text-secondary">
+                    <span class="inline-edit-cost" data-op-id="{{ $p->order_product_id }}" data-cost="{{ $unitCost }}" title="Click to edit cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}</span>
+                </td>
                 <td class="text-right text-secondary">{{ $unitCost > 0 ? number_format($cogs, 2) : '-' }}</td>
                 <td class="text-right font-semibold" style="color: {{ $profit >= 0 ? 'var(--success)' : 'var(--danger)' }}">
                     {{ $unitCost > 0 ? number_format($profit, 2) : '-' }}
@@ -474,4 +484,68 @@
         <p class="text-muted">No history records.</p>
     @endif
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('click', function(e) {
+    var span = e.target.closest('.inline-edit-cost');
+    if (!span || span.querySelector('input')) return;
+
+    var opId = span.dataset.opId;
+    var currentCost = parseFloat(span.dataset.cost) || 0;
+
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.01';
+    input.min = '0';
+    input.value = currentCost.toFixed(2);
+    input.className = 'input';
+    input.style.cssText = 'width:90px; text-align:right; font-size:13px; padding:2px 6px;';
+
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+
+    function saveCost() {
+        var newCost = parseFloat(input.value) || 0;
+        span.textContent = newCost > 0 ? newCost.toFixed(2) : '-';
+        span.dataset.cost = newCost;
+
+        fetch(@json(url('/orders')) + '/' + @json($order->order_id) + '/update-product-cost', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ order_product_id: opId, cost: newCost })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                showFlashSuccess('Cost updated.');
+                // Reload to recalculate profit columns
+                setTimeout(function() { location.reload(); }, 500);
+            } else {
+                showFlashError(data.error || 'Failed to update cost.');
+            }
+        })
+        .catch(function() {
+            showFlashError('Network error updating cost.');
+        });
+    }
+
+    input.addEventListener('blur', saveCost);
+    input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') {
+            span.textContent = currentCost > 0 ? currentCost.toFixed(2) : '-';
+            span.dataset.cost = currentCost;
+        }
+    });
+});
+</script>
+@endpush
 @endsection

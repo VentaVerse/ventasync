@@ -682,6 +682,105 @@ class OrderController extends Controller
         return redirect()->route('orders.edit', $id)->with('status', 'Order updated.');
     }
 
+    /**
+     * Update a single order product's cost via AJAX.
+     */
+    public function updateProductCost(Request $request, $id)
+    {
+        $request->validate([
+            'order_product_id' => 'required|integer',
+            'cost'             => 'required|numeric|min:0',
+        ]);
+
+        $pfx = (string) config('catalog.prefix');
+
+        $updated = DB::table($pfx . 'order_product')
+            ->where('order_id', (int) $id)
+            ->where('order_product_id', (int) $request->order_product_id)
+            ->update(['cost' => (float) $request->cost]);
+
+        return response()->json(['ok' => $updated > 0]);
+    }
+
+    /**
+     * Backfill missing costs for an order's products from current catalog data.
+     * Only updates products where cost is null or zero.
+     */
+    public function backfillCosts($id)
+    {
+        $pfx = (string) config('catalog.prefix');
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+
+        $products = DB::table($pfx . 'order_product')
+            ->where('order_id', $order->order_id)
+            ->where(function ($q) {
+                $q->whereNull('cost')->orWhere('cost', 0);
+            })
+            ->get();
+
+        $updated = 0;
+
+        foreach ($products as $op) {
+            $catalogCost = null;
+
+            if ((int) $op->product_id > 0) {
+                // Try option value cost first (via order_option)
+                $orderOption = DB::table($pfx . 'order_option')
+                    ->where('order_product_id', $op->order_product_id)
+                    ->first();
+
+                if ($orderOption && (int) $orderOption->product_option_value_id > 0) {
+                    // Check combinations first
+                    $combo = DB::table('product_option_combinations as poc')
+                        ->join('product_option_combination_values as pocv', 'poc.id', '=', 'pocv.combination_id')
+                        ->where('poc.product_id', $op->product_id)
+                        ->where('pocv.product_option_value_id', $orderOption->product_option_value_id)
+                        ->first(['poc.absolute_cost']);
+
+                    if ($combo && (float) $combo->absolute_cost > 0) {
+                        $catalogCost = (float) $combo->absolute_cost;
+                    } else {
+                        // Fallback to option value cost
+                        $optVal = DB::table($pfx . 'product_option_value')
+                            ->where('product_option_value_id', $orderOption->product_option_value_id)
+                            ->first(['cost', 'cost_prefix', 'absolute_cost']);
+
+                        if ($optVal) {
+                            if ((float) ($optVal->absolute_cost ?? 0) > 0) {
+                                $catalogCost = (float) $optVal->absolute_cost;
+                            } else {
+                                $baseCost = (float) DB::table($pfx . 'product')
+                                    ->where('product_id', $op->product_id)
+                                    ->value('cost');
+                                $delta = (float) ($optVal->cost ?? 0);
+                                $catalogCost = ($optVal->cost_prefix === '-')
+                                    ? $baseCost - $delta
+                                    : $baseCost + $delta;
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to main product cost
+                if ($catalogCost === null || $catalogCost <= 0) {
+                    $catalogCost = (float) DB::table($pfx . 'product')
+                        ->where('product_id', $op->product_id)
+                        ->value('cost');
+                }
+            }
+
+            if ($catalogCost && $catalogCost > 0) {
+                DB::table($pfx . 'order_product')
+                    ->where('order_product_id', $op->order_product_id)
+                    ->update(['cost' => $catalogCost]);
+                $updated++;
+            }
+        }
+
+        return redirect()->route('orders.show', $order->order_id)
+            ->with('status', $updated . ' product cost(s) updated from catalog data.');
+    }
+
     public function destroy($id)
     {
         $orderId = (int) $id;
