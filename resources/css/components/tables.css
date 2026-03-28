@@ -60,6 +60,10 @@ td .truncate { max-width: 420px; }
     display: block;
 }
 
+/* Sortable column headers */
+th a { color: inherit; text-decoration: none; }
+th a:hover { color: var(--accent); }
+
 /* Compact inputs inside table cells */
 td .input {
     height: 34px;

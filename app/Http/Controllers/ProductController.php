@@ -621,6 +621,7 @@ public function store(Request $request)
             $p->image = null;
             $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
             $p->shipping = 1;
+            $p->status = (int) $request->input('status', 1);
 
             $p->price = (float) $request->price;
             $p->cost_amount = (float) ($request->cost_amount ?? 0);

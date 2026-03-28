@@ -26,8 +26,12 @@ class VentaOrderController extends Controller
     {
         $setting = VentaSetting::findOrFail($store);
 
+        $sortable = ['catalog_order_id', 'venta_order_id', 'venta_order_number', 'customer_name', 'status', 'payment_method', 'total', 'tracking_number', 'order_created_at'];
+        $sort = in_array($request->input('sort'), $sortable) ? $request->input('sort') : 'order_created_at';
+        $dir = $request->input('dir') === 'asc' ? 'asc' : 'desc';
+
         $query = VentaOrder::where('venta_setting_id', $store)
-            ->orderByDesc('order_created_at');
+            ->orderBy($sort, $dir);
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -54,6 +58,8 @@ class VentaOrderController extends Controller
             'setting'      => $setting,
             'orders'       => $orders,
             'statusCounts' => $statusCounts,
+            'sort'         => $sort,
+            'dir'          => $dir,
         ]);
     }
 

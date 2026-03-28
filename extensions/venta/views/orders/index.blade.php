@@ -75,19 +75,33 @@
         </div>
     </form>
 
+    @php
+        $sortUrl = function (string $col) use ($setting, $sort, $dir) {
+            $newDir = ($sort === $col && $dir === 'asc') ? 'desc' : 'asc';
+            return route('ext.venta.orders.index', array_merge(request()->except('sort', 'dir'), [
+                'store' => $setting->id,
+                'sort'  => $col,
+                'dir'   => $newDir,
+            ]));
+        };
+        $arrow = function (string $col) use ($sort, $dir) {
+            if ($sort !== $col) return '';
+            return $dir === 'asc' ? '&#9650;' : '&#9660;';
+        };
+    @endphp
     <div class="table-wrap">
         <table class="table">
             <thead>
             <tr>
                 <th style="width:36px;"><input type="checkbox" id="venta-select-all"></th>
-                <th style="width:70px;">ID</th>
-                <th>Order #</th>
-                <th>Customer</th>
-                <th>Status</th>
-                <th style="width:120px;">Payment</th>
-                <th class="text-right" style="width:100px;">Total</th>
-                <th style="width:130px;">Tracking</th>
-                <th style="width:160px;">Date</th>
+                <th style="width:80px;"><a href="{{ $sortUrl('catalog_order_id') }}">ERP # {!! $arrow('catalog_order_id') !!}</a></th>
+                <th style="width:100px;"><a href="{{ $sortUrl('venta_order_number') }}">Venta # {!! $arrow('venta_order_number') !!}</a></th>
+                <th><a href="{{ $sortUrl('customer_name') }}">Customer {!! $arrow('customer_name') !!}</a></th>
+                <th><a href="{{ $sortUrl('status') }}">Status {!! $arrow('status') !!}</a></th>
+                <th style="width:140px;"><a href="{{ $sortUrl('payment_method') }}">Payment {!! $arrow('payment_method') !!}</a></th>
+                <th class="text-right" style="width:100px;"><a href="{{ $sortUrl('total') }}">Total {!! $arrow('total') !!}</a></th>
+                <th style="width:130px;"><a href="{{ $sortUrl('tracking_number') }}">Tracking {!! $arrow('tracking_number') !!}</a></th>
+                <th style="width:160px;"><a href="{{ $sortUrl('order_created_at') }}">Date {!! $arrow('order_created_at') !!}</a></th>
                 <th style="width:80px;">Actions</th>
             </tr>
             </thead>
@@ -105,7 +119,7 @@
                 @endphp
                 <tr>
                     <td><input type="checkbox" class="venta-order-check" name="ids[]" value="{{ $o->id }}" form="venta-bulk-delete-form"></td>
-                    <td>{{ $o->id }}</td>
+                    <td>@if($o->catalog_order_id)<a href="{{ route('orders.show', $o->catalog_order_id) }}">#{{ $o->catalog_order_id }}</a>@else <span class="text-muted">—</span> @endif</td>
                     <td class="font-bold">{{ $o->venta_order_number ?: $o->venta_order_id }}</td>
                     <td>{{ $o->customer_name ?: '—' }}</td>
                     <td><span class="badge {{ $badgeClass }}">{{ $statusLabel ?: '—' }}</span></td>
