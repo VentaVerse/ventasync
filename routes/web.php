@@ -401,6 +401,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/search-products', [OrderController::class, 'searchProducts'])->name('orders.search_products');
         Route::post('/orders/{id}/update-product-cost', [OrderController::class, 'updateProductCost'])->name('orders.update_product_cost');
         Route::post('/orders/{id}/backfill-costs', [OrderController::class, 'backfillCosts'])->name('orders.backfill_costs');
+        Route::post('/orders/{id}/update-shipping-cost', [OrderController::class, 'updateShippingCost'])->name('orders.update_shipping_cost');
         Route::post('/orders/bulk', [OrderController::class, 'bulkAction'])->name('orders.bulk');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{id}/status', [OrderController::class, 'updateStatus'])->name('orders.update_status');

@@ -703,6 +703,21 @@ class OrderController extends Controller
     }
 
     /**
+     * Update an order's shipping cost via AJAX.
+     */
+    public function updateShippingCost(Request $request, $id)
+    {
+        $request->validate([
+            'shipping_cost' => 'required|numeric|min:0',
+        ]);
+
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+        $order->update(['shipping_cost' => (float) $request->shipping_cost]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
      * Backfill missing costs for an order's products from current catalog data.
      * Only updates products where cost is null or zero.
      */

@@ -281,13 +281,13 @@
             </tr>
             @endif
 
-            {{-- Shipping Cost --}}
-            @if($shippingCost > 0)
+            {{-- Shipping Cost (inline-editable) --}}
             <tr>
                 <td class="text-secondary">Shipping Cost</td>
-                <td class="text-right" style="color:var(--danger);">-{{ number_format($shippingCost, 2) }}</td>
+                <td class="text-right">
+                    <span class="inline-edit-shipping" data-order-id="{{ $order->order_id }}" data-cost="{{ $shippingCost }}" title="Click to edit shipping cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px; {{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . number_format($shippingCost, 2) : '0.00' }}</span>
+                </td>
             </tr>
-            @endif
 
             {{-- Marketplace Fees (itemized) --}}
             @foreach($mktFeeItems as $fee)
@@ -543,6 +543,68 @@ document.addEventListener('click', function(e) {
         if (ev.key === 'Escape') {
             span.textContent = currentCost > 0 ? currentCost.toFixed(2) : '-';
             span.dataset.cost = currentCost;
+        }
+    });
+});
+
+// Inline edit shipping cost
+document.addEventListener('click', function(e) {
+    var span = e.target.closest('.inline-edit-shipping');
+    if (!span || span.querySelector('input')) return;
+
+    var orderId = span.dataset.orderId;
+    var currentCost = parseFloat(span.dataset.cost) || 0;
+
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.01';
+    input.min = '0';
+    input.value = currentCost.toFixed(2);
+    input.className = 'input';
+    input.style.cssText = 'width:90px; text-align:right; font-size:13px; padding:2px 6px;';
+
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+
+    function saveShipping() {
+        var newCost = parseFloat(input.value) || 0;
+        span.textContent = newCost > 0 ? '-' + newCost.toFixed(2) : '0.00';
+        span.dataset.cost = newCost;
+        span.style.color = newCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
+
+        fetch(@json(url('/orders')) + '/' + orderId + '/update-shipping-cost', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ shipping_cost: newCost })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                showFlashSuccess('Shipping cost updated.');
+                setTimeout(function() { location.reload(); }, 500);
+            } else {
+                showFlashError(data.error || 'Failed to update shipping cost.');
+            }
+        })
+        .catch(function() {
+            showFlashError('Network error updating shipping cost.');
+        });
+    }
+
+    input.addEventListener('blur', saveShipping);
+    input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') {
+            span.textContent = currentCost > 0 ? '-' + currentCost.toFixed(2) : '0.00';
+            span.dataset.cost = currentCost;
+            span.style.color = currentCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
         }
     });
 });
