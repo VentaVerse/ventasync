@@ -889,9 +889,12 @@ class ShopeeProductController extends Controller
                 }
             }
 
+            $targetModelId = $isParent ? null : (int) $hit->shopee_model_id;
+
             $alreadyLinked = ShopeeProductLink::query()
                 ->where('shopee_item_id', $hit->shopee_item_id)
                 ->where('product_id', $productId)
+                ->where('shopee_model_id', $targetModelId)
                 ->exists();
 
             if ($alreadyLinked) {
@@ -900,12 +903,12 @@ class ShopeeProductController extends Controller
                 ShopeeProductLink::create([
                     'product_id' => $productId,
                     'shopee_item_id' => (int) $hit->shopee_item_id,
-                    'shopee_model_id' => $isParent ? null : (int) $hit->shopee_model_id,
+                    'shopee_model_id' => $targetModelId,
                     'sku' => $hit->sku,
                 ]);
                 $linked++;
             }
-            $remaining = array_filter($remaining, fn($pid) => $pid !== $productId);
+            unset($remaining[$lcSku]);
         }
 
         if (empty($remaining)) {
