@@ -235,20 +235,21 @@ class LazadaSyncOrders extends Command
 
         for ($pageNo = 1; $pageNo <= 20; $pageNo++) {
             $res = $this->runSignedApiCall($client, $setting, 'GET', '/reverse/getreverseordersforseller', [
-                'pageNo' => $pageNo,
-                'pageSize' => $pageSize,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
                 'create_time_start' => $dt->format('Y-m-d H:i:s'),
             ], 'lazada.reverse.list');
 
             $body = $res['body'] ?? [];
             $pageOrders = [];
             if (($res['ok'] ?? false) && is_array($body)) {
-                $dataNode = $body['data'] ?? $body;
-                $pageOrders = $dataNode['list'] ?? $dataNode['reverse_order_list'] ?? $dataNode['data'] ?? [];
+                // Lazada returns reverse orders under result.items
+                $resultNode = $body['result'] ?? $body['data'] ?? $body;
+                $pageOrders = $resultNode['items'] ?? $resultNode['list'] ?? $resultNode['reverse_order_list'] ?? $resultNode['data'] ?? [];
                 if (!is_array($pageOrders)) $pageOrders = [];
             }
 
-            if (!($res['ok'] ?? false)) {
+            if (!($res['ok'] ?? false) || (isset($body['code']) && $body['code'] !== '0' && $body['code'] !== 0)) {
                 $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
                 $this->error('  API error: ' . $msg);
                 Cache::put('lazada_sync_paused', $msg, now()->addMinutes(10));
@@ -272,12 +273,20 @@ class LazadaSyncOrders extends Command
             if ($reverseOrderId === '') continue;
 
             $tradeOrderId = (string)($o['trade_order_id'] ?? $o['tradeOrderId'] ?? '');
-            $reverseStatus = (string)($o['reverse_status'] ?? $o['reverseStatus'] ?? $o['status'] ?? '');
-            $reverseType = (string)($o['reverse_type'] ?? $o['reverseType'] ?? $o['type'] ?? '');
-            $reason = (string)($o['reason'] ?? $o['reverse_reason'] ?? '');
-            $refundAmount = $o['refund_amount'] ?? $o['refundAmount'] ?? $o['actual_refund_amount'] ?? null;
-            $currency = (string)($o['currency'] ?? '');
-            $items = $o['items'] ?? $o['reverse_order_items'] ?? $o['reverseOrderItems'] ?? null;
+            $lines = $o['reverse_order_lines'] ?? $o['items'] ?? $o['reverse_order_items'] ?? [];
+            $firstLine = is_array($lines) && !empty($lines) ? $lines[0] : [];
+
+            // Status and reason may be on the line items, not the top-level order
+            $reverseStatus = (string)($o['reverse_status'] ?? $firstLine['reverse_status'] ?? $o['reverseStatus'] ?? $o['status'] ?? '');
+            $reverseType = (string)($o['reverse_type'] ?? $o['request_type'] ?? $o['reverseType'] ?? $o['type'] ?? '');
+            $reason = (string)($o['reason'] ?? $firstLine['reason_text'] ?? $o['reverse_reason'] ?? '');
+            $refundAmount = $o['refund_amount'] ?? $firstLine['refund_amount'] ?? $o['refundAmount'] ?? $o['actual_refund_amount'] ?? null;
+            // Lazada returns refund_amount in centavos (e.g. 26200 = 262.00)
+            if (is_numeric($refundAmount)) {
+                $refundAmount = (float) $refundAmount / 100;
+            }
+            $currency = (string)($o['currency'] ?? 'PHP');
+            $items = is_array($lines) && !empty($lines) ? $lines : null;
 
             $payload = [
                 'region' => $setting->region,

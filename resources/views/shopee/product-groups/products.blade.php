@@ -268,15 +268,7 @@
                                             </button>
                                         </form>
                                     @endif
-                                    @if($isUnlinked)
-                                        <form method="POST" action="{{ route('shopee.product-groups.linkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
-                                            @csrf
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                                                Link to Shopee
-                                            </button>
-                                        </form>
-                                    @endif
+                                    {{-- Link to Shopee removed — Sync ID handles both cache and API linking --}}
                                     @if(in_array((int)$p->product_id, $manualIds))
                                         <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
                                         <form method="POST" action="{{ route('shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}" style="margin:0;" data-confirm="Remove this product from the group?">

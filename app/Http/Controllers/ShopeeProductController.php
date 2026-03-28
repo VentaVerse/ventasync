@@ -879,13 +879,10 @@ class ShopeeProductController extends Controller
                     ->exists();
 
                 if ($erpHasOptions) {
-                    $hasModelEntries = ShopeeItemCache::query()
-                        ->where('shopee_item_id', $hit->shopee_item_id)
-                        ->whereNotNull('shopee_model_id')
-                        ->exists();
-                    if ($hasModelEntries) {
-                        continue; // Skip parent — model-level cache entries will match option SKUs
-                    }
+                    // Product has options — skip parent-level link entirely.
+                    // If model cache entries exist, they'll match option SKUs above.
+                    // If not, leave SKUs in $remaining so Steps 3-4 fetch models from API.
+                    continue;
                 }
             }
 
