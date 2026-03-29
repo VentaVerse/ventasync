@@ -370,6 +370,10 @@ class VentaOrderSync
                 $coreOrderId = (int) $existing->order_id;
                 $oldStatusId = (int) $existing->order_status_id;
                 $orderData['date_added'] = $existing->date_added;
+                // Preserve manually-set shipping_cost if API returns 0
+                if ((float) ($orderData['shipping_cost'] ?? 0) == 0 && (float) $existing->shipping_cost > 0) {
+                    unset($orderData['shipping_cost']);
+                }
                 DB::table($pfx . 'order')
                     ->where('order_id', $coreOrderId)
                     ->update($orderData);
