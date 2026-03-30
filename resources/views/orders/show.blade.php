@@ -289,13 +289,41 @@
                 </td>
             </tr>
 
-            {{-- Marketplace Fees (itemized) --}}
+            {{-- Fees (marketplace + manual) --}}
             @foreach($mktFeeItems as $fee)
             <tr>
-                <td class="text-secondary">{{ $fee['label'] }}</td>
-                <td class="text-right" style="color:var(--danger);">-{{ number_format($fee['amount'], 2) }}</td>
+                <td class="text-secondary">
+                    @if(isset($fee['fee_id']))
+                        <span class="inline-edit-fee-label" data-fee-id="{{ $fee['fee_id'] }}" data-label="{{ $fee['label'] }}" title="Click to edit label" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $fee['label'] }}</span>
+                    @else
+                        {{ $fee['label'] }}
+                    @endif
+                </td>
+                <td class="text-right" style="color:var(--danger);">
+                    @if(isset($fee['fee_id']))
+                        <span class="inline-edit-fee-amount" data-fee-id="{{ $fee['fee_id'] }}" data-amount="{{ $fee['amount'] }}" title="Click to edit amount" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">-{{ number_format($fee['amount'], 2) }}</span>
+                        <form method="POST" action="{{ route('orders.destroy_fee', [$order->order_id, $fee['fee_id']]) }}" style="display:inline; margin-left:4px;" data-confirm="Remove this fee?">
+                            @csrf @method('DELETE')
+                            <button type="submit" style="background:none; border:none; cursor:pointer; color:var(--danger); font-size:11px; padding:0;" title="Remove fee">&times;</button>
+                        </form>
+                    @else
+                        -{{ number_format($fee['amount'], 2) }}
+                    @endif
+                </td>
             </tr>
             @endforeach
+
+            {{-- Add Fee --}}
+            <tr>
+                <td colspan="2" style="padding:4px 0;">
+                    <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="d-flex gap-6 items-center" style="justify-content:flex-end;">
+                        @csrf
+                        <input type="text" name="label" class="input" placeholder="Fee label" required style="width:120px; font-size:12px; padding:3px 6px;">
+                        <input type="number" name="amount" class="input" placeholder="0.00" step="0.01" min="0.01" required style="width:80px; font-size:12px; padding:3px 6px; text-align:right;">
+                        <button type="submit" class="btn small secondary" style="padding:2px 8px; font-size:11px;">+ Fee</button>
+                    </form>
+                </td>
+            </tr>
 
             {{-- Net Profit --}}
             <tr class="order-totals-row-profit">
@@ -543,6 +571,116 @@ document.addEventListener('click', function(e) {
         if (ev.key === 'Escape') {
             span.textContent = currentCost > 0 ? currentCost.toFixed(2) : '-';
             span.dataset.cost = currentCost;
+        }
+    });
+});
+
+// Inline edit fee amount
+document.addEventListener('click', function(e) {
+    var span = e.target.closest('.inline-edit-fee-amount');
+    if (!span || span.querySelector('input')) return;
+
+    var feeId = span.dataset.feeId;
+    var currentAmount = parseFloat(span.dataset.amount) || 0;
+
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.01';
+    input.min = '0';
+    input.value = currentAmount.toFixed(2);
+    input.className = 'input';
+    input.style.cssText = 'width:80px; text-align:right; font-size:12px; padding:2px 6px;';
+
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+
+    function saveFeeAmount() {
+        var newAmount = parseFloat(input.value) || 0;
+        span.textContent = newAmount > 0 ? '-' + newAmount.toFixed(2) : '0.00';
+        span.dataset.amount = newAmount;
+
+        fetch(@json(url('/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ amount: newAmount })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                showFlashSuccess('Fee updated.');
+                setTimeout(function() { location.reload(); }, 500);
+            } else {
+                showFlashError('Failed to update fee.');
+            }
+        })
+        .catch(function() { showFlashError('Network error.'); });
+    }
+
+    input.addEventListener('blur', saveFeeAmount);
+    input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') {
+            span.textContent = currentAmount > 0 ? '-' + currentAmount.toFixed(2) : '0.00';
+            span.dataset.amount = currentAmount;
+        }
+    });
+});
+
+// Inline edit fee label
+document.addEventListener('click', function(e) {
+    var span = e.target.closest('.inline-edit-fee-label');
+    if (!span || span.querySelector('input')) return;
+
+    var feeId = span.dataset.feeId;
+    var currentLabel = span.dataset.label || '';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentLabel;
+    input.className = 'input';
+    input.style.cssText = 'width:120px; font-size:12px; padding:2px 6px;';
+
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+
+    function saveFeeLabel() {
+        var newLabel = input.value.trim() || currentLabel;
+        span.textContent = newLabel;
+        span.dataset.label = newLabel;
+
+        fetch(@json(url('/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ label: newLabel, amount: parseFloat(span.closest('tr').querySelector('.inline-edit-fee-amount').dataset.amount) || 0 })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) { showFlashSuccess('Fee label updated.'); }
+            else { showFlashError('Failed to update.'); }
+        })
+        .catch(function() { showFlashError('Network error.'); });
+    }
+
+    input.addEventListener('blur', saveFeeLabel);
+    input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') {
+            span.textContent = currentLabel;
+            span.dataset.label = currentLabel;
         }
     });
 });

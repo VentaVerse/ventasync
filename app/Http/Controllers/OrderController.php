@@ -718,6 +718,72 @@ class OrderController extends Controller
     }
 
     /**
+     * Add a fee to an order.
+     */
+    public function storeFee(Request $request, $id)
+    {
+        $request->validate([
+            'label'  => 'required|string|max:128',
+            'amount' => 'required|numeric|min:0.01',
+        ]);
+
+        Order::where('order_id', (int) $id)->firstOrFail();
+
+        DB::table('order_fees')->insert([
+            'order_id'   => (int) $id,
+            'label'      => $request->label,
+            'amount'     => (float) $request->amount,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('orders.show', $id)->with('status', 'Fee added.');
+    }
+
+    /**
+     * Update a fee amount via AJAX.
+     */
+    public function updateFee(Request $request, $id, $feeId)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'label'  => 'nullable|string|max:128',
+        ]);
+
+        $updated = DB::table('order_fees')
+            ->where('id', (int) $feeId)
+            ->where('order_id', (int) $id)
+            ->update(array_filter([
+                'amount'     => (float) $request->amount,
+                'label'      => $request->label,
+                'updated_at' => now(),
+            ]));
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => $updated > 0]);
+        }
+
+        return redirect()->route('orders.show', $id)->with('status', 'Fee updated.');
+    }
+
+    /**
+     * Delete a fee.
+     */
+    public function destroyFee(Request $request, $id, $feeId)
+    {
+        DB::table('order_fees')
+            ->where('id', (int) $feeId)
+            ->where('order_id', (int) $id)
+            ->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return redirect()->route('orders.show', $id)->with('status', 'Fee removed.');
+    }
+
+    /**
      * Backfill missing costs for an order's products from current catalog data.
      * Only updates products where cost is null or zero.
      */
@@ -993,8 +1059,23 @@ class OrderController extends Controller
         $source = (string) $order->marketplace_source;
         $mktOrderId = (string) $order->marketplace_order_id;
 
+        // Start with manual fees from order_fees table (applies to all orders)
+        $manualFees = DB::table('order_fees')
+            ->where('order_id', $order->order_id)
+            ->get();
+
+        $manualItems = [];
+        $manualTotal = 0;
+        foreach ($manualFees as $f) {
+            $amt = abs((float) $f->amount);
+            if ($amt > 0) {
+                $manualItems[] = ['label' => $f->label, 'amount' => $amt, 'fee_id' => $f->id];
+                $manualTotal += $amt;
+            }
+        }
+
         if ($source === '' || $mktOrderId === '') {
-            return ['total' => 0, 'items' => [], 'source' => ''];
+            return ['total' => round($manualTotal, 2), 'items' => $manualItems, 'source' => 'manual'];
         }
 
         if ($source === 'lazada') {
@@ -1027,6 +1108,8 @@ class OrderController extends Controller
                 }
             }
 
+            $items = array_merge($items, $manualItems);
+            $total += $manualTotal;
             return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
         }
 
@@ -1055,6 +1138,8 @@ class OrderController extends Controller
             if ($txnFee > 0) { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee]; $total += $txnFee; }
             if ($withholdingTax > 0) { $items[] = ['label' => 'Withholding Tax', 'amount' => $withholdingTax]; $total += $withholdingTax; }
 
+            $items = array_merge($items, $manualItems);
+            $total += $manualTotal;
             return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
         }
 
@@ -1068,10 +1153,14 @@ class OrderController extends Controller
             if ($paymentCost > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentCost]; $total += $paymentCost; }
             if ($extraCost > 0) { $items[] = ['label' => 'Extra Cost', 'amount' => $extraCost]; $total += $extraCost; }
 
+            // Append manual fees
+            $items = array_merge($items, $manualItems);
+            $total += $manualTotal;
+
             return ['total' => round($total, 2), 'items' => $items, 'source' => $source];
         }
 
-        return ['total' => 0, 'items' => [], 'source' => $source];
+        return ['total' => round($manualTotal, 2), 'items' => $manualItems, 'source' => $source ?: 'manual'];
     }
 
     // ── Order Payments ──────────────────────────────────────

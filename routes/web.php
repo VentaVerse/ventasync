@@ -402,6 +402,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/orders/{id}/update-product-cost', [OrderController::class, 'updateProductCost'])->name('orders.update_product_cost');
         Route::post('/orders/{id}/backfill-costs', [OrderController::class, 'backfillCosts'])->name('orders.backfill_costs');
         Route::post('/orders/{id}/update-shipping-cost', [OrderController::class, 'updateShippingCost'])->name('orders.update_shipping_cost');
+        Route::post('/orders/{id}/fees', [OrderController::class, 'storeFee'])->name('orders.store_fee');
+        Route::put('/orders/{id}/fees/{feeId}', [OrderController::class, 'updateFee'])->name('orders.update_fee');
+        Route::delete('/orders/{id}/fees/{feeId}', [OrderController::class, 'destroyFee'])->name('orders.destroy_fee');
         Route::post('/orders/bulk', [OrderController::class, 'bulkAction'])->name('orders.bulk');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{id}/status', [OrderController::class, 'updateStatus'])->name('orders.update_status');
