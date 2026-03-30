@@ -3,6 +3,7 @@
 use Extensions\venta\Controllers\VentaController;
 use Extensions\venta\Controllers\VentaProductGroupController;
 use Extensions\venta\Controllers\VentaOrderController;
+use Extensions\venta\Controllers\VentaReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
@@ -53,4 +54,10 @@ Route::middleware(['auth', 'perm:manage_venta_orders'])->group(function () {
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
+});
+
+// Venta Reviews (push marketplace reviews to Venta stores)
+Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
+    Route::post('/venta/reviews/{id}/push', [VentaReviewController::class, 'push'])->name('ext.venta.reviews.push')->whereNumber('id');
+    Route::post('/venta/reviews/push-all', [VentaReviewController::class, 'pushAll'])->name('ext.venta.reviews.push_all');
 });

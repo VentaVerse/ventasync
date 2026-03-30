@@ -13,8 +13,8 @@
                     <button class="btn" type="submit">Push to OpenCart</button>
                 </form>
             @endif
-            @if(in_array($review->venta_sync_status ?? 'pending', ['pending', 'error']))
-                <form method="POST" action="{{ route('ext.opencart.reviews.push_venta', $review->id) }}" style="display:inline;">
+            @if(in_array($review->venta_sync_status ?? 'pending', ['pending', 'error']) && Route::has('ext.venta.reviews.push'))
+                <form method="POST" action="{{ route('ext.venta.reviews.push', $review->id) }}" style="display:inline;">
                     @csrf
                     <button class="btn" type="submit">Push to Venta</button>
                 </form>
