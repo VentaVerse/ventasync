@@ -51,7 +51,6 @@ Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
 Route::middleware(['auth', 'perm:manage_venta_orders'])->group(function () {
     Route::get('/venta/{store}/orders', [VentaOrderController::class, 'index'])->name('ext.venta.orders.index');
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
-    Route::get('/venta/{store}/orders/{order}', [VentaOrderController::class, 'show'])->name('ext.venta.orders.show');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
 });

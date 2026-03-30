@@ -101,19 +101,6 @@ class VentaOrderController extends Controller
         return back()->with('status', $msg);
     }
 
-    public function show(int $store, int $order)
-    {
-        $setting = VentaSetting::findOrFail($store);
-        $ventaOrder = VentaOrder::where('venta_setting_id', $store)
-            ->with('products')
-            ->findOrFail($order);
-
-        return view('ext-venta::orders.show', [
-            'setting' => $setting,
-            'order'   => $ventaOrder,
-        ]);
-    }
-
     public function destroy(int $store, int $order)
     {
         $ventaOrder = VentaOrder::where('venta_setting_id', $store)->findOrFail($order);
