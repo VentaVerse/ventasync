@@ -117,6 +117,17 @@ class LazadaPushStock extends Command
                     'skus' => $labels,
                     'response' => $msg,
                 ]);
+
+                // Invalidate stale sku_ids so they get re-fetched on the next run
+                $details = is_array($body) ? ($body['detail'] ?? []) : [];
+                foreach ($details as $d) {
+                    $errCode = $d['code'] ?? '';
+                    $staleSkuId = $d['sku_id'] ?? null;
+                    if ($errCode === 'E0207' && $staleSkuId) {
+                        LazadaProductVariant::where('sku_id', (int) $staleSkuId)->update(['sku_id' => null]);
+                        $this->warn("Invalidated stale sku_id {$staleSkuId} (SKU not exist on Lazada)");
+                    }
+                }
             }
         }
 

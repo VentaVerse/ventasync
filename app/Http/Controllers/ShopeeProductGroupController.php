@@ -498,6 +498,11 @@ class ShopeeProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
+        $mode = $setting->mode ?? 'live';
+        $pid = (int) $setting->partner_id;
+        $pkey = (string) $setting->partner_key;
+        $token = (string) $setting->access_token;
+        $shopId = (int) $setting->shop_id;
 
         // Collect all SKUs for this product
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
@@ -515,140 +520,103 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Shopee.');
         }
 
-        // Step 1: Check cache
         $erpHasOptions = !empty($optSkus);
+
+        // If already linked (has item_id and not unlinked), refresh models from API
+        $existingItemId = $pivot->shopee_item_id ?? null;
+        if ($existingItemId && ($pivot->sync_status ?? '') !== 'unlinked') {
+            return $this->refreshShopeeProductLinks($pivot, $productId, (int) $existingItemId, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
+        }
+
+        // Step 1: Try cache for fast item_id lookup
+        $matchedItemId = null;
         $cacheHits = ShopeeItemCache::query()
             ->whereIn(DB::raw('LOWER(sku)'), $skus)
             ->get();
 
         if ($cacheHits->isNotEmpty()) {
-            // If product has options, prefer model-level cache entries
-            $modelHits = $cacheHits->whereNotNull('shopee_model_id');
-            $parentHit = $cacheHits->whereNull('shopee_model_id')->first();
-
-            if ($erpHasOptions && $modelHits->isNotEmpty()) {
-                // Create model-level links for each matched variation
-                $itemId = $modelHits->first()->shopee_item_id;
-                $pivot->update(['shopee_item_id' => $itemId, 'sync_status' => 'synced']);
-
-                // Remove stale parent-only link if exists
-                ShopeeProductLink::query()
-                    ->where('product_id', $productId)
-                    ->where('shopee_item_id', (int) $itemId)
-                    ->whereNull('shopee_model_id')
-                    ->delete();
-
-                $linked = 0;
-                foreach ($modelHits as $hit) {
-                    ShopeeProductLink::updateOrCreate(
-                        ['product_id' => $productId, 'shopee_item_id' => (int) $hit->shopee_item_id, 'shopee_model_id' => (int) $hit->shopee_model_id],
-                        ['sku' => $hit->sku]
-                    );
-                    $linked++;
-                }
-                return redirect()->back()->with('status', "Shopee item ID {$itemId} synced — {$linked} variation(s) linked (from cache).");
-            } elseif ($parentHit && !$erpHasOptions) {
-                // Simple product — parent link only
-                $pivot->update(['shopee_item_id' => $parentHit->shopee_item_id, 'sync_status' => 'synced']);
-                ShopeeProductLink::updateOrCreate(
-                    ['product_id' => $productId, 'shopee_item_id' => (int) $parentHit->shopee_item_id, 'shopee_model_id' => null],
-                    ['sku' => $parentHit->sku]
-                );
-                return redirect()->back()->with('status', "Shopee item ID {$parentHit->shopee_item_id} synced (from cache).");
-            }
-            // erpHasOptions but no model cache entries — fall through to API fetch
+            $matchedItemId = (int) $cacheHits->first()->shopee_item_id;
         }
 
-        // Step 2: Fetch from Shopee API — get item list and match
-        $mode = $setting->mode ?? 'live';
-        $pid = (int) $setting->partner_id;
-        $pkey = (string) $setting->partner_key;
-        $token = (string) $setting->access_token;
-        $shopId = (int) $setting->shop_id;
+        // Step 2: If no cache hit, search Shopee API with batched detail fetches
+        if (!$matchedItemId) {
+            $offset = 0;
+            $pageSize = 50;
 
-        $offset = 0;
-        $pageSize = 50;
-        $matchedItemId = null;
-        $matchedModelId = null;
-        $matchedSku = null;
+            for ($page = 0; $page < 20; $page++) {
+                $res = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
+                    '/api/v2/product/get_item_list', [
+                        'offset' => $offset,
+                        'page_size' => $pageSize,
+                        'item_status' => 'NORMAL',
+                    ]);
 
-        for ($page = 0; $page < 20; $page++) { // max 1000 items
-            $res = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
-                '/api/v2/product/get_item_list', [
-                    'offset' => $offset,
-                    'page_size' => $pageSize,
-                    'item_status' => 'NORMAL',
-                ]);
+                $items = $res['body']['response']['item'] ?? [];
+                if (empty($items)) break;
 
-            $items = $res['body']['response']['item'] ?? [];
-            if (empty($items)) break;
-
-            foreach ($items as $item) {
-                $itemId = $item['item_id'] ?? null;
-                if (!$itemId) continue;
-
-                // Fetch item detail for SKU info
+                // Batch fetch details — get_item_base_info accepts up to 50 item_ids
+                $itemIds = array_filter(array_map(fn($i) => $i['item_id'] ?? null, $items));
                 $detail = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
                     '/api/v2/product/get_item_base_info', [
-                        'item_id_list' => (string) $itemId,
+                        'item_id_list' => implode(',', $itemIds),
                     ]);
 
                 $itemList = $detail['body']['response']['item_list'] ?? [];
                 foreach ($itemList as $il) {
-                    // Check parent SKU
                     $itemSku = strtolower(trim($il['item_sku'] ?? ''));
-                    $hasModel = (bool) ($il['has_model'] ?? false);
 
                     if ($itemSku !== '' && in_array($itemSku, $skus)) {
-                        $matchedItemId = $itemId;
-                        $matchedSku = $il['item_sku'];
-                        if (!($erpHasOptions && $hasModel)) {
-                            break 3;
-                        }
-                        // Product has options and Shopee has models — need to fetch model list
-                        break 3;
+                        $matchedItemId = (int) $il['item_id'];
+                        break 2;
                     }
 
-                    // Check model SKUs
                     foreach ($il['model_list'] ?? [] as $model) {
                         $modelSku = strtolower(trim($model['model_sku'] ?? ''));
                         if ($modelSku !== '' && in_array($modelSku, $skus)) {
-                            $matchedItemId = $itemId;
-                            $matchedModelId = $model['model_id'] ?? null;
-                            $matchedSku = $model['model_sku'];
-                            break 4;
+                            $matchedItemId = (int) $il['item_id'];
+                            break 3;
                         }
                     }
                 }
 
-                usleep(200000); // rate limit
+                if (!($res['body']['response']['has_next_page'] ?? false)) break;
+                $offset += $pageSize;
             }
-
-            if (!($res['body']['response']['has_next_page'] ?? false)) break;
-            $offset += $pageSize;
         }
 
         if (!$matchedItemId) {
             return redirect()->back()->with('error', 'No matching product found on Shopee for SKU(s): ' . implode(', ', $skus));
         }
 
+        // Link and refresh models from API
         $pivot->update([
             'shopee_item_id' => (string) $matchedItemId,
             'sync_status' => 'synced',
         ]);
 
-        // For products with options, fetch model list and create per-model links
-        if ($erpHasOptions && !$matchedModelId) {
+        return $this->refreshShopeeProductLinks($pivot, $productId, (int) $matchedItemId, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
+    }
+
+    /**
+     * Refresh Shopee product links and cache from the API model list.
+     * Called by syncId for both new links and already-linked products.
+     */
+    private function refreshShopeeProductLinks(
+        object $pivot, int $productId, int $itemId, array $skus, bool $erpHasOptions,
+        \App\Services\Shopee\ShopeeClient $client, string $mode, int $pid, string $pkey, string $token, int $shopId
+    ) {
+        if ($erpHasOptions) {
             $modelRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
-                '/api/v2/product/get_model_list', ['item_id' => (int) $matchedItemId]);
+                '/api/v2/product/get_model_list', ['item_id' => $itemId]);
 
             $models = ($modelRes['body']['response'] ?? $modelRes['body'] ?? [])['model'] ?? [];
             $linked = 0;
+            $activeModelIds = [];
 
             // Remove stale parent-only link
             ShopeeProductLink::query()
                 ->where('product_id', $productId)
-                ->where('shopee_item_id', (int) $matchedItemId)
+                ->where('shopee_item_id', $itemId)
                 ->whereNull('shopee_model_id')
                 ->delete();
 
@@ -657,30 +625,53 @@ class ShopeeProductGroupController extends Controller
                 $modelId = (int) ($model['model_id'] ?? 0);
                 if ($modelSku === '' || $modelId === 0) continue;
 
-                // Cache the model entry
+                $activeModelIds[] = $modelId;
+
+                // Refresh cache
                 ShopeeItemCache::query()->updateOrCreate(
-                    ['shopee_item_id' => $matchedItemId, 'shopee_model_id' => $modelId],
-                    ['sku' => $model['model_sku'], 'item_name' => $matchedSku]
+                    ['shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
+                    ['sku' => $model['model_sku']]
                 );
 
                 if (in_array($modelSku, $skus)) {
                     ShopeeProductLink::updateOrCreate(
-                        ['product_id' => $productId, 'shopee_item_id' => (int) $matchedItemId, 'shopee_model_id' => $modelId],
-                        ['sku' => $model['model_sku']]
+                        ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
+                        ['sku' => $model['model_sku'], 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
                     );
                     $linked++;
                 }
             }
 
-            return redirect()->back()->with('status', "Shopee item ID {$matchedItemId} synced — {$linked} variation(s) linked.");
+            // Remove stale model links no longer on Shopee
+            if (!empty($activeModelIds)) {
+                ShopeeProductLink::query()
+                    ->where('product_id', $productId)
+                    ->where('shopee_item_id', $itemId)
+                    ->whereNotNull('shopee_model_id')
+                    ->whereNotIn('shopee_model_id', $activeModelIds)
+                    ->delete();
+
+                ShopeeItemCache::query()
+                    ->where('shopee_item_id', $itemId)
+                    ->whereNotNull('shopee_model_id')
+                    ->whereNotIn('shopee_model_id', $activeModelIds)
+                    ->delete();
+            }
+
+            $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'synced']);
+
+            return redirect()->back()->with('status', "Shopee item ID {$itemId} synced — {$linked} variation(s) linked.");
         }
 
+        // Simple product — parent link only
         ShopeeProductLink::updateOrCreate(
-            ['product_id' => $productId, 'shopee_item_id' => (int) $matchedItemId, 'shopee_model_id' => $matchedModelId ? (int) $matchedModelId : null],
-            ['sku' => $matchedSku]
+            ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
+            ['sku' => $skus[0] ?? '', 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
         );
 
-        return redirect()->back()->with('status', "Shopee item ID {$matchedItemId} synced.");
+        $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'synced']);
+
+        return redirect()->back()->with('status', "Shopee item ID {$itemId} synced.");
     }
 
     public function linkProduct(int $groupId, int $productId)

@@ -537,6 +537,94 @@ public function fetchSkuIdListByItemId(\App\Services\Lazada\LazadaClient $client
 }
 
 /**
+/**
+ * Full cache refresh for a Lazada product: variants, status, stale cleanup, sync_status, error fields.
+ */
+private function refreshLazadaProductCache(LazadaProduct $listing, object $setting, LazadaClient $client): void
+{
+    $itemId = (string) ($listing->lazada_item_id ?? '');
+    if ($itemId === '') return;
+
+    $apiPath = '/product/item/get';
+    $params = [
+        'app_key'      => (string) $setting->app_key,
+        'sign_method'  => 'sha256',
+        'timestamp'    => (string) round(microtime(true) * 1000),
+        'access_token' => (string) $setting->access_token,
+        'item_id'      => $itemId,
+    ];
+    $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+
+    $res = $client->get((string) $setting->region, $apiPath, $params);
+    $body = $res['body'] ?? [];
+    $data = $body['data'] ?? $body;
+
+    if (empty($data) || !is_array($data)) return;
+
+    // 1. Update product status from Lazada
+    $lazadaStatus = $data['status'] ?? null;
+    if ($lazadaStatus) {
+        $listing->status = $lazadaStatus;
+    }
+
+    // 2. Clear stale sync error fields
+    $listing->last_sync_ok = true;
+    $listing->last_sync_error_code = null;
+    $listing->last_sync_error_message = null;
+    $listing->last_synced_at = now();
+    $listing->save();
+
+    // 3. Refresh variants (sku_id, shop_sku, pov_id mapping)
+    $pfx = (string) config('catalog.prefix');
+    $skuToPovId = [];
+    $erpOvs = DB::table($pfx . 'product_option_value')
+        ->where('product_id', (int) $listing->product_id)
+        ->whereNotNull('sku')
+        ->where('sku', '!=', '')
+        ->get(['product_option_value_id', 'sku']);
+    foreach ($erpOvs as $ov) {
+        $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_option_value_id;
+    }
+
+    $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
+    $activeLazadaSkus = [];
+
+    foreach ($skus as $s) {
+        $sellerSku = trim((string) ($s['SellerSku'] ?? $s['seller_sku'] ?? ''));
+        $skuId = $s['SkuId'] ?? $s['sku_id'] ?? $s['skuId'] ?? null;
+        $shopSku = $s['ShopSku'] ?? $s['shop_sku'] ?? null;
+
+        if ($skuId === null || $skuId === '') continue;
+
+        $povId = $skuToPovId[$sellerSku] ?? null;
+        $activeLazadaSkus[] = $sellerSku;
+
+        try {
+            LazadaProductVariant::updateOrCreate(
+                ['lazada_product_id' => $listing->id, 'seller_sku' => $sellerSku],
+                [
+                    'sku_id' => (int) $skuId,
+                    'shop_sku' => $shopSku ? (string) $shopSku : null,
+                    'product_option_value_id' => $povId,
+                ]
+            );
+        } catch (\Throwable $ex) {}
+    }
+
+    // 4. Remove stale variants no longer on Lazada
+    if (!empty($activeLazadaSkus)) {
+        LazadaProductVariant::where('lazada_product_id', $listing->id)
+            ->whereNotIn('seller_sku', $activeLazadaSkus)
+            ->delete();
+    }
+
+    // 5. Update sync_status on group pivot
+    DB::table('lazada_product_group_products')
+        ->where('lazada_product_id', $listing->id)
+        ->update(['sync_status' => 'synced', 'push_error' => null]);
+}
+
+/**
  * Fetch Lazada product variants via /product/item/get, cache SkuId in lazada_product_variants.
  * Returns array of ['seller_sku' => ..., 'sku_id' => ..., 'shop_sku' => ...].
  */
@@ -1414,9 +1502,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
     {
         $listing = LazadaProduct::query()->findOrFail($id);
 
-        if (!empty($listing->lazada_item_id)) {
-            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'ALREADY_LINKED', 'message' => 'This product already has a Lazada Item ID.']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Sync Lazada ID: already linked.');
+        if (!empty($listing->lazada_item_id) && !$listing->unlinked_at) {
+            // Already linked and not unlinked — full cache refresh
+            $setting = LazadaSetting::query()->first()?->decrypted();
+            if ($setting) {
+                $this->refreshLazadaProductCache($listing, $setting, $client);
+            }
+            return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Sync Lazada ID: cache refreshed.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
@@ -1490,6 +1582,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $listing->lazada_deleted_at = null;
                 $listing->unlinked_at = null;
                 $listing->save();
+
+                // Full cache refresh: variants, status, stale cleanup, sync_status
+                $this->refreshLazadaProductCache($listing, $setting, $client);
             } catch (\Throwable $ex) {
                 // keep status log; avoid throwing in production
             }
@@ -1514,14 +1609,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
 
-        // Idempotency rule:
-        // - If lazada_item_id exists AND not marked deleted, prevent re-upload (avoid creating duplicate items on Lazada).
-        // - If marked deleted (lazada_deleted_at not null), allow upload again (will get a new Lazada item id).
-        if (!empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at)) {
-            $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'ALREADY_UPLOADED', 'message' => 'This product is already uploaded to Lazada. Delete it on Lazada (or mark as deleted) to upload again.']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
-                ->with('status', 'Upload: product is already uploaded to Lazada.');
-        }
+        // Determine create vs update
+        $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
         if (empty($listing->primary_category_id)) {
             $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
@@ -1559,7 +1648,25 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Upload: ' . $msg);
         }
 
-        $apiPath = '/product/create';
+        // For updates, inject ItemId and SkuId so Lazada knows which product/SKUs to update
+        if ($isUpdate) {
+            $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
+
+            // Inject SkuId into each SKU entry from cached variants
+            $variantMap = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                ->whereNotNull('sku_id')
+                ->pluck('sku_id', 'seller_sku')
+                ->toArray();
+
+            foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
+                $sellerSku = $sku['SellerSku'] ?? '';
+                if (isset($variantMap[$sellerSku])) {
+                    $productPayload['Request']['Product']['Skus']['Sku'][$idx]['SkuId'] = (int) $variantMap[$sellerSku];
+                }
+            }
+        }
+
+        $apiPath = $isUpdate ? '/product/update' : '/product/create';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
             'app_key' => (string) $setting->app_key,
@@ -1574,9 +1681,16 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $this->persistProductSyncStatus($listing, 'upload_to_lazada', $result);
 
-        // If upload is successful, store lazada_item_id and clear deleted flag.
+        // If successful, store lazada_item_id (create) or refresh variants (update).
         $e = $this->extractLazadaError($result);
         if (!empty($e['ok'])) {
+            if ($isUpdate) {
+                // Refresh variant cache after update
+                $this->refreshLazadaProductCache($listing, $setting, $client);
+                return redirect()->to(url()->previous(route('lazada.products.index')))
+                    ->with('status', 'Product updated on Lazada successfully.');
+            }
+
             $itemId = $this->extractCreatedItemId($result);
             try {
                 if ($itemId) {
