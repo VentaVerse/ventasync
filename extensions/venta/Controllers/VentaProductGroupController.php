@@ -235,10 +235,11 @@ class VentaProductGroupController extends Controller
 
         if (empty($productIds)) {
             return view('ext-venta::product-groups.products', [
-                'setting'   => $setting,
-                'group'     => $g,
-                'products'  => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50),
-                'manualIds' => [],
+                'setting'              => $setting,
+                'group'                => $g,
+                'products'             => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50),
+                'optionRowsByProductId' => collect(),
+                'manualIds'            => [],
             ]);
         }
 
@@ -249,6 +250,7 @@ class VentaProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
+            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
             ->leftJoin('venta_product_links as vpl', function ($j) use ($store) {
                 $j->on('p.product_id', '=', 'vpl.product_id')
                     ->where('vpl.venta_setting_id', '=', $store);
@@ -267,6 +269,7 @@ class VentaProductGroupController extends Controller
                 'p.quantity',
                 'p.status',
                 'p.image',
+                'm.name as manufacturer_name',
                 'vpl.venta_product_id',
                 'vpl.sku as venta_sku',
                 'vpgp.sync_status',
@@ -284,14 +287,39 @@ class VentaProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
 
+        // Option rows (variations) for display
+        $paginatedIds = $products->pluck('product_id')->toArray();
+        $optionRowsByProductId = collect();
+        if (!empty($paginatedIds)) {
+            $optionRowsByProductId = DB::table($pfx . 'product_option_value as pov')
+                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                    $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                })
+                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                })
+                ->whereIn('pov.product_id', $paginatedIds)
+                ->select(
+                    'pov.product_id', 'pov.product_option_value_id',
+                    'od.name as option_name', 'ovd.name as option_value_name',
+                    'pov.quantity as option_quantity', 'pov.sku as option_sku',
+                    'pov.absolute_price as option_absolute_price'
+                )
+                ->orderBy('pov.product_id')
+                ->orderBy('pov.product_option_value_id')
+                ->get()
+                ->groupBy('product_id');
+        }
+
         $manualIds = $g->products()->pluck('product_id')->toArray();
 
         return view('ext-venta::product-groups.products', [
-            'setting'   => $setting,
-            'group'     => $g,
-            'products'  => $products,
-            'manualIds' => $manualIds,
-            'q'         => $q,
+            'setting'              => $setting,
+            'group'                => $g,
+            'products'             => $products,
+            'optionRowsByProductId' => $optionRowsByProductId,
+            'manualIds'            => $manualIds,
+            'q'                    => $q,
         ]);
     }
 
