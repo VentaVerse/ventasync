@@ -409,6 +409,23 @@ class VentaOrderSync
                         $resolvedOptionValueId = (int) $pov->product_option_value_id;
                     }
 
+                    // Try combination SKU match (multi-option products)
+                    if ($resolvedProductId === 0) {
+                        $combo = DB::table('product_option_combinations as poc')
+                            ->where('poc.sku', $sku)
+                            ->first(['poc.product_id', 'poc.id as combination_id']);
+                        if ($combo) {
+                            $resolvedProductId = (int) $combo->product_id;
+                            // Find a product_option_value_id linked to this combination
+                            $comboValue = DB::table('product_option_combination_values')
+                                ->where('combination_id', $combo->combination_id)
+                                ->first(['product_option_value_id']);
+                            if ($comboValue) {
+                                $resolvedOptionValueId = (int) $comboValue->product_option_value_id;
+                            }
+                        }
+                    }
+
                     // Fallback: main product SKU
                     if ($resolvedProductId === 0) {
                         $prod = DB::table($pfx . 'product')
