@@ -863,7 +863,12 @@ class VentaProductGroupController extends Controller
             ->get(['product_id', 'sku', 'quantity', 'status'])
             ->keyBy('product_id');
 
-        // Fetch option values for variant-level stock push
+        // Fetch combinations first, then option values as fallback
+        $erpCombos = DB::table('product_option_combinations')
+            ->whereIn('product_id', $ids)
+            ->get(['product_id', 'sku', 'quantity'])
+            ->groupBy(fn($r) => (int) $r->product_id);
+
         $erpOptions = DB::table($pfx . 'product_option_value')
             ->whereIn('product_id', $ids)
             ->whereNotNull('sku')
@@ -891,23 +896,21 @@ class VentaProductGroupController extends Controller
 
             $sku = $link->sku ?: $product->sku;
 
-            // Check for option-level variants
-            $variants = $erpOptions->get($pid);
+            // Check combinations first, then option values
+            $variants = $erpCombos->get($pid) ?? $erpOptions->get($pid);
             if ($variants && $variants->count() > 0) {
-                // Push variant-level stock
                 $allOk = true;
                 foreach ($variants as $ov) {
+                    if (!$ov->sku || trim($ov->sku) === '') continue;
                     $result = $client->pushVariantStock(trim($ov->sku), max(0, (int) $ov->quantity));
                     if (!$result['ok']) {
                         $allOk = false;
                     }
                 }
-
                 // Also push parent stock
-                $result = $client->pushStock($sku, max(0, (int) $product->quantity));
+                $client->pushStock($sku, max(0, (int) $product->quantity));
                 $allOk ? $okCount++ : $errCount++;
             } else {
-                // Simple product — push parent stock only
                 $result = $client->pushStock($sku, max(0, (int) $product->quantity));
                 $result['ok'] ? $okCount++ : $errCount++;
             }
@@ -953,12 +956,17 @@ class VentaProductGroupController extends Controller
             ->get(['product_id', 'sku', 'price', 'status'])
             ->keyBy('product_id');
 
-        // Fetch option values for variant-level price push
+        // Fetch combinations first, then option values as fallback
+        $erpCombos = DB::table('product_option_combinations')
+            ->whereIn('product_id', $ids)
+            ->get(['product_id', 'sku', 'absolute_price', 'absolute_cost'])
+            ->groupBy(fn($r) => (int) $r->product_id);
+
         $erpOptions = DB::table($pfx . 'product_option_value')
             ->whereIn('product_id', $ids)
             ->whereNotNull('sku')
             ->where('sku', '!=', '')
-            ->get(['product_id', 'sku', 'price', 'price_prefix'])
+            ->get(['product_id', 'sku', 'price', 'price_prefix', 'absolute_price'])
             ->groupBy(fn($r) => (int) $r->product_id);
 
         $okCount = 0;
@@ -989,17 +997,30 @@ class VentaProductGroupController extends Controller
                 continue;
             }
 
-            // Push variant prices if applicable
-            $variants = $erpOptions->get($pid);
-            if ($variants && $variants->count() > 0) {
-                foreach ($variants as $ov) {
-                    $variantPrice = $basePrice;
-                    if ($ov->price) {
-                        $variantPrice = $ov->price_prefix === '-'
-                            ? $basePrice - (float) $ov->price
-                            : $basePrice + (float) $ov->price;
+            // Push variant prices — combinations first, then option values
+            $combos = $erpCombos->get($pid);
+            if ($combos && $combos->count() > 0) {
+                foreach ($combos as $c) {
+                    if (!$c->sku || trim($c->sku) === '') continue;
+                    $client->updateVariant(trim($c->sku), ['price' => (float) $c->absolute_price]);
+                }
+            } else {
+                $variants = $erpOptions->get($pid);
+                if ($variants && $variants->count() > 0) {
+                    foreach ($variants as $ov) {
+                        if (!$ov->sku || trim($ov->sku) === '') continue;
+                        if ((float) ($ov->absolute_price ?? 0) > 0) {
+                            $variantPrice = (float) $ov->absolute_price;
+                        } else {
+                            $variantPrice = $basePrice;
+                            if ($ov->price) {
+                                $variantPrice = $ov->price_prefix === '-'
+                                    ? $basePrice - (float) $ov->price
+                                    : $basePrice + (float) $ov->price;
+                            }
+                        }
+                        $client->updateVariant(trim($ov->sku), ['price' => $variantPrice]);
                     }
-                    $client->updateVariant(trim($ov->sku), ['price' => $variantPrice]);
                 }
             }
 
