@@ -303,8 +303,9 @@ class VentaProductGroupController extends Controller
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
                 $comboValues = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
                     ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
+                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
                     ->whereIn('pocv.combination_id', $comboIds)
@@ -673,8 +674,9 @@ class VentaProductGroupController extends Controller
                 // Combination-based variants (multi-option products)
                 $comboIds = $combos->pluck('id')->toArray();
                 $comboValues = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
                     ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
+                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
                     ->whereIn('pocv.combination_id', $comboIds)
