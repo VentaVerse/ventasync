@@ -618,45 +618,100 @@ class VentaProductGroupController extends Controller
                 $data['images'] = $images;
             }
 
-            // Get option values (variants)
-            $optionValues = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
-                        ->where('ovd.language_id', '=', $langId);
-                })
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')
-                        ->where('od.language_id', '=', $langId);
-                })
-                ->where('pov.product_id', $pid)
-                ->get([
-                    'pov.product_option_value_id', 'pov.sku as variant_sku',
-                    'pov.quantity as variant_qty', 'pov.price as variant_price',
-                    'pov.price_prefix', 'ovd.name as option_value_name',
-                    'od.name as option_name',
-                ]);
+            // Get variants — check combinations first, fall back to option values
+            $combos = DB::table('product_option_combinations as poc')
+                ->where('poc.product_id', $pid)
+                ->orderBy('poc.sort_order')
+                ->get();
 
-            if ($optionValues->isNotEmpty()) {
+            if ($combos->isNotEmpty()) {
+                // Combination-based variants (multi-option products)
+                $comboIds = $combos->pluck('id')->toArray();
+                $comboValues = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->select('pocv.combination_id', 'ovd.name as value_name')
+                    ->get()
+                    ->groupBy('combination_id');
+
                 $variants = [];
-                foreach ($optionValues as $ov) {
-                    $variantSku = $ov->variant_sku ?: ($sku . '-' . $ov->product_option_value_id);
-                    $variantPrice = (float) $prod->price;
-                    if ($ov->variant_price) {
-                        $variantPrice = $ov->price_prefix === '-'
-                            ? $variantPrice - (float) $ov->variant_price
-                            : $variantPrice + (float) $ov->variant_price;
-                    }
+                foreach ($combos as $c) {
+                    $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
                     $variants[] = [
-                        'sku'         => $variantSku,
-                        'name'        => $ov->option_value_name,
-                        'option_name' => $ov->option_name,
-                        'price'       => $variantPrice,
-                        'cost'        => (float) ($prod->cost ?? 0),
-                        'quantity'    => (int) $ov->variant_qty,
+                        'sku'         => $c->sku ?: ($sku . '-' . $c->id),
+                        'name'        => $valueNames,
+                        'option_name' => 'Option',
+                        'price'       => (float) $c->absolute_price,
+                        'cost'        => (float) $c->absolute_cost,
+                        'quantity'    => (int) $c->quantity,
                         'weight'      => (float) ($prod->weight ?? 0),
                     ];
                 }
                 $data['variants'] = $variants;
+            } else {
+                // Single-option variants
+                $optionValues = DB::table($pfx . 'product_option_value as pov')
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                        $j->on('pov.option_id', '=', 'od.option_id')
+                            ->where('od.language_id', '=', $langId);
+                    })
+                    ->where('pov.product_id', $pid)
+                    ->get([
+                        'pov.product_option_value_id', 'pov.sku as variant_sku',
+                        'pov.quantity as variant_qty', 'pov.price as variant_price',
+                        'pov.price_prefix', 'pov.absolute_price',
+                        'pov.cost as variant_cost', 'pov.cost_prefix', 'pov.absolute_cost',
+                        'ovd.name as option_value_name', 'od.name as option_name',
+                    ]);
+
+                if ($optionValues->isNotEmpty()) {
+                    $variants = [];
+                    foreach ($optionValues as $ov) {
+                        $variantSku = $ov->variant_sku ?: ($sku . '-' . $ov->product_option_value_id);
+
+                        // Price: absolute_price takes priority, then modifier
+                        if ((float) ($ov->absolute_price ?? 0) > 0) {
+                            $variantPrice = (float) $ov->absolute_price;
+                        } else {
+                            $variantPrice = (float) $prod->price;
+                            if ($ov->variant_price) {
+                                $variantPrice = $ov->price_prefix === '-'
+                                    ? $variantPrice - (float) $ov->variant_price
+                                    : $variantPrice + (float) $ov->variant_price;
+                            }
+                        }
+
+                        // Cost: absolute_cost takes priority, then modifier
+                        if ((float) ($ov->absolute_cost ?? 0) > 0) {
+                            $variantCost = (float) $ov->absolute_cost;
+                        } else {
+                            $variantCost = (float) ($prod->cost ?? 0);
+                            if ($ov->variant_cost) {
+                                $variantCost = $ov->cost_prefix === '-'
+                                    ? $variantCost - (float) $ov->variant_cost
+                                    : $variantCost + (float) $ov->variant_cost;
+                            }
+                        }
+
+                        $variants[] = [
+                            'sku'         => $variantSku,
+                            'name'        => $ov->option_value_name,
+                            'option_name' => $ov->option_name,
+                            'price'       => $variantPrice,
+                            'cost'        => $variantCost,
+                            'quantity'    => (int) $ov->variant_qty,
+                            'weight'      => (float) ($prod->weight ?? 0),
+                        ];
+                    }
+                    $data['variants'] = $variants;
+                }
             }
 
             // Check for existing link
