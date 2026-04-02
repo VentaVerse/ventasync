@@ -153,6 +153,37 @@ class VentaClient
         return $result;
     }
 
+    public function delete(string $path): array
+    {
+        $start = microtime(true);
+        try {
+            $resp = $this->http()->delete($this->url($path));
+
+            $result = [
+                'status' => $resp->status(),
+                'ok'     => $resp->successful(),
+                'body'   => $resp->json() ?? [],
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Venta API DELETE failed', [
+                'path'  => $path,
+                'store' => $this->setting->store_name,
+                'error' => $e->getMessage(),
+            ]);
+
+            $result = [
+                'status' => 0,
+                'ok'     => false,
+                'body'   => ['error' => $e->getMessage()],
+            ];
+        }
+
+        $durationMs = (int) ((microtime(true) - $start) * 1000);
+        $this->logCall('DELETE', $path, null, $result, $durationMs);
+
+        return $result;
+    }
+
     // ── Convenience: Catalog ─────────────────────────────────
 
     public function getCategories(bool $activeOnly = false): array

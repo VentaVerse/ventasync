@@ -928,6 +928,39 @@ class VentaProductGroupController extends Controller
             ->with('status', 'Product unlinked from Venta.');
     }
 
+    public function deleteFromVenta(int $store, int $group, int $product)
+    {
+        $setting = $this->store_($store);
+        $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
+
+        $link = VentaProductLink::where('venta_setting_id', $store)
+            ->where('product_id', $product)
+            ->first();
+
+        if (!$link || !$link->sku) {
+            return $this->productsRedirect($store, $group)
+                ->with('error', 'Product not linked to Venta — nothing to delete.');
+        }
+
+        $client = new VentaClient($setting);
+        $result = $client->delete("products/{$link->sku}");
+
+        if ($result['ok']) {
+            $link->delete();
+
+            VentaProductGroupProduct::where('venta_product_group_id', $g->id)
+                ->where('product_id', $product)
+                ->update(['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
+
+            return $this->productsRedirect($store, $group)
+                ->with('status', 'Product deleted from Venta store.');
+        }
+
+        $error = $result['body']['error'] ?? 'Unknown error';
+        return $this->productsRedirect($store, $group)
+            ->with('error', 'Failed to delete from Venta: ' . $error);
+    }
+
     public function linkProduct(int $store, int $group, int $product)
     {
         $this->store_($store);

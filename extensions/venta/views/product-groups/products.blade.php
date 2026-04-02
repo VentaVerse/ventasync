@@ -253,6 +253,13 @@
                                                 Unlink from Venta
                                             </button>
                                         </form>
+                                        <form method="POST" action="{{ route('ext.venta.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form" data-confirm="Delete this product from the Venta store? This cannot be undone.">
+                                            @csrf
+                                            <button type="submit" class="action-item" style="color:var(--danger);">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                Delete from Venta
+                                            </button>
+                                        </form>
                                     @endif
                                     @if($isUnlinked)
                                         <form method="POST" action="{{ route('ext.venta.product-groups.link', [$setting->id, $group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
