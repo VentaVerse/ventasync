@@ -214,7 +214,7 @@ class VentaOrderApiController extends Controller
                 ->first(['product_id', 'image']);
 
             if ($product && $product->image) {
-                return url('/image/' . $product->image);
+                return url('/storage/' . $product->image);
             }
 
             return null;
@@ -226,7 +226,7 @@ class VentaOrderApiController extends Controller
             ->first(['image']);
 
         if ($product && $product->image) {
-            return url('/image/' . $product->image);
+            return url('/storage/' . $product->image);
         }
 
         return null;
