@@ -56,17 +56,14 @@ class OrderController extends Controller
             ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
-        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
-        $prefix = config('catalog.image_prefix', 'image');
-
-        $orders->getCollection()->transform(function ($order) use ($ocStoreNames, $base, $prefix) {
+        $orders->getCollection()->transform(function ($order) use ($ocStoreNames) {
             // Resolve first product image
             $firstProduct = $order->products()->first();
             $productImage = null;
             if ($firstProduct && $firstProduct->product_id > 0) {
                 $img = Product::where('product_id', $firstProduct->product_id)->value('image');
                 if ($img && trim($img) !== '') {
-                    $productImage = $base . '/' . $prefix . '/' . ltrim($img, '/');
+                    $productImage = url('/storage/' . ltrim($img, '/'));
                 }
             }
 
@@ -321,14 +318,11 @@ class OrderController extends Controller
             ->pluck('image', 'product_id')
             ->toArray();
 
-        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
-        $prefix = config('catalog.image_prefix', 'image');
-
         $result = [];
         foreach ($orderProducts as $op) {
             $pid = $op->product_id;
             if ($pid > 0 && isset($images[$pid]) && trim($images[$pid]) !== '') {
-                $result[$op->order_product_id] = $base . '/' . $prefix . '/' . ltrim($images[$pid], '/');
+                $result[$op->order_product_id] = url('/storage/' . ltrim($images[$pid], '/'));
             }
         }
 
