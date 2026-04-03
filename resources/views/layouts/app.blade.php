@@ -662,7 +662,12 @@
     }
 
     var resizeTimer;
+    var lastWidth = window.innerWidth;
     window.addEventListener('resize', function () {
+        // Only react to width changes — mobile browsers fire resize when
+        // the address bar hides/shows during scroll (height-only change)
+        if (window.innerWidth === lastWidth) return;
+        lastWidth = window.innerWidth;
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(initLayout, 150);
     });
