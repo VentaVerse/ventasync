@@ -7,6 +7,7 @@ use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaOrderStatusMap;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class VentaOrderApiController extends Controller
@@ -86,6 +87,9 @@ class VentaOrderApiController extends Controller
             $raw = $order->raw ?? [];
 
             $image = $firstProduct?->raw['image'] ?? null;
+            if (empty($image) && $firstProduct) {
+                $image = $this->resolveProductImage($firstProduct->sku);
+            }
             if ($image && !str_starts_with($image, 'http')) {
                 $image = $baseUrl . '/' . ltrim($image, '/');
             }
@@ -137,6 +141,9 @@ class VentaOrderApiController extends Controller
 
         $products = $order->products->map(function ($p) use ($baseUrl) {
             $image = $p->raw['image'] ?? '';
+            if (empty($image)) {
+                $image = $this->resolveProductImage($p->sku) ?? '';
+            }
             if ($image && !str_starts_with($image, 'http')) {
                 $image = $baseUrl . '/' . ltrim($image, '/');
             }
@@ -174,5 +181,54 @@ class VentaOrderApiController extends Controller
                 : null,
             'products'          => $products->values(),
         ]);
+    }
+
+    /**
+     * Resolve a product image from the ERP catalog by SKU.
+     *
+     * Checks product_option_value first (variant SKU), then product table.
+     * Returns a full URL to the ERP image, or null if not found.
+     */
+    private function resolveProductImage(?string $sku): ?string
+    {
+        if (empty($sku)) {
+            return null;
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $productId = null;
+
+        // 1. Try variant SKU in product_option_value table
+        $pov = DB::table($pfx . 'product_option_value')
+            ->where('sku', $sku)
+            ->first(['product_id']);
+
+        if ($pov) {
+            $productId = $pov->product_id;
+        }
+
+        // 2. Fallback: try product table directly
+        if (! $productId) {
+            $product = DB::table($pfx . 'product')
+                ->where('sku', $sku)
+                ->first(['product_id', 'image']);
+
+            if ($product && $product->image) {
+                return url('/image/' . $product->image);
+            }
+
+            return null;
+        }
+
+        // 3. Get image from product table using the resolved product_id
+        $product = DB::table($pfx . 'product')
+            ->where('product_id', $productId)
+            ->first(['image']);
+
+        if ($product && $product->image) {
+            return url('/image/' . $product->image);
+        }
+
+        return null;
     }
 }
