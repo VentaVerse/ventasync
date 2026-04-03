@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\MarketplaceOrderController as ApiMarketplaceOrderController;
 use App\Http\Controllers\Api\ProductController as ApiProductController;
+use App\Http\Controllers\Api\VentaOrderApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('perm:manage_marketplace_api')->group(function () {
         Route::get('/marketplace/{platform}/orders', [ApiMarketplaceOrderController::class, 'index']);
         Route::get('/marketplace/{platform}/orders/{id}', [ApiMarketplaceOrderController::class, 'show']);
+    });
+
+    Route::middleware('perm:manage_venta_orders')->group(function () {
+        Route::get('/venta-stores', [VentaOrderApiController::class, 'stores']);
+        Route::get('/venta/{store}/orders', [VentaOrderApiController::class, 'index']);
+        Route::get('/venta/{store}/orders/{id}', [VentaOrderApiController::class, 'show']);
     });
 
     Route::middleware('perm:manage_products')->group(function () {

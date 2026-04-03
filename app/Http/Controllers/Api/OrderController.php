@@ -217,11 +217,53 @@ class OrderController extends Controller
                 ->count();
         }
 
+        // Venta pending counts per store
+        $ventaPending = [];
+        if (Schema::hasTable('venta_orders') && Schema::hasTable('venta_settings')) {
+            $enabledStoreIds = DB::table('venta_settings')
+                ->where('enabled', true)
+                ->pluck('id');
+
+            // Statuses that map to a core "pending" or "processing" status
+            $pendingCoreIds = $pendingStatuses; // reuse from above
+
+            if ($enabledStoreIds->isNotEmpty()) {
+                $pendingVentaStatuses = DB::table('venta_order_status_map')
+                    ->whereIn('venta_setting_id', $enabledStoreIds)
+                    ->whereIn('order_status_id', $pendingCoreIds)
+                    ->pluck('venta_status_name', 'venta_setting_id')
+                    ->groupBy(fn ($val, $key) => $key);
+
+                foreach ($enabledStoreIds as $storeId) {
+                    $mappedStatuses = isset($pendingVentaStatuses[$storeId])
+                        ? $pendingVentaStatuses[$storeId]->values()->toArray()
+                        : [];
+
+                    if (! empty($mappedStatuses)) {
+                        $ventaPending[(string) $storeId] = DB::table('venta_orders')
+                            ->where('venta_setting_id', $storeId)
+                            ->whereIn('status', $mappedStatuses)
+                            ->count();
+                    } else {
+                        // Fallback: count orders with status containing "pending" or "processing"
+                        $ventaPending[(string) $storeId] = DB::table('venta_orders')
+                            ->where('venta_setting_id', $storeId)
+                            ->where(function ($q) {
+                                $q->where('status', 'like', '%pending%')
+                                    ->orWhere('status', 'like', '%processing%');
+                            })
+                            ->count();
+                    }
+                }
+            }
+        }
+
         return response()->json([
             'count'          => $count,
             'lazada_pending' => $lazadaPending,
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
+            'venta_pending'  => (object) $ventaPending,
         ]);
     }
 
