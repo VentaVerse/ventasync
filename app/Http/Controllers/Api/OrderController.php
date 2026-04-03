@@ -56,7 +56,20 @@ class OrderController extends Controller
             ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
-        $orders->getCollection()->transform(function ($order) use ($ocStoreNames) {
+        $base = rtrim((string) config('catalog.public_url', config('app.url')), '/');
+        $prefix = config('catalog.image_prefix', 'image');
+
+        $orders->getCollection()->transform(function ($order) use ($ocStoreNames, $base, $prefix) {
+            // Resolve first product image
+            $firstProduct = $order->products()->first();
+            $productImage = null;
+            if ($firstProduct && $firstProduct->product_id > 0) {
+                $img = Product::where('product_id', $firstProduct->product_id)->value('image');
+                if ($img && trim($img) !== '') {
+                    $productImage = $base . '/' . $prefix . '/' . ltrim($img, '/');
+                }
+            }
+
             return [
                 'order_id'             => $order->order_id,
                 'firstname'            => $order->firstname,
@@ -70,6 +83,7 @@ class OrderController extends Controller
                 'date_added'           => $order->date_added,
                 'marketplace_source'   => self::resolveSourceLabel($order->marketplace_source ?? '', $ocStoreNames),
                 'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'product_image'        => $productImage,
             ];
         });
 
