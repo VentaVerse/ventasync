@@ -37,6 +37,7 @@ class AuthController extends Controller
                 'name'     => $user->name,
                 'username' => $user->username,
             ],
+            'permissions' => $user->getEffectivePermissions(),
         ]);
     }
 

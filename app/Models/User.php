@@ -46,7 +46,7 @@ class User extends Authenticatable
     public const PERMISSION_GROUPS = [
         'manage_catalog' => ['manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options'],
         'manage_sales' => ['manage_orders', 'manage_order_statuses', 'manage_reports'],
-        'manage_marketplace_api' => ['manage_shopee', 'manage_lazada', 'manage_opencart', 'manage_tiktok', 'manage_pedallion', 'manage_shopee_orders', 'manage_lazada_orders', 'manage_opencart_orders', 'manage_tiktok_orders', 'manage_pedallion_orders'],
+        'manage_marketplace_api' => ['manage_shopee', 'manage_lazada', 'manage_opencart', 'manage_tiktok', 'manage_pedallion', 'manage_venta', 'manage_shopee_orders', 'manage_lazada_orders', 'manage_opencart_orders', 'manage_tiktok_orders', 'manage_pedallion_orders', 'manage_venta_orders'],
         'manage_purchasing' => ['manage_vendors', 'manage_purchase_orders'],
         'manage_warehousing' => ['manage_warehouse_locations', 'manage_warehouse_transfers', 'manage_warehouse_inventory'],
         'manage_settings' => ['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log', 'manage_activity_log'],
@@ -80,5 +80,28 @@ class User extends Authenticatable
         }
 
         return $group->permissions()->whereIn('key', array_unique($keysToCheck))->exists();
+    }
+
+    /**
+     * Get all effective permissions for this user (with parent→child expansion).
+     * Used by the mobile API to determine which nav items to show.
+     */
+    public function getEffectivePermissions(): array
+    {
+        $group = $this->userGroup;
+        if (!$group) {
+            return [];
+        }
+
+        $assigned = $group->permissions()->pluck('key')->toArray();
+        $effective = $assigned;
+
+        foreach ($assigned as $key) {
+            if (isset(self::PERMISSION_GROUPS[$key])) {
+                $effective = array_merge($effective, self::PERMISSION_GROUPS[$key]);
+            }
+        }
+
+        return array_values(array_unique($effective));
     }
 }

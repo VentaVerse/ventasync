@@ -28,6 +28,10 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
+    Route::get('/user/permissions', function (Request $request) {
+        return response()->json($request->user()->getEffectivePermissions());
+    });
+
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::post('/device-token', [DeviceTokenController::class, 'store']);
