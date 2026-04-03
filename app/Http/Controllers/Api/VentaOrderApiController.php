@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Extensions\Venta\Models\VentaOrder;
-use Extensions\Venta\Models\VentaOrderStatusMap;
-use Extensions\Venta\Models\VentaSetting;
+use Extensions\venta\Models\VentaOrder;
+use Extensions\venta\Models\VentaOrderStatusMap;
+use Extensions\venta\Models\VentaSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -80,9 +80,15 @@ class VentaOrderApiController extends Controller
             ->paginate(20);
 
         // Transform
-        $data = $orders->map(function ($order) {
+        $baseUrl = rtrim($store->base_url ?? '', '/');
+        $data = $orders->map(function ($order) use ($baseUrl) {
             $firstProduct = $order->products()->orderBy('id')->first();
             $raw = $order->raw ?? [];
+
+            $image = $firstProduct?->raw['image'] ?? null;
+            if ($image && !str_starts_with($image, 'http')) {
+                $image = $baseUrl . '/' . ltrim($image, '/');
+            }
 
             return [
                 'id'              => $order->id,
@@ -92,7 +98,7 @@ class VentaOrderApiController extends Controller
                 'total_amount'    => $order->total !== null ? (float) $order->total : null,
                 'currency'        => $raw['currency'] ?? 'PHP',
                 'items_count'     => $order->products()->count(),
-                'product_image'   => $firstProduct?->raw['image'] ?? null,
+                'product_image'   => $image,
                 'payment_method'  => $order->payment_method,
                 'tracking_number' => $order->tracking_number,
                 'date'            => $order->order_created_at
@@ -124,17 +130,23 @@ class VentaOrderApiController extends Controller
             return response()->json(['error' => 'Order not found'], 404);
         }
 
+        $store = VentaSetting::find($storeId);
+        $baseUrl = rtrim($store->base_url ?? '', '/');
         $raw = $order->raw ?? [];
         $shippingAddr = $order->shipping_address ?? [];
 
-        $products = $order->products->map(function ($p) {
+        $products = $order->products->map(function ($p) use ($baseUrl) {
+            $image = $p->raw['image'] ?? '';
+            if ($image && !str_starts_with($image, 'http')) {
+                $image = $baseUrl . '/' . ltrim($image, '/');
+            }
             return [
                 'name'      => $p->name ?? '',
                 'sku'       => $p->sku ?? '',
                 'variation' => $p->variant_label ?? '',
                 'quantity'  => (int) $p->quantity,
                 'price'     => (float) $p->price,
-                'image'     => $p->raw['image'] ?? '',
+                'image'     => $image,
             ];
         });
 
