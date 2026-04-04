@@ -144,4 +144,36 @@
 /* Filter grid responsive */
 @media (max-width: 768px) {
     .card form[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+
+    /* Collapse inline 2-column grids to single column (covers both spacing variants) */
+    div[style*="grid-template-columns: 1fr 1fr"],
+    div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* 6-column product filter grids to single column */
+    div[style*="grid-template-columns: 1fr auto auto auto auto auto"],
+    div[style*="grid-template-columns:1fr auto auto auto auto auto"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* 4-column filter grids to 2 columns */
+    div[style*="grid-template-columns: 1fr auto auto auto"],
+    div[style*="grid-template-columns:1fr auto auto auto"] {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* 3-panel dual-list picker to stacked */
+    div[style*="grid-template-columns: 1fr 48px 1fr"],
+    div[style*="grid-template-columns:1fr 48px 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* 4-column filters to single column on small screens */
+    div[style*="grid-template-columns: 1fr auto auto auto"],
+    div[style*="grid-template-columns:1fr auto auto auto"] {
+        grid-template-columns: 1fr !important;
+    }
 }

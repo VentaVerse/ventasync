@@ -42,6 +42,17 @@
     }
     .cost-breakdown-op { padding: 0; }
     .profit-metrics { grid-template-columns: 1fr; }
+
+    /* Global search — prevent overflow on narrow screens */
+    #global-search {
+        width: 100% !important;
+        max-width: 280px;
+    }
+    #global-search-results {
+        width: 100% !important;
+        max-width: 420px;
+        right: 0;
+    }
 }
 @media (max-width: 480px) {
     .content { padding: 0 12px 20px; }
@@ -52,4 +63,9 @@
     .input { height: 38px; font-size: 13px; }
     table th, table td { padding: 10px 10px; font-size: 13px; }
     .pagination li a, .pagination li span { min-width: 32px; height: 32px; padding: 0 8px; font-size: 12px; }
+
+    /* Global search — full-width on small phones */
+    #global-search-wrap { width: 100%; }
+    #global-search { max-width: none !important; }
+    #global-search-results { max-width: none !important; }
 }
