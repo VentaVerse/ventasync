@@ -2,16 +2,7 @@
 @section('breadcrumb', 'Marketplace / Shopee / Orders')
 
 @section('content')
-<style>
-    #content {
-        --accent: #EE4D2D;
-        --accent-hover: #d4431f;
-        --accent-light: rgba(238, 77, 45, 0.08);
-    }
-    #content .input:focus {
-        box-shadow: 0 0 0 3px rgba(238, 77, 45, 0.12);
-    }
-</style>
+<div class="marketplace-shopee">
 <div class="page-header">
     <h2>Shopee Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
@@ -902,4 +893,5 @@ document.addEventListener('DOMContentLoaded', function () {
     }, false);
 })();
 </script>
+</div>{{-- /.marketplace-shopee --}}
 @endsection

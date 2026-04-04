@@ -9,7 +9,7 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('lazada.product-groups.edit', $group->id) }}">Edit Group</a>
-            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">Back to Groups</a>
+            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
 

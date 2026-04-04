@@ -1,17 +1,18 @@
 @extends('layouts.app')
-@section('breadcrumb', 'TikTok Shop / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Product Group')
+@section('breadcrumb', 'Marketplace / TikTok Shop / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
 
 @section('content')
     <div class="page-header">
         <div>
-            <h2>{{ $mode === 'create' ? 'Add Product Group' : 'Edit Product Group' }}</h2>
+            <h2>{{ $mode === 'create' ? 'Add TikTok Product Group' : 'Edit TikTok Product Group' }}</h2>
             <div class="text-muted text-sm">TikTok Shop — map ERP products to a TikTok category.</div>
         </div>
         <div class="page-header-actions">
             @if($mode === 'edit')
                 <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.products', $group->id) }}">View Products</a>
             @endif
-            <a class="btn" href="{{ route('ext.tiktok.product-groups.index') }}">Back to Product Groups</a>
+            <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
 

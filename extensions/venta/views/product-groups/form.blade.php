@@ -1,17 +1,18 @@
 @extends('layouts.app')
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product Group')
 @section('breadcrumb', 'Marketplace / ' . $setting->store_name . ' / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
 
 @section('content')
     <div class="page-header">
         <div>
-            <h2>{{ $mode === 'create' ? 'Add Product Group' : 'Edit Product Group' }}</h2>
+            <h2>{{ $mode === 'create' ? 'Add ' . $setting->store_name . ' Product Group' : 'Edit ' . $setting->store_name . ' Product Group' }}</h2>
             <div class="text-muted text-sm">{{ $setting->store_name }} — map ERP products to a Venta category.</div>
         </div>
         <div class="page-header-actions">
             @if($mode === 'edit')
                 <a class="btn secondary" href="{{ route('ext.venta.product-groups.products', [$setting->id, $group->id]) }}">View Products</a>
             @endif
-            <a class="btn" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">Back to Product Groups</a>
+            <a class="btn secondary" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">← Back to Product Groups</a>
         </div>
     </div>
 

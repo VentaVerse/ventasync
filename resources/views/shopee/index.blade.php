@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace API / Shopee')
+@section('breadcrumb', 'Marketplace / Shopee')
 
 @section('content')
 <div class="page-header">
-    <h2>Shopee</h2>
+    <h2>Shopee Settings</h2>
 </div>
 
 @php

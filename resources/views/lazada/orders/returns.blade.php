@@ -2,16 +2,7 @@
 @section('breadcrumb', 'Marketplace / Lazada / Return or Refund')
 
 @section('content')
-<style>
-    #content {
-        --accent: #0F146D;
-        --accent-hover: #0b1058;
-        --accent-light: rgba(15, 20, 109, 0.08);
-    }
-    #content .input:focus {
-        box-shadow: 0 0 0 3px rgba(15, 20, 109, 0.12);
-    }
-</style>
+<div class="marketplace-lazada">
 <div class="page-header">
     <h2>Lazada Return or Refund <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
@@ -203,4 +194,5 @@
         </select>
     </div>
 </form>
+</div>{{-- /.marketplace-lazada --}}
 @endsection

@@ -34,6 +34,14 @@
 
     $safeOrderSn = preg_replace('/[^A-Za-z0-9_-]/', '', $order->order_sn ?? '');
     $hasAwbFile = $safeOrderSn !== '' && file_exists(storage_path('app/shopee-awb/' . $safeOrderSn . '.pdf'));
+
+    $badgeClass = match($statusNorm) {
+        'COMPLETED' => 'badge-green',
+        'CANCELLED' => 'badge-red',
+        'UNPAID' => 'badge-yellow',
+        'SHIPPED', 'TO_CONFIRM_RECEIVE' => 'badge-blue',
+        default => '',
+    };
 @endphp
 
 <div class="page-header">
@@ -43,7 +51,7 @@
             <span class="text-secondary text-xs">Order SN</span>
             <span class="font-bold">{{ $order->order_sn }}</span>
             @if($statusStr !== '')
-                <span class="badge badge-default" style="margin-left:6px;">{{ $statusStr }}</span>
+                <span class="badge {{ $badgeClass }}" style="margin-left:6px;">{{ $statusStr }}</span>
             @endif
         </div>
         <div class="meta-bar" style="margin-top:8px; margin-bottom:0; padding:8px 0; background:transparent; border:none;">

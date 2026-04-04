@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('title', $setting->store_name . ' Orders')
 @section('breadcrumb', 'Marketplace / Venta / ' . $setting->store_name . ' / Orders')
 
 @section('content')

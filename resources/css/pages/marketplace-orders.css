@@ -1,0 +1,41 @@
+/* ============================================================
+   MARKETPLACE ORDER PAGES — Per-marketplace accent theming
+   Shopee / Lazada / TikTok order & return pages
+   ============================================================ */
+
+/* ----- Shopee (#EE4D2D) ----- */
+.marketplace-shopee {
+    --accent: #EE4D2D;
+    --accent-hover: #d4431f;
+    --accent-light: rgba(238, 77, 45, 0.08);
+}
+.marketplace-shopee .input:focus {
+    box-shadow: 0 0 0 3px rgba(238, 77, 45, 0.12);
+}
+
+/* ----- Lazada (#0F146D) ----- */
+.marketplace-lazada {
+    --accent: #0F146D;
+    --accent-hover: #0b1058;
+    --accent-light: rgba(15, 20, 109, 0.08);
+}
+.marketplace-lazada .input:focus {
+    box-shadow: 0 0 0 3px rgba(15, 20, 109, 0.12);
+}
+
+/* ----- TikTok (#1e1e1e) ----- */
+.marketplace-tiktok {
+    --accent: #1e1e1e;
+    --accent-hover: #000;
+    --accent-light: rgba(0, 0, 0, 0.06);
+}
+.marketplace-tiktok .input:focus {
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
+.marketplace-tiktok .btn:not(.secondary) {
+    background: #1e1e1e;
+    color: #fff;
+}
+.marketplace-tiktok .btn:not(.secondary):hover {
+    background: #000;
+}

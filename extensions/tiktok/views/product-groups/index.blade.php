@@ -1,10 +1,11 @@
 @extends('layouts.app')
-@section('breadcrumb', 'TikTok Shop / Product Groups')
+@section('title', 'TikTok Shop Product Groups')
+@section('breadcrumb', 'Marketplace / TikTok Shop / Product Groups')
 
 @section('content')
     <div class="page-header">
         <div>
-            <h2>TikTok Shop — Product Groups</h2>
+            <h2>TikTok Shop Product Groups</h2>
             <div class="text-muted text-sm">Map ERP products to TikTok categories, then push to TikTok Shop.</div>
         </div>
         <div class="page-header-actions">
@@ -51,7 +52,7 @@
                         <td>
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('ext.tiktok.product-groups.products', $g->id) }}">Products</a>
-                                <a class="btn small" href="{{ route('ext.tiktok.product-groups.edit', $g->id) }}">Edit</a>
+                                <a class="btn small secondary" href="{{ route('ext.tiktok.product-groups.edit', $g->id) }}">Edit</a>
                                 <form method="POST" action="{{ route('ext.tiktok.product-groups.destroy', $g->id) }}" style="margin:0;" data-confirm="Delete this product group?">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>
@@ -62,7 +63,7 @@
                 @empty
                     <tr>
                         <td colspan="7" class="text-muted">
-                            No product groups yet. Click <strong>Add Product Group</strong> to get started.
+                            No product groups yet. Click <strong>Add Product Group</strong> to create one.
                         </td>
                     </tr>
                 @endforelse

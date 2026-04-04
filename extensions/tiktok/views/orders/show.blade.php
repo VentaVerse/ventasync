@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('title', 'TikTok Order Detail')
 @section('breadcrumb', 'Marketplace / TikTok Shop / Orders / Detail')
 
 @section('content')
@@ -58,8 +59,8 @@
             @endif
         </div>
         <div class="meta-bar" style="margin-top:8px; margin-bottom:0; padding:8px 0; background:transparent; border:none;">
-            @if($created) <div class="meta-item"><span class="meta-label">Created:</span> {{ $created }}</div> @endif
-            @if($updated) <div class="meta-item"><span class="meta-label">Updated:</span> {{ $updated }}</div> @endif
+            @if($created) <div class="meta-item"><span class="meta-label">Create Time:</span> {{ $created }}</div> @endif
+            @if($updated) <div class="meta-item"><span class="meta-label">Update Time:</span> {{ $updated }}</div> @endif
         </div>
     </div>
     <div class="page-header-actions">

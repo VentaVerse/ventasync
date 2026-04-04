@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('title', $group->name . ' — ' . $setting->store_name . ' Products')
 @section('breadcrumb', 'Marketplace / ' . $setting->store_name . ' / ' . $group->name . ' / Products')
 
 @section('content')
@@ -9,7 +10,7 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('ext.venta.product-groups.edit', [$setting->id, $group->id]) }}">Edit Group</a>
-            <a class="btn secondary" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">Back to Groups</a>
+            <a class="btn secondary" href="{{ route('ext.venta.product-groups.index', $setting->id) }}">← Back to Product Groups</a>
         </div>
     </div>
 

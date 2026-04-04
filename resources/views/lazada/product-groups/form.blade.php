@@ -13,7 +13,7 @@
             @if($mode === 'edit')
                 <a class="btn secondary" href="{{ route('lazada.product-groups.products', $group->id) }}">View Products</a>
             @endif
-            <a class="btn" href="{{ route('lazada.product-groups.index') }}">Back to Product Groups</a>
+            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
 

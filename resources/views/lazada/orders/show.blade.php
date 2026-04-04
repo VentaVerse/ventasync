@@ -55,6 +55,15 @@
             if ($courier !== '' && $tracking !== '') break;
         }
     }
+
+    $statusLower = strtolower(trim($status));
+    $badgeClass = match($statusLower) {
+        'delivered', 'completed' => 'badge-green',
+        'canceled', 'cancelled' => 'badge-red',
+        'unpaid' => 'badge-yellow',
+        'shipped', 'ready_to_ship_pending' => 'badge-blue',
+        default => '',
+    };
 @endphp
 
 <div class="page-header">
@@ -64,7 +73,7 @@
             <span class="text-secondary text-xs">Order #</span>
             <span class="font-bold">{{ $order->order_id }}</span>
             @if($status !== '')
-                <span class="badge badge-default" style="margin-left:6px;">{{ $status }}</span>
+                <span class="badge {{ $badgeClass }}" style="margin-left:6px;">{{ $status }}</span>
             @endif
         </div>
         <div class="meta-bar" style="margin-top:8px; margin-bottom:0; padding:8px 0; background:transparent; border:none;">
@@ -80,9 +89,9 @@
 </div>
 
 @if($api_error)
-    <div class="alert danger">
-        <strong>Error</strong>
-        <div style="margin-top:6px;">Unable to refresh order details from Lazada. Showing cached data.</div>
+    <div class="alert warning">
+        <strong>Note</strong>
+        <div style="margin-top:6px;">Could not refresh from Lazada API. Showing cached data.</div>
     </div>
 @endif
 

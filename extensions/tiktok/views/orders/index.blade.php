@@ -1,24 +1,9 @@
 @extends('layouts.app')
+@section('title', 'TikTok Shop Orders')
 @section('breadcrumb', 'Marketplace / TikTok Shop / Orders')
 
 @section('content')
-<style>
-    #content {
-        --accent: #1e1e1e;
-        --accent-hover: #000;
-        --accent-light: rgba(0, 0, 0, 0.06);
-    }
-    #content .input:focus {
-        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
-    }
-    #content .btn:not(.secondary) {
-        background: #1e1e1e; color: #fff;
-    }
-    #content .btn:not(.secondary):hover {
-        background: #000;
-    }
-</style>
-
+<div class="marketplace-tiktok">
 <div class="page-header">
     <h2>TikTok Shop Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
@@ -37,7 +22,7 @@
         </div>
         <div class="d-flex gap-8">
             <button type="submit" class="btn">Fetch Orders</button>
-            <button type="submit" class="btn secondary" formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update Statuses</button>
+            <button type="submit" class="btn secondary" formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update Orders</button>
         </div>
         <div class="text-secondary text-xs" style="flex:1;">
             <strong>From/To</strong> required for Fetch. Update refreshes all active orders.
@@ -552,4 +537,5 @@ document.addEventListener('DOMContentLoaded', function() {
         preview.classList.remove('visible');
     }, false);
 </script>
+</div>{{-- /.marketplace-tiktok --}}
 @endsection

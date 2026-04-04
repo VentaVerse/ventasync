@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace API / Shopee Callback')
+@section('breadcrumb', 'Marketplace / Shopee / Callback')
 
 @section('content')
 <div class="card">

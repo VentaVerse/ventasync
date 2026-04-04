@@ -1,5 +1,6 @@
 @extends('layouts.app')
-@section('breadcrumb', 'TikTok Shop / ' . $group->name . ' / Products')
+@section('title', $group->name . ' — TikTok Products')
+@section('breadcrumb', 'Marketplace / TikTok Shop / ' . $group->name . ' / Products')
 
 @section('content')
     <div class="page-header">
@@ -9,7 +10,7 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.edit', $group->id) }}">Edit Group</a>
-            <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.index') }}">Back to Groups</a>
+            <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
 
