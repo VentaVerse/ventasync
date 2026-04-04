@@ -1177,7 +1177,9 @@ class TikTokProductGroupController extends Controller
                 if (!$skuIdRaw) { $fail++; continue; }
 
                 $qty = max(0, (int) ($erpQty->get($pivot->product_id) ?? 0));
-                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [array_filter(['warehouse_id' => $c['warehouse_id'] ?: null, 'quantity' => $qty])]]];
+                $inv = ['quantity' => $qty];
+                if ($c['warehouse_id']) $inv['warehouse_id'] = $c['warehouse_id'];
+                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [$inv]]];
             } else {
                 // Multi-variant — build inventory for each option value
                 $optionValues = collect($this->getProductOptionValues($pfx, $pivot->product_id))->keyBy('option_value_id');
@@ -1186,7 +1188,9 @@ class TikTokProductGroupController extends Controller
                     if (!$ttSkuId) continue;
                     $ov = $optionValues->get($ovId);
                     $qty = $ov ? max(0, (int) $ov->quantity) : 0;
-                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [array_filter(['warehouse_id' => $c['warehouse_id'] ?: null, 'quantity' => $qty])]];
+                    $inv = ['quantity' => $qty];
+                    if ($c['warehouse_id']) $inv['warehouse_id'] = $c['warehouse_id'];
+                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [$inv]];
                 }
                 if (empty($skuPayload)) { $fail++; continue; }
             }
