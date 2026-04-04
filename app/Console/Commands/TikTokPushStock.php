@@ -106,7 +106,9 @@ class TikTokPushStock extends Command
                 }
 
                 $qty = max(0, (int) ($product->quantity ?? 0));
-                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [array_filter(['warehouse_id' => $warehouseId, 'quantity' => $qty])]]];
+                $inv = ['quantity' => $qty];
+                if ($warehouseId) $inv['warehouse_id'] = $warehouseId;
+                $skuPayload = [['id' => $skuIdRaw, 'inventory' => [$inv]]];
             } else {
                 // Multi-variant — build inventory for each option value
                 $optionValues = $erpOptionsByProduct->get((int) $pivot->product_id, collect())->keyBy('option_value_id');
@@ -115,7 +117,9 @@ class TikTokPushStock extends Command
                     if (!$ttSkuId) continue;
                     $ov = $optionValues->get($ovId);
                     $qty = $ov ? max(0, (int) $ov->quantity) : 0;
-                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [array_filter(['warehouse_id' => $warehouseId, 'quantity' => $qty])]];
+                    $inv = ['quantity' => $qty];
+                    if ($warehouseId) $inv['warehouse_id'] = $warehouseId;
+                    $skuPayload[] = ['id' => $ttSkuId, 'inventory' => [$inv]];
                 }
                 if (empty($skuPayload)) {
                     $totalErr++;
