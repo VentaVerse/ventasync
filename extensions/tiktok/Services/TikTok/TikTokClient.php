@@ -288,6 +288,13 @@ class TikTokClient
         return $this->post($appKey, $appSecret, $accessToken, '/order/202309/orders', [], ['order_ids' => $orderIds], $shopCipher);
     }
 
+    // -- Finance ----------------------------------------------------------
+
+    public function getOrderStatementTransactions(string $appKey, string $appSecret, string $accessToken, string $orderId, ?string $shopCipher = null): array
+    {
+        return $this->get($appKey, $appSecret, $accessToken, '/finance/202309/orders/' . $orderId . '/statement_transactions', [], $shopCipher);
+    }
+
     // -- Fulfillment ------------------------------------------------------
 
     public function shipPackage(string $appKey, string $appSecret, string $accessToken, string $orderId, array $packageData, ?string $shopCipher = null): array

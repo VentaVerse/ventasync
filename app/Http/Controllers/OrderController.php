@@ -12,6 +12,7 @@ use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\OrderPayment;
 use App\Models\ShopeeOrder;
+use Extensions\tiktok\Models\TikTokOrder;
 use App\Services\ActivityLogger;
 use App\Services\FcmService;
 use App\Services\OrderStockService;
@@ -1141,6 +1142,29 @@ class OrderController extends Controller
             $items = array_merge($items, $manualItems);
             $total += $manualTotal;
             return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
+        }
+
+        if ($source === 'tiktok') {
+            $ttOrder = TikTokOrder::where('order_id', $mktOrderId)->first();
+            if (!$ttOrder || empty($ttOrder->fees)) {
+                return ['total' => 0, 'items' => [], 'source' => 'tiktok'];
+            }
+
+            $fees = is_array($ttOrder->fees) ? $ttOrder->fees : [];
+            $items = [];
+            $total = 0;
+
+            $commission = abs((float) ($fees['commission'] ?? 0));
+            $txnFee = abs((float) ($fees['transaction_fee'] ?? 0));
+            $shippingFee = abs((float) ($fees['shipping_fee'] ?? 0));
+
+            if ($commission > 0) { $items[] = ['label' => 'Commission', 'amount' => $commission]; $total += $commission; }
+            if ($txnFee > 0) { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee]; $total += $txnFee; }
+            if ($shippingFee > 0) { $items[] = ['label' => 'Shipping Fee', 'amount' => $shippingFee]; $total += $shippingFee; }
+
+            $items = array_merge($items, $manualItems);
+            $total += $manualTotal;
+            return ['total' => round($total, 2), 'items' => $items, 'source' => 'tiktok'];
         }
 
         // OpenCart: use payment_cost + extra_cost from order table

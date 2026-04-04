@@ -172,11 +172,147 @@ class TikTokSyncOrders extends Command
             } catch (\Throwable $e) {
                 Log::warning('TikTok catalog sync failed for order ' . $orderId . ': ' . $e->getMessage());
             }
+
+            // Fetch fees/commissions for this order
+            $this->fetchFeesIfReady($client, [
+                'app_key'     => $appKey,
+                'app_secret'  => $appSecret,
+                'token'       => $token,
+                'shop_cipher' => $shopCipher,
+            ], $dbOrder);
         }
+
+        // Backfill fees for older orders that were synced before fee-fetching existed
+        $this->info('--- Backfilling missing TikTok fees ---');
+        $this->backfillMissingFees($client, [
+            'app_key'     => $appKey,
+            'app_secret'  => $appSecret,
+            'token'       => $token,
+            'shop_cipher' => $shopCipher,
+        ]);
 
         $raw->update(['last_order_sync_at' => now()]);
 
         $this->info("Synced: {$saved} new, {$updated} updated (" . count($allOrders) . " total).");
         return 0;
+    }
+
+    /**
+     * Fetch statement transaction fees for a single TikTok order.
+     * Best-effort: failures are logged but never break the sync.
+     */
+    private function fetchFeesIfReady(TikTokClient $client, array $creds, TikTokOrder $order): void
+    {
+        try {
+            $status = strtoupper(trim((string) $order->status));
+
+            // Skip statuses where fees won't exist
+            if (in_array($status, ['CANCELLED', 'UNPAID'])) {
+                return;
+            }
+
+            // Skip if fees are already populated (commission key present)
+            $existingFees = $order->fees;
+            if (is_array($existingFees) && isset($existingFees['commission'])) {
+                return;
+            }
+
+            $result = $client->getOrderStatementTransactions(
+                $creds['app_key'],
+                $creds['app_secret'],
+                $creds['token'],
+                (string) $order->order_id,
+                $creds['shop_cipher']
+            );
+
+            TikTokApiLog::safeCreate([
+                'pack'            => 'fee-sync',
+                'method'          => 'GET',
+                'api_path'        => '/finance/202309/orders/' . $order->order_id . '/statement_transactions',
+                'auth_required'   => true,
+                'request_params'  => ['order_id' => $order->order_id],
+                'response_status' => $result['status'] ?? 0,
+                'ok'              => $result['ok'] ?? false,
+                'response_body'   => $result['body'] ?? [],
+                'user_id'         => null,
+            ]);
+
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+            if ($apiCode !== 0) {
+                return;
+            }
+
+            $transactions = $result['body']['data']['statement_transactions'] ?? [];
+            if (!is_array($transactions) || empty($transactions)) {
+                return;
+            }
+
+            // TikTok returns named amount fields per transaction, not typed rows.
+            // Sum across all transactions (usually 1 per order).
+            $commissionTotal     = 0.0;
+            $transactionFeeTotal = 0.0;
+            $shippingFeeTotal    = 0.0;
+            $settlementTotal     = 0.0;
+            $revenueTotal        = 0.0;
+            $platformDiscount    = 0.0;
+
+            foreach ($transactions as $trx) {
+                if (!is_array($trx)) continue;
+
+                $commissionTotal     += abs((float) ($trx['platform_commission_amount'] ?? 0));
+                $transactionFeeTotal += abs((float) ($trx['transaction_fee_amount'] ?? 0));
+                $shippingFeeTotal    += abs((float) ($trx['actual_shipping_fee_amount'] ?? 0));
+                $settlementTotal     += (float) ($trx['settlement_amount'] ?? 0);
+                $revenueTotal        += (float) ($trx['revenue_amount'] ?? 0);
+                $platformDiscount    += abs((float) ($trx['platform_discount_amount'] ?? 0));
+            }
+
+            $fees = is_array($existingFees) ? $existingFees : [];
+            $fees['commission']        = round($commissionTotal, 2);
+            $fees['transaction_fee']   = round($transactionFeeTotal, 2);
+            $fees['shipping_fee']      = round($shippingFeeTotal, 2);
+            $fees['settlement_amount'] = round($settlementTotal, 2);
+            $fees['revenue']           = round($revenueTotal, 2);
+            $fees['platform_discount'] = round($platformDiscount, 2);
+
+            $order->fees = $fees;
+            $order->save();
+        } catch (\Throwable $e) {
+            // Best-effort — don't break the sync
+            Log::warning('TikTok fee fetch failed for order ' . $order->order_id . ': ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Backfill fees for older TikTok orders that don't have fee data yet.
+     */
+    private function backfillMissingFees(TikTokClient $client, array $creds): void
+    {
+        $orders = TikTokOrder::query()
+            ->whereNull('fees')
+            ->whereNotIn('status', ['CANCELLED'])
+            ->get();
+
+        if ($orders->isEmpty()) {
+            $this->info('  No orders need fee backfill.');
+            return;
+        }
+
+        $this->info("  Found {$orders->count()} orders to backfill fees...");
+
+        $filled = 0;
+        foreach ($orders as $order) {
+            $before = $order->fees;
+            $this->fetchFeesIfReady($client, $creds, $order);
+            $after = $order->fresh()->fees;
+
+            if (!empty($after) && $after !== $before) {
+                $filled++;
+            }
+
+            usleep(300000); // 300ms rate limit between API calls
+        }
+
+        $this->info("  Backfilled fees for {$filled}/{$orders->count()} orders.");
     }
 }

@@ -198,24 +198,84 @@
     @endif
 </div>
 
-<div class="card mt-16">
-    <h3 class="section-title mt-0">Payment Summary</h3>
-    <table class="table" style="max-width:400px;">
-        <tbody>
-            @if($totalAmount)
-                <tr><td class="text-secondary">Total Amount</td><td class="text-right font-bold">{{ $currency }}{{ number_format((float)$totalAmount, 2) }}</td></tr>
+<div class="d-flex gap-16 flex-wrap mt-16" style="align-items:flex-start;">
+    <div class="card" style="flex:1; min-width:300px; margin:0;">
+        <h3 class="section-title mt-0">Payment Summary</h3>
+        <table class="table" style="max-width:400px;">
+            <tbody>
+                @if($totalAmount)
+                    <tr><td class="text-secondary">Total Amount</td><td class="text-right font-bold">{{ $currency }}{{ number_format((float)$totalAmount, 2) }}</td></tr>
+                @endif
+                @if($shippingFee)
+                    <tr><td class="text-secondary">Shipping Fee</td><td class="text-right">{{ $currency }}{{ number_format((float)$shippingFee, 2) }}</td></tr>
+                @endif
+                @if($sellerDiscount)
+                    <tr><td class="text-secondary">Seller Discount</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format(abs((float)$sellerDiscount), 2) }}</td></tr>
+                @endif
+                @if($platformDiscount)
+                    <tr><td class="text-secondary">Platform Discount</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format(abs((float)$platformDiscount), 2) }}</td></tr>
+                @endif
+            </tbody>
+        </table>
+    </div>
+
+    @php
+        $fees = is_array($order->fees ?? null) ? $order->fees : [];
+        $fCommission   = abs((float) ($fees['commission'] ?? 0));
+        $fTxnFee       = abs((float) ($fees['transaction_fee'] ?? 0));
+        $fShipping     = abs((float) ($fees['shipping_fee'] ?? 0));
+        $fPlatformDisc = abs((float) ($fees['platform_discount'] ?? 0));
+        $fRevenue      = (float) ($fees['revenue'] ?? 0);
+        $fSettlement   = (float) ($fees['settlement_amount'] ?? 0);
+        $fTotalFees    = $fCommission + $fTxnFee + $fShipping;
+        $hasFees       = $fTotalFees > 0 || $fSettlement > 0;
+    @endphp
+    <div class="card" style="flex:1; min-width:300px; margin:0;">
+        <h3 class="section-title mt-0">Fees & Settlement</h3>
+        @if($hasFees)
+            <table class="table" style="max-width:400px;">
+                <tbody>
+                    @if($fRevenue > 0)
+                        <tr><td class="text-secondary">Revenue</td><td class="text-right font-bold">{{ $currency }}{{ number_format($fRevenue, 2) }}</td></tr>
+                    @endif
+                    @if($fCommission > 0)
+                        <tr><td class="text-secondary">Commission</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format($fCommission, 2) }}</td></tr>
+                    @endif
+                    @if($fTxnFee > 0)
+                        <tr><td class="text-secondary">Transaction Fee</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format($fTxnFee, 2) }}</td></tr>
+                    @endif
+                    @if($fShipping > 0)
+                        <tr><td class="text-secondary">Shipping Fee</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format($fShipping, 2) }}</td></tr>
+                    @endif
+                    @if($fPlatformDisc > 0)
+                        <tr><td class="text-secondary">Platform Discount</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format($fPlatformDisc, 2) }}</td></tr>
+                    @endif
+                    @if($fTotalFees > 0)
+                        <tr style="border-top:1px dashed var(--border);">
+                            <td class="text-secondary font-bold">Total Fees</td>
+                            <td class="text-right font-bold" style="color:#dc2626;">-{{ $currency }}{{ number_format($fTotalFees, 2) }}</td>
+                        </tr>
+                    @endif
+                    @if($fSettlement > 0)
+                        <tr style="border-top:2px solid var(--border);">
+                            <td class="font-bold">Settlement</td>
+                            <td class="text-right font-bold" style="color:var(--success);">{{ $currency }}{{ number_format($fSettlement, 2) }}</td>
+                        </tr>
+                    @endif
+                </tbody>
+            </table>
+            @if($order->payout_status)
+                <div style="margin-top:10px;">
+                    <span class="badge {{ $order->payout_status === 'Paid' ? 'badge-green' : 'badge-yellow' }}">{{ $order->payout_status }}</span>
+                    @if($order->paid_at)
+                        <span class="text-xs text-secondary" style="margin-left:6px;">{{ $order->paid_at->format('M d, Y') }}</span>
+                    @endif
+                </div>
             @endif
-            @if($shippingFee)
-                <tr><td class="text-secondary">Shipping Fee</td><td class="text-right">{{ $currency }}{{ number_format((float)$shippingFee, 2) }}</td></tr>
-            @endif
-            @if($sellerDiscount)
-                <tr><td class="text-secondary">Seller Discount</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format(abs((float)$sellerDiscount), 2) }}</td></tr>
-            @endif
-            @if($platformDiscount)
-                <tr><td class="text-secondary">Platform Discount</td><td class="text-right" style="color:#dc2626;">-{{ $currency }}{{ number_format(abs((float)$platformDiscount), 2) }}</td></tr>
-            @endif
-        </tbody>
-    </table>
+        @else
+            <div class="text-secondary">Fees not yet available. Settlement data appears after TikTok completes the order settlement cycle.</div>
+        @endif
+    </div>
 </div>
 
 <div class="card mt-16">
