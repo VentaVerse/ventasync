@@ -315,22 +315,14 @@ class ExtensionManager
         $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
 
         foreach ($keys as $key) {
-            $label = ucwords(str_replace('_', ' ', preg_replace('/^manage_/', '', $key)));
-
             $existing = DB::table('permissions')->where('key', $key)->first();
 
             if (!$existing) {
                 $permId = DB::table('permissions')->insertGetId([
-                    'key'         => $key,
-                    'label'       => $label,
-                    'description' => '',
+                    'key' => $key,
                 ]);
             } else {
                 $permId = $existing->id;
-                // Fill empty labels
-                if (($existing->label ?? '') === '') {
-                    DB::table('permissions')->where('id', $permId)->update(['label' => $label]);
-                }
             }
 
             // Grant to Administrator group

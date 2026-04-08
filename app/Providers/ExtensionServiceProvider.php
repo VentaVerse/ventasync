@@ -30,6 +30,11 @@ class ExtensionServiceProvider extends ServiceProvider
                 $this->app->register($providerClass);
             }
 
+            $langPath = base_path("extensions/{$id}/lang");
+            if (is_dir($langPath)) {
+                $this->loadTranslationsFrom($langPath);
+            }
+
             // Auto-sync permissions on boot (cached to avoid DB queries every request)
             $cacheKey = 'ext_perms_synced_' . $id . '_' . md5(json_encode($manifests[$id]['permissions'] ?? []));
             if (!cache()->has($cacheKey)) {
