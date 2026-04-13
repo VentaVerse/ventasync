@@ -238,22 +238,42 @@ $q = trim((string) $request->get('q', ''));
     }
 
 if ($q !== '') {
-    // Search ONLY by product name (word-start match on any word)
-    $ids = DB::table($p.'product_description as pd')
+    // Search by name (word-start match), SKU, model, or option SKU
+    $nameIds = DB::table($p.'product_description as pd')
         ->where('pd.language_id', '=', $langId)
         ->where('pd.name', 'like', "%{$q}%")
         ->limit(800)
         ->get(['pd.product_id','pd.name']);
 
     $matched = [];
-    foreach ($ids as $r) {
+    foreach ($nameIds as $r) {
         if ($this->isWordStartMatch((string)$r->name, $q)) {
             $matched[] = (int)$r->product_id;
         }
     }
 
+    // SKU / model match on core product
+    $skuMatched = DB::table($p.'product')
+        ->where(function ($w) use ($q) {
+            $w->where('sku', 'like', "%{$q}%")
+              ->orWhere('model', 'like', "%{$q}%");
+        })
+        ->limit(800)
+        ->pluck('product_id')
+        ->map(fn($v) => (int) $v)
+        ->toArray();
+
+    // Option SKU match (product_option_value.sku)
+    $optSkuMatched = DB::table($p.'product_option_value')
+        ->where('sku', 'like', "%{$q}%")
+        ->limit(800)
+        ->pluck('product_id')
+        ->map(fn($v) => (int) $v)
+        ->toArray();
+
+    $matched = array_values(array_unique(array_merge($matched, $skuMatched, $optSkuMatched)));
+
     if (count($matched) === 0) {
-        // Force empty result
         $query->whereRaw('1=0');
     } else {
         $query->whereIn('p.product_id', array_slice($matched, 0, 800));

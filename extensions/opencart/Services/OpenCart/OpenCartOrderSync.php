@@ -399,12 +399,16 @@ class OpenCartOrderSync
                         if ($firstMatchedPovId > 0) {
                             $optRow = DB::table($pfx . 'product_option_value')
                                 ->where('product_option_value_id', $firstMatchedPovId)
-                                ->first(['cost', 'cost_prefix']);
+                                ->first(['cost', 'cost_prefix', 'absolute_cost']);
                             if ($optRow) {
-                                $delta = (float) $optRow->cost;
-                                $productCost = ($optRow->cost_prefix === '-')
-                                    ? $baseCost - $delta
-                                    : $baseCost + $delta;
+                                if ((float) ($optRow->absolute_cost ?? 0) > 0) {
+                                    $productCost = (float) $optRow->absolute_cost;
+                                } else {
+                                    $delta = (float) $optRow->cost;
+                                    $productCost = ($optRow->cost_prefix === '-')
+                                        ? $baseCost - $delta
+                                        : $baseCost + $delta;
+                                }
                             } else {
                                 $productCost = $baseCost;
                             }

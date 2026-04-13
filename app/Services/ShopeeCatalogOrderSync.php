@@ -29,8 +29,10 @@ class ShopeeCatalogOrderSync
         DB::transaction(function () use ($shopeeOrder) {
             $raw = is_array($shopeeOrder->raw) ? $shopeeOrder->raw : [];
 
-            $statusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
-            $statusId = $statusMap[$shopeeOrder->status ?? ''] ?? 1;
+            $orderStatusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
+            $returnStatusMap = ShopeeOrderStatusMap::where('context', 'return')->pluck('order_status_id', 'shopee_status')->all();
+            $shopeeStatus = $shopeeOrder->status ?? '';
+            $statusId = $orderStatusMap[$shopeeStatus] ?? $returnStatusMap[$shopeeStatus] ?? 1;
 
             // --- Customer name ---
             $buyerUsername = trim((string) ($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? '')));
@@ -251,12 +253,16 @@ class ShopeeCatalogOrderSync
                     if ($resolvedOptionValueId > 0) {
                         $optRow = DB::table($pfx . 'product_option_value')
                             ->where('product_option_value_id', $resolvedOptionValueId)
-                            ->first(['cost', 'cost_prefix']);
+                            ->first(['cost', 'cost_prefix', 'absolute_cost']);
                         if ($optRow) {
-                            $delta = (float) $optRow->cost;
-                            $productCost = ($optRow->cost_prefix === '-')
-                                ? $baseCost - $delta
-                                : $baseCost + $delta;
+                            if ((float) ($optRow->absolute_cost ?? 0) > 0) {
+                                $productCost = (float) $optRow->absolute_cost;
+                            } else {
+                                $delta = (float) $optRow->cost;
+                                $productCost = ($optRow->cost_prefix === '-')
+                                    ? $baseCost - $delta
+                                    : $baseCost + $delta;
+                            }
                         } else {
                             $productCost = $baseCost;
                         }

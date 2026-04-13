@@ -769,6 +769,8 @@
     }
 
     function computeOptionCost(product, option) {
+        var absCost = parseFloat(option.absolute_cost) || 0;
+        if (absCost > 0) return absCost;
         var baseCost = parseFloat(product.cost) || 0;
         var modifier = parseFloat(option.option_cost) || 0;
         if (option.cost_prefix === '-') {

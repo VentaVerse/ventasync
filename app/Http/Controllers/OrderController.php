@@ -422,7 +422,7 @@ class OrderController extends Controller
                     'pov.sku as option_sku', 'pov.quantity as option_qty',
                     'pov.price as option_price', 'pov.price_prefix',
                     'pov.cost as option_cost', 'pov.cost_prefix',
-                    'pov.absolute_price',
+                    'pov.absolute_price', 'pov.absolute_cost',
                     'ovd.name as value_name', 'od.name as option_name'
                 )
                 ->orderBy('pov.product_option_value_id')
