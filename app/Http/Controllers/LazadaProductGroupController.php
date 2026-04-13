@@ -731,8 +731,12 @@ class LazadaProductGroupController extends Controller
                 $listing = LazadaProduct::find($pivot->lazada_product_id);
             }
 
-            // Determine if this is a create or update
-            $isUpdate = $listing && $listing->lazada_item_id && !$listing->lazada_deleted_at;
+            // Skip already-linked products — use "Update on Lazada" for those
+            $isAlreadyLinked = $listing && $listing->lazada_item_id && !$listing->lazada_deleted_at;
+            if ($isAlreadyLinked) {
+                $skipCount++;
+                continue;
+            }
 
             // Create listing record if needed
             if (!$listing) {
@@ -769,6 +773,23 @@ class LazadaProductGroupController extends Controller
                         ->where('product_id', $productId)
                         ->first();
                 }
+            } else {
+                // Sync group settings to existing listing
+                $listing->update([
+                    'primary_category_id' => $group->lazada_category_id,
+                    'markup_fixed'        => $group->markup_fixed,
+                    'markup_percent'      => $group->markup_percent,
+                ]);
+
+                // Sync group attributes
+                $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
+                    ->get(['attribute_key', 'value']);
+                foreach ($groupAttrs as $ga) {
+                    \App\Models\LazadaProductAttribute::updateOrCreate(
+                        ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
+                        ['value' => $ga->value]
+                    );
+                }
             }
 
             // Build payload
@@ -788,24 +809,7 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            // For updates, inject ItemId and SkuId so Lazada knows which product/SKUs to update
-            if ($isUpdate) {
-                $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
-
-                $variantMap = LazadaProductVariant::where('lazada_product_id', $listing->id)
-                    ->whereNotNull('sku_id')
-                    ->pluck('sku_id', 'seller_sku')
-                    ->toArray();
-
-                foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
-                    $sellerSku = $sku['SellerSku'] ?? '';
-                    if (isset($variantMap[$sellerSku])) {
-                        $productPayload['Request']['Product']['Skus']['Sku'][$idx]['SkuId'] = (int) $variantMap[$sellerSku];
-                    }
-                }
-            }
-
-            $apiPath = $isUpdate ? '/product/update' : '/product/create';
+            $apiPath = '/product/create';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
                 'app_key' => (string) $setting->app_key,
@@ -819,7 +823,7 @@ class LazadaProductGroupController extends Controller
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
             LazadaApiLog::safeCreate([
-                'pack' => $isUpdate ? 'lazada.product.update.group' : 'lazada.product.create.group',
+                'pack' => 'lazada.product.create.group',
                 'method' => 'POST', 'api_path' => $apiPath,
                 'auth_required' => true, 'request_params' => $params,
                 'response_status' => (int) ($result['status'] ?? 0),
@@ -830,28 +834,25 @@ class LazadaProductGroupController extends Controller
 
             $e = $this->extractLazadaError($result);
             if ($e['ok']) {
-                if (!$isUpdate) {
-                    // Extract item_id from create response
-                    $body = $result['body'] ?? [];
-                    $data = $body['data'] ?? $body;
-                    $itemId = $data['item_id'] ?? ($data['ItemId'] ?? null);
+                // Extract item_id from create response
+                $body = $result['body'] ?? [];
+                $data = $body['data'] ?? $body;
+                $itemId = $data['item_id'] ?? ($data['ItemId'] ?? null);
 
-                    if ($itemId) {
-                        $listing->lazada_item_id = (string) $itemId;
-                        $listing->lazada_deleted_at = null;
-                        try { $listing->save(); } catch (\Throwable $ex) {}
-                    }
+                if ($itemId) {
+                    $listing->lazada_item_id = (string) $itemId;
+                    $listing->lazada_deleted_at = null;
+                    try { $listing->save(); } catch (\Throwable $ex) {}
                 }
 
                 // Refresh variant cache after push
                 $this->refreshLazadaVariants($listing, $setting, $client);
 
-                $action = $isUpdate ? 'updated' : 'created';
                 $this->persistSyncStatus($listing, 'push', true);
                 if ($pivot) $pivot->update(['sync_status' => 'pushed']);
 
-                ActivityLogger::log($action, 'Lazada Product', $listing->id,
-                    ($isUpdate ? 'Updated' : 'Pushed') . ' ERP #' . $productId . ' to Lazada via product group');
+                ActivityLogger::log('created', 'Lazada Product', $listing->id,
+                    'Pushed ERP #' . $productId . ' to Lazada via product group');
 
                 $okCount++;
             } else {
@@ -864,6 +865,150 @@ class LazadaProductGroupController extends Controller
         }
 
         $summary = "Push: {$okCount} pushed";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (already linked or disabled)";
+        if ($errCount > 0) $summary .= ", {$errCount} failed";
+        if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+
+        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
+    }
+
+    /**
+     * Update existing Lazada listings with latest ERP data.
+     * Only processes products that are already linked to Lazada.
+     */
+    public function updateProduct(Request $request, int $id, LazadaClient $client)
+    {
+        $group = LazadaProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        if (!$group->lazada_category_id) {
+            return $this->productsRedirect($id)->with('error', 'Product Group has no Lazada category configured.');
+        }
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+            return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
+        }
+
+        $lazCtrl = app(LazadaProductController::class);
+
+        $okCount = 0;
+        $skipCount = 0;
+        $errCount = 0;
+        $errors = [];
+
+        foreach ($productIds as $productId) {
+            $pivot = LazadaProductGroupProduct::query()
+                ->where('lazada_product_group_id', $group->id)
+                ->where('product_id', $productId)
+                ->first();
+
+            $listing = null;
+            if ($pivot && $pivot->lazada_product_id) {
+                $listing = LazadaProduct::find($pivot->lazada_product_id);
+            }
+
+            // Only process products that are already linked
+            if (!$listing || !$listing->lazada_item_id || $listing->lazada_deleted_at) {
+                $skipCount++;
+                continue;
+            }
+
+            // Sync group settings to listing
+            $listing->update([
+                'primary_category_id' => $group->lazada_category_id,
+                'markup_fixed'        => $group->markup_fixed,
+                'markup_percent'      => $group->markup_percent,
+            ]);
+
+            $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
+                ->get(['attribute_key', 'value']);
+            foreach ($groupAttrs as $ga) {
+                \App\Models\LazadaProductAttribute::updateOrCreate(
+                    ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
+                    ['value' => $ga->value]
+                );
+            }
+
+            // Build payload
+            try {
+                [$productPayload, $preview] = $lazCtrl->buildLazadaProductCreatePayload($listing, $setting, $client);
+                $productPayload = $lazCtrl->ensureLazadaInlinkImages($productPayload, $setting, $client);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $msg = implode('; ', array_map(fn($m) => implode(', ', $m), $e->errors()));
+                $errors[] = "#{$productId}: {$msg}";
+                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $errCount++;
+                continue;
+            } catch (\Throwable $e) {
+                $errors[] = "#{$productId}: " . $e->getMessage();
+                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $errCount++;
+                continue;
+            }
+
+            // Inject ItemId and SkuId for update
+            $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
+
+            $variantMap = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                ->whereNotNull('sku_id')
+                ->pluck('sku_id', 'seller_sku')
+                ->toArray();
+
+            foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
+                $sellerSku = $sku['SellerSku'] ?? '';
+                if (isset($variantMap[$sellerSku])) {
+                    $productPayload['Request']['Product']['Skus']['Sku'][$idx]['SkuId'] = (int) $variantMap[$sellerSku];
+                }
+            }
+
+            $apiPath = '/product/update';
+            $timestamp = (string) round(microtime(true) * 1000);
+            $params = [
+                'app_key' => (string) $setting->app_key,
+                'sign_method' => 'sha256',
+                'timestamp' => $timestamp,
+                'access_token' => (string) $setting->access_token,
+                'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ];
+            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+
+            $result = $client->post((string) $setting->region, $apiPath, $params);
+
+            LazadaApiLog::safeCreate([
+                'pack' => 'lazada.product.update.group',
+                'method' => 'POST', 'api_path' => $apiPath,
+                'auth_required' => true, 'request_params' => $params,
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? $result,
+                'user_id' => auth()->id(),
+            ]);
+
+            $e = $this->extractLazadaError($result);
+            if ($e['ok']) {
+                $this->refreshLazadaVariants($listing, $setting, $client);
+                $this->persistSyncStatus($listing, 'push', true);
+                if ($pivot) $pivot->update(['sync_status' => 'pushed']);
+
+                ActivityLogger::log('updated', 'Lazada Product', $listing->id,
+                    'Updated ERP #' . $productId . ' on Lazada via product group');
+
+                $okCount++;
+            } else {
+                $errors[] = "#{$productId}: " . ($e['message'] ?? 'Unknown error');
+                if ($pivot) $pivot->update(['sync_status' => 'error']);
+                $errCount++;
+            }
+
+            usleep(300000);
+        }
+
+        $summary = "Update: {$okCount} updated";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (not linked)";
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
 

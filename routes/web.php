@@ -162,6 +162,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/shopee/product-groups/{id}/products', [ShopeeProductGroupController::class, 'products'])->name('shopee.product-groups.products');
         Route::post('/shopee/product-groups/{id}/products/add', [ShopeeProductGroupController::class, 'addProducts'])->name('shopee.product-groups.addProducts');
         Route::post('/shopee/product-groups/{id}/products/push', [ShopeeProductGroupController::class, 'push'])->name('shopee.product-groups.push');
+        Route::post('/shopee/product-groups/{id}/products/update-product', [ShopeeProductGroupController::class, 'updateProduct'])->name('shopee.product-groups.updateProduct');
         Route::post('/shopee/product-groups/{id}/products/push-prices', [ShopeeProductGroupController::class, 'pushPrices'])->name('shopee.product-groups.pushPrices');
         Route::post('/shopee/product-groups/{id}/products/push-stock', [ShopeeProductGroupController::class, 'pushStock'])->name('shopee.product-groups.pushStock');
         Route::post('/shopee/product-groups/{id}/products/mass-remove', [ShopeeProductGroupController::class, 'massRemove'])->name('shopee.product-groups.massRemove');
@@ -257,6 +258,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lazada/product-groups/{id}/products', [LazadaProductGroupController::class, 'products'])->whereNumber('id')->name('lazada.product-groups.products');
         Route::post('/lazada/product-groups/{id}/products/add', [LazadaProductGroupController::class, 'addProducts'])->whereNumber('id')->name('lazada.product-groups.addProducts');
         Route::post('/lazada/product-groups/{id}/products/push', [LazadaProductGroupController::class, 'push'])->whereNumber('id')->name('lazada.product-groups.push');
+        Route::post('/lazada/product-groups/{id}/products/update-product', [LazadaProductGroupController::class, 'updateProduct'])->whereNumber('id')->name('lazada.product-groups.updateProduct');
         Route::post('/lazada/product-groups/{id}/products/push-prices', [LazadaProductGroupController::class, 'pushPrices'])->whereNumber('id')->name('lazada.product-groups.pushPrices');
         Route::post('/lazada/product-groups/{id}/products/push-stock', [LazadaProductGroupController::class, 'pushStock'])->whereNumber('id')->name('lazada.product-groups.pushStock');
         Route::post('/lazada/product-groups/{id}/products/mass-remove', [LazadaProductGroupController::class, 'massRemove'])->whereNumber('id')->name('lazada.product-groups.massRemove');

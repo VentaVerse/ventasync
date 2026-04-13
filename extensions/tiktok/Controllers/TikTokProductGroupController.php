@@ -862,10 +862,16 @@ class TikTokProductGroupController extends Controller
             ->keyBy('product_id');
 
         $created = 0;
-        $updated = 0;
+        $skipped = 0;
         $failed = 0;
 
         foreach ($pivotRows as $pivot) {
+            // Skip already-linked products — use "Update on TikTok" for those
+            if ($pivot->tiktok_product_id) {
+                $skipped++;
+                continue;
+            }
+
             $erp = $erpProducts->get($pivot->product_id);
             if (!$erp) {
                 $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
@@ -923,8 +929,6 @@ class TikTokProductGroupController extends Controller
             if (mb_strlen($desc) > 10000) {
                 $desc = mb_substr($desc, 0, 10000);
             }
-            $isUpdate = (bool) $pivot->tiktok_product_id;
-
             // Convert kg to grams — TikTok strips decimals so 0.3 kg would become 3 kg
             $weightGrams = max(1, (int) round((float) ($erp->weight ?? 0) * 1000));
 
@@ -1002,26 +1006,21 @@ class TikTokProductGroupController extends Controller
 
             if (!empty($imageUris)) {
                 $payload['main_images'] = array_map(fn($uri) => ['uri' => $uri], $imageUris);
-            } elseif (!$isUpdate) {
+            } else {
                 // TikTok requires main_images for new products
                 $pivot->update(['sync_status' => 'error', 'push_error' => 'No product image — TikTok requires at least one main image.']);
                 $failed++;
                 continue;
             }
 
-            if ($isUpdate) {
-                $result = $client->editProduct($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $payload, $c['shop_cipher']);
-                $this->logApi('PUT', '/product/202309/products/' . $pivot->tiktok_product_id, $result);
-            } else {
-                $result = $client->createProduct($c['app_key'], $c['app_secret'], $c['token'], $payload, $c['shop_cipher']);
-                $this->logApi('POST', '/product/202309/products', $result);
-            }
+            $result = $client->createProduct($c['app_key'], $c['app_secret'], $c['token'], $payload, $c['shop_cipher']);
+            $this->logApi('POST', '/product/202309/products', $result);
 
             $apiCode = (int) ($result['body']['code'] ?? -1);
             $apiOk = ($result['ok'] ?? false) && $apiCode === 0;
 
             if ($apiOk) {
-                $ttProductId = $result['body']['data']['product_id'] ?? $pivot->tiktok_product_id;
+                $ttProductId = $result['body']['data']['product_id'] ?? null;
                 $returnedSkus = $result['body']['data']['skus'] ?? [];
 
                 // Store SKU IDs — JSON keyed by option_value_id for multi-variant, plain string for single
@@ -1032,7 +1031,7 @@ class TikTokProductGroupController extends Controller
                     }
                     $ttSkuId = json_encode($skuMap);
                 } else {
-                    $ttSkuId = $returnedSkus[0]['id'] ?? $pivot->tiktok_sku_id;
+                    $ttSkuId = $returnedSkus[0]['id'] ?? null;
                 }
 
                 $pivot->update([
@@ -1042,7 +1041,7 @@ class TikTokProductGroupController extends Controller
                     'last_pushed_at'    => now(),
                     'push_error'        => null,
                 ]);
-                $isUpdate ? $updated++ : $created++;
+                $created++;
             } else {
                 $errMsg = $result['body']['message'] ?? json_encode($result['body'] ?? 'Unknown error');
                 $pivot->update([
@@ -1053,7 +1052,232 @@ class TikTokProductGroupController extends Controller
             }
         }
 
-        return $this->productsRedirect($id)->with('status', "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}");
+        $summary = "Push: {$created} created";
+        if ($skipped > 0) $summary .= ", {$skipped} skipped (already linked)";
+        if ($failed > 0) $summary .= ", {$failed} failed";
+        return $this->productsRedirect($id)->with($created > 0 ? 'status' : 'error', $summary);
+    }
+
+    // ── Update Product ──────────────────────────────────────────
+
+    /**
+     * Update existing TikTok listings with latest ERP data.
+     * Injects TikTok SKU IDs into the payload so edits actually apply.
+     */
+    public function updateProduct(Request $request, int $id)
+    {
+        $group = TikTokProductGroup::findOrFail($id);
+        $c = $this->creds();
+        $client = new TikTokClient();
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $specificIds = $request->input('ids');
+        if (empty($specificIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $intIds = array_map('intval', (array) $specificIds);
+        $pivotRows = $group->groupProducts()->whereIn('product_id', $intIds)->get();
+
+        if ($pivotRows->isEmpty()) {
+            return $this->productsRedirect($id)->with('error', 'No products found.');
+        }
+
+        $productIds = $pivotRows->pluck('product_id')->toArray();
+        $erpProducts = DB::table($pfx . 'product as p')
+            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+                $j->on('p.product_id', '=', 'pd.product_id')
+                    ->where('pd.language_id', '=', $langId);
+            })
+            ->whereIn('p.product_id', $productIds)
+            ->select('p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height')
+            ->get()
+            ->keyBy('product_id');
+
+        $updated = 0;
+        $skipped = 0;
+        $failed = 0;
+
+        foreach ($pivotRows as $pivot) {
+            // Only process products that are already linked
+            if (!$pivot->tiktok_product_id) {
+                $skipped++;
+                continue;
+            }
+
+            $erp = $erpProducts->get($pivot->product_id);
+            if (!$erp) {
+                $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
+                $failed++;
+                continue;
+            }
+
+            // Upload images
+            $imageUris = [];
+            $allImages = [];
+            $mainImg = trim((string) ($erp->image ?? ''));
+            if ($mainImg !== '') {
+                $allImages[] = $mainImg;
+            }
+            $additionalImages = DB::table($pfx . 'product_image')
+                ->where('product_id', $erp->product_id)
+                ->orderBy('sort_order')
+                ->pluck('image')
+                ->toArray();
+            $allImages = array_merge($allImages, $additionalImages);
+            $allImages = array_slice($allImages, 0, 9);
+
+            foreach ($allImages as $imgPath) {
+                $imgPath = trim((string) $imgPath);
+                if ($imgPath === '') continue;
+                $fullPath = public_path('storage/' . ltrim($imgPath, '/'));
+                if (!file_exists($fullPath)) continue;
+
+                $imageData = $this->squareImage($fullPath) ?: file_get_contents($fullPath);
+                $imgResult = $client->uploadImage($c['app_key'], $c['app_secret'], $c['token'], $imageData);
+                $this->logApi('POST', '/product/202309/images/upload', $imgResult);
+                if ($imgResult['ok'] ?? false) {
+                    $uri = $imgResult['body']['data']['uri'] ?? null;
+                    if ($uri) {
+                        $imageUris[] = $uri;
+                    }
+                }
+            }
+
+            $price = $group->applyMarkup((float) $erp->price);
+            $title = $erp->name ?: ('Product ' . $erp->product_id);
+            $rawDesc = (string) ($erp->description ?? '');
+            $rawDesc = preg_replace('/<br\s*\/?>/i', "\n", $rawDesc);
+            $rawDesc = preg_replace('/<\/p>\s*/i', "\n\n", $rawDesc);
+            $desc = trim(strip_tags($rawDesc));
+            if (strlen($desc) < 1) {
+                $desc = $title;
+            }
+            if (mb_strlen($desc) > 10000) {
+                $desc = mb_substr($desc, 0, 10000);
+            }
+
+            $weightGrams = max(1, (int) round((float) ($erp->weight ?? 0) * 1000));
+
+            if (mb_strlen($title) < 25) {
+                $title = str_pad($title, 25, ' — Product from ERP');
+            }
+
+            // Build SKUs with TikTok SKU IDs injected for update
+            $optionValues = $this->getProductOptionValues($pfx, $erp->product_id);
+            $skus = [];
+
+            // Parse existing SKU IDs from pivot
+            $existingSkuIds = [];
+            if ($pivot->tiktok_sku_id) {
+                $decoded = json_decode($pivot->tiktok_sku_id, true);
+                if (is_array($decoded)) {
+                    $existingSkuIds = $decoded; // keyed by option_value_id
+                }
+            }
+
+            if (!empty($optionValues)) {
+                $optionName = $optionValues[0]->option_name;
+                foreach ($optionValues as $ov) {
+                    $ovPrice = $this->resolveOptionPrice((float) $erp->price, $ov);
+                    $ovPrice = $group->applyMarkup($ovPrice);
+                    $sku = [
+                        'seller_sku' => $ov->sku ?: ($erp->sku . '-' . $ov->option_value_id),
+                        'sales_attributes' => [
+                            ['name' => $optionName, 'value_name' => $ov->value_name],
+                        ],
+                        'price' => [
+                            'amount'   => (string) round($ovPrice),
+                            'currency' => 'PHP',
+                        ],
+                        'inventory' => [
+                            array_filter([
+                                'warehouse_id' => $c['warehouse_id'] ?: null,
+                                'quantity' => max(0, (int) $ov->quantity),
+                            ]),
+                        ],
+                    ];
+                    // Inject TikTok SKU ID for update
+                    if (isset($existingSkuIds[$ov->option_value_id])) {
+                        $sku['id'] = (string) $existingSkuIds[$ov->option_value_id];
+                    }
+                    $skus[] = $sku;
+                }
+            } else {
+                $sku = [
+                    'seller_sku' => $erp->sku ?: $erp->model ?: (string) $erp->product_id,
+                    'price' => [
+                        'amount'   => (string) round($price),
+                        'currency' => 'PHP',
+                    ],
+                    'inventory' => [
+                        array_filter([
+                            'warehouse_id' => $c['warehouse_id'] ?: null,
+                            'quantity' => max(0, (int) $erp->quantity),
+                        ]),
+                    ],
+                ];
+                // Inject TikTok SKU ID for single-variant update
+                if ($pivot->tiktok_sku_id && !is_array(json_decode($pivot->tiktok_sku_id, true))) {
+                    $sku['id'] = (string) $pivot->tiktok_sku_id;
+                }
+                $skus[] = $sku;
+            }
+
+            $payload = [
+                'title'            => $title,
+                'description'      => $desc,
+                'category_id'      => $group->tiktok_category_id,
+                'category_version' => 'v2',
+                'package_weight' => [
+                    'unit'  => 'GRAM',
+                    'value' => (string) $weightGrams,
+                ],
+                'skus'             => $skus,
+            ];
+
+            $length = max(1, (int) round((float) ($erp->length ?? 0)));
+            $width  = max(1, (int) round((float) ($erp->width ?? 0)));
+            $height = max(1, (int) round((float) ($erp->height ?? 0)));
+            $payload['package_dimensions'] = [
+                'unit'   => 'CENTIMETER',
+                'length' => (string) $length,
+                'width'  => (string) $width,
+                'height' => (string) $height,
+            ];
+
+            if (!empty($imageUris)) {
+                $payload['main_images'] = array_map(fn($uri) => ['uri' => $uri], $imageUris);
+            }
+
+            $result = $client->editProduct($c['app_key'], $c['app_secret'], $c['token'], $pivot->tiktok_product_id, $payload, $c['shop_cipher']);
+            $this->logApi('PUT', '/product/202309/products/' . $pivot->tiktok_product_id, $result);
+
+            $apiCode = (int) ($result['body']['code'] ?? -1);
+            $apiOk = ($result['ok'] ?? false) && $apiCode === 0;
+
+            if ($apiOk) {
+                $pivot->update([
+                    'sync_status'    => 'pushed',
+                    'last_pushed_at' => now(),
+                    'push_error'     => null,
+                ]);
+                $updated++;
+            } else {
+                $errMsg = $result['body']['message'] ?? json_encode($result['body'] ?? 'Unknown error');
+                $pivot->update([
+                    'sync_status' => 'error',
+                    'push_error'  => $errMsg,
+                ]);
+                $failed++;
+            }
+        }
+
+        $summary = "Update: {$updated} updated";
+        if ($skipped > 0) $summary .= ", {$skipped} skipped (not linked)";
+        if ($failed > 0) $summary .= ", {$failed} failed";
+        return $this->productsRedirect($id)->with($updated > 0 ? 'status' : 'error', $summary);
     }
 
     // ── Push Prices ─────────────────────────────────────────────
@@ -1125,7 +1349,8 @@ class TikTokProductGroupController extends Controller
             );
             $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/prices/update', $result);
 
-            ($result['ok'] ?? false) ? $ok++ : $fail++;
+            $apiOk = ($result['ok'] ?? false) && (int) ($result['body']['code'] ?? -1) === 0;
+            $apiOk ? $ok++ : $fail++;
         }
 
         return $this->productsRedirect($id)
@@ -1203,7 +1428,8 @@ class TikTokProductGroupController extends Controller
             );
             $this->logApi('POST', '/product/202309/products/' . $pivot->tiktok_product_id . '/inventory/update', $result);
 
-            ($result['ok'] ?? false) ? $ok++ : $fail++;
+            $apiOk = ($result['ok'] ?? false) && (int) ($result['body']['code'] ?? -1) === 0;
+            $apiOk ? $ok++ : $fail++;
         }
 
         $c['setting']->update(['last_stock_push_at' => now()]);

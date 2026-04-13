@@ -914,6 +914,162 @@ class ShopeeProductGroupController extends Controller
         return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
     }
 
+    /**
+     * Update existing Shopee listings with latest ERP data (name, description, images, weight, dimensions).
+     * Also syncs price and stock via their dedicated Shopee endpoints.
+     */
+    public function updateProduct(Request $request, int $id, ShopeeClient $client)
+    {
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $okCount = 0;
+        $skipCount = 0;
+        $errCount = 0;
+        $errors = [];
+
+        foreach ($productIds as $productId) {
+            // Only process products that are already linked to Shopee
+            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            if (!$link || !$link->shopee_item_id) {
+                $skipCount++;
+                continue;
+            }
+
+            $itemId = (int) $link->shopee_item_id;
+
+            $product = DB::table($pfx . 'product as p')
+                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+                    $j->on('p.product_id', '=', 'pd.product_id')
+                      ->where('pd.language_id', '=', $langId);
+                })
+                ->where('p.product_id', $productId)
+                ->first([
+                    'p.product_id', 'pd.name', 'pd.description', 'p.image',
+                    'p.sku', 'p.price', 'p.quantity', 'p.status',
+                    'p.weight', 'p.length', 'p.width', 'p.height',
+                ]);
+
+            if (!$product || (int) $product->status === 0) {
+                $errors[] = "#{$productId}: Product not found or disabled";
+                $errCount++;
+                continue;
+            }
+
+            $itemName = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $description = trim(strip_tags(html_entity_decode($product->description ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            if (trim($itemName) === '' || trim($description) === '' || (float) $product->weight <= 0) {
+                $errors[] = "#{$productId}: Missing name/description/weight";
+                $errCount++;
+                continue;
+            }
+
+            // Upload images
+            $imagePaths = [];
+            if (!empty($product->image)) $imagePaths[] = $product->image;
+            $additionalImages = DB::table($pfx . 'product_image')
+                ->where('product_id', $productId)
+                ->orderBy('sort_order')
+                ->pluck('image')
+                ->toArray();
+            $imagePaths = array_merge($imagePaths, $additionalImages);
+
+            $imageIds = [];
+            foreach ($imagePaths as $imgPath) {
+                $localPath = $this->resolveLocalImagePath($imgPath);
+                if (!$localPath || !file_exists($localPath)) continue;
+
+                $uploadResult = $this->uploadImage($client, $setting, $localPath);
+                if ($uploadResult['ok'] ?? false) {
+                    $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
+                    if ($imgId) $imageIds[] = (string) $imgId;
+                } else {
+                    break;
+                }
+            }
+
+            // Build update payload
+            $payload = [
+                'item_id' => $itemId,
+                'description' => mb_substr($description, 0, 5000),
+                'item_name' => mb_substr($itemName, 0, 255),
+                'item_sku' => (string) ($product->sku ?? ''),
+                'weight' => (float) $product->weight,
+                'dimension' => [
+                    'package_length' => max(1, (int) $product->length),
+                    'package_width' => max(1, (int) $product->width),
+                    'package_height' => max(1, (int) $product->height),
+                ],
+            ];
+
+            // Only include images if we successfully uploaded at least one
+            if (!empty($imageIds)) {
+                $payload['image'] = ['image_id_list' => $imageIds];
+            }
+
+            $path = '/api/v2/product/update_item';
+            $result = $client->shopPost(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id, (string) $setting->partner_key,
+                (string) $setting->access_token, (int) $setting->shop_id,
+                $path, [], $payload
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack' => 'shopee.products.update_item.group', 'method' => 'POST', 'api_path' => $path,
+                'auth_required' => true, 'request_params' => $payload,
+                'response_status' => $result['status'] ?? null, 'ok' => (bool) ($result['ok'] ?? false),
+                'response_body' => $result['body'] ?? null, 'user_id' => auth()->id(),
+            ]);
+
+            $body = $result['body'] ?? [];
+            $respError = is_array($body) ? ($body['error'] ?? '') : '';
+
+            if (($result['ok'] ?? false) && $respError === '') {
+                // Also update price and stock via dedicated endpoints
+                $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+                $this->pushPriceForLinks($client, $setting, $pfx, $links, $group);
+                $this->pushStockForLinks($client, $setting, $pfx, $links);
+
+                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                    ->where('product_id', $productId)
+                    ->update(['sync_status' => 'pushed']);
+
+                ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');
+                $okCount++;
+            } else {
+                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
+                $errors[] = "#{$productId}: {$msg}";
+
+                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                    ->where('product_id', $productId)
+                    ->update(['sync_status' => 'error', 'push_error' => $msg]);
+
+                $errCount++;
+            }
+
+            usleep(300000);
+        }
+
+        $summary = "Update: {$okCount} updated";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (not linked)";
+        if ($errCount > 0) $summary .= ", {$errCount} failed";
+        if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+
+        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
+    }
+
     public function pushPrices(Request $request, int $id, ShopeeClient $client)
     {
         $group = ShopeeProductGroup::findOrFail($id);
