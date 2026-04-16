@@ -175,30 +175,171 @@
     border-top: 1px dashed var(--border-light, #e2e8f0);
 }
 
-/* Extensions list (merged page) */
-.ext-list { display: flex; flex-direction: column; gap: 12px; }
+/* ============================================================
+   EXTENSIONS / LICENSES — compact row layout
+   ============================================================ */
+.ext-list { display: flex; flex-direction: column; gap: 8px; }
 
+.ext-row {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border-light, #e2e8f0);
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.03));
+}
+.ext-row.core-row {
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.03), transparent);
+}
+
+.ext-row-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.ext-row-title-block { min-width: 0; flex: 1 1 auto; }
+
+.ext-row-titleline {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ext-row-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text, #0f172a);
+    margin: 0;
+    line-height: 1.25;
+}
 .ext-version {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary, #64748b);
     background: rgba(148, 163, 184, 0.12);
-    padding: 2px 7px;
+    padding: 1px 6px;
     border-radius: 999px;
-    margin-left: 4px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
-    vertical-align: middle;
+}
+.ext-author {
+    font-size: 11px;
+    color: var(--text-secondary, #94a3b8);
 }
 
-.ext-controls {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border-light, #e2e8f0);
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+.ext-desc {
+    font-size: 12px;
+    color: var(--text-secondary, #64748b);
+    margin: 3px 0 0;
+    line-height: 1.45;
 }
-.ext-controls .btn:disabled {
+
+.ext-row-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Single-line metadata strip with dot separators */
+.ext-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 12px;
+    color: var(--text, #0f172a);
+    margin: 6px 0 10px;
+    line-height: 1.6;
+}
+.ext-meta-item {
+    position: relative;
+    padding-right: 14px;
+}
+.ext-meta-item:not(:last-child)::after {
+    content: "•";
+    position: absolute;
+    right: 0;
+    color: var(--text-secondary, #cbd5e1);
+    opacity: 0.6;
+}
+.ext-meta-item.soft { color: var(--text-secondary, #64748b); }
+.ext-meta-item.maint-expired {
+    color: #b45309;
+    font-weight: 600;
+}
+.ext-meta-label {
+    color: var(--text-secondary, #94a3b8);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 2px;
+}
+.ext-meta code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    background: rgba(148, 163, 184, 0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11.5px;
+}
+
+.ext-domain-warn {
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #b91c1c;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.ext-row-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-light, #e2e8f0);
+}
+.ext-row-actions .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.ext-activate-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex: 1 1 auto;
+    max-width: 520px;
+}
+.ext-activate-form input[type="text"] {
+    flex: 1;
+    min-width: 160px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-light, #e2e8f0);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    background: var(--surface, #ffffff);
+    color: var(--text, #0f172a);
+}
+
+.ext-actions-spacer { flex-grow: 1; }
+
+/* Tighter pill on compact rows */
+.ext-row .lic-pill {
+    font-size: 10px;
+    padding: 3px 8px;
+}
+
+@media (max-width: 640px) {
+    .ext-row-actions { flex-direction: column; align-items: stretch; }
+    .ext-activate-form { max-width: 100%; }
+    .ext-activate-form, .ext-row-actions > form { width: 100%; }
+    .ext-actions-spacer { display: none; }
 }
