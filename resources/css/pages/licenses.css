@@ -174,3 +174,31 @@
     padding-top: 12px;
     border-top: 1px dashed var(--border-light, #e2e8f0);
 }
+
+/* Extensions list (merged page) */
+.ext-list { display: flex; flex-direction: column; gap: 12px; }
+
+.ext-version {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary, #64748b);
+    background: rgba(148, 163, 184, 0.12);
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 4px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    vertical-align: middle;
+}
+
+.ext-controls {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-light, #e2e8f0);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ext-controls .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

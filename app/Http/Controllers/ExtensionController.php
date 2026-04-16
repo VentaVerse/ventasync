@@ -16,35 +16,28 @@ class ExtensionController extends Controller
     public function index(ExtensionManager $manager, LicenseService $license)
     {
         $extensions = collect($manager->all())->map(function ($ext) use ($license) {
-            $ext['license_status'] = 'free';
-            $ext['license_label'] = 'Free';
-
             if (!empty($ext['license_required'])) {
-                $stored = $license->getStoredLicense($ext['id']);
-                if (!$stored) {
-                    $ext['license_status'] = 'unactivated';
-                    $ext['license_label'] = 'Unlicensed';
-                } elseif ($stored->is_revoked) {
-                    $ext['license_status'] = 'revoked';
-                    $ext['license_label'] = 'Revoked';
-                } elseif ($stored->isExpired()) {
-                    $ext['license_status'] = 'expired';
-                    $ext['license_label'] = 'Expired';
-                } elseif ($stored->isTrial()) {
-                    $ext['license_status'] = 'trial';
-                    $ext['license_label'] = 'Trial';
-                } elseif ($license->isModuleLicensed($ext['id'])) {
-                    $ext['license_status'] = 'licensed';
-                    $ext['license_label'] = 'Licensed';
-                }
+                $ext['_license'] = $license->getStoredLicense($ext['id']);
+                $ext['_is_licensed'] = $license->isModuleLicensed($ext['id']);
+            } else {
+                $ext['_license'] = null;
+                $ext['_is_licensed'] = true;
             }
             return $ext;
         })->all();
 
-        return view('extensions.index', compact('extensions'));
+        $coreSlug = $license->coreSlug();
+
+        return view('extensions.index', [
+            'extensions' => $extensions,
+            'coreSlug' => $coreSlug,
+            'coreLicense' => $license->getStoredLicense($coreSlug),
+            'coreIsLicensed' => $license->isCoreLicensed(),
+            'domain' => request()->getHost(),
+        ]);
     }
 
-    public function toggle(Request $request, ExtensionManager $manager, string $id)
+    public function toggle(Request $request, ExtensionManager $manager, LicenseService $license, string $id)
     {
         $extension = Extension::find($id);
 
@@ -54,13 +47,17 @@ class ExtensionController extends Controller
 
         if ($extension->enabled) {
             $manager->disable($id);
-            $action = 'disabled';
-        } else {
-            $manager->enable($id);
-            $action = 'enabled';
+            return back()->with('success', "Extension '{$extension->name}' disabled.");
         }
 
-        return back()->with('success', "Extension '{$extension->name}' {$action}.");
+        // Gate enabling on an active license when license_required=true.
+        $manifest = $manager->getManifest($id) ?? [];
+        if (!empty($manifest['license_required']) && !$license->isModuleLicensed($id)) {
+            return back()->with('error', "Activate the license for '{$extension->name}' before enabling it.");
+        }
+
+        $manager->enable($id);
+        return back()->with('success', "Extension '{$extension->name}' enabled.");
     }
 
     public function install(Request $request, ExtensionManager $manager)

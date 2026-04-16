@@ -6,6 +6,12 @@
 @if(session('success'))
     <div class="alert success">{{ session('success') }}</div>
 @endif
+@if(session('error'))
+    <div class="alert danger">{{ session('error') }}</div>
+@endif
+@if(session('info'))
+    <div class="alert info">{{ session('info') }}</div>
+@endif
 
 <div class="card">
     <div class="page-header">
@@ -19,81 +25,42 @@
         </div>
     </div>
 
-    @if(count($extensions) > 0)
-    <div class="table-wrap">
-    <table>
-        <thead>
-        <tr>
-            <th>Name</th>
-            <th style="width:90px;">Version</th>
-            <th>Description</th>
-            <th style="width:100px;">Status</th>
-            <th style="width:200px;">License</th>
-            <th style="width:180px;">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach($extensions as $ext)
-            <tr>
-                <td>
-                    <strong>{{ $ext['name'] }}</strong>
-                    @if($ext['author'])
-                        <br><span class="text-secondary" style="font-size:12px;">{{ $ext['author'] }}</span>
-                    @endif
-                </td>
-                <td>{{ $ext['version'] }}</td>
-                <td>{{ $ext['description'] }}</td>
-                <td>
-                    @if($ext['installed'])
-                        @if($ext['enabled'])
-                            <span class="badge badge-green">Enabled</span>
-                        @else
-                            <span class="badge badge-gray">Disabled</span>
-                        @endif
-                    @else
-                        <span class="text-secondary" style="font-size:12px;">Not installed</span>
-                    @endif
-                </td>
-                <td>
-                    @if($ext['license_required'])
-                        @if($ext['installed'])
-                            <a href="{{ route('licenses.index') }}#{{ $ext['id'] }}" class="lic-pill {{ $ext['license_status'] }}" style="text-decoration:none;">
-                                <span class="lic-pill-dot"></span>{{ $ext['license_label'] }}
-                            </a>
-                        @else
-                            <span class="text-secondary" style="font-size:12px;">License required</span>
-                        @endif
-                    @else
-                        <span class="text-secondary" style="font-size:12px;">Free</span>
-                    @endif
-                </td>
-                <td class="d-flex gap-8 items-center">
-                    @if($ext['installed'])
-                        <form method="POST" action="{{ route('extensions.toggle', $ext['id']) }}" style="display:inline;">
-                            @csrf
-                            <button class="btn small {{ $ext['enabled'] ? 'secondary' : '' }}" type="submit">
-                                {{ $ext['enabled'] ? 'Disable' : 'Enable' }}
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ route('extensions.uninstall', $ext['id']) }}" data-confirm="Uninstall {{ $ext['name'] }}? All extension data and database tables will be deleted. Files will be kept so you can reinstall later." style="display:inline;">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn danger small" type="submit">Uninstall</button>
-                        </form>
-                    @else
-                        <form method="POST" action="{{ route('extensions.reinstall', $ext['id']) }}" style="display:inline;">
-                            @csrf
-                            <button class="btn small" type="submit">Install</button>
-                        </form>
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
+    <div class="lic-page">
+        {{-- Core maintenance banner --}}
+        @if($coreLicense && $coreLicense->maintenanceExpired())
+            <div class="lic-banner warn">
+                <svg class="lic-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                <div>
+                    <strong>Support &amp; updates expired</strong> on {{ $coreLicense->maintenance_expires_at->format('F j, Y') }}.
+                    Your ERP continues to work, but you are no longer receiving updates or support.
+                    <a href="mailto:sales@example.com">Renew maintenance</a> to resume.
+                </div>
+            </div>
+        @endif
+
+        {{-- Core License --}}
+        <div class="lic-section-title">Core</div>
+        <div class="lic-list">
+            @include('licenses.partials._card', [
+                'slug' => $coreSlug,
+                'title' => 'VentaSync Core',
+                'subtitle' => 'The ERP itself. Required for the application to run.',
+                'license' => $coreLicense,
+                'isLicensed' => $coreIsLicensed,
+                'domain' => $domain,
+            ])
+        </div>
     </div>
+
+    @if(count($extensions) > 0)
+        <h3 class="lic-section-title" style="margin-top:24px; margin-bottom:12px;">Installed Extensions</h3>
+        <div class="ext-list">
+            @foreach($extensions as $ext)
+                @include('extensions.partials._row', ['ext' => $ext, 'domain' => $domain])
+            @endforeach
+        </div>
     @else
-    <p style="padding:24px; color:var(--text-secondary); text-align:center;">No extensions installed. Upload a <code>.erpx</code> or <code>.zip</code> file to get started.</p>
+        <p style="padding:24px; color:var(--text-secondary); text-align:center;">No extensions installed. Upload a <code>.erpx</code> or <code>.zip</code> file to get started.</p>
     @endif
 </div>
 @endsection

@@ -148,6 +148,12 @@ class ExtensionManager
             return false;
         }
 
+        // Preserve the existing enabled state on re-install; only default-disable
+        // for brand-new rows. This way an admin reinstalling doesn't lose their
+        // prior enable/disable preference.
+        $existing = Extension::find($id);
+        $enabled = $existing ? $existing->enabled : false;
+
         Extension::updateOrCreate(
             ['id' => $id],
             [
@@ -155,7 +161,7 @@ class ExtensionManager
                 'version'     => $manifest['version'] ?? '1.0.0',
                 'description' => $manifest['description'] ?? null,
                 'author'      => $manifest['author'] ?? null,
-                'enabled'     => true,
+                'enabled'     => $enabled,
                 'manifest'    => $manifest,
             ]
         );

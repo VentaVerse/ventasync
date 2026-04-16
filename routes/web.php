@@ -397,8 +397,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/error-log/clear', [\App\Http\Controllers\ErrorLogController::class, 'clear'])->name('error_log.clear');
         Route::post('/error-log/test', [\App\Http\Controllers\ErrorLogController::class, 'test'])->name('error_log.test');
 
-        // Licenses (Settings)
-        Route::get('/licenses', [\App\Http\Controllers\LicenseController::class, 'index'])->name('licenses.index');
+        // License activate/revalidate endpoints (POSTs only — UI lives on the Extensions page).
         Route::post('/licenses/{slug}/activate', [\App\Http\Controllers\LicenseController::class, 'activate'])
             ->where('slug', '[A-Za-z0-9_-]+')
             ->name('licenses.activate');
