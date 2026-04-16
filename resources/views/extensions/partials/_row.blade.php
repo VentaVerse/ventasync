@@ -82,8 +82,8 @@
                     </div>
                 @endif
                 <div>
-                    <div class="lic-kv-key">Last Validated</div>
-                    <div class="lic-kv-val soft">{{ $license->last_validated_at?->diffForHumans() ?? '—' }}</div>
+                    <div class="lic-kv-key">Activated</div>
+                    <div class="lic-kv-val soft">{{ $license->activated_at?->format('M j, Y') ?? '—' }}</div>
                 </div>
             </div>
 
@@ -101,13 +101,6 @@
                 <input type="text" name="license_key" placeholder="Enter or replace license key" autocomplete="off" spellcheck="false" required>
                 <button type="submit" class="btn">{{ $license ? 'Replace Key' : 'Activate' }}</button>
             </form>
-
-            @if($license)
-                <form method="POST" action="{{ route('licenses.revalidate', $ext['id']) }}">
-                    @csrf
-                    <button type="submit" class="btn secondary">Re-validate</button>
-                </form>
-            @endif
         </div>
     @endif
 
