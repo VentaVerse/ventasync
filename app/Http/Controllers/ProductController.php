@@ -127,8 +127,12 @@ private function isWordStartMatch(string $haystack, string $term): bool
             $path = trim($path);
             if ($path === '') continue;
 
-            // Accept only catalog/* and allowed image extensions
-            if (!Str::startsWith($path, 'catalog/')) continue;
+            if (str_contains($path, '..')) continue;
+
+            $isCatalog = Str::startsWith($path, 'catalog/');
+            $isTemp = Str::startsWith($path, 'tmp/product-images/');
+            if (!$isCatalog && !$isTemp) continue;
+
             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
             if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
 
@@ -554,7 +558,8 @@ $pfx = config('catalog.prefix');
 
 public function store(Request $request)
     {
-        $pfxProduct = config('catalog.prefix') . 'product';
+        $pfx = config('catalog.prefix');
+        $pfxProduct = $pfx . 'product';
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -686,8 +691,13 @@ public function store(Request $request)
 
             // Save product images (main + additional)
             if ($request->has('images_json')) {
-                $items = $this->imagesFromRequest($request->input('images_json'));
-                $paths = $this->imagePathsFromItems($items);
+                $paths = $this->imagesFromRequest($request->input('images_json'));
+                $token = (string) $request->input('pim_token', '');
+                if ($token !== '' && !empty($paths)) {
+                    $items = array_map(fn($pth) => ['path' => $pth], $paths);
+                    $finalized = $this->finalizeTempImages($token, '', (int) $p->product_id, $items);
+                    $paths = array_map(fn($it) => $it['path'], $finalized);
+                }
                 $this->saveProductImages((int) $p->product_id, $paths);
             }
 
@@ -1195,8 +1205,13 @@ return view('products.edit', compact('product', 'currentCategoryId', 'categoryNa
             }
             // Save product images (main + additional)
             if ($request->has('images_json')) {
-                $items = $this->imagesFromRequest($request->input('images_json'));
-                $paths = $this->imagePathsFromItems($items);
+                $paths = $this->imagesFromRequest($request->input('images_json'));
+                $token = (string) $request->input('pim_token', '');
+                if ($token !== '' && !empty($paths)) {
+                    $items = array_map(fn($pth) => ['path' => $pth], $paths);
+                    $finalized = $this->finalizeTempImages($token, '', (int) $id, $items);
+                    $paths = array_map(fn($it) => $it['path'], $finalized);
+                }
                 $this->saveProductImages((int) $id, $paths);
             }
         });

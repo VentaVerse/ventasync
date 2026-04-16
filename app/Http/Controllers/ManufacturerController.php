@@ -116,6 +116,44 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
         return redirect()->route('manufacturers.index')->with('status', 'Deleted selected manufacturers.');
     }
 
+    public function storeInline(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:64',
+            'sort_order' => 'nullable|integer',
+        ]);
+
+        $name = trim($data['name']);
+
+        $existing = Manufacturer::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name, 'UTF-8')])
+            ->first(['manufacturer_id', 'name']);
+
+        if ($existing) {
+            return response()->json([
+                'ok' => true,
+                'id' => (int) $existing->manufacturer_id,
+                'name' => (string) $existing->name,
+                'created' => false,
+            ]);
+        }
+
+        $m = Manufacturer::create([
+            'name' => $name,
+            'image' => null,
+            'sort_order' => (int) ($data['sort_order'] ?? 0),
+        ]);
+
+        ActivityLogger::log('created', 'Manufacturer', (int) $m->manufacturer_id, $name);
+
+        return response()->json([
+            'ok' => true,
+            'id' => (int) $m->manufacturer_id,
+            'name' => (string) $m->name,
+            'created' => true,
+        ], 201);
+    }
+
     public function lookup(Request $request)
     {
         $q = trim((string) $request->get('q', ''));

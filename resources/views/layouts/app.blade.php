@@ -1012,6 +1012,21 @@ document.addEventListener('mousemove', function(e) {
           empty.style.cssText = 'padding:8px 12px;color:#94a3b8;font-size:13px;';
           empty.textContent = isMulti && items.length > 0 ? 'All matches already selected' : 'No results found';
           list.appendChild(empty);
+          if(typeof opts.onEmpty === 'function'){
+            var action = opts.onEmpty(query, {
+              select: function(id, name){
+                input.value = name;
+                if(hidden) hidden.value = String(id);
+                clearList();
+                input.classList.remove('input-error');
+                if(opts.onSelect) opts.onSelect({id: id, name: name});
+              },
+              close: clearList,
+            });
+            if(action && action.nodeType === 1){
+              list.appendChild(action);
+            }
+          }
           showList();
         } else { hideList(); }
         return;
@@ -1131,6 +1146,47 @@ document.addEventListener('mousemove', function(e) {
         if (nameField && !(nameField.value || '').trim()) {
           nameField.focus();
         }
+      },
+      onEmpty: function(query, api){
+        var row = document.createElement('div');
+        row.style.cssText = 'padding:8px 12px;border-top:1px solid var(--border-light,#e2e8f0);';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn secondary';
+        btn.style.cssText = 'font-size:12px;padding:6px 10px;width:100%;justify-content:flex-start;text-align:left;';
+        btn.textContent = 'Add manufacturer: "' + query + '"';
+        btn.addEventListener('mousedown', async function(e){
+          e.preventDefault();
+          btn.disabled = true;
+          btn.textContent = 'Creating…';
+          try{
+            var res = await fetch(@json(route('api.catalog.manufacturers.store')), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': @json(csrf_token()),
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              credentials: 'same-origin',
+              body: JSON.stringify({name: query}),
+            });
+            var data = await res.json().catch(function(){ return {}; });
+            if(!res.ok || !data.ok){
+              btn.disabled = false;
+              btn.textContent = (data && data.message) ? data.message : 'Failed to create — click to retry';
+              return;
+            }
+            api.select(data.id, data.name);
+          } catch(err){
+            btn.disabled = false;
+            btn.textContent = 'Network error — click to retry';
+          }
+        });
+
+        row.appendChild(btn);
+        return row;
       }
     });
 

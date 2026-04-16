@@ -140,8 +140,8 @@ class ProductImageController extends Controller
         if (str_contains($path, '..')) {
             abort(422, 'Invalid path.');
         }
-        // allow letters, numbers, space, underscore, dash, and slashes
-        if (!preg_match('#^[A-Za-z0-9/_\- ]+$#', $path)) {
+        // allow letters, numbers, space, underscore, dash, dot, ampersand, apostrophe, and slashes
+        if (!preg_match('#^[A-Za-z0-9/_\- .&\']+$#', $path)) {
             abort(422, 'Invalid path.');
         }
         return $path;
@@ -382,6 +382,70 @@ class ProductImageController extends Controller
         ]);
     }
 
+    public function importUrlToCatalog(Request $request)
+    {
+        $request->validate([
+            'url' => 'required|string|max:2048',
+            'path' => 'nullable|string|max:255',
+        ]);
+
+        $this->tmpCleanup();
+
+        $sub = $this->normalizeCatalogSubPath((string) ($request->path ?? ''));
+        $dir = 'catalog' . ($sub !== '' ? '/' . $sub : '');
+
+        $url = trim((string) $request->url);
+        if (!preg_match('#^https?://#i', $url)) {
+            return response()->json(['ok' => false, 'message' => 'Invalid URL.'], 422);
+        }
+
+        $contents = @file_get_contents($url);
+        if ($contents === false) {
+            return response()->json(['ok' => false, 'message' => 'Unable to download image from URL.'], 422);
+        }
+
+        $pathPart = parse_url($url, PHP_URL_PATH) ?: '';
+        $name = basename($pathPart) ?: ('image_' . date('Ymd_His') . '.jpg');
+        $name = preg_replace('/[^A-Za-z0-9._-]/', '_', $name);
+
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            $tmp = tempnam(sys_get_temp_dir(), 'img');
+            file_put_contents($tmp, $contents);
+            $info = @getimagesize($tmp);
+            @unlink($tmp);
+            if ($info && isset($info[2])) {
+                $ext = match ((int) $info[2]) {
+                    IMAGETYPE_PNG => 'png',
+                    IMAGETYPE_WEBP => 'webp',
+                    default => 'jpg',
+                };
+            } else {
+                $ext = 'jpg';
+            }
+            $name = pathinfo($name, PATHINFO_FILENAME) . '.' . $ext;
+        }
+
+        $disk = Storage::disk('public');
+        $tmpRel = 'tmp/product-images/' . Str::uuid()->toString() . '.' . $ext;
+        $disk->put($tmpRel, $contents);
+        $absTmp = $disk->path($tmpRel);
+        $this->ensureAllowedImage($absTmp);
+        $tmpRel = $this->convertWebpToJpg($tmpRel);
+        $name = preg_replace('/\.webp$/i', '.jpg', $name);
+
+        $disk->makeDirectory($dir);
+        $target = $this->uniqueTargetPath($dir, $name);
+        $disk->move($tmpRel, $target);
+
+        return response()->json([
+            'ok' => true,
+            'path' => $target,
+            'url' => $this->publicUrl($target),
+            'name' => basename($target),
+        ]);
+    }
+
     public function deleteFromCatalog(Request $request)
     {
         $request->validate([
@@ -465,10 +529,18 @@ class ProductImageController extends Controller
         $path = (string) ($request->path ?? '');
         $serverResolved = false;
 
-        // If requested, resolve the manufacturer's actual folder on disk
+        // If requested, resolve the manufacturer's actual folder on disk.
+        // If it doesn't exist yet, create it from the manufacturer's name so uploads land there.
         if ($request->boolean('start_at_manufacturer') && $path === '') {
             $mid = (int) ($request->manufacturer_id ?? 0);
             $folder = $this->resolveManufacturerFolder($mid);
+            if ($folder === '' && $mid > 0) {
+                $m = Manufacturer::query()->where('manufacturer_id', $mid)->first(['name']);
+                if ($m && trim((string) $m->name) !== '') {
+                    $folder = trim((string) $m->name);
+                    $disk->makeDirectory('catalog/' . $folder);
+                }
+            }
             if ($folder !== '') {
                 $path = $folder;
                 $serverResolved = true;

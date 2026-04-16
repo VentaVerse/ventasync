@@ -6,7 +6,7 @@
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,.5);
-    z-index: 2000;
+    z-index: 10050;
     align-items: center;
     justify-content: center;
     padding: 24px;

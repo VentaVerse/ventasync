@@ -51,6 +51,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lookup/manufacturers', [ManufacturerController::class, 'lookup'])->name('manufacturers.lookup');
         Route::get('/lookup/categories', [CategoryController::class, 'lookup'])->name('categories.lookup');
         Route::get('/api/catalog/manufacturers', [ApiCatalogController::class, 'manufacturers'])->name('api.catalog.manufacturers');
+        Route::post('/api/catalog/manufacturers', [ManufacturerController::class, 'storeInline'])
+            ->middleware('perm:manage_manufacturers')
+            ->name('api.catalog.manufacturers.store');
         Route::get('/api/catalog/categories', [ApiCatalogController::class, 'categories'])->name('api.catalog.categories');
         Route::get('/api/catalog/options', [ApiCatalogController::class, 'options'])->name('api.catalog.options');
         Route::get('/api/catalog/options/{optionId}/values', [ApiCatalogController::class, 'optionValues'])->name('api.catalog.option_values');
@@ -72,6 +75,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/products/images/import-url', [ProductImageController::class, 'importUrl'])->name('products.images.import_url');
         Route::get('/products/images/browse', [ProductImageController::class, 'browse'])->name('products.images.browse');
         Route::post('/products/images/upload-to-catalog', [ProductImageController::class, 'uploadToCatalog'])->name('products.images.upload_to_catalog');
+        Route::post('/products/images/import-url-to-catalog', [ProductImageController::class, 'importUrlToCatalog'])->name('products.images.import_url_to_catalog');
         Route::post('/products/images/delete', [ProductImageController::class, 'deleteFromCatalog'])->name('products.images.delete');
 
         // Product sales history

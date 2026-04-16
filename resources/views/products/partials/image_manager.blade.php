@@ -8,20 +8,17 @@
 
 <div class="pim-wrap">
   <input type="hidden" name="pim_token" value="{{ $pimToken }}">
-  <div class="pim-toolbar">
-    <button class="btn secondary" type="button" id="pimAddLocalBtn">Upload (Drag/Drop or Browse)</button>
-    <button class="btn secondary" type="button" id="pimAddUrlBtn">Upload from URL</button>
-    <button class="btn secondary" type="button" id="pimAddServerBtn">Upload from Server</button>
-    <div class="hint" style="margin-left:auto;">Drag to reorder. First image becomes the main image.</div>
-</div>
-
-  <input type="file" id="pimFileInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple style="display:none;">
   <input type="hidden" name="images_json" id="pimImagesJson" value="">
 
-  <div class="pim-drop" id="pimDrop">
+  <div class="pim-toolbar">
+    <button class="btn secondary" type="button" id="pimOpenManagerBtn">Image Manager</button>
+    <div class="hint" style="margin-left:auto;">Drag to reorder. First image becomes the main image.</div>
+  </div>
+
+  <div class="pim-grid-wrap">
     <div class="pim-grid" id="pimGrid"></div>
     <div class="pim-empty" id="pimEmpty">
-      Drop images here, or click “Upload”.
+      No images selected. Click <strong>Image Manager</strong> to add images.
     </div>
   </div>
 </div>
@@ -30,23 +27,25 @@
   <div class="pim-modal-backdrop" data-close="1"></div>
   <div class="pim-modal-card">
     <div class="pim-modal-header">
-      <div style="font-weight:700;">Choose from Server</div>
+      <div style="font-weight:700;">Image Manager</div>
       <div class="pim-modal-actions">
         <span class="pim-modal-msg" id="pimModalMsg" style="display:none;" aria-live="polite"></span>
         <button class="btn secondary" type="button" data-close="1">Close</button>
       </div>
     </div>
-    <div class="pim-modal-body">
-      <div class="hint" style="margin-bottom:10px; opacity:.85;">Images are loaded from your Laravel storage folder (catalog/*).</div>
+    <div class="pim-modal-body" id="pimModalBody">
+      <div class="hint" style="margin-bottom:10px; opacity:.85;">Navigate to a folder, then upload or drag files here to save into that folder.</div>
+
       <div class="pim-server-nav" id="pimServerNav">
         <button class="btn secondary" type="button" id="pimServerUpBtn" disabled>Up</button>
         <div class="pim-server-path" id="pimServerPath">/</div>
       </div>
 
-      <div class="pim-server-upload" style="display:flex; align-items:center; gap:10px; margin: 0 0 12px;">
+      <div class="pim-server-upload" style="display:flex; align-items:center; gap:10px; margin: 0 0 12px; flex-wrap:wrap;">
         <input type="file" id="pimServerUploadInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple style="display:none;">
-        <button class="btn secondary" type="button" id="pimServerUploadBtn">Upload to this folder</button>
-        <div class="hint" style="margin:0; opacity:.85;">Uploads to the folder you’re currently viewing.</div>
+        <button class="btn secondary" type="button" id="pimServerUploadBtn">Upload (Drag/Drop or Browse)</button>
+        <button class="btn secondary" type="button" id="pimServerUrlBtn">Upload from URL</button>
+        <div class="hint" style="margin:0; opacity:.85;">Files land in the folder shown above.</div>
       </div>
 
       <div class="pim-server-filter-bar">
@@ -65,6 +64,10 @@
       <div class="pim-server-section-title" style="margin-top:14px;" id="pimServerFilesTitle">Images</div>
       <div class="pim-server-grid" id="pimServerGrid"></div>
       <div class="pim-server-empty" id="pimServerEmpty">No folders or images found.</div>
+
+      <div class="pim-drop-overlay" id="pimDropOverlay" aria-hidden="true">
+        <div class="pim-drop-overlay-inner">Drop files to upload into this folder</div>
+      </div>
     </div>
   </div>
 </div>
@@ -76,13 +79,13 @@
   const initialPaths = @json($pimInitial);
   const PIM_PRODUCT_ID = @json($pimProductId);
   const PIM_TOKEN = @json($pimToken);
+
   const grid = document.getElementById('pimGrid');
   const empty = document.getElementById('pimEmpty');
-  const input = document.getElementById('pimFileInput');
-  const drop = document.getElementById('pimDrop');
   const imagesJson = document.getElementById('pimImagesJson');
 
   const modal = document.getElementById('pimServerModal');
+  const modalBody = document.getElementById('pimModalBody');
   const serverGrid = document.getElementById('pimServerGrid');
   const serverFolders = document.getElementById('pimServerFolders');
   const serverEmpty = document.getElementById('pimServerEmpty');
@@ -92,17 +95,19 @@
   const serverUpBtn = document.getElementById('pimServerUpBtn');
   const serverUploadBtn = document.getElementById('pimServerUploadBtn');
   const serverUploadInput = document.getElementById('pimServerUploadInput');
+  const serverUrlBtn = document.getElementById('pimServerUrlBtn');
+  const dropOverlay = document.getElementById('pimDropOverlay');
 
   let currentServerPath = '';
   let cachedServerFiles = [];
   let cachedServerFolders = [];
 
   function getManufacturerId() {
-      const el = document.getElementById('manufacturer_id');
-      const v = el ? String(el.value || '').trim() : '';
-      const n = parseInt(v, 10);
-      return Number.isFinite(n) ? n : 0;
-    }
+    const el = document.getElementById('manufacturer_id');
+    const v = el ? String(el.value || '').trim() : '';
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : 0;
+  }
 
   function toUrl(path){
     if (!path) return '';
@@ -110,11 +115,7 @@
     return @json(url('/')) + '/storage/' + parts.join('/');
   }
 
-    function getPimToken() {
-    const el = document.querySelector('input[name="pim_token"]');
-    return el ? String(el.value || '').trim() : '';
-  }
-function showToast(msg, kind){
+  function showToast(msg, kind){
     const modalMsg = document.getElementById('pimModalMsg');
     if (!modalMsg) return;
     modalMsg.classList.remove('error','info');
@@ -124,7 +125,8 @@ function showToast(msg, kind){
     clearTimeout(window.__pimMsgT);
     window.__pimMsgT = setTimeout(()=>{ modalMsg.style.display='none'; }, 1600);
   }
-let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
+
+  let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
   function syncHidden(){
     imagesJson.value = JSON.stringify(items.map(x => x.path));
@@ -141,7 +143,6 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
       const img = document.createElement('img');
       img.className = 'pim-thumb';
-      // High-resolution rendering: ask browser to downscale cleanly
       img.src = it.url;
       img.loading = 'lazy';
 
@@ -152,7 +153,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'pim-remove';
-      remove.innerHTML = '&times;';
+      remove.textContent = '\u00D7';
       remove.addEventListener('click', (e) => {
         e.preventDefault();
         items = items.filter(x => x.path !== it.path);
@@ -176,52 +177,78 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     syncHidden();
   }
 
-  async function uploadFile(file){
-    const mid = getManufacturerId();
-    if (!mid) {
-      showFlashError('Please select a Manufacturer first.');
-      return;
-    }
+  function buildFileCard(f) {
+    const card = document.createElement('div');
+    card.className = 'pim-server-item';
 
-    const fd = new FormData();
-    fd.append('manufacturer_id', mid);
-    if (PIM_PRODUCT_ID && Number(PIM_PRODUCT_ID) > 0) fd.append('product_id', String(PIM_PRODUCT_ID));
-    if (PIM_TOKEN) fd.append('token', String(PIM_TOKEN));
-    fd.append('file', file);
-    const resp = await fetch(@json(route('products.images.upload')), {
-      method: 'POST',
-      headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
-      body: fd
+    const thumb = document.createElement('img');
+    thumb.src = f.url || '';
+    thumb.loading = 'lazy';
+    card.appendChild(thumb);
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = f.name || '';
+    card.appendChild(label);
+
+    card.addEventListener('click', () => {
+      if (!items.some(x => x.path === f.path)) {
+        items.push({path: f.path, url: f.url});
+        render();
+        showToast('Image Added','info');
+      } else {
+        showToast('Already Added','info');
+      }
     });
 
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data.ok) {
-      showFlashError(data.message || 'Upload failed.');
-      return;
-    }
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'pim-server-delete';
+    del.textContent = '\u00D7';
+    del.title = 'Delete from server';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      confirmModal('Delete "' + (f.name||'') + '" from server? This cannot be undone.').then(async function(ok) {
+        if (!ok) return;
+        const resp = await fetch(@json(route('products.images.delete')), {
+          method: 'POST',
+          headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+          body: JSON.stringify({ path: f.path })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.ok) { showToast(data.message || 'Delete failed','error'); return; }
+        cachedServerFiles = cachedServerFiles.filter(x => x.path !== f.path);
+        renderServerFiles();
+        items = items.filter(x => x.path !== f.path);
+        render();
+        showToast('Deleted','info');
+      });
+    });
+    card.appendChild(del);
 
-    items.push({path: data.path, url: data.url});
-    render();
-    showToast('Image Added','info');
-    }
+    return card;
+  }
 
-  async function importFromUrl(url){
-    const mid = getManufacturerId();
-    if (!mid) { showFlashError('Please select a Manufacturer first.'); return; }
+  function buildFolderCard(d) {
+    const card = document.createElement('div');
+    card.className = 'pim-server-item';
 
-    const resp = await fetch(@json(route('products.images.import_url')), {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
-      body: JSON.stringify({ manufacturer_id: mid, url: url, product_id: (PIM_PRODUCT_ID && Number(PIM_PRODUCT_ID) > 0 ? Number(PIM_PRODUCT_ID) : null), token: (PIM_TOKEN || null) })
+    const icon = document.createElement('div');
+    icon.className = 'icon';
+    icon.textContent = '\u{1F4C1}';
+    card.appendChild(icon);
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = d.name || '';
+    card.appendChild(label);
+
+    card.addEventListener('click', () => {
+      loadServerDir(d.path || '');
     });
 
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data.ok) { showFlashError(data.message || 'Import failed.'); return; }
-
-    items.push({path: data.path, url: data.url});
-    render();
-    showToast('Image Added','info');
-    }
+    return card;
+  }
 
   function renderServerFiles() {
     serverGrid.innerHTML = '';
@@ -241,49 +268,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     else if (sort === 'name_asc') filtered.sort((a,b) => (a.name||'').localeCompare(b.name||''));
     else if (sort === 'name_desc') filtered.sort((a,b) => (b.name||'').localeCompare(a.name||''));
 
-    filtered.forEach(f => {
-      const card = document.createElement('div');
-      card.className = 'pim-server-item';
-      card.innerHTML = '<img src="'+f.url+'" loading="lazy"><div class="label">'+(f.name||'')+'</div>';
-      card.addEventListener('click', () => {
-        if (!items.some(x => x.path === f.path)) {
-          items.push({path: f.path, url: f.url});
-          render();
-          showToast('Image Added','info');
-        } else {
-          showToast('Already Added','info');
-        }
-      });
-
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'pim-server-delete';
-      del.innerHTML = '&times;';
-      del.title = 'Delete from server';
-      del.addEventListener('click', (e) => {
-        e.stopPropagation();
-        confirmModal('Delete "' + (f.name||'') + '" from server? This cannot be undone.').then(async function(ok) {
-          if (!ok) return;
-          const resp = await fetch(@json(route('products.images.delete')), {
-            method: 'POST',
-            headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
-            body: JSON.stringify({ path: f.path })
-          });
-          const data = await resp.json().catch(() => ({}));
-          if (!resp.ok || !data.ok) { showToast(data.message || 'Delete failed','error'); return; }
-          // Remove from cache and re-render
-          cachedServerFiles = cachedServerFiles.filter(x => x.path !== f.path);
-          renderServerFiles();
-          // Also remove from product images if it was added
-          items = items.filter(x => x.path !== f.path);
-          render();
-          showToast('Deleted','info');
-        });
-      });
-      card.appendChild(del);
-
-      serverGrid.appendChild(card);
-    });
+    filtered.forEach(f => serverGrid.appendChild(buildFileCard(f)));
 
     if (!cachedServerFolders.length && !filtered.length) {
       serverEmpty.classList.add('show');
@@ -292,7 +277,6 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
 
   async function loadServerDir(path, startAtManufacturer){
     const mid = getManufacturerId();
-    if (!mid) { showFlashError('Please select a Manufacturer first.'); return; }
     currentServerPath = String(path || '').replace(/\\/g,'/').replace(/^\/+|\/+$/g,'');
 
     serverGrid.innerHTML = '';
@@ -301,7 +285,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     serverSearch.value = '';
 
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
-    u.searchParams.set('manufacturer_id', mid);
+    if (mid) u.searchParams.set('manufacturer_id', mid);
     if (currentServerPath) u.searchParams.set('path', currentServerPath);
     if (startAtManufacturer) u.searchParams.set('start_at_manufacturer', '1');
 
@@ -312,12 +296,10 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     cachedServerFiles = (data && data.files) ? data.files : [];
     const parent = (data && Object.prototype.hasOwnProperty.call(data,'parent')) ? data.parent : null;
 
-    // Update currentServerPath from server response (may differ when start_at_manufacturer resolved a folder)
     if (data && typeof data.path === 'string') {
       currentServerPath = data.path;
     }
 
-    // Nav
     serverPath.textContent = '/' + (currentServerPath ? currentServerPath : '');
     if (parent === null) {
       serverUpBtn.disabled = true;
@@ -327,18 +309,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       serverUpBtn.dataset.parent = String(parent || '');
     }
 
-    // Folders (already sorted by server)
-    cachedServerFolders.forEach(d => {
-      const card = document.createElement('div');
-      card.className = 'pim-server-item';
-      card.innerHTML = '<div class="icon">📁</div><div class="label">'+(d.name||'')+'</div>';
-      card.addEventListener('click', () => {
-        loadServerDir(d.path || '');
-      });
-      serverFolders.appendChild(card);
-    });
-
-    // Files (sorted + filtered via renderServerFiles)
+    cachedServerFolders.forEach(d => serverFolders.appendChild(buildFolderCard(d)));
     renderServerFiles();
   }
 
@@ -349,21 +320,64 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     await loadServerDir('', true);
   }
 
+  function attachIfNew(path, url) {
+    if (!path) return;
+    if (items.some(x => x.path === path)) return;
+    items.push({path: path, url: url || toUrl(path)});
+    render();
+  }
+
+  async function uploadToCurrentFolder(file){
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!['jpg','jpeg','png','webp'].includes(ext)) {
+      showToast('Only JPG, PNG, and WebP images are allowed.','error');
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('path', currentServerPath || '');
+
+    const resp = await fetch(@json(route('products.images.upload_to_catalog')), {
+      method: 'POST',
+      headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+      body: fd
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+      showToast(data.message || 'Upload failed.','error');
+      return;
+    }
+
+    attachIfNew(data.path, data.url);
+    showToast('Uploaded & attached','info');
+  }
+
+  async function importUrlToCurrentFolder(url){
+    const resp = await fetch(@json(route('products.images.import_url_to_catalog')), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+      body: JSON.stringify({ url: url, path: currentServerPath || '' })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+      showToast(data.message || 'Import failed.','error');
+      return;
+    }
+    attachIfNew(data.path, data.url);
+    showToast('Imported & attached','info');
+  }
+
   // Buttons
-  document.getElementById('pimAddLocalBtn').addEventListener('click', () => input.click());
-  document.getElementById('pimAddUrlBtn').addEventListener('click', async () => {
-    const url = prompt('Paste image URL (JPG/PNG/WebP):');
-    if (!url) return;
-    await importFromUrl(url);
-  });
-  document.getElementById('pimAddServerBtn').addEventListener('click', openServerModal);
+  document.getElementById('pimOpenManagerBtn').addEventListener('click', openServerModal);
+
   serverUpBtn.addEventListener('click', async () => {
     if (serverUpBtn.disabled) return;
     const p = String(serverUpBtn.dataset.parent || '');
     await loadServerDir(p);
   });
 
-  // Upload to current server folder
   if (serverUploadBtn && serverUploadInput) {
     serverUploadBtn.addEventListener('click', () => serverUploadInput.click());
     serverUploadInput.addEventListener('change', async () => {
@@ -371,29 +385,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
       if (!files.length) return;
 
       for (const f of files) {
-        const ext = (f.name.split('.').pop() || '').toLowerCase();
-        if (!['jpg','jpeg','png','webp'].includes(ext)) {
-          showToast('Only JPG, PNG, and WebP images are allowed.','error');
-          continue;
-        }
-
-        const fd = new FormData();
-        fd.append('file', f);
-        fd.append('path', currentServerPath || '');
-
-        const resp = await fetch(@json(route('products.images.upload_to_catalog')), {
-          method: 'POST',
-          headers: {'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'},
-          body: fd
-        });
-
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok || !data.ok) {
-          showToast(data.message || 'Upload failed.','error');
-          continue;
-        }
-
-        showToast('Image Added','info');
+        await uploadToCurrentFolder(f);
       }
 
       serverUploadInput.value = '';
@@ -401,37 +393,61 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
     });
   }
 
-  // Search & sort for server browser
+  if (serverUrlBtn) {
+    serverUrlBtn.addEventListener('click', async () => {
+      const url = prompt('Paste image URL (JPG/PNG/WebP):');
+      if (!url) return;
+      await importUrlToCurrentFolder(url);
+      await loadServerDir(currentServerPath || '');
+    });
+  }
+
+  // Drag & drop into the modal body → upload to current folder
+  let dragDepth = 0;
+  function hasFiles(e){
+    const dt = e.dataTransfer;
+    if (!dt) return false;
+    const types = dt.types;
+    if (!types) return false;
+    for (let i = 0; i < types.length; i++) {
+      if (types[i] === 'Files') return true;
+    }
+    return false;
+  }
+  modalBody.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    dropOverlay.setAttribute('aria-hidden','false');
+  });
+  modalBody.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+  });
+  modalBody.addEventListener('dragleave', (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropOverlay.setAttribute('aria-hidden','true');
+  });
+  modalBody.addEventListener('drop', async (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.setAttribute('aria-hidden','true');
+    const files = Array.from(e.dataTransfer.files || []);
+    for (const f of files) {
+      await uploadToCurrentFolder(f);
+    }
+    await loadServerDir(currentServerPath || '');
+  });
+
+  // Search & sort
   let searchTimer = null;
   serverSearch.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => renderServerFiles(), 200);
   });
   serverSort.addEventListener('change', () => renderServerFiles());
-
-  input.addEventListener('change', async () => {
-    const files = Array.from(input.files || []);
-    input.value = '';
-    for (const f of files) {
-      const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['jpg','jpeg','png','webp'].includes(ext)) { showFlashError('Only JPG, PNG, and WebP images are allowed.'); continue; }
-      await uploadFile(f);
-    }
-  });
-
-  // Drag & drop upload
-  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
-  drop.addEventListener('dragleave', () => { drop.classList.remove('dragover'); });
-  drop.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    drop.classList.remove('dragover');
-    const files = Array.from(e.dataTransfer.files || []);
-    for (const f of files) {
-      const ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['jpg','jpeg','png','webp'].includes(ext)) { showFlashError('Only JPG, PNG, and WebP images are allowed.'); continue; }
-      await uploadFile(f);
-    }
-  });
 
   // Sortable
   new Sortable(grid, {
@@ -444,7 +460,7 @@ let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
         if (found) newOrder.push(found);
       });
       items = newOrder;
-      render(); // refresh badges
+      render();
     }
   });
 
