@@ -13,9 +13,33 @@ use ZipArchive;
 
 class ExtensionController extends Controller
 {
-    public function index(ExtensionManager $manager)
+    public function index(ExtensionManager $manager, LicenseService $license)
     {
-        $extensions = $manager->all();
+        $extensions = collect($manager->all())->map(function ($ext) use ($license) {
+            $ext['license_status'] = 'free';
+            $ext['license_label'] = 'Free';
+
+            if (!empty($ext['license_required'])) {
+                $stored = $license->getStoredLicense($ext['id']);
+                if (!$stored) {
+                    $ext['license_status'] = 'unactivated';
+                    $ext['license_label'] = 'Unlicensed';
+                } elseif ($stored->is_revoked) {
+                    $ext['license_status'] = 'revoked';
+                    $ext['license_label'] = 'Revoked';
+                } elseif ($stored->isExpired()) {
+                    $ext['license_status'] = 'expired';
+                    $ext['license_label'] = 'Expired';
+                } elseif ($stored->isTrial()) {
+                    $ext['license_status'] = 'trial';
+                    $ext['license_label'] = 'Trial';
+                } elseif ($license->isModuleLicensed($ext['id'])) {
+                    $ext['license_status'] = 'licensed';
+                    $ext['license_label'] = 'Licensed';
+                }
+            }
+            return $ext;
+        })->all();
 
         return view('extensions.index', compact('extensions'));
     }
@@ -140,45 +164,4 @@ class ExtensionController extends Controller
         return back()->with('success', "Extension '{$name}' uninstalled.");
     }
 
-    public function updateLicense(Request $request, LicenseService $license, string $id)
-    {
-        $data = $request->validate([
-            'license_key' => 'required|string|max:64',
-        ]);
-
-        $extension = Extension::find($id);
-        if (!$extension) {
-            return back()->with('error', "Extension '{$id}' is not installed.");
-        }
-
-        $result = $license->activate($data['license_key'], $id);
-
-        if (!($result['ok'] ?? false)) {
-            $reason = $result['reason'] ?? 'unknown';
-            ActivityLogger::log('license_failed', 'Extension', null, $id, ['reason' => $reason]);
-            return back()->with('error', $this->licenseReasonMessage($reason));
-        }
-
-        // Keep the legacy extensions.license_key in sync for backward reads
-        $extension->update(['license_key' => $data['license_key']]);
-
-        ActivityLogger::log('license_activated', 'Extension', null, $id);
-
-        return back()->with('success', "License activated for '{$extension->name}'.");
-    }
-
-    private function licenseReasonMessage(string $reason): string
-    {
-        return match ($reason) {
-            'not_found' => 'License key not recognized.',
-            'revoked' => 'This license has been revoked. Contact support.',
-            'expired' => 'This license has expired.',
-            'domain_mismatch' => 'This license is bound to a different domain.',
-            'product_mismatch' => 'This key is for a different product — please use the correct extension key.',
-            'empty_key' => 'Please enter a license key.',
-            'unreachable', 'http_error' => 'The license server could not be reached. Try again later.',
-            'bad_response' => 'The license server returned an unexpected response.',
-            default => 'License activation failed.',
-        };
-    }
 }

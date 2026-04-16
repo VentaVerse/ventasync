@@ -57,12 +57,9 @@
                 <td>
                     @if($ext['license_required'])
                         @if($ext['installed'])
-                        <form method="POST" action="{{ route('extensions.update-license', $ext['id']) }}" style="display:flex; align-items:center; gap:4px;">
-                            @csrf
-                            @method('PUT')
-                            <input class="input" type="text" name="license_key" value="{{ $ext['license_key'] ?? '' }}" placeholder="License key" style="max-width:120px; font-size:12px; padding:4px 6px;">
-                            <button class="btn small secondary" type="submit">Save</button>
-                        </form>
+                            <a href="{{ route('licenses.index') }}#{{ $ext['id'] }}" class="lic-pill {{ $ext['license_status'] }}" style="text-decoration:none;">
+                                <span class="lic-pill-dot"></span>{{ $ext['license_label'] }}
+                            </a>
                         @else
                             <span class="text-secondary" style="font-size:12px;">License required</span>
                         @endif
