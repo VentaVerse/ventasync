@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Extensions\ExtensionManager;
 use App\Models\Extension;
+use App\Services\ActivityLogger;
+use App\Services\LicenseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -138,20 +140,45 @@ class ExtensionController extends Controller
         return back()->with('success', "Extension '{$name}' uninstalled.");
     }
 
-    public function updateLicense(Request $request, string $id)
+    public function updateLicense(Request $request, LicenseService $license, string $id)
     {
-        $request->validate([
-            'license_key' => 'required|string|max:255',
+        $data = $request->validate([
+            'license_key' => 'required|string|max:64',
         ]);
 
         $extension = Extension::find($id);
-
         if (!$extension) {
             return back()->with('error', "Extension '{$id}' is not installed.");
         }
 
-        $extension->update(['license_key' => $request->input('license_key')]);
+        $result = $license->activate($data['license_key'], $id);
 
-        return back()->with('success', "License key updated for '{$extension->name}'.");
+        if (!($result['ok'] ?? false)) {
+            $reason = $result['reason'] ?? 'unknown';
+            ActivityLogger::log('license_failed', 'Extension', null, $id, ['reason' => $reason]);
+            return back()->with('error', $this->licenseReasonMessage($reason));
+        }
+
+        // Keep the legacy extensions.license_key in sync for backward reads
+        $extension->update(['license_key' => $data['license_key']]);
+
+        ActivityLogger::log('license_activated', 'Extension', null, $id);
+
+        return back()->with('success', "License activated for '{$extension->name}'.");
+    }
+
+    private function licenseReasonMessage(string $reason): string
+    {
+        return match ($reason) {
+            'not_found' => 'License key not recognized.',
+            'revoked' => 'This license has been revoked. Contact support.',
+            'expired' => 'This license has expired.',
+            'domain_mismatch' => 'This license is bound to a different domain.',
+            'product_mismatch' => 'This key is for a different product — please use the correct extension key.',
+            'empty_key' => 'Please enter a license key.',
+            'unreachable', 'http_error' => 'The license server could not be reached. Try again later.',
+            'bad_response' => 'The license server returned an unexpected response.',
+            default => 'License activation failed.',
+        };
     }
 }

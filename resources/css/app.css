@@ -43,6 +43,8 @@
 @import './pages/product-options.css';
 @import './pages/warehousing.css';
 @import './pages/petty-cash.css';
+@import './pages/license-activate.css';
+@import './pages/licenses.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';

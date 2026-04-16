@@ -38,6 +38,14 @@ Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('laz
 
 
 
+// License activation — allowlisted by EnsureLicensed middleware so admins can reach it
+// even when the core is not activated yet.
+Route::middleware(['auth'])->group(function () {
+    Route::get('/license/activate', [\App\Http\Controllers\LicenseActivationController::class, 'show'])->name('license.show');
+    Route::post('/license/activate', [\App\Http\Controllers\LicenseActivationController::class, 'activate'])->name('license.activate');
+    Route::post('/license/trial', [\App\Http\Controllers\LicenseActivationController::class, 'trial'])->name('license.trial');
+});
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
@@ -388,6 +396,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/error-log', [\App\Http\Controllers\ErrorLogController::class, 'index'])->name('error_log.index');
         Route::post('/error-log/clear', [\App\Http\Controllers\ErrorLogController::class, 'clear'])->name('error_log.clear');
         Route::post('/error-log/test', [\App\Http\Controllers\ErrorLogController::class, 'test'])->name('error_log.test');
+
+        // Licenses (Settings)
+        Route::get('/licenses', [\App\Http\Controllers\LicenseController::class, 'index'])->name('licenses.index');
+        Route::post('/licenses/{slug}/activate', [\App\Http\Controllers\LicenseController::class, 'activate'])
+            ->where('slug', '[A-Za-z0-9_-]+')
+            ->name('licenses.activate');
+        Route::post('/licenses/{slug}/revalidate', [\App\Http\Controllers\LicenseController::class, 'revalidate'])
+            ->where('slug', '[A-Za-z0-9_-]+')
+            ->name('licenses.revalidate');
 
         // Extensions
         Route::get('/extensions', [\App\Http\Controllers\ExtensionController::class, 'index'])->name('extensions.index');

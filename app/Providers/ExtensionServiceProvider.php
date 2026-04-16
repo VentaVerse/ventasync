@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Extensions\ExtensionManager;
+use App\Services\LicenseService;
 use Illuminate\Support\ServiceProvider;
 
 class ExtensionServiceProvider extends ServiceProvider
@@ -19,9 +20,18 @@ class ExtensionServiceProvider extends ServiceProvider
         $manager = $this->app->make(ExtensionManager::class);
         $enabledIds = $manager->getEnabledIds();
         $manifests = $manager->getManifests();
+        $license = $this->app->make(LicenseService::class);
 
         foreach ($enabledIds as $id) {
             if (!isset($manifests[$id])) {
+                continue;
+            }
+
+            // Skip extensions that require a license but are not activated.
+            // Providers, routes, nav, and permissions all depend on registration,
+            // so this one check cleanly withholds the entire module from the app.
+            $licenseRequired = !empty($manifests[$id]['license_required']);
+            if ($licenseRequired && !$license->isModuleLicensed($id)) {
                 continue;
             }
 

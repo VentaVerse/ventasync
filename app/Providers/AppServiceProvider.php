@@ -21,7 +21,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\LicenseService::class, function ($app) {
+            $config = $app['config'];
+            return new \App\Services\LicenseService(
+                serverUrl: (string) $config->get('licensing.server_url'),
+                httpTimeout: (int) $config->get('licensing.http_timeout', 5),
+                cacheTtl: (int) $config->get('licensing.cache_ttl', 86400),
+                revalidateAfter: (int) $config->get('licensing.revalidate_after', 2592000),
+                coreSlug: (string) $config->get('licensing.core_slug', 'ventasync-legacy'),
+            );
+        });
+
+        $this->app->singleton(\App\Services\TenantContext::class, function ($app) {
+            return new \App\Services\TenantContext(
+                $app->make(\App\Services\LicenseService::class)->current()
+            );
+        });
     }
 
     /**
