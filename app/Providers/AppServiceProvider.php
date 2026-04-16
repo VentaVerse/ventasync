@@ -27,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
                 serverUrl: (string) $config->get('licensing.server_url'),
                 httpTimeout: (int) $config->get('licensing.http_timeout', 5),
                 cacheTtl: (int) $config->get('licensing.cache_ttl', 86400),
+                revalidateAfter: (int) $config->get('licensing.revalidate_after', 2592000),
                 coreSlug: (string) $config->get('licensing.core_slug', 'ventasync-legacy'),
             );
         });

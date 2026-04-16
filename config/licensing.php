@@ -45,6 +45,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Background re-validation threshold (seconds)
+    |--------------------------------------------------------------------------
+    |
+    | If last_validated_at is older than this, the next request triggers a
+    | background re-check. Server-unreachable is tolerated; cache simply
+    | refreshes on the next attempt.
+    |
+    */
+    'revalidate_after' => env('LICENSE_REVALIDATE_AFTER', 60 * 60 * 24 * 30), // 30d
+
+    /*
+    |--------------------------------------------------------------------------
     | Trial users — data window (days)
     |--------------------------------------------------------------------------
     |

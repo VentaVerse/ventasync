@@ -25,21 +25,21 @@
     $canEnable = !$ext['license_required'] || ($ext['_is_licensed'] ?? false);
 @endphp
 
-<div class="ext-row" id="{{ $ext['id'] }}">
-    <div class="ext-row-head">
-        <div class="ext-row-title-block">
-            <div class="ext-row-titleline">
-                <h3 class="ext-row-title">{{ $ext['name'] }}</h3>
+<div class="lic-row" id="{{ $ext['id'] }}">
+    <div class="lic-row-head">
+        <div>
+            <h3 class="lic-row-title">
+                {{ $ext['name'] }}
                 <span class="ext-version">v{{ $ext['version'] }}</span>
-                @if($ext['author'])
-                    <span class="ext-author">by {{ $ext['author'] }}</span>
-                @endif
-            </div>
+            </h3>
             @if($ext['description'])
-                <p class="ext-desc">{{ $ext['description'] }}</p>
+                <p class="lic-row-sub">{{ $ext['description'] }}</p>
+            @endif
+            @if($ext['author'])
+                <p class="lic-row-sub" style="margin-top:2px;">by {{ $ext['author'] }}</p>
             @endif
         </div>
-        <div class="ext-row-pills">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
             @if($ext['installed'])
                 @if($ext['enabled'])
                     <span class="lic-pill licensed"><span class="lic-pill-dot"></span>Enabled</span>
@@ -53,47 +53,66 @@
         </div>
     </div>
 
-    @if($ext['license_required'] && $ext['installed'] && $license)
-        <div class="ext-meta">
-            <span class="ext-meta-item"><span class="ext-meta-label">Key</span> <code>{{ $license->maskedKey() }}</code></span>
-            <span class="ext-meta-item"><span class="ext-meta-label">Domain</span> <code>{{ $license->domain }}</code></span>
-            <span class="ext-meta-item">{{ ucfirst($license->license_type) }}</span>
-            @if($license->isTrial() || ($license->expires_at && $license->expires_at->year < 2100))
-                <span class="ext-meta-item">Expires {{ $license->expires_at->format('M j, Y') }}</span>
-            @endif
-            @if($license->maintenance_expires_at)
-                @if($license->maintenanceExpired())
-                    <span class="ext-meta-item maint-expired">Support ended {{ $license->maintenance_expires_at->format('M j, Y') }}</span>
-                @else
-                    <span class="ext-meta-item">Support until {{ $license->maintenance_expires_at->format('M j, Y') }}</span>
+    {{-- License details + activation form, only for license_required extensions --}}
+    @if($ext['license_required'] && $ext['installed'])
+        @if($license)
+            <div class="lic-kv">
+                <div>
+                    <div class="lic-kv-key">License Key</div>
+                    <div class="lic-kv-val">{{ $license->maskedKey() }}</div>
+                </div>
+                <div>
+                    <div class="lic-kv-key">Bound Domain</div>
+                    <div class="lic-kv-val">{{ $license->domain }}</div>
+                </div>
+                <div>
+                    <div class="lic-kv-key">Type</div>
+                    <div class="lic-kv-val soft">{{ ucfirst($license->license_type) }}</div>
+                </div>
+                @if($license->maintenance_expires_at)
+                    <div>
+                        <div class="lic-kv-key">Support &amp; Updates</div>
+                        <div class="lic-kv-val soft">
+                            @if($license->maintenanceExpired())
+                                <span style="color:#b45309; font-weight:600;">Expired {{ $license->maintenance_expires_at->format('M j, Y') }}</span>
+                            @else
+                                Until {{ $license->maintenance_expires_at->format('M j, Y') }}
+                            @endif
+                        </div>
+                    </div>
                 @endif
-            @endif
-            <span class="ext-meta-item soft">Activated {{ $license->activated_at?->format('M j, Y') ?? '—' }}</span>
-        </div>
-
-        @if(strtolower($license->domain) !== strtolower($domain))
-            <div class="ext-domain-warn">
-                License bound to <strong>{{ $license->domain }}</strong> but you're on <strong>{{ $domain }}</strong>. Contact support to move it.
+                <div>
+                    <div class="lic-kv-key">Last Validated</div>
+                    <div class="lic-kv-val soft">{{ $license->last_validated_at?->diffForHumans() ?? '—' }}</div>
+                </div>
             </div>
-        @endif
-    @endif
 
-    <div class="ext-row-actions">
-        @if($ext['license_required'] && $ext['installed'])
-            <form method="POST" action="{{ route('licenses.activate', $ext['id']) }}" class="ext-activate-form">
+            @if(strtolower($license->domain) !== strtolower($domain))
+                <div class="alert danger" style="margin-bottom:12px;">
+                    This license was issued for <strong>{{ $license->domain }}</strong> but you are on <strong>{{ $domain }}</strong>.
+                    Contact support to move the license to this domain.
+                </div>
+            @endif
+        @endif
+
+        <div class="lic-actions">
+            <form method="POST" action="{{ route('licenses.activate', $ext['id']) }}" class="lic-form">
                 @csrf
-                <input type="text" name="license_key" placeholder="{{ $license ? 'Replace with new key' : 'Enter license key' }}" autocomplete="off" spellcheck="false" required>
-                <button type="submit" class="btn small">{{ $license ? 'Replace' : 'Activate' }}</button>
+                <input type="text" name="license_key" placeholder="Enter or replace license key" autocomplete="off" spellcheck="false" required>
+                <button type="submit" class="btn">{{ $license ? 'Replace Key' : 'Activate' }}</button>
             </form>
+
             @if($license)
                 <form method="POST" action="{{ route('licenses.revalidate', $ext['id']) }}">
                     @csrf
-                    <button type="submit" class="btn small secondary">Re-validate</button>
+                    <button type="submit" class="btn secondary">Re-validate</button>
                 </form>
             @endif
-            <span class="ext-actions-spacer"></span>
-        @endif
+        </div>
+    @endif
 
+    {{-- Install / Enable / Uninstall actions --}}
+    <div class="ext-controls">
         @if($ext['installed'])
             <form method="POST" action="{{ route('extensions.toggle', $ext['id']) }}" style="display:inline;">
                 @csrf
