@@ -15,7 +15,7 @@ class UserGroupController extends Controller
      */
     private function getGroupedPermissions(): array
     {
-        $all = Permission::orderBy('label')->get()->keyBy('key');
+        $all = Permission::orderBy('key')->get()->keyBy('key');
 
         $resolve = function (array $keys) use ($all): array {
             $out = [];
