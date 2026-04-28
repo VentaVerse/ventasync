@@ -45,6 +45,7 @@
 @import './pages/petty-cash.css';
 @import './pages/license-activate.css';
 @import './pages/licenses.css';
+@import './pages/purchasing.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';
