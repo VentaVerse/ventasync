@@ -19,7 +19,6 @@ class Setting extends Model
         'from_email',
         'timezone',
         'logo_path',
-        'software_logo_path',
         'activity_log_retention_days',
     ];
 

@@ -192,7 +192,7 @@
     <div class="brand">
         <div class="brand-badge">
             <img
-                src="{{ !empty($setting->software_logo_path) ? asset('storage/'.$setting->software_logo_path) : asset('images/brand/ventasync-legacy.svg') }}"
+                src="{{ !empty($setting->logo_path) ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync-legacy.png') }}"
                 alt="{{ $setting->company_name ?? 'VentaSync' }}"
                 style="height:130px;width:auto;object-fit:contain;"
             >

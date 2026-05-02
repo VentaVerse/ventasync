@@ -109,21 +109,12 @@
             <h3 class="section-title mt-24">Branding</h3>
             <div class="form-grid">
                 <div class="full">
-                    <label>Company Logo (optional)</label>
+                    <label>Logo</label>
                     <input class="input" type="file" name="logo" accept="image/*" onchange="previewLogo(this, 'logo-preview')">
-                    <div class="mt-12" id="logo-preview" style="{{ $setting->logo_path ? '' : 'display:none;' }}">
-                        <div class="text-xs text-muted" style="margin-bottom:6px;">{{ $setting->logo_path ? 'Current logo:' : 'Preview:' }}</div>
-                        <img src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : '' }}" alt="Company Logo" style="max-height:120px; border-radius:var(--radius-sm);" id="logo-preview-img">
-                    </div>
-                </div>
-
-                <div class="full">
-                    <label>Software Logo (White-label / Login logo)</label>
-                    <input class="input" type="file" name="software_logo" accept="image/*" onchange="previewLogo(this, 'sw-logo-preview')">
-                    <div class="hint">If you don't upload one, the default VentaSync logo will be used.</div>
-                    <div class="mt-12" id="sw-logo-preview">
-                        <div class="text-xs text-muted" style="margin-bottom:6px;">{{ $setting->software_logo_path ? 'Current software logo:' : 'Default software logo:' }}</div>
-                        <img src="{{ $setting->software_logo_path ? asset('storage/'.$setting->software_logo_path) : asset('images/brand/ventasync-legacy.svg') }}" alt="Software Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="sw-logo-preview-img">
+                    <div class="hint">Shown in the sidebar and on the login screen. If not uploaded, the default VentaSync logo is used.</div>
+                    <div class="mt-12" id="logo-preview">
+                        <div class="text-xs text-muted" style="margin-bottom:6px;">{{ $setting->logo_path ? 'Current logo:' : 'Default logo:' }}</div>
+                        <img src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync-legacy.png') }}" alt="Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="logo-preview-img">
                     </div>
                 </div>
             </div>

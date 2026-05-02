@@ -35,7 +35,6 @@ class SettingController extends Controller
             'timezone'                    => ['required', 'string', 'timezone'],
             'activity_log_retention_days' => ['required', 'integer', 'min:7', 'max:3650'],
             'logo'                        => ['nullable', 'image', 'max:2048'],
-            'software_logo'               => ['nullable', 'image', 'max:2048'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -43,14 +42,6 @@ class SettingController extends Controller
                 Storage::disk('public')->delete($setting->logo_path);
             }
             $data['logo_path'] = $request->file('logo')->store('company', 'public');
-        }
-
-
-        if ($request->hasFile('software_logo')) {
-            if ($setting->software_logo_path) {
-                Storage::disk('public')->delete($setting->software_logo_path);
-            }
-            $data['software_logo_path'] = $request->file('software_logo')->store('software', 'public');
         }
 
         $setting->update($data);
