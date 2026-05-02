@@ -316,8 +316,8 @@ class DashboardController extends Controller
                 $label = $ocStores[$storeId] ?? ('OpenCart #' . $storeId);
                 // Fixed colors for known OC stores, random for new ones
                 $ocFixedColors = [
-                    1 => '#16a34a', // Shop A — green
-                    2 => '#38bdf8', // Shop B — light blue
+                    1 => '#16a34a',
+                    2 => '#38bdf8',
                 ];
                 $color = $ocFixedColors[$storeId] ?? sprintf('#%06X', mt_rand(0x333333, 0xCCCCCC));
             } elseif (str_starts_with($src, 'venta:')) {

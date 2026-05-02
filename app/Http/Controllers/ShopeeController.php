@@ -15,7 +15,7 @@ class ShopeeController extends Controller
     
 public function root(Request $request, ShopeeClient $client)
 {
-    // Shopee may only allow a domain-level redirect URI (e.g. https://shop-a.example)
+    // Shopee may only allow a domain-level redirect URI (the app's public APP_URL).
     // When redirected here with ?code=...&shop_id=..., we exchange tokens immediately and persist them.
 
     $code = $request->query('code');
@@ -130,7 +130,7 @@ public function index()
 
         return view('shopee.index', [
             'setting' => $setting?->decrypted(),
-            'defaultRedirect' => 'https://shop-a.example',
+            'defaultRedirect' => config('app.url'),
             'result' => session('shopee_result'),
             'orderStatusMap' => $orderStatusMap,
             'erpOrderStatuses' => $erpOrderStatuses,
@@ -239,7 +239,15 @@ public function index()
         ]);
     }
 
-    $redirect = $setting->redirect_uri ?: 'https://shop-a.example';
+    if (empty($setting->redirect_uri)) {
+        return redirect()->route('shopee.index')->with('shopee_result', [
+            'ok' => false,
+            'title' => 'Missing redirect URI',
+            'data' => ['message' => 'A Redirect URI is required. Configure it in Shopee settings before authorizing.'],
+        ]);
+    }
+
+    $redirect = $setting->redirect_uri;
     $url = $client->buildAuthUrl($setting->mode, (int)$setting->partner_id, (string)$setting->partner_key, $redirect);
 
     return redirect()->away($url);
@@ -257,7 +265,15 @@ public function buildAuthUrl(ShopeeClient $client)
             ]);
         }
 
-        $redirect = $setting->redirect_uri ?: 'https://shop-a.example';
+        if (empty($setting->redirect_uri)) {
+            return redirect()->route('shopee.index')->with('shopee_result', [
+                'ok' => false,
+                'title' => 'Missing redirect URI',
+                'data' => ['message' => 'A Redirect URI is required. Configure it in Shopee settings before building the auth URL.'],
+            ]);
+        }
+
+        $redirect = $setting->redirect_uri;
 
         $url = $client->buildAuthUrl($setting->mode, (int)$setting->partner_id, (string)$setting->partner_key, $redirect);
 

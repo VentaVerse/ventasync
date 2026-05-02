@@ -87,7 +87,7 @@
                                 <div class="form-grid">
                                     <div>
                                         <label>Store Name</label>
-                                        <input type="text" name="store_name" class="input" value="{{ $store->store_name }}" placeholder="e.g. Shop A">
+                                        <input type="text" name="store_name" class="input" value="{{ $store->store_name }}" placeholder="e.g. My Store">
                                     </div>
                                     <div>
                                         <label class="required">Base URL</label>
@@ -502,7 +502,7 @@
                         <div class="form-grid">
                             <div>
                                 <label>Store Name</label>
-                                <input type="text" name="store_name" class="input" value="" placeholder="e.g. Shop A">
+                                <input type="text" name="store_name" class="input" value="" placeholder="e.g. My Store">
                             </div>
                             <div>
                                 <label class="required">Base URL</label>

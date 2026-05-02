@@ -77,7 +77,7 @@ return new class extends Migration
                 'name'        => 'Petty Cash',
                 'version'     => '1.1.0',
                 'description' => 'Staff petty cash tracking — credits and expense logging',
-                'author'      => 'Xenon ERP',
+                'author'      => 'VentaSync',
                 'enabled'     => 1,
                 'created_at'  => now(),
                 'updated_at'  => now(),

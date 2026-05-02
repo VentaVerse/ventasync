@@ -24,7 +24,7 @@ return new class extends Migration
 
         // Normalize to OpenCart-style relative path like "catalog/..."
         // Examples handled:
-        // - https://shop-a.example/image/catalog/abc.jpg  -> catalog/abc.jpg
+        // - https://example.com/image/catalog/abc.jpg    -> catalog/abc.jpg
         // - /image/catalog/abc.jpg                       -> catalog/abc.jpg
         // - image/catalog/abc.jpg                        -> catalog/abc.jpg
         // - storage/catalog/abc.jpg                      -> catalog/abc.jpg

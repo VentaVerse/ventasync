@@ -14,7 +14,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Xenon Suite - Login</title>
+    <title>{{ $setting->company_name ?? 'VentaSync' }} — Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -192,12 +192,12 @@
     <div class="brand">
         <div class="brand-badge">
             <img
-                src="{{ !empty($setting->software_logo_path) ? asset('storage/'.$setting->software_logo_path) : asset('images/brand/xenon-suite.svg') }}"
-                alt="{{ $setting->company_name ?? 'Xenon Suite' }}"
+                src="{{ !empty($setting->software_logo_path) ? asset('storage/'.$setting->software_logo_path) : asset('images/brand/ventasync-legacy.svg') }}"
+                alt="{{ $setting->company_name ?? 'VentaSync' }}"
                 style="height:130px;width:auto;object-fit:contain;"
             >
         </div>
-        <p style="margin:0;">{{ $setting->company_name ?? 'Xenon Suite' }}</p>
+        <p style="margin:0;">{{ $setting->company_name ?? 'VentaSync' }}</p>
     </div>
 
     <div class="card">

@@ -9,7 +9,7 @@ class ImportCostsFromSql extends Command
 {
     protected $signature = 'products:import-costs-sql
                             {file : Path to OpenCart SQL dump file}
-                            {store_id : OpenCart store ID (1=Shop A, 2=Shop B)}
+                            {store_id : OpenCart store ID}
                             {--dry-run : Show what would be updated without saving}';
 
     protected $description = 'Import product cost breakdown (amount, percentage, additional) from OpenCart SQL dump via opencart_product_links mapping';

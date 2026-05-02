@@ -120,10 +120,10 @@
                 <div class="full">
                     <label>Software Logo (White-label / Login logo)</label>
                     <input class="input" type="file" name="software_logo" accept="image/*" onchange="previewLogo(this, 'sw-logo-preview')">
-                    <div class="hint">If you don't upload one, the default Xenon Suite logo will be used.</div>
+                    <div class="hint">If you don't upload one, the default VentaSync logo will be used.</div>
                     <div class="mt-12" id="sw-logo-preview">
                         <div class="text-xs text-muted" style="margin-bottom:6px;">{{ $setting->software_logo_path ? 'Current software logo:' : 'Default software logo:' }}</div>
-                        <img src="{{ $setting->software_logo_path ? asset('storage/'.$setting->software_logo_path) : asset('images/brand/xenon-suite.svg') }}" alt="Software Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="sw-logo-preview-img">
+                        <img src="{{ $setting->software_logo_path ? asset('storage/'.$setting->software_logo_path) : asset('images/brand/ventasync-legacy.svg') }}" alt="Software Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="sw-logo-preview-img">
                     </div>
                 </div>
             </div>
