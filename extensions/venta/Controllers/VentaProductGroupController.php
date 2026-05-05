@@ -244,6 +244,8 @@ class VentaProductGroupController extends Controller
         }
 
         $q = trim((string) $request->input('q'));
+        $syncStatus = (string) $request->input('sync_status', 'all');
+        $erpStatus = (string) $request->input('erp_status', 'all');
 
         $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
@@ -283,6 +285,25 @@ class VentaProductGroupController extends Controller
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%");
             });
+        }
+
+        if ($erpStatus === 'enabled') {
+            $query->where('p.status', 1);
+        } elseif ($erpStatus === 'disabled') {
+            $query->where('p.status', 0);
+        }
+
+        if ($syncStatus === 'pushed') {
+            $query->whereNotNull('vpl.venta_product_id')
+                ->where('vpgp.sync_status', '!=', 'unlinked');
+        } elseif ($syncStatus === 'pending') {
+            $query->whereNull('vpl.venta_product_id')
+                ->where(function ($w) {
+                    $w->whereNotIn('vpgp.sync_status', ['error', 'failed', 'unlinked'])
+                        ->orWhereNull('vpgp.sync_status');
+                });
+        } elseif ($syncStatus === 'error') {
+            $query->whereIn('vpgp.sync_status', ['error', 'failed']);
         }
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->withQueryString();
@@ -353,7 +374,7 @@ class VentaProductGroupController extends Controller
                     ->get()
                     ->groupBy('product_id');
 
-                $optionRowsByProductId = $optionRowsByProductId->merge($optValues);
+                $optionRowsByProductId = $optionRowsByProductId->union($optValues);
             }
         }
 
@@ -366,6 +387,8 @@ class VentaProductGroupController extends Controller
             'optionRowsByProductId' => $optionRowsByProductId,
             'manualIds'            => $manualIds,
             'q'                    => $q,
+            'syncStatus'           => $syncStatus,
+            'erpStatus'            => $erpStatus,
         ]);
     }
 
