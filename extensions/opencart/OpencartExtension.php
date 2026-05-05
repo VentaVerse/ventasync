@@ -10,6 +10,7 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
+use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use Extensions\opencart\Models\OpenCartSetting;
 use Illuminate\Support\Facades\DB;
@@ -52,14 +53,23 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function integrationCards(): array
     {
-        // Management card — always visible when enabled+licensed. Holds
-        // global Settings + Reviews so an admin can configure stores and
-        // manage cross-store reviews even before any store is set up.
-        $cards = [
+        $stores = [];
+        foreach ($this->enabledStores() as $store) {
+            $stores[] = new StoreLink(
+                id: $this->id . ':' . $store->id,
+                label: $store->store_name,
+                menu: [
+                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'manage_opencart', null, ['store' => $store->id]),
+                    new MenuItem('Orders', 'ext.opencart.orders.index', 'manage_opencart_orders', null, ['store' => $store->id]),
+                ],
+            );
+        }
+
+        return [
             new IntegrationCard(
                 id: $this->id,
                 name: 'OpenCart',
-                tagline: 'Add OpenCart stores and manage marketplace reviews.',
+                tagline: 'Multi-store OpenCart — add stores, sync products, push reviews.',
                 icon: 'cart',
                 accent: '#1f8fea',
                 permission: 'manage_opencart',
@@ -67,24 +77,9 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     new MenuItem('Settings', 'ext.opencart.index', 'manage_opencart'),
                     new MenuItem('Reviews', 'ext.opencart.reviews.index', 'manage_reviews'),
                 ],
+                stores: $stores,
             ),
         ];
-
-        foreach ($this->enabledStores() as $store) {
-            $cards[] = new IntegrationCard(
-                id: $this->id . ':' . $store->id,
-                name: $store->store_name,
-                tagline: 'OpenCart store · orders and product groups.',
-                icon: 'cart',
-                accent: '#1f8fea',
-                permission: 'manage_opencart',
-                menu: [
-                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'manage_opencart', null, ['store' => $store->id]),
-                    new MenuItem('Orders', 'ext.opencart.orders.index', 'manage_opencart_orders', null, ['store' => $store->id]),
-                ],
-            );
-        }
-        return $cards;
     }
 
     public function orderTabs(): array

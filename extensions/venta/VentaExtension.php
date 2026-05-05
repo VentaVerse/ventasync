@@ -10,6 +10,7 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
+use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use Extensions\venta\Models\VentaSetting;
 use Illuminate\Support\Facades\DB;
@@ -47,38 +48,32 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider
 
     public function integrationCards(): array
     {
-        // Management card — always visible when the extension is enabled+licensed.
-        // Holds the global Settings link so an admin can add the first store
-        // even before any are configured.
-        $cards = [
-            new IntegrationCard(
-                id: $this->id,
-                name: 'Venta',
-                tagline: 'Add and configure Venta stores.',
-                icon: 'shop',
-                accent: '#7c3aed',
-                permission: 'manage_venta',
-                menu: [
-                    new MenuItem('Settings', 'ext.venta.index', 'manage_venta'),
-                ],
-            ),
-        ];
-
+        $stores = [];
         foreach ($this->enabledStores() as $store) {
-            $cards[] = new IntegrationCard(
+            $stores[] = new StoreLink(
                 id: $this->id . ':' . $store->id,
-                name: $store->store_name,
-                tagline: 'Venta store · orders and product groups.',
-                icon: 'shop',
-                accent: '#7c3aed',
-                permission: 'manage_venta',
+                label: $store->store_name,
                 menu: [
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'manage_venta', null, ['store' => $store->id]),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'manage_venta_orders', null, ['store' => $store->id]),
                 ],
             );
         }
-        return $cards;
+
+        return [
+            new IntegrationCard(
+                id: $this->id,
+                name: 'Venta',
+                tagline: 'Multi-store ecommerce — add stores, sync orders, push inventory.',
+                icon: 'shop',
+                accent: '#7c3aed',
+                permission: 'manage_venta',
+                menu: [
+                    new MenuItem('Settings', 'ext.venta.index', 'manage_venta'),
+                ],
+                stores: $stores,
+            ),
+        ];
     }
 
     public function orderTabs(): array

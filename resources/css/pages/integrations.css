@@ -167,9 +167,79 @@
     border-top: 1px solid var(--border-soft, #f1f5f9);
 }
 
+/* Stores sub-section inside a multi-store module's card.
+   Visually separated from the menu so it's clear stores are children
+   of the module, not peers of the menu items above. */
+
+.int-card-stores {
+    background: var(--surface-muted, #f8fafc);
+    border-top: 1px solid var(--border, #e5e7eb);
+    padding: 12px 18px 14px;
+}
+
+.int-card-stores-head {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    font-weight: 700;
+    color: var(--muted, #94a3b8);
+    margin: 0 0 8px;
+}
+
+.int-card-stores-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.int-store-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 10px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border-soft, #f1f5f9);
+    border-radius: 8px;
+}
+
+.int-store-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink, #1f2937);
+}
+
+.int-store-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.int-store-actions a {
+    color: var(--accent, #2563eb);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.int-store-actions a:hover {
+    text-decoration: underline;
+}
+
+.int-store-sep {
+    color: var(--muted, #cbd5e1);
+}
+
 @media (max-width: 640px) {
     .int-grid {
         grid-template-columns: 1fr;
+    }
+    .int-store-row {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 

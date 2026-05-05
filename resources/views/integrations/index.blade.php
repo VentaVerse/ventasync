@@ -55,6 +55,32 @@
                                 @endforeach
                             </ul>
                         @endif
+
+                        @if(!empty($card->stores))
+                            <div class="int-card-stores">
+                                <div class="int-card-stores-head">Stores</div>
+                                <ul class="int-card-stores-list">
+                                    @foreach($card->stores as $store)
+                                        @php
+                                            $visibleStoreMenu = collect($store->menu)
+                                                ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
+                                                ->values();
+                                        @endphp
+                                        <li class="int-store-row">
+                                            <span class="int-store-name">{{ $store->label }}</span>
+                                            @if($visibleStoreMenu->isNotEmpty())
+                                                <span class="int-store-actions">
+                                                    @foreach($visibleStoreMenu as $i => $item)
+                                                        @if($i > 0)<span class="int-store-sep">·</span>@endif
+                                                        <a href="{{ route($item->routeName, $item->routeParams) }}">{{ $item->label }}</a>
+                                                    @endforeach
+                                                </span>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>
