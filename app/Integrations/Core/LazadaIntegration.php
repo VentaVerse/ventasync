@@ -37,7 +37,7 @@ class LazadaIntegration implements IntegrationProvider
                 menu: [
                     new MenuItem('Settings', 'lazada.index', 'manage_lazada'),
                     new MenuItem('Product Groups', 'lazada.product-groups.index', 'manage_lazada'),
-                    new MenuItem('Orders', 'lazada.orders.index', 'manage_lazada_orders'),
+                    new MenuItem('Orders', 'lazada.orders.index', 'manage_lazada_orders', null, ['tab' => 'TO_SHIP']),
                 ],
             ),
         ];
@@ -53,6 +53,7 @@ class LazadaIntegration implements IntegrationProvider
                 accent: '#0f146d',
                 routeName: 'lazada.orders.index',
                 permission: 'manage_lazada_orders',
+                routeParams: ['tab' => 'TO_SHIP'],
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('lazada_orders')) {
                         return 0;
