@@ -16,19 +16,81 @@ class IntegrationController extends Controller
 
     public function orders(Request $request, IntegrationRegistry $registry)
     {
-        $tabs = $registry->visibleOrderTabs($request->user());
+        $user = $request->user();
+        $cards = collect($registry->visibleCards($user))->keyBy('id');
+        $providers = $registry->visibleSummaryProviders($user);
 
-        // No tabs available -> render empty-state page
-        if (empty($tabs)) {
-            return view('integrations.orders', ['tabs' => [], 'activeTab' => null]);
+        // Empty state — no marketplaces visible to this user
+        if ($cards->isEmpty()) {
+            return view('integrations.orders', [
+                'hasMarketplaces' => false,
+                'topProducts' => [],
+                'recentOrders' => [],
+            ]);
         }
 
-        // Auto-redirect to the first available marketplace's existing orders
-        // page so a click on the sidebar "Orders" link lands somewhere useful.
-        // The shared tab strip on each marketplace's orders index handles
-        // switching between tabs from there.
-        $first = $tabs[0];
+        // Combined top-products leaderboard. Each provider returns its own top
+        // products; we merge by SKU, sum qty + revenue, and remember which
+        // marketplaces contributed so the leaderboard row can show small
+        // marketplace dots next to the SKU.
+        $merged = [];
+        foreach ($providers as $provider) {
+            $card = $cards->get($provider->integrationCard()?->id ?? '');
+            if ($card === null) {
+                continue;
+            }
+            foreach ($provider->topProductsToday(10) as $tp) {
+                $key = $tp->sku;
+                if (!isset($merged[$key])) {
+                    $merged[$key] = [
+                        'sku' => $tp->sku,
+                        'name' => $tp->name,
+                        'imageUrl' => $tp->imageUrl,
+                        'qtySold' => 0,
+                        'revenue' => 0.0,
+                        'contributors' => [],
+                    ];
+                }
+                $merged[$key]['qtySold'] += $tp->qtySold;
+                $merged[$key]['revenue'] += $tp->revenue;
+                if ($tp->imageUrl && empty($merged[$key]['imageUrl'])) {
+                    $merged[$key]['imageUrl'] = $tp->imageUrl;
+                }
+                $merged[$key]['contributors'][] = [
+                    'label' => $card->name,
+                    'accent' => $card->accent,
+                    'qty' => $tp->qtySold,
+                ];
+            }
+        }
+        usort($merged, fn ($a, $b) => $b['qtySold'] <=> $a['qtySold']);
+        $topProducts = array_slice(array_values($merged), 0, 10);
 
-        return redirect()->route($first->routeName, $first->routeParams);
+        // Combined recent activity feed — newest first across all marketplaces.
+        $recent = [];
+        foreach ($providers as $provider) {
+            $card = $cards->get($provider->integrationCard()?->id ?? '');
+            if ($card === null) {
+                continue;
+            }
+            foreach ($provider->recentOrders(5) as $ro) {
+                $recent[] = [
+                    'order' => $ro,
+                    'card' => $card,
+                ];
+            }
+        }
+        usort($recent, function ($a, $b) {
+            $aTs = $a['order']->orderedAt?->getTimestamp() ?? 0;
+            $bTs = $b['order']->orderedAt?->getTimestamp() ?? 0;
+            return $bTs <=> $aTs;
+        });
+        $recentOrders = array_slice($recent, 0, 15);
+
+        return view('integrations.orders', [
+            'hasMarketplaces' => true,
+            'topProducts' => $topProducts,
+            'recentOrders' => $recentOrders,
+        ]);
     }
 }

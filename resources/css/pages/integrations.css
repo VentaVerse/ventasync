@@ -174,40 +174,32 @@
 }
 
 /* ============================================================
-   Tab strip shared by every marketplace's Orders index.
-   Each tab uses its marketplace's accent color (set inline via
-   --tab-accent) so tabs are visually distinct at a glance even
-   without reading the labels.
+   Card-style tab strip — every Orders page renders this as the
+   stable navigation surface. Each card carries its marketplace's
+   accent color so tabs are visually distinct at a glance.
+   The active card fills with its accent.
    ============================================================ */
 
-.int-tab-strip {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+.ord-tab-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
     margin: 0 0 22px;
-    padding: 8px;
-    background: var(--surface-muted, #f1f5f9);
-    border: 1px solid var(--border, #e5e7eb);
-    border-radius: 14px;
 }
 
-.int-tab {
-    --tab-accent: #64748b;
+.ord-tab-card {
+    --card-accent: #64748b;
 
-    display: inline-flex;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
     gap: 10px;
-    padding: 12px 20px;
-    color: var(--ink, #1f2937);
-    text-decoration: none;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: .2px;
-    border-radius: 10px;
+    padding: 14px 16px;
     background: var(--surface, #fff);
-    border: 1px solid transparent;
-    box-shadow: 0 1px 1px rgba(15, 23, 42, .04);
-    white-space: nowrap;
+    border: 1px solid var(--border, #e5e7eb);
+    border-top: 3px solid var(--card-accent);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--ink, #1f2937);
     transition:
         background-color .15s ease,
         color .15s ease,
@@ -216,70 +208,392 @@
         box-shadow .15s ease;
 }
 
-.int-tab::before {
-    content: "";
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--tab-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tab-accent) 18%, transparent);
-    flex: 0 0 10px;
-    transition: transform .15s ease, box-shadow .15s ease;
-}
-
-.int-tab:hover {
-    border-color: var(--tab-accent);
+.ord-tab-card:hover {
     transform: translateY(-1px);
+    border-color: var(--card-accent);
     box-shadow: 0 6px 14px rgba(15, 23, 42, .08);
 }
 
-.int-tab:hover::before {
-    transform: scale(1.15);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tab-accent) 25%, transparent);
-}
-
-.int-tab.active {
-    background: var(--tab-accent);
+.ord-tab-card.active {
+    background: var(--card-accent);
     color: #fff;
-    border-color: var(--tab-accent);
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--tab-accent) 35%, transparent);
+    border-color: var(--card-accent);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--card-accent) 30%, transparent);
 }
 
-.int-tab.active::before {
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, .35);
+.ord-tab-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.int-tab-badge {
-    display: inline-flex;
+.ord-tab-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: #fff;
+    display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
-    height: 24px;
-    padding: 0 8px;
-    border-radius: 999px;
-    background: #dc2626;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: .3px;
-    box-shadow: 0 1px 2px rgba(220, 38, 38, .35);
+    flex: 0 0 32px;
+    transition: background-color .15s ease;
 }
 
-.int-tab.active .int-tab-badge {
-    background: #fff;
-    color: var(--tab-accent);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+.ord-tab-card.active .ord-tab-icon {
+    background: rgba(255, 255, 255, .18) !important;
+}
+
+.ord-tab-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ord-tab-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .2px;
+}
+
+.ord-tab-sub {
+    font-size: 12px;
+    color: var(--muted, #94a3b8);
+    margin-top: -4px;
+    margin-left: 42px;
+}
+
+.ord-tab-card.active .ord-tab-sub {
+    color: rgba(255, 255, 255, .75);
+}
+
+.ord-tab-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.ord-tab-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ord-tab-num {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--ink, #111827);
+    font-variant-numeric: tabular-nums;
+}
+
+.ord-tab-num.small {
+    font-size: 13px;
+}
+
+.ord-tab-num.warn {
+    color: #b91c1c;
+}
+
+.ord-tab-card.active .ord-tab-num {
+    color: #fff;
+}
+
+.ord-tab-card.active .ord-tab-num.warn {
+    color: #ffd2d2;
+}
+
+.ord-tab-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--muted, #6b7280);
+    font-weight: 600;
+}
+
+.ord-tab-card.active .ord-tab-lbl {
+    color: rgba(255, 255, 255, .8);
 }
 
 @media (max-width: 640px) {
-    .int-tab-strip {
-        gap: 6px;
-        padding: 6px;
+    .ord-tab-strip {
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
-    .int-tab {
-        padding: 10px 14px;
-        font-size: 14px;
+}
+
+/* ============================================================
+   Orders summary page — leaderboard + activity feed grid
+   (status cards are rendered by the .ord-tab-strip above)
+   ============================================================ */
+
+.ord-summary-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 960px) {
+    .ord-summary-grid {
+        grid-template-columns: 1fr;
     }
+}
+
+.ord-block {
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+
+.ord-block-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 0 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+}
+
+.ord-block-head h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink, #111827);
+}
+
+.ord-block-meta {
+    font-size: 12px;
+    color: var(--muted, #6b7280);
+}
+
+.ord-block-empty {
+    padding: 24px 8px;
+    text-align: center;
+    color: var(--muted, #6b7280);
+    font-size: 13px;
+}
+
+/* Top-products leaderboard */
+
+.ord-leaderboard {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ord-leaderboard li {
+    display: grid;
+    grid-template-columns: 28px 44px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+}
+
+.ord-leaderboard li:last-child {
+    border-bottom: none;
+}
+
+.ord-rank {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--muted, #94a3b8);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.ord-leaderboard li:nth-child(1) .ord-rank { color: #d97706; }
+.ord-leaderboard li:nth-child(2) .ord-rank { color: #64748b; }
+.ord-leaderboard li:nth-child(3) .ord-rank { color: #92400e; }
+
+.ord-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--surface-muted, #f1f5f9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ord-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ord-thumb-blank {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+}
+
+.ord-prod {
+    min-width: 0;
+}
+
+.ord-prod-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink, #1f2937);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ord-prod-sku {
+    font-size: 11px;
+    color: var(--muted, #94a3b8);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    margin-top: 2px;
+}
+
+.ord-prod-contrib {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.ord-contrib {
+    --contrib-accent: #94a3b8;
+
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--contrib-accent) 12%, transparent);
+    color: color-mix(in srgb, var(--contrib-accent) 75%, #1f2937);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.ord-contrib-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--contrib-accent);
+}
+
+.ord-prod-stats {
+    text-align: right;
+    min-width: 80px;
+}
+
+.ord-prod-qty {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink, #111827);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.ord-prod-rev {
+    font-size: 11px;
+    color: var(--muted, #6b7280);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Recent activity feed */
+
+.ord-feed {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ord-feed-row {
+    --row-accent: #64748b;
+
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+    text-decoration: none;
+    color: inherit;
+    transition: background-color .12s ease;
+}
+
+.ord-feed li:last-child .ord-feed-row { border-bottom: none; }
+
+.ord-feed-row:hover {
+    background: var(--surface-muted, #f8fafc);
+}
+
+.ord-feed-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--row-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-accent) 18%, transparent);
+}
+
+.ord-feed-meta {
+    min-width: 0;
+}
+
+.ord-feed-line1 {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.ord-feed-mp {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--row-accent);
+}
+
+.ord-feed-ref {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink, #1f2937);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.ord-feed-line2 {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted, #6b7280);
+    flex-wrap: wrap;
+}
+
+.ord-feed-sep {
+    color: var(--muted, #cbd5e1);
+}
+
+.ord-feed-stats {
+    text-align: right;
+}
+
+.ord-feed-total {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink, #111827);
+    font-variant-numeric: tabular-nums;
+}
+
+.ord-feed-age {
+    font-size: 11px;
+    color: var(--muted, #94a3b8);
+    margin-top: 2px;
 }

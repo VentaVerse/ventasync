@@ -66,6 +66,44 @@ class IntegrationRegistry
     }
 
     /**
+     * Providers that implement SummaryProvider, are visible to the user,
+     * and pass enabled+licensed gates. Used by the Orders summary page
+     * to gather per-marketplace daily counts and feeds.
+     *
+     * Returned as [integrationId => provider] so callers can pair the
+     * summary data with the matching IntegrationCard for display.
+     *
+     * @return array<string, SummaryProvider>
+     */
+    public function visibleSummaryProviders(?User $user): array
+    {
+        $providers = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$provider instanceof SummaryProvider) {
+                continue;
+            }
+
+            if (!$this->passesGates($id, $provider, $user)) {
+                continue;
+            }
+
+            $card = $provider->integrationCard();
+            if ($card === null) {
+                continue;
+            }
+
+            if ($card->permission && (!$user || !$user->hasPermission($card->permission))) {
+                continue;
+            }
+
+            $providers[$id] = $provider;
+        }
+
+        return $providers;
+    }
+
+    /**
      * Order tabs visible to the given user, after the same gates.
      *
      * @return OrderTab[]
