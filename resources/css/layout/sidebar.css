@@ -260,3 +260,19 @@
 .sidebar-footer .logout-btn:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
 .sidebar-footer .logout-btn .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
 .sidebar-footer .logout-btn .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Sidebar pending-orders badge — used by the unified Marketplace Orders link. */
+.nav-badge {
+    margin-left: auto;
+    background: #dc2626;
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 10px;
+    padding: 0 6px;
+    display: inline-block;
+}

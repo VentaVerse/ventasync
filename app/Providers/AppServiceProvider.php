@@ -2,14 +2,8 @@
 
 namespace App\Providers;
 
-use App\Models\LazadaOrder;
-use App\Models\LazadaSetting;
-use App\Models\Catalog\OrderStatus;
-use App\Models\ShopeeOrder;
-use App\Models\ShopeeSetting;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -36,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(\App\Services\LicenseService::class)->current()
             );
         });
+
+        $this->app->singleton(\App\Integrations\IntegrationRegistry::class);
     }
 
     /**
@@ -43,6 +39,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register temporary core integrations (Shopee + Lazada) until they're
+        // moved into extensions/. See app/Integrations/Core/ for the migration TODO.
+        $registry = $this->app->make(\App\Integrations\IntegrationRegistry::class);
+        $registry->register(new \App\Integrations\Core\ShopeeIntegration());
+        $registry->register(new \App\Integrations\Core\LazadaIntegration());
+
         // Avoid errors during first migrations / before table exists
         if (Schema::hasTable('settings')) {
             $setting = Setting::singleton();
@@ -61,145 +63,6 @@ class AppServiceProvider extends ServiceProvider
             View::share('appSetting', $setting);
         }
 
-
-        // Share pending-orders counts with the sidebar nav
-        View::composer('layouts.app', function ($view) {
-            // Shopee pending count
-            try {
-                if (!Schema::hasTable('shopee_orders')) {
-                    $view->with('shopeePendingCount', 0);
-                } else {
-                    $spRegion = 'ph';
-                    if (Schema::hasTable('shopee_settings')) {
-                        $spRegion = ShopeeSetting::query()->value('region') ?? 'ph';
-                    }
-                    $view->with('shopeePendingCount', ShopeeOrder::query()
-                        ->where('region', $spRegion)
-                        ->whereIn('status', ['READY_TO_SHIP'])
-                        ->count());
-                }
-            } catch (\Throwable $e) {
-                $view->with('shopeePendingCount', 0);
-            }
-
-            // Lazada pending count
-            try {
-                if (!Schema::hasTable('lazada_orders')) {
-                    $view->with('lazadaPendingCount', 0);
-                } else {
-                    $region = 'ph';
-                    if (Schema::hasTable('lazada_settings')) {
-                        $region = LazadaSetting::query()->value('region') ?? 'ph';
-                    }
-                    $count = LazadaOrder::query()
-                        ->where('region', $region)
-                        ->whereIn('status', ['pending', 'repacked'])
-                        ->count();
-                    $view->with('lazadaPendingCount', $count);
-                }
-            } catch (\Throwable $e) {
-                $view->with('lazadaPendingCount', 0);
-            }
-
-            // TikTok pending count (new → awaiting shipment)
-            try {
-                if (Schema::hasTable('tiktok_orders')) {
-                    $view->with('tiktokPendingCount', \Extensions\tiktok\Models\TikTokOrder::query()
-                        ->where('status', 'AWAITING_SHIPMENT')
-                        ->count());
-                } else {
-                    $view->with('tiktokPendingCount', 0);
-                }
-            } catch (\Throwable $e) {
-                $view->with('tiktokPendingCount', 0);
-            }
-
-            // Share enabled OpenCart stores for sidebar per-store links
-            try {
-                if (class_exists(\Extensions\opencart\Models\OpenCartSetting::class) && Schema::hasTable('opencart_settings')) {
-                    $stores = \Extensions\opencart\Models\OpenCartSetting::where('enabled', true)->get();
-                    $pendingByStore = [];
-
-                    $pfx = (string) config('catalog.prefix');
-                    $orderTable = $pfx . 'order';
-
-                    if (Schema::hasTable($orderTable)) {
-                        $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
-
-                        if ($pendingStatusIds->isNotEmpty()) {
-                            $rows = DB::table($orderTable)
-                                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
-                                ->whereIn('order_status_id', $pendingStatusIds)
-                                ->where('marketplace_source', 'like', 'opencart:%')
-                                ->groupBy('marketplace_source')
-                                ->get();
-
-                            foreach ($rows as $row) {
-                                $src = (string) ($row->marketplace_source ?? '');
-                                if (str_starts_with($src, 'opencart:')) {
-                                    $storeId = (int) str_replace('opencart:', '', $src);
-                                    if ($storeId > 0) {
-                                        $pendingByStore[$storeId] = (int) $row->cnt;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    $stores = $stores->map(function ($store) use ($pendingByStore) {
-                        $store->pending_count = $pendingByStore[$store->id] ?? 0;
-                        return $store;
-                    });
-
-                    $view->with('opencartStores', $stores);
-                } else {
-                    $view->with('opencartStores', collect());
-                }
-            } catch (\Throwable $e) {
-                $view->with('opencartStores', collect());
-            }
-
-            // Venta stores for sidebar nav
-            try {
-                $view->with('ventaStores', collect());
-                if (class_exists(\Extensions\venta\Models\VentaSetting::class) && Schema::hasTable('venta_settings')) {
-                    $ventaStores = \Extensions\venta\Models\VentaSetting::where('enabled', true)->get();
-                    $ventaPendingByStore = [];
-
-                    if (Schema::hasTable($pfx . 'order')) {
-                        $pendingStatusIds = $pendingStatusIds ?? OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
-
-                        if ($pendingStatusIds->isNotEmpty()) {
-                            $ventaRows = DB::table($pfx . 'order')
-                                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
-                                ->whereIn('order_status_id', $pendingStatusIds)
-                                ->where('marketplace_source', 'like', 'venta:%')
-                                ->groupBy('marketplace_source')
-                                ->get();
-
-                            foreach ($ventaRows as $row) {
-                                $src = (string) ($row->marketplace_source ?? '');
-                                if (str_starts_with($src, 'venta:')) {
-                                    $storeId = (int) str_replace('venta:', '', $src);
-                                    if ($storeId > 0) {
-                                        $ventaPendingByStore[$storeId] = (int) $row->cnt;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    $ventaStores = $ventaStores->map(function ($store) use ($ventaPendingByStore) {
-                        $store->pending_count = $ventaPendingByStore[$store->id] ?? 0;
-                        return $store;
-                    });
-
-                    $view->with('ventaStores', $ventaStores);
-                }
-            } catch (\Throwable $e) {
-                $view->with('ventaStores', collect());
-            }
-        });
 
         // Capture non-fatal PHP errors (warnings/notices/deprecations) into storage/logs/error.log
         // for cleanup/troubleshooting without exposing them to users.

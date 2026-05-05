@@ -93,58 +93,26 @@
                     <span class="label">Dashboard</span>
                 </a>
 
-                @if($canLazadaOrders)
-                <a href="{{ route('lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="{{ request()->routeIs('lazada.orders.*') ? 'active' : '' }}">
+                {{-- Unified Marketplace Orders — replaces the per-marketplace
+                     "Lazada Orders / Shopee Orders / ..." sidebar items. Tab
+                     visibility (and the badge total) is driven by IntegrationRegistry,
+                     gated by license + enabled + per-tab permission. --}}
+                @php
+                    $__orderTabs = app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($u);
+                    $__orderBadge = 0;
+                    foreach ($__orderTabs as $__t) {
+                        $__c = $__t->unprocessedCount();
+                        if ($__c !== null) { $__orderBadge += $__c; }
+                    }
+                @endphp
+                @if(!empty($__orderTabs))
+                <a href="{{ route('integrations.orders') }}" class="{{ request()->routeIs('integrations.orders') || request()->routeIs('shopee.orders.*') || request()->routeIs('lazada.orders.*') || request()->routeIs('ext.tiktok.orders.*') || request()->routeIs('ext.opencart.orders.*') || request()->routeIs('ext.venta.orders.*') || request()->routeIs('ext.pedallion.orders.*') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                    <span class="label">Lazada Orders</span>
-                    @if(($lazadaPendingCount ?? 0) > 0)
-                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $lazadaPendingCount }}</span>
+                    <span class="label">Orders</span>
+                    @if($__orderBadge > 0)
+                        <span class="nav-badge">{{ $__orderBadge }}</span>
                     @endif
                 </a>
-                @endif
-
-                @if($canShopeeOrders)
-                <a href="{{ route('shopee.orders.index', ['tab' => 'PENDING']) }}" class="{{ request()->routeIs('shopee.orders.*') ? 'active' : '' }}">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                    <span class="label">Shopee Orders</span>
-                    @if(($shopeePendingCount ?? 0) > 0)
-                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $shopeePendingCount }}</span>
-                    @endif
-                </a>
-                @endif
-
-                @if($canTikTokOrders && Route::has('ext.tiktok.orders.index'))
-                <a href="{{ route('ext.tiktok.orders.index') }}" class="{{ request()->routeIs('ext.tiktok.orders.*') ? 'active' : '' }}">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                    <span class="label">TikTok Orders</span>
-                    @if(($tiktokPendingCount ?? 0) > 0)
-                        <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ $tiktokPendingCount }}</span>
-                    @endif
-                </a>
-                @endif
-
-                @if($canOpencartOrders && Route::has('ext.opencart.orders.index'))
-                    @foreach(($opencartStores ?? collect()) as $ocStore)
-                    <a href="{{ route('ext.opencart.orders.index', $ocStore->id) }}" class="{{ request()->routeIs('ext.opencart.orders.*') && request()->route('store') == $ocStore->id ? 'active' : '' }}">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                        <span class="label">{{ $ocStore->store_name }} Orders</span>
-                        @if((int) ($ocStore->pending_count ?? 0) > 0)
-                            <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ (int) $ocStore->pending_count }}</span>
-                        @endif
-                    </a>
-                    @endforeach
-                @endif
-
-                @if($canVentaOrders && Route::has('ext.venta.orders.index'))
-                    @foreach(($ventaStores ?? collect()) as $vStore)
-                    <a href="{{ route('ext.venta.orders.index', $vStore->id) }}" class="{{ request()->routeIs('ext.venta.orders.*') && request()->route('store') == $vStore->id ? 'active' : '' }}">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                        <span class="label">{{ $vStore->store_name }} Orders</span>
-                        @if((int) ($vStore->pending_count ?? 0) > 0)
-                            <span style="margin-left:auto; background:#dc2626; color:#fff; font-weight:700; font-size:11px; min-width:20px; height:20px; line-height:20px; text-align:center; border-radius:10px; padding:0 6px; display:inline-block;">{{ (int) $vStore->pending_count }}</span>
-                        @endif
-                    </a>
-                    @endforeach
                 @endif
 
                 @if($canCatalog)
@@ -222,121 +190,18 @@
                 @endif
 
 
-                @if($canMarketplace)
-                <div class="nav-group">
-                    @php
-                        $mpActive = (request()->routeIs('shopee.*') && !request()->routeIs('shopee.orders.*'))
-                                 || (request()->routeIs('lazada.*') && !request()->routeIs('lazada.orders.*'));
-                    @endphp
-                    <details {{ $mpActive ? 'open' : '' }}>
-                        <summary class="{{ $mpActive ? 'active' : '' }}">
-                            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
-                            <span class="label">Marketplace API</span>
-                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
-                        </summary>
-                        <div class="nav-sub-wrap">
-                            <div class="nav-sub">
-                                @if($canShopee)
-                                {{-- ─── Shopee ─── --}}
-                                <div class="nav-sub-divider">Shopee</div>
-                                <a href="{{ route('shopee.index') }}" class="{{ request()->routeIs('shopee.index') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-                                    <span class="label">Settings</span>
-                                </a>
-                                <a href="{{ route('shopee.logistics.index') }}" class="{{ request()->routeIs('shopee.logistics.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
-                                    <span class="label">Logistics</span>
-                                </a>
-                                <a href="{{ route('shopee.product-groups.index') }}" class="{{ request()->routeIs('shopee.product-groups.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
-                                    <span class="label">Product Groups</span>
-                                </a>
-                                @endif
-
-                                @if($canLazada)
-                                {{-- ─── Lazada ─── --}}
-                                <div class="nav-sub-divider">Lazada</div>
-                                <a href="{{ route('lazada.index') }}" class="{{ request()->routeIs('lazada.index') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-                                    <span class="label">Settings</span>
-                                </a>
-                                <a href="{{ route('lazada.product-groups.index') }}" class="{{ request()->routeIs('lazada.product-groups.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
-                                    <span class="label">Product Groups</span>
-                                </a>
-                                @endif
-
-
-                            </div>
-                        </div>
-                    </details>
-                </div>
-                @endif
-
-
-                @if($canOpencart && Route::has('ext.opencart.index'))
-                <div class="nav-group">
-                    @php
-                        $ocActive = request()->routeIs('ext.opencart.*') && !request()->routeIs('ext.opencart.orders.*');
-                    @endphp
-                    <details {{ $ocActive ? 'open' : '' }}>
-                        <summary class="{{ $ocActive ? 'active' : '' }}">
-                            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
-                            <span class="label">OpenCart</span>
-                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
-                        </summary>
-                        <div class="nav-sub-wrap">
-                            <div class="nav-sub">
-                                <a href="{{ route('ext.opencart.index') }}" class="{{ request()->routeIs('ext.opencart.index') || request()->routeIs('ext.opencart.save') || request()->routeIs('ext.opencart.test') || request()->routeIs('ext.opencart.sync') || request()->routeIs('ext.opencart.push') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-                                    <span class="label">Settings</span>
-                                </a>
-                                @foreach(($opencartStores ?? collect()) as $ocStore)
-                                    <a href="{{ route('ext.opencart.product-groups.index', $ocStore->id) }}" class="{{ request()->routeIs('ext.opencart.product-groups.*') && request()->route('store') == $ocStore->id ? 'active' : '' }}">
-                                        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-                                        <span class="label">{{ $ocStore->store_name }}</span>
-                                    </a>
-                                @endforeach
-                                @if(Route::has('ext.opencart.reviews.index'))
-                                <a href="{{ route('ext.opencart.reviews.index') }}" class="{{ request()->routeIs('ext.opencart.reviews.*') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
-                                    <span class="label">Reviews</span>
-                                </a>
-                                @endif
-                            </div>
-                        </div>
-                    </details>
-                </div>
-                @endif
-
-                {{-- Venta Store --}}
-                @if($canVenta && Route::has('ext.venta.index'))
-                <div class="nav-group">
-                    @php
-                        $ventaActive = request()->routeIs('ext.venta.*') && !request()->routeIs('ext.venta.orders.*');
-                    @endphp
-                    <details {{ $ventaActive ? 'open' : '' }}>
-                        <summary class="{{ $ventaActive ? 'active' : '' }}">
-                            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
-                            <span class="label">Venta Store</span>
-                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
-                        </summary>
-                        <div class="nav-sub-wrap">
-                            <div class="nav-sub">
-                                <a href="{{ route('ext.venta.index') }}" class="{{ request()->routeIs('ext.venta.index') ? 'active' : '' }}">
-                                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-                                    <span class="label">Settings</span>
-                                </a>
-                                @foreach(($ventaStores ?? collect()) as $vStore)
-                                    <a href="{{ route('ext.venta.product-groups.index', $vStore->id) }}" class="{{ request()->routeIs('ext.venta.product-groups.*') && request()->route('store') == $vStore->id ? 'active' : '' }}">
-                                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-                                        <span class="label">{{ $vStore->store_name }}</span>
-                                    </a>
-                                @endforeach
-                            </div>
-                        </div>
-                    </details>
-                </div>
+                {{-- Integrations hub — replaces the per-marketplace nav groups
+                     (Marketplace API, OpenCart, Venta Store). Visibility of cards
+                     and order tabs is driven by IntegrationRegistry, gated by
+                     license + enabled + permission. --}}
+                @php
+                    $__intCards = app(\App\Integrations\IntegrationRegistry::class)->visibleCards($u);
+                @endphp
+                @if(!empty($__intCards))
+                <a href="{{ route('integrations.index') }}" class="{{ request()->routeIs('integrations.index') ? 'active' : '' }}">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+                    <span class="label">Integrations</span>
+                </a>
                 @endif
 
                 {{-- Extension Nav Groups --}}

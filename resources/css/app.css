@@ -46,6 +46,7 @@
 @import './pages/license-activate.css';
 @import './pages/licenses.css';
 @import './pages/purchasing.css';
+@import './pages/integrations.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';

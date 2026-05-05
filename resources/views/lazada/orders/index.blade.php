@@ -3,6 +3,7 @@
 
 @section('content')
 <div class="marketplace-lazada">
+@include('integrations.partials._tab_strip', ['activeTabId' => 'lazada'])
 <div class="page-header">
     <h2>Lazada Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>

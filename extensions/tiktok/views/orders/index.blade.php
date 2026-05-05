@@ -4,6 +4,7 @@
 
 @section('content')
 <div class="marketplace-tiktok">
+@include('integrations.partials._tab_strip', ['activeTabId' => 'tiktok'])
 <div class="page-header">
     <h2>TikTok Shop Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>

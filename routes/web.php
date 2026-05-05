@@ -27,6 +27,7 @@ use App\Http\Controllers\LazadaOrderController;
 use App\Http\Controllers\LazadaProductGroupController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\IntegrationController;
 
 use App\Http\Controllers\CurrencyController;
 
@@ -48,6 +49,11 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Integrations hub (cards view) and orders entry-point (redirects to first
+    // available marketplace tab; otherwise shows empty state)
+    Route::get('/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
+    Route::get('/integrations/orders', [IntegrationController::class, 'orders'])->name('integrations.orders');
     Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
     Route::get('/dashboard/platform-data', [DashboardController::class, 'platformData'])->name('dashboard.platform_data');
 
