@@ -16,16 +16,5 @@
         "tiktok_order_products",
         "tiktok_order_status_map"
     ],
-    "nav": [
-        {
-            "group": "TikTok Shop",
-            "icon": "video",
-            "permission": "manage_tiktok",
-            "priority": 45,
-            "items": [
-                { "label": "Settings", "route": "ext.tiktok.index" },
-                { "label": "Product Groups", "route": "ext.tiktok.product-groups.index" }
-            ]
-        }
-    ]
+    "nav": []
 }
