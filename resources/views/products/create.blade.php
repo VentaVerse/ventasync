@@ -334,15 +334,7 @@
 
 {{-- ===== VENDOR TAB JS ===== --}}
 <script>
-(function() {
-    // Vendor data from server (no AJAX needed)
-    @php
-        $vendorList = ($vendors ?? collect())->map(function ($v) {
-            return ['id' => $v->id, 'name' => $v->name, 'nickname' => $v->nickname ?? '', 'currency_code' => $v->currency_code ?? 'PHP'];
-        })->toArray();
-    @endphp
-    var allVendors = @json($vendorList);
-
+document.addEventListener('DOMContentLoaded', function() {
     var vendorRows = [];
     var nextIdx = 0;
 
@@ -350,12 +342,32 @@
     var emptyMsg = document.getElementById('cv-empty-msg');
     var searchInput = document.getElementById('cv-vendor-search');
     var vendorIdInput = document.getElementById('cv-vendor-id');
-    var listEl = document.getElementById('cv-vendor-list');
     var skuInput = document.getElementById('cv-vendor-sku');
     var minQtyInput = document.getElementById('cv-min-qty');
     var currencySelect = document.getElementById('cv-currency');
     var unitPriceInput = document.getElementById('cv-unit-price');
     var addBtn = document.getElementById('cv-add-btn');
+
+    // ── Vendor typeahead (shared with edit page + PO pages, AJAX-backed) ──
+    if (window.setupTypeahead) {
+        window.setupTypeahead({
+            inputId: 'cv-vendor-search',
+            hiddenId: 'cv-vendor-id',
+            listId: 'cv-vendor-list',
+            url: '/api/vendors?q=',
+            showAllOnFocus: true,
+            onSelect: function(item) {
+                if (item.currency_code) {
+                    for (var ci = 0; ci < currencySelect.options.length; ci++) {
+                        if (currencySelect.options[ci].value === item.currency_code) {
+                            currencySelect.selectedIndex = ci;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     // ── Restore from old('vendors') on validation failure ──
     @php
@@ -375,59 +387,6 @@
             });
         }
     @endif
-
-    // ── Typeahead: filter vendors client-side ──
-    searchInput.addEventListener('input', function() {
-        var term = this.value.trim().toLowerCase();
-        vendorIdInput.value = '';
-        if (term.length < 1) { while (listEl.firstChild) listEl.removeChild(listEl.firstChild); listEl.style.display = 'none'; return; }
-
-        var matches = allVendors.filter(function(v) {
-            var label = (v.name + ' ' + (v.nickname || '')).toLowerCase();
-            return label.indexOf(term) !== -1;
-        }).slice(0, 15);
-
-        // Build list using safe DOM methods
-        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
-
-        if (matches.length === 0) {
-            listEl.style.display = 'none';
-            return;
-        }
-
-        matches.forEach(function(v) {
-            var item = document.createElement('div');
-            item.className = 'typeahead-item';
-            item.textContent = v.name + (v.nickname ? ' | ' + v.nickname : '');
-            item.setAttribute('data-id', v.id);
-            item.setAttribute('data-name', v.name + (v.nickname ? ' | ' + v.nickname : ''));
-            item.setAttribute('data-currency', v.currency_code || '');
-            item.addEventListener('click', function() {
-                vendorIdInput.value = v.id;
-                searchInput.value = v.name + (v.nickname ? ' | ' + v.nickname : '');
-                listEl.style.display = 'none';
-                // Auto-select vendor's default currency if available
-                if (v.currency_code) {
-                    for (var ci = 0; ci < currencySelect.options.length; ci++) {
-                        if (currencySelect.options[ci].value === v.currency_code) {
-                            currencySelect.selectedIndex = ci;
-                            break;
-                        }
-                    }
-                }
-            });
-            listEl.appendChild(item);
-        });
-
-        listEl.style.display = '';
-    });
-
-    // Hide dropdown on outside click
-    document.addEventListener('click', function(e) {
-        if (!searchInput.contains(e.target) && !listEl.contains(e.target)) {
-            listEl.style.display = 'none';
-        }
-    });
 
     // ── Add vendor row ──
     addBtn.addEventListener('click', function() {
@@ -541,6 +500,6 @@
     }
 
     toggleEmpty();
-})();
+});
 </script>
 @endpush

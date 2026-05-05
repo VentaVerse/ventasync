@@ -365,13 +365,9 @@ $pfx = config('catalog.prefix');
         $existingOptions = collect();
         $existingCombinations = [];
 
-        $vendors = collect();
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
-        if (class_exists(\Extensions\purchasing\Models\Vendor::class)) {
-            $vendors = \Extensions\purchasing\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'nickname', 'currency_code']);
-        }
 
-        return view('products.create', compact('existingOptions', 'existingCombinations', 'vendors', 'currencies'));
+        return view('products.create', compact('existingOptions', 'existingCombinations', 'currencies'));
     }
 
 

@@ -18,7 +18,7 @@
   <div class="pim-grid-wrap">
     <div class="pim-grid" id="pimGrid"></div>
     <div class="pim-empty" id="pimEmpty">
-      No images selected. Click <strong>Image Manager</strong> to add images.
+      No images selected. Click&nbsp;<strong>Image Manager</strong>&nbsp;to add images.
     </div>
   </div>
 </div>
