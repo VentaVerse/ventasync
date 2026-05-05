@@ -18,7 +18,9 @@ use App\Services\LicenseService;
  * license_required) -> permission (per-user). Extension-based integrations
  * are gated against the extensions table and the license server; "core"
  * integrations (id starts with "core:") skip enable/license gating and are
- * gated only by permission.
+ * gated only by permission. Multi-store integrations may use compound ids
+ * like "venta:1" — the gate check extracts the base extension id ("venta")
+ * before consulting the extensions table.
  */
 class IntegrationRegistry
 {
@@ -46,65 +48,28 @@ class IntegrationRegistry
         $cards = [];
 
         foreach ($this->providers as $id => $provider) {
-            if (!$this->passesGates($id, $provider, $user)) {
+            if (!$this->passesGates($id, $user)) {
                 continue;
             }
 
-            $card = $provider->integrationCard();
-            if ($card === null) {
-                continue;
+            foreach ($provider->integrationCards() as $card) {
+                if (!$card instanceof IntegrationCard) {
+                    continue;
+                }
+                if ($card->permission && (!$user || !$user->hasPermission($card->permission))) {
+                    continue;
+                }
+                $cards[] = $card;
             }
-
-            if ($card->permission && (!$user || !$user->hasPermission($card->permission))) {
-                continue;
-            }
-
-            $cards[] = $card;
         }
 
         return $cards;
     }
 
     /**
-     * Providers that implement SummaryProvider, are visible to the user,
-     * and pass enabled+licensed gates. Used by the Orders summary page
-     * to gather per-marketplace daily counts and feeds.
-     *
-     * Returned as [integrationId => provider] so callers can pair the
-     * summary data with the matching IntegrationCard for display.
-     *
-     * @return array<string, SummaryProvider>
-     */
-    public function visibleSummaryProviders(?User $user): array
-    {
-        $providers = [];
-
-        foreach ($this->providers as $id => $provider) {
-            if (!$provider instanceof SummaryProvider) {
-                continue;
-            }
-
-            if (!$this->passesGates($id, $provider, $user)) {
-                continue;
-            }
-
-            $card = $provider->integrationCard();
-            if ($card === null) {
-                continue;
-            }
-
-            if ($card->permission && (!$user || !$user->hasPermission($card->permission))) {
-                continue;
-            }
-
-            $providers[$id] = $provider;
-        }
-
-        return $providers;
-    }
-
-    /**
-     * Order tabs visible to the given user, after the same gates.
+     * Order tabs visible to the given user, flattened across providers.
+     * Multi-store providers contribute one tab per store; single-store
+     * providers contribute one tab.
      *
      * @return OrderTab[]
      */
@@ -113,20 +78,19 @@ class IntegrationRegistry
         $tabs = [];
 
         foreach ($this->providers as $id => $provider) {
-            if (!$this->passesGates($id, $provider, $user)) {
+            if (!$this->passesGates($id, $user)) {
                 continue;
             }
 
-            $tab = $provider->orderTab();
-            if ($tab === null) {
-                continue;
+            foreach ($provider->orderTabs() as $tab) {
+                if (!$tab instanceof OrderTab) {
+                    continue;
+                }
+                if ($tab->permission && (!$user || !$user->hasPermission($tab->permission))) {
+                    continue;
+                }
+                $tabs[] = $tab;
             }
-
-            if ($tab->permission && (!$user || !$user->hasPermission($tab->permission))) {
-                continue;
-            }
-
-            $tabs[] = $tab;
         }
 
         return $tabs;
@@ -136,25 +100,29 @@ class IntegrationRegistry
      * Enabled + license gates. Permission is checked per surface (card vs tab)
      * by the visible* methods above so different permissions can apply to each.
      */
-    protected function passesGates(string $id, IntegrationProvider $provider, ?User $user): bool
+    protected function passesGates(string $id, ?User $user): bool
     {
         // Core integrations bypass extension/license gates; only permission applies.
         if (str_starts_with($id, 'core:')) {
             return true;
         }
 
+        // Compound ids (e.g. "venta:1" for store 1) are scoped per-instance but
+        // still gated against the underlying extension id ("venta").
+        $baseId = str_contains($id, ':') ? strstr($id, ':', true) : $id;
+
         $extMgr = app(ExtensionManager::class);
 
-        if (!$extMgr->isEnabled($id)) {
+        if (!$extMgr->isEnabled($baseId)) {
             return false;
         }
 
-        $manifest = $extMgr->getManifest($id);
+        $manifest = $extMgr->getManifest($baseId);
         $licenseRequired = !empty($manifest['license_required']);
 
         if ($licenseRequired) {
             $license = app(LicenseService::class);
-            if (!$license->isModuleLicensed($id)) {
+            if (!$license->isModuleLicensed($baseId)) {
                 return false;
             }
         }

@@ -2,7 +2,7 @@
 @section('breadcrumb', 'Marketplace / OpenCart / Orders')
 
 @section('content')
-@include('integrations.partials._tab_strip', ['activeTabId' => 'opencart'])
+@include('integrations.partials._tab_strip', ['activeTabId' => 'opencart:' . $store])
 <div class="card">
     <div class="page-header">
         <div>

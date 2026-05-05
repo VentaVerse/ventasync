@@ -3,7 +3,7 @@
 @section('breadcrumb', 'Marketplace / Venta / ' . $setting->store_name . ' / Orders')
 
 @section('content')
-@include('integrations.partials._tab_strip', ['activeTabId' => 'venta'])
+@include('integrations.partials._tab_strip', ['activeTabId' => 'venta:' . $setting->id])
 <div class="page-header">
     <div>
         <h2>Venta Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>

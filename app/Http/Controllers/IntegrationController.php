@@ -17,11 +17,10 @@ class IntegrationController extends Controller
     public function orders(Request $request, IntegrationRegistry $registry)
     {
         $user = $request->user();
-        $cards = collect($registry->visibleCards($user))->keyBy('id');
-        $providers = $registry->visibleSummaryProviders($user);
+        $tabs = $registry->visibleOrderTabs($user);
 
-        // Empty state — no marketplaces visible to this user
-        if ($cards->isEmpty()) {
+        // Empty state — no fulfillable surfaces visible to this user
+        if (empty($tabs)) {
             return view('integrations.orders', [
                 'hasMarketplaces' => false,
                 'topProducts' => [],
@@ -29,17 +28,13 @@ class IntegrationController extends Controller
             ]);
         }
 
-        // Combined top-products leaderboard. Each provider returns its own top
-        // products; we merge by SKU, sum qty + revenue, and remember which
-        // marketplaces contributed so the leaderboard row can show small
-        // marketplace dots next to the SKU.
+        // Combined top-products leaderboard. Each tab returns its own top
+        // products (scoped per store for multi-store marketplaces); we merge
+        // by SKU, sum qty + revenue, and remember which tabs contributed so
+        // the leaderboard row can show small per-tab dots next to the SKU.
         $merged = [];
-        foreach ($providers as $provider) {
-            $card = $cards->get($provider->integrationCard()?->id ?? '');
-            if ($card === null) {
-                continue;
-            }
-            foreach ($provider->topProductsToday(10) as $tp) {
+        foreach ($tabs as $tab) {
+            foreach ($tab->topProductsToday(10) as $tp) {
                 $key = $tp->sku;
                 if (!isset($merged[$key])) {
                     $merged[$key] = [
@@ -57,8 +52,8 @@ class IntegrationController extends Controller
                     $merged[$key]['imageUrl'] = $tp->imageUrl;
                 }
                 $merged[$key]['contributors'][] = [
-                    'label' => $card->name,
-                    'accent' => $card->accent,
+                    'label' => $tab->label,
+                    'accent' => $tab->accent,
                     'qty' => $tp->qtySold,
                 ];
             }
@@ -66,17 +61,13 @@ class IntegrationController extends Controller
         usort($merged, fn ($a, $b) => $b['qtySold'] <=> $a['qtySold']);
         $topProducts = array_slice(array_values($merged), 0, 10);
 
-        // Combined recent activity feed — newest first across all marketplaces.
+        // Combined recent activity feed — newest first across all tabs.
         $recent = [];
-        foreach ($providers as $provider) {
-            $card = $cards->get($provider->integrationCard()?->id ?? '');
-            if ($card === null) {
-                continue;
-            }
-            foreach ($provider->recentOrders(5) as $ro) {
+        foreach ($tabs as $tab) {
+            foreach ($tab->recentOrders(5) as $ro) {
                 $recent[] = [
                     'order' => $ro,
-                    'card' => $card,
+                    'tab' => $tab,
                 ];
             }
         }
