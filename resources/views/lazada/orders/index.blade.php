@@ -361,7 +361,25 @@
                             $courier = $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']);
                             $deliveryMethod = $pick(['shipping_type', 'delivery_type']);
                             $trackingNo = $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']);
-                            $sla = $pick(['sla_time_stamp', 'sla_time', 'shipping_sla', 'ship_by_date']);
+
+                            // SLA timestamp — only for awaiting-ship statuses.
+                            // Lazada exposes either sla_time_stamp / promised_shipping_time (often empty)
+                            // or fulfillment_sla (string like "TTS before 2026-05-06 23:59:17 ...").
+                            $awaitingShip = in_array($statusNorm, ['pending', 'confirmed', 'ready_to_ship', 'packed'], true);
+                            $shipBy = 0;
+                            if ($awaitingShip) {
+                                $tsRaw = $pick(['sla_time_stamp', 'promised_shipping_time']);
+                                if (is_numeric($tsRaw) && (int) $tsRaw > 0) {
+                                    $shipBy = (int) $tsRaw;
+                                    if ($shipBy > 1000000000000) $shipBy = (int) ($shipBy / 1000); // ms → s
+                                } else {
+                                    $slaText = $pick(['fulfillment_sla']);
+                                    if ($slaText && preg_match('/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $slaText, $m)) {
+                                        $parsed = strtotime(str_replace('T', ' ', $m[1]));
+                                        if ($parsed) $shipBy = $parsed;
+                                    }
+                                }
+                            }
                         @endphp
 
                         @if($orderId)
@@ -486,11 +504,7 @@
                             </td>
                             <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                 <div class="font-bold">{{ $statusStr !== '' ? $statusStr : '—' }}</div>
-                                @if($sla)
-                                    <div style="margin-top:6px;">
-                                        <span class="badge badge-yellow">{{ $sla }}</span>
-                                    </div>
-                                @endif
+                                <x-sla-chip :deadline="$shipBy" />
                             </td>
                             <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                 @if(!$orderId)

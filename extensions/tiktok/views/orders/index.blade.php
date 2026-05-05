@@ -252,6 +252,10 @@
                             $isToHandover = ($status === 'AWAITING_COLLECTION');
                             $isShipped = in_array($status, ['IN_TRANSIT', 'DELIVERED', 'COMPLETED']);
 
+                            // SLA: tts_sla_time = ship-by deadline. Only meaningful pre-shipment.
+                            $awaitingShip = in_array($status, ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'], true);
+                            $shipBy = $awaitingShip ? (int) ($raw['tts_sla_time'] ?? 0) : 0;
+
                             // Status badge color
                             $badgeClass = match($status) {
                                 'COMPLETED', 'DELIVERED' => 'badge-green',
@@ -359,6 +363,7 @@
                                     </td>
                                     <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                         <span class="badge {{ $badgeClass }}">{{ $statusLabel }}</span>
+                                        <x-sla-chip :deadline="$shipBy" />
                                     </td>
                                     <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                         <div class="d-flex flex-wrap gap-6">

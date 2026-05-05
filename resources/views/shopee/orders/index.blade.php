@@ -224,6 +224,9 @@
                         $isShipped = ($statusNorm === 'SHIPPED');
                         $isFailedDelivery = ($statusNorm === 'RETRY_SHIP');
 
+                        $awaitingShip = in_array($statusNorm, ['UNPAID', 'READY_TO_SHIP', 'PROCESSED'], true);
+                        $shipBy = $awaitingShip ? (int) ($raw['ship_by_date'] ?? 0) : 0;
+
                         $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
                         $buyer = (string)($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
 
@@ -385,6 +388,7 @@
                         </td>
                         <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                             <div class="font-bold" @if($isFailedDelivery) style="color:#e53e3e;" @endif>{{ $statusStr !== '' ? $statusStr : '—' }}</div>
+                            <x-sla-chip :deadline="$shipBy" />
                         </td>
                         <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                             @if(!$orderSn)

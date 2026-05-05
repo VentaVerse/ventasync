@@ -22,6 +22,7 @@
 @import './components/order-totals.css';
 @import './components/typeahead.css';
 @import './components/badges.css';
+@import './components/sla-chip.css';
 @import './components/pagination.css';
 @import './components/tabs.css';
 @import './components/detail.css';
