@@ -23,3 +23,42 @@
     background-size: 8px 8px;
     opacity: 0.4;
 }
+
+/* ============================================================
+   PURCHASING — Receive page
+   ============================================================ */
+
+.po-receive-col-img      { width: 48px; }
+.po-receive-col-sku      { width: 120px; }
+.po-receive-col-qty      { width: 90px; text-align: right; }
+.po-receive-col-prev     { width: 100px; text-align: right; }
+.po-receive-col-rem      { width: 80px; text-align: right; }
+.po-receive-col-receive  { width: 150px; }
+.po-receive-col-cost     { width: 90px; text-align: center; }
+
+.po-receive-num { text-align: right; }
+.po-receive-cost-cell { text-align: center; }
+
+.po-receive-input-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.po-receive-input { width: 90px; }
+
+.po-receive-complete {
+    color: var(--success, #16a34a);
+    font-weight: 600;
+}
+
+.po-receive-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.po-receive-actions-spacer { flex: 1; }
+
