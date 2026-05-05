@@ -167,79 +167,47 @@
     border-top: 1px solid var(--border-soft, #f1f5f9);
 }
 
-/* Stores sub-section inside a multi-store module's card.
-   Visually separated from the menu so it's clear stores are children
-   of the module, not peers of the menu items above. */
+/* "Manage all N stores →" link inside a multi-store module's card.
+   Lives at the bottom of the card; the actual store list lives on
+   the dedicated module sub-page so the Integrations grid stays calm
+   regardless of how many stores are configured. */
 
-.int-card-stores {
-    background: var(--surface-muted, #f8fafc);
-    border-top: 1px solid var(--border, #e5e7eb);
-    padding: 12px 18px 14px;
-}
-
-.int-card-stores-head {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    font-weight: 700;
-    color: var(--muted, #94a3b8);
-    margin: 0 0 8px;
-}
-
-.int-card-stores-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.int-store-row {
+.int-card-stores-link {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 6px 10px;
-    background: var(--surface, #fff);
-    border: 1px solid var(--border-soft, #f1f5f9);
+    gap: 6px;
+    margin: 0 18px 16px;
+    padding: 10px 14px;
+    background: var(--surface-muted, #f8fafc);
+    border: 1px solid var(--border, #e5e7eb);
     border-radius: 8px;
-}
-
-.int-store-name {
+    color: var(--ink, #1f2937);
     font-size: 13px;
     font-weight: 600;
-    color: var(--ink, #1f2937);
-}
-
-.int-store-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-}
-
-.int-store-actions a {
-    color: var(--accent, #2563eb);
     text-decoration: none;
-    font-weight: 500;
+    transition: border-color .12s ease, color .12s ease, background-color .12s ease;
 }
 
-.int-store-actions a:hover {
-    text-decoration: underline;
+.int-card-stores-link:hover {
+    border-color: var(--accent, #2563eb);
+    color: var(--accent, #2563eb);
+    background: var(--surface, #fff);
 }
 
-.int-store-sep {
-    color: var(--muted, #cbd5e1);
+.int-card-stores-arrow {
+    font-size: 16px;
+    line-height: 1;
+    transition: transform .15s ease;
+}
+
+.int-card-stores-link:hover .int-card-stores-arrow {
+    transform: translateX(3px);
 }
 
 @media (max-width: 640px) {
     .int-grid {
         grid-template-columns: 1fr;
-    }
-    .int-store-row {
-        flex-direction: column;
-        align-items: flex-start;
     }
 }
 
@@ -394,6 +362,245 @@
         grid-template-columns: 1fr;
         gap: 8px;
     }
+}
+
+/* Compact mode — kicks in when the strip has 7+ marketplace tabs.
+   Drops the stat grid (Today/Revenue go to the Summary page) and
+   surfaces the unprocessed count as an inline pip in the head. The
+   strip becomes a denser navigation surface, not a dashboard. */
+
+.ord-tab-strip.compact {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.ord-tab-strip.compact .ord-tab-card {
+    padding: 10px 12px;
+    gap: 0;
+    border-top-width: 2px;
+}
+
+.ord-tab-strip.compact .ord-tab-stats,
+.ord-tab-strip.compact .ord-tab-sub {
+    display: none;
+}
+
+.ord-tab-strip.compact .ord-tab-head {
+    gap: 8px;
+}
+
+.ord-tab-strip.compact .ord-tab-icon {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    border-radius: 6px;
+}
+
+.ord-tab-strip.compact .ord-tab-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.ord-tab-strip.compact .ord-tab-title {
+    font-size: 14px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ord-tab-pip {
+    display: none;
+}
+
+.ord-tab-strip.compact .ord-tab-pip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    flex: 0 0 auto;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, .35);
+}
+
+.ord-tab-strip.compact .ord-tab-card.active .ord-tab-pip {
+    background: #fff;
+    color: var(--card-accent);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+}
+
+/* ============================================================
+   Module sub-page (/integrations/module/{id}) — dedicated
+   workspace for one multi-store marketplace
+   ============================================================ */
+
+.int-module-page {
+    --module-accent: #475569;
+}
+
+.int-module-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-top: 4px solid var(--module-accent);
+    border-radius: 12px;
+    margin: 0 0 16px;
+}
+
+.int-module-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 48px;
+}
+
+.int-module-icon svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.int-module-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.int-module-title h2 {
+    margin: 0;
+    font-size: 22px;
+    color: var(--ink, #111827);
+}
+
+.int-module-title p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--muted, #6b7280);
+}
+
+.int-module-actions {
+    flex: 0 0 auto;
+}
+
+.int-module-menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 18px;
+}
+
+.int-module-menu a {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 14px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 8px;
+    color: var(--ink, #1f2937);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: border-color .12s ease, color .12s ease;
+}
+
+.int-module-menu a:hover {
+    border-color: var(--module-accent);
+    color: var(--module-accent);
+}
+
+.int-module-stores-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 22px 0 12px;
+}
+
+.int-module-stores-head h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--ink, #111827);
+}
+
+.int-module-stores-count {
+    font-size: 12px;
+    color: var(--muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 600;
+}
+
+.int-module-stores {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+}
+
+.int-module-store {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-left: 3px solid var(--module-accent);
+    border-radius: 10px;
+    transition: border-color .12s ease, box-shadow .15s ease, transform .12s ease;
+}
+
+.int-module-store:hover {
+    box-shadow: 0 4px 10px rgba(15, 23, 42, .06);
+    transform: translateY(-1px);
+}
+
+.int-module-store-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink, #111827);
+}
+
+.int-module-store-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.int-module-store-action {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background: var(--surface-muted, #f1f5f9);
+    border-radius: 6px;
+    color: var(--ink, #334155);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color .12s ease, color .12s ease;
+}
+
+.int-module-store-action:hover {
+    background: var(--module-accent);
+    color: #fff;
 }
 
 /* ============================================================

@@ -14,6 +14,23 @@ class IntegrationController extends Controller
         return view('integrations.index', compact('cards'));
     }
 
+    /**
+     * Dedicated sub-page for one module — lists all configured stores
+     * with breathing room. Only useful for multi-store modules; for
+     * single-store modules it just shows the same card content.
+     */
+    public function module(Request $request, IntegrationRegistry $registry, string $module)
+    {
+        $card = collect($registry->visibleCards($request->user()))
+            ->firstWhere('id', $module);
+
+        if ($card === null) {
+            abort(404);
+        }
+
+        return view('integrations.module', compact('card'));
+    }
+
     public function orders(Request $request, IntegrationRegistry $registry)
     {
         $user = $request->user();

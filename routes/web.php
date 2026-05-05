@@ -54,6 +54,9 @@ Route::middleware(['auth'])->group(function () {
     // available marketplace tab; otherwise shows empty state)
     Route::get('/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::get('/integrations/orders', [IntegrationController::class, 'orders'])->name('integrations.orders');
+    Route::get('/integrations/module/{module}', [IntegrationController::class, 'module'])
+        ->where('module', '[A-Za-z0-9_:-]+')
+        ->name('integrations.module');
     Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
     Route::get('/dashboard/platform-data', [DashboardController::class, 'platformData'])->name('dashboard.platform_data');
 

@@ -6,22 +6,26 @@
      "Summary" — it goes to /integrations/orders and is active when no
      marketplace tab is selected.
 
+     At ≥7 marketplace tabs the strip switches to a compact mode that
+     drops Today/Revenue from each card and shows only the unprocessed
+     count inline. Stats belong on the Summary page when the strip
+     gets crowded; the strip's job becomes pure navigation.
+
      Include from any orders page, passing the active tab id (matches
      OrderTab::$id, e.g. "shopee", "venta:1"):
 
          @include('integrations.partials._tab_strip', ['activeTabId' => 'shopee'])
          @include('integrations.partials._tab_strip', ['activeTabId' => 'venta:' . $setting->id])
-         @include('integrations.partials._tab_strip', ['activeTabId' => null]) // Summary
-
-     Cards self-render their stats from each OrderTab's counter callbacks. --}}
+         @include('integrations.partials._tab_strip', ['activeTabId' => null]) // Summary --}}
 @php
     $__registry = app(\App\Integrations\IntegrationRegistry::class);
     $__tabs = $__registry->visibleOrderTabs(auth()->user());
     $__activeId = $activeTabId ?? null;
+    $__compact = count($__tabs) >= 7;
 @endphp
 
 @if(!empty($__tabs))
-<nav class="ord-tab-strip" aria-label="Marketplace orders">
+<nav class="ord-tab-strip {{ $__compact ? 'compact' : '' }}" aria-label="Marketplace orders">
     {{-- Summary card — neutral slate accent so it reads as a different
          kind of surface from the marketplace cards. --}}
     <a href="{{ route('integrations.orders') }}"
@@ -52,6 +56,10 @@
                     @include('integrations.partials._icon', ['icon' => $__tab->icon, 'name' => $__tab->label])
                 </div>
                 <div class="ord-tab-title">{{ $__tab->label }}</div>
+                {{-- Inline pip — only visible in compact mode (CSS-toggled) --}}
+                @if(($__unprocessed ?? 0) > 0)
+                    <span class="ord-tab-pip">{{ number_format((int) $__unprocessed) }}</span>
+                @endif
             </div>
             <div class="ord-tab-stats">
                 <div class="ord-tab-metric">
