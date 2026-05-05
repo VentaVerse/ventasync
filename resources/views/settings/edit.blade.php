@@ -11,6 +11,7 @@
 <div class="tabs mb-16">
     <button class="tab active" data-tab="tab-general">General</button>
     <button class="tab" data-tab="tab-website">Website Settings</button>
+    <button class="tab" data-tab="tab-mail">Mail</button>
     <button class="tab" data-tab="tab-maintenance">Maintenance</button>
 </div>
 
@@ -124,6 +125,88 @@
             </div>
         </div>
     </div>
+
+    {{-- Mail Tab --}}
+    <div class="hidden" id="tab-mail">
+        <div class="card">
+            <h3 class="section-title mt-0">Mail Transport</h3>
+            <div class="form-grid">
+                <div class="full">
+                    <label class="required">Mailer</label>
+                    <select name="mail_mailer" class="input" id="mailMailer">
+                        <option value="sendmail" {{ old('mail_mailer', $setting->mail_mailer ?? 'sendmail') === 'sendmail' ? 'selected' : '' }}>PHP</option>
+                        <option value="smtp" {{ old('mail_mailer', $setting->mail_mailer ?? 'sendmail') === 'smtp' ? 'selected' : '' }}>SMTP</option>
+                    </select>
+                    <div class="hint">PHP uses the server's local mail binary. SMTP is recommended for higher deliverability and inbox placement.</div>
+                </div>
+            </div>
+
+            <div id="smtpFields" class="form-grid mt-16">
+                <div>
+                    <label>SMTP Host</label>
+                    <input class="input" type="text" name="mail_host" value="{{ old('mail_host', $setting->mail_host) }}" placeholder="panel.example.com">
+                </div>
+                <div>
+                    <label>SMTP Port</label>
+                    <input class="input" type="number" name="mail_port" value="{{ old('mail_port', $setting->mail_port) }}" placeholder="587" min="1" max="65535">
+                </div>
+                <div>
+                    <label>Username</label>
+                    <input class="input" type="text" name="mail_username" value="{{ old('mail_username', $setting->mail_username) }}" autocomplete="off">
+                </div>
+                <div>
+                    <label>Password</label>
+                    <input class="input" type="password" name="mail_password" value="" placeholder="{{ $setting->mail_password ? '•••••••• (leave blank to keep)' : '' }}" autocomplete="new-password">
+                    @if($setting->mail_password)
+                        <label class="text-xs text-muted mt-8 d-flex items-center gap-8">
+                            <input type="checkbox" name="clear_mail_password" value="1"> Clear stored password
+                        </label>
+                    @endif
+                </div>
+                <div>
+                    <label>Encryption</label>
+                    <select name="mail_encryption" class="input">
+                        <option value="" {{ old('mail_encryption', $setting->mail_encryption) === null || old('mail_encryption', $setting->mail_encryption) === '' ? 'selected' : '' }}>None</option>
+                        <option value="tls" {{ old('mail_encryption', $setting->mail_encryption) === 'tls' ? 'selected' : '' }}>TLS</option>
+                        <option value="ssl" {{ old('mail_encryption', $setting->mail_encryption) === 'ssl' ? 'selected' : '' }}>SSL</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3 class="section-title mt-24">From</h3>
+            <div class="form-grid">
+                <div>
+                    <label>From Address</label>
+                    <input class="input" type="email" name="mail_from_address" value="{{ old('mail_from_address', $setting->mail_from_address) }}" placeholder="no-reply@example.com">
+                </div>
+                <div>
+                    <label>From Name</label>
+                    <input class="input" type="text" name="mail_from_name" value="{{ old('mail_from_name', $setting->mail_from_name) }}" placeholder="{{ config('app.name') }}">
+                </div>
+            </div>
+
+            <div class="d-flex justify-end mt-16">
+                <button class="btn" type="submit">Save Settings</button>
+            </div>
+        </div>
+
+        <div class="card mt-16">
+            <h3 class="section-title mt-0">Send Test Email</h3>
+            <div class="hint" style="margin-bottom:12px;">
+                Save your settings first. Then send a quick test message to verify the configuration.
+            </div>
+            <div class="form-grid">
+                <div class="full">
+                    <label>Send To</label>
+                    <div class="d-flex items-center gap-12">
+                        <input class="input" type="email" id="testMailTo" value="{{ auth()->user()->email ?? '' }}" placeholder="you@example.com" style="max-width:380px;">
+                        <button type="button" class="btn" id="btnSendTestMail">Send test email</button>
+                    </div>
+                    <div id="testMailResult" style="margin-top:12px; display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </form>
 
 {{-- Maintenance Tab --}}
@@ -149,20 +232,38 @@
 
 @push('scripts')
 <script>
-    // Tab switching
-    var settingsTabs = ['tab-general', 'tab-website', 'tab-maintenance'];
+    // Tab switching with URL sync (?tab=...)
+    var settingsTabs = ['tab-general', 'tab-website', 'tab-mail', 'tab-maintenance'];
+
+    function activateSettingsTab(id) {
+        if (settingsTabs.indexOf(id) === -1) id = settingsTabs[0];
+        document.querySelectorAll('.tabs .tab').forEach(function(t) {
+            t.classList.toggle('active', t.dataset.tab === id);
+        });
+        settingsTabs.forEach(function(tabId) {
+            var el = document.getElementById(tabId);
+            if (el) el.classList.toggle('hidden', tabId !== id);
+        });
+    }
+
     document.querySelectorAll('.tabs .tab').forEach(function(tab) {
         tab.addEventListener('click', function() {
-            document.querySelectorAll('.tabs .tab').forEach(function(t) { t.classList.remove('active'); });
-            settingsTabs.forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
-            tab.classList.add('active');
-            var panel = document.getElementById(tab.dataset.tab);
-            if (panel) panel.classList.remove('hidden');
+            var id = tab.dataset.tab;
+            activateSettingsTab(id);
+            var slug = id.replace(/^tab-/, '');
+            var url = new URL(window.location.href);
+            url.searchParams.set('tab', slug);
+            history.replaceState({}, '', url.toString());
         });
     });
+
+    // On load: pick tab from ?tab=... query param (defaults to general)
+    (function() {
+        var requested = new URLSearchParams(window.location.search).get('tab');
+        if (requested) {
+            activateSettingsTab('tab-' + requested);
+        }
+    })();
 
     function previewLogo(input, previewId) {
         var wrap = document.getElementById(previewId);
@@ -229,6 +330,61 @@
             });
         });
     });
+
+    // Toggle SMTP fields visibility based on mailer dropdown
+    (function() {
+        var mailerSel = document.getElementById('mailMailer');
+        var smtpBlock = document.getElementById('smtpFields');
+        if (!mailerSel || !smtpBlock) return;
+        function sync() {
+            smtpBlock.style.display = mailerSel.value === 'smtp' ? '' : 'none';
+        }
+        mailerSel.addEventListener('change', sync);
+        sync();
+    })();
+
+    // Send test email
+    (function() {
+        var btn = document.getElementById('btnSendTestMail');
+        var input = document.getElementById('testMailTo');
+        var result = document.getElementById('testMailResult');
+        if (!btn || !input || !result) return;
+
+        btn.addEventListener('click', function() {
+            var to = (input.value || '').trim();
+            if (!to) { return; }
+            btn.disabled = true;
+            var originalText = btn.textContent;
+            btn.textContent = 'Sending...';
+            result.style.display = 'none';
+            result.className = '';
+
+            fetch('{{ route('settings.mail.test') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                },
+                body: JSON.stringify({ to: to })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                result.style.display = '';
+                result.className = data.ok ? 'alert alert-success' : 'alert alert-danger';
+                result.textContent = data.message || (data.ok ? 'Sent.' : 'Failed.');
+            })
+            .catch(function(err) {
+                result.style.display = '';
+                result.className = 'alert alert-danger';
+                result.textContent = err.message || 'Network error';
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+        });
+    })();
 </script>
 @endpush
 @endsection
