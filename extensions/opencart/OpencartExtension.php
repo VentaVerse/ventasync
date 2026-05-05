@@ -52,20 +52,35 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
 
     public function integrationCards(): array
     {
-        $cards = [];
-        foreach ($this->enabledStores() as $store) {
-            $cards[] = new IntegrationCard(
-                id: $this->id . ':' . $store->id,
-                name: $store->store_name,
-                tagline: 'OpenCart store — orders, product groups, reviews push.',
+        // Management card — always visible when enabled+licensed. Holds
+        // global Settings + Reviews so an admin can configure stores and
+        // manage cross-store reviews even before any store is set up.
+        $cards = [
+            new IntegrationCard(
+                id: $this->id,
+                name: 'OpenCart',
+                tagline: 'Add OpenCart stores and manage marketplace reviews.',
                 icon: 'cart',
                 accent: '#1f8fea',
                 permission: 'manage_opencart',
                 menu: [
                     new MenuItem('Settings', 'ext.opencart.index', 'manage_opencart'),
+                    new MenuItem('Reviews', 'ext.opencart.reviews.index', 'manage_reviews'),
+                ],
+            ),
+        ];
+
+        foreach ($this->enabledStores() as $store) {
+            $cards[] = new IntegrationCard(
+                id: $this->id . ':' . $store->id,
+                name: $store->store_name,
+                tagline: 'OpenCart store · orders and product groups.',
+                icon: 'cart',
+                accent: '#1f8fea',
+                permission: 'manage_opencart',
+                menu: [
                     new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'manage_opencart', null, ['store' => $store->id]),
                     new MenuItem('Orders', 'ext.opencart.orders.index', 'manage_opencart_orders', null, ['store' => $store->id]),
-                    new MenuItem('Reviews', 'ext.opencart.reviews.index', 'manage_reviews'),
                 ],
             );
         }

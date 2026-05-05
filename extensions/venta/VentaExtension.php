@@ -47,17 +47,32 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider
 
     public function integrationCards(): array
     {
-        $cards = [];
-        foreach ($this->enabledStores() as $store) {
-            $cards[] = new IntegrationCard(
-                id: $this->id . ':' . $store->id,
-                name: $store->store_name,
-                tagline: 'Venta store — orders, product groups, reviews push.',
+        // Management card — always visible when the extension is enabled+licensed.
+        // Holds the global Settings link so an admin can add the first store
+        // even before any are configured.
+        $cards = [
+            new IntegrationCard(
+                id: $this->id,
+                name: 'Venta',
+                tagline: 'Add and configure Venta stores.',
                 icon: 'shop',
                 accent: '#7c3aed',
                 permission: 'manage_venta',
                 menu: [
                     new MenuItem('Settings', 'ext.venta.index', 'manage_venta'),
+                ],
+            ),
+        ];
+
+        foreach ($this->enabledStores() as $store) {
+            $cards[] = new IntegrationCard(
+                id: $this->id . ':' . $store->id,
+                name: $store->store_name,
+                tagline: 'Venta store · orders and product groups.',
+                icon: 'shop',
+                accent: '#7c3aed',
+                permission: 'manage_venta',
+                menu: [
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'manage_venta', null, ['store' => $store->id]),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'manage_venta_orders', null, ['store' => $store->id]),
                 ],
