@@ -142,6 +142,44 @@ class IntegrationRegistry
     }
 
     /**
+     * Layout banner contributors — token expiry warnings, credentials
+     * prompts, etc. Layout iterates these on every page render.
+     *
+     * @return \App\Integrations\Contracts\LayoutBannerContributor[]
+     */
+    public function layoutBannerContributors(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\LayoutBannerContributor::class);
+    }
+
+    /**
+     * Product inventory detail contributors — used by the product edit
+     * form to show supplemental inventory breakdowns (warehousing, etc.).
+     *
+     * @return \App\Integrations\Contracts\ProductInventoryDetailContributor[]
+     */
+    public function productInventoryDetailContributors(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\ProductInventoryDetailContributor::class);
+    }
+
+    /**
+     * Walk the marketplace-source resolvers and return the first non-null
+     * label for the given source string, or null if no integration claims
+     * it.
+     */
+    public function resolveMarketplaceSourceLabel(string $source): ?string
+    {
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\MarketplaceSourceLabelResolver::class) as $resolver) {
+            $label = $resolver->resolveSourceLabel($source);
+            if ($label !== null) {
+                return $label;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Generic helper: return providers that implement the given interface
      * AND pass enabled+licensed gates. No permission filter — these are
      * system-level contracts, not UI surfaces.

@@ -68,24 +68,15 @@
                     <label>Quantity</label>
                     <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', $product->quantity) }}">
                     <div class="hint" id="qty_hint" style="display:none;">Quantity is auto-calculated from option quantities.</div>
-                    @if(class_exists(\Extensions\warehousing\Models\Warehouse::class))
-                        @php
-                            $__warehouses = \Extensions\warehousing\Models\Warehouse::orderBy('sort_order')->get();
-                            $__whBreakdown = [];
-                            if ($__warehouses->isNotEmpty()) {
-                                $__whInv = \Extensions\warehousing\Models\WarehouseInventory::where('product_id', $product->product_id)
-                                    ->where('product_option_value_id', 0)
-                                    ->get()
-                                    ->keyBy('warehouse_id');
-                                foreach ($__warehouses as $__wh) {
-                                    $__qty = $__whInv->has($__wh->id) ? (int) $__whInv[$__wh->id]->quantity : 0;
-                                    $__whBreakdown[] = $__wh->name . ': ' . $__qty;
-                                }
-                            }
-                        @endphp
-                        @if(!empty($__whBreakdown))
-                            <div class="text-xs text-secondary" style="margin-top:4px;">{{ implode(' | ', $__whBreakdown) }}</div>
-                        @endif
+                    @php
+                        $__inventoryBreakdown = null;
+                        foreach (app(\App\Integrations\IntegrationRegistry::class)->productInventoryDetailContributors() as $__c) {
+                            $__line = $__c->inventoryBreakdownFor((int) $product->product_id);
+                            if ($__line !== null) { $__inventoryBreakdown = $__line; break; }
+                        }
+                    @endphp
+                    @if($__inventoryBreakdown !== null)
+                        <div class="text-xs text-secondary" style="margin-top:4px;">{{ $__inventoryBreakdown }}</div>
                     @endif
                 </div>
 

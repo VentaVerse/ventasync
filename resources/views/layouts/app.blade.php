@@ -409,52 +409,28 @@
         @endif
 
         @php
-            $__lazadaExpired = false;
-            $__shopeePaused = false;
-            $__shopeeExpired = false;
-            $__tiktokExpired = false;
+            // Layout banners contributed by every enabled+licensed integration.
+            // Token expiry warnings, sync pauses, etc. each marketplace knows
+            // its own state and contributes via LayoutBannerContributor.
+            $__layoutBanners = [];
             try {
-                $__tt = \Extensions\tiktok\Models\TikTokSetting::query()->first();
-                $__tiktokExpired = $__tt && $__tt->expires_at && strtotime($__tt->expires_at) <= time();
+                foreach (app(\App\Integrations\IntegrationRegistry::class)->layoutBannerContributors() as $__c) {
+                    foreach ($__c->layoutBanners() as $__b) { $__layoutBanners[] = $__b; }
+                }
             } catch (\Throwable $e) {}
-            try {
-                $__laz = \Extensions\lazada\Models\LazadaSetting::query()->first();
-                $__lazadaExpired = $__laz && $__laz->expires_at && strtotime($__laz->expires_at) <= time();
-            } catch (\Throwable $e) {}
-            try {
-                $__sp = \Extensions\shopee\Models\ShopeeSetting::query()->first();
-                $__shopeeExpired = $__sp && $__sp->expires_at && strtotime($__sp->expires_at) <= time();
-            } catch (\Throwable $e) {}
-            $__shopeePaused = \Illuminate\Support\Facades\Cache::get('shopee_sync_paused');
         @endphp
 
-        @if($__tiktokExpired)
-            <div class="alert danger">
+        @foreach($__layoutBanners as $__banner)
+            <div class="alert {{ ($__banner['severity'] ?? 'info') === 'error' ? 'danger' : (($__banner['severity'] ?? 'info') === 'warning' ? 'warning' : 'info') }}">
                 <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>TikTok Shop:</strong> Access token expired. <a href="{{ route('ext.tiktok.index') }}">Refresh token</a></span>
+                <span>
+                    {{ $__banner['label'] ?? '' }}
+                    @if(!empty($__banner['href']))
+                        <a href="{{ $__banner['href'] }}">Open settings</a>
+                    @endif
+                </span>
             </div>
-        @endif
-
-        @if($__lazadaExpired)
-            <div class="alert danger">
-                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>Lazada:</strong> Access token expired. Order sync is paused. <a href="{{ route('ext.lazada.index') }}">Refresh token</a></span>
-            </div>
-        @endif
-
-        @if($__shopeeExpired)
-            <div class="alert danger">
-                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>Shopee:</strong> Access token expired. Auto-refresh may have failed. <a href="{{ route('ext.shopee.index') }}">Refresh token</a></span>
-            </div>
-        @endif
-
-        @if($__shopeePaused)
-            <div class="alert danger">
-                <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>Shopee:</strong> Order sync paused — {{ $__shopeePaused }}. <a href="{{ route('ext.shopee.index') }}">Check settings</a></span>
-            </div>
-        @endif
+        @endforeach
 
         <div id="js-flash-container"></div>
 

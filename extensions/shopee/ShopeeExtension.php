@@ -4,11 +4,14 @@ namespace Extensions\shopee;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\LayoutBannerContributor;
+use App\Integrations\Contracts\MarketplaceSourceLabelResolver;
 use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -25,7 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceLabelResolver
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -475,5 +478,39 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
         ];
+    }
+
+    // ── Layout banner + source label ───────────────────────────
+
+    public function layoutBanners(): array
+    {
+        $banners = [];
+
+        if (Schema::hasTable('shopee_settings')) {
+            $setting = ShopeeSetting::query()->first();
+            if ($setting && $setting->expires_at && strtotime($setting->expires_at) <= time()) {
+                $banners[] = [
+                    'label'    => 'Shopee: Access token expired. Auto-refresh may have failed.',
+                    'severity' => 'error',
+                    'href'     => route('ext.shopee.index'),
+                ];
+            }
+        }
+
+        $paused = Cache::get('shopee_sync_paused');
+        if ($paused) {
+            $banners[] = [
+                'label'    => 'Shopee: Order sync paused — ' . $paused,
+                'severity' => 'error',
+                'href'     => route('ext.shopee.index'),
+            ];
+        }
+
+        return $banners;
+    }
+
+    public function resolveSourceLabel(string $source): ?string
+    {
+        return $source === 'shopee' ? 'Shopee' : null;
     }
 }

@@ -4,6 +4,7 @@ namespace Extensions\opencart;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\MarketplaceSourceLabelResolver;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
@@ -29,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
  * OpenCart is a multi-store integration. Each enabled OpenCartSetting is its
  * own card + tab; metrics are scoped via marketplace_source = "opencart:{id}".
  */
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceLabelResolver
 {
     protected string $id = 'opencart';
 
@@ -347,5 +348,21 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         if ($extraCost > 0)   { $items[] = ['label' => 'Extra Cost',  'amount' => $extraCost];   $total += $extraCost; }
 
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'opencart'];
+    }
+
+    /**
+     * Resolve opencart:N marketplace_source strings to the configured store name.
+     */
+    public function resolveSourceLabel(string $source): ?string
+    {
+        if (!str_starts_with($source, 'opencart:')) {
+            return null;
+        }
+        $storeId = (int) substr($source, 9);
+        if ($storeId <= 0 || !Schema::hasTable('opencart_settings')) {
+            return null;
+        }
+        $name = OpenCartSetting::where('id', $storeId)->value('store_name');
+        return $name ?: ('OpenCart #' . $storeId);
     }
 }

@@ -4,6 +4,8 @@ namespace Extensions\tiktok;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\LayoutBannerContributor;
+use App\Integrations\Contracts\MarketplaceSourceLabelResolver;
 use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
@@ -25,7 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceLabelResolver
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -435,5 +437,28 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
         ];
+    }
+
+    // ── Layout banner + source label ───────────────────────────
+
+    public function layoutBanners(): array
+    {
+        if (!Schema::hasTable('tiktok_settings')) {
+            return [];
+        }
+        $setting = TikTokSetting::query()->first();
+        if (!$setting || !$setting->expires_at || strtotime($setting->expires_at) > time()) {
+            return [];
+        }
+        return [[
+            'label'    => 'TikTok Shop: Access token expired.',
+            'severity' => 'error',
+            'href'     => route('ext.tiktok.index'),
+        ]];
+    }
+
+    public function resolveSourceLabel(string $source): ?string
+    {
+        return $source === 'tiktok' ? 'TikTok' : null;
     }
 }

@@ -4,6 +4,7 @@ namespace Extensions\venta;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\MarketplaceSourceLabelResolver;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\Schema;
  * per enabled store, with metrics scoped to that store via the
  * marketplace_source = "venta:{id}" convention used elsewhere in the app.
  */
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceLabelResolver
 {
     protected string $id = 'venta';
 
@@ -267,5 +268,21 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 ? DB::table('venta_settings')->pluck('store_name', 'id')->all()
                 : [],
         ];
+    }
+
+    /**
+     * Resolve venta:N marketplace_source strings to the configured store name.
+     */
+    public function resolveSourceLabel(string $source): ?string
+    {
+        if (!str_starts_with($source, 'venta:')) {
+            return null;
+        }
+        $storeId = (int) substr($source, 6);
+        if ($storeId <= 0 || !Schema::hasTable('venta_settings')) {
+            return null;
+        }
+        $name = VentaSetting::where('id', $storeId)->value('store_name');
+        return $name ?: ('Venta #' . $storeId);
     }
 }
