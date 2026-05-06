@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Integrations\IntegrationRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\Category;
 use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\OrderStatus;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -47,47 +46,6 @@ class DashboardController extends Controller
         $todayRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $todayStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
         $weekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $weekStart)->count();
 
-        // Lazada stats
-        $lazadaProducts = 0;
-        $lazadaPending = 0;
-        if (Schema::hasTable('lazada_products')) {
-            $lazadaProducts = DB::table('lazada_products')->count();
-        }
-        if (Schema::hasTable('lazada_orders')) {
-            $lazadaPending = DB::table('lazada_orders')
-                ->whereIn('status', ['pending', 'repacked'])
-                ->count();
-        }
-
-        // Shopee pending
-        $shopeePending = 0;
-        if (Schema::hasTable('shopee_orders')) {
-            $shopeePending = DB::table('shopee_orders')
-                ->whereIn('status', ['READY_TO_SHIP'])
-                ->count();
-        }
-
-        // OpenCart pending (Pending + Processing order statuses)
-        $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
-        $pendingByStore = [];
-        if ($pendingStatusIds->isNotEmpty()) {
-            $pendingRows = DB::table($pfx . 'order')
-                ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
-                ->whereIn('order_status_id', $pendingStatusIds)
-                ->where('marketplace_source', 'like', 'opencart:%')
-                ->groupBy('marketplace_source')
-                ->get();
-            foreach ($pendingRows as $row) {
-                $src = (string) $row->marketplace_source;
-                if (str_starts_with($src, 'opencart:')) {
-                    $storeId = (int) str_replace('opencart:', '', $src);
-                    if ($storeId > 0) {
-                        $pendingByStore[$storeId] = (int) $row->cnt;
-                    }
-                }
-            }
-        }
-
         // --- Sales chart: default 30 days (loaded via JS) ---
         $chart = $this->buildChartData('30d');
         $chartLabels = $chart['labels'];
@@ -104,110 +62,30 @@ class DashboardController extends Controller
             ->limit(10)
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.marketplace_source']);
 
-        // OpenCart store names for display
-        $ocStoreNames = Schema::hasTable('opencart_settings')
-            ? DB::table('opencart_settings')->pluck('store_name', 'id')->all()
-            : [];
+        // --- Marketplace + back-office widgets via the registry ---
+        // Each extension that implements DashboardContributor returns the
+        // named keys this view expects (lazadaPending, shopeeSyncStatus,
+        // openPos, etc.). Defaults below seed nulls/zeros so the view stays
+        // happy when an extension is disabled or unlicensed.
+        $extensionDashboardData = [
+            'lazadaProducts' => 0,
+            'lazadaPending' => 0,
+            'lazadaSyncStatus' => null,
+            'shopeePending' => 0,
+            'shopeeSyncStatus' => null,
+            'tiktokPending' => 0,
+            'tiktokSyncStatus' => null,
+            'ocStoreNames' => [],
+            'ventaStoreNames' => [],
+            'syncStatuses' => collect(),
+            'openPos' => 0,
+            'pendingDelivery' => 0,
+            'overduePos' => 0,
+            'monthlyPoSpend' => 0,
+        ];
 
-        $ventaStoreNames = Schema::hasTable('venta_settings')
-            ? DB::table('venta_settings')->pluck('store_name', 'id')->all()
-            : [];
-
-        // --- OpenCart sync status per store ---
-        if (class_exists(\Extensions\opencart\Models\OpenCartSyncLog::class) && Schema::hasTable('opencart_settings')) {
-            $syncStatuses = DB::table('opencart_settings as s')
-                ->where('s.enabled', true)
-                ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
-                ->map(function ($store) {
-                    $lastLog = \Extensions\opencart\Models\OpenCartSyncLog::where('opencart_setting_id', $store->id)
-                        ->orderByDesc('id')
-                        ->first(['status', 'entity_type', 'completed_at', 'error_message']);
-                    $store->last_status = $lastLog->status ?? null;
-                    $store->last_entity = $lastLog->entity_type ?? null;
-                    $store->last_completed = $lastLog->completed_at ?? null;
-                    $store->last_error = $lastLog->error_message ?? null;
-
-                    // Last successful push qty timestamp
-                    $lastPushQty = \Extensions\opencart\Models\OpenCartSyncLog::where('opencart_setting_id', $store->id)
-                        ->where('entity_type', 'product_qty')
-                        ->where('direction', 'push')
-                        ->where('status', 'completed')
-                        ->orderByDesc('id')
-                        ->value('completed_at');
-                    $store->last_push_qty_at = $lastPushQty;
-
-                    return $store;
-                });
-            $syncStatuses = $syncStatuses->map(function ($store) use ($pendingByStore) {
-                $store->pending_count = $pendingByStore[$store->id] ?? 0;
-                return $store;
-            });
-        } else {
-            $syncStatuses = collect();
-        }
-
-        // --- Lazada sync status (from settings table, independent of API logging) ---
-        $lazadaSyncStatus = null;
-        if (Schema::hasTable('lazada_settings')) {
-            $lzSetting = \Extensions\lazada\Models\LazadaSetting::query()->first();
-            if ($lzSetting) {
-                $lazadaSyncStatus = (object) [
-                    'order_sync_at' => $lzSetting->last_order_sync_at,
-                    'push_stock_at' => $lzSetting->last_stock_push_at,
-                    'return_sync_at' => $lzSetting->last_return_sync_at,
-                    'expires_at'    => $lzSetting->expires_at,
-                ];
-            }
-        }
-
-        // --- Shopee sync status (from settings table, independent of API logging) ---
-        $shopeeSyncStatus = null;
-        if (Schema::hasTable('shopee_settings')) {
-            $spSetting = \Extensions\shopee\Models\ShopeeSetting::query()->first();
-            if ($spSetting) {
-                $shopeeSyncStatus = (object) [
-                    'order_sync_at' => $spSetting->last_order_sync_at,
-                    'push_stock_at' => $spSetting->last_stock_push_at,
-                    'return_sync_at' => $spSetting->last_return_sync_at,
-                    'expires_at'    => $spSetting->expires_at,
-                ];
-            }
-        }
-
-        // --- TikTok sync status ---
-        $tiktokSyncStatus = null;
-        $tiktokPending = 0;
-        if (class_exists(\Extensions\tiktok\Models\TikTokSetting::class) && Schema::hasTable('tiktok_settings')) {
-            $ttSetting = \Extensions\tiktok\Models\TikTokSetting::query()->first();
-            if ($ttSetting) {
-                $tiktokSyncStatus = (object) [
-                    'order_sync_at'  => $ttSetting->last_order_sync_at,
-                    'push_stock_at'  => $ttSetting->last_stock_push_at,
-                    'expires_at'     => $ttSetting->expires_at,
-                ];
-            }
-            if (Schema::hasTable('tiktok_orders')) {
-                $tiktokPending = DB::table('tiktok_orders')
-                    ->where('status', 'AWAITING_SHIPMENT')
-                    ->count();
-            }
-        }
-
-        // --- Purchase Order stats (from purchasing extension) ---
-        $openPos = 0;
-        $pendingDelivery = 0;
-        $overduePos = 0;
-        $monthlyPoSpend = 0;
-        if (class_exists(\Extensions\purchasing\Models\PurchaseOrder::class)) {
-            $openPos = \Extensions\purchasing\Models\PurchaseOrder::whereIn('status', ['draft', 'approved', 'ordered'])->count();
-            $pendingDelivery = \Extensions\purchasing\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])->count();
-            $overduePos = \Extensions\purchasing\Models\PurchaseOrder::whereIn('status', ['ordered', 'partially_received'])
-                ->where('expected_delivery_date', '<', now()->toDateString())->count();
-            $monthlyPoSpend = (float) \Extensions\purchasing\Models\PurchaseOrder::where('status', 'received')
-                ->whereMonth('received_at', now()->month)
-                ->whereYear('received_at', now()->year)
-                ->selectRaw('SUM(total * exchange_rate) as spend')
-                ->value('spend');
+        foreach (app(IntegrationRegistry::class)->dashboardContributors() as $contributor) {
+            $extensionDashboardData = array_merge($extensionDashboardData, $contributor->dashboardData());
         }
 
         // --- Greeting ---
@@ -221,7 +99,7 @@ class DashboardController extends Controller
         }
 
 
-        return view('dashboard.index', [
+        return view('dashboard.index', array_merge([
             'totalProducts' => $totalProducts,
             'totalCategories' => $totalCategories,
             'totalManufacturers' => $totalManufacturers,
@@ -231,26 +109,12 @@ class DashboardController extends Controller
             'todayOrders' => $todayOrders,
             'todayRevenue' => $todayRevenue,
             'weekOrders' => $weekOrders,
-            'lazadaProducts' => $lazadaProducts,
-            'lazadaPending' => $lazadaPending,
-            'shopeePending' => $shopeePending,
             'chartLabels' => $chartLabels,
             'chartRevenue' => $chartRevenue,
             'chartOrders' => $chartOrders,
             'recentOrders' => $recentOrders,
-            'ocStoreNames' => $ocStoreNames,
-            'ventaStoreNames' => $ventaStoreNames,
-            'syncStatuses' => $syncStatuses,
-            'lazadaSyncStatus' => $lazadaSyncStatus,
-            'shopeeSyncStatus' => $shopeeSyncStatus,
-            'tiktokSyncStatus' => $tiktokSyncStatus,
-            'tiktokPending' => $tiktokPending,
-            'openPos' => $openPos,
-            'pendingDelivery' => $pendingDelivery,
-            'overduePos' => $overduePos,
-            'monthlyPoSpend' => $monthlyPoSpend,
             'greeting' => $greeting,
-        ]);
+        ], $extensionDashboardData));
     }
 
     /**

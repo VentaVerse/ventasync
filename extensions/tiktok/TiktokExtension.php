@@ -3,6 +3,7 @@
 namespace Extensions\tiktok;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
 {
     protected string $id = 'tiktok';
 
@@ -223,5 +224,36 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return empty($results) ? null : 'TikTok: ' . implode(', ', $results);
+    }
+
+    /**
+     * TikTok widgets for the core dashboard: pending order count and
+     * sync-status row pulled from the settings table.
+     */
+    public function dashboardData(): array
+    {
+        $data = [
+            'tiktokPending' => 0,
+            'tiktokSyncStatus' => null,
+        ];
+
+        if (Schema::hasTable('tiktok_settings')) {
+            $ttSetting = TikTokSetting::query()->first();
+            if ($ttSetting) {
+                $data['tiktokSyncStatus'] = (object) [
+                    'order_sync_at'  => $ttSetting->last_order_sync_at,
+                    'push_stock_at'  => $ttSetting->last_stock_push_at,
+                    'expires_at'     => $ttSetting->expires_at,
+                ];
+            }
+        }
+
+        if (Schema::hasTable('tiktok_orders')) {
+            $data['tiktokPending'] = (int) DB::table('tiktok_orders')
+                ->where('status', 'AWAITING_SHIPMENT')
+                ->count();
+        }
+
+        return $data;
     }
 }

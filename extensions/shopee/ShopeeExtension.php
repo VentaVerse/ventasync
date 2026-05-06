@@ -3,6 +3,7 @@
 namespace Extensions\shopee;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
 {
     protected string $id = 'shopee';
 
@@ -253,5 +254,37 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
             ]);
             return "Item {$itemId}: Error";
         }
+    }
+
+    /**
+     * Shopee widgets for the core dashboard: pending order count and
+     * sync-status row pulled from the settings table.
+     */
+    public function dashboardData(): array
+    {
+        $data = [
+            'shopeePending' => 0,
+            'shopeeSyncStatus' => null,
+        ];
+
+        if (Schema::hasTable('shopee_orders')) {
+            $data['shopeePending'] = (int) DB::table('shopee_orders')
+                ->whereIn('status', ['READY_TO_SHIP'])
+                ->count();
+        }
+
+        if (Schema::hasTable('shopee_settings')) {
+            $spSetting = ShopeeSetting::query()->first();
+            if ($spSetting) {
+                $data['shopeeSyncStatus'] = (object) [
+                    'order_sync_at' => $spSetting->last_order_sync_at,
+                    'push_stock_at' => $spSetting->last_stock_push_at,
+                    'return_sync_at' => $spSetting->last_return_sync_at,
+                    'expires_at'    => $spSetting->expires_at,
+                ];
+            }
+        }
+
+        return $data;
     }
 }

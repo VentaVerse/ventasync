@@ -92,6 +92,18 @@ class IntegrationRegistry
     }
 
     /**
+     * Providers that implement DashboardContributor — used by core's
+     * DashboardController to gather per-marketplace stats, sync status,
+     * and other widgets without core knowing which marketplaces exist.
+     *
+     * @return \App\Integrations\Contracts\DashboardContributor[]
+     */
+    public function dashboardContributors(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\DashboardContributor::class);
+    }
+
+    /**
      * Generic helper: return providers that implement the given interface
      * AND pass enabled+licensed gates. No permission filter — these are
      * system-level contracts, not UI surfaces.

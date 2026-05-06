@@ -3,6 +3,7 @@
 namespace Extensions\opencart;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -15,6 +16,7 @@ use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
 use Extensions\opencart\Models\OpenCartProductLink;
 use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\opencart\Models\OpenCartSyncLog;
 use Extensions\opencart\Services\OpenCart\OpenCartClient;
 use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +27,7 @@ use Illuminate\Support\Facades\Schema;
  * OpenCart is a multi-store integration. Each enabled OpenCartSetting is its
  * own card + tab; metrics are scoped via marketplace_source = "opencart:{id}".
  */
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
 {
     protected string $id = 'opencart';
 
@@ -249,5 +251,77 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         }
 
         return empty($results) ? null : 'OpenCart: ' . implode(', ', $results);
+    }
+
+    /**
+     * OpenCart widgets for the core dashboard: store-name lookup table and
+     * the per-store sync-status table (last sync log + pending-order count
+     * derived from the catalog `order` table by marketplace_source).
+     */
+    public function dashboardData(): array
+    {
+        $data = [
+            'ocStoreNames' => [],
+            'syncStatuses' => collect(),
+        ];
+
+        if (!Schema::hasTable('opencart_settings')) {
+            return $data;
+        }
+
+        $data['ocStoreNames'] = DB::table('opencart_settings')->pluck('store_name', 'id')->all();
+
+        if (!Schema::hasTable('opencart_sync_logs')) {
+            return $data;
+        }
+
+        // Per-store pending counts from the catalog order table
+        $pendingByStore = [];
+        $orderTable = (string) config('catalog.prefix') . 'order';
+        if (Schema::hasTable($orderTable)) {
+            $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
+            if ($pendingStatusIds->isNotEmpty()) {
+                $rows = DB::table($orderTable)
+                    ->select('marketplace_source', DB::raw('COUNT(*) as cnt'))
+                    ->whereIn('order_status_id', $pendingStatusIds)
+                    ->where('marketplace_source', 'like', 'opencart:%')
+                    ->groupBy('marketplace_source')
+                    ->get();
+                foreach ($rows as $row) {
+                    $src = (string) $row->marketplace_source;
+                    if (str_starts_with($src, 'opencart:')) {
+                        $storeId = (int) str_replace('opencart:', '', $src);
+                        if ($storeId > 0) {
+                            $pendingByStore[$storeId] = (int) $row->cnt;
+                        }
+                    }
+                }
+            }
+        }
+
+        $data['syncStatuses'] = DB::table('opencart_settings as s')
+            ->where('s.enabled', true)
+            ->get(['s.id', 's.store_name', 's.last_order_sync_at', 's.last_product_sync_at'])
+            ->map(function ($store) use ($pendingByStore) {
+                $lastLog = OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                    ->orderByDesc('id')
+                    ->first(['status', 'entity_type', 'completed_at', 'error_message']);
+                $store->last_status = $lastLog->status ?? null;
+                $store->last_entity = $lastLog->entity_type ?? null;
+                $store->last_completed = $lastLog->completed_at ?? null;
+                $store->last_error = $lastLog->error_message ?? null;
+
+                $store->last_push_qty_at = OpenCartSyncLog::where('opencart_setting_id', $store->id)
+                    ->where('entity_type', 'product_qty')
+                    ->where('direction', 'push')
+                    ->where('status', 'completed')
+                    ->orderByDesc('id')
+                    ->value('completed_at');
+
+                $store->pending_count = $pendingByStore[$store->id] ?? 0;
+                return $store;
+            });
+
+        return $data;
     }
 }

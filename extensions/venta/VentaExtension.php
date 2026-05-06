@@ -3,6 +3,7 @@
 namespace Extensions\venta;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -26,7 +27,7 @@ use Illuminate\Support\Facades\Schema;
  * per enabled store, with metrics scoped to that store via the
  * marketplace_source = "venta:{id}" convention used elsewhere in the app.
  */
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
 {
     protected string $id = 'venta';
 
@@ -253,5 +254,18 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
         }
 
         return empty($results) ? null : 'Venta: ' . implode(', ', $results);
+    }
+
+    /**
+     * Venta widgets for the core dashboard: store-name lookup table for
+     * the "Recent orders" and platform breakdown labels.
+     */
+    public function dashboardData(): array
+    {
+        return [
+            'ventaStoreNames' => Schema::hasTable('venta_settings')
+                ? DB::table('venta_settings')->pluck('store_name', 'id')->all()
+                : [],
+        ];
     }
 }

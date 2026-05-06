@@ -3,6 +3,7 @@
 namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\SkuResolver;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor
 {
     protected string $id = 'lazada';
 
@@ -311,5 +312,42 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             Log::warning('Lazada SellerSku update failed', ['error' => $e->getMessage()]);
             return 'API error';
         }
+    }
+
+    /**
+     * Lazada widgets for the core dashboard: total products, pending orders,
+     * and the sync-status row pulled from the settings table.
+     */
+    public function dashboardData(): array
+    {
+        $data = [
+            'lazadaProducts' => 0,
+            'lazadaPending' => 0,
+            'lazadaSyncStatus' => null,
+        ];
+
+        if (Schema::hasTable('lazada_products')) {
+            $data['lazadaProducts'] = (int) DB::table('lazada_products')->count();
+        }
+
+        if (Schema::hasTable('lazada_orders')) {
+            $data['lazadaPending'] = (int) DB::table('lazada_orders')
+                ->whereIn('status', ['pending', 'repacked'])
+                ->count();
+        }
+
+        if (Schema::hasTable('lazada_settings')) {
+            $lzSetting = LazadaSetting::query()->first();
+            if ($lzSetting) {
+                $data['lazadaSyncStatus'] = (object) [
+                    'order_sync_at' => $lzSetting->last_order_sync_at,
+                    'push_stock_at' => $lzSetting->last_stock_push_at,
+                    'return_sync_at' => $lzSetting->last_return_sync_at,
+                    'expires_at'    => $lzSetting->expires_at,
+                ];
+            }
+        }
+
+        return $data;
     }
 }
