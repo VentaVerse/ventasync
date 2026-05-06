@@ -19,6 +19,7 @@ class ShopeeOrder extends Model
         'order_updated_at',
         'raw',
         'fees',
+        'buyer_invoice',
         'payout_status',
         'paid_at',
         'catalog_order_id',
@@ -29,6 +30,7 @@ class ShopeeOrder extends Model
     protected $casts = [
         'raw' => 'array',
         'fees' => 'array',
+        'buyer_invoice' => 'array',
         'order_created_at' => 'datetime',
         'order_updated_at' => 'datetime',
         'paid_at' => 'datetime',

@@ -194,6 +194,9 @@ class ShopeeSyncOrders extends Command
             $detailList = $detailResp['order_list'] ?? [];
             if (!is_array($detailList)) $detailList = [];
 
+            // Buyer invoice info — batched once per chunk, results applied below.
+            $invoiceMap = $this->fetchBuyerInvoiceForChunk($client, $setting, $chunk);
+
             foreach ($detailList as $o) {
                 if (!is_array($o)) continue;
 
@@ -207,12 +210,16 @@ class ShopeeSyncOrders extends Command
 
                 if ($existing) {
                     // --- Update existing order ---
-                    $existing->fill([
+                    $fillExisting = [
                         'status'           => (string) ($o['order_status'] ?? $existing->status),
                         'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null) ?? $existing->order_created_at,
                         'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null) ?? $existing->order_updated_at,
                         'raw'              => $o,
-                    ])->save();
+                    ];
+                    if (array_key_exists($orderSn, $invoiceMap)) {
+                        $fillExisting['buyer_invoice'] = $invoiceMap[$orderSn];
+                    }
+                    $existing->fill($fillExisting)->save();
                     $updated++;
 
                     try {
@@ -238,6 +245,7 @@ class ShopeeSyncOrders extends Command
                             'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
                             'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
                             'raw'              => $o,
+                            'buyer_invoice'    => $invoiceMap[$orderSn] ?? null,
                         ]);
                         $created++;
 
@@ -623,6 +631,90 @@ class ShopeeSyncOrders extends Command
 
         $ts = strtotime($str);
         return $ts === false ? null : date('Y-m-d H:i:s', $ts);
+    }
+
+    /**
+     * Fetch buyer-invoice info for a chunk of order SNs in a single API call
+     * and return a map of order_sn => normalized invoice payload.
+     *
+     * Persisted shape (so the UI doesn't have to care which marketplace it came from):
+     *   - { is_requested: true,  type, name, tin, email, phone, address: {...} }  (buyer requested)
+     *   - { is_requested: false }                                                  (buyer declined)
+     *   - { error: "...message..." }                                               (Shopee couldn't classify)
+     */
+    private function fetchBuyerInvoiceForChunk(ShopeeClient $client, object $setting, array $chunk): array
+    {
+        $queries = array_map(fn ($sn) => ['order_sn' => (string) $sn], $chunk);
+
+        $res = $client->shopPost(
+            $setting->mode ?? 'live',
+            (int) $setting->partner_id,
+            (string) $setting->partner_key,
+            (string) $setting->access_token,
+            (int) $setting->shop_id,
+            '/api/v2/order/get_buyer_invoice_info',
+            [],
+            ['queries' => $queries]
+        );
+
+        ShopeeApiLog::safeCreate([
+            'pack'            => 'shopee.sync.get_buyer_invoice_info',
+            'method'          => 'POST',
+            'api_path'        => '/api/v2/order/get_buyer_invoice_info',
+            'auth_required'   => true,
+            'request_params'  => ['count' => count($queries)],
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok'              => (bool) ($res['ok'] ?? false),
+            'response_body'   => is_array($res['body'] ?? null) ? $res['body'] : null,
+        ]);
+
+        if (!($res['ok'] ?? false)) {
+            return [];
+        }
+
+        $list = $res['body']['invoice_info_list'] ?? [];
+        if (!is_array($list)) return [];
+
+        $map = [];
+        foreach ($list as $item) {
+            $sn = (string) ($item['order_sn'] ?? '');
+            if ($sn === '') continue;
+
+            $err = trim((string) ($item['error'] ?? ''));
+            if ($err !== '') {
+                $map[$sn] = ['error' => $err];
+                continue;
+            }
+
+            if (($item['is_requested'] ?? false) !== true) {
+                $map[$sn] = ['is_requested' => false];
+                continue;
+            }
+
+            $d = $item['invoice_detail'] ?? [];
+            $ab = is_array($d['address_breakdown'] ?? null) ? $d['address_breakdown'] : [];
+
+            $map[$sn] = [
+                'is_requested' => true,
+                'type'         => (string) ($item['invoice_type'] ?? ''),
+                'name'         => (string) ($d['name'] ?? ''),
+                'tin'          => (string) ($d['tax_id'] ?? ''),
+                'email'        => (string) ($d['email'] ?? ''),
+                'phone'        => (string) ($d['phone_number'] ?? ''),
+                'address'      => [
+                    'full'             => (string) ($ab['full_address'] ?? ($d['address'] ?? '')),
+                    'region'           => (string) ($ab['region'] ?? ''),
+                    'state'            => (string) ($ab['state'] ?? ''),
+                    'city'             => (string) ($ab['city'] ?? ''),
+                    'town'             => (string) ($ab['town'] ?? ''),
+                    'barangay'         => (string) ($ab['barangay'] ?? ''),
+                    'postcode'         => (string) ($ab['postcode'] ?? ''),
+                    'detailed_address' => (string) ($ab['detailed_address'] ?? ''),
+                ],
+            ];
+        }
+
+        return $map;
     }
 
 }

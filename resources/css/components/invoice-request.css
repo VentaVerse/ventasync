@@ -1,0 +1,118 @@
+/* ============================================================
+   INVOICE REQUEST
+   Marketplace-agnostic styles for the buyer-invoice-request
+   button (orders index) and inline detail card (order show page).
+   Tonal palette: amber/gold — distinct from status badges, SLA chip.
+   ============================================================ */
+.btn-invoice-req {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background-color .15s ease, transform .15s ease;
+}
+.btn-invoice-req:hover {
+    background: #fef3c7;
+    transform: translateY(-1px);
+}
+.btn-invoice-req:active {
+    transform: translateY(0);
+}
+.btn-invoice-req__icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+/* Modal body — invoice info table */
+.inv-modal-body {
+    display: grid;
+    gap: 12px;
+}
+.inv-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light, #e2e8f0);
+}
+.inv-row:last-child { border-bottom: none; }
+.inv-row__label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted, #64748b);
+    font-weight: 600;
+}
+.inv-row__value {
+    font-size: 14px;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+.inv-row__value--mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+.inv-row__value--muted {
+    color: var(--text-muted, #64748b);
+}
+.inv-copy-btn {
+    background: none;
+    border: 1px solid var(--border, #cbd5e1);
+    color: var(--text-secondary, #475569);
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: background-color .15s ease, color .15s ease;
+    white-space: nowrap;
+}
+.inv-copy-btn:hover {
+    background: var(--surface-alt, #f1f5f9);
+    color: var(--text-primary);
+}
+.inv-copy-btn.is-copied {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+/* Inline detail card on the show page */
+.inv-card {
+    border-left: 3px solid #d97706;
+    padding-left: 14px;
+}
+.inv-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.inv-card__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 11px;
+    font-weight: 600;
+}
+.inv-card--empty {
+    border-left-color: var(--border, #cbd5e1);
+    color: var(--text-muted, #64748b);
+    font-style: italic;
+    font-size: 13.5px;
+}

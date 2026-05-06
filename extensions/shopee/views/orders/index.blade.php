@@ -412,6 +412,8 @@
                                             Tracking #
                                         </button>
                                     @endif
+
+                                    <x-invoice-request-modal :invoice="$o->buyer_invoice" :reference="$orderSn" />
                                 </div>
                             @endif
                         </td>

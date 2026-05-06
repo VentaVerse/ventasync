@@ -281,6 +281,8 @@
 </div>
 @endif
 
+<x-invoice-request-card :invoice="$order->buyer_invoice" />
+
 @php
     $returns = $returns ?? collect();
 @endphp
