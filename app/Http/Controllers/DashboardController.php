@@ -163,7 +163,7 @@ class DashboardController extends Controller
         // --- Shopee sync status (from settings table, independent of API logging) ---
         $shopeeSyncStatus = null;
         if (Schema::hasTable('shopee_settings')) {
-            $spSetting = \App\Models\ShopeeSetting::query()->first();
+            $spSetting = \Extensions\shopee\Models\ShopeeSetting::query()->first();
             if ($spSetting) {
                 $shopeeSyncStatus = (object) [
                     'order_sync_at' => $spSetting->last_order_sync_at,

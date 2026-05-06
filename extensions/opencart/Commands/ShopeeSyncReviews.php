@@ -3,10 +3,10 @@
 namespace Extensions\opencart\Commands;
 
 use Extensions\opencart\Models\MarketplaceReview;
-use App\Models\ShopeeApiLog;
-use App\Models\ShopeeProductLink;
-use App\Models\ShopeeSetting;
-use App\Services\Shopee\ShopeeClient;
+use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;

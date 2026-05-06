@@ -39,10 +39,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Register temporary core integrations (Shopee + Lazada) until they're
-        // moved into extensions/. See app/Integrations/Core/ for the migration TODO.
+        // Register temporary core integration for Lazada until it's moved into
+        // extensions/. Shopee was moved to extensions/shopee/ already and now
+        // self-registers from its ShopeeExtension boot method.
         $registry = $this->app->make(\App\Integrations\IntegrationRegistry::class);
-        $registry->register(new \App\Integrations\Core\ShopeeIntegration());
         $registry->register(new \App\Integrations\Core\LazadaIntegration());
 
         // Avoid errors during first migrations / before table exists

@@ -106,7 +106,7 @@
                     }
                 @endphp
                 @if(!empty($__orderTabs))
-                <a href="{{ route('integrations.orders') }}" class="{{ request()->routeIs('integrations.orders') || request()->routeIs('shopee.orders.*') || request()->routeIs('lazada.orders.*') || request()->routeIs('ext.tiktok.orders.*') || request()->routeIs('ext.opencart.orders.*') || request()->routeIs('ext.venta.orders.*') || request()->routeIs('ext.pedallion.orders.*') ? 'active' : '' }}">
+                <a href="{{ route('integrations.orders') }}" class="{{ request()->routeIs('integrations.orders') || request()->routeIs('ext.shopee.orders.*') || request()->routeIs('lazada.orders.*') || request()->routeIs('ext.tiktok.orders.*') || request()->routeIs('ext.opencart.orders.*') || request()->routeIs('ext.venta.orders.*') || request()->routeIs('ext.pedallion.orders.*') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                     <span class="label">Orders</span>
                     @if($__orderBadge > 0)
@@ -344,9 +344,9 @@
                         'Users' => 'users.index',
                         'User Groups' => 'user_groups.index',
                         'Currencies' => 'currencies.index',
-                        'Marketplace' => 'shopee.orders.index',
-                        'Marketplace API' => 'shopee.orders.index',
-                        'Shopee' => 'shopee.orders.index',
+                        'Marketplace' => 'ext.shopee.orders.index',
+                        'Marketplace API' => 'ext.shopee.orders.index',
+                        'Shopee' => 'ext.shopee.orders.index',
                         'Lazada' => 'lazada.orders.index',
                         'TikTok Shop' => 'ext.tiktok.index',
                         'Pedallion' => 'ext.pedallion.index',
@@ -422,7 +422,7 @@
                 $__lazadaExpired = $__laz && $__laz->expires_at && strtotime($__laz->expires_at) <= time();
             } catch (\Throwable $e) {}
             try {
-                $__sp = \App\Models\ShopeeSetting::query()->first();
+                $__sp = \Extensions\shopee\Models\ShopeeSetting::query()->first();
                 $__shopeeExpired = $__sp && $__sp->expires_at && strtotime($__sp->expires_at) <= time();
             } catch (\Throwable $e) {}
             $__shopeePaused = \Illuminate\Support\Facades\Cache::get('shopee_sync_paused');
@@ -445,14 +445,14 @@
         @if($__shopeeExpired)
             <div class="alert danger">
                 <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>Shopee:</strong> Access token expired. Auto-refresh may have failed. <a href="{{ route('shopee.index') }}">Refresh token</a></span>
+                <span><strong>Shopee:</strong> Access token expired. Auto-refresh may have failed. <a href="{{ route('ext.shopee.index') }}">Refresh token</a></span>
             </div>
         @endif
 
         @if($__shopeePaused)
             <div class="alert danger">
                 <svg style="width:18px;height:18px;flex-shrink:0;margin-top:1px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span><strong>Shopee:</strong> Order sync paused — {{ $__shopeePaused }}. <a href="{{ route('shopee.index') }}">Check settings</a></span>
+                <span><strong>Shopee:</strong> Order sync paused — {{ $__shopeePaused }}. <a href="{{ route('ext.shopee.index') }}">Check settings</a></span>
             </div>
         @endif
 

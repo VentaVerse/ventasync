@@ -11,7 +11,7 @@ use App\Models\LazadaOrder;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\OrderPayment;
-use App\Models\ShopeeOrder;
+use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\tiktok\Models\TikTokOrder;
 use App\Services\ActivityLogger;
 use App\Services\FcmService;

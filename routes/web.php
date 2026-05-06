@@ -7,13 +7,6 @@ use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\ManufacturerController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
-use App\Http\Controllers\ShopeeController;
-use App\Http\Controllers\ShopeeOrderController;
-use App\Http\Controllers\ShopeeCategoryController;
-use App\Http\Controllers\ShopeeCategoryAttributeController;
-use App\Http\Controllers\ShopeeProductGroupController;
-use App\Http\Controllers\ShopeeProductController;
-use App\Http\Controllers\ShopeeLogisticsController;
 use App\Http\Controllers\ProductOptionController;
 use App\Http\Controllers\OptionController;
 use App\Http\Controllers\UserController;
@@ -31,7 +24,11 @@ use App\Http\Controllers\IntegrationController;
 
 use App\Http\Controllers\CurrencyController;
 
-Route::get('/', [ShopeeController::class, 'root'])->name('root');
+// Root route handles the Shopee OAuth domain-level redirect callback. Bound
+// directly to the extension since Shopee may only allow a domain-level URI;
+// when no OAuth params are present the controller redirects to /dashboard,
+// so this route is harmless even when Shopee isn't licensed/enabled.
+Route::get('/', [\Extensions\shopee\Controllers\ShopeeController::class, 'root'])->name('root');
 
 // Lazada OAuth callback must be publicly accessible so Lazada can redirect back with `code`.
 // Keeping it outside auth/perm middleware prevents losing the code behind login redirects.
@@ -140,101 +137,6 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');
     });
 
-    // Shopee
-    Route::middleware(['perm:manage_shopee'])->group(function () {
-        Route::get('/shopee', [ShopeeController::class, 'index'])->name('shopee.index');
-        Route::get('/shopee/authorize', [ShopeeController::class, 'redirectToShopeeAuth'])->name('shopee.authorize');
-        Route::post('/shopee/save', [ShopeeController::class, 'save'])->name('shopee.save');
-        Route::post('/shopee/toggle-mode', [ShopeeController::class, 'toggleMode'])->name('shopee.toggle_mode');
-        Route::post('/shopee/auth-url', [ShopeeController::class, 'buildAuthUrl'])->name('shopee.auth_url');
-        Route::post('/shopee/token/get', [ShopeeController::class, 'tokenGet'])->name('shopee.token_get');
-        Route::post('/shopee/token/refresh', [ShopeeController::class, 'tokenRefresh'])->name('shopee.token_refresh');
-        Route::post('/shopee/call', [ShopeeController::class, 'callApi'])->name('shopee.call_api');
-        Route::post('/shopee/order-status-map', [ShopeeController::class, 'saveOrderStatusMap'])->name('shopee.order_status_map');
-        Route::post('/shopee/return-status-map', [ShopeeController::class, 'saveReturnStatusMap'])->name('shopee.return_status_map');
-        Route::post('/shopee/sync-days', [ShopeeController::class, 'saveSyncDays'])->name('shopee.sync_days');
-        Route::post('/shopee/sync-days-returns', [ShopeeController::class, 'saveSyncDaysReturns'])->name('shopee.sync_days_returns');
-        Route::post('/shopee/toggle-logging', [ShopeeController::class, 'toggleLogging'])->name('shopee.toggle_logging');
-        Route::delete('/shopee/api-logs', [ShopeeController::class, 'clearApiLogs'])->name('shopee.clear_api_logs');
-
-        // Shopee Explorer & Packs
-        Route::post('/shopee/explorer/run', [ShopeeController::class, 'explorerRun'])->name('shopee.explorer_run');
-        Route::post('/shopee/packs/run', [ShopeeController::class, 'packsRun'])->name('shopee.packs_run');
-        Route::post('/shopee/logistics/channels', [ShopeeController::class, 'logisticsChannels'])->name('shopee.logistics_channels');
-
-        // Shopee Categories
-        Route::get('/shopee/categories', [ShopeeCategoryController::class, 'index'])->name('shopee.categories.index');
-        Route::post('/shopee/categories/fetch', [ShopeeCategoryController::class, 'fetch'])->name('shopee.categories.fetch');
-        Route::get('/shopee/categories/{id}/attributes', [ShopeeCategoryAttributeController::class, 'show'])->name('shopee.categories.attributes.show');
-        Route::post('/shopee/categories/{id}/attributes/fetch', [ShopeeCategoryAttributeController::class, 'fetch'])->name('shopee.categories.attributes.fetch');
-
-        // Shopee Logistics
-        Route::get('/shopee/logistics', [ShopeeLogisticsController::class, 'index'])->name('shopee.logistics.index');
-        Route::post('/shopee/logistics/fetch', [ShopeeLogisticsController::class, 'fetch'])->name('shopee.logistics.fetch');
-
-        // Shopee Product Groups
-        Route::get('/shopee/product-groups', [ShopeeProductGroupController::class, 'index'])->name('shopee.product-groups.index');
-        Route::get('/shopee/product-groups/create', [ShopeeProductGroupController::class, 'create'])->name('shopee.product-groups.create');
-        Route::post('/shopee/product-groups', [ShopeeProductGroupController::class, 'store'])->name('shopee.product-groups.store');
-        Route::get('/shopee/product-groups/search-products', [ShopeeProductGroupController::class, 'searchProducts'])->name('shopee.product-groups.searchProducts');
-        Route::get('/shopee/product-groups/{id}/edit', [ShopeeProductGroupController::class, 'edit'])->name('shopee.product-groups.edit');
-        Route::put('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('shopee.product-groups.update');
-        Route::delete('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('shopee.product-groups.destroy');
-        Route::get('/shopee/product-groups/{id}/products', [ShopeeProductGroupController::class, 'products'])->name('shopee.product-groups.products');
-        Route::post('/shopee/product-groups/{id}/products/add', [ShopeeProductGroupController::class, 'addProducts'])->name('shopee.product-groups.addProducts');
-        Route::post('/shopee/product-groups/{id}/products/push', [ShopeeProductGroupController::class, 'push'])->name('shopee.product-groups.push');
-        Route::post('/shopee/product-groups/{id}/products/update-product', [ShopeeProductGroupController::class, 'updateProduct'])->name('shopee.product-groups.updateProduct');
-        Route::post('/shopee/product-groups/{id}/products/push-prices', [ShopeeProductGroupController::class, 'pushPrices'])->name('shopee.product-groups.pushPrices');
-        Route::post('/shopee/product-groups/{id}/products/push-stock', [ShopeeProductGroupController::class, 'pushStock'])->name('shopee.product-groups.pushStock');
-        Route::post('/shopee/product-groups/{id}/products/mass-remove', [ShopeeProductGroupController::class, 'massRemove'])->name('shopee.product-groups.massRemove');
-        Route::post('/shopee/product-groups/{id}/products/delete-from-shopee', [ShopeeProductGroupController::class, 'deleteFromShopee'])->name('shopee.product-groups.deleteFromShopee');
-        Route::post('/shopee/product-groups/{id}/products/{productId}/sync-id', [ShopeeProductGroupController::class, 'syncId'])->name('shopee.product-groups.syncId');
-        Route::post('/shopee/product-groups/{id}/products/{productId}/unlink', [ShopeeProductGroupController::class, 'unlinkProduct'])->name('shopee.product-groups.unlinkProduct');
-        Route::post('/shopee/product-groups/{id}/products/{productId}/link', [ShopeeProductGroupController::class, 'linkProduct'])->name('shopee.product-groups.linkProduct');
-        Route::delete('/shopee/product-groups/{id}/products/{productId}', [ShopeeProductGroupController::class, 'removeProduct'])->name('shopee.product-groups.removeProduct');
-        Route::post('/shopee/product-groups/{id}/template/sync', [ShopeeProductGroupController::class, 'syncTemplate'])->name('shopee.product-groups.template_sync');
-        Route::post('/shopee/product-groups/refresh-categories', [ShopeeProductGroupController::class, 'refreshCategories'])->name('shopee.product-groups.refreshCategories');
-        Route::post('/shopee/product-groups/fetch-attributes', [ShopeeProductGroupController::class, 'fetchAttributesAjax'])->name('shopee.product-groups.fetchAttributes');
-
-        // Shopee Products
-        Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('shopee.products.index');
-        Route::get('/shopee/products/add', [ShopeeProductController::class, 'addProduct'])->name('shopee.products.add');
-        Route::post('/shopee/products/sync-ids', [ShopeeProductController::class, 'syncProductIds'])->name('shopee.products.sync_ids');
-        Route::post('/shopee/products/bulk/push', [ShopeeProductController::class, 'bulkPushToShopee'])->name('shopee.products.bulk_push');
-        Route::post('/shopee/products/bulk/sync/quantity', [ShopeeProductController::class, 'bulkSyncQuantity'])->name('shopee.products.bulk_sync_quantity');
-        Route::post('/shopee/products/bulk/sync/price', [ShopeeProductController::class, 'bulkSyncPrice'])->name('shopee.products.bulk_sync_price');
-        Route::post('/shopee/products/bulk/delete', [ShopeeProductController::class, 'bulkDeleteFromShopee'])->name('shopee.products.bulk_delete');
-        Route::get('/shopee/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('shopee.products.search_catalog');
-        Route::post('/shopee/products/unmatched/sync', [ShopeeProductController::class, 'syncUnmatchedItems'])->name('shopee.products.sync_unmatched');
-        Route::post('/shopee/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('shopee.products.rebuild_cache');
-        Route::post('/shopee/products/unmatched/{unmatchedId}/link', [ShopeeProductController::class, 'linkUnmatched'])->name('shopee.products.link_unmatched');
-        Route::post('/shopee/products/unmatched/{unmatchedId}/dismiss', [ShopeeProductController::class, 'dismissUnmatched'])->name('shopee.products.dismiss_unmatched');
-        Route::get('/shopee/products/{productId}/push', [ShopeeProductController::class, 'pushForm'])->name('shopee.products.push');
-        Route::post('/shopee/products/{productId}/push', [ShopeeProductController::class, 'push'])->name('shopee.products.push.post');
-        Route::post('/shopee/products/{productId}/push-direct', [ShopeeProductController::class, 'pushDirect'])->name('shopee.products.push_direct');
-        Route::post('/shopee/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('shopee.products.sync_shopee_id');
-        Route::post('/shopee/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('shopee.products.sync_quantity');
-        Route::post('/shopee/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('shopee.products.sync_price');
-        Route::post('/shopee/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('shopee.products.unlink');
-        Route::post('/shopee/products/{productId}/delete', [ShopeeProductController::class, 'deleteFromShopee'])->name('shopee.products.delete');
-
-    });
-
-    // Shopee Orders (separate permission from Shopee settings/products)
-    Route::middleware(['perm:manage_shopee_orders'])->group(function () {
-        Route::get('/shopee/orders', [ShopeeOrderController::class, 'index'])->name('shopee.orders.index');
-        Route::get('/shopee/orders/returns', [ShopeeOrderController::class, 'returns'])->name('shopee.orders.returns');
-        Route::get('/shopee/orders/{orderSn}', [ShopeeOrderController::class, 'show'])->name('shopee.orders.show');
-        Route::post('/shopee/orders/fetch', [ShopeeOrderController::class, 'fetch'])->name('shopee.orders.fetch');
-        Route::post('/shopee/orders/update-statuses', [ShopeeOrderController::class, 'updateStatuses'])->name('shopee.orders.update_statuses');
-        Route::post('/shopee/orders/reset', [ShopeeOrderController::class, 'reset'])->name('shopee.orders.reset');
-        Route::post('/shopee/orders/{orderSn}/ship', [ShopeeOrderController::class, 'shipOrder'])->name('shopee.orders.ship');
-        Route::get('/shopee/orders/{orderSn}/tracking', [ShopeeOrderController::class, 'getTrackingNumber'])->name('shopee.orders.tracking');
-        Route::get('/shopee/orders/{orderSn}/shipping-addresses', [ShopeeOrderController::class, 'getShippingAddresses'])->name('shopee.orders.shipping_addresses');
-        Route::get('/shopee/orders/{orderSn}/tracking-info', [ShopeeOrderController::class, 'getTrackingInfo'])->name('shopee.orders.tracking_info');
-        Route::get('/shopee/orders/{orderSn}/awb', [ShopeeOrderController::class, 'awbPdf'])->name('shopee.orders.awb');
-        Route::post('/shopee/orders/fetch-returns', [ShopeeOrderController::class, 'fetchReturns'])->name('shopee.orders.fetch_returns');
-    });
 
     // Lazada
     Route::middleware(['perm:manage_lazada'])->group(function () {

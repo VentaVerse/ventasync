@@ -6,11 +6,11 @@ use App\Models\LazadaApiLog;
 use App\Models\LazadaProduct;
 use App\Models\LazadaProductVariant;
 use App\Models\LazadaSetting;
-use App\Models\ShopeeApiLog;
-use App\Models\ShopeeProductLink;
-use App\Models\ShopeeSetting;
+use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\shopee\Models\ShopeeSetting;
 use App\Services\Lazada\LazadaClient;
-use App\Services\Shopee\ShopeeClient;
+use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
