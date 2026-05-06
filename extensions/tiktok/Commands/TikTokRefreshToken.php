@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands;
+namespace Extensions\tiktok\Commands;
 
 use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\Services\TikTok\TikTokClient;

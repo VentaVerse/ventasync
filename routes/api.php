@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\MarketplaceConfigController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\MarketplaceOrderController as ApiMarketplaceOrderController;
 use App\Http\Controllers\Api\ProductController as ApiProductController;
-use App\Http\Controllers\Api\VentaOrderApiController;
+use Extensions\venta\Controllers\Api\VentaOrderApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 

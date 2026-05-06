@@ -22,6 +22,14 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider
     {
         parent::boot();
 
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Extensions\tiktok\Commands\TikTokPushStock::class,
+                \Extensions\tiktok\Commands\TikTokRefreshToken::class,
+                \Extensions\tiktok\Commands\TikTokSyncOrders::class,
+            ]);
+        }
+
         $this->app->make(IntegrationRegistry::class)->register($this);
     }
 

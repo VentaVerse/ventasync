@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands;
+namespace Extensions\tiktok\Commands;
 
 use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokProductGroupProduct;
