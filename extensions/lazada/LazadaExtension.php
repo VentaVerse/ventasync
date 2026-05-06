@@ -4,6 +4,7 @@ namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\SkuResolver;
+use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -11,14 +12,17 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
+use Extensions\lazada\Models\LazadaApiLog;
 use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor
 {
     protected string $id = 'lazada';
 
@@ -184,5 +188,128 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             'product_id' => (int) $lazadaProduct->product_id,
             'product_option_value_id' => $variant->product_option_value_id ?: null,
         ];
+    }
+
+    /**
+     * React to a SKU change on a catalog product by updating the Lazada
+     * variant table and pushing the new seller_sku to the Lazada API.
+     */
+    public function pushSkuChanges(int $productId, array $skuChanges): ?string
+    {
+        $listing = LazadaProduct::where('product_id', $productId)->first();
+        if (!$listing) {
+            return null;
+        }
+
+        $results = [];
+
+        if (!empty($skuChanges['product_sku'])) {
+            $old = $skuChanges['product_sku']['old'];
+            $new = $skuChanges['product_sku']['new'];
+
+            $updated = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                ->where('seller_sku', $old)
+                ->update(['seller_sku' => $new]);
+
+            if ($updated > 0) {
+                $results[] = "seller_sku updated ({$old} -> {$new})";
+            }
+
+            if (!empty($listing->lazada_item_id)) {
+                $apiResult = $this->lazadaUpdateSellerSku($listing, $old, $new);
+                if ($apiResult) {
+                    $results[] = $apiResult;
+                }
+            }
+        }
+
+        if (!empty($skuChanges['option_skus'])) {
+            foreach ($skuChanges['option_skus'] as $povId => $change) {
+                $old = $change['old'];
+                $new = $change['new'];
+
+                $variant = LazadaProductVariant::where('lazada_product_id', $listing->id)
+                    ->where('seller_sku', $old)
+                    ->first();
+
+                if ($variant) {
+                    $variant->seller_sku = $new;
+                    $variant->save();
+                    $results[] = "variant SKU ({$old} -> {$new})";
+                }
+            }
+        }
+
+        try {
+            $listing->update([
+                'last_synced_at' => now(),
+                'last_sync_action' => 'sku_sync',
+                'last_sync_ok' => true,
+            ]);
+        } catch (\Throwable) {
+            // Non-critical — listing sync metadata is best-effort
+        }
+
+        return empty($results) ? null : 'Lazada: ' . implode('; ', $results);
+    }
+
+    private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
+    {
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->access_token || !$setting->app_key) {
+            return null;
+        }
+
+        try {
+            $client = new LazadaClient();
+            $apiPath = '/product/update';
+
+            $itemId = htmlspecialchars((string) $listing->lazada_item_id, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $newSkuEsc = htmlspecialchars($newSku, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+            $payloadXml = '<Request><Product>'
+                . '<ItemId>' . $itemId . '</ItemId>'
+                . '<Skus><Sku>'
+                . '<SellerSku>' . $newSkuEsc . '</SellerSku>'
+                . '</Sku></Skus>'
+                . '</Product></Request>';
+
+            $params = [
+                'app_key'      => (string) $setting->app_key,
+                'sign_method'  => 'sha256',
+                'timestamp'    => (string) round(microtime(true) * 1000),
+                'access_token' => (string) $setting->access_token,
+                'payload'      => $payloadXml,
+            ];
+            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+
+            $result = $client->post((string) $setting->region, $apiPath, $params);
+
+            LazadaApiLog::safeCreate([
+                'pack'            => 'lazada.product.update.sku_sync',
+                'method'          => 'POST',
+                'api_path'        => $apiPath,
+                'auth_required'   => true,
+                'request_params'  => $params,
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok'              => (bool) ($result['ok'] ?? false),
+                'response_body'   => $result['body'] ?? null,
+                'user_id'         => auth()->id(),
+            ]);
+
+            $body = $result['body'] ?? [];
+            $code = is_array($body) ? ($body['code'] ?? null) : null;
+
+            if (($result['ok'] ?? false) && ($code === '0' || $code === 0 || $code === null)) {
+                return 'API OK';
+            }
+
+            $msg = is_array($body) ? ($body['message'] ?? 'API error') : 'API error';
+            Log::info('Lazada SellerSku update response', ['code' => $code, 'message' => $msg]);
+            return 'API: ' . $msg;
+        } catch (\Throwable $e) {
+            Log::warning('Lazada SellerSku update failed', ['error' => $e->getMessage()]);
+            return 'API error';
+        }
     }
 }

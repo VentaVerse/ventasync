@@ -76,19 +76,45 @@ class IntegrationRegistry
      */
     public function skuResolvers(): array
     {
-        $resolvers = [];
+        return $this->providersImplementing(\App\Integrations\Contracts\SkuResolver::class);
+    }
+
+    /**
+     * Providers that implement SkuSyncContributor — used by SkuSyncService
+     * when a catalog product's SKU changes and needs to be pushed to every
+     * connected marketplace.
+     *
+     * @return \App\Integrations\Contracts\SkuSyncContributor[]
+     */
+    public function skuSyncContributors(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\SkuSyncContributor::class);
+    }
+
+    /**
+     * Generic helper: return providers that implement the given interface
+     * AND pass enabled+licensed gates. No permission filter — these are
+     * system-level contracts, not UI surfaces.
+     *
+     * @template T
+     * @param class-string<T> $contract
+     * @return T[]
+     */
+    protected function providersImplementing(string $contract): array
+    {
+        $matches = [];
 
         foreach ($this->providers as $id => $provider) {
-            if (!$provider instanceof \App\Integrations\Contracts\SkuResolver) {
+            if (!$provider instanceof $contract) {
                 continue;
             }
             if (!$this->passesGates($id, null)) {
                 continue;
             }
-            $resolvers[] = $provider;
+            $matches[] = $provider;
         }
 
-        return $resolvers;
+        return $matches;
     }
 
     /**

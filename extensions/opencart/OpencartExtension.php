@@ -3,6 +3,7 @@
 namespace Extensions\opencart;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -12,15 +13,19 @@ use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
 use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
+use Extensions\opencart\Models\OpenCartProductLink;
 use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\opencart\Services\OpenCart\OpenCartClient;
+use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * OpenCart is a multi-store integration. Each enabled OpenCartSetting is its
  * own card + tab; metrics are scoped via marketplace_source = "opencart:{id}".
  */
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
 {
     protected string $id = 'opencart';
 
@@ -199,5 +204,50 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     ))->all();
             },
         );
+    }
+
+    /**
+     * React to a SKU change on a catalog product by re-pushing the product
+     * to every enabled OpenCart store that has it linked. The push command
+     * already handles SKU+model+option-value updates wholesale, so this is
+     * "if any store has this product, refresh it."
+     */
+    public function pushSkuChanges(int $productId, array $skuChanges): ?string
+    {
+        if (!Schema::hasTable('opencart_settings')) {
+            return null;
+        }
+
+        $stores = OpenCartSetting::where('enabled', true)->get();
+        if ($stores->isEmpty()) {
+            return null;
+        }
+
+        $results = [];
+        foreach ($stores as $setting) {
+            $link = OpenCartProductLink::where('opencart_setting_id', $setting->id)
+                ->where('product_id', $productId)
+                ->first();
+            if (!$link) {
+                continue;
+            }
+
+            try {
+                $client = new OpenCartClient($setting);
+                $sync = new OpenCartProductSync($client, $setting);
+                $result = $sync->push([$productId]);
+                $ok = ($result['failed'] ?? 0) === 0;
+                $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');
+            } catch (\Throwable $e) {
+                Log::warning('SKU sync to OpenCart failed', [
+                    'store' => $setting->store_name,
+                    'product_id' => $productId,
+                    'error' => $e->getMessage(),
+                ]);
+                $results[] = $setting->store_name . ': Error';
+            }
+        }
+
+        return empty($results) ? null : 'OpenCart: ' . implode(', ', $results);
     }
 }

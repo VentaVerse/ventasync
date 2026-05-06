@@ -3,6 +3,7 @@
 namespace Extensions\shopee;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -10,12 +11,16 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
+use Extensions\shopee\Models\ShopeeApiLog;
 use Extensions\shopee\Models\ShopeeOrder;
+use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
 {
     protected string $id = 'shopee';
 
@@ -153,5 +158,100 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider
                 },
             ),
         ];
+    }
+
+    /**
+     * React to a SKU change on a catalog product by pushing the new
+     * item_sku to every linked Shopee item via the Shopee API.
+     */
+    public function pushSkuChanges(int $productId, array $skuChanges): ?string
+    {
+        $links = ShopeeProductLink::where('product_id', $productId)->get();
+        if ($links->isEmpty()) {
+            return null;
+        }
+
+        $results = [];
+
+        if (!empty($skuChanges['product_sku'])) {
+            $newSku = $skuChanges['product_sku']['new'];
+            $itemLinks = $links->whereNull('shopee_model_id')->unique('shopee_item_id');
+
+            foreach ($itemLinks as $link) {
+                $itemId = (int) $link->shopee_item_id;
+                if ($itemId <= 0) {
+                    continue;
+                }
+
+                $apiResult = $this->shopeeUpdateItemSku($link, $itemId, $newSku);
+                if ($apiResult) {
+                    $results[] = $apiResult;
+                }
+            }
+        }
+
+        if (!empty($skuChanges['option_skus'])) {
+            $results[] = 'option SKU(s) updated locally';
+        }
+
+        return empty($results) ? null : 'Shopee: ' . implode('; ', $results);
+    }
+
+    private function shopeeUpdateItemSku(ShopeeProductLink $link, int $itemId, string $newSku): ?string
+    {
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+            return null;
+        }
+
+        try {
+            $client = new ShopeeClient();
+            $path = '/api/v2/product/update_item';
+            $body = [
+                'item_id'  => $itemId,
+                'item_sku' => $newSku,
+            ];
+
+            $result = $client->shopPost(
+                $setting->mode ?? 'live',
+                (int) $setting->partner_id,
+                (string) $setting->partner_key,
+                (string) $setting->access_token,
+                (int) $setting->shop_id,
+                $path,
+                [],
+                $body
+            );
+
+            ShopeeApiLog::safeCreate([
+                'pack'            => 'shopee.product.update_item.sku_sync',
+                'method'          => 'POST',
+                'api_path'        => $path,
+                'auth_required'   => true,
+                'request_params'  => $body,
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok'              => (bool) ($result['ok'] ?? false),
+                'response_body'   => $result['body'] ?? null,
+                'user_id'         => auth()->id(),
+            ]);
+
+            $isOk = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
+
+            $link->update([
+                'last_synced_at'          => now(),
+                'last_sync_action'        => 'sku_sync',
+                'last_sync_ok'            => $isOk,
+                'last_sync_error_code'    => $isOk ? null : (string) ($result['body']['error'] ?? ''),
+                'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
+            ]);
+
+            return "Item {$itemId}: " . ($isOk ? 'OK' : 'Failed');
+        } catch (\Throwable $e) {
+            Log::warning('Shopee item_sku update failed', [
+                'item_id' => $itemId,
+                'error' => $e->getMessage(),
+            ]);
+            return "Item {$itemId}: Error";
+        }
     }
 }
