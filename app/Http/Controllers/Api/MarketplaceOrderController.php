@@ -3,399 +3,43 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use App\Models\TikTokOrder;
-use App\Models\TikTokSetting;
+use App\Integrations\IntegrationRegistry;
 use Illuminate\Http\Request;
 
+/**
+ * Thin router for the operator mobile app's marketplace-orders endpoints.
+ * Dispatches to whichever extension is registered for the requested
+ * platform slug — each marketplace integration owns its own status maps,
+ * search columns, and JSON shape inside its IntegrationProvider class.
+ *
+ * Routes
+ *   GET /api/marketplace/{platform}/orders        → mobileIndexResponse
+ *   GET /api/marketplace/{platform}/orders/{id}   → mobileShowResponse
+ */
 class MarketplaceOrderController extends Controller
 {
-    private const LAZADA_TAB_STATUS_MAP = [
-        'UNPAID'              => ['unpaid'],
-        'PENDING'             => ['pending', 'repacked', 'packed', 'ready_to_ship'],
-        'SHIPPING'            => ['shipped'],
-        'DELIVERED_COMPLETED' => ['delivered'],
-        'CANCELLED'           => ['canceled', 'cancelled'],
-        'RETURN'              => ['returned'],
-    ];
-
-    private const LAZADA_PENDING_SUB_MAP = [
-        'to_pack'     => ['pending', 'repacked'],
-        'to_arrange'  => ['packed'],
-        'to_handover' => ['ready_to_ship'],
-    ];
-
-    private const SHOPEE_TAB_STATUS_MAP = [
-        'UNPAID'              => ['UNPAID'],
-        'PENDING'             => ['READY_TO_SHIP', 'PROCESSED'],
-        'SHIPPING'            => ['SHIPPED'],
-        'DELIVERED_COMPLETED' => ['COMPLETED'],
-        'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
-        'FAILED_DELIVERY'     => ['RETRY_SHIP'],
-        'RETURN'              => ['AWAITING_RETURN', 'IN_RETURN', 'RETURNED'],
-    ];
-
-    private const SHOPEE_PENDING_SUB_MAP = [
-        'to_pack'     => ['READY_TO_SHIP'],
-        'to_handover' => ['PROCESSED'],
-    ];
-
-    private const TIKTOK_TAB_STATUS_MAP = [
-        'UNPAID'              => ['UNPAID'],
-        'PENDING'             => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
-        'SHIPPING'            => ['IN_TRANSIT'],
-        'DELIVERED_COMPLETED' => ['DELIVERED', 'COMPLETED'],
-        'CANCELLED'           => ['CANCELLED'],
-    ];
-
-    private const TIKTOK_PENDING_SUB_MAP = [
-        'to_pack'     => ['AWAITING_SHIPMENT'],
-        'to_handover' => ['AWAITING_COLLECTION'],
-    ];
-
-    private const ALLOWED_TABS = [
-        'ALL', 'UNPAID', 'PENDING', 'SHIPPING',
-        'DELIVERED_COMPLETED', 'CANCELLED', 'FAILED_DELIVERY', 'RETURN',
-    ];
-
     public function index(Request $request, string $platform)
     {
-        if (!in_array($platform, ['lazada', 'shopee', 'tiktok'], true)) {
+        $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
+        if ($provider === null) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
 
-        $tab = strtoupper((string) $request->query('tab', 'ALL'));
-        if (!in_array($tab, self::ALLOWED_TABS, true)) {
-            $tab = 'ALL';
-        }
-
-        $search = trim((string) $request->query('q', ''));
-
-        $pendingSub = (string) $request->query('pending_sub', '');
-        if ($tab !== 'PENDING') {
-            $pendingSub = '';
-        }
-
-        $isLazada = $platform === 'lazada';
-        $isTikTok = $platform === 'tiktok';
-
-        if ($isLazada) {
-            $tabStatusMap = self::LAZADA_TAB_STATUS_MAP;
-            $pendingSubMap = self::LAZADA_PENDING_SUB_MAP;
-        } elseif ($isTikTok) {
-            $tabStatusMap = self::TIKTOK_TAB_STATUS_MAP;
-            $pendingSubMap = self::TIKTOK_PENDING_SUB_MAP;
-        } else {
-            $tabStatusMap = self::SHOPEE_TAB_STATUS_MAP;
-            $pendingSubMap = self::SHOPEE_PENDING_SUB_MAP;
-        }
-
-        if ($pendingSub !== '' && !array_key_exists($pendingSub, $pendingSubMap)) {
-            $pendingSub = '';
-        }
-
-        // Determine region
-        if ($isLazada) {
-            $setting = LazadaSetting::query()->first();
-        } elseif ($isTikTok) {
-            $setting = TikTokSetting::query()->first();
-        } else {
-            $setting = ShopeeSetting::query()->first();
-        }
-        $region = $setting->region ?? 'ph';
-
-        // Build query
-        if ($isLazada) {
-            $modelClass = LazadaOrder::class;
-        } elseif ($isTikTok) {
-            $modelClass = TikTokOrder::class;
-        } else {
-            $modelClass = ShopeeOrder::class;
-        }
-        $query = $modelClass::query()->where('region', $region);
-        $baseCountQuery = $modelClass::query()->where('region', $region);
-
-        // Tab filter
-        if ($tab !== 'ALL') {
-            if ($tab === 'PENDING' && $pendingSub !== '') {
-                $statuses = $pendingSubMap[$pendingSub] ?? [];
-                if (!empty($statuses)) {
-                    $query->whereIn('status', $statuses);
-                }
-            } else {
-                $statuses = $tabStatusMap[$tab] ?? [];
-                if (!empty($statuses)) {
-                    $query->whereIn('status', $statuses);
-                }
-            }
-        }
-
-        // Search filter
-        if ($search !== '') {
-            $like = '%' . $search . '%';
-            if ($isLazada) {
-                $query->where(function ($q) use ($like) {
-                    $q->where('order_id', 'like', $like)
-                        ->orWhere('raw->customer_first_name', 'like', $like)
-                        ->orWhere('raw->customer_name', 'like', $like)
-                        ->orWhere('raw->buyer_name', 'like', $like);
-                });
-            } elseif ($isTikTok) {
-                $query->where(function ($q) use ($like) {
-                    $q->where('order_id', 'like', $like)
-                        ->orWhere('buyer_name', 'like', $like);
-                });
-            } else {
-                $query->where(function ($q) use ($like) {
-                    $q->where('order_sn', 'like', $like)
-                        ->orWhere('raw->buyer_username', 'like', $like)
-                        ->orWhere('raw->buyer_user_name', 'like', $like);
-                });
-            }
-        }
-
-        // Tab counts
-        $tabCounts = ['ALL' => (clone $baseCountQuery)->count()];
-        foreach ($tabStatusMap as $k => $statuses) {
-            $tabCounts[$k] = !empty($statuses)
-                ? (clone $baseCountQuery)->whereIn('status', $statuses)->count()
-                : 0;
-        }
-
-        // Pending sub-tab counts
-        $pendingSubCounts = [];
-        foreach ($pendingSubMap as $subKey => $subStatuses) {
-            $pendingSubCounts[$subKey] = !empty($subStatuses)
-                ? (clone $baseCountQuery)->whereIn('status', $subStatuses)->count()
-                : 0;
-        }
-
-        // Paginate
-        $orders = $query
-            ->orderByDesc('order_created_at')
-            ->orderByDesc('created_at')
-            ->paginate(20);
-
-        // Transform
-        $data = $orders->map(function ($order) use ($isLazada, $isTikTok) {
-            $raw = $order->raw ?? [];
-
-            $firstProduct = $order->products()->orderBy('id')->first();
-            $productRaw = $firstProduct?->raw ?? [];
-            $productImage = $firstProduct?->image
-                ?? ($productRaw['image_info']['image_url'] ?? null)
-                ?? ($productRaw['product_main_image'] ?? null);
-
-            if ($isLazada) {
-                $orderId = $order->order_id;
-                $buyerName = $raw['customer_first_name']
-                    ?? $raw['customer_name']
-                    ?? $raw['buyer_name']
-                    ?? '';
-                $totalAmount = isset($raw['price']) ? (float) $raw['price'] : null;
-                $currency = $raw['currency'] ?? '₱';
-                $itemsCount = $order->products()->count();
-                $paymentMethod = $raw['payment_method'] ?? null;
-                $trackingNumber = $raw['tracking_number'] ?? null;
-            } elseif ($isTikTok) {
-                $orderId = $order->order_id;
-                $buyerName = $order->buyer_name ?? '';
-                $totalAmount = isset($raw['payment']['total_amount']) ? (float) $raw['payment']['total_amount'] : null;
-                $currency = $raw['payment']['currency'] ?? '₱';
-                $itemsCount = $order->products()->count();
-                $paymentMethod = $raw['payment']['payment_method_name'] ?? null;
-                $trackingNumber = $raw['tracking_number'] ?? null;
-            } else {
-                $orderId = $order->order_sn;
-                $buyerName = $raw['buyer_username']
-                    ?? $raw['buyer_user_name']
-                    ?? '';
-                $totalAmount = isset($raw['total_amount']) ? (float) $raw['total_amount'] : null;
-                $currency = $raw['currency'] ?? '₱';
-                $itemsCount = $order->products()->count();
-                $paymentMethod = $raw['payment_method'] ?? null;
-                $trackingNumber = $raw['tracking_number'] ?? null;
-            }
-
-            return [
-                'id'              => $order->id,
-                'order_id'        => (string) $orderId,
-                'status'          => $order->status,
-                'buyer_name'      => $buyerName,
-                'total_amount'    => $totalAmount,
-                'currency'        => $currency,
-                'items_count'     => $itemsCount,
-                'product_image'   => $productImage ?: null,
-                'payment_method'  => $paymentMethod,
-                'tracking_number' => $trackingNumber,
-                'date'            => $order->order_created_at
-                    ? $order->order_created_at->format('Y-m-d H:i')
-                    : null,
-            ];
-        });
-
-        return response()->json([
-            'data'               => $data,
-            'current_page'       => $orders->currentPage(),
-            'last_page'          => $orders->lastPage(),
-            'total'              => $orders->total(),
-            'tab_counts'         => $tabCounts,
-            'pending_sub_counts' => $pendingSubCounts,
-        ]);
+        return response()->json($provider->mobileIndexResponse($request));
     }
 
-    public function show(string $platform, int $id)
+    public function show(Request $request, string $platform, int $id)
     {
-        if (!in_array($platform, ['lazada', 'shopee', 'tiktok'], true)) {
+        $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
+        if ($provider === null) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
 
-        $isLazada = $platform === 'lazada';
-        $isTikTok = $platform === 'tiktok';
-
-        if ($isLazada) {
-            $modelClass = LazadaOrder::class;
-        } elseif ($isTikTok) {
-            $modelClass = TikTokOrder::class;
-        } else {
-            $modelClass = ShopeeOrder::class;
-        }
-        $order = $modelClass::with('products')->find($id);
-
-        if (!$order) {
+        $payload = $provider->mobileShowResponse($id);
+        if ($payload === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }
 
-        $raw = $order->raw ?? [];
-
-        if ($isLazada) {
-            $detail = $raw['_detail'] ?? $raw;
-            $orderId = (string) $order->order_id;
-            $buyerName = $detail['customer_first_name']
-                ?? $detail['customer_name']
-                ?? $detail['buyer_name']
-                ?? '';
-            $totalAmount = isset($detail['price']) ? (float) $detail['price'] : null;
-            $currency = $detail['currency'] ?? '₱';
-            $paymentMethod = $detail['payment_method'] ?? '';
-            $shippingProvider = $detail['shipping_provider'] ?? '';
-            $trackingNumber = $detail['tracking_code'] ?? $detail['tracking_number'] ?? '';
-
-            $address = $detail['address_shipping'] ?? [];
-            $shippingName = trim(($address['first_name'] ?? '') . ' ' . ($address['last_name'] ?? ''));
-            $shippingPhone = $address['phone'] ?? $address['phone2'] ?? '';
-            $shippingAddress = trim(implode(', ', array_filter([
-                $address['address1'] ?? '',
-                $address['address2'] ?? '',
-                $address['address3'] ?? '',
-                $address['city'] ?? '',
-                $address['post_code'] ?? '',
-            ])));
-
-            $products = $order->products
-                ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
-                ->map(function ($group) {
-                    $first = $group->first();
-                    $pRaw = $first->raw ?? [];
-                    return [
-                        'name'      => $first->name,
-                        'sku'       => $first->sku ?? '',
-                        'variation' => $first->variation ?? '',
-                        'quantity'  => $group->sum('quantity'),
-                        'price'     => isset($pRaw['item_price']) ? (float) $pRaw['item_price'] : 0,
-                        'image'     => $first->image ?? $pRaw['product_main_image'] ?? '',
-                    ];
-                });
-        } elseif ($isTikTok) {
-            $orderId = (string) $order->order_id;
-            $buyerName = $order->buyer_name ?? '';
-            $payment = $raw['payment'] ?? [];
-            $totalAmount = isset($payment['total_amount']) ? (float) $payment['total_amount'] : null;
-            $currency = $payment['currency'] ?? '₱';
-            $paymentMethod = $payment['payment_method_name'] ?? '';
-            $shippingProvider = $raw['shipping_provider'] ?? $raw['shipping_provider_id'] ?? '';
-            $trackingNumber = $raw['tracking_number'] ?? '';
-
-            $addr = $raw['recipient_address'] ?? [];
-            $shippingName = $addr['name'] ?? $order->buyer_name ?? '';
-            $shippingPhone = $addr['phone_number'] ?? $addr['phone'] ?? '';
-            $shippingAddress = $addr['full_address']
-                ?? trim(implode(', ', array_filter([
-                    $addr['address_detail'] ?? '',
-                    $addr['district'] ?? '',
-                    $addr['city'] ?? '',
-                    $addr['state'] ?? '',
-                    $addr['zipcode'] ?? '',
-                ])));
-
-            $products = $order->products
-                ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
-                ->map(function ($group) {
-                    $first = $group->first();
-                    return [
-                        'name'      => $first->name,
-                        'sku'       => $first->sku ?? '',
-                        'variation' => $first->variation ?? '',
-                        'quantity'  => $group->sum('quantity'),
-                        'price'     => $first->sale_price ?? $first->item_price ?? 0,
-                        'image'     => $first->image ?? '',
-                    ];
-                });
-        } else {
-            $orderId = $order->order_sn;
-            $buyerName = $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '';
-            $totalAmount = isset($raw['total_amount']) ? (float) $raw['total_amount'] : null;
-            $currency = $raw['currency'] ?? '₱';
-            $paymentMethod = $raw['payment_method'] ?? '';
-            $shippingProvider = $raw['shipping_carrier'] ?? $raw['checkout_shipping_carrier'] ?? '';
-            $trackingNumber = $raw['tracking_no'] ?? $raw['tracking_number'] ?? '';
-
-            $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
-            $shippingName = $addr['name'] ?? '';
-            $shippingPhone = $addr['phone'] ?? '';
-            $shippingAddress = $addr['full_address']
-                ?? trim(implode(', ', array_filter([
-                    $addr['address'] ?? '',
-                    $addr['city'] ?? '',
-                    $addr['state'] ?? '',
-                    $addr['zipcode'] ?? '',
-                ])));
-
-            $products = $order->products->map(function ($p) {
-                $pRaw = $p->raw ?? [];
-                $imageUrl = $p->image
-                    ?? $pRaw['image_info']['image_url']
-                    ?? '';
-                return [
-                    'name'      => $p->name,
-                    'sku'       => $p->sku ?? '',
-                    'variation' => $p->variation ?? '',
-                    'quantity'  => $p->quantity,
-                    'price'     => $p->price ?? 0,
-                    'image'     => $imageUrl,
-                ];
-            });
-        }
-
-        return response()->json([
-            'order_id'          => $orderId,
-            'status'            => $order->status,
-            'buyer_name'        => $buyerName,
-            'total_amount'      => $totalAmount,
-            'currency'          => $currency,
-            'payment_method'    => $paymentMethod,
-            'shipping_provider' => $shippingProvider,
-            'tracking_number'   => $trackingNumber,
-            'shipping_name'     => $shippingName,
-            'shipping_phone'    => $shippingPhone,
-            'shipping_address'  => $shippingAddress,
-            'date'              => $order->order_created_at
-                ? $order->order_created_at->format('Y-m-d H:i')
-                : null,
-            'products'          => $products->values(),
-        ]);
+        return response()->json($payload);
     }
 }

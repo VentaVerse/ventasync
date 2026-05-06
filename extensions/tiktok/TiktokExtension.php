@@ -4,9 +4,11 @@ namespace Extensions\tiktok;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
+use Illuminate\Http\Request;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -23,8 +25,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider
 {
+    private const MOBILE_TAB_STATUS_MAP = [
+        'UNPAID'              => ['UNPAID'],
+        'PENDING'             => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+        'SHIPPING'            => ['IN_TRANSIT'],
+        'DELIVERED_COMPLETED' => ['DELIVERED', 'COMPLETED'],
+        'CANCELLED'           => ['CANCELLED'],
+    ];
+
+    private const MOBILE_PENDING_SUB_MAP = [
+        'to_pack'     => ['AWAITING_SHIPMENT'],
+        'to_handover' => ['AWAITING_COLLECTION'],
+    ];
+
     protected string $id = 'tiktok';
 
     public function boot(): void
@@ -292,5 +307,133 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         if ($shippingFee > 0) { $items[] = ['label' => 'Shipping Fee',    'amount' => $shippingFee]; $total += $shippingFee; }
 
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'tiktok'];
+    }
+
+    // ── Mobile API ─────────────────────────────────────────────
+
+    public function mobilePlatformSlug(): string
+    {
+        return 'tiktok';
+    }
+
+    public function mobileIndexResponse(Request $request): array
+    {
+        $tab = strtoupper((string) $request->query('tab', 'ALL'));
+        $search = trim((string) $request->query('q', ''));
+        $pendingSub = (string) $request->query('pending_sub', '');
+        if ($tab !== 'PENDING' || !array_key_exists($pendingSub, self::MOBILE_PENDING_SUB_MAP)) {
+            $pendingSub = '';
+        }
+
+        $base = TikTokOrder::query();
+        $query = TikTokOrder::query();
+
+        if ($tab !== 'ALL') {
+            $statuses = $tab === 'PENDING' && $pendingSub !== ''
+                ? self::MOBILE_PENDING_SUB_MAP[$pendingSub]
+                : (self::MOBILE_TAB_STATUS_MAP[$tab] ?? []);
+            if (!empty($statuses)) {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('order_id', 'like', $like)->orWhere('buyer_name', 'like', $like);
+            });
+        }
+
+        $tabCounts = ['ALL' => (clone $base)->count()];
+        foreach (self::MOBILE_TAB_STATUS_MAP as $k => $statuses) {
+            $tabCounts[$k] = !empty($statuses) ? (clone $base)->whereIn('status', $statuses)->count() : 0;
+        }
+        $pendingSubCounts = [];
+        foreach (self::MOBILE_PENDING_SUB_MAP as $subKey => $subStatuses) {
+            $pendingSubCounts[$subKey] = !empty($subStatuses) ? (clone $base)->whereIn('status', $subStatuses)->count() : 0;
+        }
+
+        $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
+
+        $data = $orders->map(function ($order) {
+            $raw = $order->raw ?? [];
+            $firstProduct = $order->products()->orderBy('id')->first();
+            $productRaw = $firstProduct?->raw ?? [];
+            $productImage = $firstProduct?->image
+                ?? ($productRaw['image_info']['image_url'] ?? null)
+                ?? ($productRaw['product_main_image'] ?? null);
+
+            return [
+                'id'              => $order->id,
+                'order_id'        => (string) $order->order_id,
+                'status'          => $order->status,
+                'buyer_name'      => $order->buyer_name ?? '',
+                'total_amount'    => isset($raw['payment']['total_amount']) ? (float) $raw['payment']['total_amount'] : null,
+                'currency'        => $raw['payment']['currency'] ?? '₱',
+                'items_count'     => $order->products()->count(),
+                'product_image'   => $productImage ?: null,
+                'payment_method'  => $raw['payment']['payment_method_name'] ?? null,
+                'tracking_number' => $raw['tracking_number'] ?? null,
+                'date'            => $order->order_created_at?->format('Y-m-d H:i'),
+            ];
+        });
+
+        return [
+            'data'               => $data,
+            'current_page'       => $orders->currentPage(),
+            'last_page'          => $orders->lastPage(),
+            'total'              => $orders->total(),
+            'tab_counts'         => $tabCounts,
+            'pending_sub_counts' => $pendingSubCounts,
+        ];
+    }
+
+    public function mobileShowResponse(int $id): ?array
+    {
+        $order = TikTokOrder::with('products')->find($id);
+        if (!$order) {
+            return null;
+        }
+
+        $raw = $order->raw ?? [];
+        $payment = $raw['payment'] ?? [];
+        $addr = $raw['recipient_address'] ?? [];
+
+        $products = $order->products
+            ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
+            ->map(function ($group) {
+                $first = $group->first();
+                return [
+                    'name'      => $first->name,
+                    'sku'       => $first->sku ?? '',
+                    'variation' => $first->variation ?? '',
+                    'quantity'  => $group->sum('quantity'),
+                    'price'     => $first->sale_price ?? $first->item_price ?? 0,
+                    'image'     => $first->image ?? '',
+                ];
+            });
+
+        return [
+            'order_id'          => (string) $order->order_id,
+            'status'            => $order->status,
+            'buyer_name'        => $order->buyer_name ?? '',
+            'total_amount'      => isset($payment['total_amount']) ? (float) $payment['total_amount'] : null,
+            'currency'          => $payment['currency'] ?? '₱',
+            'payment_method'    => $payment['payment_method_name'] ?? '',
+            'shipping_provider' => $raw['shipping_provider'] ?? $raw['shipping_provider_id'] ?? '',
+            'tracking_number'   => $raw['tracking_number'] ?? '',
+            'shipping_name'     => $addr['name'] ?? $order->buyer_name ?? '',
+            'shipping_phone'    => $addr['phone_number'] ?? $addr['phone'] ?? '',
+            'shipping_address'  => $addr['full_address']
+                ?? trim(implode(', ', array_filter([
+                    $addr['address_detail'] ?? '',
+                    $addr['district'] ?? '',
+                    $addr['city'] ?? '',
+                    $addr['state'] ?? '',
+                    $addr['zipcode'] ?? '',
+                ]))),
+            'date'              => $order->order_created_at?->format('Y-m-d H:i'),
+            'products'          => $products->values(),
+        ];
     }
 }

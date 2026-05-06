@@ -4,9 +4,11 @@ namespace Extensions\shopee;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
+use Illuminate\Http\Request;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -23,8 +25,23 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider
 {
+    private const MOBILE_TAB_STATUS_MAP = [
+        'UNPAID'              => ['UNPAID'],
+        'PENDING'             => ['READY_TO_SHIP', 'PROCESSED'],
+        'SHIPPING'            => ['SHIPPED'],
+        'DELIVERED_COMPLETED' => ['COMPLETED'],
+        'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
+        'FAILED_DELIVERY'     => ['RETRY_SHIP'],
+        'RETURN'              => ['AWAITING_RETURN', 'IN_RETURN', 'RETURNED'],
+    ];
+
+    private const MOBILE_PENDING_SUB_MAP = [
+        'to_pack'     => ['READY_TO_SHIP'],
+        'to_handover' => ['PROCESSED'],
+    ];
+
     protected string $id = 'shopee';
 
     public function boot(): void
@@ -331,5 +348,132 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
         if ($withholdingTax > 0) { $items[] = ['label' => 'Withholding Tax', 'amount' => $withholdingTax]; $total += $withholdingTax; }
 
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
+    }
+
+    // ── Mobile API ─────────────────────────────────────────────
+
+    public function mobilePlatformSlug(): string
+    {
+        return 'shopee';
+    }
+
+    public function mobileIndexResponse(Request $request): array
+    {
+        $tab = strtoupper((string) $request->query('tab', 'ALL'));
+        $search = trim((string) $request->query('q', ''));
+        $pendingSub = (string) $request->query('pending_sub', '');
+        if ($tab !== 'PENDING' || !array_key_exists($pendingSub, self::MOBILE_PENDING_SUB_MAP)) {
+            $pendingSub = '';
+        }
+
+        $region = ShopeeSetting::query()->first()->region ?? 'ph';
+        $base = ShopeeOrder::query()->where('region', $region);
+        $query = ShopeeOrder::query()->where('region', $region);
+
+        if ($tab !== 'ALL') {
+            $statuses = $tab === 'PENDING' && $pendingSub !== ''
+                ? self::MOBILE_PENDING_SUB_MAP[$pendingSub]
+                : (self::MOBILE_TAB_STATUS_MAP[$tab] ?? []);
+            if (!empty($statuses)) {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('order_sn', 'like', $like)
+                    ->orWhere('raw->buyer_username', 'like', $like)
+                    ->orWhere('raw->buyer_user_name', 'like', $like);
+            });
+        }
+
+        $tabCounts = ['ALL' => (clone $base)->count()];
+        foreach (self::MOBILE_TAB_STATUS_MAP as $k => $statuses) {
+            $tabCounts[$k] = !empty($statuses) ? (clone $base)->whereIn('status', $statuses)->count() : 0;
+        }
+        $pendingSubCounts = [];
+        foreach (self::MOBILE_PENDING_SUB_MAP as $subKey => $subStatuses) {
+            $pendingSubCounts[$subKey] = !empty($subStatuses) ? (clone $base)->whereIn('status', $subStatuses)->count() : 0;
+        }
+
+        $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
+
+        $data = $orders->map(function ($order) {
+            $raw = $order->raw ?? [];
+            $firstProduct = $order->products()->orderBy('id')->first();
+            $productRaw = $firstProduct?->raw ?? [];
+            $productImage = $firstProduct?->image
+                ?? ($productRaw['image_info']['image_url'] ?? null)
+                ?? ($productRaw['product_main_image'] ?? null);
+
+            return [
+                'id'              => $order->id,
+                'order_id'        => (string) $order->order_sn,
+                'status'          => $order->status,
+                'buyer_name'      => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
+                'total_amount'    => isset($raw['total_amount']) ? (float) $raw['total_amount'] : null,
+                'currency'        => $raw['currency'] ?? '₱',
+                'items_count'     => $order->products()->count(),
+                'product_image'   => $productImage ?: null,
+                'payment_method'  => $raw['payment_method'] ?? null,
+                'tracking_number' => $raw['tracking_number'] ?? null,
+                'date'            => $order->order_created_at?->format('Y-m-d H:i'),
+            ];
+        });
+
+        return [
+            'data'               => $data,
+            'current_page'       => $orders->currentPage(),
+            'last_page'          => $orders->lastPage(),
+            'total'              => $orders->total(),
+            'tab_counts'         => $tabCounts,
+            'pending_sub_counts' => $pendingSubCounts,
+        ];
+    }
+
+    public function mobileShowResponse(int $id): ?array
+    {
+        $order = ShopeeOrder::with('products')->find($id);
+        if (!$order) {
+            return null;
+        }
+
+        $raw = $order->raw ?? [];
+        $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
+
+        $products = $order->products->map(function ($p) {
+            $pRaw = $p->raw ?? [];
+            return [
+                'name'      => $p->name,
+                'sku'       => $p->sku ?? '',
+                'variation' => $p->variation ?? '',
+                'quantity'  => $p->quantity,
+                'price'     => $p->price ?? 0,
+                'image'     => $p->image ?? ($pRaw['image_info']['image_url'] ?? ''),
+            ];
+        });
+
+        return [
+            'order_id'          => $order->order_sn,
+            'status'            => $order->status,
+            'buyer_name'        => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
+            'total_amount'      => isset($raw['total_amount']) ? (float) $raw['total_amount'] : null,
+            'currency'          => $raw['currency'] ?? '₱',
+            'payment_method'    => $raw['payment_method'] ?? '',
+            'shipping_provider' => $raw['shipping_carrier'] ?? $raw['checkout_shipping_carrier'] ?? '',
+            'tracking_number'   => $raw['tracking_no'] ?? $raw['tracking_number'] ?? '',
+            'shipping_name'     => $addr['name'] ?? '',
+            'shipping_phone'    => $addr['phone'] ?? '',
+            'shipping_address'  => $addr['full_address']
+                ?? trim(implode(', ', array_filter([
+                    $addr['address'] ?? '',
+                    $addr['city'] ?? '',
+                    $addr['state'] ?? '',
+                    $addr['zipcode'] ?? '',
+                ]))),
+            'date'              => $order->order_created_at?->format('Y-m-d H:i'),
+            'products'          => $products->values(),
+        ];
     }
 }

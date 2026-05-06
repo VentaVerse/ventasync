@@ -4,10 +4,12 @@ namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\OrderImagesContributor;
 use App\Integrations\Contracts\SkuResolver;
 use App\Integrations\Contracts\SkuSyncContributor;
+use Illuminate\Http\Request;
 use App\Models\Catalog\Order;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
@@ -26,8 +28,23 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider
 {
+    private const MOBILE_TAB_STATUS_MAP = [
+        'UNPAID'              => ['unpaid'],
+        'PENDING'             => ['pending', 'repacked', 'packed', 'ready_to_ship'],
+        'SHIPPING'            => ['shipped'],
+        'DELIVERED_COMPLETED' => ['delivered'],
+        'CANCELLED'           => ['canceled', 'cancelled'],
+        'RETURN'              => ['returned'],
+    ];
+
+    private const MOBILE_PENDING_SUB_MAP = [
+        'to_pack'     => ['pending', 'repacked'],
+        'to_arrange'  => ['packed'],
+        'to_handover' => ['ready_to_ship'],
+    ];
+
     protected string $id = 'lazada';
 
     public function boot(): void
@@ -453,5 +470,137 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
+    }
+
+    // ── Mobile API ─────────────────────────────────────────────
+
+    public function mobilePlatformSlug(): string
+    {
+        return 'lazada';
+    }
+
+    public function mobileIndexResponse(Request $request): array
+    {
+        $tab = strtoupper((string) $request->query('tab', 'ALL'));
+        $search = trim((string) $request->query('q', ''));
+        $pendingSub = (string) $request->query('pending_sub', '');
+        if ($tab !== 'PENDING' || !array_key_exists($pendingSub, self::MOBILE_PENDING_SUB_MAP)) {
+            $pendingSub = '';
+        }
+
+        $region = LazadaSetting::query()->first()->region ?? 'ph';
+        $base = LazadaOrder::query()->where('region', $region);
+        $query = LazadaOrder::query()->where('region', $region);
+
+        if ($tab !== 'ALL') {
+            $statuses = $tab === 'PENDING' && $pendingSub !== ''
+                ? self::MOBILE_PENDING_SUB_MAP[$pendingSub]
+                : (self::MOBILE_TAB_STATUS_MAP[$tab] ?? []);
+            if (!empty($statuses)) {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('order_id', 'like', $like)
+                    ->orWhere('raw->customer_first_name', 'like', $like)
+                    ->orWhere('raw->customer_name', 'like', $like)
+                    ->orWhere('raw->buyer_name', 'like', $like);
+            });
+        }
+
+        $tabCounts = ['ALL' => (clone $base)->count()];
+        foreach (self::MOBILE_TAB_STATUS_MAP as $k => $statuses) {
+            $tabCounts[$k] = !empty($statuses) ? (clone $base)->whereIn('status', $statuses)->count() : 0;
+        }
+        $pendingSubCounts = [];
+        foreach (self::MOBILE_PENDING_SUB_MAP as $subKey => $subStatuses) {
+            $pendingSubCounts[$subKey] = !empty($subStatuses) ? (clone $base)->whereIn('status', $subStatuses)->count() : 0;
+        }
+
+        $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
+
+        $data = $orders->map(function ($order) {
+            $raw = $order->raw ?? [];
+            $firstProduct = $order->products()->orderBy('id')->first();
+            $productRaw = $firstProduct?->raw ?? [];
+            $productImage = $firstProduct?->image
+                ?? ($productRaw['image_info']['image_url'] ?? null)
+                ?? ($productRaw['product_main_image'] ?? null);
+
+            return [
+                'id'              => $order->id,
+                'order_id'        => (string) $order->order_id,
+                'status'          => $order->status,
+                'buyer_name'      => $raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '',
+                'total_amount'    => isset($raw['price']) ? (float) $raw['price'] : null,
+                'currency'        => $raw['currency'] ?? '₱',
+                'items_count'     => $order->products()->count(),
+                'product_image'   => $productImage ?: null,
+                'payment_method'  => $raw['payment_method'] ?? null,
+                'tracking_number' => $raw['tracking_number'] ?? null,
+                'date'            => $order->order_created_at?->format('Y-m-d H:i'),
+            ];
+        });
+
+        return [
+            'data'               => $data,
+            'current_page'       => $orders->currentPage(),
+            'last_page'          => $orders->lastPage(),
+            'total'              => $orders->total(),
+            'tab_counts'         => $tabCounts,
+            'pending_sub_counts' => $pendingSubCounts,
+        ];
+    }
+
+    public function mobileShowResponse(int $id): ?array
+    {
+        $order = LazadaOrder::with('products')->find($id);
+        if (!$order) {
+            return null;
+        }
+
+        $raw = $order->raw ?? [];
+        $detail = $raw['_detail'] ?? $raw;
+        $address = $detail['address_shipping'] ?? [];
+
+        $products = $order->products
+            ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
+            ->map(function ($group) {
+                $first = $group->first();
+                $pRaw = $first->raw ?? [];
+                return [
+                    'name'      => $first->name,
+                    'sku'       => $first->sku ?? '',
+                    'variation' => $first->variation ?? '',
+                    'quantity'  => $group->sum('quantity'),
+                    'price'     => isset($pRaw['item_price']) ? (float) $pRaw['item_price'] : 0,
+                    'image'     => $first->image ?? $pRaw['product_main_image'] ?? '',
+                ];
+            });
+
+        return [
+            'order_id'          => (string) $order->order_id,
+            'status'            => $order->status,
+            'buyer_name'        => $detail['customer_first_name'] ?? $detail['customer_name'] ?? $detail['buyer_name'] ?? '',
+            'total_amount'      => isset($detail['price']) ? (float) $detail['price'] : null,
+            'currency'          => $detail['currency'] ?? '₱',
+            'payment_method'    => $detail['payment_method'] ?? '',
+            'shipping_provider' => $detail['shipping_provider'] ?? '',
+            'tracking_number'   => $detail['tracking_code'] ?? $detail['tracking_number'] ?? '',
+            'shipping_name'     => trim(($address['first_name'] ?? '') . ' ' . ($address['last_name'] ?? '')),
+            'shipping_phone'    => $address['phone'] ?? $address['phone2'] ?? '',
+            'shipping_address'  => trim(implode(', ', array_filter([
+                $address['address1'] ?? '',
+                $address['address2'] ?? '',
+                $address['address3'] ?? '',
+                $address['city'] ?? '',
+                $address['post_code'] ?? '',
+            ]))),
+            'date'              => $order->order_created_at?->format('Y-m-d H:i'),
+            'products'          => $products->values(),
+        ];
     }
 }

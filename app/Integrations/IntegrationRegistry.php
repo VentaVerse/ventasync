@@ -127,6 +127,21 @@ class IntegrationRegistry
     }
 
     /**
+     * Find the MobileMarketplaceProvider whose platform slug matches the
+     * given identifier (e.g. 'lazada', 'shopee'). Returns null if no
+     * matching provider is enabled+licensed.
+     */
+    public function mobileProviderFor(string $platform): ?\App\Integrations\Contracts\MobileMarketplaceProvider
+    {
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\MobileMarketplaceProvider::class) as $provider) {
+            if ($provider->mobilePlatformSlug() === $platform) {
+                return $provider;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Generic helper: return providers that implement the given interface
      * AND pass enabled+licensed gates. No permission filter — these are
      * system-level contracts, not UI surfaces.
