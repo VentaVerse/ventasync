@@ -1,19 +1,21 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaApiLog;
-use App\Models\LazadaCategoryTemplate;
-use App\Models\LazadaCategory;
-use App\Models\LazadaProduct;
-use App\Models\LazadaProductAttribute;
-use App\Models\LazadaProductGroup;
-use App\Models\LazadaProductGroupAttribute;
-use App\Models\LazadaProductGroupProduct;
-use App\Models\LazadaProductVariant;
-use App\Models\LazadaSetting;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaCategoryTemplate;
+use Extensions\lazada\Models\LazadaCategory;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductAttribute;
+use Extensions\lazada\Models\LazadaProductGroup;
+use Extensions\lazada\Models\LazadaProductGroupAttribute;
+use Extensions\lazada\Models\LazadaProductGroupProduct;
+use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
-use App\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +28,7 @@ class LazadaProductGroupController extends Controller
         if ($return && str_starts_with($return, '/')) {
             return redirect($return);
         }
-        return redirect()->route('lazada.product-groups.products', $id);
+        return redirect()->route('ext.lazada.product-groups.products', $id);
     }
 
     public function index()
@@ -48,7 +50,7 @@ class LazadaProductGroupController extends Controller
             ->groupBy('lazada_product_group_id')
             ->pluck('cnt', 'lazada_product_group_id');
 
-        return view('lazada.product-groups.index', [
+        return view('ext-lazada::product-groups.index', [
             'groups' => $groups,
             'lazadaCategoryNames' => $lazadaCategoryNames,
             'productCounts' => $productCounts,
@@ -106,7 +108,7 @@ class LazadaProductGroupController extends Controller
 
         $selectedBrandName = '';
         if ($group->brand_id) {
-            $brand = \App\Models\LazadaBrand::query()->where('brand_id', $group->brand_id)->first();
+            $brand = \Extensions\lazada\Models\LazadaBrand::query()->where('brand_id', $group->brand_id)->first();
             if ($brand) $selectedBrandName = $brand->name;
         }
 
@@ -134,7 +136,7 @@ class LazadaProductGroupController extends Controller
                 ->get();
         }
 
-        return view('lazada.product-groups.form', [
+        return view('ext-lazada::product-groups.form', [
             'group' => $group,
             'mode' => $mode,
             'catalogCategories' => $catalogCategories,
@@ -181,7 +183,7 @@ class LazadaProductGroupController extends Controller
         $productIds = array_map('intval', array_filter($data['product_ids'] ?? []));
         $this->addProductsToGroup($group, $productIds);
 
-        return redirect()->route('lazada.product-groups.edit', $group->id)
+        return redirect()->route('ext.lazada.product-groups.edit', $group->id)
             ->with('status', 'Product group created. ' . count($productIds) . ' product(s) assigned.');
     }
 
@@ -230,7 +232,7 @@ class LazadaProductGroupController extends Controller
             $group->groupProducts()->whereIn('product_id', $toRemove)->delete();
         }
 
-        return redirect()->route('lazada.product-groups.edit', $group->id)
+        return redirect()->route('ext.lazada.product-groups.edit', $group->id)
             ->with('status', 'Product group saved.');
     }
 
@@ -270,7 +272,7 @@ class LazadaProductGroupController extends Controller
         if ($removed > 0) $parts[] = "{$removed} product(s) removed.";
         if ($kept > 0) $parts[] = "{$kept} product(s) still linked to other groups.";
 
-        return redirect()->route('lazada.product-groups.index')
+        return redirect()->route('ext.lazada.product-groups.index')
             ->with('status', implode(' ', $parts));
     }
 
@@ -367,7 +369,7 @@ class LazadaProductGroupController extends Controller
         // All product IDs in this group
         $manualIds = $group->groupProducts()->whereNotNull('product_id')->pluck('product_id')->toArray();
 
-        return view('lazada.product-groups.products', [
+        return view('ext-lazada::product-groups.products', [
             'group' => $group,
             'products' => $products,
             'pivotMap' => $pivotMap,
@@ -477,7 +479,7 @@ class LazadaProductGroupController extends Controller
         }
 
         $pfx = (string) config('catalog.prefix');
-        $client = app(\App\Services\Lazada\LazadaClient::class);
+        $client = app(\Extensions\lazada\Services\Lazada\LazadaClient::class);
 
         // Collect all SKUs for this product (parent + option values)
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
@@ -752,7 +754,7 @@ class LazadaProductGroupController extends Controller
                 $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
                     ->get(['attribute_key', 'value']);
                 foreach ($groupAttrs as $ga) {
-                    \App\Models\LazadaProductAttribute::updateOrCreate(
+                    \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
                         ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
                         ['value' => $ga->value]
                     );
@@ -785,7 +787,7 @@ class LazadaProductGroupController extends Controller
                 $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
                     ->get(['attribute_key', 'value']);
                 foreach ($groupAttrs as $ga) {
-                    \App\Models\LazadaProductAttribute::updateOrCreate(
+                    \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
                         ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
                         ['value' => $ga->value]
                     );
@@ -927,7 +929,7 @@ class LazadaProductGroupController extends Controller
             $groupAttrs = LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)
                 ->get(['attribute_key', 'value']);
             foreach ($groupAttrs as $ga) {
-                \App\Models\LazadaProductAttribute::updateOrCreate(
+                \Extensions\lazada\Models\LazadaProductAttribute::updateOrCreate(
                     ['lazada_product_id' => $listing->id, 'attribute_key' => $ga->attribute_key],
                     ['value' => $ga->value]
                 );
@@ -1632,7 +1634,7 @@ class LazadaProductGroupController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.product-groups.edit', $group->id)
+            return redirect()->route('ext.lazada.product-groups.edit', $group->id)
                 ->with('status', 'Missing Lazada settings.');
         }
 
@@ -1652,7 +1654,7 @@ class LazadaProductGroupController extends Controller
             ['template_body' => $result['body'] ?? null, 'fetched_at' => now()]
         );
 
-        return redirect()->route('lazada.product-groups.edit', $group->id)
+        return redirect()->route('ext.lazada.product-groups.edit', $group->id)
             ->with('status', 'Category template synced.');
     }
 
@@ -1861,7 +1863,7 @@ class LazadaProductGroupController extends Controller
         $attributes = $this->extractAttributes($template->template_body);
         $erpSourceFields = \App\Http\Controllers\LazadaProductController::ERP_SOURCE_FIELDS;
 
-        $html = view('lazada.product-groups._attributes', [
+        $html = view('ext-lazada::product-groups._attributes', [
             'attributes' => $attributes,
             'saved' => [],
             'erpSourceFields' => $erpSourceFields,

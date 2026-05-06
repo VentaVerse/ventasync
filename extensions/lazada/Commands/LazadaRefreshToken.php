@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Console\Commands;
+namespace Extensions\lazada\Commands;
 
-use App\Models\LazadaSetting;
-use App\Services\Lazada\LazadaClient;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 

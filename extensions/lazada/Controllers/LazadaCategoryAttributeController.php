@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaApiLog;
-use App\Models\LazadaCategory;
-use App\Models\LazadaCategoryTemplate;
-use App\Models\LazadaSetting;
-use App\Services\Lazada\LazadaClient;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaCategory;
+use Extensions\lazada\Models\LazadaCategoryTemplate;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
 class LazadaCategoryAttributeController extends Controller
@@ -37,7 +39,7 @@ class LazadaCategoryAttributeController extends Controller
             ->limit(20)
             ->get();
 
-        return view('lazada.categories.attributes', [
+        return view('ext-lazada::categories.attributes', [
             'category' => $category,
             'template' => $template,
             'attributes' => $attributes,
@@ -52,7 +54,7 @@ class LazadaCategoryAttributeController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.categories.attributes.show', $categoryId)
+            return redirect()->route('ext.lazada.categories.attributes.show', $categoryId)
                 ->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
@@ -93,11 +95,11 @@ class LazadaCategoryAttributeController extends Controller
         if (!$result['ok']) {
             $body = $result['body'] ?? null;
             $msg = is_array($body) ? ($body['message'] ?? ($body['code'] ?? 'Failed')) : 'Failed';
-            return redirect()->route('lazada.categories.attributes.show', $categoryId)
+            return redirect()->route('ext.lazada.categories.attributes.show', $categoryId)
                 ->with('error', 'Fetch failed: ' . $msg);
         }
 
-        return redirect()->route('lazada.categories.attributes.show', $categoryId)
+        return redirect()->route('ext.lazada.categories.attributes.show', $categoryId)
             ->with('status', 'Category attributes fetched successfully for: ' . $category->name);
     }
 

@@ -2,11 +2,11 @@
 
 namespace Extensions\opencart\Commands;
 
-use App\Models\LazadaApiLog;
-use App\Models\LazadaProduct;
-use App\Models\LazadaSetting;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaSetting;
 use Extensions\opencart\Models\MarketplaceReview;
-use App\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;

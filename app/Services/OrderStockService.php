@@ -6,8 +6,8 @@ use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductOptionValue;
-use App\Models\LazadaProduct;
-use App\Models\LazadaProductVariant;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductVariant;
 use Illuminate\Support\Facades\DB;
 
 class OrderStockService

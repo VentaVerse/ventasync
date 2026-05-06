@@ -11,13 +11,13 @@
         </div>
         <div class="page-header-actions">
             @if($mode === 'edit')
-                <a class="btn secondary" href="{{ route('lazada.product-groups.products', $group->id) }}">View Products</a>
+                <a class="btn secondary" href="{{ route('ext.lazada.product-groups.products', $group->id) }}">View Products</a>
             @endif
-            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">← Back to Product Groups</a>
+            <a class="btn secondary" href="{{ route('ext.lazada.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
 
-    <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('lazada.product-groups.store') : route('lazada.product-groups.update', $group->id) }}">
+    <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('ext.lazada.product-groups.store') : route('ext.lazada.product-groups.update', $group->id) }}">
         @csrf
         @if($mode === 'edit') @method('PUT') @endif
 
@@ -95,7 +95,7 @@
         <div class="card mt-16" id="lazada-attributes-card" style="{{ ($template && !empty($attributes)) ? '' : 'display:none;' }}">
             <div id="lazada-attributes-container">
                 @if($template && !empty($attributes))
-                    @include('lazada.product-groups._attributes', ['attributes' => $attributes, 'saved' => $saved, 'erpSourceFields' => $erpSourceFields, 'template' => $template])
+                    @include('ext-lazada::product-groups._attributes', ['attributes' => $attributes, 'saved' => $saved, 'erpSourceFields' => $erpSourceFields, 'template' => $template])
                 @endif
             </div>
         </div>
@@ -216,7 +216,7 @@
         }
 
         function fetchSuggestions(q) {
-            var url = @json(route('lazada.brands.autocomplete')) + '?q=' + encodeURIComponent(q) + '&limit=20';
+            var url = @json(route('ext.lazada.brands.autocomplete')) + '?q=' + encodeURIComponent(q) + '&limit=20';
             return fetch(url, { headers: { 'Accept': 'application/json' } })
                 .then(function(res) { return res.ok ? res.json() : { items: [] }; })
                 .then(function(json) { return Array.isArray(json.items) ? json.items : []; });
@@ -276,8 +276,8 @@
     // ── Refresh Categories ──────────────────────────────────────
     var refreshCatsBtn = document.getElementById('refreshCatsBtn');
     var catSelect = document.getElementById('lazadaCategorySelect');
-    var refreshCatsUrl = @json(route('lazada.product-groups.refreshCategories'));
-    var fetchAttrsUrl = @json(route('lazada.product-groups.fetchAttributes'));
+    var refreshCatsUrl = @json(route('ext.lazada.product-groups.refreshCategories'));
+    var fetchAttrsUrl = @json(route('ext.lazada.product-groups.fetchAttributes'));
     var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     if (refreshCatsBtn && catSelect) {
@@ -408,7 +408,7 @@
     bindAttrToggles();
 
     // ── Dual Listbox ────────────────────────────────────────────
-    var searchUrl = @json(route('lazada.product-groups.searchProducts'));
+    var searchUrl = @json(route('ext.lazada.product-groups.searchProducts'));
     @php
         $rightItemsJson = $groupProducts->map(fn($p) => [
             'product_id' => (int) $p->product_id,

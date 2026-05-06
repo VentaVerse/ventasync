@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Services;
+namespace Extensions\lazada\Services;
 
-use App\Models\LazadaOrder;
-use App\Models\LazadaOrderStatusMap;
-use App\Models\LazadaProduct;
-use App\Models\LazadaProductVariant;
+use Extensions\lazada\Models\LazadaOrder;
+use Extensions\lazada\Models\LazadaOrderStatusMap;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductVariant;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderOption;

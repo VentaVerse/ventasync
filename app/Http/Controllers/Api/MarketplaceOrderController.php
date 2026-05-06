@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\LazadaOrder;
-use App\Models\LazadaSetting;
+use Extensions\lazada\Models\LazadaOrder;
+use Extensions\lazada\Models\LazadaSetting;
 use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\shopee\Models\ShopeeSetting;
 use App\Models\TikTokOrder;

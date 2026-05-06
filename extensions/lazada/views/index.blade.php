@@ -5,8 +5,8 @@
 <div class="page-header">
     <h2>Lazada Settings</h2>
     <div class="page-header-actions">
-        <a class="btn small" href="{{ route('lazada.orders.index') }}">Orders</a>
-        <a class="btn" href="{{ route('lazada.product-groups.index') }}">Product Groups</a>
+        <a class="btn small" href="{{ route('ext.lazada.orders.index') }}">Orders</a>
+        <a class="btn" href="{{ route('ext.lazada.product-groups.index') }}">Product Groups</a>
     </div>
 </div>
 
@@ -49,7 +49,7 @@
     {{-- Environment Toggle --}}
     <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
         <span class="font-semibold text-sm">Environment:</span>
-        <form method="POST" action="{{ route('lazada.toggle_mode') }}" id="lz-mode-form" style="display:flex; align-items:center; gap:10px;">
+        <form method="POST" action="{{ route('ext.lazada.toggle_mode') }}" id="lz-mode-form" style="display:flex; align-items:center; gap:10px;">
             @csrf
             <input type="hidden" name="mode" id="lz-mode-value" value="{{ $currentMode }}">
             <button type="button" id="lz-mode-toggle" style="
@@ -88,7 +88,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('lazada.save') }}">
+            <form method="POST" action="{{ route('ext.lazada.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="live">
                 <div style="display:flex; flex-direction:column; gap:14px;">
@@ -152,7 +152,7 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
                         <span class="font-semibold text-sm">Open Lazada authorization page</span>
                     </div>
-                    <a class="btn small" href="{{ route('lazada.authorize') }}" target="_blank" rel="noopener">Authorize with Lazada</a>
+                    <a class="btn small" href="{{ route('ext.lazada.authorize') }}" target="_blank" rel="noopener">Authorize with Lazada</a>
                     <div class="hint" style="margin-top:6px;">Opens Lazada login in a new tab. After granting access, you'll be redirected back with an auth code.</div>
                 </div>
 
@@ -162,7 +162,7 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
                         <span class="font-semibold text-sm">Exchange auth code for access token</span>
                     </div>
-                    <form method="POST" action="{{ route('lazada.token_create') }}">
+                    <form method="POST" action="{{ route('ext.lazada.token_create') }}">
                         @csrf
                         <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
                             <div style="flex:1; min-width:200px;">
@@ -180,7 +180,7 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
                         <span class="font-semibold text-sm">Refresh token (when expired)</span>
                     </div>
-                    <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline;">
+                    <form method="POST" action="{{ route('ext.lazada.token_refresh') }}" style="display:inline;">
                         @csrf
                         <button class="btn small secondary" type="submit">Refresh Access Token</button>
                     </form>
@@ -208,7 +208,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('lazada.save') }}">
+            <form method="POST" action="{{ route('ext.lazada.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
                 <input type="hidden" name="region" value="{{ $setting->region ?? '' }}">
@@ -262,7 +262,7 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
                         <span class="font-semibold text-sm">Open Lazada sandbox authorization page</span>
                     </div>
-                    <a class="btn small" href="{{ route('lazada.authorize') }}?sandbox=1" target="_blank" rel="noopener">Authorize Sandbox</a>
+                    <a class="btn small" href="{{ route('ext.lazada.authorize') }}?sandbox=1" target="_blank" rel="noopener">Authorize Sandbox</a>
                     <div class="hint" style="margin-top:6px;">Uses sandbox credentials to authorize with the Lazada test environment.</div>
                 </div>
 
@@ -271,7 +271,7 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
                         <span class="font-semibold text-sm">Exchange auth code for sandbox token</span>
                     </div>
-                    <form method="POST" action="{{ route('lazada.token_create') }}">
+                    <form method="POST" action="{{ route('ext.lazada.token_create') }}">
                         @csrf
                         <input type="hidden" name="sandbox" value="1">
                         <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
@@ -289,7 +289,7 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
                         <span class="font-semibold text-sm">Refresh sandbox token</span>
                     </div>
-                    <form method="POST" action="{{ route('lazada.token_refresh') }}" style="display:inline;">
+                    <form method="POST" action="{{ route('ext.lazada.token_refresh') }}" style="display:inline;">
                         @csrf
                         <input type="hidden" name="sandbox" value="1">
                         <button class="btn small secondary" type="submit">Refresh Sandbox Token</button>
@@ -309,7 +309,7 @@
             <div class="hint" style="margin-bottom:10px;">
                 How far back the cronjob looks for orders. Defaults to 14 days.
             </div>
-            <form method="POST" action="{{ route('lazada.sync_days') }}">
+            <form method="POST" action="{{ route('ext.lazada.sync_days') }}">
                 @csrf
                 <div style="display:flex; align-items:center; gap:8px;">
                     <input type="number" name="sync_last_days" class="input"
@@ -335,7 +335,7 @@
             <div class="hint" style="margin-bottom:10px;">
                 How far back the cronjob looks for <strong>return/refund</strong> orders. Independent from order sync. Defaults to 14 days.
             </div>
-            <form method="POST" action="{{ route('lazada.sync_days_returns') }}">
+            <form method="POST" action="{{ route('ext.lazada.sync_days_returns') }}">
                 @csrf
                 <div style="display:flex; align-items:center; gap:8px;">
                     <input type="number" name="sync_last_days_returns" class="input"
@@ -507,7 +507,7 @@
                 </div>
             </div>
 
-            <form id="lazada-api-explorer-form" method="POST" action="{{ route('lazada.explorer_run') }}">
+            <form id="lazada-api-explorer-form" method="POST" action="{{ route('ext.lazada.explorer_run') }}">
                 @csrf
 
                 <div class="form-grid">
@@ -583,7 +583,7 @@
             When Lazada orders are synced, each Lazada status is mapped to an ERP order status below.
         </div>
 
-        <form method="POST" action="{{ route('lazada.order_status_map') }}">
+        <form method="POST" action="{{ route('ext.lazada.order_status_map') }}">
             @csrf
             <div class="table-wrap">
             <table>
@@ -627,7 +627,7 @@
             Map each Lazada reverse order status to an ERP order status.
         </div>
 
-        <form method="POST" action="{{ route('lazada.reverse_status_map') }}">
+        <form method="POST" action="{{ route('ext.lazada.reverse_status_map') }}">
             @csrf
             <div class="table-wrap">
             <table>
@@ -706,7 +706,7 @@
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
             @if($logCount > 0)
-                <form method="POST" action="{{ route('lazada.clear_api_logs') }}" data-confirm="Delete all Lazada API logs?">
+                <form method="POST" action="{{ route('ext.lazada.clear_api_logs') }}" data-confirm="Delete all Lazada API logs?">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn small danger">Delete All Logs</button>
@@ -1072,7 +1072,7 @@ function lazCopy(id, btn) {
         label.textContent = enabled ? 'Enabled' : 'Disabled';
         label.className = 'text-sm ' + (enabled ? 'font-bold' : 'text-muted');
 
-        fetch('{{ route("lazada.toggle_logging") }}', {
+        fetch('{{ route("ext.lazada.toggle_logging") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

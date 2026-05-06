@@ -8,7 +8,7 @@
 </div>
 
 <div class="card mb-16">
-    <form method="POST" action="{{ route('lazada.orders.fetch_returns') }}" class="d-flex gap-12 flex-wrap items-center">
+    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" class="d-flex gap-12 flex-wrap items-center">
         @csrf
         <div>
             <label class="text-xs text-secondary">From</label>
@@ -38,14 +38,14 @@
 
 {{-- Order tabs (mirrors orders page, with Return/Refund/Cancel active) --}}
 <div class="tabs mb-12">
-    <a href="{{ route('lazada.orders.index', ['tab' => 'ALL']) }}" class="tab">All</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'UNPAID']) }}" class="tab">Unpaid</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="tab">To Ship</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'SHIPPING']) }}" class="tab">Shipping</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'DELIVERED']) }}" class="tab">Delivered</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'CANCELLATION']) }}" class="tab">Cancellation</a>
-    <a href="{{ route('lazada.orders.index', ['tab' => 'FAILED_DELIVERY']) }}" class="tab">Failed Delivery</a>
-    <a href="{{ route('lazada.orders.returns') }}" class="tab active">Return/Refund/Cancel</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'ALL']) }}" class="tab">All</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'UNPAID']) }}" class="tab">Unpaid</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="tab">To Ship</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'SHIPPING']) }}" class="tab">Shipping</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'DELIVERED']) }}" class="tab">Delivered</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'CANCELLATION']) }}" class="tab">Cancellation</a>
+    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'FAILED_DELIVERY']) }}" class="tab">Failed Delivery</a>
+    <a href="{{ route('ext.lazada.orders.returns') }}" class="tab active">Return/Refund/Cancel</a>
 </div>
 
 @php
@@ -63,7 +63,7 @@
             $qs = array_merge(request()->query(), ['tab' => $key]);
             unset($qs['page']);
         @endphp
-        <a href="{{ route('lazada.orders.returns', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+        <a href="{{ route('ext.lazada.orders.returns', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
             <span>{{ $label }}</span>
             @if($count !== null && $count > 0)
                 <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
@@ -73,7 +73,7 @@
 </div>
 
 <div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('lazada.orders.returns') }}" class="d-flex gap-10 flex-wrap items-center">
+    <form method="GET" action="{{ route('ext.lazada.orders.returns') }}" class="d-flex gap-10 flex-wrap items-center">
         <input type="hidden" name="per_page" value="{{ (int)($per_page ?? 10) }}">
         <input type="hidden" name="tab" value="{{ $active_tab }}">
         <div>
@@ -88,7 +88,7 @@
             <button type="submit" class="btn">Search</button>
         </div>
         <div style="align-self:flex-end;">
-            <a href="{{ route('lazada.orders.returns', ['per_page' => (int)($per_page ?? 10), 'tab' => $active_tab]) }}" class="btn secondary">Reset</a>
+            <a href="{{ route('ext.lazada.orders.returns', ['per_page' => (int)($per_page ?? 10), 'tab' => $active_tab]) }}" class="btn secondary">Reset</a>
         </div>
     </form>
 </div>
@@ -125,7 +125,7 @@
                         </td>
                         <td>
                             @if($order->trade_order_id)
-                                <a href="{{ route('lazada.orders.show', ['orderId' => $order->trade_order_id]) }}" style="color:var(--accent); text-decoration:none;">
+                                <a href="{{ route('ext.lazada.orders.show', ['orderId' => $order->trade_order_id]) }}" style="color:var(--accent); text-decoration:none;">
                                     {{ $order->trade_order_id }}
                                 </a>
                             @else
@@ -181,7 +181,7 @@
 </div>
 
 {{-- Per-page selector --}}
-<form method="GET" action="{{ route('lazada.orders.returns') }}" id="formPerPage" style="margin-top:12px;">
+<form method="GET" action="{{ route('ext.lazada.orders.returns') }}" id="formPerPage" style="margin-top:12px;">
     <input type="hidden" name="reverse_order_id" value="{{ $filters['reverse_order_id'] ?? '' }}">
     <input type="hidden" name="trade_order_id" value="{{ $filters['trade_order_id'] ?? '' }}">
     <input type="hidden" name="tab" value="{{ $active_tab }}">

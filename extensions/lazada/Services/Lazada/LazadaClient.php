@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Lazada;
+namespace Extensions\lazada\Services\Lazada;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;

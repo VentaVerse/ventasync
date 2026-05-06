@@ -1,10 +1,12 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaBrand;
-use App\Models\LazadaSetting;
-use App\Services\Lazada\LazadaClient;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaBrand;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +33,7 @@ class LazadaBrandController extends Controller
 
         $brands = $query->orderBy('name')->paginate(50)->withQueryString();
 
-        return view('lazada.brands.index', [
+        return view('ext-lazada::brands.index', [
             'brands' => $brands,
             'q' => $q,
         ]);
@@ -41,7 +43,7 @@ class LazadaBrandController extends Controller
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.brands.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
+            return redirect()->route('ext.lazada.brands.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
         $apiPath = '/category/brands/query';
@@ -75,7 +77,7 @@ class LazadaBrandController extends Controller
 
             if (!(bool)($result['ok'] ?? false)) {
                 $msg = is_array($body) ? ((string)($body['message'] ?? $body['code'] ?? 'Failed')) : 'Failed';
-                return redirect()->route('lazada.brands.index')->with('error', 'Fetch failed: ' . $msg);
+                return redirect()->route('ext.lazada.brands.index')->with('error', 'Fetch failed: ' . $msg);
             }
 
             $rows = $this->extractBrandRows($body);
@@ -136,7 +138,7 @@ class LazadaBrandController extends Controller
         }
 
         if (count($brandsById) === 0) {
-            return redirect()->route('lazada.brands.index')->with('error', 'Fetch returned no brands. Existing brand cache was not modified.');
+            return redirect()->route('ext.lazada.brands.index')->with('error', 'Fetch returned no brands. Existing brand cache was not modified.');
         }
 
         $allRows = array_values($brandsById);
@@ -149,7 +151,7 @@ class LazadaBrandController extends Controller
             }
         });
 
-        return redirect()->route('lazada.brands.index')->with('status', 'Lazada brands fetched and saved successfully. Total: ' . count($allRows));
+        return redirect()->route('ext.lazada.brands.index')->with('status', 'Lazada brands fetched and saved successfully. Total: ' . count($allRows));
     }
 
     public function autocomplete(Request $request)

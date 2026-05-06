@@ -1,10 +1,12 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaCategory;
-use App\Models\LazadaSetting;
-use App\Services\Lazada\LazadaClient;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaCategory;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +34,7 @@ class LazadaCategoryController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return view('lazada.categories.index', [
+        return view('ext-lazada::categories.index', [
             'categories' => $categories,
             'q' => $q,
         ]);
@@ -42,7 +44,7 @@ class LazadaCategoryController extends Controller
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.categories.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
+            return redirect()->route('ext.lazada.categories.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
         // Base params required by Lazada signing.
@@ -71,7 +73,7 @@ class LazadaCategoryController extends Controller
 
         if (!$result['ok'] || !is_array($nodes) || count($nodes) === 0) {
             $msg = is_array($body) ? ($body['message'] ?? ($body['code'] ?? 'Failed')) : 'Failed';
-            return redirect()->route('lazada.categories.index')->with('error', 'Fetch failed: ' . $msg);
+            return redirect()->route('ext.lazada.categories.index')->with('error', 'Fetch failed: ' . $msg);
         }
 
         // Flatten tree and replace the local cache.
@@ -79,7 +81,7 @@ class LazadaCategoryController extends Controller
         $this->flattenTree($nodes, $rows, null, 0);
 
         if (!is_array($rows) || count($rows) === 0) {
-            return redirect()->route('lazada.categories.index')->with('error', 'Fetch returned no categories. Existing category cache was not modified.');
+            return redirect()->route('ext.lazada.categories.index')->with('error', 'Fetch returned no categories. Existing category cache was not modified.');
         }
 
         // Ensure IDs restart from 1 after refresh (without using ALTER TABLE inside a transaction).
@@ -101,7 +103,7 @@ class LazadaCategoryController extends Controller
             }
         });
 
-        return redirect()->route('lazada.categories.index')->with('status', 'Lazada categories fetched and saved successfully. Total: ' . count($rows));
+        return redirect()->route('ext.lazada.categories.index')->with('status', 'Lazada categories fetched and saved successfully. Total: ' . count($rows));
     }
 
     private function flattenTree(array $nodes, array &$rows, ?int $parentId, int $level): void

@@ -10,7 +10,7 @@ class MarketplaceConfigController extends Controller
     public function index()
     {
         return response()->json([
-            'lazada'          => $this->isMarketplaceActive(\App\Models\LazadaSetting::class, 'lazada_settings'),
+            'lazada'          => $this->isMarketplaceActive(\Extensions\lazada\Models\LazadaSetting::class, 'lazada_settings'),
             'shopee'          => $this->isMarketplaceActive(\Extensions\shopee\Models\ShopeeSetting::class, 'shopee_settings'),
             'tiktok'          => $this->isMarketplaceActive(\App\Models\TikTokSetting::class, 'tiktok_settings'),
             'opencart_stores' => $this->getExtensionStores(\Extensions\opencart\Models\OpenCartSetting::class, 'opencart_settings'),

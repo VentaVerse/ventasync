@@ -10,9 +10,9 @@
             <div class="text-muted text-sm">Category ID: <strong>{{ $category->category_id }}</strong> — {{ $category->name }}</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn" href="{{ route('lazada.categories.index') }}">Back to Categories</a>
+            <a class="btn" href="{{ route('ext.lazada.categories.index') }}">Back to Categories</a>
 
-            <form method="POST" action="{{ route('lazada.categories.attributes.fetch', $category->category_id) }}" style="display:inline;">
+            <form method="POST" action="{{ route('ext.lazada.categories.attributes.fetch', $category->category_id) }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch Attributes from Lazada</button>
             </form>

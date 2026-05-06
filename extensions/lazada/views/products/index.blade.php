@@ -10,8 +10,8 @@
             <div class="text-muted text-sm">Map catalog products to Lazada category + required attributes.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">Product Groups</a>
-            <a class="btn" href="{{ route('lazada.products.create') }}">Add Product</a>
+            <a class="btn secondary" href="{{ route('ext.lazada.product-groups.index') }}">Product Groups</a>
+            <a class="btn" href="{{ route('ext.lazada.products.create') }}">Add Product</a>
         </div>
     </div>
 
@@ -23,7 +23,7 @@
                     <h3 class="section-title mt-0 mb-0">Unmatched Lazada Items</h3>
                     <div class="text-muted text-xs" style="margin-top:2px;">{{ $unmatchedItems->count() }} item(s) on Lazada are not linked to any ERP product. Link them manually or dismiss.</div>
                 </div>
-                <form method="POST" action="{{ route('lazada.products.sync_unmatched') }}" style="margin:0;">
+                <form method="POST" action="{{ route('ext.lazada.products.sync_unmatched') }}" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small secondary">Re-scan</button>
                 </form>
@@ -61,7 +61,7 @@
                                 <div class="lazada-unmatched-link-row" data-id="{{ $ui->id }}" style="display:flex; gap:6px; align-items:center; position:relative;">
                                     <input type="text" class="input lazada-unmatched-search" placeholder="Search product..." style="flex:1; font-size:12px; padding:4px 8px;" autocomplete="off">
                                     <div class="lazada-unmatched-results" style="display:none; position:absolute; z-index:60; top:100%; left:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); max-height:200px; overflow-y:auto; width:300px; margin-top:4px;"></div>
-                                    <form method="POST" action="{{ route('lazada.products.link_unmatched', $ui->id) }}" class="lazada-unmatched-link-form" style="margin:0; display:flex; gap:4px;">
+                                    <form method="POST" action="{{ route('ext.lazada.products.link_unmatched', $ui->id) }}" class="lazada-unmatched-link-form" style="margin:0; display:flex; gap:4px;">
                                         @csrf
                                         <input type="hidden" name="product_id" class="lazada-unmatched-product-id" value="">
                                         <button type="submit" class="btn small" disabled title="Select a product first">Link</button>
@@ -69,7 +69,7 @@
                                 </div>
                             </td>
                             <td>
-                                <form method="POST" action="{{ route('lazada.products.dismiss_unmatched', $ui->id) }}" style="margin:0;">
+                                <form method="POST" action="{{ route('ext.lazada.products.dismiss_unmatched', $ui->id) }}" style="margin:0;">
                                     @csrf
                                     <button type="submit" class="btn small secondary" title="Dismiss">Dismiss</button>
                                 </form>
@@ -85,7 +85,7 @@
     {{-- Sync Unmatched button in header area --}}
     @if(!isset($unmatchedItems) || $unmatchedItems->count() === 0)
         <div style="margin-bottom:12px;">
-            <form method="POST" action="{{ route('lazada.products.sync_unmatched') }}" style="display:inline;">
+            <form method="POST" action="{{ route('ext.lazada.products.sync_unmatched') }}" style="display:inline;">
                 @csrf
                 <button type="submit" class="btn small secondary">Scan for Unmatched Lazada Items</button>
             </form>
@@ -94,7 +94,7 @@
 
     <div class="card">
         {{-- Filter toolbar --}}
-        <form method="GET" action="{{ route('lazada.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto auto auto auto; gap:10px; align-items:end; margin-bottom:16px;">
+        <form method="GET" action="{{ route('ext.lazada.products.index') }}" style="display:grid; grid-template-columns:1fr auto auto auto auto auto; gap:10px; align-items:end; margin-bottom:16px;">
             <div>
                 <label class="text-xs text-muted">Search</label>
                 <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Name, model or SKU...">
@@ -140,26 +140,26 @@
             <div class="d-flex gap-6">
                 <button type="submit" class="btn small">Filter</button>
                 @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($manufacturerFilter ?? 'all') !== 'all' || ($groupFilter ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
-                    <a href="{{ route('lazada.products.index') }}" class="btn small secondary">Clear</a>
+                    <a href="{{ route('ext.lazada.products.index') }}" class="btn small secondary">Clear</a>
                 @endif
             </div>
         </form>
 
         @php
             $bulkUploadUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_upload')
-                ? route('lazada.products.bulk_upload')
+                ? route('ext.lazada.products.bulk_upload')
                 : url('/lazada/listings/bulk/upload');
             $bulkSyncQtyUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_quantity')
-                ? route('lazada.products.bulk_sync_quantity')
+                ? route('ext.lazada.products.bulk_sync_quantity')
                 : url('/lazada/listings/bulk/sync/quantity');
             $bulkSyncPriceUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_price')
-                ? route('lazada.products.bulk_sync_price')
+                ? route('ext.lazada.products.bulk_sync_price')
                 : url('/lazada/listings/bulk/sync/price');
             $bulkSyncLazadaIdUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_lazada_id')
-                ? route('lazada.products.bulk_sync_lazada_id')
+                ? route('ext.lazada.products.bulk_sync_lazada_id')
                 : url('/lazada/products/bulk/sync/lazada-id');
             $bulkDeleteUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_delete')
-                ? route('lazada.products.bulk_delete')
+                ? route('ext.lazada.products.bulk_delete')
                 : url('/lazada/products/bulk/delete');
         @endphp
 
@@ -265,7 +265,7 @@
                 @endif
             </td>
             <td>
-                <a href="{{ route('lazada.products.edit', $l->id) }}" class="font-bold" style="text-decoration:none; color:var(--text-primary);">{{ $pName ?: '-' }}</a>
+                <a href="{{ route('ext.lazada.products.edit', $l->id) }}" class="font-bold" style="text-decoration:none; color:var(--text-primary);">{{ $pName ?: '-' }}</a>
                 @if($isUnlinked)
                     <span class="badge badge-gray">Unlinked</span>
                 @endif
@@ -286,7 +286,7 @@
             <td>
                 @if($l->groups->count() > 0)
                     @php $firstGrp = $l->groups->first(); @endphp
-                    <a href="{{ route('lazada.product-groups.edit', $firstGrp->id) }}" class="text-xs">{{ $firstGrp->name }}@if($l->groups->count() > 1) <span class="text-muted">(+{{ $l->groups->count() - 1 }})</span>@endif</a>
+                    <a href="{{ route('ext.lazada.product-groups.edit', $firstGrp->id) }}" class="text-xs">{{ $firstGrp->name }}@if($l->groups->count() > 1) <span class="text-muted">(+{{ $l->groups->count() - 1 }})</span>@endif</a>
                 @else
                     <span class="text-muted">-</span>
                 @endif
@@ -360,19 +360,19 @@
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                     </button>
                     <div class="action-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); min-width:170px; padding:4px 0;">
-                        <a href="{{ route('lazada.products.edit', $l->id) }}" class="action-item">
+                        <a href="{{ route('ext.lazada.products.edit', $l->id) }}" class="action-item">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             Edit
                         </a>
                         @if(!$hasItemId)
-                        <form method="POST" action="{{ route('lazada.products.upload', $l->id) }}" style="margin:0;" data-confirm="Upload this product to Lazada?">
+                        <form method="POST" action="{{ route('ext.lazada.products.upload', $l->id) }}" style="margin:0;" data-confirm="Upload this product to Lazada?">
                             @csrf
                             <button type="submit" class="action-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
                                 Upload
                             </button>
                         </form>
-                        <form method="POST" action="{{ route('lazada.products.sync_lazada_id', $l->id) }}" style="margin:0;">
+                        <form method="POST" action="{{ route('ext.lazada.products.sync_lazada_id', $l->id) }}" style="margin:0;">
                             @csrf
                             <button type="submit" class="action-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -381,14 +381,14 @@
                         </form>
                         @endif
                         @if(!$isUnlinked && $hasItemId)
-                        <form method="POST" action="{{ route('lazada.products.sync_quantity', $l->id) }}" style="margin:0;">
+                        <form method="POST" action="{{ route('ext.lazada.products.sync_quantity', $l->id) }}" style="margin:0;">
                             @csrf
                             <button type="submit" class="action-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                                 Sync Qty
                             </button>
                         </form>
-                        <form method="POST" action="{{ route('lazada.products.sync_price', $l->id) }}" style="margin:0;">
+                        <form method="POST" action="{{ route('ext.lazada.products.sync_price', $l->id) }}" style="margin:0;">
                             @csrf
                             <button type="submit" class="action-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -396,14 +396,14 @@
                             </button>
                         </form>
                         <div style="border-top:1px solid var(--border-light); margin:4px 0;"></div>
-                        <form method="POST" action="{{ route('lazada.products.unlink', $l->id) }}" style="margin:0;" data-confirm="Unlink this product? Sync operations will stop but the listing stays visible.">
+                        <form method="POST" action="{{ route('ext.lazada.products.unlink', $l->id) }}" style="margin:0;" data-confirm="Unlink this product? Sync operations will stop but the listing stays visible.">
                             @csrf
                             <button type="submit" class="action-item" style="color:var(--danger);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                                 Unlink from Lazada
                             </button>
                         </form>
-                        <form method="POST" action="{{ route('lazada.products.delete_lazada', $l->id) }}" style="margin:0;" data-confirm="Delete this product from Lazada? This cannot be undone.">
+                        <form method="POST" action="{{ route('ext.lazada.products.delete_lazada', $l->id) }}" style="margin:0;" data-confirm="Delete this product from Lazada? This cannot be undone.">
                             @csrf
                             <button type="submit" class="action-item" style="color:var(--danger);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -413,7 +413,7 @@
                         @endif
                         @if($isUnlinked)
                         <div style="border-top:1px solid var(--border-light); margin:4px 0;"></div>
-                        <form method="POST" action="{{ route('lazada.products.remove', $l->id) }}" style="margin:0;" data-confirm="Remove this listing from the local list? This does NOT delete anything on Lazada.">
+                        <form method="POST" action="{{ route('ext.lazada.products.remove', $l->id) }}" style="margin:0;" data-confirm="Remove this listing from the local list? This does NOT delete anything on Lazada.">
                             @csrf
                             <button type="submit" class="action-item" style="color:var(--danger);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -427,7 +427,7 @@
         </tr>
     @empty
         <tr>
-            <td colspan="14" class="text-muted">No products found. <a href="{{ route('lazada.products.create') }}">Add your first product</a>.</td>
+            <td colspan="14" class="text-muted">No products found. <a href="{{ route('ext.lazada.products.create') }}">Add your first product</a>.</td>
         </tr>
     @endforelse
     </tbody>
@@ -635,7 +635,7 @@
     });
 
     // ── Unmatched Items: Product Search ──────────────────────────
-    var lazSearchUrl = @json(route('lazada.products.search_catalog'));
+    var lazSearchUrl = @json(route('ext.lazada.products.search_catalog'));
     var lazDebounceTimers = {};
 
     document.querySelectorAll('.lazada-unmatched-link-row').forEach(function(row) {

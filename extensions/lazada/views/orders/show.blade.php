@@ -83,8 +83,8 @@
     </div>
 
     <div class="page-header-actions">
-        <a href="{{ route('lazada.orders.index') }}" class="btn secondary">← Back to Orders</a>
-        <a href="{{ route('lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]) }}" class="btn secondary">Refresh from Lazada</a>
+        <a href="{{ route('ext.lazada.orders.index') }}" class="btn secondary">← Back to Orders</a>
+        <a href="{{ route('ext.lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]) }}" class="btn secondary">Refresh from Lazada</a>
     </div>
 </div>
 
@@ -129,8 +129,8 @@
             <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
             <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
             <div class="d-flex gap-10 flex-wrap mt-12">
-                <a href="{{ route('lazada.orders.awb', ['orderId' => $order->order_id]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn" style="background:#0F146D; border-color:#0F146D; color:#fff;">AWB PDF</a>
-                <button type="button" class="btn" style="background:#0F146D; border-color:#0F146D; color:#fff;" id="btnLogisticsTrace" data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}">Tracking</button>
+                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $order->order_id]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn" style="background:#0F146D; border-color:#0F146D; color:#fff;">AWB PDF</a>
+                <button type="button" class="btn" style="background:#0F146D; border-color:#0F146D; color:#fff;" id="btnLogisticsTrace" data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $order->order_id]) }}">Tracking</button>
             </div>
         </div>
     </div>

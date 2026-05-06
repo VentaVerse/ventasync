@@ -10,8 +10,8 @@
             <div class="text-muted text-sm">Phase 2: choose category + brand, sync category attributes, and fill required fields.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn" href="{{ route('lazada.products.index') }}">Back to Products</a>
-            <a class="btn" href="{{ route('lazada.index') }}">Lazada API</a>
+            <a class="btn" href="{{ route('ext.lazada.products.index') }}">Back to Products</a>
+            <a class="btn" href="{{ route('ext.lazada.index') }}">Lazada API</a>
         </div>
     </div>
 
@@ -53,7 +53,7 @@
     @endif
 
     <div class="card" @if($mode === 'edit' && !empty($productRow)) style="border-top-left-radius:0; border-top-right-radius:0;" @endif>
-        <form method="POST" action="{{ $mode === 'create' ? route('lazada.products.store') : route('lazada.products.update', $listing->id) }}">
+        <form method="POST" action="{{ $mode === 'create' ? route('ext.lazada.products.store') : route('ext.lazada.products.update', $listing->id) }}">
             @csrf
             @if($mode === 'edit')
                 @method('PUT')
@@ -104,7 +104,7 @@
                     <div class="hint d-flex gap-10 items-center flex-wrap" style="margin-top:6px;">
                         <span id="brandPickedHint">Selected Brand ID: <strong id="brandPickedId">{{ old('brand_id', $listing->brand_id) ?: '-' }}</strong></span>
                         <button type="button" class="btn small" id="setNoBrandBtn">Set as No Brand</button>
-                        <a class="btn small" href="{{ route('lazada.brands.index') }}" target="_blank" rel="noopener">View Brands List</a>
+                        <a class="btn small" href="{{ route('ext.lazada.brands.index') }}" target="_blank" rel="noopener">View Brands List</a>
                     </div>
 
                     @if(!empty($productRow?->manufacturer_name))
@@ -195,7 +195,7 @@
             @elseif(!$template)
                 <div class="alert warning mt-12">Template not yet synced. Click <strong>Sync Template</strong> below.</div>
             @else
-                <form method="POST" action="{{ route('lazada.products.attributes_save', $listing->id) }}" class="mt-12">
+                <form method="POST" action="{{ route('ext.lazada.products.attributes_save', $listing->id) }}" class="mt-12">
                     @csrf
                     <div style="margin-top:6px;">
                         @foreach($attributes as $a)
@@ -318,7 +318,7 @@
                         <div class="hint" style="margin-top:4px;">Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}</div>
                     @endif
                 </div>
-                <form method="POST" action="{{ route('lazada.products.template_sync', $listing->id) }}">
+                <form method="POST" action="{{ route('ext.lazada.products.template_sync', $listing->id) }}">
                     @csrf
                     <input type="hidden" name="primary_category_id" value="{{ (int)($listing->primary_category_id ?? 0) }}">
                     <button class="btn" type="submit" {{ empty($listing->primary_category_id) ? 'disabled' : '' }}>
@@ -339,7 +339,7 @@
             @if(($variants ?? collect())->count() === 0)
                 <div class="alert warning mt-12">No variants found for this product (product_option_value). If this is a single SKU product, you can proceed without variant mapping for now.</div>
             @else
-                <form method="POST" action="{{ route('lazada.products.variants_save', $listing->id) }}" class="mt-12">
+                <form method="POST" action="{{ route('ext.lazada.products.variants_save', $listing->id) }}" class="mt-12">
                     @csrf
                     <div class="table-wrap">
                         <table class="table" style="min-width:900px;">
@@ -397,11 +397,11 @@
                     <div class="hint">This does not push to Lazada yet. It only builds a preview JSON for review.</div>
                 </div>
                 <div class="d-flex gap-8 items-center">
-                    <form method="POST" action="{{ route('lazada.products.payload_build', $listing->id) }}">
+                    <form method="POST" action="{{ route('ext.lazada.products.payload_build', $listing->id) }}">
                         @csrf
                         <button class="btn" type="submit">Build Payload</button>
                     </form>
-                    <form method="POST" action="{{ route('lazada.products.push_sample', $listing->id) }}" data-confirm="Send a SAMPLE push to Lazada now? This is Phase 3 testing and may return QC errors.">
+                    <form method="POST" action="{{ route('ext.lazada.products.push_sample', $listing->id) }}" data-confirm="Send a SAMPLE push to Lazada now? This is Phase 3 testing and may return QC errors.">
                         @csrf
                         <button class="btn" type="submit">Push Sample to Lazada</button>
                     </form>
@@ -444,7 +444,7 @@
             }
 
             async function fetchSuggestions(q) {
-                const url = new URL("{{ route('lazada.brands.autocomplete') }}", window.location.origin);
+                const url = new URL("{{ route('ext.lazada.brands.autocomplete') }}", window.location.origin);
                 url.searchParams.set('q', q);
                 url.searchParams.set('limit', '20');
 
@@ -615,7 +615,7 @@
         var resultsDiv = document.getElementById('lazProductResults');
         var hiddenId = document.getElementById('lazSelectedProductId');
         var infoDiv = document.getElementById('lazSelectedProductInfo');
-        var searchUrl = @json(route('lazada.products.search_catalog'));
+        var searchUrl = @json(route('ext.lazada.products.search_catalog'));
         var debounceTimer = null;
 
         if (!searchInput || !resultsDiv || !hiddenId) return;

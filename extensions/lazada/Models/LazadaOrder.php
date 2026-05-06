@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace Extensions\lazada\Models;
 
 use App\Models\Catalog\Order;
 use Illuminate\Database\Eloquent\Model;

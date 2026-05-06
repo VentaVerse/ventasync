@@ -5,7 +5,7 @@
 <div class="page-header">
     <h1>Lazada Callback</h1>
     <div class="page-header-actions">
-        <a class="btn" href="{{ route('lazada.index') }}">Back to Lazada</a>
+        <a class="btn" href="{{ route('ext.lazada.index') }}">Back to Lazada</a>
     </div>
 </div>
 

@@ -9,7 +9,7 @@
 </div>
 
 <div class="card mb-16">
-<form method="POST" action="{{ route('lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="d-flex gap-12 flex-wrap items-center">
+<form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="d-flex gap-12 flex-wrap items-center">
         @csrf
         <div>
             <label class="text-xs text-secondary">From</label>
@@ -26,7 +26,7 @@
         </div>
         <div class="d-flex gap-8">
             <button type="submit" class="btn" id="btnFetchOrders">Fetch Orders</button>
-            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('lazada.orders.update_statuses') }}">Update Orders</button>
+            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('ext.lazada.orders.update_statuses') }}">Update Orders</button>
         </div>
         <div class="text-secondary text-xs" style="flex:1;">
 	        <strong>From/To</strong> required for both Fetch and Update.
@@ -59,14 +59,14 @@
                 $qs = array_merge(request()->except('page'), ['tab' => $key]);
                 $showBadge = in_array($key, ['TO_SHIP', 'SHIPPING', 'FAILED_DELIVERY']);
             @endphp
-            <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+            <a href="{{ route('ext.lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                 <span>{{ $label }}</span>
                 @if($showBadge && $count !== null && $count > 0)
                     <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
                 @endif
             </a>
         @endforeach
-        <a href="{{ route('lazada.orders.returns') }}" class="tab">Return/Refund/Cancel</a>
+        <a href="{{ route('ext.lazada.orders.returns') }}" class="tab">Return/Refund/Cancel</a>
     </div>
 
     {{-- To Ship workflow: sub steps (To Pack / To Arrange / To Handover) --}}
@@ -92,7 +92,7 @@
                         $qs = array_merge(request()->except('page'), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
                         $count = $pending_sub_counts[$k] ?? null;
                     @endphp
-                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+                    <a href="{{ route('ext.lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                         <span>{{ $lbl }}</span>
                         @if($count !== null && $count > 0)
                             <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
@@ -141,7 +141,7 @@
                         $qs = array_merge(request()->except('page'), ['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k]);
                         $count = $fd_sub_counts[$k] ?? null;
                     @endphp
-                    <a href="{{ route('lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+                    <a href="{{ route('ext.lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
                         <span>{{ $lbl }}</span>
                         @if($count !== null && $count > 0)
                             <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
@@ -153,7 +153,7 @@
     @endif
 
     <div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('lazada.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
+    <form method="GET" action="{{ route('ext.lazada.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
         <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
         <input type="hidden" name="per_page" value="{{ (int)($per_page ?? request()->query('per_page', 10)) }}">
 
@@ -183,13 +183,13 @@
 
         <div class="d-flex gap-8">
             <button type="submit" class="btn">Search</button>
-            <a href="{{ route('lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
+            <a href="{{ route('ext.lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
         </div>
     </form>
     </div>
 
     <div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('lazada.orders.index') }}" class="d-flex gap-10 items-center">
+    <form method="GET" action="{{ route('ext.lazada.orders.index') }}" class="d-flex gap-10 items-center">
     <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
     <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? request()->query('order_number', '') }}">
     <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? request()->query('buyer_name', '') }}">
@@ -437,7 +437,7 @@
                                     <div style="min-width:0;">
                                         <div class="font-semibold" style="word-break:break-word;">
                                             @if($orderId)
-                                                <a href="{{ route('lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
+                                                <a href="{{ route('ext.lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
                                                     {{ $name !== '' ? $name : '—' }}
                                                 </a>
                                             @else
@@ -515,7 +515,7 @@
                                     <div class="d-flex gap-8 flex-wrap items-center">
                                         {{-- TO PACK (pending): only Pack & Print --}}
                                         @if($isToPack)
-                                            <form method="POST" action="{{ route('lazada.orders.pack_print', ['orderId' => $orderId]) }}" data-confirm="Pack this order now? This will create packages and make AWB available.">
+                                            <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}" data-confirm="Pack this order now? This will create packages and make AWB available.">
                                                 @csrf
                                                 <button type="submit" class="btn small">Pack &amp; Print</button>
                                             </form>
@@ -523,14 +523,14 @@
 
                                         {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
                                         @if($isToArrange)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
 
-                                            <form method="POST" action="{{ route('lazada.orders.rts', ['orderId' => $orderId]) }}" data-confirm="Arrange Shipment (Ready To Ship) for this order?">
+                                            <form method="POST" action="{{ route('ext.lazada.orders.rts', ['orderId' => $orderId]) }}" data-confirm="Arrange Shipment (Ready To Ship) for this order?">
                                                 @csrf
                                                 <button type="submit" class="btn small" style="background:#16a34a; border-color:#16a34a; color:#fff;">Arrange Shipment</button>
                                             </form>
 
-                                            <form method="POST" action="{{ route('lazada.orders.recreate_package', ['orderId' => $orderId]) }}" data-confirm="Recreate Package (local)? Lazada may still keep the original package. Continue?">
+                                            <form method="POST" action="{{ route('ext.lazada.orders.recreate_package', ['orderId' => $orderId]) }}" data-confirm="Recreate Package (local)? Lazada may still keep the original package. Continue?">
                                                 @csrf
                                                 <button type="submit" class="btn small secondary">Recreate Package</button>
                                             </form>
@@ -538,12 +538,12 @@
 
                                         {{-- TO HANDOVER (ready_to_ship): Print only --}}
                                         @if($isToHandover)
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
                                         @endif
 
                                         {{-- Post-fulfilment: only show AWB if a local copy exists --}}
                                         @if(!$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && ($savedAwbs[$orderId] ?? false))
-                                            <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
                                         @endif
                                     </div>
 
@@ -554,16 +554,16 @@
                                             @if(!$isToPack)
                                                 <span class="text-secondary">Print:</span>
                                                 @if($hasAwb)
-                                                    <a href="{{ route('lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
+                                                    <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
                                                     <span class="text-muted">|</span>
                                                 @endif
-                                                <a href="{{ route('lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Packing List</a>
+                                                <a href="{{ route('ext.lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Packing List</a>
                                                 <span class="text-muted">|</span>
-                                                <a href="{{ route('lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Pick List</a>
+                                                <a href="{{ route('ext.lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Pick List</a>
                                                 <span class="text-muted">|</span>
                                                 <button type="button"
                                                         class="btnLzLogistics"
-                                                        data-url="{{ route('lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
+                                                        data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
                                                         style="border:0; padding:0; background:transparent; color:var(--accent); cursor:pointer; font-size:12px;">
                                                     Logistics Status
                                                 </button>
@@ -688,9 +688,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function showPackPrintModal(orderId) {
         if (!packPrintModal) return;
-        var awbTpl = @json(route('lazada.orders.awb', ['orderId' => '__OID__']));
-        var shipTpl = @json(route('lazada.orders.ship_print_post', ['orderId' => '__OID__']));
-        var recreateTpl = @json(route('lazada.orders.recreate_package', ['orderId' => '__OID__']));
+        var awbTpl = @json(route('ext.lazada.orders.awb', ['orderId' => '__OID__']));
+        var shipTpl = @json(route('ext.lazada.orders.ship_print_post', ['orderId' => '__OID__']));
+        var recreateTpl = @json(route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']));
 
         if (linkPrintOnly) linkPrintOnly.href = awbTpl.replace('__OID__', orderId);
         if (formShipPrint) formShipPrint.action = shipTpl.replace('__OID__', orderId);

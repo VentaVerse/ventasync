@@ -8,14 +8,14 @@
             <div class="text-muted text-sm">Lazada — push catalog products, sync stock &amp; price.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('lazada.product-groups.edit', $group->id) }}">Edit Group</a>
-            <a class="btn secondary" href="{{ route('lazada.product-groups.index') }}">← Back to Product Groups</a>
+            <a class="btn secondary" href="{{ route('ext.lazada.product-groups.edit', $group->id) }}">Edit Group</a>
+            <a class="btn secondary" href="{{ route('ext.lazada.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
 
     {{-- Filter toolbar --}}
     <div class="card mb-12">
-        <form method="GET" action="{{ route('lazada.product-groups.products', $group->id) }}" style="display:grid; grid-template-columns:1fr auto auto auto; gap:10px; align-items:end;">
+        <form method="GET" action="{{ route('ext.lazada.product-groups.products', $group->id) }}" style="display:grid; grid-template-columns:1fr auto auto auto; gap:10px; align-items:end;">
             <div>
                 <label class="text-xs text-muted">Search</label>
                 <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Name, model or SKU...">
@@ -40,7 +40,7 @@
             <div class="d-flex gap-6">
                 <button type="submit" class="btn small">Filter</button>
                 @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
-                    <a href="{{ route('lazada.product-groups.products', $group->id) }}" class="btn small secondary">Clear</a>
+                    <a href="{{ route('ext.lazada.product-groups.products', $group->id) }}" class="btn small secondary">Clear</a>
                 @endif
             </div>
         </form>
@@ -51,23 +51,23 @@
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
-                <form method="POST" action="{{ route('lazada.product-groups.push', $group->id) }}" class="bulk-action-form bulk-push-form" style="margin:0;">
+                <form method="POST" action="{{ route('ext.lazada.product-groups.push', $group->id) }}" class="bulk-action-form bulk-push-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small">Push to Lazada</button>
                 </form>
-                <form method="POST" action="{{ route('lazada.product-groups.pushPrices', $group->id) }}" class="bulk-action-form" style="margin:0;">
+                <form method="POST" action="{{ route('ext.lazada.product-groups.pushPrices', $group->id) }}" class="bulk-action-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small">Sync Price</button>
                 </form>
-                <form method="POST" action="{{ route('lazada.product-groups.pushStock', $group->id) }}" class="bulk-action-form" style="margin:0;">
+                <form method="POST" action="{{ route('ext.lazada.product-groups.pushStock', $group->id) }}" class="bulk-action-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small">Sync Qty</button>
                 </form>
-                <form method="POST" action="{{ route('lazada.product-groups.massRemove', $group->id) }}" class="bulk-action-form" style="margin:0;">
+                <form method="POST" action="{{ route('ext.lazada.product-groups.massRemove', $group->id) }}" class="bulk-action-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small secondary">Remove from Group</button>
                 </form>
-                <form method="POST" action="{{ route('lazada.product-groups.deleteFromLazada', $group->id) }}" class="bulk-action-form bulk-delete-form" data-confirm="Delete selected product(s) from Lazada? This cannot be undone." style="margin:0;">
+                <form method="POST" action="{{ route('ext.lazada.product-groups.deleteFromLazada', $group->id) }}" class="bulk-action-form bulk-delete-form" data-confirm="Delete selected product(s) from Lazada? This cannot be undone." style="margin:0;">
                     @csrf
                     <button type="submit" class="btn small danger">Delete from Lazada</button>
                 </form>
@@ -205,14 +205,14 @@
                                         Edit Product
                                     </a>
                                     @if(!$hasLazadaId)
-                                        <form method="POST" action="{{ route('lazada.product-groups.syncId', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.syncId', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
                                             @csrf
                                             <button type="submit" class="action-item">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                                                 Sync Lazada ID
                                             </button>
                                         </form>
-                                        <form method="POST" action="{{ route('lazada.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form" data-pid="{{ $p->product_id }}">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form" data-pid="{{ $p->product_id }}">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                                             <button type="submit" class="action-item">
@@ -222,7 +222,7 @@
                                         </form>
                                     @endif
                                     @if($hasLazadaId)
-                                        <form method="POST" action="{{ route('lazada.product-groups.updateProduct', $group->id) }}" style="margin:0;" class="single-action-form">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.updateProduct', $group->id) }}" style="margin:0;" class="single-action-form">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                                             <button type="submit" class="action-item">
@@ -230,7 +230,7 @@
                                                 Update on Lazada
                                             </button>
                                         </form>
-                                        <form method="POST" action="{{ route('lazada.product-groups.pushStock', $group->id) }}" style="margin:0;" class="single-action-form">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.pushStock', $group->id) }}" style="margin:0;" class="single-action-form">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                                             <button type="submit" class="action-item">
@@ -238,7 +238,7 @@
                                                 Sync Qty
                                             </button>
                                         </form>
-                                        <form method="POST" action="{{ route('lazada.product-groups.pushPrices', $group->id) }}" style="margin:0;" class="single-action-form">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.pushPrices', $group->id) }}" style="margin:0;" class="single-action-form">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                                             <button type="submit" class="action-item">
@@ -247,7 +247,7 @@
                                             </button>
                                         </form>
                                         <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('lazada.product-groups.deleteFromLazada', $group->id) }}" style="margin:0;" class="single-action-form" data-confirm="Delete this product from Lazada? This cannot be undone.">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.deleteFromLazada', $group->id) }}" style="margin:0;" class="single-action-form" data-confirm="Delete this product from Lazada? This cannot be undone.">
                                             @csrf
                                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                                             <button type="submit" class="action-item" style="color:var(--danger);">
@@ -258,7 +258,7 @@
                                     @endif
                                     @if($hasLazadaId)
                                         <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form" data-confirm="Unlink this product from Lazada? The product stays in the group but sync will stop.">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form" data-confirm="Unlink this product from Lazada? The product stays in the group but sync will stop.">
                                             @csrf
                                             <button type="submit" class="action-item" style="color:var(--warning);">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
@@ -268,7 +268,7 @@
                                     @endif
                                     @if(in_array((int)$p->product_id, $manualIds))
                                         <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('lazada.product-groups.removeProduct', [$group->id, $p->product_id]) }}" style="margin:0;" data-confirm="Remove this product from the group?">
+                                        <form method="POST" action="{{ route('ext.lazada.product-groups.removeProduct', [$group->id, $p->product_id]) }}" style="margin:0;" data-confirm="Remove this product from the group?">
                                             @csrf @method('DELETE')
                                             <button type="submit" class="action-item" style="color:var(--danger);">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
@@ -304,7 +304,7 @@
         <h3 class="section-title mt-0">Add Products Manually</h3>
         <div class="hint" style="margin-bottom:10px;">Search for products to add individually to this product group.</div>
 
-        <form id="add-products-form" method="POST" action="{{ route('lazada.product-groups.addProducts', $group->id) }}">
+        <form id="add-products-form" method="POST" action="{{ route('ext.lazada.product-groups.addProducts', $group->id) }}">
             @csrf
         </form>
 
@@ -492,7 +492,7 @@
     var resultsBody = document.querySelector('#manual-results-table tbody');
     var addBtn = document.getElementById('add-selected-btn');
     var manualSelectAll = document.getElementById('manual-select-all');
-    var searchUrl = @json(route('lazada.product-groups.searchProducts'));
+    var searchUrl = @json(route('ext.lazada.product-groups.searchProducts'));
 
     function doSearch() {
         var q = (searchInput.value || '').trim();

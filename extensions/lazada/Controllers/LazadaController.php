@@ -1,10 +1,12 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaSetting;
-use App\Models\LazadaApiLog;
-use App\Services\Lazada\LazadaClient;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -112,7 +114,7 @@ class LazadaController extends Controller
         }
 
         // Order status mapping data
-        $orderStatusMap = \App\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
+        $orderStatusMap = \Extensions\lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
 
         $erpOrderStatuses = DB::table($pfx . 'order_status')
             ->where('language_id', $langId)
@@ -151,12 +153,12 @@ class LazadaController extends Controller
             'cancelled'           => 'Cancelled',
         ];
 
-        $reverseStatusMap = \App\Models\LazadaOrderStatusMap::where('context', 'return')
+        $reverseStatusMap = \Extensions\lazada\Models\LazadaOrderStatusMap::where('context', 'return')
             ->whereIn('lazada_status', array_keys($reverseStatuses))
             ->pluck('order_status_id', 'lazada_status')
             ->all();
 
-        return view('lazada.index', [
+        return view('ext-lazada::index', [
             'setting' => $setting?->decrypted(),
             'defaultRedirect' => route('lazada.callback'),
             'result' => session('lazada_result'),
@@ -189,7 +191,7 @@ class LazadaController extends Controller
                 continue;
             }
 
-            \App\Models\LazadaOrderStatusMap::updateOrCreate(
+            \Extensions\lazada\Models\LazadaOrderStatusMap::updateOrCreate(
                 ['lazada_status' => $lazadaStatus, 'context' => 'order'],
                 ['order_status_id' => $orderStatusId]
             );
@@ -270,13 +272,13 @@ class LazadaController extends Controller
             }
 
             if ($orderStatusId <= 0) {
-                \App\Models\LazadaOrderStatusMap::where('lazada_status', $lazadaStatus)
+                \Extensions\lazada\Models\LazadaOrderStatusMap::where('lazada_status', $lazadaStatus)
                     ->where('context', 'return')
                     ->delete();
                 continue;
             }
 
-            \App\Models\LazadaOrderStatusMap::updateOrCreate(
+            \Extensions\lazada\Models\LazadaOrderStatusMap::updateOrCreate(
                 ['lazada_status' => $lazadaStatus, 'context' => 'return'],
                 ['order_status_id' => $orderStatusId]
             );
@@ -301,7 +303,7 @@ class LazadaController extends Controller
         }
 
         $state = $setting->api_logging ? 'enabled' : 'disabled';
-        return redirect()->route('lazada.index', ['tab' => 'logs'])->with('status', "Lazada API logging {$state}.");
+        return redirect()->route('ext.lazada.index', ['tab' => 'logs'])->with('status', "Lazada API logging {$state}.");
     }
 
     public function clearApiLogs()
@@ -309,7 +311,7 @@ class LazadaController extends Controller
         $count = LazadaApiLog::count();
         LazadaApiLog::truncate();
 
-        return redirect()->route('lazada.index', ['tab' => 'logs'])->with('status', "Deleted {$count} Lazada API log entries.");
+        return redirect()->route('ext.lazada.index', ['tab' => 'logs'])->with('status', "Deleted {$count} Lazada API log entries.");
     }
 
     /**
@@ -327,7 +329,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, and App Secret are required.'],
@@ -336,7 +338,7 @@ class LazadaController extends Controller
 
         $authRequired = (bool)($data['auth_required'] ?? false);
         if ($authRequired && !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing Access Token',
                 'data' => ['message' => 'Access Token is required for auth-required calls. Please authorize and refresh token.'],
@@ -357,7 +359,7 @@ class LazadaController extends Controller
                     $customParams = $decoded;
                 }
             } catch (\Throwable $e) {
-                return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+                return redirect()->route('ext.lazada.index')->withInput()->with('lazada_result', [
                     'ok' => false,
                     'title' => 'Invalid JSON',
                     'data' => ['message' => $e->getMessage()],
@@ -418,7 +420,7 @@ class LazadaController extends Controller
         if ($apiPath === '/image/response/get') {
             $batchId = isset($params['batch_id']) ? trim((string)$params['batch_id']) : '';
             if ($batchId === '') {
-                return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+                return redirect()->route('ext.lazada.index')->withInput()->with('lazada_result', [
                     'ok' => false,
                     'title' => 'Missing batch_id',
                     'data' => ['message' => 'batch_id is required for /image/response/get. Paste the batch_id returned by /images/migrate.'],
@@ -619,7 +621,7 @@ class LazadaController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->withInput()->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'API Explorer: ' . $method . ' ' . $apiPath,
             'data' => $result,
@@ -647,7 +649,7 @@ class LazadaController extends Controller
                     $params = $decoded;
                 }
             } catch (\Throwable $e) {
-                return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+                return redirect()->route('ext.lazada.index')->withInput()->with('lazada_result', [
                     'ok' => false,
                     'title' => 'Invalid JSON (Preset Pack)',
                     'data' => ['message' => $e->getMessage()],
@@ -657,7 +659,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, and App Secret are required.'],
@@ -666,7 +668,7 @@ class LazadaController extends Controller
 
         $steps = $this->buildPackSteps($pack, $params);
         if (empty($steps)) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Preset Pack',
                 'data' => ['message' => 'No steps were generated for this pack.'],
@@ -703,7 +705,7 @@ class LazadaController extends Controller
             }
         }
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => $allOk,
             'title' => 'Preset Pack: ' . strtoupper($pack),
             'data' => ['pack' => $pack, 'steps' => $results],
@@ -971,7 +973,7 @@ class LazadaController extends Controller
 
         $setting->save();
 
-        return redirect()->route('lazada.index')->with('status', ($env === 'sandbox' ? 'Sandbox' : 'Production') . ' settings saved.');
+        return redirect()->route('ext.lazada.index')->with('status', ($env === 'sandbox' ? 'Sandbox' : 'Production') . ' settings saved.');
     }
 
     public function toggleMode(Request $request)
@@ -981,7 +983,7 @@ class LazadaController extends Controller
         $setting->mode = $data['mode'];
         $setting->save();
 
-        return redirect()->route('lazada.index')->with('status', 'Switched to ' . ($data['mode'] === 'sandbox' ? 'Sandbox' : 'Production') . ' mode.');
+        return redirect()->route('ext.lazada.index')->with('status', 'Switched to ' . ($data['mode'] === 'sandbox' ? 'Sandbox' : 'Production') . ' mode.');
     }
 
     public function redirectToAuth(LazadaClient $client)
@@ -989,7 +991,7 @@ class LazadaController extends Controller
         $setting = LazadaSetting::query()->first()?->decrypted();
 
         if (!$setting || !$setting->app_key || !$setting->redirect_uri) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'App Key and Redirect URI are required to authorize.'],
@@ -1088,7 +1090,7 @@ class LazadaController extends Controller
             $message = 'Auth code received and saved.';
         }
 
-        return view('lazada.callback', [
+        return view('ext-lazada::callback', [
             'code' => $code !== '' ? $code : null,
             'state' => $state !== '' ? $state : null,
             'state_ok' => $stateOk,
@@ -1108,7 +1110,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, and App Secret are required.'],
@@ -1117,7 +1119,7 @@ class LazadaController extends Controller
 
         $result = $this->doTokenCreate($client, (string)$setting->region, (string)$setting->app_key, (string)$setting->app_secret, (string)$request->input('code'));
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'Token Create',
             'data' => $result,
@@ -1128,7 +1130,7 @@ class LazadaController extends Controller
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->refresh_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Refresh Token are required.'],
@@ -1185,7 +1187,7 @@ class LazadaController extends Controller
             }
         }
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'Token Refresh',
             'data' => $result,
@@ -1200,7 +1202,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required to call API.'],
@@ -1241,7 +1243,7 @@ class LazadaController extends Controller
 
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'API Call',
             'data' => $result,
@@ -1256,7 +1258,7 @@ class LazadaController extends Controller
         $setting = LazadaSetting::query()->first()?->decrypted();
 
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, and App Secret are required.'],
@@ -1295,7 +1297,7 @@ class LazadaController extends Controller
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'GetCategoryTree',
             'data' => $result,
@@ -1314,7 +1316,7 @@ class LazadaController extends Controller
         $setting = LazadaSetting::query()->first()?->decrypted();
 
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, and App Secret are required.'],
@@ -1354,7 +1356,7 @@ class LazadaController extends Controller
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'GetCategoryAttributes',
             'data' => $result,
@@ -1374,7 +1376,7 @@ class LazadaController extends Controller
         $setting = LazadaSetting::query()->first()?->decrypted();
 
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, and App Secret are required.'],
@@ -1415,7 +1417,7 @@ class LazadaController extends Controller
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'GetBrandByPages',
             'data' => $result,
@@ -1433,7 +1435,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
@@ -1474,7 +1476,7 @@ class LazadaController extends Controller
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
             'title' => 'GetProducts',
             'data' => $result,
@@ -1503,7 +1505,7 @@ class LazadaController extends Controller
             (string)($data['description'] ?? '')
         );
 
-        return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->withInput()->with('lazada_result', [
             'ok' => true,
             'title' => 'POC Payload Preview (product/create)',
             'data' => [
@@ -1528,7 +1530,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
@@ -1578,7 +1580,7 @@ class LazadaController extends Controller
         $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
         $result = $client->post((string)$setting->region, $apiPath, $params);
 
-        return redirect()->route('lazada.index')->withInput()->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->withInput()->with('lazada_result', [
             'ok' => (bool)($result['ok'] ?? false),
             'title' => 'POC /product/create',
             'data' => [
@@ -1827,7 +1829,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
@@ -1854,7 +1856,7 @@ class LazadaController extends Controller
             'poc'
         );
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)($res['ok'] ?? false),
             'title' => 'GetOrders',
             'data' => $res,
@@ -1869,7 +1871,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
@@ -1889,7 +1891,7 @@ class LazadaController extends Controller
             'poc'
         );
 
-        return redirect()->route('lazada.index')->with('lazada_result', [
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)($res['ok'] ?? false),
             'title' => 'GetOrderItems',
             'data' => $res,
@@ -1904,7 +1906,7 @@ class LazadaController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
                 'data' => ['message' => 'Region, App Key, App Secret, and Access Token are required.'],
@@ -1925,7 +1927,7 @@ class LazadaController extends Controller
         );
 
         if (!($res['ok'] ?? false)) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Get AWB PDF',
                 'data' => $res,
@@ -1936,7 +1938,7 @@ class LazadaController extends Controller
         $b64 = $this->findBase64Document($body);
         if (!$b64) {
             // If Lazada returns a URL or non-base64 structure, just show raw response.
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => true,
                 'title' => 'Get AWB PDF (response)',
                 'data' => $res,
@@ -1945,7 +1947,7 @@ class LazadaController extends Controller
 
         $bin = base64_decode($b64, true);
         if ($bin === false) {
-            return redirect()->route('lazada.index')->with('lazada_result', [
+            return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Get AWB PDF',
                 'data' => ['message' => 'Failed to decode PDF from response.', 'response' => $res],

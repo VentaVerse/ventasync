@@ -1,19 +1,21 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaCategoryTemplate;
-use App\Models\LazadaCategory;
-use App\Models\LazadaBrand;
-use App\Models\LazadaApiLog;
-use App\Models\LazadaImageLink;
-use App\Models\LazadaProduct;
-use App\Models\LazadaProductAttribute;
-use App\Models\LazadaProductGroupAttribute;
-use App\Models\LazadaProductVariant;
-use App\Models\LazadaSetting;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaCategoryTemplate;
+use Extensions\lazada\Models\LazadaCategory;
+use Extensions\lazada\Models\LazadaBrand;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaImageLink;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductAttribute;
+use Extensions\lazada\Models\LazadaProductGroupAttribute;
+use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
-use App\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -488,7 +490,7 @@ private function extractCreatedItemId(array $result): ?string
  *
  * This is used to make /product/remove reliable even when variant sku_id mapping isn't stored locally.
  */
-public function fetchSkuIdListByItemId(\App\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
+public function fetchSkuIdListByItemId(\Extensions\lazada\Services\Lazada\LazadaClient $client, string $region, string $appKey, string $appSecret, string $accessToken, string $itemId): array
 {
     $apiPath = '/product/item/get';
     $timestamp = (string) round(microtime(true) * 1000);
@@ -907,7 +909,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         // All product groups for filter dropdown
-        $allGroups = \App\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
+        $allGroups = \Extensions\lazada\Models\LazadaProductGroup::query()->orderBy('name')->pluck('name', 'id');
 
         // Eager-load groups for each listing (for display + sort)
         $listings->load('groups');
@@ -999,7 +1001,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         );
 
         // Load unmatched items
-        $unmatchedItems = \App\Models\LazadaUnmatchedItem::query()
+        $unmatchedItems = \Extensions\lazada\Models\LazadaUnmatchedItem::query()
             ->where('status', 'unmatched')
             ->orderBy('item_name')
             ->get();
@@ -1009,7 +1011,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->orderBy('name')
             ->pluck('name', 'manufacturer_id');
 
-        return view('lazada.products.index', [
+        return view('ext-lazada::products.index', [
             'listings' => $paged,
             'productsById' => $productsById,
             'productThumbsById' => $productThumbsById,
@@ -1038,7 +1040,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -1051,23 +1053,23 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->first(['p.product_id', 'p.sku', 'p.quantity', 'p.status']);
 
         if (!$product) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync: ERP product not found for listing #' . $listing->id . '.');
         }
 
         if ((int) $product->status === 0) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync quantity: product #' . $productId . ' is disabled. Enable it first.');
         }
 
         // Resolve Lazada SkuId for each variant (required by Lazada production API)
         if (empty($listing->lazada_item_id)) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync qty: product has no Lazada Item ID. Sync Lazada ID first.');
         }
         $skuIdMap = $this->resolveLazadaSkuIds($listing, $setting, $client);
         if (empty($skuIdMap)) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync qty: could not resolve Lazada SkuIds for this product.');
         }
 
@@ -1076,7 +1078,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (empty($variantSkus)) {
             $sku = trim((string) ($product->sku ?? ''));
             if ($sku === '') {
-                return redirect()->to(url()->previous(route('lazada.products.index')))
+                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                     ->with('status', 'Cannot sync: ERP product SKU is empty for product #' . (int)$product->product_id . '.');
             }
             $variantSkus = [[
@@ -1148,7 +1150,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $this->persistProductSyncStatus($listing, 'sync_quantity', $summary);
 
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', $summary['body']['message']);
     }
 
@@ -1162,7 +1164,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -1175,7 +1177,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->first(['p.product_id', 'p.sku', 'p.price']);
 
         if (!$product) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync: ERP product not found for listing #' . $listing->id . '.');
         }
 
@@ -1197,12 +1199,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         // Resolve Lazada SkuId for each variant (required by Lazada production API)
         if (empty($listing->lazada_item_id)) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync price: product has no Lazada Item ID. Sync Lazada ID first.');
         }
         $skuIdMap = $this->resolveLazadaSkuIds($listing, $setting, $client);
         if (empty($skuIdMap)) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot sync price: could not resolve Lazada SkuIds for this product.');
         }
 
@@ -1212,7 +1214,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (empty($variantPrices)) {
             $sku = trim((string) ($product->sku ?? ''));
             if ($sku === '') {
-                return redirect()->to(url()->previous(route('lazada.products.index')))
+                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                     ->with('status', 'Cannot sync: ERP product SKU is empty for product #' . (int)$product->product_id . '.');
             }
             $variantPrices = [[
@@ -1292,7 +1294,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $this->persistProductSyncStatus($listing, 'sync_price', $summary);
 
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', $summary['body']['message']);
     }
 
@@ -1307,7 +1309,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -1318,7 +1320,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ->first(['p.product_id', 'p.sku']);
 
         if (!$product) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Cannot delete: ERP product not found for listing #' . $listing->id . '.');
         }
 
@@ -1338,7 +1340,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         if (empty($sellerSkuList)) {
             if ($mainSku === '') {
-                return redirect()->to(url()->previous(route('lazada.products.index')))
+                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                     ->with('status', 'Cannot delete: ERP product SKU is empty for product #' . (int)$productId . '.');
             }
             $sellerSkuList = [$mainSku];
@@ -1440,7 +1442,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         ActivityLogger::log('deleted', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', $this->formatLazadaResultMessage('Delete (Lazada)', $result));
     }
 
@@ -1508,12 +1510,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             if ($setting) {
                 $this->refreshLazadaProductCache($listing, $setting, $client);
             }
-            return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Sync Lazada ID: cache refreshed.');
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Sync Lazada ID: cache refreshed.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -1525,7 +1527,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         if (!$product) {
             $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'ERP_PRODUCT_NOT_FOUND', 'message' => 'ERP product not found for this Lazada product mapping.']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: ERP product not found.');
         }
 
@@ -1550,7 +1552,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         if (empty($allSkus)) {
             $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or option values).']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: product has no SKU.');
         }
 
@@ -1572,7 +1574,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 'ok' => false,
                 'body' => ['code' => 'MULTIPLE_MATCHES', 'message' => 'Multiple Lazada items matched. Please resolve duplicates in Lazada first.'],
             ]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: multiple Lazada items matched.');
         }
 
@@ -1589,12 +1591,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 // keep status log; avoid throwing in production
             }
 
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: linked successfully.');
         }
 
         $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'NOT_FOUND', 'message' => 'No Lazada product found for SKUs: ' . implode(', ', $allSkus)]]);
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Sync Lazada ID: no Lazada product found for SKUs: ' . implode(', ', $allSkus));
     }
 
@@ -1604,7 +1606,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -1614,7 +1616,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         if (empty($listing->primary_category_id)) {
             $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_PRIMARY_CATEGORY', 'message' => 'Primary category is required before upload.']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Upload: Primary Category is required before uploading.');
         }
 
@@ -1624,7 +1626,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
         if ((int) ($erpProduct->status ?? 1) === 0) {
             $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'PRODUCT_DISABLED', 'message' => 'ERP product is disabled. Enable it before uploading.']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Upload: ERP product is disabled. Enable it before uploading to Lazada.');
         }
 
@@ -1634,7 +1636,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
         if ($erpSku === '') {
             $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'Product SKU is required. Please set a SKU (or Model) in the ERP product first.']]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Upload: Product SKU is required. Please set a SKU (or Model) in the core product first.');
         }
 
@@ -1645,7 +1647,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         } catch (\Illuminate\Validation\ValidationException $e) {
             $msg = collect($e->errors())->flatten()->first() ?: 'Listing mapping is incomplete.';
             $this->persistProductSyncStatus($listing, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'VALIDATION_ERROR', 'message' => (string)$msg]]);
-            return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Upload: ' . $msg);
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Upload: ' . $msg);
         }
 
         // For updates, inject ItemId and SkuId so Lazada knows which product/SKUs to update
@@ -1687,7 +1689,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             if ($isUpdate) {
                 // Refresh variant cache after update
                 $this->refreshLazadaProductCache($listing, $setting, $client);
-                return redirect()->to(url()->previous(route('lazada.products.index')))
+                return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                     ->with('status', 'Product updated on Lazada successfully.');
             }
 
@@ -1728,7 +1730,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
                         // Resolve product_option_value_id: check if variant row already has it,
                         // otherwise try matching seller_sku against ERP option value SKUs.
-                        $existingVariant = \App\Models\LazadaProductVariant::where('lazada_product_id', $listing->id)
+                        $existingVariant = \Extensions\lazada\Models\LazadaProductVariant::where('lazada_product_id', $listing->id)
                             ->where('seller_sku', (string) $sellerSku)
                             ->first();
                         $povId = $existingVariant->product_option_value_id ?? null;
@@ -1748,7 +1750,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                         }
 
                         try {
-                            \App\Models\LazadaProductVariant::updateOrCreate(
+                            \Extensions\lazada\Models\LazadaProductVariant::updateOrCreate(
                                 [
                                     'lazada_product_id' => $listing->id,
                                     'seller_sku' => (string) $sellerSku,
@@ -1781,7 +1783,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', $this->formatLazadaResultMessage('Upload', $result));
     }
 
@@ -1794,12 +1796,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
 
         if (empty($ids)) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Bulk Upload: no products selected.');
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Upload: no products selected.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -1890,7 +1892,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             ]);
         }
 
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', "Bulk Upload: processed ".count($ids)." product(s). Success: {$okCount}, Error: {$errCount}.");
     }
 
@@ -1903,12 +1905,12 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
 
         if (empty($ids)) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Bulk Sync Lazada ID: no products selected.');
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Lazada ID: no products selected.');
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->to(url()->previous(route('lazada.products.index')))
+            return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
@@ -2020,7 +2022,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
         $msg .= ".";
 
-        return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', $msg);
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', $msg);
     }
 
 public function bulkSyncQuantity(Request $request, LazadaClient $client)
@@ -2032,12 +2034,12 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
 
     if (empty($ids)) {
-        return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Bulk Sync Qty: no listings selected.');
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Qty: no listings selected.');
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
     if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
 
@@ -2191,7 +2193,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
         }
     }
 
-    return redirect()->to(url()->previous(route('lazada.products.index')))
+    return redirect()->to(url()->previous(route('ext.lazada.products.index')))
         ->with('status', "Bulk Sync Qty: processed ".count($ids)." listing(s). Success: {$okCount}, Error: {$errCount}.");
 }
 
@@ -2204,12 +2206,12 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
     $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
 
     if (empty($ids)) {
-        return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Bulk Sync Price: no listings selected.');
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Price: no listings selected.');
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
     if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
 
@@ -2379,7 +2381,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
         }
     }
 
-    return redirect()->to(url()->previous(route('lazada.products.index')))
+    return redirect()->to(url()->previous(route('ext.lazada.products.index')))
         ->with('status', "Bulk Sync Price: processed ".count($ids)." listing(s). Success: {$okCount}, Error: {$errCount}.");
 }
 
@@ -2392,12 +2394,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     $ids = array_values(array_unique(array_filter(array_map(fn($v) => (int)$v, $ids), fn($v) => $v > 0)));
 
     if (empty($ids)) {
-        return redirect()->to(url()->previous(route('lazada.products.index')))->with('status', 'Bulk Delete: no listings selected.');
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Delete: no listings selected.');
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
     if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-        return redirect()->to(url()->previous(route('lazada.products.index')))
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
 
@@ -2516,7 +2518,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         ]);
     }
 
-    return redirect()->to(url()->previous(route('lazada.products.index')))
+    return redirect()->to(url()->previous(route('ext.lazada.products.index')))
         ->with('status', "Bulk Delete: processed ".count($ids)." product(s). Success: {$okCount}, Error: {$errCount}.");
 }
 
@@ -2531,7 +2533,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // Brand search is handled by AJAX autocomplete; no need to preload all brands.
         // Product selection is handled by AJAX search (searchCatalogProducts endpoint).
 
-        return view('lazada.products.form', [
+        return view('ext-lazada::products.form', [
             'mode' => 'create',
             'listing' => new LazadaProduct([
                 'product_id' => $request->input('product_id'),
@@ -2578,7 +2580,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         ActivityLogger::log('created', 'Lazada Product', $listing->id, 'ERP #' . (int)$data['product_id']);
 
-        return redirect()->route('lazada.products.edit', $listing->id);
+        return redirect()->route('ext.lazada.products.edit', $listing->id);
     }
 
     public function edit(int $id)
@@ -2705,7 +2707,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             // Do not auto-save; just suggest in UI
         }
 
-        return view('lazada.products.form', [
+        return view('ext-lazada::products.form', [
             'mode' => 'edit',
             'listing' => $listing,
             'products' => $products,
@@ -2774,7 +2776,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
 
-        return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Listing updated.');
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Listing updated.');
     }
 
     public function syncBrands(Request $request, int $id, LazadaClient $client)
@@ -2796,7 +2798,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.products.edit', $listing->id)
+            return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret).');
         }
 
@@ -2868,7 +2870,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             });
         }
 
-        return redirect()->route('lazada.products.edit', $listing->id)
+        return redirect()->route('ext.lazada.products.edit', $listing->id)
             ->with('status', 'Brands synced. Saved/updated: ' . $totalSaved);
     }
 
@@ -3064,7 +3066,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
-            return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Missing Lazada settings.');
+            return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Missing Lazada settings.');
         }
 
         $apiPath = '/category/attributes/get';
@@ -3089,7 +3091,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ]
         );
 
-        return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Category template synced.');
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Category template synced.');
     }
 
     public function saveAttributes(Request $request, int $id)
@@ -3193,7 +3195,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
 
             if (!empty($errs)) {
-                return redirect()->route('lazada.products.edit', $listing->id)
+                return redirect()->route('ext.lazada.products.edit', $listing->id)
                     ->withErrors($errs)
                     ->withInput();
             }
@@ -3218,7 +3220,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         });
 
-        return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Attributes saved.');
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Attributes saved.');
     }
 
     public function saveVariants(Request $request, int $id)
@@ -3256,7 +3258,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         });
 
-        return redirect()->route('lazada.products.edit', $listing->id)->with('status', 'Variant mapping saved.');
+        return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Variant mapping saved.');
     }
 
     public function buildPayload(Request $request, int $id)
@@ -3356,7 +3358,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 }
             }
             if (!empty($errs)) {
-                return redirect()->route('lazada.products.edit', $listing->id)
+                return redirect()->route('ext.lazada.products.edit', $listing->id)
                     ->withErrors($errs);
             }
         }
@@ -3469,7 +3471,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 }
             }
             if (!empty($skuErrs)) {
-                return redirect()->route('lazada.products.edit', $listing->id)
+                return redirect()->route('ext.lazada.products.edit', $listing->id)
                     ->withErrors($skuErrs);
             }
         }
@@ -3512,7 +3514,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'skus' => $skus,
         ];
 
-        return redirect()->route('lazada.products.edit', $listing->id)
+        return redirect()->route('ext.lazada.products.edit', $listing->id)
             ->with('status', 'Payload built (preview only).')
             ->with('payload_preview_json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
@@ -3523,12 +3525,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.products.edit', $listing->id)
+            return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
 
         if (empty($listing->primary_category_id)) {
-            return redirect()->route('lazada.products.edit', $listing->id)
+            return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->withErrors(['primary_category_id' => 'Primary Category is required before pushing.']);
         }
 
@@ -3536,7 +3538,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         try {
             [$productPayload, $preview] = $this->buildLazadaProductCreatePayload($listing, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()->route('lazada.products.edit', $listing->id)
+            return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->withErrors($e->errors())
                 ->withInput();
         }
@@ -3546,7 +3548,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         try {
             $productPayload = $this->ensureLazadaInlinkImages($productPayload, $setting, $client);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()->route('lazada.products.edit', $listing->id)
+            return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->withErrors($e->errors())
                 ->withInput();
         }
@@ -3581,7 +3583,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('lazada.products.edit', $listing->id)
+        return redirect()->route('ext.lazada.products.edit', $listing->id)
             ->with('status', 'Sample push sent to Lazada. Review the response below (QC errors will appear there).')
             ->with('push_request_json', json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
             ->with('push_response_json', json_encode($result['body'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -4397,7 +4399,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.products.index')
+            return redirect()->route('ext.lazada.products.index')
                 ->with('status', 'Missing Lazada settings.');
         }
 
@@ -4482,7 +4484,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         }
 
         // Clear old unmatched entries
-        \App\Models\LazadaUnmatchedItem::query()->where('status', 'unmatched')->delete();
+        \Extensions\lazada\Models\LazadaUnmatchedItem::query()->where('status', 'unmatched')->delete();
 
         $unmatchedCount = 0;
         $matchedCount = 0;
@@ -4521,7 +4523,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             if (empty($skus)) {
                 // No SKU info at all
                 $unmatchedCount++;
-                \App\Models\LazadaUnmatchedItem::updateOrCreate(
+                \Extensions\lazada\Models\LazadaUnmatchedItem::updateOrCreate(
                     ['lazada_item_id' => (string) $itemId, 'sku' => ''],
                     [
                         'lazada_sku_id' => null,
@@ -4539,7 +4541,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                     $skuImage = $skuData['Images'][0] ?? $imageUrl;
 
                     $unmatchedCount++;
-                    \App\Models\LazadaUnmatchedItem::updateOrCreate(
+                    \Extensions\lazada\Models\LazadaUnmatchedItem::updateOrCreate(
                         ['lazada_item_id' => (string) $itemId, 'sku' => $sellerSku],
                         [
                             'lazada_sku_id' => $skuId ? (string) $skuId : null,
@@ -4554,7 +4556,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             }
         }
 
-        return redirect()->route('lazada.products.index')
+        return redirect()->route('ext.lazada.products.index')
             ->with('status', "Unmatched sync complete. Lazada items: " . count($allProducts) . ". Already matched: {$matchedCount}. Unmatched: {$unmatchedCount}.");
     }
 
@@ -4562,13 +4564,13 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     {
         $request->validate(['product_id' => 'required|integer|min:1']);
 
-        $item = \App\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
+        $item = \Extensions\lazada\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
         $productId = (int) $request->input('product_id');
 
         $pfx = (string) config('catalog.prefix');
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['product_id']);
         if (!$product) {
-            return redirect()->route('lazada.products.index')->with('status', 'Catalog product not found.');
+            return redirect()->route('ext.lazada.products.index')->with('status', 'Catalog product not found.');
         }
 
         // Check if a LazadaProduct listing already exists for this product
@@ -4591,16 +4593,16 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
         $item->update(['status' => 'linked', 'linked_product_id' => $productId]);
 
-        return redirect()->route('lazada.products.index')
+        return redirect()->route('ext.lazada.products.index')
             ->with('status', 'Linked "' . ($item->item_name ?? 'Unknown') . '" to product #' . $productId . '.');
     }
 
     public function dismissUnmatchedItem(int $unmatchedId)
     {
-        $item = \App\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
+        $item = \Extensions\lazada\Models\LazadaUnmatchedItem::findOrFail($unmatchedId);
         $item->update(['status' => 'dismissed']);
 
-        return redirect()->route('lazada.products.index')
+        return redirect()->route('ext.lazada.products.index')
             ->with('status', 'Dismissed "' . ($item->item_name ?? 'Unknown') . '".');
     }
 

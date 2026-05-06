@@ -5,14 +5,14 @@
 <div class="page-header">
     <h1>Lazada Brands</h1>
     <div class="page-header-actions">
-        <a class="btn" href="{{ route('lazada.index') }}">Lazada API</a>
-        <a class="btn" href="{{ route('lazada.product-groups.index') }}">Product Groups</a>
+        <a class="btn" href="{{ route('ext.lazada.index') }}">Lazada API</a>
+        <a class="btn" href="{{ route('ext.lazada.product-groups.index') }}">Product Groups</a>
     </div>
 </div>
 
 <div class="card">
     <div class="d-flex items-center justify-between gap-12 flex-wrap">
-        <form method="GET" action="{{ route('lazada.brands.index') }}" class="d-flex gap-8 items-center">
+        <form method="GET" action="{{ route('ext.lazada.brands.index') }}" class="d-flex gap-8 items-center">
             <div>
                 <label class="text-xs">Search</label>
                 <input class="input" name="q" value="{{ $q }}" placeholder="Brand name or ID" style="width:260px;">
@@ -20,7 +20,7 @@
             <button class="btn" type="submit">Search</button>
         </form>
 
-        <form method="POST" action="{{ route('lazada.brands.fetch') }}">
+        <form method="POST" action="{{ route('ext.lazada.brands.fetch') }}">
             @csrf
             <button class="btn" type="submit">Fetch All Brands</button>
         </form>

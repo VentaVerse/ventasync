@@ -7,8 +7,8 @@ use App\Models\Catalog\Product;
 use App\Models\Catalog\Category;
 use App\Models\Catalog\Manufacturer;
 use App\Models\Catalog\OrderStatus;
-use App\Models\LazadaOrder;
-use App\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaOrder;
+use Extensions\lazada\Models\LazadaProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -149,7 +149,7 @@ class DashboardController extends Controller
         // --- Lazada sync status (from settings table, independent of API logging) ---
         $lazadaSyncStatus = null;
         if (Schema::hasTable('lazada_settings')) {
-            $lzSetting = \App\Models\LazadaSetting::query()->first();
+            $lzSetting = \Extensions\lazada\Models\LazadaSetting::query()->first();
             if ($lzSetting) {
                 $lazadaSyncStatus = (object) [
                     'order_sync_at' => $lzSetting->last_order_sync_at,

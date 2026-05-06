@@ -281,7 +281,7 @@ class ReviewController extends Controller
         }
 
         if ($platform === 'all' || $platform === 'lazada') {
-            \App\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+            \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
             $launched[] = 'Lazada';
         }
@@ -324,7 +324,7 @@ class ReviewController extends Controller
 
         // Reset sync timestamps so next fetch starts fresh
         \Extensions\shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
-        \App\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
+        \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,

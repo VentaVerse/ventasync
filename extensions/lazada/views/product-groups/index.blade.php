@@ -10,7 +10,7 @@
             <div class="text-muted text-sm">Group products and mass-map to Lazada category, brand &amp; attributes.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn" href="{{ route('lazada.product-groups.create') }}">Add Product Group</a>
+            <a class="btn" href="{{ route('ext.lazada.product-groups.create') }}">Add Product Group</a>
         </div>
     </div>
 
@@ -34,7 +34,7 @@
                         <td>{{ $g->id }}</td>
                         <td class="font-bold">{{ $g->name }}</td>
                         <td>
-                            <a href="{{ route('lazada.product-groups.products', $g->id) }}">{{ $pCount }}</a>
+                            <a href="{{ route('ext.lazada.product-groups.products', $g->id) }}">{{ $pCount }}</a>
                         </td>
                         <td>
                             @if($g->lazada_category_id)
@@ -57,10 +57,10 @@
                         </td>
                         <td>
                             <div class="d-flex gap-6 items-center text-nowrap">
-                                <a class="btn small" href="{{ route('lazada.product-groups.products', $g->id) }}">Products</a>
-                                <a class="btn small secondary" href="{{ route('lazada.product-groups.edit', $g->id) }}">Edit</a>
+                                <a class="btn small" href="{{ route('ext.lazada.product-groups.products', $g->id) }}">Products</a>
+                                <a class="btn small secondary" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit</a>
 
-                                <form method="POST" action="{{ route('lazada.product-groups.destroy', $g->id) }}" style="margin:0;" data-confirm="Delete product group? Products with no other group links will be removed.">
+                                <form method="POST" action="{{ route('ext.lazada.product-groups.destroy', $g->id) }}" style="margin:0;" data-confirm="Delete product group? Products with no other group links will be removed.">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>

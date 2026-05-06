@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Console\Commands;
+namespace Extensions\lazada\Commands;
 
-use App\Models\LazadaApiLog;
-use App\Models\LazadaOrder;
-use App\Models\LazadaOrderProduct;
-use App\Models\LazadaReverseOrder;
-use App\Models\LazadaSetting;
-use App\Services\Lazada\LazadaClient;
-use App\Services\LazadaCatalogOrderSync;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaOrder;
+use Extensions\lazada\Models\LazadaOrderProduct;
+use Extensions\lazada\Models\LazadaReverseOrder;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\LazadaCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;

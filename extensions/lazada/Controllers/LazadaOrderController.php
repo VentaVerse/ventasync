@@ -1,15 +1,17 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\lazada\Controllers;
 
-use App\Models\LazadaSetting;
-use App\Models\LazadaApiLog;
-use App\Models\LazadaOrder;
-use App\Models\LazadaOrderProduct;
-use App\Models\LazadaReverseOrder;
+use App\Http\Controllers\Controller;
+
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaOrder;
+use Extensions\lazada\Models\LazadaOrderProduct;
+use Extensions\lazada\Models\LazadaReverseOrder;
 use App\Services\ActivityLogger;
-use App\Services\Lazada\LazadaClient;
-use App\Services\LazadaCatalogOrderSync;
+use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\LazadaCatalogOrderSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -211,7 +213,7 @@ class LazadaOrderController extends Controller
             }
         }
 
-        return view('lazada.orders.index', [
+        return view('ext-lazada::orders.index', [
             'setting' => $setting,
             'orders' => $orders,
             'per_page' => $perPage,
@@ -378,7 +380,7 @@ class LazadaOrderController extends Controller
             ->paginate($perPage)
             ->appends($request->query());
 
-        return view('lazada.orders.returns', [
+        return view('ext-lazada::orders.returns', [
             'setting' => $setting,
             'orders' => $orders,
             'per_page' => $perPage,
@@ -402,7 +404,7 @@ class LazadaOrderController extends Controller
 
         $setting = LazadaSetting::query()->first()?->decrypted();
         if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            return redirect()->route('lazada.orders.returns')->with('lazada_orders_last_result', [
+            return redirect()->route('ext.lazada.orders.returns')->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings first.',
             ]);
@@ -463,7 +465,7 @@ class LazadaOrderController extends Controller
             if (is_array($body)) {
                 $msg = (string)($body['message'] ?? $body['msg'] ?? $msg);
             }
-            return redirect()->route('lazada.orders.returns')->with('lazada_orders_last_result', [
+            return redirect()->route('ext.lazada.orders.returns')->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => $msg,
             ]);
@@ -515,7 +517,7 @@ class LazadaOrderController extends Controller
 
         $message = 'Reverse orders synced. ' . $saved . ' new, ' . $updated . ' updated.';
 
-        return redirect()->route('lazada.orders.returns')->with('lazada_orders_last_result', [
+        return redirect()->route('ext.lazada.orders.returns')->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => $message,
         ]);
@@ -730,7 +732,7 @@ class LazadaOrderController extends Controller
         $raw = is_array($order->raw) ? $order->raw : [];
         $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
 
-        return view('lazada.orders.show', [
+        return view('ext-lazada::orders.show', [
             'order' => $order,
             'setting_region' => $region,
             'detail' => $detail,
@@ -949,7 +951,7 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        return view('lazada.orders.packing_list', [
+        return view('ext-lazada::orders.packing_list', [
             'order' => $order,
             'orderId' => (string)$orderId,
             'items' => $items['items'],
@@ -988,7 +990,7 @@ class LazadaOrderController extends Controller
             return strcmp($as, $bs);
         });
 
-        return view('lazada.orders.pick_list', [
+        return view('ext-lazada::orders.pick_list', [
             'order' => $order,
             'orderId' => (string)$orderId,
             'items' => $sorted,
@@ -1066,7 +1068,7 @@ class LazadaOrderController extends Controller
         }
 
         // Direct open (same tab) for legacy usage: redirect to AWB
-        return redirect()->route('lazada.orders.awb', ['orderId' => $orderId]);
+        return redirect()->route('ext.lazada.orders.awb', ['orderId' => $orderId]);
     }
 
     /**
@@ -1087,7 +1089,7 @@ class LazadaOrderController extends Controller
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => true,
             'message' => 'Order set to Ready To Ship. Opening AWB…',
-        ])->with('lazada_awb_url', route('lazada.orders.awb', ['orderId' => $orderId]));
+        ])->with('lazada_awb_url', route('ext.lazada.orders.awb', ['orderId' => $orderId]));
     }
 
     /**
@@ -1675,7 +1677,7 @@ if (!empty($data['status'])) {
             $finalMessage = 'Fetched the maximum ' . $maxOrdersPerRun . ' orders for this request. Please narrow the date range and fetch again to load the remaining orders.';
         }
 
-return redirect()->route('lazada.orders.index', $redirectParams)
+return redirect()->route('ext.lazada.orders.index', $redirectParams)
             ->with('lazada_orders_last_result', [
                 'ok' => (bool)($res['ok'] ?? false),
                 'message' => $finalMessage,
@@ -2820,7 +2822,7 @@ public function reset(Request $request)
             }
         }
 
-        return redirect()->route('lazada.orders.index', $qs);
+        return redirect()->route('ext.lazada.orders.index', $qs);
     }
 
 }

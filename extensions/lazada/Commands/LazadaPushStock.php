@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Console\Commands;
+namespace Extensions\lazada\Commands;
 
-use App\Models\LazadaApiLog;
-use App\Models\LazadaProduct;
-use App\Models\LazadaProductVariant;
-use App\Models\LazadaSetting;
-use App\Services\Lazada\LazadaClient;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;

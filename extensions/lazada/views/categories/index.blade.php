@@ -10,9 +10,9 @@
             <div class="text-muted text-sm">Fetch and cache Lazada's category tree locally for fast search and mapping.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn" href="{{ route('lazada.index') }}">Back to Lazada</a>
+            <a class="btn" href="{{ route('ext.lazada.index') }}">Back to Lazada</a>
 
-            <form method="POST" action="{{ route('lazada.categories.fetch') }}" style="display:inline;">
+            <form method="POST" action="{{ route('ext.lazada.categories.fetch') }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch Categories from Lazada</button>
             </form>
@@ -20,14 +20,14 @@
     </div>
 
     <div class="card mb-12">
-        <form method="GET" action="{{ route('lazada.categories.index') }}" class="d-flex gap-10 items-center">
+        <form method="GET" action="{{ route('ext.lazada.categories.index') }}" class="d-flex gap-10 items-center">
             <div style="flex:1;">
                 <label class="text-xs text-muted">Search</label>
                 <input type="text" name="q" value="{{ $q }}" placeholder="Search category name or ID" class="input" />
             </div>
             <div class="d-flex gap-8 items-center" style="padding-top:18px;">
                 <button class="btn" type="submit">Search</button>
-                <a class="btn" href="{{ route('lazada.categories.index') }}">Reset</a>
+                <a class="btn" href="{{ route('ext.lazada.categories.index') }}">Reset</a>
             </div>
         </form>
     </div>
@@ -61,7 +61,7 @@
                         <td>{{ $c->level }}</td>
                         <td>{{ is_null($c->var) ? '-' : ($c->var ? 'Yes' : 'No') }}</td>
                         <td>
-                            <a class="btn btn-sm" href="{{ route('lazada.categories.attributes.show', $c->category_id) }}">View Attributes</a>
+                            <a class="btn btn-sm" href="{{ route('ext.lazada.categories.attributes.show', $c->category_id) }}">View Attributes</a>
                         </td>
                     </tr>
                 @empty
