@@ -3,6 +3,7 @@
 namespace Extensions\tiktok;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -10,11 +11,16 @@ use App\Integrations\IntegrationProvider;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
+use Extensions\tiktok\Models\TikTokApiLog;
 use Extensions\tiktok\Models\TikTokOrder;
+use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\tiktok\Services\TikTok\TikTokClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
 {
     protected string $id = 'tiktok';
 
@@ -144,5 +150,78 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider
                 },
             ),
         ];
+    }
+
+    /**
+     * React to a SKU change on a catalog product by pushing the new
+     * seller_sku to every linked TikTok shop product. Uses the partial-
+     * edit endpoint via TikTokClient::editProduct — only the changed
+     * `skus[]` payload is sent, the rest of the product stays untouched.
+     */
+    public function pushSkuChanges(int $productId, array $skuChanges): ?string
+    {
+        if (empty($skuChanges['product_sku']) || !Schema::hasTable('tiktok_product_group_products')) {
+            return null;
+        }
+
+        $newSku = $skuChanges['product_sku']['new'];
+
+        $links = TikTokProductGroupProduct::where('product_id', $productId)
+            ->whereNotNull('tiktok_product_id')
+            ->whereNotNull('tiktok_sku_id')
+            ->get();
+
+        if ($links->isEmpty()) {
+            return null;
+        }
+
+        $setting = TikTokSetting::query()->first();
+        if (!$setting || !$setting->access_token || !$setting->app_key) {
+            return null;
+        }
+
+        $client = new TikTokClient();
+        $appKey = (string) $setting->app_key;
+        $appSecret = (string) $setting->app_secret;
+        $token = (string) $setting->access_token;
+        $shopCipher = (string) ($setting->shop_cipher ?? '') ?: null;
+
+        $results = [];
+        foreach ($links->groupBy('tiktok_product_id') as $tiktokProductId => $linksForProduct) {
+            $skusPayload = $linksForProduct->map(fn ($l) => [
+                'id' => (string) $l->tiktok_sku_id,
+                'seller_sku' => $newSku,
+            ])->values()->all();
+
+            try {
+                $result = $client->editProduct($appKey, $appSecret, $token, (string) $tiktokProductId, [
+                    'skus' => $skusPayload,
+                ], $shopCipher);
+
+                TikTokApiLog::safeCreate([
+                    'pack'            => 'tiktok.product.edit.sku_sync',
+                    'method'          => 'PUT',
+                    'api_path'        => '/product/202309/products/' . $tiktokProductId,
+                    'auth_required'   => true,
+                    'request_params'  => ['skus' => $skusPayload],
+                    'response_status' => (int) ($result['status'] ?? 0),
+                    'ok'              => (bool) ($result['ok'] ?? false),
+                    'response_body'   => $result['body'] ?? [],
+                    'user_id'         => auth()->id(),
+                ]);
+
+                $apiCode = (int) ($result['body']['code'] ?? -1);
+                $apiOk = ($result['ok'] ?? false) && $apiCode === 0;
+                $results[] = "Product {$tiktokProductId}: " . ($apiOk ? 'OK' : 'Failed');
+            } catch (\Throwable $e) {
+                Log::warning('TikTok SKU edit failed', [
+                    'tiktok_product_id' => $tiktokProductId,
+                    'error' => $e->getMessage(),
+                ]);
+                $results[] = "Product {$tiktokProductId}: Error";
+            }
+        }
+
+        return empty($results) ? null : 'TikTok: ' . implode(', ', $results);
     }
 }
