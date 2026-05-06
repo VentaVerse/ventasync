@@ -3,6 +3,7 @@
 namespace Extensions\venta;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\SkuSyncContributor;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -12,8 +13,11 @@ use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
 use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
+use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
+use Extensions\venta\Services\Venta\VentaClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -22,7 +26,7 @@ use Illuminate\Support\Facades\Schema;
  * per enabled store, with metrics scoped to that store via the
  * marketplace_source = "venta:{id}" convention used elsewhere in the app.
  */
-class VentaExtension extends ExtensionProvider implements IntegrationProvider
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor
 {
     protected string $id = 'venta';
 
@@ -193,5 +197,61 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider
                     ))->all();
             },
         );
+    }
+
+    /**
+     * React to a SKU change on a catalog product by updating the
+     * corresponding product on every linked Venta store. Venta's API uses
+     * the existing SKU as the path key — PUT /products/{old_sku} with
+     * { sku: new_sku } in the body — so we look up each linked store's
+     * VentaProductLink, push the rename, and update the link locally.
+     */
+    public function pushSkuChanges(int $productId, array $skuChanges): ?string
+    {
+        if (empty($skuChanges['product_sku']) || !Schema::hasTable('venta_product_links')) {
+            return null;
+        }
+
+        $links = VentaProductLink::where('product_id', $productId)->get();
+        if ($links->isEmpty()) {
+            return null;
+        }
+
+        $old = $skuChanges['product_sku']['old'];
+        $new = $skuChanges['product_sku']['new'];
+        $results = [];
+
+        $settingsById = VentaSetting::query()->where('enabled', true)->get()->keyBy('id');
+
+        foreach ($links as $link) {
+            $setting = $settingsById->get($link->venta_setting_id);
+            if (!$setting) {
+                continue;
+            }
+
+            $linkSku = (string) ($link->sku ?: $old);
+            try {
+                $client = new VentaClient($setting);
+                $result = $client->updateProduct($linkSku, ['sku' => $new]);
+                $ok = (bool) ($result['ok'] ?? false);
+
+                if ($ok) {
+                    $link->update(['sku' => $new]);
+                }
+
+                $results[] = $setting->store_name . ': ' . ($ok ? 'OK' : 'Failed');
+            } catch (\Throwable $e) {
+                Log::warning('SKU sync to Venta failed', [
+                    'store' => $setting->store_name,
+                    'product_id' => $productId,
+                    'sku_old' => $linkSku,
+                    'sku_new' => $new,
+                    'error' => $e->getMessage(),
+                ]);
+                $results[] = $setting->store_name . ': Error';
+            }
+        }
+
+        return empty($results) ? null : 'Venta: ' . implode(', ', $results);
     }
 }
