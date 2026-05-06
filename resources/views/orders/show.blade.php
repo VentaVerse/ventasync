@@ -42,9 +42,19 @@
             {{ $order->date_added }}
         </div>
         @if($order->marketplace_order_id)
+        @php
+            $orderRef = app(\App\Integrations\IntegrationRegistry::class)
+                ->resolveOrderRef((string) $order->marketplace_source, (string) $order->marketplace_order_id);
+        @endphp
         <div class="meta-item">
             <span class="meta-label">Marketplace ID:</span>
-            @if($order->marketplace_source === 'lazada')
+            @if($orderRef && $orderRef['url'])
+                <a href="{{ $orderRef['url'] }}" target="_blank" rel="noopener" style="color:var(--accent);">
+                    {{ $orderRef['display'] }} &#8599;
+                </a>
+            @elseif($orderRef)
+                {{ $orderRef['display'] }}
+            @elseif($order->marketplace_source === 'lazada')
                 <a href="https://sellercenter.lazada.com.ph/order/detail?tradeOrderId={{ $order->marketplace_order_id }}" target="_blank" rel="noopener" style="color:var(--accent);">
                     {{ $order->marketplace_order_id }} &#8599;
                 </a>

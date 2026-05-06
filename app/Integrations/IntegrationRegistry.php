@@ -180,6 +180,28 @@ class IntegrationRegistry
     }
 
     /**
+     * Walk the order-ref renderers and return the first non-null render
+     * spec for the given (marketplace_source, marketplace_order_id). The
+     * render spec is `['display' => '#1001', 'url' => '...']` so views can
+     * render a friendly label with a deep link back to the marketplace.
+     *
+     * @return array{display:string,url:?string}|null
+     */
+    public function resolveOrderRef(string $marketplaceSource, string $marketplaceOrderId): ?array
+    {
+        if ($marketplaceSource === '' || $marketplaceOrderId === '') {
+            return null;
+        }
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\MarketplaceOrderRefRenderer::class) as $renderer) {
+            $ref = $renderer->renderOrderRef($marketplaceSource, $marketplaceOrderId);
+            if ($ref !== null) {
+                return $ref;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Generic helper: return providers that implement the given interface
      * AND pass enabled+licensed gates. No permission filter — these are
      * system-level contracts, not UI surfaces.

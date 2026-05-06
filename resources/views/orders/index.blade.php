@@ -138,7 +138,23 @@
                         <span class="badge badge-default">Manual</span>
                     @endif
                 </td>
-                <td>{{ $o->marketplace_order_id ?: '—' }}</td>
+                <td>
+                    @if($o->marketplace_order_id)
+                        @php
+                            $ref = app(\App\Integrations\IntegrationRegistry::class)
+                                ->resolveOrderRef((string) $o->marketplace_source, (string) $o->marketplace_order_id);
+                        @endphp
+                        @if($ref && $ref['url'])
+                            <a href="{{ $ref['url'] }}" target="_blank" rel="noopener" style="color:var(--accent);">{{ $ref['display'] }}</a>
+                        @elseif($ref)
+                            {{ $ref['display'] }}
+                        @else
+                            {{ $o->marketplace_order_id }}
+                        @endif
+                    @else
+                        —
+                    @endif
+                </td>
                 <td>{{ $o->status->name ?? '-' }}</td>
                 <td class="text-right">{{ number_format($o->total, 2) }}</td>
                 <td class="text-nowrap">
