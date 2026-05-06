@@ -161,8 +161,10 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 if (!Schema::hasTable($orderTable) || !Schema::hasTable($productTable)) {
                     return [];
                 }
+                $catalogProductTable = (string) config('catalog.prefix') . 'product';
                 return DB::table($productTable . ' as p')
                     ->join($orderTable . ' as o', 'o.order_id', '=', 'p.order_id')
+                    ->leftJoin($catalogProductTable . ' as cp', 'cp.product_id', '=', 'p.product_id')
                     ->where('o.marketplace_source', $marketplaceSource)
                     ->where('o.date_added', '>=', now()->startOfDay())
                     ->whereNotNull('p.model')
@@ -173,6 +175,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     ->select(
                         'p.model as sku',
                         DB::raw('MAX(p.name) as name'),
+                        DB::raw('MAX(cp.image) as image'),
                         DB::raw('SUM(p.quantity) as qty_sold'),
                         DB::raw('SUM(p.total) as revenue'),
                     )
@@ -180,7 +183,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                     ->map(fn ($r) => new TopProduct(
                         sku: (string) $r->sku,
                         name: (string) ($r->name ?? $r->sku),
-                        imageUrl: null,
+                        imageUrl: $r->image ? asset('storage/' . ltrim($r->image, '/')) : null,
                         qtySold: (int) $r->qty_sold,
                         revenue: (float) $r->revenue,
                     ))->all();
