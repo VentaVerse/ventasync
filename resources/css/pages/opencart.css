@@ -2,6 +2,7 @@
    OPENCART
    ============================================================ */
 .oc-layout { display: flex; gap: 16px; align-items: flex-start; }
+.oc-layout-single .oc-content { flex: 1; width: 100%; }
 .oc-sidebar {
     width: 220px; flex-shrink: 0;
     background: var(--surface);

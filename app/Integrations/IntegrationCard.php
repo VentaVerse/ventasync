@@ -20,6 +20,7 @@ class IntegrationCard
         public string $permission,
         public array $menu = [],
         public array $stores = [],
+        public ?AddStoreAction $addStore = null,
     ) {
     }
 }

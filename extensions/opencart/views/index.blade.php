@@ -9,9 +9,13 @@
             <h2>OpenCart Settings</h2>
             <div class="text-muted text-sm">Manage store connections, order sync, and cronjob setup.</div>
         </div>
+        <div class="page-header-actions">
+            <a href="{{ route('integrations.module', ['module' => 'opencart']) }}" class="btn secondary">← Back to OpenCart</a>
+        </div>
     </div>
 
     @php
+        $singleStore = $singleStore ?? false;
         $activeStoreId = (int) request('store');
         if (!$activeStoreId && $stores->isNotEmpty()) {
             $activeStoreId = $stores->first()->id;
@@ -19,8 +23,9 @@
     @endphp
 
     {{-- ─── Store Selector + Content ─── --}}
-    <div class="oc-layout">
-        {{-- Left: Store selector --}}
+    <div class="oc-layout {{ $singleStore ? 'oc-layout-single' : '' }}">
+        @unless($singleStore)
+        {{-- Left: Store selector (hidden in single-store mode — store is selected from the module page) --}}
         <div class="oc-sidebar">
             <div class="oc-sidebar-label">Stores</div>
             @foreach($stores as $i => $store)
@@ -48,6 +53,7 @@
                 </div>
             </button>
         </div>
+        @endunless
 
         {{-- Right: Store content panels --}}
         <div class="oc-content">
@@ -483,8 +489,8 @@
                 </div>
             @endforeach
 
-            {{-- Add New Store panel --}}
-            <div class="oc-panel{{ $stores->isEmpty() ? ' active' : '' }}" id="store-new">
+            {{-- Add New Store panel — hidden in single-store mode (use the modal on the module page) --}}
+            <div class="oc-panel{{ $stores->isEmpty() ? ' active' : '' }} {{ $singleStore ? 'd-none' : '' }}" id="store-new">
                 <div class="card">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
                         <div style="width:36px; height:36px; border-radius:8px; background:linear-gradient(135deg,#22c55e,#16a34a); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -1351,9 +1357,13 @@
                 statuses.forEach(function(s) {
                     var ocId = s.order_status_id || s.id || 0;
                     var ocName = s.name || '';
-                    var selectedVal = existingSelections[ocId] || '0';
 
-                    // Try to auto-match by name if no existing selection
+                    // Persisted mapping wins (server is the source of truth after the
+                    // delta-merge fetch). Fall back to any unsaved DOM selection, then
+                    // a name-match heuristic for brand-new statuses, finally Unmapped.
+                    var serverErpId = parseInt(s.erp_order_status_id || 0, 10);
+                    var selectedVal = serverErpId > 0 ? String(serverErpId) : (existingSelections[ocId] || '0');
+
                     if (selectedVal === '0') {
                         _erpStatuses.forEach(function(erp) {
                             if (erp.name.toLowerCase().trim() === ocName.toLowerCase().trim()) {

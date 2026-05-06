@@ -20,7 +20,18 @@ class OpenCartController extends Controller
 {
     public function index()
     {
-        $stores = OpenCartSetting::query()->orderBy('id')->get();
+        // Legacy fallback — redirect to first enabled store's per-store settings.
+        $first = OpenCartSetting::query()->orderBy('id')->first();
+        if ($first) {
+            return redirect()->route('ext.opencart.settings.show', ['store' => $first->id]);
+        }
+        return redirect()->route('integrations.module', ['module' => 'opencart']);
+    }
+
+    public function showSettings(int $store)
+    {
+        $active = OpenCartSetting::findOrFail($store);
+        $stores = collect([$active]);
 
         $recentLogs = OpenCartSyncLog::query()
             ->orderByDesc('created_at')
@@ -28,6 +39,7 @@ class OpenCartController extends Controller
             ->get();
 
         $orderStatusMaps = OpenCartOrderStatusMap::query()
+            ->where('opencart_setting_id', $active->id)
             ->orderBy('oc_status_id')
             ->get()
             ->groupBy('opencart_setting_id');
@@ -39,7 +51,34 @@ class OpenCartController extends Controller
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
-        return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'erpOrderStatuses'));
+        $singleStore = true;
+
+        return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
+    }
+
+    /**
+     * "Add New Store" modal target — minimal create with name + base_url only.
+     * The user fills in the API key on the per-store settings page.
+     */
+    public function createStore(Request $request)
+    {
+        $data = $request->validate([
+            'store_name' => ['required', 'string', 'max:128'],
+            'base_url'   => ['required', 'url', 'max:255'],
+        ]);
+
+        $setting = OpenCartSetting::create([
+            'store_name' => $data['store_name'],
+            'base_url'   => rtrim($data['base_url'], '/'),
+            'api_key'    => '',
+            'enabled'    => false,
+        ]);
+
+        ActivityLogger::log('created', 'OpenCart Store', $setting->id, $setting->store_name);
+
+        return redirect()
+            ->route('ext.opencart.settings.show', ['store' => $setting->id])
+            ->with('status', 'Store created. Add the API key to start syncing.');
     }
 
     public function save(Request $request)
@@ -464,13 +503,48 @@ class OpenCartController extends Controller
         }
 
         $statuses = $result['body']['data'] ?? $result['body'] ?? [];
-
-        // If the API doesn't return a data wrapper, try the body directly
         if (!is_array($statuses) || empty($statuses)) {
             return response()->json(['error' => 'No statuses returned from OpenCart. The API endpoint may not be available.'], 404);
         }
 
-        return response()->json(['statuses' => $statuses]);
+        // Delta-merge — preserve existing order_status_id mappings, only update
+        // oc_status_name on rename. Rows whose IDs vanished from the API are
+        // removed; new ones are inserted with order_status_id=0 (awaiting pick).
+        $apiIds = [];
+        foreach ($statuses as $s) {
+            $ocId = (int) ($s['order_status_id'] ?? $s['id'] ?? 0);
+            if ($ocId <= 0) continue;
+            $name = (string) ($s['name'] ?? $s['label'] ?? '');
+
+            $row = OpenCartOrderStatusMap::firstOrNew([
+                'opencart_setting_id' => $setting->id,
+                'oc_status_id'        => $ocId,
+            ]);
+
+            if (!$row->exists) {
+                $row->order_status_id = 0;
+            }
+            $row->oc_status_name = $name;
+            $row->save();
+
+            $apiIds[] = $ocId;
+        }
+
+        OpenCartOrderStatusMap::where('opencart_setting_id', $setting->id)
+            ->whereNotIn('oc_status_id', $apiIds ?: [0])
+            ->delete();
+
+        $persisted = OpenCartOrderStatusMap::where('opencart_setting_id', $setting->id)
+            ->orderBy('oc_status_id')
+            ->get(['oc_status_id', 'oc_status_name', 'order_status_id'])
+            ->map(fn ($r) => [
+                'order_status_id'    => (int) $r->oc_status_id,
+                'name'               => $r->oc_status_name,
+                'erp_order_status_id' => (int) $r->order_status_id,
+            ])
+            ->all();
+
+        return response()->json(['statuses' => $persisted]);
     }
 
     /**

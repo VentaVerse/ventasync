@@ -69,6 +69,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
                 menu: [
+                    new MenuItem('Settings', 'ext.opencart.settings.show', 'manage_opencart', null, ['store' => $store->id]),
                     new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'manage_opencart', null, ['store' => $store->id]),
                     new MenuItem('Orders', 'ext.opencart.orders.index', 'manage_opencart_orders', null, ['store' => $store->id]),
                 ],
@@ -84,9 +85,12 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 accent: '#1f8fea',
                 permission: 'manage_opencart',
                 menu: [
-                    new MenuItem('Settings', 'ext.opencart.index', 'manage_opencart'),
                     new MenuItem('Reviews', 'ext.opencart.reviews.index', 'manage_reviews'),
                 ],
+                addStore: new \App\Integrations\AddStoreAction(
+                    route: 'ext.opencart.stores.store',
+                    permission: 'manage_opencart',
+                ),
                 stores: $stores,
             ),
         ];

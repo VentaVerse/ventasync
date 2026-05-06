@@ -6,6 +6,12 @@ use Extensions\opencart\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'perm:manage_opencart'])->group(function () {
+    // Per-store settings (canonical entry from module page or sidebar).
+    Route::get('/opencart/settings/{store}', [OpenCartController::class, 'showSettings'])->name('ext.opencart.settings.show');
+
+    // "Add New Store" modal target — minimal create with name + base_url only.
+    Route::post('/opencart/stores', [OpenCartController::class, 'createStore'])->name('ext.opencart.stores.store');
+
     Route::get('/opencart', [OpenCartController::class, 'index'])->name('ext.opencart.index');
     Route::post('/opencart/save', [OpenCartController::class, 'save'])->name('ext.opencart.save');
     Route::delete('/opencart/{id}', [OpenCartController::class, 'destroy'])->name('ext.opencart.destroy');

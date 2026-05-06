@@ -7,7 +7,15 @@ use Extensions\venta\Controllers\VentaReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
-    // Settings (store CRUD + status mapping only)
+    // Per-store settings (the canonical settings page reached from the module
+    // page or sidebar). The legacy /venta route still works as a fallback that
+    // redirects to the first enabled store.
+    Route::get('/venta/settings/{store}', [VentaController::class, 'showSettings'])->name('ext.venta.settings.show');
+
+    // "Add New Store" modal target — creates a row with name + base_url only.
+    Route::post('/venta/stores', [VentaController::class, 'createStore'])->name('ext.venta.stores.store');
+
+    // Legacy / fallback (redirects)
     Route::get('/venta', [VentaController::class, 'index'])->name('ext.venta.index');
     Route::post('/venta/save', [VentaController::class, 'save'])->name('ext.venta.save');
     Route::delete('/venta/{id}', [VentaController::class, 'destroy'])->name('ext.venta.destroy');

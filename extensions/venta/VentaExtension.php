@@ -60,6 +60,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
                 menu: [
+                    new MenuItem('Settings', 'ext.venta.settings.show', 'manage_venta', null, ['store' => $store->id]),
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'manage_venta', null, ['store' => $store->id]),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'manage_venta_orders', null, ['store' => $store->id]),
                 ],
@@ -74,10 +75,12 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 icon: 'shop',
                 accent: '#7c3aed',
                 permission: 'manage_venta',
-                menu: [
-                    new MenuItem('Settings', 'ext.venta.index', 'manage_venta'),
-                ],
+                menu: [],
                 stores: $stores,
+                addStore: new \App\Integrations\AddStoreAction(
+                    route: 'ext.venta.stores.store',
+                    permission: 'manage_venta',
+                ),
             ),
         ];
     }

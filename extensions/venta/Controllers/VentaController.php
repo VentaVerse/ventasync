@@ -18,7 +18,21 @@ class VentaController extends Controller
 {
     public function index()
     {
-        $stores = VentaSetting::query()->orderBy('id')->get();
+        // Legacy fallback — redirect to the first enabled store's per-store settings.
+        $first = VentaSetting::query()->orderBy('id')->first();
+        if ($first) {
+            return redirect()->route('ext.venta.settings.show', ['store' => $first->id]);
+        }
+        // No stores yet — bounce to the module page so the user can create one.
+        return redirect()->route('integrations.module', ['module' => 'venta']);
+    }
+
+    public function showSettings(int $store)
+    {
+        $active = VentaSetting::findOrFail($store);
+
+        // Keep the existing view's data shape — pass a single-element collection.
+        $stores = collect([$active]);
 
         $recentLogs = VentaSyncLog::query()
             ->orderByDesc('created_at')
@@ -26,11 +40,13 @@ class VentaController extends Controller
             ->get();
 
         $apiLogs = VentaApiLog::query()
+            ->where('venta_setting_id', $active->id)
             ->orderByDesc('created_at')
             ->limit(50)
             ->get();
 
         $orderStatusMaps = VentaOrderStatusMap::query()
+            ->where('venta_setting_id', $active->id)
             ->orderBy('venta_status_id')
             ->get()
             ->groupBy('venta_setting_id');
@@ -42,7 +58,35 @@ class VentaController extends Controller
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
-        return view('ext-venta::settings.index', compact('stores', 'recentLogs', 'apiLogs', 'orderStatusMaps', 'erpOrderStatuses'));
+        $singleStore = true;
+
+        return view('ext-venta::settings.index', compact('stores', 'recentLogs', 'apiLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
+    }
+
+    /**
+     * "Add New Store" modal target — minimal create with name + base_url only.
+     * The user fills in API token and the rest on the per-store settings page.
+     */
+    public function createStore(Request $request)
+    {
+        $data = $request->validate([
+            'store_name' => ['required', 'string', 'max:128'],
+            'base_url'   => ['required', 'url', 'max:255'],
+        ]);
+
+        $setting = VentaSetting::create([
+            'store_name'     => $data['store_name'],
+            'base_url'       => rtrim($data['base_url'], '/'),
+            'api_token'      => '',
+            'enabled'        => false,
+            'sync_last_days' => 30,
+        ]);
+
+        ActivityLogger::log('created', 'Venta Store', $setting->id, $setting->store_name);
+
+        return redirect()
+            ->route('ext.venta.settings.show', ['store' => $setting->id])
+            ->with('status', 'Store created. Add the API token to start syncing.');
     }
 
     public function save(Request $request)
@@ -235,14 +279,52 @@ class VentaController extends Controller
             return response()->json(['error' => 'API call failed: ' . ($result['body']['error'] ?? 'Unknown error')], 500);
         }
 
-        // Venta returns a flat array or wrapped in data key
+        // Venta returns a flat array or wrapped in a data key.
         $statuses = $result['body']['data'] ?? $result['body'] ?? [];
-
         if (!is_array($statuses) || empty($statuses)) {
             return response()->json(['error' => 'No statuses returned from Venta.'], 404);
         }
 
-        return response()->json(['statuses' => $statuses]);
+        // Delta-merge — preserve existing order_status_id mappings, only update
+        // venta_status_name on rename. Rows whose IDs vanished from the API are
+        // removed; new ones are inserted with order_status_id=0 (awaiting pick).
+        $apiIds = [];
+        foreach ($statuses as $s) {
+            $vid = (int) ($s['id'] ?? $s['order_status_id'] ?? 0);
+            if ($vid <= 0) continue;
+            $name = (string) ($s['name'] ?? $s['label'] ?? '');
+
+            $row = VentaOrderStatusMap::firstOrNew([
+                'venta_setting_id' => $setting->id,
+                'venta_status_id'  => $vid,
+            ]);
+
+            if (!$row->exists) {
+                $row->order_status_id = 0;
+            }
+            $row->venta_status_name = $name;
+            $row->save();
+
+            $apiIds[] = $vid;
+        }
+
+        VentaOrderStatusMap::where('venta_setting_id', $setting->id)
+            ->whereNotIn('venta_status_id', $apiIds ?: [0])
+            ->delete();
+
+        // Return persisted rows so the JS can render dropdowns with the
+        // current mappings already selected.
+        $persisted = VentaOrderStatusMap::where('venta_setting_id', $setting->id)
+            ->orderBy('venta_status_id')
+            ->get(['venta_status_id', 'venta_status_name', 'order_status_id'])
+            ->map(fn ($r) => [
+                'id'              => $r->venta_status_id,
+                'name'            => $r->venta_status_name,
+                'order_status_id' => (int) $r->order_status_id,
+            ])
+            ->all();
+
+        return response()->json(['statuses' => $persisted]);
     }
 
     public function saveOrderStatusMap(Request $request)
