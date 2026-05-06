@@ -4,7 +4,9 @@ namespace Extensions\opencart;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
+use App\Models\Catalog\Order;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -27,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
  * OpenCart is a multi-store integration. Each enabled OpenCartSetting is its
  * own card + tab; metrics are scoped via marketplace_source = "opencart:{id}".
  */
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor
 {
     protected string $id = 'opencart';
 
@@ -323,5 +325,27 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
             });
 
         return $data;
+    }
+
+    /**
+     * OpenCart fees come from the catalog order itself: payment_cost +
+     * extra_cost columns. No marketplace API lookup needed.
+     */
+    public function feesForOrder(Order $order): ?array
+    {
+        $source = (string) $order->marketplace_source;
+        if (!str_starts_with($source, 'opencart:')) {
+            return null;
+        }
+
+        $items = [];
+        $total = 0;
+        $paymentCost = (float) ($order->payment_cost ?? 0);
+        $extraCost = (float) ($order->extra_cost ?? 0);
+
+        if ($paymentCost > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentCost]; $total += $paymentCost; }
+        if ($extraCost > 0)   { $items[] = ['label' => 'Extra Cost',  'amount' => $extraCost];   $total += $extraCost; }
+
+        return ['total' => round($total, 2), 'items' => $items, 'source' => 'opencart'];
     }
 }

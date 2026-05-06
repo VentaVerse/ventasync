@@ -4,8 +4,11 @@ namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\OrderFeesContributor;
+use App\Integrations\Contracts\OrderImagesContributor;
 use App\Integrations\Contracts\SkuResolver;
 use App\Integrations\Contracts\SkuSyncContributor;
+use App\Models\Catalog\Order;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -23,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor
 {
     protected string $id = 'lazada';
 
@@ -349,5 +352,106 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return $data;
+    }
+
+    /**
+     * Lazada catalog orders' product images live in lazada_order_products.
+     * Look up the Lazada order by catalog_order_id, then map each product
+     * back to its catalog order_product_id via SKU.
+     */
+    public function imagesForCatalogOrders(array $catalogOrderIds): array
+    {
+        if (empty($catalogOrderIds) || !Schema::hasTable('lazada_orders')) {
+            return [];
+        }
+
+        $lazadaOrders = LazadaOrder::whereIn('catalog_order_id', $catalogOrderIds)
+            ->with('products')
+            ->get()
+            ->keyBy('catalog_order_id');
+
+        if ($lazadaOrders->isEmpty()) {
+            return [];
+        }
+
+        // We need to walk catalog order_products to associate by SKU. The
+        // caller (core OrderController) loads orders eager with products,
+        // but the contract here only takes catalog_order_ids. Read the
+        // catalog order_products table directly.
+        $pfx = (string) config('catalog.prefix');
+        $opTable = $pfx . 'order_product';
+        if (!Schema::hasTable($opTable)) {
+            return [];
+        }
+
+        $orderProducts = DB::table($opTable)
+            ->whereIn('order_id', $catalogOrderIds)
+            ->get(['order_product_id', 'order_id', 'model']);
+
+        $result = [];
+        foreach ($orderProducts as $op) {
+            $lzOrder = $lazadaOrders->get($op->order_id);
+            if (!$lzOrder) {
+                continue;
+            }
+            $sku = trim((string) $op->model);
+            if ($sku === '') {
+                continue;
+            }
+            $lzProduct = $lzOrder->products->firstWhere('sku', $sku);
+            $image = $lzProduct ? trim((string) ($lzProduct->image ?? '')) : '';
+            if ($image !== '') {
+                $result[(int) $op->order_product_id] = $image;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Lazada fees come from the lazada_orders.fees JSON column. Returns the
+     * commission / payment fee / shipping cost / negative other_fees as a
+     * structured breakdown.
+     */
+    public function feesForOrder(Order $order): ?array
+    {
+        if ((string) $order->marketplace_source !== 'lazada') {
+            return null;
+        }
+
+        $mktOrderId = (string) $order->marketplace_order_id;
+        if ($mktOrderId === '' || !Schema::hasTable('lazada_orders')) {
+            return null;
+        }
+
+        $lzOrder = LazadaOrder::where('order_id', $mktOrderId)->first();
+        if (!$lzOrder || empty($lzOrder->fees)) {
+            return ['total' => 0, 'items' => [], 'source' => 'lazada'];
+        }
+
+        $fees = is_array($lzOrder->fees) ? $lzOrder->fees : [];
+        $items = [];
+        $total = 0;
+
+        $commission = abs((float) ($fees['commission'] ?? 0));
+        $paymentFee = abs((float) ($fees['payment_fee'] ?? 0));
+        $shippingCost = abs((float) ($fees['shipping_service_cost'] ?? 0));
+
+        if ($commission > 0)   { $items[] = ['label' => 'Commission',    'amount' => $commission];  $total += $commission; }
+        if ($paymentFee > 0)   { $items[] = ['label' => 'Payment Fee',   'amount' => $paymentFee];  $total += $paymentFee; }
+        if ($shippingCost > 0) { $items[] = ['label' => 'Shipping Fee',  'amount' => $shippingCost]; $total += $shippingCost; }
+
+        $otherFees = $fees['other_fees'] ?? [];
+        if (is_array($otherFees)) {
+            foreach ($otherFees as $label => $amount) {
+                if ((float) $amount < 0) {
+                    $amt = abs((float) $amount);
+                    $items[] = ['label' => ucwords(str_replace('_', ' ', $label)), 'amount' => $amt];
+                    $total += $amt;
+                }
+            }
+        }
+
+        return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
     }
 }

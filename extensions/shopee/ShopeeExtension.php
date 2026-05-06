@@ -4,7 +4,9 @@ namespace Extensions\shopee;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
+use App\Models\Catalog\Order;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -21,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor
 {
     protected string $id = 'shopee';
 
@@ -286,5 +288,48 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return $data;
+    }
+
+    /**
+     * Shopee fees live in shopee_orders.fees['order_income'] from the
+     * Shopee escrow detail API. Returns commission / service / transaction
+     * fee / withholding tax as a structured breakdown.
+     */
+    public function feesForOrder(Order $order): ?array
+    {
+        if ((string) $order->marketplace_source !== 'shopee') {
+            return null;
+        }
+
+        $mktOrderId = (string) $order->marketplace_order_id;
+        if ($mktOrderId === '' || !Schema::hasTable('shopee_orders')) {
+            return null;
+        }
+
+        $spOrder = ShopeeOrder::where('order_sn', $mktOrderId)->first();
+        if (!$spOrder || empty($spOrder->fees)) {
+            return ['total' => 0, 'items' => [], 'source' => 'shopee'];
+        }
+
+        $feesRaw = is_array($spOrder->fees) ? $spOrder->fees : [];
+        $income = $feesRaw['order_income'] ?? $feesRaw;
+        if (!is_array($income)) {
+            return ['total' => 0, 'items' => [], 'source' => 'shopee'];
+        }
+
+        $items = [];
+        $total = 0;
+
+        $commission     = abs((float) ($income['commission_fee'] ?? 0));
+        $serviceFee     = abs((float) ($income['service_fee'] ?? 0));
+        $txnFee         = abs((float) ($income['seller_transaction_fee'] ?? 0));
+        $withholdingTax = abs((float) ($income['withholding_tax'] ?? 0));
+
+        if ($commission > 0)     { $items[] = ['label' => 'Commission',       'amount' => $commission];     $total += $commission; }
+        if ($serviceFee > 0)     { $items[] = ['label' => 'Service Fee',      'amount' => $serviceFee];     $total += $serviceFee; }
+        if ($txnFee > 0)         { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee];          $total += $txnFee; }
+        if ($withholdingTax > 0) { $items[] = ['label' => 'Withholding Tax', 'amount' => $withholdingTax]; $total += $withholdingTax; }
+
+        return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
     }
 }

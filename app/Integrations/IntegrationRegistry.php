@@ -104,6 +104,29 @@ class IntegrationRegistry
     }
 
     /**
+     * Providers that implement OrderImagesContributor — used by core's
+     * OrderController to resolve marketplace-supplied product images.
+     *
+     * @return \App\Integrations\Contracts\OrderImagesContributor[]
+     */
+    public function orderImagesContributors(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\OrderImagesContributor::class);
+    }
+
+    /**
+     * Providers that implement OrderFeesContributor — used by core's
+     * OrderController to resolve marketplace-side fees (commission,
+     * shipping, transaction tax, etc.) for a catalog order.
+     *
+     * @return \App\Integrations\Contracts\OrderFeesContributor[]
+     */
+    public function orderFeesContributors(): array
+    {
+        return $this->providersImplementing(\App\Integrations\Contracts\OrderFeesContributor::class);
+    }
+
+    /**
      * Generic helper: return providers that implement the given interface
      * AND pass enabled+licensed gates. No permission filter — these are
      * system-level contracts, not UI surfaces.

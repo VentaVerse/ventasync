@@ -4,7 +4,9 @@ namespace Extensions\tiktok;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
+use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\SkuSyncContributor;
+use App\Models\Catalog\Order;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -21,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor
 {
     protected string $id = 'tiktok';
 
@@ -255,5 +257,40 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
         }
 
         return $data;
+    }
+
+    /**
+     * TikTok fees come from tiktok_orders.fees (commission, transaction fee,
+     * shipping fee).
+     */
+    public function feesForOrder(Order $order): ?array
+    {
+        if ((string) $order->marketplace_source !== 'tiktok') {
+            return null;
+        }
+
+        $mktOrderId = (string) $order->marketplace_order_id;
+        if ($mktOrderId === '' || !Schema::hasTable('tiktok_orders')) {
+            return null;
+        }
+
+        $ttOrder = TikTokOrder::where('order_id', $mktOrderId)->first();
+        if (!$ttOrder || empty($ttOrder->fees)) {
+            return ['total' => 0, 'items' => [], 'source' => 'tiktok'];
+        }
+
+        $fees = is_array($ttOrder->fees) ? $ttOrder->fees : [];
+        $items = [];
+        $total = 0;
+
+        $commission  = abs((float) ($fees['commission'] ?? 0));
+        $txnFee      = abs((float) ($fees['transaction_fee'] ?? 0));
+        $shippingFee = abs((float) ($fees['shipping_fee'] ?? 0));
+
+        if ($commission > 0)  { $items[] = ['label' => 'Commission',       'amount' => $commission];  $total += $commission; }
+        if ($txnFee > 0)      { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee];      $total += $txnFee; }
+        if ($shippingFee > 0) { $items[] = ['label' => 'Shipping Fee',    'amount' => $shippingFee]; $total += $shippingFee; }
+
+        return ['total' => round($total, 2), 'items' => $items, 'source' => 'tiktok'];
     }
 }

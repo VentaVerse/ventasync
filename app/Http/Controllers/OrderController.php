@@ -7,12 +7,8 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
+use App\Integrations\IntegrationRegistry;
 use App\Models\OrderPayment;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\tiktok\Models\TikTokOrder;
 use App\Services\ActivityLogger;
 use App\Services\FcmService;
 use App\Services\OrderStockService;
@@ -937,21 +933,15 @@ class OrderController extends Controller
         }
 
         if ($skusToResolve) {
-            $variants = LazadaProductVariant::whereIn('seller_sku', array_values($skusToResolve))
-                ->get()
-                ->keyBy('seller_sku');
-
-            $lazadaProductIds = $variants->pluck('lazada_product_id')->unique()->values()->all();
-            $lazadaProducts = $lazadaProductIds
-                ? LazadaProduct::whereIn('id', $lazadaProductIds)->pluck('product_id', 'id')->toArray()
-                : [];
-
+            // Iterate the SKU resolvers from each marketplace extension
+            // (Lazada implements one; others can opt in). First match wins.
+            $resolvers = app(IntegrationRegistry::class)->skuResolvers();
             foreach ($skusToResolve as $opId => $sku) {
-                $variant = $variants->get($sku);
-                if ($variant && isset($lazadaProducts[$variant->lazada_product_id])) {
-                    $pid = (int) $lazadaProducts[$variant->lazada_product_id];
-                    if ($pid > 0) {
-                        $map[$opId] = $pid;
+                foreach ($resolvers as $resolver) {
+                    $resolved = $resolver->resolveCatalogProduct($sku);
+                    if ($resolved !== null && !empty($resolved['product_id'])) {
+                        $map[$opId] = (int) $resolved['product_id'];
+                        break;
                     }
                 }
             }
@@ -1008,59 +998,38 @@ class OrderController extends Controller
     }
 
     /**
-     * Build order_product_id → Lazada image URL map for Lazada orders.
+     * Build order_product_id → marketplace image URL map by asking every
+     * registered OrderImagesContributor for its contribution. Lazada is the
+     * canonical contributor (its catalog orders typically have product_id=0
+     * with the Lazada SKU as the model, so the catalog image lookup misses).
      */
     private static function resolveLazadaImages($orders): array
     {
-        $lazadaOrderIds = [];
+        $catalogOrderIds = [];
         foreach ($orders as $o) {
-            if ($o->marketplace_source === 'lazada') {
-                $lazadaOrderIds[] = $o->order_id;
-            }
+            $catalogOrderIds[] = (int) $o->order_id;
         }
-
-        if (! $lazadaOrderIds) {
+        if (empty($catalogOrderIds)) {
             return [];
         }
 
-        $lazadaOrders = LazadaOrder::whereIn('catalog_order_id', $lazadaOrderIds)
-            ->with('products')
-            ->get()
-            ->keyBy('catalog_order_id');
-
-        $result = [];
-        foreach ($orders as $o) {
-            if ($o->marketplace_source !== 'lazada') {
-                continue;
-            }
-            $lzOrder = $lazadaOrders->get($o->order_id);
-            if (! $lzOrder) {
-                continue;
-            }
-            $lzProducts = $lzOrder->products->keyBy('sku');
-            foreach ($o->products as $op) {
-                $sku = trim((string) $op->model);
-                $lzProduct = $sku !== '' ? $lzProducts->get($sku) : null;
-                $image = $lzProduct ? trim((string) ($lzProduct->image ?? '')) : '';
-                if ($image !== '') {
-                    $result[$op->order_product_id] = $image;
-                }
-            }
+        $merged = [];
+        foreach (app(IntegrationRegistry::class)->orderImagesContributors() as $contributor) {
+            $merged += $contributor->imagesForCatalogOrders($catalogOrderIds);
         }
-
-        return $result;
+        return $merged;
     }
 
     /**
-     * Resolve marketplace fees from the source Lazada/Shopee order.
-     * Returns an array with individual fee components and a total.
+     * Resolve marketplace fees by asking each registered OrderFeesContributor
+     * if it can identify the order. Manual fees (from the order_fees table)
+     * are merged in regardless of which marketplace, if any, owns the order.
      */
     private static function resolveMarketplaceFees(Order $order): array
     {
         $source = (string) $order->marketplace_source;
-        $mktOrderId = (string) $order->marketplace_order_id;
 
-        // Start with manual fees from order_fees table (applies to all orders)
+        // Manual fees from the order_fees table apply to every order.
         $manualFees = DB::table('order_fees')
             ->where('order_id', $order->order_id)
             ->get();
@@ -1075,116 +1044,28 @@ class OrderController extends Controller
             }
         }
 
-        if ($source === '' || $mktOrderId === '') {
-            return ['total' => round($manualTotal, 2), 'items' => $manualItems, 'source' => 'manual'];
+        // Ask the registry for the marketplace breakdown. First non-null wins.
+        $marketplaceFees = null;
+        foreach (app(IntegrationRegistry::class)->orderFeesContributors() as $contributor) {
+            $marketplaceFees = $contributor->feesForOrder($order);
+            if ($marketplaceFees !== null) {
+                break;
+            }
         }
 
-        if ($source === 'lazada') {
-            $lzOrder = LazadaOrder::where('order_id', $mktOrderId)->first();
-            if (!$lzOrder || empty($lzOrder->fees)) {
-                return ['total' => 0, 'items' => [], 'source' => 'lazada'];
-            }
-
-            $fees = is_array($lzOrder->fees) ? $lzOrder->fees : [];
-            $items = [];
-            $total = 0;
-
-            $commission = abs((float) ($fees['commission'] ?? 0));
-            $paymentFee = abs((float) ($fees['payment_fee'] ?? 0));
-            $shippingCost = abs((float) ($fees['shipping_service_cost'] ?? 0));
-
-            if ($commission > 0) { $items[] = ['label' => 'Commission', 'amount' => $commission]; $total += $commission; }
-            if ($paymentFee > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentFee]; $total += $paymentFee; }
-            if ($shippingCost > 0) { $items[] = ['label' => 'Shipping Fee', 'amount' => $shippingCost]; $total += $shippingCost; }
-
-            // Other fees: only include actual fee deductions (negative values)
-            $otherFees = $fees['other_fees'] ?? [];
-            if (is_array($otherFees)) {
-                foreach ($otherFees as $label => $amount) {
-                    if ((float) $amount < 0) {
-                        $amt = abs((float) $amount);
-                        $items[] = ['label' => ucwords(str_replace('_', ' ', $label)), 'amount' => $amt];
-                        $total += $amt;
-                    }
-                }
-            }
-
-            $items = array_merge($items, $manualItems);
-            $total += $manualTotal;
-            return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
+        if ($marketplaceFees === null) {
+            return [
+                'total'  => round($manualTotal, 2),
+                'items'  => $manualItems,
+                'source' => $source ?: 'manual',
+            ];
         }
 
-        if ($source === 'shopee') {
-            $spOrder = ShopeeOrder::where('order_sn', $mktOrderId)->first();
-            if (!$spOrder || empty($spOrder->fees)) {
-                return ['total' => 0, 'items' => [], 'source' => 'shopee'];
-            }
-
-            $feesRaw = is_array($spOrder->fees) ? $spOrder->fees : [];
-            $income = $feesRaw['order_income'] ?? $feesRaw;
-            if (!is_array($income)) {
-                return ['total' => 0, 'items' => [], 'source' => 'shopee'];
-            }
-
-            $items = [];
-            $total = 0;
-
-            $commission = abs((float) ($income['commission_fee'] ?? 0));
-            $serviceFee = abs((float) ($income['service_fee'] ?? 0));
-            $txnFee = abs((float) ($income['seller_transaction_fee'] ?? 0));
-            $withholdingTax = abs((float) ($income['withholding_tax'] ?? 0));
-
-            if ($commission > 0) { $items[] = ['label' => 'Commission', 'amount' => $commission]; $total += $commission; }
-            if ($serviceFee > 0) { $items[] = ['label' => 'Service Fee', 'amount' => $serviceFee]; $total += $serviceFee; }
-            if ($txnFee > 0) { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee]; $total += $txnFee; }
-            if ($withholdingTax > 0) { $items[] = ['label' => 'Withholding Tax', 'amount' => $withholdingTax]; $total += $withholdingTax; }
-
-            $items = array_merge($items, $manualItems);
-            $total += $manualTotal;
-            return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
-        }
-
-        if ($source === 'tiktok') {
-            $ttOrder = TikTokOrder::where('order_id', $mktOrderId)->first();
-            if (!$ttOrder || empty($ttOrder->fees)) {
-                return ['total' => 0, 'items' => [], 'source' => 'tiktok'];
-            }
-
-            $fees = is_array($ttOrder->fees) ? $ttOrder->fees : [];
-            $items = [];
-            $total = 0;
-
-            $commission = abs((float) ($fees['commission'] ?? 0));
-            $txnFee = abs((float) ($fees['transaction_fee'] ?? 0));
-            $shippingFee = abs((float) ($fees['shipping_fee'] ?? 0));
-
-            if ($commission > 0) { $items[] = ['label' => 'Commission', 'amount' => $commission]; $total += $commission; }
-            if ($txnFee > 0) { $items[] = ['label' => 'Transaction Fee', 'amount' => $txnFee]; $total += $txnFee; }
-            if ($shippingFee > 0) { $items[] = ['label' => 'Shipping Fee', 'amount' => $shippingFee]; $total += $shippingFee; }
-
-            $items = array_merge($items, $manualItems);
-            $total += $manualTotal;
-            return ['total' => round($total, 2), 'items' => $items, 'source' => 'tiktok'];
-        }
-
-        // OpenCart: use payment_cost + extra_cost from order table
-        if (str_starts_with($source, 'opencart:')) {
-            $items = [];
-            $total = 0;
-            $paymentCost = (float) ($order->payment_cost ?? 0);
-            $extraCost = (float) ($order->extra_cost ?? 0);
-
-            if ($paymentCost > 0) { $items[] = ['label' => 'Payment Fee', 'amount' => $paymentCost]; $total += $paymentCost; }
-            if ($extraCost > 0) { $items[] = ['label' => 'Extra Cost', 'amount' => $extraCost]; $total += $extraCost; }
-
-            // Append manual fees
-            $items = array_merge($items, $manualItems);
-            $total += $manualTotal;
-
-            return ['total' => round($total, 2), 'items' => $items, 'source' => $source];
-        }
-
-        return ['total' => round($manualTotal, 2), 'items' => $manualItems, 'source' => $source ?: 'manual'];
+        return [
+            'total'  => round(((float) ($marketplaceFees['total'] ?? 0)) + $manualTotal, 2),
+            'items'  => array_merge($marketplaceFees['items'] ?? [], $manualItems),
+            'source' => $marketplaceFees['source'] ?? $source,
+        ];
     }
 
     // ── Order Payments ──────────────────────────────────────
