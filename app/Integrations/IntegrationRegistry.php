@@ -67,6 +67,31 @@ class IntegrationRegistry
     }
 
     /**
+     * Providers that implement SkuResolver, regardless of user — used by core
+     * services (OrderStockService, etc.) that need to translate a marketplace
+     * SKU into a catalog product. Filters by enabled+licensed only; permission
+     * checks don't apply because this is system-level reconciliation, not UI.
+     *
+     * @return \App\Integrations\Contracts\SkuResolver[]
+     */
+    public function skuResolvers(): array
+    {
+        $resolvers = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$provider instanceof \App\Integrations\Contracts\SkuResolver) {
+                continue;
+            }
+            if (!$this->passesGates($id, null)) {
+                continue;
+            }
+            $resolvers[] = $provider;
+        }
+
+        return $resolvers;
+    }
+
+    /**
      * Order tabs visible to the given user, flattened across providers.
      * Multi-store providers contribute one tab per store; single-store
      * providers contribute one tab.

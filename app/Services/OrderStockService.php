@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
+use App\Integrations\IntegrationRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductOptionValue;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
 use Illuminate\Support\Facades\DB;
 
 class OrderStockService
@@ -190,16 +189,23 @@ class OrderStockService
             $product = Product::where('product_id', $orderProduct->product_id)->first();
         }
 
-        // --- Lazada variant chain: seller_sku → variant → product + option value ---
+        // --- Marketplace SKU lookup via the integration registry ---
+        // Each marketplace extension that maintains its own SKU↔catalog map
+        // (Lazada has seller_sku → LazadaProductVariant → catalog product) can
+        // implement Contracts\SkuResolver and contribute here. Core no longer
+        // imports the marketplace's models directly.
         if (!$product && $sku !== '') {
-            $variant = LazadaProductVariant::where('seller_sku', $sku)->first();
-            if ($variant) {
-                $lazadaProduct = LazadaProduct::where('id', $variant->lazada_product_id)->first();
-                if ($lazadaProduct && $lazadaProduct->product_id > 0) {
-                    $product = Product::where('product_id', $lazadaProduct->product_id)->first();
+            foreach (app(IntegrationRegistry::class)->skuResolvers() as $resolver) {
+                $resolved = $resolver->resolveCatalogProduct($sku);
+                if ($resolved === null) {
+                    continue;
                 }
-                if (!$optionValue && $variant->product_option_value_id > 0) {
-                    $optionValue = ProductOptionValue::where('product_option_value_id', $variant->product_option_value_id)->first();
+                $product = Product::where('product_id', $resolved['product_id'])->first();
+                if (!$optionValue && !empty($resolved['product_option_value_id'])) {
+                    $optionValue = ProductOptionValue::where('product_option_value_id', $resolved['product_option_value_id'])->first();
+                }
+                if ($product) {
+                    break;
                 }
             }
 

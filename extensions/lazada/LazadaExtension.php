@@ -3,6 +3,7 @@
 namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\SkuResolver;
 use App\Integrations\Dto\RecentOrder;
 use App\Integrations\Dto\TopProduct;
 use App\Integrations\IntegrationCard;
@@ -11,11 +12,13 @@ use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
 use Extensions\lazada\Models\LazadaOrder;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver
 {
     protected string $id = 'lazada';
 
@@ -152,6 +155,34 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider
                     ))->all();
                 },
             ),
+        ];
+    }
+
+    /**
+     * Translate a Lazada seller_sku into the catalog product mapping.
+     * Used by core's OrderStockService when adjusting stock for orders that
+     * reference a Lazada-specific SKU (variant maps to a catalog product +
+     * optionally an option-value row).
+     */
+    public function resolveCatalogProduct(string $sku): ?array
+    {
+        if ($sku === '' || !Schema::hasTable('lazada_product_variants')) {
+            return null;
+        }
+
+        $variant = LazadaProductVariant::where('seller_sku', $sku)->first();
+        if (!$variant) {
+            return null;
+        }
+
+        $lazadaProduct = LazadaProduct::where('id', $variant->lazada_product_id)->first();
+        if (!$lazadaProduct || !$lazadaProduct->product_id) {
+            return null;
+        }
+
+        return [
+            'product_id' => (int) $lazadaProduct->product_id,
+            'product_option_value_id' => $variant->product_option_value_id ?: null,
         ];
     }
 }
