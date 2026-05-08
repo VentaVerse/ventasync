@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Middleware\InstallationMiddleware;
+use App\Support\EnvFileWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
@@ -94,11 +96,85 @@ class InstallController extends Controller
         }
     }
 
+    /**
+     * Persist DB credentials to .env, generate APP_KEY if missing,
+     * apply runtime config so this request's migration uses the new
+     * connection, then run `php artisan migrate --force`. On success,
+     * redirect to the site config step.
+     */
     public function databaseSubmit(Request $request): RedirectResponse
     {
-        // Implementation in Day 3-4: write .env, run migrations
-        // For Day 1 skeleton we just redirect to next step.
-        return redirect()->route('install.config');
+        $data = $request->validate([
+            'host' => 'required|string|max:255',
+            'port' => 'required|integer|between:1,65535',
+            'database' => 'required|string|max:64',
+            'username' => 'required|string|max:128',
+            'password' => 'nullable|string|max:255',
+        ]);
+
+        // Verify connection one more time before persisting
+        try {
+            $pdo = new \PDO(
+                sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $data['host'], $data['port'], $data['database']),
+                $data['username'],
+                (string) ($data['password'] ?? ''),
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+        } catch (\Throwable $e) {
+            return back()
+                ->withErrors(['db' => 'Connection failed: ' . $e->getMessage()])
+                ->withInput($request->except('password'));
+        }
+
+        // Generate APP_KEY if missing (or if it's the Laravel default)
+        $appKey = config('app.key');
+        if (!$appKey || $appKey === 'SomeRandomString') {
+            $appKey = 'base64:' . base64_encode(random_bytes(32));
+        }
+
+        // Persist to .env. We escape the password — it may contain special chars.
+        EnvFileWriter::set([
+            'APP_KEY'       => $appKey,
+            'DB_CONNECTION' => 'mysql',
+            'DB_HOST'       => $data['host'],
+            'DB_PORT'       => (string) $data['port'],
+            'DB_DATABASE'   => $data['database'],
+            'DB_USERNAME'   => $data['username'],
+            'DB_PASSWORD'   => $data['password'] ?? '',
+        ]);
+
+        // Apply runtime config so this request's Artisan::call('migrate')
+        // uses the new credentials. Without this, Laravel would still be
+        // pointed at whatever the .env said when the request started.
+        config([
+            'app.key' => $appKey,
+            'database.connections.mysql.host' => $data['host'],
+            'database.connections.mysql.port' => $data['port'],
+            'database.connections.mysql.database' => $data['database'],
+            'database.connections.mysql.username' => $data['username'],
+            'database.connections.mysql.password' => $data['password'] ?? '',
+        ]);
+        DB::purge('mysql');
+
+        // Run migrations. --force is required outside production env;
+        // --no-interaction prevents Artisan from prompting on a TTY-less request.
+        try {
+            // Increase time budget for the request — fresh installs run ~80
+            // migrations and can take 30-90 seconds on slow shared hosting.
+            @set_time_limit(300);
+
+            Artisan::call('migrate', [
+                '--force' => true,
+                '--no-interaction' => true,
+            ]);
+        } catch (\Throwable $e) {
+            return back()
+                ->withErrors(['migration' => 'Migration failed: ' . $e->getMessage() . ' — check storage/logs/laravel.log for details'])
+                ->withInput($request->except('password'));
+        }
+
+        return redirect()->route('install.config')
+            ->with('status', 'Database configured and schema migrated.');
     }
 
     /** Step 4 — Site configuration. */
@@ -107,9 +183,74 @@ class InstallController extends Controller
         return view('install.config', $this->stepContext(4));
     }
 
+    /**
+     * Persist site config to .env (APP_NAME, APP_URL, timezone) AND to
+     * the settings table (company_name, timezone, optional mail). The
+     * settings row is the source of truth for runtime config; .env is
+     * the seed value for fresh boots.
+     */
     public function configSubmit(Request $request): RedirectResponse
     {
-        // Implementation in Day 4-5
+        $data = $request->validate([
+            'company_name' => 'required|string|max:128',
+            'company_email' => 'nullable|email|max:255',
+            'app_url' => 'required|url|max:255',
+            'timezone' => 'required|string|max:64',
+            'mail_host' => 'nullable|string|max:255',
+            'mail_port' => 'nullable|integer|between:1,65535',
+            'mail_username' => 'nullable|string|max:255',
+            'mail_password' => 'nullable|string|max:255',
+            'mail_encryption' => 'nullable|in:tls,ssl,',
+            'mail_from_address' => 'nullable|email|max:255',
+            'mail_from_name' => 'nullable|string|max:128',
+        ]);
+
+        // Update .env — APP_NAME and APP_URL are the customer-facing brand
+        EnvFileWriter::set([
+            'APP_NAME' => $data['company_name'],
+            'APP_URL' => rtrim($data['app_url'], '/'),
+            'APP_TIMEZONE' => $data['timezone'],
+            'MAIL_MAILER' => $data['mail_host'] ? 'smtp' : 'log',
+            'MAIL_HOST' => $data['mail_host'] ?? '',
+            'MAIL_PORT' => $data['mail_port'] ?? '',
+            'MAIL_USERNAME' => $data['mail_username'] ?? '',
+            'MAIL_PASSWORD' => $data['mail_password'] ?? '',
+            'MAIL_ENCRYPTION' => $data['mail_encryption'] ?? '',
+            'MAIL_FROM_ADDRESS' => $data['mail_from_address'] ?? '',
+            'MAIL_FROM_NAME' => $data['mail_from_name'] ?? $data['company_name'],
+        ]);
+
+        // Apply to runtime so subsequent steps see new values
+        config([
+            'app.name' => $data['company_name'],
+            'app.url' => rtrim($data['app_url'], '/'),
+            'app.timezone' => $data['timezone'],
+        ]);
+
+        // Persist to settings table — the runtime source of truth for the
+        // company-info bits the UI displays in the header, login, etc.
+        DB::table('settings')->upsert([
+            'id' => 1,
+            'company_name' => $data['company_name'],
+            'company_email' => $data['company_email'] ?? '',
+            'timezone' => $data['timezone'],
+            'mail_host' => $data['mail_host'] ?? '',
+            'mail_port' => $data['mail_port'] ?? null,
+            'mail_username' => $data['mail_username'] ?? '',
+            'mail_password' => $data['mail_password'] ?? '',
+            'mail_encryption' => $data['mail_encryption'] ?? '',
+            'mail_from_address' => $data['mail_from_address'] ?? '',
+            'mail_from_name' => $data['mail_from_name'] ?? $data['company_name'],
+            'mail_mailer' => $data['mail_host'] ? 'smtp' : 'log',
+            'updated_at' => now(),
+            'created_at' => now(),
+        ], ['id'], [
+            'company_name', 'company_email', 'timezone',
+            'mail_host', 'mail_port', 'mail_username', 'mail_password',
+            'mail_encryption', 'mail_from_address', 'mail_from_name', 'mail_mailer',
+            'updated_at',
+        ]);
+
         return redirect()->route('install.admin');
     }
 
@@ -119,9 +260,53 @@ class InstallController extends Controller
         return view('install.admin', $this->stepContext(5));
     }
 
+    /**
+     * Create the first admin user with full administrator group access.
+     * Replaces the hardcoded `admin / admin@xenon.local` row from
+     * DatabaseSeeder.php — the installer is now the source of truth for
+     * admin user creation.
+     */
     public function adminSubmit(Request $request): RedirectResponse
     {
-        // Implementation in Day 5
+        $data = $request->validate([
+            'name' => 'required|string|max:128',
+            'username' => ['required', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_.-]+$/'],
+            'email' => 'required|email|max:255',
+            'password' => 'required|string|min:8|max:255|confirmed',
+        ], [
+            'username.regex' => 'Username may contain only letters, numbers, dots, hyphens, and underscores.',
+            'password.confirmed' => 'Password and confirmation must match.',
+        ]);
+
+        // Ensure an Administrator group exists (the seeder creates it on
+        // a fresh migrate, but defend against missing data).
+        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
+        if (!$adminGroupId) {
+            $adminGroupId = DB::table('user_groups')->insertGetId([
+                'name' => 'Administrator',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // Replace any seeded default user (e.g. admin@xenon.local from
+        // DatabaseSeeder) with this real account.
+        DB::table('users')->where('username', 'admin')->where('email', 'admin@xenon.local')->delete();
+
+        DB::table('users')->updateOrInsert(
+            ['username' => $data['username']],
+            [
+                'name' => $data['name'],
+                'username' => $data['username'],
+                'email' => $data['email'],
+                'password' => Hash::make($data['password']),
+                'user_group_id' => $adminGroupId,
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
         return redirect()->route('install.complete');
     }
 
