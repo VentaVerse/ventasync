@@ -3,30 +3,21 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Reference data is created via migrations (default order statuses,
+     * Administrator user_group, etc.). The admin USER is created by the
+     * web installer wizard at /install/admin (or the agila:install CLI),
+     * which prompts for real credentials — not seeded here.
+     *
+     * If you need to add seed data later, register it via Artisan
+     * `Artisan::call('db:seed', ['--class' => 'YourSeeder'])` from the
+     * appropriate context, or call $this->call(YourSeeder::class) here.
+     */
     public function run(): void
     {
-        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
-
-        if (!$adminGroupId) {
-            return;
-        }
-
-        DB::table('users')->updateOrInsert(
-            ['username' => 'admin'],
-            [
-                'name'          => 'Admin',
-                'username'      => 'admin',
-                'email'         => 'admin@xenon.local',
-                'user_group_id' => $adminGroupId,
-                'password'      => Hash::make('admin'),
-                'created_at'    => now(),
-                'updated_at'    => now(),
-            ]
-        );
+        // Intentionally empty. The installer creates the admin user.
     }
 }
