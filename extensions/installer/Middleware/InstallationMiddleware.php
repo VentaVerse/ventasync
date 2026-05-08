@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Middleware;
+namespace Extensions\installer\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
@@ -24,6 +24,10 @@ use Symfony\Component\HttpFoundation\Response;
  *      to a version that added the installer; auto-creates marker to
  *      cache the verdict)
  *   3. No marker, no DB / no users → fresh install, route to /install
+ *
+ * Pushed onto the global middleware stack by InstallerExtension::boot().
+ * This is the only "always loaded" piece of the installer — controllers,
+ * views, and assets only load via routes when the middleware allows them.
  */
 class InstallationMiddleware
 {
@@ -75,7 +79,6 @@ class InstallationMiddleware
     protected static function detectExistingInstall(): bool
     {
         try {
-            // .env must be present and configured
             if (!file_exists(base_path('.env'))) {
                 return false;
             }
@@ -84,14 +87,12 @@ class InstallationMiddleware
                 return false;
             }
 
-            // Must be able to connect AND have a `users` table with rows
             if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
                 return false;
             }
             $count = \Illuminate\Support\Facades\DB::table('users')->count();
             return $count > 0;
         } catch (\Throwable $e) {
-            // Any failure (no DB, no tables, bad credentials) → not installed
             return false;
         }
     }

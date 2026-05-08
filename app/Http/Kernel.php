@@ -21,9 +21,6 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
-        // Routes /* to /install when not installed; /install/* to / when installed.
-        // Runs early so it short-circuits before auth/session middleware fires.
-        \App\Http\Middleware\InstallationMiddleware::class,
     ];
 
     /**

@@ -1,4 +1,13 @@
 {
+  "extensions/installer/assets/install.css": {
+    "file": "assets/install-C9G5Ng92.css",
+    "src": "extensions/installer/assets/install.css",
+    "isEntry": true,
+    "name": "install",
+    "names": [
+      "install.css"
+    ]
+  },
   "resources/css/app.css": {
     "file": "assets/app-Eo_K3gTY.css",
     "src": "resources/css/app.css",
@@ -6,15 +15,6 @@
     "name": "app",
     "names": [
       "app.css"
-    ]
-  },
-  "resources/css/install.css": {
-    "file": "assets/install-C9G5Ng92.css",
-    "src": "resources/css/install.css",
-    "isEntry": true,
-    "name": "install",
-    "names": [
-      "install.css"
     ]
   },
   "resources/js/app.js": {

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Extensions\installer\Controllers;
 
-use App\Http\Middleware\InstallationMiddleware;
-use App\Support\EnvFileWriter;
+use Extensions\installer\Middleware\InstallationMiddleware;
+use Extensions\installer\Services\EnvFileWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +26,7 @@ use Illuminate\View\View;
  * mostly stateless — each step writes its result directly to .env or
  * the database, no session-spanning state.
  */
-class InstallController extends Controller
+class InstallController extends \App\Http\Controllers\Controller
 {
     /** Redirect / → first step or completion. */
     public function index(): RedirectResponse
@@ -37,7 +37,7 @@ class InstallController extends Controller
     /** Step 1 — Welcome + License acceptance. */
     public function welcome(): View
     {
-        return view('install.welcome', $this->stepContext(1));
+        return view('ext-installer::welcome', $this->stepContext(1));
     }
 
     public function welcomeSubmit(Request $request): RedirectResponse
@@ -55,7 +55,7 @@ class InstallController extends Controller
     public function requirements(): View
     {
         $checks = $this->runRequirementChecks();
-        return view('install.requirements', array_merge($this->stepContext(2), [
+        return view('ext-installer::requirements', array_merge($this->stepContext(2), [
             'checks' => $checks,
         ]));
     }
@@ -69,7 +69,7 @@ class InstallController extends Controller
     /** Step 3 — Database configuration. */
     public function database(): View
     {
-        return view('install.database', $this->stepContext(3));
+        return view('ext-installer::database', $this->stepContext(3));
     }
 
     public function databaseTest(Request $request): JsonResponse
@@ -180,7 +180,7 @@ class InstallController extends Controller
     /** Step 4 — Site configuration. */
     public function config(): View
     {
-        return view('install.config', $this->stepContext(4));
+        return view('ext-installer::config', $this->stepContext(4));
     }
 
     /**
@@ -257,7 +257,7 @@ class InstallController extends Controller
     /** Step 5 — Admin user creation. */
     public function admin(): View
     {
-        return view('install.admin', $this->stepContext(5));
+        return view('ext-installer::admin', $this->stepContext(5));
     }
 
     /**
@@ -313,7 +313,7 @@ class InstallController extends Controller
     /** Step 6 — Done. */
     public function complete(): View
     {
-        return view('install.complete', $this->stepContext(6));
+        return view('ext-installer::complete', $this->stepContext(6));
     }
 
     public function completeSubmit(): RedirectResponse

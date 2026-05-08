@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Support;
+namespace Extensions\installer\Services;
 
 /**
  * Safe in-place editing of the project's .env file.

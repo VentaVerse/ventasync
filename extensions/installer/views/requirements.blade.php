@@ -1,4 +1,4 @@
-@extends('install.layout')
+@extends('ext-installer::layout')
 
 @section('title', 'Server Requirements')
 

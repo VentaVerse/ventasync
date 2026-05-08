@@ -18,9 +18,31 @@ class ExtensionServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $manager = $this->app->make(ExtensionManager::class);
-        $enabledIds = $manager->getEnabledIds();
         $manifests = $manager->getManifests();
         $license = $this->app->make(LicenseService::class);
+
+        // ─── System extensions (load FIRST, no DB dependency) ──────────────
+        // Extensions with "system": true in their manifest must boot from
+        // filesystem regardless of DB state. This is how the installer
+        // extension can run before the `extensions` table even exists.
+        // System extensions are also exempt from license_required checks
+        // (they're foundational, not paid).
+        foreach ($manifests as $id => $manifest) {
+            if (!($manifest['system'] ?? false)) {
+                continue;
+            }
+            $providerClass = $manager->getProviderClass($id);
+            if ($providerClass && class_exists($providerClass)) {
+                $this->app->register($providerClass);
+            }
+            $langPath = base_path("extensions/{$id}/lang");
+            if (is_dir($langPath)) {
+                $this->loadTranslationsFrom($langPath);
+            }
+        }
+
+        // ─── Regular extensions (DB-dependent, license-gated) ──────────────
+        $enabledIds = $manager->getEnabledIds();
 
         foreach ($enabledIds as $id) {
             if (!isset($manifests[$id])) {
