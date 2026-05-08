@@ -17,6 +17,29 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\IntegrationController;
 
 use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\InstallController;
+
+// ----------------------------------------------------------------------
+// Web installer wizard. Gated by InstallationMiddleware: when the marker
+// file storage/agila/installed.lock exists, these routes redirect to /.
+// Until install is complete, all other /* routes redirect HERE.
+// ----------------------------------------------------------------------
+Route::prefix('install')->name('install.')->group(function () {
+    Route::get('/', [InstallController::class, 'index']);
+    Route::get('/welcome', [InstallController::class, 'welcome'])->name('welcome');
+    Route::post('/welcome', [InstallController::class, 'welcomeSubmit']);
+    Route::get('/requirements', [InstallController::class, 'requirements'])->name('requirements');
+    Route::get('/requirements/check', [InstallController::class, 'requirementsCheck'])->name('requirements.check');
+    Route::get('/database', [InstallController::class, 'database'])->name('database');
+    Route::post('/database/test', [InstallController::class, 'databaseTest'])->name('database.test');
+    Route::post('/database', [InstallController::class, 'databaseSubmit']);
+    Route::get('/config', [InstallController::class, 'config'])->name('config');
+    Route::post('/config', [InstallController::class, 'configSubmit']);
+    Route::get('/admin', [InstallController::class, 'admin'])->name('admin');
+    Route::post('/admin', [InstallController::class, 'adminSubmit']);
+    Route::get('/complete', [InstallController::class, 'complete'])->name('complete');
+    Route::post('/complete', [InstallController::class, 'completeSubmit']);
+});
 
 // Root route handles the Shopee OAuth domain-level redirect callback. Bound
 // directly to the extension since Shopee may only allow a domain-level URI;

@@ -8,6 +8,15 @@
       "app.css"
     ]
   },
+  "resources/css/install.css": {
+    "file": "assets/install-SwwmN7rF.css",
+    "src": "resources/css/install.css",
+    "isEntry": true,
+    "name": "install",
+    "names": [
+      "install.css"
+    ]
+  },
   "resources/js/app.js": {
     "file": "assets/app-CGitQhgl.js",
     "name": "app",
