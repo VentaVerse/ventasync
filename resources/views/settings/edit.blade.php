@@ -144,7 +144,7 @@
             <div id="smtpFields" class="form-grid mt-16">
                 <div>
                     <label>SMTP Host</label>
-                    <input class="input" type="text" name="mail_host" value="{{ old('mail_host', $setting->mail_host) }}" placeholder="panel.example.com">
+                    <input class="input" type="text" name="mail_host" value="{{ old('mail_host', $setting->mail_host) }}" placeholder="smtp.example.com">
                 </div>
                 <div>
                     <label>SMTP Port</label>

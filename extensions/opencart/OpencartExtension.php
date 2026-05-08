@@ -46,7 +46,6 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 \Extensions\opencart\Commands\OpenCartPullQty::class,
                 \Extensions\opencart\Commands\OpenCartImportOrders::class,
                 \Extensions\opencart\Commands\OpenCartReclassifyOrders::class,
-                \Extensions\opencart\Commands\OpenCartMigrateCosts::class,
                 \Extensions\opencart\Commands\ShopeeSyncReviews::class,
                 \Extensions\opencart\Commands\LazadaSyncReviews::class,
                 \Extensions\opencart\Commands\OpenCartPushReviews::class,

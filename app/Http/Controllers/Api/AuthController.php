@@ -25,8 +25,8 @@ class AuthController extends Controller
             ]);
         }
 
-        // Revoke old mobile tokens (including legacy xenon-mobile name) to prevent accumulation
-        $user->tokens()->whereIn('name', ['agila-mobile', 'xenon-mobile'])->delete();
+        // Revoke any existing mobile tokens for this user to prevent accumulation
+        $user->tokens()->where('name', 'agila-mobile')->delete();
 
         $token = $user->createToken('agila-mobile')->plainTextToken;
 

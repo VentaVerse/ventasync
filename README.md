@@ -1,222 +1,268 @@
-# Multi-Marketplace ERP
+# VentaSync
 
-A Laravel-based ERP system for managing products, orders, and inventory across multiple e-commerce platforms from a single dashboard.
+**Self-hosted multi-marketplace ERP** for sellers running across Lazada, Shopee, TikTok Shop, Shopify, OpenCart, Venta, and more — all from one dashboard.
 
-## Overview
+Open-core distribution: the Community tier is free and AGPL-licensed; advanced features (campaigns, vouchers, advanced analytics, premium integrations) are sold as paid Plus modules.
 
-This ERP centralizes catalog management, order processing, stock tracking, and sales reporting for businesses selling across multiple marketplaces. It uses an OpenCart-compatible catalog schema and syncs with external platforms via their respective APIs.
+---
 
-### Supported Platforms
+## Why VentaSync
 
-- **OpenCart** — Bi-directional sync for products, categories, manufacturers, options, orders, and stock quantities. Supports multiple OpenCart stores.
-- **Lazada** — Order sync, product listing, stock push, return tracking. Uses Lazada Open Platform API.
-- **Shopee** — Order sync, product listing, stock push, return tracking, logistics. Uses Shopee Partner API.
-- **TikTok Shop** — Integration via TikTok Shop API.
+Filipino multi-channel sellers typically juggle Lazada, Shopee, TikTok, and their own webstore — three browser tabs, three sets of credentials, three reconciliation processes. VentaSync centralizes the daily operations:
 
-## Features
+- **One catalog** that pushes consistent prices, SKUs, and stock to every connected marketplace
+- **One unified order list** with marketplace badges, profit per order, and stock auto-deducted
+- **One reporting layer** that computes profitability across platforms
+- **One purchasing workflow** for restocking, multi-currency POs, and vendor management
 
-### Catalog Management
-- Products with descriptions, images, options/variants, and SKU tracking
-- Categories with hierarchical paths
-- Manufacturers / Brands
+Built for self-hosting: you run it on your own server, you own the data, you control the upgrade cadence.
+
+---
+
+## Tier model
+
+| Tier | What's included | Price |
+|------|----------------|-------|
+| **Community** | Core ERP + free integrations (Lazada, Shopee, TikTok, OpenCart, Venta) + unlimited users + free updates forever | Free, AGPL-3.0 |
+| **Plus** | Everything in Community + advanced marketplace features (campaigns, vouchers, bulk catalog, analytics) + premium integrations (Shopify, Pedallion) + 1 year updates + email support | Paid bundle |
+| **Enterprise** | Everything in Plus + custom modules + dedicated support | Contact sales |
+
+Plus modules are also available **à la carte** — buy only the integrations you need.
+
+---
+
+## Supported platforms (Community tier)
+
+| Platform | Capabilities |
+|----------|-------------|
+| **Lazada** | Order sync (incl. returns), product listing, stock push, price push, AWB print, status mapping |
+| **Shopee** | Order sync (incl. returns), product listing, stock push, price push, status mapping |
+| **TikTok Shop** | Order sync, product listing, stock push, price push, status mapping |
+| **OpenCart** | Bi-directional product/category/manufacturer/option/order/stock sync. Multi-store. |
+| **Venta** | Multi-store order sync, inventory push, product groups, categories |
+
+Plus tier adds **Shopify**, **Pedallion**, **Mirakl** (Zalora et al.), and advanced features (campaigns, vouchers, bulk listing migration, unified inbox, performance dashboards) for the marketplaces above.
+
+---
+
+## Features (Community)
+
+### Catalog
+- Products with descriptions, images, options/variants, SKU tracking
+- Hierarchical categories
+- Manufacturers / brands
 - Options and option values (e.g. Color, Size)
 - Bulk actions (enable, disable, delete)
 
-### Order Management
-- Unified order list across all platforms with marketplace source badges
-- Order detail with product breakdown, cost, profit, margin, and markup
-- Order status management with configurable statuses
-- Stock deduction/restoration tied to order status changes
+### Orders
+- Unified order list with marketplace source badges
+- Order detail with product breakdown, cost, profit, margin, markup
+- Configurable order statuses
+- Automatic stock deduction/restoration on status changes
 
-### Inventory & Stock
-- Real-time stock levels for products and option variants
-- Stock History Log — full audit trail of every quantity change (manual edits, order deductions, restorations) with timestamps, order links, source tracking, and user attribution
-- Automatic stock sync push to OpenCart, Lazada, and Shopee
+### Inventory
+- Per-product and per-option stock levels
+- **Stock History Log** — full audit trail of every quantity change with timestamps, user attribution, and source (manual edit, order deduction, restoration)
+- Multi-warehouse support
+- Automatic stock push to connected marketplaces
 
 ### Reports
-- **Order Profitability** — Revenue, cost, profit, margin %, markup % grouped by month or searchable
-- **Product Profitability** — Per-product sales performance with sortable columns
-- **Margin by Category** — Category-level profit analysis
-- **Marketplace Fees** — Commission, service, payment, and shipping fees by platform
-- **Inventory Valuation** — Current stock value at cost and retail
-- **Product Sales History** — Per-product order history with full profit breakdown
+- Order profitability (revenue / cost / profit / margin / markup, grouped by month or searchable)
+- Product profitability with sortable columns
+- Margin by category
+- Marketplace fees (commission, service, payment, shipping by platform)
+- Inventory valuation (cost and retail)
+- Per-product sales history with profit breakdown
 
 ### Dashboard
 - Stat cards (products, categories, orders, revenue)
-- Today's snapshot (orders, revenue, week orders)
-- Sales chart with 30-day / monthly / yearly toggle
-- Platform distribution pie chart
-- Recent orders with marketplace source badges
-- Sync status cards for OpenCart stores, Lazada, Shopee, and TikTok
-- Pending order counts per platform
+- Today's snapshot
+- Sales chart (30-day / monthly / yearly)
+- Platform distribution
+- Recent orders with marketplace badges
+- Per-platform pending order counts
 
-### User Management
-- Users with role-based access via User Groups
-- Granular permissions: `manage_products`, `manage_orders`, `manage_reports`, `manage_marketplace_api`, `manage_activity_log`, `manage_purchasing`, etc.
-- Activity Log — audit trail of user actions across the system
+### Purchasing
+- Full PO lifecycle (draft → approved → ordered → partially received → received → cancelled)
+- Auto-generated PO numbers (`PO{YYMM}-{NNNN}`)
+- Multi-currency with PHP equivalent display
+- Per-line discounts (% or fixed)
+- PDF generation, email to vendors
+- File attachments (PDF, images, Office docs)
+- Stock auto-update on receive (with optional cost auto-update)
+- Payment tracking with auto-status (unpaid / partial / paid)
+- Reorder suggestions (products below reorder level, filtered by vendor/category)
+- Dashboard widget (open POs, pending delivery, overdue, monthly spend)
+
+### Vendor management
+- Vendor CRUD with contact, payment terms, email preferences
+- Per-product and per-option vendor pricing in multiple currencies
+- Inline-editable vendor pricing tables
+
+### Users & permissions
+- Role-based access via User Groups
+- Granular per-feature permissions
+- Activity log audit trail
 - Last login tracking
 
-### Purchasing & Procurement
-- **Purchase Orders** — Full PO lifecycle: draft → approved → ordered → partially received → received (+ cancelled)
-- Auto-generated PO numbers (`PO{YYMM}-{NNNN}`)
-- Multi-currency support with PHP equivalent display and live conversion
-- Per-line discounts (percentage or fixed amount)
-- PDF generation and email to vendors
-- Drag-and-drop line item reordering
-- Smart Save & Approve flow with unsaved-changes detection
-- **Option-Level PO Items** — Add individual product options as separate line items with direct stock updates on receive
-- **Stock Auto-Update on Receive** — Automatic quantity updates for simple products and option-level items; manual allocation for legacy items
-- **Cost Auto-Update on Receive** — Optionally update product cost price from PO unit price with currency conversion
-- **Payment Tracking** — Record payments against POs with automatic status (unpaid/partial/paid) and due date calculation from vendor terms
-- **PO Status Timeline** — Color-coded audit trail of all PO actions (create, approve, order, receive, email, payment)
-- **File Attachments** — Upload invoices, receipts, and documents to POs (PDF, images, Office files)
-- **Reorder Suggestions** — Products below reorder level, filtered by vendor/category, with bulk PO creation
-- **Duplicate PO** — Clone existing POs as new drafts
-- **Dashboard Widget** — Open POs, pending delivery, overdue POs, and monthly spend stats
-
-### Vendor Management
-- Vendor CRUD with contact info, payment terms, and email preferences
-- Per-product vendor pricing with currency and minimum quantity
-- Per-option vendor pricing — different vendors and prices for each product option value
-- Inline-editable vendor pricing table with collapsible vendor groups
-- Bulk vendor assignment with "Copy first row" shortcut
-
-### Currency Management
-- Currency CRUD with exchange rates
-- Used across purchase orders for multi-currency procurement
-
 ### Other
-- Global search across products, orders, categories, and manufacturers
-- API endpoints for external integrations (Sanctum-authenticated)
+- Global search across products, orders, categories, manufacturers
+- Sanctum-authenticated REST API for mobile / external integrations
+- Mobile API surface for marketplace order management
 
-## Tech Stack
+---
+
+## Tech stack
 
 - **Backend:** PHP 8.2+, Laravel 12
-- **Database:** MySQL with OpenCart-compatible prefixed tables
-- **Frontend:** Blade templates, Tailwind CSS 4, Vite 7
-- **Auth:** Laravel Sanctum (API tokens), session-based (web)
-- **Queue:** Database driver (for marketplace sync jobs)
+- **Database:** MySQL 8.0+
+- **Frontend:** Blade + Vite + custom CSS (no Tailwind dependency for the core UI)
+- **Auth:** Laravel Sanctum (API), session-based (web)
+- **Queue:** Database driver
+
+---
 
 ## Requirements
 
-- PHP 8.2+
-- MySQL 8.0+
-- Composer
-- Node.js 18+ & npm
+- PHP 8.2+ with extensions: `mbstring`, `pdo_mysql`, `zip`, `gd` or `imagick`, `xml`, `curl`
+- MySQL 8.0+ (or MariaDB 10.6+)
+- Composer 2+
+- Node.js 18+ and npm (for asset rebuilds; pre-built assets ship in the zip)
+- Web server: nginx or Apache with PHP-FPM
+
+---
 
 ## Installation
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd <project-directory>
-
-# Install dependencies and set up
-composer setup
-```
-
-The `composer setup` script will:
-1. Install PHP dependencies
-2. Copy `.env.example` to `.env` (if not exists)
-3. Generate application key
-4. Run migrations
-5. Install npm dependencies
-6. Build frontend assets
-
-### Manual Setup
+> A guided installer (`php artisan agila:install`) is in development. Until it ships, follow the manual steps below.
 
 ```bash
-composer install
+# Extract VentaSync zip into your web root
+unzip agila-community-vX.Y.Z.zip
+cd ventasync-legacy
+
+# Install PHP dependencies
+composer install --no-dev --optimize-autoloader
+
+# Set up environment
 cp .env.example .env
 php artisan key:generate
-php artisan migrate
-npm install
+
+# Edit .env with your database credentials, app URL, mail settings
+# (DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD, APP_URL, MAIL_*)
+
+# Run migrations + seed reference data
+php artisan migrate --force
+php artisan db:seed --force
+
+# Build frontend assets (pre-built assets ship in public/build/, only needed for customization)
+npm install --omit=dev
 npm run build
+
+# Set storage permissions
+php artisan storage:link
+chmod -R ug+rwx storage bootstrap/cache
+
+# Default admin credentials (change immediately after first login):
+#   username: admin
+#   password: admin
 ```
+
+Marketplace API credentials (Lazada, Shopee, TikTok, etc.) are configured through the Settings pages within the application after install.
+
+---
 
 ## Configuration
 
-### Environment Variables
-
-Copy `.env.example` and configure:
+Required `.env` values:
 
 ```env
-# Database
+APP_NAME="Your Company Name"
+APP_URL=https://erp.yourdomain.com
+
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=your_database
-DB_USERNAME=your_username
+DB_DATABASE=agila_suites
+DB_USERNAME=your_user
 DB_PASSWORD=your_password
 
-# OpenCart table prefix (e.g. "oc_")
-DB_TABLE_PREFIX=
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=erp@yourdomain.com
+MAIL_FROM_NAME="${APP_NAME}"
 
-# Public catalog URL for image serving
+# Catalog table prefix (defaults to 0012_)
+DB_TABLE_PREFIX=0012_
+
+# Public catalog URL for image serving (optional — only if images are hosted on a separate storefront)
 CATALOG_PUBLIC_URL=https://your-storefront.com
 ```
 
-Marketplace API credentials (Lazada, Shopee, TikTok) are configured through the Settings pages within the application.
+---
+
+## Cron jobs
+
+Add to your crontab for marketplace sync and token refresh:
+
+```
+*  *    * * *   /usr/bin/php /path/to/artisan schedule:run >> /dev/null 2>&1
+```
+
+The Laravel scheduler runs the per-marketplace sync, token refresh, and stock push commands at appropriate intervals.
+
+---
 
 ## Development
 
+Run server, queue worker, log viewer, and Vite hot-reload concurrently:
+
 ```bash
-# Start dev server, queue worker, log viewer, and Vite simultaneously
 composer dev
 ```
 
-This runs concurrently:
-- `php artisan serve` — Laravel dev server
-- `php artisan queue:listen` — Queue worker for sync jobs
-- `php artisan pail` — Real-time log viewer
-- `npm run dev` — Vite HMR
+---
 
-## Project Structure
+## Architecture
 
-```
-app/
-├── Http/Controllers/       # Web and API controllers
-│   ├── Api/                # REST API endpoints
-│   └── Auth/               # Authentication controllers
-├── Models/
-│   ├── Admin/              # User groups, permissions
-│   ├── Catalog/            # Products, orders, categories (prefixed tables)
-│   └── Purchasing/         # PurchaseOrder, Vendor, Currency, PO items/logs/payments/attachments
-├── Services/
-│   ├── Lazada/             # Lazada API client
-│   ├── OpenCart/            # OpenCart sync services
-│   ├── Shopee/             # Shopee API client
-│   ├── TikTok/             # TikTok API client
-│   ├── OrderStockService   # Stock deduction/restoration logic
-│   ├── StockHistoryLogger  # Stock change audit trail
-│   ├── ActivityLogger      # User action audit trail
-│   └── SkuSyncService      # Cross-platform SKU sync
-├── Rules/                  # Custom validation rules
-└── View/                   # View composers
+VentaSync is **modular by design**. Each marketplace integration lives under `extensions/{name}/` with its own:
 
-resources/views/
-├── dashboard/              # Main dashboard
-├── products/               # Product CRUD, sales history, stock history
-├── orders/                 # Order list and detail
-├── purchase_orders/        # PO lifecycle (create, edit, show, receive, PDF, reorder)
-├── vendors/                # Vendor management
-├── currencies/             # Currency management
-├── reports/                # Profitability, fees, inventory reports
-├── lazada/                 # Lazada management pages
-├── shopee/                 # Shopee management pages
-├── opencart/               # OpenCart sync management
-├── tiktok/                 # TikTok management
-├── categories/             # Category management
-├── manufacturers/          # Manufacturer/brand management
-├── options/                # Product options management
-├── users/                  # User management
-├── user_groups/            # Role/permission management
-├── activity_log/           # Activity audit log
-├── emails/                 # Email templates (PO to vendor)
-├── settings/               # Application settings
-└── layouts/                # App layout and sidebar
-```
+- Manifest (`extension.json`)
+- Service provider class
+- Controllers, Models, Services
+- Routes, views, migrations
+- Permissions
+
+Extensions register themselves via the `IntegrationRegistry` and contribute to core surfaces (orders list, dashboard, mobile API, layout banner) via well-defined contracts (`IntegrationProvider`, `OrderImagesContributor`, `DashboardContributor`, etc.). Adding a new marketplace requires no core code changes.
+
+This same architecture supports **third-party developers** building their own integrations, and powers the Plus-tier paid modules.
+
+---
+
+## Updates
+
+Community customers get free security and bug-fix updates for the latest major version. Major version upgrades may include migration steps documented in `UPGRADE.md`.
+
+Plus customers receive 1 year of feature updates from purchase date.
+
+---
 
 ## License
 
-Proprietary. All rights reserved.
+**AGPL-3.0-or-later.** You may use, modify, and distribute VentaSync under the terms of the GNU Affero General Public License v3.0 or later. If you modify and serve VentaSync over a network, you must make your modified source available to users.
+
+Plus modules are distributed under separate commercial licenses. See https://example.com/pricing for details.
+
+---
+
+## Support
+
+- **Community:** GitHub Issues, public forum
+- **Plus:** Email support included for 1 year
+- **Enterprise:** Dedicated support contracts available
+
+Website: https://example.com
