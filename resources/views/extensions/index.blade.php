@@ -25,33 +25,6 @@
         </div>
     </div>
 
-    <div class="lic-page">
-        {{-- Core maintenance banner --}}
-        @if($coreLicense && $coreLicense->maintenanceExpired())
-            <div class="lic-banner warn">
-                <svg class="lic-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                <div>
-                    <strong>Support &amp; updates expired</strong> on {{ $coreLicense->maintenance_expires_at->format('F j, Y') }}.
-                    Your ERP continues to work, but you are no longer receiving updates or support.
-                    <a href="mailto:sales@example.com">Renew maintenance</a> to resume.
-                </div>
-            </div>
-        @endif
-
-        {{-- Core License --}}
-        <div class="lic-section-title">Core</div>
-        <div class="lic-list">
-            @include('licenses.partials._card', [
-                'slug' => $coreSlug,
-                'title' => 'VentaSync Core',
-                'subtitle' => 'The ERP itself. Required for the application to run.',
-                'license' => $coreLicense,
-                'isLicensed' => $coreIsLicensed,
-                'domain' => $domain,
-            ])
-        </div>
-    </div>
-
     @if(count($extensions) > 0)
         <h3 class="lic-section-title" style="margin-top:24px; margin-bottom:12px;">Installed Extensions</h3>
         <div class="ext-list">

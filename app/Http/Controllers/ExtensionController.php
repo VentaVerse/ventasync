@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Extensions\ExtensionManager;
 use App\Models\Extension;
 use App\Services\ActivityLogger;
-use App\Services\LicenseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -13,31 +12,17 @@ use ZipArchive;
 
 class ExtensionController extends Controller
 {
-    public function index(ExtensionManager $manager, LicenseService $license)
+    public function index(ExtensionManager $manager)
     {
-        $extensions = collect($manager->all())->map(function ($ext) use ($license) {
-            if (!empty($ext['license_required'])) {
-                $ext['_license'] = $license->getStoredLicense($ext['id']);
-                $ext['_is_licensed'] = $license->isModuleLicensed($ext['id']);
-            } else {
-                $ext['_license'] = null;
-                $ext['_is_licensed'] = true;
-            }
-            return $ext;
-        })->all();
-
-        $coreSlug = $license->coreSlug();
+        $extensions = collect($manager->all())->all();
 
         return view('extensions.index', [
             'extensions' => $extensions,
-            'coreSlug' => $coreSlug,
-            'coreLicense' => $license->getStoredLicense($coreSlug),
-            'coreIsLicensed' => $license->isCoreLicensed(),
             'domain' => request()->getHost(),
         ]);
     }
 
-    public function toggle(Request $request, ExtensionManager $manager, LicenseService $license, string $id)
+    public function toggle(Request $request, ExtensionManager $manager, string $id)
     {
         $extension = Extension::find($id);
 
@@ -48,12 +33,6 @@ class ExtensionController extends Controller
         if ($extension->enabled) {
             $manager->disable($id);
             return back()->with('success', "Extension '{$extension->name}' disabled.");
-        }
-
-        // Gate enabling on an active license when license_required=true.
-        $manifest = $manager->getManifest($id) ?? [];
-        if (!empty($manifest['license_required']) && !$license->isModuleLicensed($id)) {
-            return back()->with('error', "Activate the license for '{$extension->name}' before enabling it.");
         }
 
         $manager->enable($id);

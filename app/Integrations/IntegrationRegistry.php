@@ -4,7 +4,6 @@ namespace App\Integrations;
 
 use App\Extensions\ExtensionManager;
 use App\Models\User;
-use App\Services\LicenseService;
 
 /**
  * Central registry every marketplace integration registers itself with at boot.
@@ -14,10 +13,8 @@ use App\Services\LicenseService;
  * implementing IntegrationProvider and calling IntegrationRegistry::register()
  * from their service provider's boot() method.
  *
- * Visibility filters apply in this order: enabled (DB) -> licensed (when
- * license_required) -> permission (per-user). Extension-based integrations
- * are gated against the extensions table and the license server; "core"
- * integrations (id starts with "core:") skip enable/license gating and are
+ * Visibility filters apply in this order: enabled (DB) -> permission (per-user).
+ * "Core" integrations (id starts with "core:") skip the enable gate and are
  * gated only by permission. Multi-store integrations may use compound ids
  * like "venta:1" — the gate check extracts the base extension id ("venta")
  * before consulting the extensions table.
@@ -258,12 +255,12 @@ class IntegrationRegistry
     }
 
     /**
-     * Enabled + license gates. Permission is checked per surface (card vs tab)
-     * by the visible* methods above so different permissions can apply to each.
+     * Enabled gate. Permission is checked per surface (card vs tab) by the
+     * visible* methods above so different permissions can apply to each.
      */
     protected function passesGates(string $id, ?User $user): bool
     {
-        // Core integrations bypass extension/license gates; only permission applies.
+        // Core integrations bypass extension gates; only permission applies.
         if (str_starts_with($id, 'core:')) {
             return true;
         }
@@ -272,22 +269,6 @@ class IntegrationRegistry
         // still gated against the underlying extension id ("venta").
         $baseId = str_contains($id, ':') ? strstr($id, ':', true) : $id;
 
-        $extMgr = app(ExtensionManager::class);
-
-        if (!$extMgr->isEnabled($baseId)) {
-            return false;
-        }
-
-        $manifest = $extMgr->getManifest($baseId);
-        $licenseRequired = !empty($manifest['license_required']);
-
-        if ($licenseRequired) {
-            $license = app(LicenseService::class);
-            if (!$license->isModuleLicensed($baseId)) {
-                return false;
-            }
-        }
-
-        return true;
+        return app(ExtensionManager::class)->isEnabled($baseId);
     }
 }
