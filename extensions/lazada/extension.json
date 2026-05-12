@@ -4,7 +4,8 @@
     "version": "1.0.0",
     "description": "Lazada marketplace integration — OAuth, products, product groups, orders, returns, brands",
     "author": "VentaSync",
-    "license_required": true,
+    "tier": "community",
+    "license_required": false,
     "permissions": ["manage_lazada", "manage_lazada_orders"],
     "tables": [
         "lazada_settings",

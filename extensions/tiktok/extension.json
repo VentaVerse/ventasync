@@ -4,7 +4,8 @@
     "version": "1.0.0",
     "description": "TikTok Shop integration — OAuth, product sync, API explorer",
     "author": "VentaSync",
-    "license_required": true,
+    "tier": "community",
+    "license_required": false,
     "permissions": ["manage_tiktok", "manage_tiktok_orders"],
     "tables": [
         "tiktok_settings",

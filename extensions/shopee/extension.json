@@ -4,7 +4,8 @@
     "version": "1.0.0",
     "description": "Shopee marketplace integration — OAuth, products, product groups, orders, returns, logistics, reviews",
     "author": "VentaSync",
-    "license_required": true,
+    "tier": "community",
+    "license_required": false,
     "permissions": ["manage_shopee", "manage_shopee_orders"],
     "tables": [
         "shopee_settings",

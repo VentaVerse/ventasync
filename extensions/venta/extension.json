@@ -4,7 +4,8 @@
     "version": "1.0.0",
     "description": "Venta ecommerce integration — multi-store order sync, inventory push, product groups, categories",
     "author": "VentaSync",
-    "license_required": true,
+    "tier": "community",
+    "license_required": false,
     "permissions": ["manage_venta", "manage_venta_orders"],
     "tables": [
         "venta_settings",
