@@ -3,6 +3,7 @@
 namespace Extensions\installer;
 
 use App\Extensions\ExtensionProvider;
+use Extensions\installer\Console\Commands\InstallBypass;
 use Extensions\installer\Middleware\InstallationMiddleware;
 use Illuminate\Contracts\Http\Kernel;
 
@@ -40,6 +41,14 @@ class InstallerExtension extends ExtensionProvider
         $kernel = $this->app->make(Kernel::class);
         if (method_exists($kernel, 'pushMiddleware')) {
             $kernel->pushMiddleware(InstallationMiddleware::class);
+        }
+
+        // Register the Cloud install-bypass Artisan command. Used by the
+        // Docker entrypoint when AGILA_INSTALL_BYPASS=true.
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                InstallBypass::class,
+            ]);
         }
     }
 }

@@ -1,0 +1,66 @@
+# Keep the Docker build context small.
+# Anything excluded here will not be uploaded to the Docker daemon when
+# running `docker build .`. Stage-by-stage COPYs in the Dockerfile then
+# pick only what each stage needs.
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Node / Composer artifacts (rebuilt fresh inside the image)
+node_modules
+vendor
+
+# Local environment
+.env
+.env.*
+auth.json
+
+# Runtime state
+storage/agila
+storage/app/private
+storage/app/public
+storage/framework/cache
+storage/framework/sessions
+storage/framework/testing
+storage/framework/views
+storage/logs
+storage/pail
+storage/dist
+storage/keys
+bootstrap/cache/*.php
+database/database.sqlite
+
+# Editor / IDE
+.fleet
+.idea
+.nova
+.vscode
+.zed
+.phpactor.json
+.phpunit.cache
+.phpunit.result.cache
+
+# AI / browser-automation
+.claude
+.playwright-mcp
+
+# Internal docs
+docs/
+ops/
+CLAUDE.md
+
+# Distribution outputs
+*.zip
+*.erpx
+
+# Sandbox debug screenshots / artifacts
+petty-cash-page.png
+product-create-page.png
+public/image
+
+# Dev configs we ship in zips but not images
+phpunit.xml
+phpunit.xml.dist
+tests
