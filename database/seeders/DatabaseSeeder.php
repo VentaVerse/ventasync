@@ -2,28 +2,36 @@
 
 namespace Database\Seeders;
 
+use App\Extensions\ExtensionManager;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Bootstraps a fresh install with a default admin user so the operator
- * can log in immediately after `php artisan migrate --seed`. The
- * Administrator user group itself is created in migrations; this seeder
- * only inserts the user row.
+ * Bootstraps a fresh install:
+ *   1. Default admin user (username admin / password admin) — operator
+ *      can log in immediately after `php artisan migrate --seed`.
+ *   2. Every Community-tier extension found on disk is installed +
+ *      enabled. Plus-tier extensions (audit/reports/shopify/purchasing/
+ *      opencart) stay disabled — they need license activation.
  *
- * DEFAULT CREDENTIALS (CHANGE THESE IMMEDIATELY AFTER FIRST LOGIN):
+ * The seeder is idempotent — re-running it does not overwrite an
+ * existing admin user or re-enable a manually-disabled extension.
+ *
+ * DEFAULT ADMIN CREDENTIALS (CHANGE IMMEDIATELY AFTER FIRST LOGIN):
  *   username: admin
  *   email:    admin@admin.com
  *   password: admin
- *
- * The seeder is idempotent — re-running it does not overwrite an
- * existing admin user. To rotate the default password, log in and
- * change it through Settings → Users.
  */
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
+    {
+        $this->seedAdminUser();
+        $this->seedCommunityExtensions();
+    }
+
+    private function seedAdminUser(): void
     {
         $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
 
@@ -59,6 +67,50 @@ class DatabaseSeeder extends Seeder
         $this->command->getOutput()->writeln('    Password: <fg=cyan>admin</>');
         $this->command->newLine();
         $this->command->getOutput()->writeln('  <fg=red>Security: change this password through Settings → Users on first login.</>');
+        $this->command->newLine();
+    }
+
+    /**
+     * Install + enable every Community-tier extension found on disk.
+     *
+     * Plus-tier extensions are intentionally skipped — they need license
+     * activation through the future Plus marketplace UI, not auto-enable
+     * on first install. If a Plus extension is on disk (e.g. a Plus
+     * customer dropped one in before running migrate), it's registered
+     * in the extensions table but left disabled.
+     */
+    private function seedCommunityExtensions(): void
+    {
+        /** @var ExtensionManager $manager */
+        $manager = app(ExtensionManager::class);
+
+        $enabled  = [];
+        $skipped  = [];
+
+        foreach ($manager->getManifests() as $id => $manifest) {
+            $tier = $manifest['tier'] ?? 'plus';
+
+            // Install the row regardless of tier so the /extensions UI
+            // sees Plus extensions as "installed but disabled" rather
+            // than missing entirely.
+            $manager->install($id);
+
+            if ($tier === 'community') {
+                $manager->enable($id);
+                $enabled[] = $id;
+            } else {
+                $skipped[] = $id . ' (' . $tier . ')';
+            }
+        }
+
+        $this->command->getOutput()->writeln('<bg=green;fg=white> ✓ Extensions registered </>');
+        $this->command->newLine();
+        if (!empty($enabled)) {
+            $this->command->getOutput()->writeln('  Enabled (Community): <fg=cyan>' . implode(', ', $enabled) . '</>');
+        }
+        if (!empty($skipped)) {
+            $this->command->getOutput()->writeln('  Installed but disabled (need license): <fg=yellow>' . implode(', ', $skipped) . '</>');
+        }
         $this->command->newLine();
     }
 }
