@@ -558,6 +558,9 @@ class VentaOrderSync
                 'order_status_id' => [(string) $oldStatusId, (string) $coreStatusId],
             ], source: 'system');
 
+            // Direct FCM dispatch — kept here because this sync uses DB::table()->insertGetId()
+            // and DB::table()->update(), which bypass Eloquent observers (App\Observers\OrderObserver).
+            // If this sync is ever converted to use Order::create()/$order->save(), remove this block.
             try {
                 $firstItem = ($raw['items'] ?? [])[0] ?? null;
                 $itemName = $firstItem ? trim($firstItem['name'] ?? '') : trim($firstname . ' ' . $lastname);

@@ -487,7 +487,9 @@ class OpenCartOrderSync
             ], source: 'system');
         }
 
-        // Send FCM notification on status change (Pending / Cancelled)
+        // Direct FCM dispatch — kept here because this sync uses DB::table()->insertGetId()
+        // and DB::table()->update(), which bypass Eloquent observers (App\Observers\OrderObserver).
+        // If this sync is ever converted to use Order::create()/$order->save(), remove this block.
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {
             try {
                 $firstProduct = ($raw['products'] ?? [])[0] ?? null;

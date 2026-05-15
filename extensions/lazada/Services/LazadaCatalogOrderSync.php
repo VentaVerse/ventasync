@@ -171,17 +171,8 @@ class LazadaCatalogOrderSync
                 $catalogOrder = Order::create($orderData);
             }
 
-            // Send FCM notification on status change (Pending / Cancelled)
-            if ($oldStatusId !== $statusId) {
-                try {
-                    $firstProduct = $lazadaOrder->products->first();
-                    $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($firstname . ' ' . $lastname);
-                    $totalStr = number_format($total, 2) . ' ' . $currencyCode;
-                    (new FcmService())->notifyIfNeeded((int) $catalogOrder->order_id, $oldStatusId, $statusId, $itemName, $totalStr, 'lazada');
-                } catch (\Throwable $e) {
-                    \Log::warning('FCM notification failed: ' . $e->getMessage());
-                }
-            }
+            // FCM notifications dispatched centrally by App\Observers\OrderObserver
+            // on Order::create / $catalogOrder->update() above.
 
             // --- Sync products ---
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();

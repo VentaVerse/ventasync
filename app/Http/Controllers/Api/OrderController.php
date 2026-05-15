@@ -7,7 +7,6 @@ use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use App\Services\FcmService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -186,14 +185,8 @@ class OrderController extends Controller
             OrderStockService::adjustStock($order, $oldStatusId, $newStatusId);
         }
 
-        try {
-            $firstProduct = $order->products()->first();
-            $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($order->firstname . ' ' . $order->lastname);
-            $total = number_format((float) $order->total, 2) . ' ' . ($order->currency_code ?: 'PHP');
-            (new FcmService())->notifyIfNeeded((int) $order->order_id, $oldStatusId, $newStatusId, $itemName, $total, $order->marketplace_source ?? '');
-        } catch (\Throwable $e) {
-            \Log::warning('FCM notification failed: ' . $e->getMessage());
-        }
+        // FCM notification dispatched centrally by App\Observers\OrderObserver
+        // on $order->update() above.
 
         return response()->json(['message' => 'Order status updated.']);
     }

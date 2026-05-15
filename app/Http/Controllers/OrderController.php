@@ -10,7 +10,6 @@ use App\Models\Catalog\Product;
 use App\Integrations\IntegrationRegistry;
 use App\Models\OrderPayment;
 use App\Services\ActivityLogger;
-use App\Services\FcmService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -187,17 +186,8 @@ class OrderController extends Controller
 
         ActivityLogger::log('created', 'Order', (int) $order->order_id, '#' . $order->order_id . ' ' . trim($request->firstname . ' ' . $request->lastname));
 
-        try {
-            (new FcmService())->notifyIfNeeded(
-                (int) $order->order_id,
-                0,
-                (int) $request->order_status_id,
-                trim($request->firstname . ' ' . ($request->lastname ?? '')),
-                number_format($request->total ?? 0, 2) . ' ' . ($request->currency_code ?? 'PHP'),
-            );
-        } catch (\Throwable $e) {
-            \Log::warning('FCM notification failed: ' . $e->getMessage());
-        }
+        // FCM notification dispatched centrally by App\Observers\OrderObserver
+        // on Order::create above.
 
         // Create order products
         $products = $request->input('products', []);
@@ -451,14 +441,8 @@ class OrderController extends Controller
             ['status' => [(string) $oldStatusName, (string) $newStatusName]]
         );
 
-        try {
-            $firstProduct = $order->products()->first();
-            $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($order->firstname . ' ' . $order->lastname);
-            $total = number_format((float) $order->total, 2) . ' ' . ($order->currency_code ?: 'PHP');
-            (new FcmService())->notifyIfNeeded((int) $order->order_id, $oldStatusId, $newStatusId, $itemName, $total, $order->marketplace_source ?? '');
-        } catch (\Throwable $e) {
-            \Log::warning('FCM notification failed: ' . $e->getMessage());
-        }
+        // FCM notification dispatched centrally by App\Observers\OrderObserver
+        // on $order->update() above.
 
         return redirect()->route('orders.show', $id)->with('status', 'Order status updated.');
     }

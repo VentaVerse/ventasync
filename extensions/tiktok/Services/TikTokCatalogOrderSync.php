@@ -10,7 +10,6 @@ use App\Models\Catalog\OrderOption;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
-use App\Services\FcmService;
 use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -169,17 +168,8 @@ class TikTokCatalogOrderSync
                 $catalogOrder = Order::create($orderData);
             }
 
-            // Send FCM notification on status change (Pending / Cancelled)
-            if ($oldStatusId !== $statusId) {
-                try {
-                    $firstProduct = $tiktokOrder->products->first();
-                    $itemName = $firstProduct ? trim($firstProduct->name ?? '') : trim($firstname . ' ' . $lastname);
-                    $totalStr = number_format($apiTotal, 2) . ' ' . $currencyCode;
-                    (new FcmService())->notifyIfNeeded((int) $catalogOrder->order_id, $oldStatusId, $statusId, $itemName, $totalStr, 'tiktok');
-                } catch (\Throwable $e) {
-                    \Log::warning('FCM notification failed: ' . $e->getMessage());
-                }
-            }
+            // FCM notifications dispatched centrally by App\Observers\OrderObserver
+            // on Order::create / $catalogOrder->update() above.
 
             // --- Sync products ---
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();

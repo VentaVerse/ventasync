@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Catalog\Order;
 use App\Models\Setting;
+use App\Observers\OrderObserver;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -23,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Centralized FCM notification dispatch — fires on any Order create/update.
+        Order::observe(OrderObserver::class);
+
         // Apply admin Settings to runtime config. Wrapped in try/catch because:
         //   1. On a fresh deploy before migrations run, the settings table
         //      doesn't exist yet. Schema::hasTable would still hit the DB.
