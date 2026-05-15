@@ -7,9 +7,9 @@
     "tier": "plus",
     "license_required": true,
     "permissions": [
-        {"key": "manage_opencart",        "parent": "manage_marketplace_api", "subgroup": "OpenCart", "label": "Manage OpenCart"},
-        {"key": "manage_opencart_orders", "parent": "manage_marketplace_api", "subgroup": "OpenCart", "label": "Manage OpenCart Orders"},
-        {"key": "manage_reviews",         "parent": "manage_marketplace_api", "subgroup": "Reviews",  "label": "Manage Reviews"}
+        {"key": "manage_opencart",        "parent": "manage_marketplace_api", "subgroup": "OpenCart"},
+        {"key": "manage_opencart_orders", "parent": "manage_marketplace_api", "subgroup": "OpenCart"},
+        {"key": "manage_reviews",         "parent": "manage_marketplace_api", "subgroup": "Reviews"}
     ],
     "nav": []
 }

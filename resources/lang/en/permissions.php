@@ -1,16 +1,26 @@
 <?php
 
-/**
- * Permission labels & descriptions.
- *
- * The Permission model resolves display text from this file via
- * __('permissions.<key>.label') and __('permissions.<key>.description').
- * Changing wording here is all it takes — no migrations, no tinker.
- */
+/*
+|--------------------------------------------------------------------------
+| Core Permission Display Strings
+|--------------------------------------------------------------------------
+|
+| Labels + descriptions for permissions declared by core in
+| config/permissions.php. Extension-owned permissions are NOT listed here
+| — each extension ships its own lang file at
+| extensions/{id}/lang/{locale}/permissions.php, auto-registered under the
+| `ext-{id}` translation namespace by ExtensionProvider::bootTranslations().
+|
+| The Permission model resolves display strings in this order:
+|   1. ext-{owner}::permissions.{key}.{label|description}  (extension lang)
+|   2. permissions.{key}.{label|description}               (this file)
+|   3. humanized key
+|
+*/
 
 return [
 
-    // ── Catalog ───────────────────────────────────────────────
+    // ── Catalog (core) ────────────────────────────────────────
     'manage_catalog' => [
         'label'       => 'Catalog (All)',
         'description' => 'Full access to all catalog features',
@@ -32,7 +42,7 @@ return [
         'description' => 'View, create, edit, and delete product options',
     ],
 
-    // ── Sales ─────────────────────────────────────────────────
+    // ── Sales (core) ──────────────────────────────────────────
     'manage_sales' => [
         'label'       => 'Sales (All)',
         'description' => 'Full access to all sales features',
@@ -45,116 +55,14 @@ return [
         'label'       => 'Order Statuses',
         'description' => 'Create and edit order status definitions',
     ],
-    'manage_reports' => [
-        'label'       => 'Reports',
-        'description' => 'View order, product, category, fee, and inventory reports',
-    ],
 
-    // ── Marketplace API ───────────────────────────────────────
+    // ── Marketplace API container (core; children come from extensions) ──
     'manage_marketplace_api' => [
         'label'       => 'Marketplace API (All)',
         'description' => 'Full access to all marketplace integrations',
     ],
-    'manage_shopee' => [
-        'label'       => 'Shopee',
-        'description' => 'Shopee store settings and product sync',
-    ],
-    'manage_shopee_orders' => [
-        'label'       => 'Shopee Orders',
-        'description' => 'View and sync orders from Shopee',
-    ],
-    'manage_lazada' => [
-        'label'       => 'Lazada',
-        'description' => 'Lazada store settings and product sync',
-    ],
-    'manage_lazada_orders' => [
-        'label'       => 'Lazada Orders',
-        'description' => 'View and sync orders from Lazada',
-    ],
-    'manage_tiktok' => [
-        'label'       => 'TikTok Shop',
-        'description' => 'TikTok Shop settings and product sync',
-    ],
-    'manage_tiktok_orders' => [
-        'label'       => 'TikTok Orders',
-        'description' => 'View and sync orders from TikTok Shop',
-    ],
-    'manage_opencart' => [
-        'label'       => 'OpenCart',
-        'description' => 'OpenCart store integration and product sync',
-    ],
-    'manage_opencart_orders' => [
-        'label'       => 'OpenCart Orders',
-        'description' => 'View and sync orders from OpenCart',
-    ],
-    'manage_venta' => [
-        'label'       => 'Venta',
-        'description' => 'Venta store settings, product groups, and product sync',
-    ],
-    'manage_venta_orders' => [
-        'label'       => 'Venta Orders',
-        'description' => 'View and sync orders from Venta stores',
-    ],
-    'manage_pedallion' => [
-        'label'       => 'Pedallion',
-        'description' => 'Pedallion store settings and product sync',
-    ],
-    'manage_pedallion_orders' => [
-        'label'       => 'Pedallion Orders',
-        'description' => 'View and sync orders from Pedallion',
-    ],
-    'manage_reviews' => [
-        'label'       => 'Reviews',
-        'description' => 'View marketplace reviews and manage review sync',
-    ],
 
-    // ── Purchasing ────────────────────────────────────────────
-    'manage_purchasing' => [
-        'label'       => 'Purchasing',
-        'description' => 'Full access to all purchasing features',
-    ],
-    'manage_vendors' => [
-        'label'       => 'Vendors',
-        'description' => 'View, create, edit, and delete vendors',
-    ],
-    'manage_purchase_orders' => [
-        'label'       => 'Purchase Orders',
-        'description' => 'View, create, and manage purchase orders',
-    ],
-
-    // ── Warehousing ───────────────────────────────────────────
-    'manage_warehousing' => [
-        'label'       => 'Warehousing',
-        'description' => 'Full access to all warehousing features',
-    ],
-    'manage_warehouse_locations' => [
-        'label'       => 'Warehouse Locations',
-        'description' => 'View and manage warehouse locations',
-    ],
-    'manage_warehouse_transfers' => [
-        'label'       => 'Warehouse Transfers',
-        'description' => 'View, create, and manage stock transfers',
-    ],
-    'manage_warehouse_inventory' => [
-        'label'       => 'Warehouse Inventory',
-        'description' => 'View and adjust per-warehouse stock levels',
-    ],
-
-    // ── Petty Cash ────────────────────────────────────────────
-    'view_petty_cash' => [
-        'label'       => 'Petty Cash',
-        'description' => 'See the Petty Cash nav group',
-    ],
-    'view_petty_cash_transactions' => [
-        'label'       => 'Petty Cash Transactions',
-        'description' => 'View and manage petty cash transactions',
-    ],
-    'manage_petty_cash_settings' => [
-        'label'       => 'Petty Cash Settings',
-        'description' => 'Access petty cash settings and role management',
-    ],
-
-    // ── Settings ──────────────────────────────────────────────
+    // ── Settings (core) ───────────────────────────────────────
     'manage_settings' => [
         'label'       => 'Settings (All)',
         'description' => 'Full access to all system settings',
@@ -175,12 +83,8 @@ return [
         'label'       => 'Error Log',
         'description' => 'View and clear application error log',
     ],
-    'manage_activity_log' => [
-        'label'       => 'Activity Log',
-        'description' => 'View and clear the activity log',
-    ],
 
-    // ── Legacy (kept for completeness) ────────────────────────
+    // ── Legacy (kept for hasPermission() back-compat) ─────────
     'manage_users_groups' => [
         'label'       => 'Users & Groups',
         'description' => null,

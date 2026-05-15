@@ -7,8 +7,8 @@
     "tier": "community",
     "license_required": false,
     "permissions": [
-        {"key": "manage_venta",        "parent": "manage_marketplace_api", "subgroup": "Venta", "label": "Manage Venta"},
-        {"key": "manage_venta_orders", "parent": "manage_marketplace_api", "subgroup": "Venta", "label": "Manage Venta Orders"}
+        {"key": "manage_venta",        "parent": "manage_marketplace_api", "subgroup": "Venta"},
+        {"key": "manage_venta_orders", "parent": "manage_marketplace_api", "subgroup": "Venta"}
     ],
     "tables": [
         "venta_settings",

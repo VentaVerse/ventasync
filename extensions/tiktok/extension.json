@@ -7,8 +7,8 @@
     "tier": "community",
     "license_required": false,
     "permissions": [
-        {"key": "manage_tiktok",        "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "label": "Manage TikTok"},
-        {"key": "manage_tiktok_orders", "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "label": "Manage TikTok Orders"}
+        {"key": "manage_tiktok",        "parent": "manage_marketplace_api", "subgroup": "TikTok Shop"},
+        {"key": "manage_tiktok_orders", "parent": "manage_marketplace_api", "subgroup": "TikTok Shop"}
     ],
     "tables": [
         "tiktok_settings",

@@ -40,9 +40,15 @@ class UserGroupController extends Controller
                 // disabled and permissions removed). Skip the whole group.
                 continue;
             }
+            // Group label = the parent permission's resolved label, which the
+            // Permission model accessor walks through the
+            // ext-{owner}::permissions → core lang → humanized chain. This
+            // means an extension-owned top-level group (Purchasing,
+            // Warehousing, Petty Cash) picks up its label from the
+            // extension's own lang file without core knowing the extension.
             $group = [
                 'key'    => $entry['key'],
-                'label'  => $entry['label'],
+                'label'  => $parent->label,
                 'parent' => $parent,
             ];
             if (!empty($entry['subgroups'])) {

@@ -7,8 +7,8 @@
     "tier": "community",
     "license_required": false,
     "permissions": [
-        {"key": "manage_shopee",        "parent": "manage_marketplace_api", "subgroup": "Shopee", "label": "Manage Shopee"},
-        {"key": "manage_shopee_orders", "parent": "manage_marketplace_api", "subgroup": "Shopee", "label": "Manage Shopee Orders"}
+        {"key": "manage_shopee",        "parent": "manage_marketplace_api", "subgroup": "Shopee"},
+        {"key": "manage_shopee_orders", "parent": "manage_marketplace_api", "subgroup": "Shopee"}
     ],
     "tables": [
         "shopee_settings",

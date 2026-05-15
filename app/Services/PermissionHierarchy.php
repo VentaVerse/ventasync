@@ -75,6 +75,18 @@ class PermissionHierarchy
     }
 
     /**
+     * Which extension declared this permission key. Returns null for
+     * core-owned permissions (declared in config/permissions.php) and
+     * null for unknown keys. Used by Permission::label / description
+     * to know which `ext-{id}::permissions` translation namespace to
+     * look up before falling back to the core lang file.
+     */
+    public function ownerOf(string $key): ?string
+    {
+        return $this->build()['owners'][$key] ?? null;
+    }
+
+    /**
      * Grouped tree for the User Groups UI. One entry per top-level group
      * (catalog, sales, marketplace_api, purchasing, warehousing, settings,
      * etc). Each entry includes either flat children OR named subgroups
@@ -87,13 +99,11 @@ class PermissionHierarchy
         return $this->build()['tree'];
     }
 
-    /**
-     * Label for a single permission key, falling back to the key itself.
-     */
-    public function labelFor(string $key): string
-    {
-        return $this->build()['labels'][$key] ?? $key;
-    }
+    // Note: label/description resolution lives in App\Models\Admin\Permission,
+    // not here. The model walks the extension's `ext-{owner}::permissions`
+    // translation namespace, then the core lang file, then a humanized key.
+    // Keeping this service focused on *structure* (parent/children/owner)
+    // means it doesn't need to know about Laravel's translator at all.
 
     /**
      * Drop the cached hierarchy. Called by ExtensionManager after any
@@ -128,18 +138,20 @@ class PermissionHierarchy
         $parentToChildren = [];
         $childToParent = [];
         $labels = [];
+        $owners = [];
         $sortOrder = [];
         // subgroup membership: parent_key => subgroup_label => [permission_keys]
         $subgroupMembers = [];
         // Permission keys that go directly under a parent (no subgroup level)
         $directChildren = [];
 
-        // 1. Core permissions
+        // 1. Core permissions (owner = null — core-declared)
         foreach ($coreConfig as $key => $meta) {
             $parent = $meta['parent'] ?? null;
             $labels[$key] = $meta['label'] ?? $key;
             $sortOrder[$key] = $meta['sort'] ?? 100;
             $childToParent[$key] = $parent;
+            $owners[$key] = null;
             if ($parent !== null) {
                 $parentToChildren[$parent][] = $key;
                 $directChildren[$parent][] = $key;
@@ -149,12 +161,11 @@ class PermissionHierarchy
         // 2. Extension-contributed permissions.
         // Read every installed manifest (not just enabled extensions) so the
         // User Groups UI can still show + assign permissions that belong to a
-        // temporarily-disabled extension. Children whose permission rows have
-        // been removed are naturally filtered out by the consumer
-        // (UserGroupController::getGroupedPermissions resolves keys against
-        // the live permissions table).
+        // temporarily-disabled extension. The owner (extension id) is recorded
+        // so Permission::label / description can resolve display strings from
+        // the extension's own translation namespace.
         $manager = app(ExtensionManager::class);
-        foreach ($manager->getManifests() as $manifest) {
+        foreach ($manager->getManifests() as $extensionId => $manifest) {
             $perms = $manifest['permissions'] ?? [];
             foreach ($perms as $perm) {
                 $entry = $this->normalizePermissionEntry($perm);
@@ -165,8 +176,11 @@ class PermissionHierarchy
                 $parent = $entry['parent'];
                 $subgroup = $entry['subgroup'];
 
-                $labels[$key] = $entry['label'] ?? $labels[$key] ?? $key;
+                // Structural metadata — display text lives in the extension's
+                // own lang/{locale}/permissions.php file, not here.
+                $labels[$key] = $labels[$key] ?? $key;
                 $childToParent[$key] = $parent;
+                $owners[$key] = $extensionId;
                 if ($entry['sort'] !== null) {
                     $sortOrder[$key] = $entry['sort'];
                 }
@@ -236,7 +250,7 @@ class PermissionHierarchy
         return [
             'parent_to_children' => $parentToChildren,
             'child_to_parent'    => $childToParent,
-            'labels'             => $labels,
+            'owners'             => $owners,
             'tree'               => $tree,
         ];
     }
@@ -247,17 +261,24 @@ class PermissionHierarchy
      *
      * @return ?array{key:string,parent:?string,subgroup:?string,label:?string}
      */
+    /**
+     * Accept legacy string form ("manage_x") OR object form with structural
+     * metadata. Display labels/descriptions intentionally NOT accepted here
+     * — those live in the extension's own lang/{locale}/permissions.php
+     * so a new locale can be added by dropping a file without touching JSON.
+     *
+     * @return ?array{key:string,parent:?string,subgroup:?string,sort:?int}
+     */
     private function normalizePermissionEntry(mixed $perm): ?array
     {
         if (is_string($perm)) {
-            return ['key' => $perm, 'parent' => null, 'subgroup' => null, 'label' => null, 'sort' => null];
+            return ['key' => $perm, 'parent' => null, 'subgroup' => null, 'sort' => null];
         }
         if (is_array($perm) && !empty($perm['key']) && is_string($perm['key'])) {
             return [
                 'key'      => $perm['key'],
                 'parent'   => isset($perm['parent']) && is_string($perm['parent']) ? $perm['parent'] : null,
                 'subgroup' => isset($perm['subgroup']) && is_string($perm['subgroup']) ? $perm['subgroup'] : null,
-                'label'    => isset($perm['label']) && is_string($perm['label']) ? $perm['label'] : null,
                 'sort'     => isset($perm['sort']) && is_numeric($perm['sort']) ? (int) $perm['sort'] : null,
             ];
         }

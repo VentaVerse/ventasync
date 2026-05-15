@@ -39,6 +39,7 @@ abstract class ExtensionProvider extends ServiceProvider
         $this->bootRoutes();
         $this->bootViews();
         $this->bootMigrations();
+        $this->bootTranslations();
     }
 
     // IMPORTANT: Use different method names than parent to avoid recursion
@@ -65,6 +66,26 @@ abstract class ExtensionProvider extends ServiceProvider
         $migrationsPath = $this->basePath . '/migrations';
         if (is_dir($migrationsPath)) {
             parent::loadMigrationsFrom($migrationsPath);
+        }
+    }
+
+    /**
+     * Auto-load the extension's translation files under the `ext-{id}` namespace
+     * so core can resolve display strings (permission labels, UI text, etc.)
+     * via Laravel's translator without knowing which extension owns the key.
+     *
+     * Layout:
+     *   extensions/{id}/lang/en/permissions.php
+     *   extensions/{id}/lang/tl/permissions.php   (when shipping new locales)
+     *
+     * Resolution from core:
+     *   __('ext-shopee::permissions.manage_shopee.label')
+     */
+    protected function bootTranslations(): void
+    {
+        $langPath = $this->basePath . '/lang';
+        if (is_dir($langPath)) {
+            parent::loadTranslationsFrom($langPath, 'ext-' . $this->id);
         }
     }
 
