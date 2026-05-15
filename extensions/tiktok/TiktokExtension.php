@@ -468,6 +468,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             'value'       => 'tiktok',
             'label'       => 'TikTok',
             'badge_class' => 'badge-dark',
+            'chart_color' => '#1e1e1e',
         ]];
     }
 }

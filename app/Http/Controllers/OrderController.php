@@ -82,58 +82,6 @@ class OrderController extends Controller
         return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'sourceOptions', 'sourceLabelsMap'));
     }
 
-    public function opencartIndex(Request $request, int $store)
-    {
-        $q = trim((string) $request->get('q', ''));
-        $statusId = (int) $request->get('status', 0);
-
-        $sortable = ['order_id', 'date_added', 'total', 'firstname'];
-        $sort = in_array($request->get('sort'), $sortable) ? $request->get('sort') : 'date_added';
-        $dir = $request->get('dir') === 'asc' ? 'asc' : 'desc';
-
-        $orders = Order::query()
-            ->with(['products', 'latestHistory'])
-            ->where('marketplace_source', 'opencart:' . $store)
-            ->when($q !== '', function ($query) use ($q) {
-                $query->where(function ($sub) use ($q) {
-                    $sub->where('firstname', 'like', '%' . $q . '%')
-                        ->orWhere('lastname', 'like', '%' . $q . '%')
-                        ->orWhere('email', 'like', '%' . $q . '%')
-                        ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
-                        ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0);
-                });
-            })
-            ->when($statusId > 0, function ($query) use ($statusId) {
-                $query->where('order_status_id', $statusId);
-            })
-            ->orderBy($sort, $dir)
-            ->paginate(50)
-            ->withQueryString();
-
-        $productImages = self::resolveOrderProductImages($orders->getCollection());
-        $lazadaImages = self::resolveLazadaImages($orders->getCollection());
-        $statuses = OrderStatus::orderBy('order_status_id')->get();
-        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
-            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
-            : [];
-
-        $storeLabel = ($ocStoreNames[$store] ?? '') ?: ('OpenCart #' . $store);
-
-        return view('ext-opencart::orders.index', compact(
-            'orders',
-            'q',
-            'statusId',
-            'statuses',
-            'productImages',
-            'lazadaImages',
-            'sort',
-            'dir',
-            'ocStoreNames',
-            'store',
-            'storeLabel'
-        ));
-    }
-
     public function create()
     {
         $statuses = OrderStatus::orderBy('order_status_id')->get();
@@ -953,8 +901,14 @@ class OrderController extends Controller
 
     /**
      * Build order_product_id → image path map for a collection of orders.
+     *
+     * Public so marketplace extensions (e.g. OpenCart's per-store order list
+     * view) can reuse the same image-resolution pipeline as the unified
+     * Orders index. TODO: extract this and resolveLazadaImages into a
+     * dedicated OrderViewSupport service so extensions don't reach back
+     * into a core controller's static API.
      */
-    private static function resolveOrderProductImages($orders): array
+    public static function resolveOrderProductImages($orders): array
     {
         $allProducts = $orders->flatMap(fn ($o) => $o->products);
         $idMap = self::resolveProductIdMap($allProducts);
@@ -1003,8 +957,11 @@ class OrderController extends Controller
      * registered OrderImagesContributor for its contribution. Lazada is the
      * canonical contributor (its catalog orders typically have product_id=0
      * with the Lazada SKU as the model, so the catalog image lookup misses).
+     *
+     * Public so marketplace extensions can reuse the same image-resolution
+     * pipeline (see resolveOrderProductImages docblock).
      */
-    private static function resolveLazadaImages($orders): array
+    public static function resolveLazadaImages($orders): array
     {
         $catalogOrderIds = [];
         foreach ($orders as $o) {

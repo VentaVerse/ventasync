@@ -635,6 +635,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             'value'       => 'lazada',
             'label'       => 'Lazada',
             'badge_class' => 'badge-indigo',
+            'chart_color' => '#0F146D',
         ]];
     }
 }

@@ -44,7 +44,7 @@ Route::middleware(['auth', 'perm:manage_opencart'])->group(function () {
 
 // OpenCart Orders (separate permission from OpenCart settings/product groups)
 Route::middleware(['auth', 'perm:manage_opencart_orders'])->group(function () {
-    Route::get('/opencart/{store}/orders', [\App\Http\Controllers\OrderController::class, 'opencartIndex'])->name('ext.opencart.orders.index');
+    Route::get('/opencart/{store}/orders', [\Extensions\opencart\Controllers\OpenCartOrderController::class, 'index'])->name('ext.opencart.orders.index');
 });
 
 // Reviews (synced from marketplaces, pushed to OpenCart)

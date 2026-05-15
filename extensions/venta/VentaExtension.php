@@ -302,6 +302,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 'value'       => 'venta:' . $s->id,
                 'label'       => $s->store_name ?: ('Venta #' . $s->id),
                 'badge_class' => 'badge-green',
+                'chart_color' => '#059669',
             ])->all();
     }
 }

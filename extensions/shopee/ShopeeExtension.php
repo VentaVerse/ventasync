@@ -521,6 +521,7 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
             'value'       => 'shopee',
             'label'       => 'Shopee',
             'badge_class' => 'badge-orange',
+            'chart_color' => '#ee4d2d',
         ]];
     }
 

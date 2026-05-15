@@ -75,8 +75,6 @@ class DashboardController extends Controller
             'shopeeSyncStatus' => null,
             'tiktokPending' => 0,
             'tiktokSyncStatus' => null,
-            'ocStoreNames' => [],
-            'ventaStoreNames' => [],
             'syncStatuses' => collect(),
             'openPos' => 0,
             'pendingDelivery' => 0,
@@ -84,8 +82,18 @@ class DashboardController extends Controller
             'monthlyPoSpend' => 0,
         ];
 
-        foreach (app(IntegrationRegistry::class)->dashboardContributors() as $contributor) {
+        $registry = app(IntegrationRegistry::class);
+
+        foreach ($registry->dashboardContributors() as $contributor) {
             $extensionDashboardData = array_merge($extensionDashboardData, $contributor->dashboardData());
+        }
+
+        // Marketplace source labels for the recent-orders source column.
+        // Same registry-driven map used by the Orders index — core has no
+        // marketplace-specific knowledge.
+        $sourceLabelsMap = [];
+        foreach ($registry->availableMarketplaceSourceOptions() as $opt) {
+            $sourceLabelsMap[$opt['value']] = $opt;
         }
 
         // --- Greeting ---
@@ -114,6 +122,7 @@ class DashboardController extends Controller
             'chartOrders' => $chartOrders,
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
+            'sourceLabelsMap' => $sourceLabelsMap,
         ], $extensionDashboardData));
     }
 
@@ -155,42 +164,30 @@ class DashboardController extends Controller
             ->groupBy('marketplace_source')
             ->get();
 
-        // Map OC store names
-        $ocStores = Schema::hasTable('opencart_settings')
-            ? DB::table('opencart_settings')->pluck('store_name', 'id')->toArray()
-            : [];
-        $ventaStores = Schema::hasTable('venta_settings')
-            ? DB::table('venta_settings')->pluck('store_name', 'id')->toArray()
-            : [];
+        // Source options come from the integration registry — each marketplace
+        // extension declares its own label + chart color via
+        // MarketplaceSourceOptionsProvider::availableSourceOptions(). Core has
+        // zero marketplace-specific knowledge here.
+        $sourceOptionsMap = [];
+        foreach (app(IntegrationRegistry::class)->availableMarketplaceSourceOptions() as $opt) {
+            $sourceOptionsMap[$opt['value']] = $opt;
+        }
 
         $slices = [];
         foreach ($rows as $row) {
             $src = trim((string) $row->marketplace_source);
-            if ($src === 'shopee') {
-                $label = 'Shopee';
-                $color = '#ee4d2d';
-            } elseif ($src === 'lazada') {
-                $label = 'Lazada';
-                $color = '#0F146D';
-            } elseif ($src === 'tiktok') {
-                $label = 'TikTok';
-                $color = '#1e1e1e';
-            } elseif (str_starts_with($src, 'opencart:')) {
-                $storeId = (int) str_replace('opencart:', '', $src);
-                $label = $ocStores[$storeId] ?? ('OpenCart #' . $storeId);
-                // Fixed colors for known OC stores, random for new ones
-                $ocFixedColors = [
-                    1 => '#16a34a',
-                    2 => '#38bdf8',
-                ];
-                $color = $ocFixedColors[$storeId] ?? sprintf('#%06X', mt_rand(0x333333, 0xCCCCCC));
-            } elseif (str_starts_with($src, 'venta:')) {
-                $storeId = (int) str_replace('venta:', '', $src);
-                $label = $ventaStores[$storeId] ?? ('Venta #' . $storeId);
-                $color = '#059669'; // green
-            } else {
+            if ($src === '') {
                 $label = 'Direct';
                 $color = '#3b82f6';
+            } elseif (isset($sourceOptionsMap[$src])) {
+                $label = $sourceOptionsMap[$src]['label'];
+                $color = $sourceOptionsMap[$src]['chart_color'] ?? '#64748b';
+            } else {
+                // Orphaned source (legacy bare 'opencart' before multi-store, or
+                // a marketplace whose extension is disabled). Show the raw
+                // identifier so it's still inspectable from the chart.
+                $label = ucfirst($src);
+                $color = '#64748b';
             }
 
             // Merge if same label exists (e.g. legacy 'opencart' + 'opencart:1')

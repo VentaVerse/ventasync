@@ -401,23 +401,16 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @php $src = trim((string)$o->marketplace_source); @endphp
-                                    @if($src === 'lazada')
-                                        <span class="badge badge-indigo">Lazada</span>
-                                    @elseif($src === 'shopee')
-                                        <span class="badge badge-orange">Shopee</span>
-                                    @elseif($src === 'tiktok')
-                                        <span class="badge" style="background:#1e1e1e; color:#fff;">TikTok</span>
-                                    @elseif(str_starts_with($src, 'opencart:'))
-                                        @php $storeId = (int) str_replace('opencart:', '', $src); @endphp
-                                        <span class="badge badge-dark">{{ $ocStoreNames[$storeId] ?? ('OpenCart #'.$storeId) }}</span>
-                                    @elseif(str_starts_with($src, 'venta:'))
-                                        @php $ventaId = (int) str_replace('venta:', '', $src); @endphp
-                                        <span class="badge badge-green">{{ $ventaStoreNames[$ventaId] ?? ('Venta #'.$ventaId) }}</span>
-                                    @elseif($src !== '')
-                                        <span class="badge badge-gray">{{ ucfirst($src) }}</span>
-                                    @else
+                                    @php
+                                        $src = trim((string)$o->marketplace_source);
+                                        $opt = $sourceLabelsMap[$src] ?? null;
+                                    @endphp
+                                    @if($src === '')
                                         <span class="text-muted">Direct</span>
+                                    @elseif($opt)
+                                        <span class="badge {{ $opt['badge_class'] ?? 'badge-dark' }}">{{ $opt['label'] }}</span>
+                                    @else
+                                        <span class="badge badge-gray">{{ ucfirst($src) }}</span>
                                     @endif
                                 </td>
                                 <td class="text-secondary text-xs">{{ $o->date_added ? \Carbon\Carbon::parse($o->date_added)->format('M d, Y H:i') : '-' }}</td>
