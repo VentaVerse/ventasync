@@ -15,16 +15,15 @@ This is a standard Laravel 12 install. If you've deployed any Laravel app before
 
 ### 1. Get the code
 
-**Option A — release zip (recommended for production):**
+**Option A — release zip:**
 
 ```bash
 cd /var/www
 wget https://github.com/reboot-interactive/ventasync-legacy/archive/refs/heads/main.zip
 unzip main.zip && mv ventasync-legacy-main ventasync-legacy
 cd ventasync-legacy
+composer install --no-dev --optimize-autoloader
 ```
-
-The release zip ships with `vendor/` bundled — you can skip `composer install`.
 
 **Option B — git clone (for development / contributing):**
 
@@ -33,6 +32,8 @@ git clone https://github.com/reboot-interactive/ventasync-legacy.git
 cd ventasync-legacy
 composer install --no-dev --optimize-autoloader
 ```
+
+Both paths require Composer 2.x and an outbound internet connection to packagist.
 
 ### 2. Configure the environment
 

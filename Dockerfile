@@ -7,16 +7,16 @@
 #   2. assets     — builds Vite frontend assets
 #   3. runtime    — final image with PHP-FPM + nginx + supervisord
 #
-# Bakes the three Cloud-specific behavior flags into the image so they
+# Bakes the two Cloud-specific behavior flags into the image so they
 # can't be flipped off by a Coolify operator misconfiguration:
 #
 #   AGILA_LICENSE_BYPASS=true   — Plus extensions skip license check
-#   AGILA_AUTO_MIGRATE=true     — entrypoint runs php artisan migrate
-#   AGILA_INSTALL_BYPASS=true   — entrypoint creates admin from env vars
-#                                 instead of redirecting to /install
+#   AGILA_AUTO_MIGRATE=true     — entrypoint runs `migrate --force --seed`,
+#                                 seeding the default admin user
 #
-# Per-tenant env vars (DB, admin email/password hash, APP_URL, etc.)
-# are set by Coolify per the spec at ops/INSTALL-CLOUD.md.
+# Per-tenant env vars (DB credentials, APP_URL, etc.) are set by Coolify
+# per the spec at ops/INSTALL-CLOUD.md. The Cloud provisioning step
+# rotates the seeded admin/admin password before exposing the tenant.
 
 # ─── Stage 1: composer (PHP production deps) ───────────────────────────
 FROM composer:2 AS composer
@@ -171,7 +171,6 @@ RUN mkdir -p \
 # safely (the application's check_env reads ENV directives that Dockerfile baked).
 ENV AGILA_LICENSE_BYPASS=true \
     AGILA_AUTO_MIGRATE=true \
-    AGILA_INSTALL_BYPASS=true \
     APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr

@@ -3,16 +3,17 @@
 # VentaSync Cloud container entrypoint.
 #
 # Runs once before supervisord (which then keeps PHP-FPM + nginx alive).
-# Does the per-tenant bootstrap that on self-hosted installs would be
-# handled by the customer typing through the /install wizard:
+# Does the per-tenant bootstrap on every container start:
 #
 #   1. Waits for the database to be reachable (60s budget)
-#   2. Runs migrations if AGILA_AUTO_MIGRATE=true
-#   3. Creates the first admin user from AGILA_ADMIN_EMAIL +
-#      AGILA_ADMIN_PASSWORD_HASH if AGILA_INSTALL_BYPASS=true and no
-#      users exist yet
-#   4. Caches config / routes / views
-#   5. Hands off to supervisord
+#   2. Runs migrations + seeds the default admin user if
+#      AGILA_AUTO_MIGRATE=true
+#   3. Clears stale caches
+#   4. Hands off to supervisord
+#
+# The default admin user (admin/admin) is created by the seeder. The
+# Cloud provisioning step rotates the password before exposing the
+# tenant to the operator (see ops/INSTALL-CLOUD.md).
 #
 # Designed to be idempotent — safe to re-run on every container restart.
 
@@ -51,21 +52,14 @@ while [ "$attempt" -lt "$max_attempts" ]; do
     sleep 1
 done
 
-# ── 2. Run migrations ──────────────────────────────────────────────────
+# ── 2. Run migrations + seed default admin ─────────────────────────────
 
 if [ "${AGILA_AUTO_MIGRATE:-false}" = "true" ]; then
-    echo "[entrypoint] Running migrations (AGILA_AUTO_MIGRATE=true)..."
-    php artisan migrate --force --no-interaction
+    echo "[entrypoint] Running migrations + seeding default admin (AGILA_AUTO_MIGRATE=true)..."
+    php artisan migrate --force --seed --no-interaction
 fi
 
-# ── 3. Install bypass (Cloud-only admin bootstrap) ─────────────────────
-
-if [ "${AGILA_INSTALL_BYPASS:-false}" = "true" ]; then
-    echo "[entrypoint] Running install bypass (AGILA_INSTALL_BYPASS=true)..."
-    php artisan agila:install-bypass --no-interaction
-fi
-
-# ── 4. Clear stale caches (Laravel compiles on-demand) ────────────────
+# ── 3. Clear stale caches (Laravel compiles on-demand) ─────────────────
 #
 # We don't pre-warm config:cache / route:cache / view:cache because:
 #   - Cache state can mismatch across container restarts if env vars
@@ -81,7 +75,7 @@ fi
 echo "[entrypoint] Clearing any stale caches..."
 php artisan optimize:clear 2>/dev/null || true
 
-# ── 5. Ensure storage + bootstrap/cache are writable ──────────────────
+# ── 4. Ensure storage + bootstrap/cache are writable ───────────────────
 
 chown -R nobody:nobody storage bootstrap/cache 2>/dev/null || true
 chmod -R 775 storage bootstrap/cache 2>/dev/null || true

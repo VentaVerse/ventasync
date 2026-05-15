@@ -23,7 +23,6 @@ $__runtimeDirs = [
     'storage/logs',
     'storage/app/private',
     'storage/app/public',
-    'storage/agila',
 ];
 foreach ($__runtimeDirs as $__dir) {
     $__path = dirname(__DIR__) . '/' . $__dir;

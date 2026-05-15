@@ -20,9 +20,10 @@ These are set by the Dockerfile's `ENV` directives. Coolify does nothing with th
 
 ```
 AGILA_LICENSE_BYPASS=true     # Cloud has no license check; bypass is build-time, not runtime
-AGILA_AUTO_MIGRATE=true       # Run `php artisan migrate --force` on container start
-AGILA_INSTALL_BYPASS=true     # Skip the /install wizard (Coolify already bootstrapped everything)
+AGILA_AUTO_MIGRATE=true       # Run `php artisan migrate --force --seed` on container start
 ```
+
+The seeded admin (admin/admin) is rotated by AgilaCP provisioning before the tenant is exposed to the operator — see the provisioning spec below.
 
 ### Required per-tenant (Coolify sets these)
 
@@ -37,8 +38,6 @@ AGILA_INSTALL_BYPASS=true     # Skip the /install wizard (Coolify already bootst
 | `DB_DATABASE` | `tenant_{AGILA_TENANT_ID}` |
 | `DB_USERNAME` | `tenant_{AGILA_TENANT_ID}` |
 | `DB_PASSWORD` | Random 32-char string. AgilaCP generates and persists. |
-| `AGILA_ADMIN_EMAIL` | Customer's signup email |
-| `AGILA_ADMIN_PASSWORD_HASH` | bcrypt hash of customer's signup password. **AgilaCP generates this**, NOT plaintext in Coolify. Use `password_hash($password, PASSWORD_BCRYPT, ['cost' => 12])` |
 
 ### Optional per-tenant
 
@@ -73,11 +72,13 @@ When you onboard a Cloud customer manually before the AgilaCP-Coolify integratio
    - Enable "Generate SSL Certificate"
 6. **Click Deploy**
 7. **Wait ~30-60 seconds** for the container to start
-8. **Verify:**
+8. **Rotate the seeded admin password** (the container booted with admin/admin from the seeder):
+   - `coolify exec {container} php artisan tinker --execute='\App\Models\User::where("username","admin")->update(["email"=>"customer@email.com","password"=>bcrypt("their-chosen-pw")]);'`
+   - Confirm by logging in once yourself with the new credentials
+9. **Verify:**
    - Visit `https://{subdomain}.example.com`
-   - Login screen appears (NOT the install wizard — `AGILA_INSTALL_BYPASS=true` skipped it)
    - Login as the customer's admin email + their chosen password
-9. **Email the customer** their URL + login confirmation
+10. **Email the customer** their URL + login confirmation
 
 Total time per tenant: ~5 minutes once you have a Coolify template you can clone.
 
@@ -89,14 +90,14 @@ When AgilaCP's Coolify integration is ready, the flow becomes:
 1. Customer pays for Cloud subscription via AgilaCP checkout
 2. AgilaCP webhook: customer.subscribed
 3. AgilaCP creates tenants row → gets tenant_id (auto-increment INT)
-4. AgilaCP bcrypts customer's password → AGILA_ADMIN_PASSWORD_HASH
-5. AgilaCP calls Coolify API (in order):
-   - POST /api/v1/applications        (image=ghcr.io/reboot-interactive/ventasync-legacy:v0.1.0)
+4. AgilaCP calls Coolify API (in order):
+   - POST /api/v1/applications        (image=ghcr.io/reboot-interactive/ventasync-legacy:vX.Y.Z)
    - POST /api/v1/services            (mysql, name=tenant_{id})
    - POST /api/v1/environment-variables  (the table above, one POST per var or batched)
    - POST /api/v1/domains             (subdomain mapping)
-   - POST /api/v1/deploy              (triggers the first deploy)
-6. AgilaCP polls Coolify for deploy status (every 5s, max 2 min timeout)
+   - POST /api/v1/deploy              (triggers the first deploy — container seeds admin/admin)
+5. AgilaCP polls Coolify for deploy status (every 5s, max 2 min timeout)
+6. AgilaCP rotates the admin password (via Coolify exec + tinker) to the customer's chosen credentials
 7. AgilaCP emails customer when deploy succeeds (or alerts the owner on failure)
 ```
 
@@ -111,18 +112,17 @@ The Dockerfile's entrypoint script handles all post-deploy steps — Coolify doe
 2. Entrypoint script runs:
    a. Wait for DB to be reachable (up to 60s, fail container if not)
    b. If AGILA_AUTO_MIGRATE=true:
-      → php artisan migrate --force
-   c. If AGILA_INSTALL_BYPASS=true AND users table has 0 rows:
-      → Run installer logic:
-         · Create Administrator user_group with all perms
-         · Create default warehouse, default currency
-         · Create admin user (email=AGILA_ADMIN_EMAIL, password_hash=AGILA_ADMIN_PASSWORD_HASH)
-         · Drop storage/agila/installed.lock marker
+      → php artisan migrate --force --seed
+        (creates Administrator user_group via migrations,
+         seeds default admin/admin user via DatabaseSeeder)
+   c. Clear stale caches
 3. Hand off to PHP-FPM + Nginx
-4. Container is now serving requests
+4. Container is now serving requests with admin/admin credentials
+5. AgilaCP provisioning step rotates the admin password to the
+   customer's chosen credentials BEFORE the URL is sent to the customer
 ```
 
-If migrations fail or admin creation fails: container exits with non-zero status. Coolify marks deployment as failed, AgilaCP sees the alert and emails the owner.
+If migrations fail: container exits with non-zero status. Coolify marks deployment as failed, AgilaCP sees the alert and emails the owner.
 
 ## Tenant lifecycle
 
@@ -140,7 +140,7 @@ If migrations fail or admin creation fails: container exits with non-zero status
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Container starts but `/login` shows install wizard | `AGILA_INSTALL_BYPASS` not set, or no admin user was created | Check env vars; check container logs for the entrypoint's admin-creation step |
+| Container starts but admin login fails | Seeder didn't run, or password rotation step failed | Check container logs for the `migrate --seed` step; if seeder skipped, manually re-run `migrate --seed` |
 | `Class 'PDO' not found` or DB connection errors | PHP MySQL extension missing from image (shouldn't happen — Dockerfile installs `pdo_mysql`) | Re-pull image, check Dockerfile |
 | 502 Bad Gateway | PHP-FPM not started (check logs) or Nginx misconfigured | `docker logs agila-tenant-{id}` and look for fatal startup errors |
 | Login works but admin sees no extensions | Cache stale or extension manifests not registered | Container restart, or `php artisan cache:clear` via Coolify console |
