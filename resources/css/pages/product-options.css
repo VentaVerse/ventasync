@@ -8,7 +8,19 @@
 .opt-col { min-width: 0; }
 .opt-card { padding: 14px; }
 .opt-header { align-items: flex-end; }
-.opt-add-value-wrap { max-width: 300px; }
+/* Value rows + add-value row use the same flex layout so their right
+   edges line up. The value rows are built in JS as a plain `d-flex`
+   div — we target them via their parent list ids. Both rows fill the
+   card width so all inputs end at the same X position. */
+#opt1-value-list > div,
+#opt2-value-list > div,
+.opt-add-value-wrap {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+}
+#opt1-value-list > div + div { margin-top: 4px; }
 .opt-add-value-wrap .input { flex: 1; }
 .opt-add-opt2 { padding-top: 22px; }
 
@@ -34,13 +46,25 @@
 .opt-metric-negative { color: var(--danger); }
 
 /* ---- Value list inputs (2-option mode) ---- */
+/* Drop the old 260px cap — inputs now grow with the card via flex:1 */
 #opt1-value-list .input,
-#opt2-value-list .input { max-width: 260px; }
+#opt2-value-list .input {
+    flex: 1;
+    min-width: 0;
+}
 
 /* ---- Buttons ---- */
-.opt-btn-sm { padding: 6px 14px; }
+.opt-btn-sm { padding: 6px 14px; min-width: 56px; box-sizing: border-box; text-align: center; }
 .opt-btn-remove { padding: 8px 16px; }
-.opt-btn-row-remove { padding: 4px 10px; font-size: 13px; }
+/* Match the Add button width exactly so the × / Add buttons end at
+   the same X position across rows. */
+.opt-btn-row-remove {
+    padding: 6px 14px;
+    font-size: 13px;
+    min-width: 56px;
+    box-sizing: border-box;
+    text-align: center;
+}
 
 /* ---- Quantity auto-calc ---- */
 .opt-qty-readonly { opacity: 0.85; }
