@@ -19,17 +19,10 @@ use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\CurrencyController;
 
 
-// Root route handles the Shopee OAuth domain-level redirect callback. Bound
-// directly to the extension since Shopee may only allow a domain-level URI;
-// when no OAuth params are present the controller redirects to /dashboard,
-// so this route is harmless even when Shopee isn't licensed/enabled.
-Route::get('/', [\Extensions\shopee\Controllers\ShopeeController::class, 'root'])->name('root');
-
-// Lazada OAuth callback must be publicly accessible so Lazada can redirect back with `code`.
-// Keeping it outside auth/perm middleware prevents losing the code behind login redirects.
-Route::get('/lazada/callback', [\Extensions\lazada\Controllers\LazadaController::class, 'callback'])->name('lazada.callback');
-
-
+// Root URL — core dispatcher. Delegates to any registered RootRouteHandler
+// integration (Shopee claims it when ?code/?shop_id is present for OAuth),
+// otherwise falls through to a redirect to /dashboard.
+Route::get('/', [\App\Http\Controllers\HomeController::class, 'index'])->name('root');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

@@ -68,17 +68,18 @@ class OrderController extends Controller
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        // Build opencart store ID → name map for the Source column
-        $ocStoreNames = class_exists(\Extensions\opencart\Models\OpenCartSetting::class)
-            ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
-            : [];
+        // Source options (filter dropdown) and value→option map (source column
+        // badge lookup) come from the integration registry — every installed
+        // marketplace extension contributes via MarketplaceSourceOptionsProvider.
+        // Core has no knowledge of which marketplaces exist.
+        $sourceOptions = app(\App\Integrations\IntegrationRegistry::class)
+            ->availableMarketplaceSourceOptions();
+        $sourceLabelsMap = [];
+        foreach ($sourceOptions as $opt) {
+            $sourceLabelsMap[$opt['value']] = $opt;
+        }
 
-        // Build venta store ID → name map
-        $ventaStoreNames = class_exists(\Extensions\venta\Models\VentaSetting::class)
-            ? \Extensions\venta\Models\VentaSetting::pluck('store_name', 'id')->toArray()
-            : [];
-
-        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'ocStoreNames', 'ventaStoreNames'));
+        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'sourceOptions', 'sourceLabelsMap'));
     }
 
     public function opencartIndex(Request $request, int $store)

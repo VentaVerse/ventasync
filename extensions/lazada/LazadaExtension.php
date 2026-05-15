@@ -5,7 +5,7 @@ namespace Extensions\lazada;
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\LayoutBannerContributor;
-use App\Integrations\Contracts\MarketplaceSourceLabelResolver;
+use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
 use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
 use App\Integrations\Contracts\OrderImagesContributor;
@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceLabelResolver
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -627,5 +627,14 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     public function resolveSourceLabel(string $source): ?string
     {
         return $source === 'lazada' ? 'Lazada' : null;
+    }
+
+    public function availableSourceOptions(): array
+    {
+        return [[
+            'value'       => 'lazada',
+            'label'       => 'Lazada',
+            'badge_class' => 'badge-indigo',
+        ]];
     }
 }

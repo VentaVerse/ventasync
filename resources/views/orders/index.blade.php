@@ -41,14 +41,8 @@
                 <select class="input" name="source" onchange="this.form.submit()">
                     <option value="">All Sources</option>
                     <option value="manual" {{ ($source ?? '') === 'manual' ? 'selected' : '' }}>Manual</option>
-                    @foreach($ocStoreNames as $ocId => $ocName)
-                        <option value="opencart:{{ $ocId }}" {{ ($source ?? '') === 'opencart:'.$ocId ? 'selected' : '' }}>{{ $ocName ?: 'OpenCart #'.$ocId }}</option>
-                    @endforeach
-                    <option value="lazada" {{ ($source ?? '') === 'lazada' ? 'selected' : '' }}>Lazada</option>
-                    <option value="shopee" {{ ($source ?? '') === 'shopee' ? 'selected' : '' }}>Shopee</option>
-                    <option value="tiktok" {{ ($source ?? '') === 'tiktok' ? 'selected' : '' }}>TikTok</option>
-                    @foreach($ventaStoreNames ?? [] as $ventaId => $ventaName)
-                        <option value="venta:{{ $ventaId }}" {{ ($source ?? '') === 'venta:'.$ventaId ? 'selected' : '' }}>{{ $ventaName ?: 'Venta #'.$ventaId }}</option>
+                    @foreach($sourceOptions as $opt)
+                        <option value="{{ $opt['value'] }}" {{ ($source ?? '') === $opt['value'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
                     @endforeach
                 </select>
             </div>
@@ -114,28 +108,16 @@
                 </td>
                 <td>{{ $o->firstname }} {{ $o->lastname }}</td>
                 <td>
-                    @if($o->marketplace_source === 'lazada')
-                        <span class="badge badge-indigo">Lazada</span>
-                    @elseif($o->marketplace_source === 'shopee')
-                        <span class="badge badge-orange">Shopee</span>
-                    @elseif(str_starts_with($o->marketplace_source ?? '', 'opencart'))
-                        @php
-                            $ocId = str_contains($o->marketplace_source, ':') ? (int) explode(':', $o->marketplace_source, 2)[1] : null;
-                            $ocName = $ocId ? (($ocStoreNames[$ocId] ?? '') ?: '#' . $ocId) : 'OpenCart';
-                        @endphp
-                        <span class="badge badge-dark">{{ $ocName }}</span>
-                    @elseif($o->marketplace_source === 'tiktok')
-                        <span class="badge" style="background:#1e1e1e; color:#fff;">TikTok</span>
-                    @elseif(str_starts_with($o->marketplace_source ?? '', 'venta:'))
-                        @php
-                            $ventaId = (int) explode(':', $o->marketplace_source, 2)[1];
-                            $ventaName = ($ventaStoreNames[$ventaId] ?? '') ?: 'Venta #' . $ventaId;
-                        @endphp
-                        <span class="badge badge-green">{{ $ventaName }}</span>
-                    @elseif(($o->marketplace_source ?? '') !== '')
-                        <span class="badge badge-dark">{{ ucfirst($o->marketplace_source) }}</span>
-                    @else
+                    @php
+                        $src = $o->marketplace_source ?? '';
+                        $opt = $sourceLabelsMap[$src] ?? null;
+                    @endphp
+                    @if($src === '')
                         <span class="badge badge-default">Manual</span>
+                    @elseif($opt)
+                        <span class="badge {{ $opt['badge_class'] ?? 'badge-dark' }}">{{ $opt['label'] }}</span>
+                    @else
+                        <span class="badge badge-dark">{{ ucfirst($src) }}</span>
                     @endif
                 </td>
                 <td>

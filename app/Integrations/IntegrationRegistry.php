@@ -161,6 +161,49 @@ class IntegrationRegistry
     }
 
     /**
+     * Walk the root-route handlers and return the first non-null response
+     * from any handler that claims the request, or null when no handler
+     * wants it. Core's HomeController uses this to delegate the bare "/"
+     * URL to integrations that need a domain-level OAuth callback
+     * (e.g. Shopee).
+     *
+     * Returns mixed because handlers may legitimately return a Response,
+     * a RedirectResponse, a View, or any Responsable — Laravel's router
+     * converts whichever it gets to a final HTTP response.
+     */
+    public function resolveRootRouteResponse(\Illuminate\Http\Request $request): mixed
+    {
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\RootRouteHandler::class) as $handler) {
+            $response = $handler->handleRootRoute($request);
+            if ($response !== null) {
+                return $response;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Aggregate all available marketplace-source options for the unified
+     * orders filter dropdown. Single-account marketplaces contribute one
+     * option; multi-store integrations contribute one option per enabled
+     * store. Order reflects extension registration order.
+     *
+     * @return array<int, array{value: string, label: string, badge_class?: string}>
+     */
+    public function availableMarketplaceSourceOptions(): array
+    {
+        $options = [];
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\MarketplaceSourceOptionsProvider::class) as $provider) {
+            foreach ($provider->availableSourceOptions() as $opt) {
+                if (is_array($opt) && isset($opt['value'], $opt['label'])) {
+                    $options[] = $opt;
+                }
+            }
+        }
+        return $options;
+    }
+
+    /**
      * Walk the marketplace-source resolvers and return the first non-null
      * label for the given source string, or null if no integration claims
      * it.

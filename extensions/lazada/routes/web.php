@@ -9,13 +9,18 @@ use Extensions\lazada\Controllers\LazadaProductGroupController;
 use Extensions\lazada\Controllers\LazadaBrandController;
 use Illuminate\Support\Facades\Route;
 
+// Lazada OAuth callback — must be publicly accessible so Lazada can redirect
+// back with the `code` query param. Kept outside the auth group so the code
+// isn't lost behind a login redirect. Lives in the extension (not core) so
+// removing the Lazada extension cleanly removes the route too.
+Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
+
 Route::middleware(['auth'])->group(function () {
 
     // Lazada — settings, catalog POC, brands, categories, product groups, products
     Route::middleware(['perm:manage_lazada'])->group(function () {
         Route::get('/lazada', [LazadaController::class, 'index'])->name('ext.lazada.index');
         Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('ext.lazada.authorize');
-        // NOTE: /lazada/callback is declared in core routes/web.php (public route, no auth/perm)
         Route::post('/lazada/save', [LazadaController::class, 'save'])->name('ext.lazada.save');
         Route::post('/lazada/toggle-mode', [LazadaController::class, 'toggleMode'])->name('ext.lazada.toggle_mode');
         Route::post('/lazada/order-status-map', [LazadaController::class, 'saveOrderStatusMap'])->name('ext.lazada.order_status_map');

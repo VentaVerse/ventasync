@@ -5,9 +5,10 @@ namespace Extensions\shopee;
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\LayoutBannerContributor;
-use App\Integrations\Contracts\MarketplaceSourceLabelResolver;
+use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
 use App\Integrations\Contracts\MobileMarketplaceProvider;
 use App\Integrations\Contracts\OrderFeesContributor;
+use App\Integrations\Contracts\RootRouteHandler;
 use App\Integrations\Contracts\SkuSyncContributor;
 use App\Models\Catalog\Order;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceLabelResolver
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -512,5 +513,32 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
     public function resolveSourceLabel(string $source): ?string
     {
         return $source === 'shopee' ? 'Shopee' : null;
+    }
+
+    public function availableSourceOptions(): array
+    {
+        return [[
+            'value'       => 'shopee',
+            'label'       => 'Shopee',
+            'badge_class' => 'badge-orange',
+        ]];
+    }
+
+    /**
+     * Claim the bare "/" URL when the request carries Shopee's OAuth
+     * callback params. Shopee's authorization flow requires a domain-
+     * level redirect URI (no path), so the bare APP_URL is registered
+     * as the callback in the Shopee developer console. When neither
+     * `code` nor `shop_id` is present, defer so core's HomeController
+     * can fall through to /dashboard.
+     */
+    public function handleRootRoute(Request $request): mixed
+    {
+        if (!$request->query('code') && !$request->query('shop_id')) {
+            return null;
+        }
+
+        return app(\Extensions\shopee\Controllers\ShopeeController::class)
+            ->root($request, app(ShopeeClient::class));
     }
 }
