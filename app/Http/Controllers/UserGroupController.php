@@ -6,16 +6,21 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Models\Admin\Permission;
 use App\Services\ActivityLogger;
+use App\Services\PermissionHierarchy;
 use Illuminate\Http\Request;
 
 class UserGroupController extends Controller
 {
     /**
-     * Build grouped permissions for the form.
+     * Build grouped permissions for the form. Reads from the dynamic
+     * PermissionHierarchy service so the tree picks up extensions
+     * automatically when they're installed — core has no hardcoded
+     * marketplace / purchasing / warehousing knowledge here.
      */
     private function getGroupedPermissions(): array
     {
         $all = Permission::orderBy('key')->get()->keyBy('key');
+        $tree = app(PermissionHierarchy::class)->groupedTree();
 
         $resolve = function (array $keys) use ($all): array {
             $out = [];
@@ -27,58 +32,38 @@ class UserGroupController extends Controller
             return $out;
         };
 
-        return array_filter([
-            [
-                'key'      => 'catalog',
-                'label'    => 'Catalog',
-                'parent'   => $all->get('manage_catalog'),
-                'children' => $resolve(['manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options']),
-            ],
-            [
-                'key'      => 'sales',
-                'label'    => 'Sales',
-                'parent'   => $all->get('manage_sales'),
-                'children' => $resolve(['manage_orders', 'manage_order_statuses', 'manage_reports']),
-            ],
-            [
-                'key'       => 'marketplace',
-                'label'     => 'Marketplace API',
-                'parent'    => $all->get('manage_marketplace_api'),
-                'subgroups' => [
-                    ['label' => 'Shopee',      'children' => $resolve(['manage_shopee', 'manage_shopee_orders'])],
-                    ['label' => 'Lazada',      'children' => $resolve(['manage_lazada', 'manage_lazada_orders'])],
-                    ['label' => 'TikTok Shop', 'children' => $resolve(['manage_tiktok', 'manage_tiktok_orders'])],
-                    ['label' => 'OpenCart',    'children' => $resolve(['manage_opencart', 'manage_opencart_orders'])],
-                    ['label' => 'Venta',      'children' => $resolve(['manage_venta', 'manage_venta_orders'])],
-                    ['label' => 'Pedallion',  'children' => $resolve(['manage_pedallion', 'manage_pedallion_orders'])],
-                    ['label' => 'Reviews',    'children' => $resolve(['manage_reviews'])],
-                ],
-            ],
-            [
-                'key'      => 'purchasing',
-                'label'    => 'Purchasing',
-                'parent'   => $all->get('manage_purchasing'),
-                'children' => $resolve(['manage_vendors', 'manage_purchase_orders']),
-            ],
-            [
-                'key'      => 'warehousing',
-                'label'    => 'Warehousing',
-                'parent'   => $all->get('manage_warehousing'),
-                'children' => $resolve(['manage_warehouse_locations', 'manage_warehouse_transfers', 'manage_warehouse_inventory']),
-            ],
-            [
-                'key'      => 'pettycash',
-                'label'    => 'Petty Cash',
-                'parent'   => $all->get('view_petty_cash'),
-                'children' => $resolve(['view_petty_cash_transactions', 'manage_petty_cash_settings']),
-            ],
-            [
-                'key'      => 'settings',
-                'label'    => 'Settings',
-                'parent'   => $all->get('manage_settings'),
-                'children' => $resolve(['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log', 'manage_activity_log']),
-            ],
-        ], fn ($g) => $g['parent'] !== null);
+        $groups = [];
+        foreach ($tree as $entry) {
+            $parent = $all->get($entry['parent_key']);
+            if (!$parent) {
+                // Parent permission doesn't exist in DB (e.g. extension
+                // disabled and permissions removed). Skip the whole group.
+                continue;
+            }
+            $group = [
+                'key'    => $entry['key'],
+                'label'  => $entry['label'],
+                'parent' => $parent,
+            ];
+            if (!empty($entry['subgroups'])) {
+                $subgroups = [];
+                foreach ($entry['subgroups'] as $sg) {
+                    $kids = $resolve($sg['children']);
+                    if (!empty($kids)) {
+                        $subgroups[] = ['label' => $sg['label'], 'children' => $kids];
+                    }
+                }
+                if (empty($subgroups)) {
+                    continue; // container with no surviving children
+                }
+                $group['subgroups'] = $subgroups;
+            } else {
+                $group['children'] = $resolve($entry['children'] ?? []);
+            }
+            $groups[] = $group;
+        }
+
+        return $groups;
     }
 
     public function index(Request $request)

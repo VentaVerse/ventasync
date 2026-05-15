@@ -6,7 +6,10 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "permissions": ["manage_venta", "manage_venta_orders"],
+    "permissions": [
+        {"key": "manage_venta",        "parent": "manage_marketplace_api", "subgroup": "Venta", "label": "Manage Venta"},
+        {"key": "manage_venta_orders", "parent": "manage_marketplace_api", "subgroup": "Venta", "label": "Manage Venta Orders"}
+    ],
     "tables": [
         "venta_settings",
         "venta_product_groups",

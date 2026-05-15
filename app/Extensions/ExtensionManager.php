@@ -317,6 +317,26 @@ class ExtensionManager
     }
 
     /**
+     * Pull permission keys out of a manifest's "permissions" array,
+     * accepting both legacy string form and the new object form
+     * ({key, parent?, subgroup?, label?}).
+     *
+     * @return string[]
+     */
+    private function permissionKeys(array $manifest): array
+    {
+        $keys = [];
+        foreach ($manifest['permissions'] ?? [] as $perm) {
+            if (is_string($perm)) {
+                $keys[] = $perm;
+            } elseif (is_array($perm) && !empty($perm['key']) && is_string($perm['key'])) {
+                $keys[] = $perm['key'];
+            }
+        }
+        return $keys;
+    }
+
+    /**
      * Insert permission rows declared in the extension manifest.
      * Grants them to the Administrator group automatically.
      */
@@ -327,7 +347,7 @@ class ExtensionManager
         }
 
         $manifest = $this->getManifest($id);
-        $keys = $manifest['permissions'] ?? [];
+        $keys = $this->permissionKeys($manifest);
 
         if (empty($keys)) {
             return;
@@ -354,6 +374,10 @@ class ExtensionManager
                 ]);
             }
         }
+
+        // Permission hierarchy depends on manifest contents; bust the
+        // cached tree so the next request rebuilds with the new keys.
+        app(\App\Services\PermissionHierarchy::class)->invalidate();
     }
 
     /**
@@ -367,7 +391,7 @@ class ExtensionManager
         }
 
         $manifest = $this->getManifest($id);
-        $keys = $manifest['permissions'] ?? [];
+        $keys = $this->permissionKeys($manifest);
 
         if (empty($keys)) {
             return;
@@ -379,6 +403,9 @@ class ExtensionManager
             DB::table('user_group_permissions')->whereIn('permission_id', $permIds)->delete();
             DB::table('permissions')->whereIn('id', $permIds)->delete();
         }
+
+        // Cached hierarchy must drop the removed keys.
+        app(\App\Services\PermissionHierarchy::class)->invalidate();
     }
 
     /**

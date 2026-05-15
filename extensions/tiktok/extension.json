@@ -6,7 +6,10 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "permissions": ["manage_tiktok", "manage_tiktok_orders"],
+    "permissions": [
+        {"key": "manage_tiktok",        "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "label": "Manage TikTok"},
+        {"key": "manage_tiktok_orders", "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "label": "Manage TikTok Orders"}
+    ],
     "tables": [
         "tiktok_settings",
         "tiktok_api_logs",

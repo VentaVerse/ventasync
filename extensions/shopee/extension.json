@@ -6,7 +6,10 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "permissions": ["manage_shopee", "manage_shopee_orders"],
+    "permissions": [
+        {"key": "manage_shopee",        "parent": "manage_marketplace_api", "subgroup": "Shopee", "label": "Manage Shopee"},
+        {"key": "manage_shopee_orders", "parent": "manage_marketplace_api", "subgroup": "Shopee", "label": "Manage Shopee Orders"}
+    ],
     "tables": [
         "shopee_settings",
         "shopee_api_logs",

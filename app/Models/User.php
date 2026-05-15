@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Admin\UserGroup;
+use App\Services\PermissionHierarchy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\Admin\UserGroup;
 
 class User extends Authenticatable
 {
@@ -39,19 +40,12 @@ class User extends Authenticatable
     }
 
     /**
-     * Parent → children mapping for permission hierarchy.
-     * Having a parent grants access to all its children.
-     * Having a child grants access to that child (and satisfies the parent check for sidebar visibility).
+     * Permission expansion: having a parent permission grants the user
+     * all its children; having any child satisfies the parent check
+     * (for sidebar visibility). The hierarchy is built dynamically from
+     * core config (config/permissions.php) plus each extension manifest's
+     * permission declarations — see App\Services\PermissionHierarchy.
      */
-    public const PERMISSION_GROUPS = [
-        'manage_catalog' => ['manage_products', 'manage_categories', 'manage_manufacturers', 'manage_options'],
-        'manage_sales' => ['manage_orders', 'manage_order_statuses', 'manage_reports'],
-        'manage_marketplace_api' => ['manage_shopee', 'manage_lazada', 'manage_opencart', 'manage_tiktok', 'manage_pedallion', 'manage_venta', 'manage_shopee_orders', 'manage_lazada_orders', 'manage_opencart_orders', 'manage_tiktok_orders', 'manage_pedallion_orders', 'manage_venta_orders'],
-        'manage_purchasing' => ['manage_vendors', 'manage_purchase_orders'],
-        'manage_warehousing' => ['manage_warehouse_locations', 'manage_warehouse_transfers', 'manage_warehouse_inventory'],
-        'manage_settings' => ['manage_users', 'manage_user_groups', 'manage_website_settings', 'manage_error_log', 'manage_activity_log'],
-    ];
-
     public function hasPermission(string $key): bool
     {
         $group = $this->userGroup;
@@ -59,22 +53,22 @@ class User extends Authenticatable
             return false;
         }
 
+        $hierarchy = app(PermissionHierarchy::class);
         $keysToCheck = [$key];
 
-        // If checking a parent, also accept any of its children
-        if (isset(self::PERMISSION_GROUPS[$key])) {
-            $keysToCheck = array_merge($keysToCheck, self::PERMISSION_GROUPS[$key]);
+        // Parent grants access to all children
+        $children = $hierarchy->childrenOf($key);
+        if (!empty($children)) {
+            $keysToCheck = array_merge($keysToCheck, $children);
         }
 
-        // If checking a child, also accept the parent
-        foreach (self::PERMISSION_GROUPS as $parent => $children) {
-            if (in_array($key, $children, true)) {
-                $keysToCheck[] = $parent;
-                break;
-            }
+        // Child grants access to parent (for sidebar visibility)
+        $parent = $hierarchy->parentOf($key);
+        if ($parent !== null) {
+            $keysToCheck[] = $parent;
         }
 
-        // Legacy compatibility
+        // Legacy compatibility for pre-Laravel-rebuild permission key
         if ($key === 'manage_settings' || $key === 'manage_users' || $key === 'manage_user_groups') {
             $keysToCheck[] = 'manage_users_groups';
         }
@@ -93,13 +87,12 @@ class User extends Authenticatable
             return [];
         }
 
+        $hierarchy = app(PermissionHierarchy::class);
         $assigned = $group->permissions()->pluck('key')->toArray();
         $effective = $assigned;
 
         foreach ($assigned as $key) {
-            if (isset(self::PERMISSION_GROUPS[$key])) {
-                $effective = array_merge($effective, self::PERMISSION_GROUPS[$key]);
-            }
+            $effective = array_merge($effective, $hierarchy->childrenOf($key));
         }
 
         return array_values(array_unique($effective));
