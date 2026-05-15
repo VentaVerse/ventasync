@@ -229,28 +229,57 @@ public function index()
         ]);
     }
 
+    /**
+     * Pick the credentials for the currently-selected mode.
+     * Shopee settings store live + sandbox credentials independently;
+     * authorize, buildAuthUrl, and token exchange all need the active set.
+     */
+    private function activeCredentials(?object $setting): array
+    {
+        if (!$setting) {
+            return ['partner_id' => null, 'partner_key' => null, 'redirect_uri' => null, 'mode' => 'sandbox'];
+        }
+        $mode = $setting->mode ?? 'sandbox';
+        if ($mode === 'sandbox') {
+            return [
+                'partner_id'   => $setting->sandbox_partner_id ?? null,
+                'partner_key'  => $setting->sandbox_partner_key ?? null,
+                'redirect_uri' => $setting->sandbox_redirect_uri ?? null,
+                'mode'         => 'sandbox',
+            ];
+        }
+        return [
+            'partner_id'   => $setting->partner_id ?? null,
+            'partner_key'  => $setting->partner_key ?? null,
+            'redirect_uri' => $setting->redirect_uri ?? null,
+            'mode'         => 'live',
+        ];
+    }
+
     public function redirectToShopeeAuth(ShopeeClient $client)
 {
     $setting = ShopeeSetting::query()->first()?->decrypted();
+    $creds = $this->activeCredentials($setting);
 
-    if (!$setting || !$setting->partner_id || !$setting->partner_key) {
+    if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {
+        $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
         return redirect()->route('ext.shopee.index')->with('shopee_result', [
             'ok' => false,
             'title' => 'Missing settings',
-            'data' => ['message' => 'Partner ID and Partner Key are required to authorize.'],
+            'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required to authorize."],
         ]);
     }
 
-    if (empty($setting->redirect_uri)) {
+    if (empty($creds['redirect_uri'])) {
+        $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
         return redirect()->route('ext.shopee.index')->with('shopee_result', [
             'ok' => false,
             'title' => 'Missing redirect URI',
-            'data' => ['message' => 'A Redirect URI is required. Configure it in Shopee settings before authorizing.'],
+            'data' => ['message' => "A {$modeLabel} Redirect URI is required. Configure it in Shopee settings before authorizing."],
         ]);
     }
 
-    $redirect = $setting->redirect_uri;
-    $url = $client->buildAuthUrl($setting->mode, (int)$setting->partner_id, (string)$setting->partner_key, $redirect);
+    $url = $client->buildAuthUrl($creds['mode'], (int)$creds['partner_id'], (string)$creds['partner_key'], $creds['redirect_uri']);
 
     return redirect()->away($url);
 }
@@ -258,26 +287,27 @@ public function index()
 public function buildAuthUrl(ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
+        $creds = $this->activeCredentials($setting);
 
-        if (!$setting || !$setting->partner_id || !$setting->partner_key) {
+        if (!$setting || !$creds['partner_id'] || !$creds['partner_key']) {
+            $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID and Partner Key are required to build the auth URL.'],
+                'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required to build the auth URL."],
             ]);
         }
 
-        if (empty($setting->redirect_uri)) {
+        if (empty($creds['redirect_uri'])) {
+            $modeLabel = $creds['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing redirect URI',
-                'data' => ['message' => 'A Redirect URI is required. Configure it in Shopee settings before building the auth URL.'],
+                'data' => ['message' => "A {$modeLabel} Redirect URI is required. Configure it in Shopee settings before building the auth URL."],
             ]);
         }
 
-        $redirect = $setting->redirect_uri;
-
-        $url = $client->buildAuthUrl($setting->mode, (int)$setting->partner_id, (string)$setting->partner_key, $redirect);
+        $url = $client->buildAuthUrl($creds['mode'], (int)$creds['partner_id'], (string)$creds['partner_key'], $creds['redirect_uri']);
 
         return redirect()->route('ext.shopee.index')->with('shopee_result', [
             'ok' => true,
