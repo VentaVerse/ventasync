@@ -4,6 +4,23 @@ Step-by-step install guide for the major shared-hosting panels. Pick the section
 
 If you're on a dedicated VPS without a panel, see [Manual install via SSH](#manual-install-via-ssh) at the bottom.
 
+## ⚠️ Important: don't change DocumentRoot
+
+VentaSync ships with a **top-level `.htaccess`** and an **`index.php` shim** at the repo root that automatically route requests into `public/`. This is what makes drag-and-drop install possible — you don't need to change your hosting panel's DocumentRoot.
+
+**If you DO change DocumentRoot to `public_html/public/`** (a common Laravel-deployment instinct), Apache will hit `public/public/...` because the root `.htaccess` adds an extra `public/` prefix → **500 error**.
+
+**Pick ONE of these patterns. Not both:**
+
+| Pattern | DocumentRoot | Root `.htaccess` + `index.php` |
+|---|---|---|
+| **Drag-and-drop (recommended for shared hosting)** | Leave at panel default (`public_html/`) | Keep them as shipped |
+| **Standard Laravel (if you control DocumentRoot)** | Change to `public_html/public/` | Delete the root `.htaccess` and root `index.php` |
+
+If you saw a 500 error after install and you'd changed DocumentRoot, that's almost certainly the cause. Revert DocumentRoot to the panel default OR delete the two root files.
+
+---
+
 ## Prerequisites
 
 Whichever path you take, your hosting account needs:
@@ -41,6 +58,8 @@ HestiaCP is one of the smoothest panels for this — its DocumentRoot config is 
 5. Save
 
 HestiaCP creates the nginx vhost, requests the cert, and configures DNS records (if DNS is also managed here).
+
+> **⚠️ Don't change "Document Root" in the Web Domain advanced settings.** Leave it at the HestiaCP default. VentaSync' root `.htaccess` handles the routing. See the [DocumentRoot warning at the top of this file](#-important-dont-change-documentroot) if you're tempted to point it at `/public`.
 
 ### 2. Upload the zip
 
