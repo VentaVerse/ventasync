@@ -23,6 +23,16 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Screenshots / scratch images at the repo root (paste-and-go artifacts)
+/Screenshot*.png
+/Screenshot*.jpg
+/screenshot*.png
+/screenshot*.jpg
+/*.png
+/*.jpg
+!/ventasync-legacy.png
+!/logo*.png
 /.claude
 /docs
 CLAUDE.md
