@@ -81,11 +81,11 @@ class ExtensionManager
             return $this->enabledCache;
         }
 
-        // Tolerate DB-unreachable state (fresh install before wizard runs).
+        // Tolerate DB-unreachable state (fresh install before migrations run).
         // Schema::hasTable() itself requires a working DB connection — if
-        // .env credentials are wrong or DB doesn't exist yet, it throws.
-        // In that case, treat as "no extensions enabled" and let
-        // InstallationMiddleware redirect to /install.
+        // .env credentials are wrong or the database doesn't exist yet, it
+        // throws. In that case, treat as "no extensions enabled" so the
+        // login or error page can still render.
         try {
             if (!Schema::hasTable('extensions')) {
                 $this->enabledCache = [];

@@ -20,9 +20,10 @@ class ExtensionServiceProvider extends ServiceProvider
         $manifests = $manager->getManifests();
 
         // ─── System extensions (load FIRST, no DB dependency) ──────────────
-        // Extensions with "system": true in their manifest must boot from
-        // filesystem regardless of DB state. This is how the installer
-        // extension can run before the `extensions` table even exists.
+        // Extensions with "system": true in their manifest boot from
+        // filesystem regardless of DB state — useful for any extension
+        // that must run before the `extensions` table exists or is
+        // populated.
         foreach ($manifests as $id => $manifest) {
             if (!($manifest['system'] ?? false)) {
                 continue;

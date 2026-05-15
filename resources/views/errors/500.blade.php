@@ -44,21 +44,18 @@
             <ul style="color: #475569; line-height: 1.7; padding-left: 20px;">
                 <li>Database credentials in <code>.env</code> are wrong or missing</li>
                 <li>The MySQL service on this server isn't running</li>
-                <li>The database hasn't been created yet (run the installer)</li>
+                <li>The database hasn't been migrated yet (<code>php artisan migrate --seed</code>)</li>
             </ul>
-            <p style="margin-top: 16px;"><strong>If this is a fresh install,</strong> the setup wizard will create everything for you.</p>
             <div class="actions">
-                <a href="/install" class="btn btn-primary">Open Setup Wizard</a>
-                <a href="https://github.com/reboot-interactive/ventasync-legacy/blob/main/INSTALL.md" class="btn btn-secondary" target="_blank">Read INSTALL.md</a>
+                <a href="https://github.com/reboot-interactive/ventasync-legacy/blob/main/INSTALL.md" class="btn btn-primary" target="_blank">Read INSTALL.md</a>
             </div>
         @else
             <div class="icon">⚠</div>
             <h1>Something went wrong</h1>
             <p>VentaSync encountered an internal error.</p>
-            <p>If this is the first time you've seen this, try refreshing the page. If it persists, the installer may be able to help diagnose the issue.</p>
+            <p>If this is the first time you've seen this, try refreshing the page. If it persists, check <code>storage/logs/laravel.log</code> for the full stack trace.</p>
             <div class="actions">
                 <a href="/" class="btn btn-primary">Try home page</a>
-                <a href="/install" class="btn btn-secondary">Setup wizard</a>
             </div>
         @endif
 
