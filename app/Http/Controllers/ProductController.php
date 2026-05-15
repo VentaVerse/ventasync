@@ -700,21 +700,6 @@ public function store(Request $request)
             return (int) $p->product_id;
         });
 
-        // Save vendor links
-        $vendorRows = $request->input('vendors', []);
-        if (!empty($vendorRows) && class_exists(\Extensions\purchasing\Models\ProductVendor::class)) {
-            foreach ($vendorRows as $v) {
-                \Extensions\purchasing\Models\ProductVendor::create([
-                    'product_id' => $productId,
-                    'vendor_id' => (int) ($v['vendor_id'] ?? 0),
-                    'vendor_sku' => $v['vendor_sku'] ?? null,
-                    'min_qty' => (int) ($v['min_qty'] ?? 1),
-                    'currency_code' => $v['currency_code'] ?? 'PHP',
-                    'unit_price' => (float) ($v['unit_price'] ?? 0),
-                ]);
-            }
-        }
-
         ActivityLogger::log('created', 'Product', $productId, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')');
 
         // Log initial stock
@@ -1032,18 +1017,9 @@ public function store(Request $request)
             $returnUrl = route('products.index');
         }
 
-$productVendors = collect();
-        $vendors = collect();
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
-        if (class_exists(\Extensions\purchasing\Models\ProductVendor::class)) {
-            $productVendors = \Extensions\purchasing\Models\ProductVendor::with('vendor:id,name')
-                ->where('product_id', (int) $id)
-                ->orderBy('id')
-                ->get();
-            $vendors = \Extensions\purchasing\Models\Vendor::where('status', 1)->orderBy('name')->get(['id', 'name', 'currency_code']);
-        }
 
-return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'productVendors', 'currencies', 'vendors'));
+        return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'currencies'));
     }
 
     public function update(Request $request, $id)
