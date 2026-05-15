@@ -23,8 +23,8 @@ Built for self-hosting: you run it on your own server, you own the data, you con
 
 | Tier | What's included | Price |
 |------|----------------|-------|
-| **Community** | Core ERP + free integrations (Lazada, Shopee, TikTok, OpenCart, Venta) + unlimited users + free updates forever | Free, AGPL-3.0 |
-| **Plus** | Everything in Community + advanced marketplace features (campaigns, vouchers, bulk catalog, analytics) + premium integrations (Shopify, Pedallion) + 1 year updates + email support | Paid bundle |
+| **Community** | Core ERP + free integrations (Lazada, Shopee, TikTok, Venta, Pedallion) + warehousing + petty cash + unlimited users + free updates forever | Free, AGPL-3.0 |
+| **Plus** | Everything in Community + Audit log + Purchasing (POs/vendors) + Reports (profitability/payouts) + OpenCart integration + Shopify integration + 1 year updates + email support | Paid bundle / à-la-carte |
 | **Enterprise** | Everything in Plus + custom modules + dedicated support | Contact sales |
 
 Plus modules are also available **à la carte** — buy only the integrations you need.
@@ -38,10 +38,10 @@ Plus modules are also available **à la carte** — buy only the integrations yo
 | **Lazada** | Order sync (incl. returns), product listing, stock push, price push, AWB print, status mapping |
 | **Shopee** | Order sync (incl. returns), product listing, stock push, price push, status mapping |
 | **TikTok Shop** | Order sync, product listing, stock push, price push, status mapping |
-| **OpenCart** | Bi-directional product/category/manufacturer/option/order/stock sync. Multi-store. |
 | **Venta** | Multi-store order sync, inventory push, product groups, categories |
+| **Pedallion** | Distributor API integration — product sync, orders, product groups |
 
-Plus tier adds **Shopify**, **Pedallion**, **Mirakl** (Zalora et al.), and advanced features (campaigns, vouchers, bulk listing migration, unified inbox, performance dashboards) for the marketplaces above.
+Plus tier adds **OpenCart** (bi-directional sync with OpenCart 2.3.x stores), **Shopify** (multi-store), the **Audit Log** module, **Purchasing** (POs, vendors, receiving), and **Reports** (profitability, payouts, marketplace fees, inventory valuation). Available as a bundle or à-la-carte per module.
 
 ---
 
@@ -66,14 +66,6 @@ Plus tier adds **Shopify**, **Pedallion**, **Mirakl** (Zalora et al.), and advan
 - Multi-warehouse support
 - Automatic stock push to connected marketplaces
 
-### Reports
-- Order profitability (revenue / cost / profit / margin / markup, grouped by month or searchable)
-- Product profitability with sortable columns
-- Margin by category
-- Marketplace fees (commission, service, payment, shipping by platform)
-- Inventory valuation (cost and retail)
-- Per-product sales history with profit breakdown
-
 ### Dashboard
 - Stat cards (products, categories, orders, revenue)
 - Today's snapshot
@@ -81,23 +73,6 @@ Plus tier adds **Shopify**, **Pedallion**, **Mirakl** (Zalora et al.), and advan
 - Platform distribution
 - Recent orders with marketplace badges
 - Per-platform pending order counts
-
-### Purchasing
-- Full PO lifecycle (draft → approved → ordered → partially received → received → cancelled)
-- Auto-generated PO numbers (`PO{YYMM}-{NNNN}`)
-- Multi-currency with PHP equivalent display
-- Per-line discounts (% or fixed)
-- PDF generation, email to vendors
-- File attachments (PDF, images, Office docs)
-- Stock auto-update on receive (with optional cost auto-update)
-- Payment tracking with auto-status (unpaid / partial / paid)
-- Reorder suggestions (products below reorder level, filtered by vendor/category)
-- Dashboard widget (open POs, pending delivery, overdue, monthly spend)
-
-### Vendor management
-- Vendor CRUD with contact, payment terms, email preferences
-- Per-product and per-option vendor pricing in multiple currencies
-- Inline-editable vendor pricing tables
 
 ### Users & permissions
 - Role-based access via User Groups
@@ -134,41 +109,21 @@ Plus tier adds **Shopify**, **Pedallion**, **Mirakl** (Zalora et al.), and advan
 
 ## Installation
 
-> A guided installer (`php artisan agila:install`) is in development. Until it ships, follow the manual steps below.
+**Drag-and-drop install on most modern hosting panels.** The Community zip ships with `vendor/` bundled and a top-level `.htaccess` shim, so you don't need SSH, composer, or DocumentRoot reconfiguration.
 
-```bash
-# Extract VentaSync zip into your web root
-unzip agila-community-vX.Y.Z.zip
-cd ventasync-legacy
-
-# Install PHP dependencies
-composer install --no-dev --optimize-autoloader
-
-# Set up environment
-cp .env.example .env
-php artisan key:generate
-
-# Edit .env with your database credentials, app URL, mail settings
-# (DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD, APP_URL, MAIL_*)
-
-# Run migrations + seed reference data
-php artisan migrate --force
-php artisan db:seed --force
-
-# Build frontend assets (pre-built assets ship in public/build/, only needed for customization)
-npm install --omit=dev
-npm run build
-
-# Set storage permissions
-php artisan storage:link
-chmod -R ug+rwx storage bootstrap/cache
-
-# Default admin credentials (change immediately after first login):
-#   username: admin
-#   password: admin
+```
+1. Download → click "Code → Download ZIP" at the top of this page
+2. Upload    → put the zip in your hosting panel's public_html/
+3. Extract   → right-click → Extract in cPanel / HestiaCP File Manager
+4. Database  → create a MySQL database + user in your hosting panel
+5. Visit     → open https://your-domain.com/ in a browser
+6. Wizard    → the setup wizard appears; walk through the 6 steps
+7. Login     → use the credentials you created in step 6
 ```
 
-Marketplace API credentials (Lazada, Shopee, TikTok, etc.) are configured through the Settings pages within the application after install.
+That's it. Marketplace API credentials (Lazada, Shopee, TikTok) are configured through the Settings pages inside the app after install.
+
+For per-panel walkthroughs (HestiaCP, cPanel, CyberPanel, Plesk) and manual install via SSH, see **[INSTALL.md](INSTALL.md)**.
 
 ---
 
