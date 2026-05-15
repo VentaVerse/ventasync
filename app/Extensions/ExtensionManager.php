@@ -81,14 +81,23 @@ class ExtensionManager
             return $this->enabledCache;
         }
 
-        if (!Schema::hasTable('extensions')) {
-            $this->enabledCache = [];
-            return $this->enabledCache;
-        }
+        // Tolerate DB-unreachable state (fresh install before wizard runs).
+        // Schema::hasTable() itself requires a working DB connection — if
+        // .env credentials are wrong or DB doesn't exist yet, it throws.
+        // In that case, treat as "no extensions enabled" and let
+        // InstallationMiddleware redirect to /install.
+        try {
+            if (!Schema::hasTable('extensions')) {
+                $this->enabledCache = [];
+                return $this->enabledCache;
+            }
 
-        $this->enabledCache = Extension::where('enabled', true)
-            ->pluck('id')
-            ->all();
+            $this->enabledCache = Extension::where('enabled', true)
+                ->pluck('id')
+                ->all();
+        } catch (\Throwable $e) {
+            $this->enabledCache = [];
+        }
 
         return $this->enabledCache;
     }
@@ -110,10 +119,16 @@ class ExtensionManager
     {
         $manifests = $this->getManifests();
 
-        // Load all DB records keyed by id
+        // Load all DB records keyed by id. Tolerate DB-unreachable state
+        // (same reason as getEnabledIds — Schema::hasTable requires a working
+        // connection).
         $dbRecords = [];
-        if (Schema::hasTable('extensions')) {
-            $dbRecords = Extension::all()->keyBy('id');
+        try {
+            if (Schema::hasTable('extensions')) {
+                $dbRecords = Extension::all()->keyBy('id');
+            }
+        } catch (\Throwable $e) {
+            $dbRecords = [];
         }
 
         $result = [];

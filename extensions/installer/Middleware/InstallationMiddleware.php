@@ -44,6 +44,20 @@ class InstallationMiddleware
             return redirect('/install');
         }
 
+        // While inside the installer flow, force filesystem-backed sessions
+        // and cache so the wizard renders even if the customer's .env has
+        // bad/missing DB credentials. Without this, Laravel's StartSession
+        // middleware would try to read sessions from a database table that
+        // doesn't exist yet → 500 → customer never sees the wizard.
+        // After the wizard writes a new .env in the database step, normal
+        // drivers take over on subsequent requests.
+        if ($isInstallRoute) {
+            config([
+                'session.driver' => 'file',
+                'cache.default'  => 'file',
+            ]);
+        }
+
         return $next($request);
     }
 

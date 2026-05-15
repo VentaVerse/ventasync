@@ -23,22 +23,36 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Avoid errors during first migrations / before table exists
-        if (Schema::hasTable('settings')) {
-            $setting = Setting::singleton();
+        // Apply admin Settings to runtime config. Wrapped in try/catch because:
+        //   1. On a fresh deploy BEFORE the installer wizard runs, the DB
+        //      connection itself may fail (wrong creds in .env defaults,
+        //      no .env at all). Without this guard, Schema::hasTable would
+        //      throw PDOException and the boot crashes BEFORE the
+        //      InstallationMiddleware can redirect to /install.
+        //   2. During migrations, the settings table may not exist yet.
+        // If anything goes wrong, fall back to the .env / config defaults
+        // and let the request continue. The installer wizard will then
+        // appear normally.
+        try {
+            if (Schema::hasTable('settings')) {
+                $setting = Setting::singleton();
 
-            // Dynamic mail "from" values controlled by admin settings
-            Config::set('mail.from.address', $setting->from_email);
-            Config::set('mail.from.name', $setting->company_name);
+                // Dynamic mail "from" values controlled by admin settings
+                Config::set('mail.from.address', $setting->from_email);
+                Config::set('mail.from.name', $setting->company_name);
 
-            // Apply timezone from admin settings
-            if ($setting->timezone) {
-                Config::set('app.timezone', $setting->timezone);
-                date_default_timezone_set($setting->timezone);
+                // Apply timezone from admin settings
+                if ($setting->timezone) {
+                    Config::set('app.timezone', $setting->timezone);
+                    date_default_timezone_set($setting->timezone);
+                }
+
+                // Make available to all blade views as $appSetting
+                View::share('appSetting', $setting);
             }
-
-            // Make available to all blade views as $appSetting
-            View::share('appSetting', $setting);
+        } catch (\Throwable $e) {
+            // DB unreachable or settings table missing — let the request
+            // continue so InstallationMiddleware can route to /install.
         }
 
 
