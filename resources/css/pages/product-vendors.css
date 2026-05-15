@@ -1,0 +1,552 @@
+/* ============================================================
+   PRODUCT VENDORS — sourcing relationships for a single product
+   Same product, many vendors, different prices.
+   Page goal: scan prices fast, edit inline, add without modals.
+   ============================================================ */
+
+/* ── Page chrome: dotted-grid backdrop gives the page a sense of
+      depth + workspace without resorting to gradient washes ───── */
+.pv-page {
+    position: relative;
+    padding-bottom: 48px;
+}
+.pv-page::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 240px;
+    background:
+        radial-gradient(circle at 1px 1px, rgba(15, 23, 42, .06) 1px, transparent 0) 0 0 / 18px 18px,
+        linear-gradient(180deg, var(--surface-alt) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+.pv-page > * { position: relative; z-index: 1; }
+
+/* ── Context header: product identity + back link ───────────── */
+.pv-context {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px 20px;
+    align-items: center;
+    padding: 18px 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 20px;
+}
+.pv-context-mark {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fbbf24;
+    display: grid;
+    place-items: center;
+}
+.pv-context-mark svg {
+    width: 26px;
+    height: 26px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.6;
+}
+.pv-context-meta { min-width: 0; }
+.pv-context-eyebrow {
+    font-family: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+.pv-context-eyebrow .pv-divider {
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    vertical-align: middle;
+    background: var(--border);
+    margin: 0 10px;
+}
+.pv-context-title {
+    margin: 0;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -.015em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+.pv-context-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+.pv-context-back:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+    transform: translateX(-2px);
+}
+.pv-context-back svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* ── Section heading row (count chip + action affordance) ─── */
+.pv-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 28px 4px 12px;
+}
+.pv-section-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -.005em;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.pv-count-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    min-width: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--accent-light);
+    color: var(--accent-hover);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+.pv-section-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ── Add bar (compose strip) ──────────────────────────────── */
+.pv-compose {
+    display: grid;
+    grid-template-columns:
+        minmax(220px, 2fr)   /* vendor typeahead */
+        minmax(140px, 1fr)   /* vendor sku */
+        90px                 /* min qty */
+        110px                /* currency */
+        minmax(140px, 1fr)   /* unit price */
+        auto;                /* button */
+    gap: 10px;
+    align-items: end;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    border-left: 3px solid #fbbf24; /* warm amber accent — sourcing/buying side */
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 20px;
+}
+.pv-compose .pv-field { min-width: 0; }
+.pv-compose label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.pv-compose .input {
+    height: 38px;
+    font-size: 13.5px;
+}
+.pv-compose select.input { padding-right: 28px; }
+.pv-compose .pv-money input {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+}
+.pv-compose-add {
+    height: 38px;
+    padding: 0 16px;
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all var(--transition-fast);
+    box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+.pv-compose-add:hover {
+    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .22);
+}
+.pv-compose-add:active { transform: translateY(0) scale(.98); }
+.pv-compose-add:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+.pv-compose-add svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+/* ── Vendor row card ──────────────────────────────────────── */
+.pv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pv-row {
+    --pv-accent: #64748b; /* overridden inline per row */
+    display: grid;
+    grid-template-columns: 4px minmax(220px, 1.4fr) minmax(140px, 1fr) 90px minmax(160px, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 18px 14px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    animation: pvRowIn .35s cubic-bezier(.2,.8,.2,1);
+}
+.pv-row::before {
+    content: '';
+    grid-column: 1;
+    align-self: stretch;
+    background: var(--pv-accent);
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    width: 4px;
+}
+.pv-row:hover {
+    border-color: var(--text-muted);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+}
+.pv-row.is-editing {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.10);
+}
+.pv-row.is-removing {
+    opacity: 0;
+    transform: translateX(12px);
+    transition: opacity .25s ease, transform .25s ease;
+}
+
+@keyframes pvRowIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.pv-vendor {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+.pv-vendor-mark {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--pv-accent);
+    letter-spacing: 0;
+}
+.pv-vendor-name-wrap { min-width: 0; }
+.pv-vendor-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pv-vendor-sub {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    letter-spacing: .02em;
+}
+
+.pv-cell-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+.pv-cell-value {
+    font-size: 13.5px;
+    color: var(--text-primary);
+    font-weight: 500;
+    word-break: break-word;
+}
+.pv-cell-value.pv-empty { color: var(--text-muted); font-weight: 400; font-style: italic; }
+
+.pv-min-qty {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pv-price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+}
+.pv-price-currency {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+.pv-price-amount {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+}
+.pv-price-per {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.pv-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.pv-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+    transition: all var(--transition-fast);
+}
+.pv-icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+.pv-icon-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+    background: var(--surface-hover);
+}
+.pv-icon-btn.is-edit:hover { color: var(--accent); border-color: var(--accent); }
+.pv-icon-btn.is-delete:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, .04); }
+.pv-icon-btn.is-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pv-icon-btn.is-save:hover { background: var(--accent-hover); }
+.pv-icon-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Inline edit fields (replace cell values in place) ─────── */
+.pv-row .pv-edit-input {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    width: 100%;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.pv-row .pv-edit-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+}
+.pv-row .pv-edit-input[type="number"],
+.pv-row .pv-edit-input.is-money {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Notes row — full-width sub-row beneath the main grid line */
+.pv-notes {
+    grid-column: 2 / -1;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--surface-alt);
+    border-left: 2px solid var(--border);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+}
+.pv-notes::before {
+    content: 'Note ';
+    font-style: normal;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-right: 6px;
+}
+.pv-row .pv-edit-notes {
+    grid-column: 2 / -1;
+    margin-top: 8px;
+    min-height: 60px;
+    padding: 8px 10px;
+    resize: vertical;
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+.pv-empty {
+    padding: 56px 28px;
+    text-align: center;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+}
+.pv-empty-mark {
+    width: 88px;
+    height: 88px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    display: grid;
+    place-items: center;
+    color: #92400e;
+    box-shadow: inset 0 -4px 12px rgba(146, 64, 14, .08);
+}
+.pv-empty-mark svg { width: 40px; height: 40px; stroke: currentColor; fill: none; stroke-width: 1.4; }
+.pv-empty-title {
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+}
+.pv-empty-text {
+    margin: 0 auto 20px;
+    max-width: 460px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+.pv-empty-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 18px;
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.pv-empty-cta:hover {
+    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, .22);
+}
+.pv-empty-cta svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+/* ── Inline typeahead list styling for compose row ────────── */
+.pv-compose .typeahead-list {
+    text-align: left;
+    font-size: 13px;
+}
+
+/* ── Highlight pulse when compose is focused via CTA ──────── */
+.pv-compose.is-focused {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .12);
+    animation: pvPulse .9s ease;
+}
+@keyframes pvPulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, .25); }
+    100% { box-shadow: 0 0 0 14px rgba(59, 130, 246, 0); }
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 1100px) {
+    .pv-compose {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+    .pv-compose .pv-field-vendor { grid-column: 1 / -1; }
+    .pv-compose-add { grid-column: 1 / -1; height: 42px; justify-content: center; }
+    .pv-row {
+        grid-template-columns: 4px 1fr auto;
+        row-gap: 10px;
+    }
+    .pv-row .pv-vendor { grid-column: 2; }
+    .pv-row .pv-actions { grid-column: 3; }
+    .pv-row .pv-cell-sku,
+    .pv-row .pv-cell-qty,
+    .pv-row .pv-cell-price {
+        grid-column: 2 / -1;
+    }
+}
+
+@media (max-width: 720px) {
+    .pv-context {
+        grid-template-columns: auto 1fr;
+        grid-template-areas:
+            "mark meta"
+            "back back";
+    }
+    .pv-context-mark { grid-area: mark; }
+    .pv-context-meta { grid-area: meta; }
+    .pv-context-back { grid-area: back; justify-self: start; }
+
+    .pv-compose {
+        grid-template-columns: 1fr 1fr;
+    }
+    .pv-compose .pv-field-vendor,
+    .pv-compose .pv-field-price { grid-column: 1 / -1; }
+
+    .pv-row {
+        grid-template-columns: 4px 1fr;
+        padding: 14px 14px 14px 0;
+        row-gap: 12px;
+    }
+    .pv-row > * { grid-column: 2; }
+    .pv-row::before { grid-column: 1; grid-row: 1 / -1; }
+    .pv-row .pv-actions { justify-self: end; margin-top: 4px; }
+    .pv-row .pv-edit-notes,
+    .pv-row .pv-notes { grid-column: 2; }
+    .pv-price-amount { font-size: 19px; }
+}

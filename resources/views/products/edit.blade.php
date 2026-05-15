@@ -6,6 +6,30 @@
     <div class="page-header">
         <h2>Edit Product #{{ $product->product_id }}</h2>
         <div class="page-header-actions">
+            {{-- Related actions contributed by installed extensions (Step 6 of decoupling refactor).
+                 Core knows nothing about which extensions are installed; the IntegrationRegistry
+                 walks ProductActionContributor implementations and aggregates their action lists. --}}
+            @php
+                $__productActions = app(\App\Integrations\IntegrationRegistry::class)
+                    ->productActions((int) $product->product_id);
+                $__user = auth()->user();
+            @endphp
+            @foreach($__productActions as $__action)
+                @php
+                    $__perm = $__action['permission'] ?? null;
+                    $__visible = !$__perm || ($__user && $__user->hasPermission($__perm));
+                @endphp
+                @if($__visible)
+                    <a class="btn secondary"
+                       href="{{ $__action['url'] }}"
+                       title="{{ $__action['label'] }}">
+                        @if(!empty($__action['icon']) && $__action['icon'] === 'truck')
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px;"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        @endif
+                        {{ $__action['label'] }}
+                    </a>
+                @endif
+            @endforeach
             <a class="btn secondary" href="{{ $returnUrl ?? route('products.index') }}">Back</a>
         </div>
     </div>

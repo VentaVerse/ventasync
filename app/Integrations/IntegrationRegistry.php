@@ -204,6 +204,28 @@ class IntegrationRegistry
     }
 
     /**
+     * Aggregate "related action" buttons that extensions want to contribute
+     * to the core product edit page (e.g. Purchasing's "Manage Vendors").
+     * Order reflects extension registration order. Per-action permission
+     * gating is handled by the view, not here — this method returns the
+     * raw list and the caller filters by current user.
+     *
+     * @return array<int, array{label:string, url:string, icon?:string, permission?:string}>
+     */
+    public function productActions(int $productId): array
+    {
+        $actions = [];
+        foreach ($this->providersImplementing(\App\Integrations\Contracts\ProductActionContributor::class) as $provider) {
+            foreach ($provider->productActions($productId) as $action) {
+                if (is_array($action) && isset($action['label'], $action['url'])) {
+                    $actions[] = $action;
+                }
+            }
+        }
+        return $actions;
+    }
+
+    /**
      * Walk the marketplace-source resolvers and return the first non-null
      * label for the given source string, or null if no integration claims
      * it.
