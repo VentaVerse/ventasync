@@ -403,7 +403,8 @@ class LazadaOrderController extends Controller
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.orders.returns')->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings first.',
@@ -430,9 +431,9 @@ class LazadaOrderController extends Controller
             $res = $this->runSignedApiCall(
                 $client,
                 $setting->region,
-                $setting->app_key,
-                $setting->app_secret,
-                $setting->access_token,
+                $creds['app_key'],
+                $creds['app_secret'],
+                $creds['access_token'],
                 'GET',
                 '/reverse/getreverseordersforseller',
                 true,
@@ -553,7 +554,7 @@ class LazadaOrderController extends Controller
         $needsDetail = $refresh || !$this->rawLikelyHasOrderDetail($order->raw ?? []);
 
         $setting = $settingRaw?->decrypted();
-        $hasCreds = $setting && $setting->region && $setting->app_key && $setting->app_secret && $setting->access_token;
+        $hasCreds = $setting && $setting->region && $creds['app_key'] && $creds['app_secret'] && $creds['access_token'];
 
         if ($hasCreds && $needsDetail) {
             try {
@@ -567,9 +568,9 @@ class LazadaOrderController extends Controller
                     $res = $this->runSignedApiCall(
                         $client,
                         $setting->region,
-                        $setting->app_key,
-                        $setting->app_secret,
-                        $setting->access_token,
+                        $creds['app_key'],
+                        $creds['app_secret'],
+                        $creds['access_token'],
                         'GET',
                         '/order/get',
                         true,
@@ -630,9 +631,9 @@ class LazadaOrderController extends Controller
                 $trxRes = $this->runSignedApiCall(
                     $client,
                     $setting->region,
-                    $setting->app_key,
-                    $setting->app_secret,
-                    $setting->access_token,
+                    $creds['app_key'],
+                    $creds['app_secret'],
+                    $creds['access_token'],
                     'GET',
                     '/finance/transaction/details/get',
                     true,
@@ -826,7 +827,8 @@ class LazadaOrderController extends Controller
     public function packAndPrint(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->back()->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
@@ -881,9 +883,9 @@ class LazadaOrderController extends Controller
         $packRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'POST',
             '/order/fulfill/pack',
             true,
@@ -937,6 +939,7 @@ class LazadaOrderController extends Controller
     public function packingList(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = $setting?->activeCredentials() ?? [];
         $order = LazadaOrder::query()
             ->where('order_id', (string)$orderId)
             ->with('products')
@@ -965,6 +968,7 @@ class LazadaOrderController extends Controller
     public function pickList(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = $setting?->activeCredentials() ?? [];
         $order = LazadaOrder::query()
             ->where('order_id', (string)$orderId)
             ->with('products')
@@ -1004,7 +1008,8 @@ class LazadaOrderController extends Controller
     public function logisticsTrace(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return response()->json([
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token.',
@@ -1027,9 +1032,9 @@ class LazadaOrderController extends Controller
         $res = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'GET',
             '/logistic/order/trace',
             true,
@@ -1099,7 +1104,8 @@ class LazadaOrderController extends Controller
     private function shipAndPrintInternal(Request $request, LazadaClient $client, $orderId, bool $returnArray = false)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return ['ok' => false, 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.'];
         }
 
@@ -1145,9 +1151,9 @@ class LazadaOrderController extends Controller
         $rtsRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'POST',
             '/order/package/rts',
             true,
@@ -1187,7 +1193,8 @@ class LazadaOrderController extends Controller
     public function cancelReasons(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return response()->json(['ok' => false, 'message' => 'Missing Lazada credentials/token.'], 400);
         }
 
@@ -1201,9 +1208,9 @@ class LazadaOrderController extends Controller
         $res = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'GET',
             '/order/reverse/cancel/validate',
             true,
@@ -1242,7 +1249,8 @@ class LazadaOrderController extends Controller
         ]);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
@@ -1288,9 +1296,9 @@ class LazadaOrderController extends Controller
                 $cancelRes = $this->runSignedApiCall(
                     $client,
                     $setting->region,
-                    $setting->app_key,
-                    $setting->app_secret,
-                    $setting->access_token,
+                    $creds['app_key'],
+                    $creds['app_secret'],
+                    $creds['access_token'],
                     'POST',
                     '/order/cancel',
                     true,
@@ -1373,7 +1381,8 @@ class LazadaOrderController extends Controller
     public function recreatePackage(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
@@ -1443,9 +1452,9 @@ class LazadaOrderController extends Controller
         $repackRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'POST',
             '/order/repack',
             true,
@@ -1512,12 +1521,16 @@ class LazadaOrderController extends Controller
 
         $skipStock = !empty($data['no_stock']);
 
-        // Decrypt Lazada credentials via model method.
+        // Decrypt Lazada credentials via model method, then resolve which
+        // credential set (sandbox vs live) the current mode toggle wants.
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || empty($creds['complete'])) {
+            $modeLabel = (($setting->mode ?? 'live') === 'sandbox') ? 'sandbox' : 'production';
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
-                'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
+                'message' => "Missing {$modeLabel} Lazada credentials/token. Configure Lazada settings for the active mode and ensure an access token is set.",
             ]);
         }
 
@@ -1556,9 +1569,9 @@ $baseParams['created_before'] = $createdBefore;
             $res = $this->runSignedApiCall(
                 $client,
                 $setting->region,
-                $setting->app_key,
-                $setting->app_secret,
-                $setting->access_token,
+                $creds['app_key'],
+                $creds['app_secret'],
+                $creds['access_token'],
                 'GET',
                 '/orders/get',
                 true,
@@ -1704,7 +1717,8 @@ return redirect()->route('ext.lazada.orders.index', $redirectParams)
 
 	    // Decrypt Lazada credentials via model method.
 	    $setting = LazadaSetting::query()->first()?->decrypted();
-	    if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+	    $creds = $setting?->activeCredentials() ?? [];
+	    if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
 	        return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
 	            'ok' => false,
 	            'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
@@ -1729,9 +1743,9 @@ return redirect()->route('ext.lazada.orders.index', $redirectParams)
 	        $res = $this->runSignedApiCall(
 	            $client,
 	            $setting->region,
-	            $setting->app_key,
-	            $setting->app_secret,
-	            $setting->access_token,
+	            $creds['app_key'],
+	            $creds['app_secret'],
+	            $creds['access_token'],
 	            'GET',
 	            '/orders/get',
 	            true,
@@ -1859,6 +1873,7 @@ public function reset(Request $request)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
+    $creds = $setting?->activeCredentials() ?? [];
     if (!$setting || !$setting->region) {
         return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
             'ok' => false,
@@ -1897,7 +1912,8 @@ public function reset(Request $request)
     public function pack(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
@@ -1953,9 +1969,9 @@ public function reset(Request $request)
         $packRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'POST',
             '/order/fulfill/pack',
             true,
@@ -1996,7 +2012,8 @@ public function reset(Request $request)
     public function rts(Request $request, LazadaClient $client, $orderId)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
                 'ok' => false,
                 'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
@@ -2042,9 +2059,9 @@ public function reset(Request $request)
         $rtsRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'POST',
             '/order/package/rts',
             true,
@@ -2108,7 +2125,8 @@ public function reset(Request $request)
 
         // Decrypt Lazada credentials via model method.
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->awbError('Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.');
         }
 
@@ -2143,9 +2161,9 @@ public function reset(Request $request)
         $awbRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'POST',
             '/order/package/document/get',
             true,
@@ -2271,9 +2289,9 @@ public function reset(Request $request)
         $res = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'GET',
             '/order/get',
             true,
@@ -2312,9 +2330,9 @@ public function reset(Request $request)
         $itemsRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'GET',
             '/order/items/get',
             true,
@@ -2415,9 +2433,9 @@ public function reset(Request $request)
         $itemsRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'GET',
             '/order/items/get',
             true,
@@ -2507,16 +2525,16 @@ public function reset(Request $request)
         }
 
         // Fallback to Lazada API when DB doesn't have products for this order.
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return ['ok' => false, 'items' => [], 'raw' => ['message' => 'Missing Lazada credentials/token for items fallback']];
         }
 
         $itemsRes = $this->runSignedApiCall(
             $client,
             $setting->region,
-            $setting->app_key,
-            $setting->app_secret,
-            $setting->access_token,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
             'GET',
             '/order/items/get',
             true,
@@ -2556,8 +2574,8 @@ public function reset(Request $request)
     private function getSellerId(LazadaClient $client, $setting): string
     {
         $region = (string)($setting->region ?? '');
-        $appKey = (string)($setting->app_key ?? '');
-        $accessToken = (string)($setting->access_token ?? '');
+        $appKey = (string)($creds['app_key'] ?? '');
+        $accessToken = (string)($creds['access_token'] ?? '');
         if ($region === '' || $appKey === '' || $accessToken === '') {
             return '';
         }
@@ -2571,8 +2589,8 @@ public function reset(Request $request)
         $res = $this->runSignedApiCall(
             $client,
             $region,
-            (string)$setting->app_key,
-            (string)$setting->app_secret,
+            (string)$creds['app_key'],
+            (string)$creds['app_secret'],
             $accessToken,
             'GET',
             '/seller/get',

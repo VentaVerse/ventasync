@@ -279,7 +279,8 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->access_token || !$setting->app_key) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$creds['access_token'] || !$creds['app_key']) {
             return null;
         }
 
@@ -298,13 +299,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 . '</Product></Request>';
 
             $params = [
-                'app_key'      => (string) $setting->app_key,
+                'app_key'      => (string) $creds['app_key'],
                 'sign_method'  => 'sha256',
                 'timestamp'    => (string) round(microtime(true) * 1000),
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload'      => $payloadXml,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 

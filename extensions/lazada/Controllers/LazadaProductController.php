@@ -549,13 +549,13 @@ private function refreshLazadaProductCache(LazadaProduct $listing, object $setti
 
     $apiPath = '/product/item/get';
     $params = [
-        'app_key'      => (string) $setting->app_key,
+        'app_key'      => (string) $creds['app_key'],
         'sign_method'  => 'sha256',
         'timestamp'    => (string) round(microtime(true) * 1000),
-        'access_token' => (string) $setting->access_token,
+        'access_token' => (string) $creds['access_token'],
         'item_id'      => $itemId,
     ];
-    $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+    $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
     $res = $client->get((string) $setting->region, $apiPath, $params);
     $body = $res['body'] ?? [];
@@ -638,13 +638,13 @@ private function fetchAndCacheLazadaVariants(LazadaProduct $listing, object $set
     $apiPath = '/product/item/get';
     $timestamp = (string) round(microtime(true) * 1000);
     $params = [
-        'app_key' => (string) $setting->app_key,
+        'app_key' => (string) $creds['app_key'],
         'sign_method' => 'sha256',
         'timestamp' => $timestamp,
-        'access_token' => (string) $setting->access_token,
+        'access_token' => (string) $creds['access_token'],
         'item_id' => $itemId,
     ];
-    $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+    $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
     $res = $client->get((string) $setting->region, $apiPath, $params);
     $body = $res['body'] ?? [];
@@ -1039,7 +1039,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -1107,13 +1108,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => $payloadXml,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
             $last = $result;
@@ -1163,7 +1164,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -1251,13 +1253,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => $payloadXml,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
             $last = $result;
@@ -1308,7 +1310,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -1367,9 +1370,9 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
                 $skuIdList = $this->fetchSkuIdListByItemId(
                     $client,
                     (string) $setting->region,
-                    (string) $setting->app_key,
-                    (string) $setting->app_secret,
-                    (string) $setting->access_token,
+                    (string) $creds['app_key'],
+                    (string) $creds['app_secret'],
+                    (string) $creds['access_token'],
                     $itemId
                 );
             } catch (\Throwable $ex) {
@@ -1378,10 +1381,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
         ];
 
         // If sku_id_list is available, prefer sending ONLY sku_id_list.
@@ -1392,7 +1395,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         } else {
             $params['seller_sku_list'] = json_encode($sellerSkuList, JSON_UNESCAPED_SLASHES);
         }
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         // /product/remove does NOT consistently support GET across regions/accounts.
         // We keep this strictly POST (asForm) to avoid UnsupportedHTTPMethod.
@@ -1405,7 +1408,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!empty($err['code']) && (string) $err['code'] === '6') {
             $paramsRetry = $params;
             $paramsRetry['timestamp'] = (string) round(microtime(true) * 1000);
-            $paramsRetry['sign'] = $client->sign($apiPath, $paramsRetry, (string) $setting->app_secret);
+            $paramsRetry['sign'] = $client->sign($apiPath, $paramsRetry, (string) $creds['app_secret']);
             $result = $client->post((string) $setting->region, $apiPath, $paramsRetry);
             $attempts[] = ['method' => 'POST', 'params' => $paramsRetry, 'result' => $result];
         }
@@ -1507,6 +1510,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!empty($listing->lazada_item_id) && !$listing->unlinked_at) {
             // Already linked and not unlinked — full cache refresh
             $setting = LazadaSetting::query()->first()?->decrypted();
+            $creds = $setting?->activeCredentials() ?? [];
             if ($setting) {
                 $this->refreshLazadaProductCache($listing, $setting, $client);
             }
@@ -1514,7 +1518,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -1605,7 +1610,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -1671,13 +1677,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $apiPath = $isUpdate ? '/product/update' : '/product/create';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
             'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -1800,7 +1806,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -1850,13 +1857,13 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
             $apiPath = '/product/create';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -1909,7 +1916,8 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -2038,7 +2046,8 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
-    if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+    $creds = $setting?->activeCredentials() ?? [];
+    if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
@@ -2143,13 +2152,13 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => $payloadXml,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
             $last = $result;
@@ -2210,7 +2219,8 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
-    if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+    $creds = $setting?->activeCredentials() ?? [];
+    if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
@@ -2331,13 +2341,13 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
 
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => $payloadXml,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
             $last = $result;
@@ -2398,7 +2408,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
-    if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+    $creds = $setting?->activeCredentials() ?? [];
+    if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
     }
@@ -2455,9 +2466,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 $skuIdList = $this->fetchSkuIdListByItemId(
                     $client,
                     (string) $setting->region,
-                    (string) $setting->app_key,
-                    (string) $setting->app_secret,
-                    (string) $setting->access_token,
+                    (string) $creds['app_key'],
+                    (string) $creds['app_secret'],
+                    (string) $creds['access_token'],
                     $itemId
                 );
             } catch (\Throwable $ex) {
@@ -2466,10 +2477,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         }
 
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
         ];
 
         if (!empty($skuIdList)) {
@@ -2477,7 +2488,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         } else {
             $params['seller_sku_list'] = json_encode($sellerSkuList, JSON_UNESCAPED_SLASHES);
         }
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -2485,7 +2496,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         if (!empty($err['code']) && (string) $err['code'] === '6') {
             $paramsRetry = $params;
             $paramsRetry['timestamp'] = (string) round(microtime(true) * 1000);
-            $paramsRetry['sign'] = $client->sign($apiPath, $paramsRetry, (string) $setting->app_secret);
+            $paramsRetry['sign'] = $client->sign($apiPath, $paramsRetry, (string) $creds['app_secret']);
             $result = $client->post((string) $setting->region, $apiPath, $paramsRetry);
         }
 
@@ -2797,7 +2808,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $pageSize = (int)($req['pageSize'] ?? ($req['page_size'] ?? 200));
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret).');
         }
@@ -2820,7 +2832,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 ? (int)($explicitStartRow + (($pageNo - $startPageNo) * $pageSize))
                 : (int)(($pageNo - 1) * $pageSize);
             $params = [
-                'app_key' => (string)$setting->app_key,
+                'app_key' => (string)$creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
                 'startRow' => (string)$startRow,
@@ -2828,7 +2840,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 // Optional: if you want localized brand names, add languageCode (e.g. en_PH)
                 // 'languageCode' => 'en_PH',
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
             $result = $client->get($region, $apiPath, $params);
 
 			LazadaApiLog::safeCreate([
@@ -2893,7 +2905,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $pageSize = (int)($req['pageSize'] ?? ($req['page_size'] ?? 200));
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return back()->with('status', 'Missing Lazada settings (region/app key/app secret).');
         }
 
@@ -2912,14 +2925,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 : (int)(($pageNo - 1) * $pageSize);
 
             $params = [
-                'app_key' => (string)$setting->app_key,
+                'app_key' => (string)$creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
                 'startRow' => (string)$startRow,
                 'pageSize' => (string)$pageSize,
             ];
 
-            $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
             $result = $client->get($region, $apiPath, $params);
 
             LazadaApiLog::safeCreate([
@@ -3065,19 +3078,20 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->save();
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Missing Lazada settings.');
         }
 
         $apiPath = '/category/attributes/get';
         $timestamp = (string)round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string)$setting->app_key,
+            'app_key' => (string)$creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
             'primary_category_id' => (string)$primaryCategoryId,
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
         $result = $client->get((string)$setting->region, $apiPath, $params);
 
         LazadaCategoryTemplate::query()->updateOrCreate(
@@ -3524,7 +3538,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
         }
@@ -3561,13 +3576,13 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $apiPath = '/product/create';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
             'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -3626,9 +3641,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $inlinks = $this->migrateImagesToLazadaInlinks(
             $region,
             $images,
-            (string) $setting->app_key,
-            (string) $setting->app_secret,
-            (string) $setting->access_token,
+            (string) $creds['app_key'],
+            (string) $creds['app_secret'],
+            (string) $creds['access_token'],
             $client
         );
 
@@ -3680,9 +3695,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                         $newUrl = $this->migrateSingleImageXml(
                             $region,
                             $u,
-                            (string) $setting->app_key,
-                            (string) $setting->app_secret,
-                            (string) $setting->access_token,
+                            (string) $creds['app_key'],
+                            (string) $creds['app_secret'],
+                            (string) $creds['access_token'],
                             $client
                         );
                         if (is_string($newUrl) && $newUrl !== '' && $this->isLazadaInlinkUrl($newUrl)) {
@@ -4398,7 +4413,8 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     public function syncUnmatchedItems(LazadaClient $client)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.products.index')
                 ->with('status', 'Missing Lazada settings.');
         }
@@ -4425,15 +4441,15 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             $apiPath = '/products/get';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'filter' => 'all',
                 'offset' => (string) $offset,
                 'limit' => (string) $limit,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             if ($page > 0) usleep(500000);
             $result = $client->get((string) $setting->region, $apiPath, $params);
@@ -4834,7 +4850,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
      */
     private function getLazadaSalePropKeys(int $primaryCategoryId, LazadaSetting $setting, LazadaClient $client): array
     {
-        if ($primaryCategoryId <= 0 || empty($setting->app_key) || empty($setting->app_secret) || empty($setting->region)) {
+        if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($setting->region)) {
             return [];
         }
 
@@ -4842,12 +4858,12 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             $apiPath = '/category/attributes/get';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
                 'primary_category_id' => (string) $primaryCategoryId,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             $result = $client->get((string) $setting->region, $apiPath, $params);
 
             $body = $result['body'] ?? null;
@@ -5038,13 +5054,13 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         $apiPath = '/products/get';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = array_merge([
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
             'filter' => 'all',
         ], $extra);
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $result = $client->get((string) $setting->region, $apiPath, $params);
         if (empty($result['ok'])) return [];
@@ -5097,15 +5113,15 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             $apiPath = '/products/get';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'filter' => 'all',
                 'offset' => (string) $offset,
                 'limit' => (string) $limit,
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             // Retry up to 3 times with increasing delay for rate limiting
             $result = null;
@@ -5115,7 +5131,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
                 }
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params['timestamp'] = $timestamp;
-                $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+                $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
                 $result = $client->get((string) $setting->region, $apiPath, $params);
                 if (!empty($result['ok'])) break;
                 Log::warning('Lazada fetchLazadaSkuMap API error', ['offset' => $offset, 'attempt' => $attempt, 'result' => $result['body'] ?? '']);

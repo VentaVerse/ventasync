@@ -16,14 +16,19 @@ class LazadaRefreshToken extends Command
     public function handle(LazadaClient $client): int
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->refresh_token) {
-            $this->error('Missing Lazada credentials. Region, App Key, App Secret, and Refresh Token are required.');
+        $creds = $setting?->activeCredentials() ?? [];
+        $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
+        $modeLabel = $isSandbox ? 'sandbox' : 'live';
+
+        if (!$setting || !$setting->region || !$creds['complete'] || empty($creds['refresh_token'])) {
+            $this->error("Missing Lazada {$modeLabel} credentials. Region, app_key, app_secret, and refresh_token are required for the active mode.");
             return 1;
         }
 
-        // Skip if token still has >30 minutes remaining
-        if (!empty($setting->expires_at) && now()->diffInMinutes($setting->expires_at, false) > 30) {
-            $this->info('Token still valid (expires ' . $setting->expires_at . '). Skipping refresh.');
+        // Skip if token still has >30 minutes remaining (read mode-appropriate expiry)
+        $expiresAt = $creds['expires_at'] ?? null;
+        if (!empty($expiresAt) && now()->diffInMinutes($expiresAt, false) > 30) {
+            $this->info("{$modeLabel} token still valid (expires {$expiresAt}). Skipping refresh.");
             return 0;
         }
 
@@ -31,14 +36,14 @@ class LazadaRefreshToken extends Command
         $timestamp = (string) round(microtime(true) * 1000);
 
         $params = [
-            'app_key'       => (string) $setting->app_key,
+            'app_key'       => $creds['app_key'],
             'sign_method'   => 'sha256',
             'timestamp'     => $timestamp,
-            'refresh_token' => (string) $setting->refresh_token,
+            'refresh_token' => $creds['refresh_token'],
             'grant_type'    => 'refresh_token',
         ];
 
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, $creds['app_secret']);
 
         $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -51,19 +56,32 @@ class LazadaRefreshToken extends Command
             if ($access) {
                 $raw = LazadaSetting::query()->first();
                 if ($raw) {
-                    $raw->access_token = encrypt((string) $access);
-                    if ($refresh) {
-                        $raw->refresh_token = encrypt((string) $refresh);
-                    }
-                    if (is_numeric($expiresIn)) {
-                        $raw->expires_at = now()->addSeconds((int) $expiresIn);
-                    }
-                    if (is_numeric($refreshExpiresIn)) {
-                        $raw->refresh_expires_at = now()->addSeconds((int) $refreshExpiresIn);
+                    if ($isSandbox) {
+                        $raw->sandbox_access_token = encrypt((string) $access);
+                        if ($refresh) {
+                            $raw->sandbox_refresh_token = encrypt((string) $refresh);
+                        }
+                        if (is_numeric($expiresIn)) {
+                            $raw->sandbox_expires_at = now()->addSeconds((int) $expiresIn);
+                        }
+                        if (is_numeric($refreshExpiresIn)) {
+                            $raw->sandbox_refresh_expires_at = now()->addSeconds((int) $refreshExpiresIn);
+                        }
+                    } else {
+                        $raw->access_token = encrypt((string) $access);
+                        if ($refresh) {
+                            $raw->refresh_token = encrypt((string) $refresh);
+                        }
+                        if (is_numeric($expiresIn)) {
+                            $raw->expires_at = now()->addSeconds((int) $expiresIn);
+                        }
+                        if (is_numeric($refreshExpiresIn)) {
+                            $raw->refresh_expires_at = now()->addSeconds((int) $refreshExpiresIn);
+                        }
                     }
                     $raw->save();
                 }
-                $this->info('Token refreshed successfully.');
+                $this->info(ucfirst($modeLabel) . ' token refreshed successfully.');
                 return 0;
             }
         }

@@ -25,7 +25,8 @@ class LazadaSyncOrders extends Command
     public function handle(LazadaClient $client): int
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
             return 1;
         }
@@ -396,10 +397,10 @@ class LazadaSyncOrders extends Command
 
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key'     => (string) $setting->app_key,
+            'app_key'     => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp'   => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
         ];
 
         foreach ($customParams as $k => $v) {
@@ -408,12 +409,12 @@ class LazadaSyncOrders extends Command
         }
 
         $method = strtoupper($method);
-        $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $setting->app_key;
-        $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $setting->app_key;
+        $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $creds['app_key'];
+        $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];
         $minIntervalMs = 1200;
 
         $callOnce = function () use ($client, $setting, $apiPath, &$params, $method) {
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             return $method === 'POST'
                 ? $client->post($setting->region, $apiPath, $params)
                 : $client->get($setting->region, $apiPath, $params);

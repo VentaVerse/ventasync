@@ -43,20 +43,21 @@ class LazadaCategoryController extends Controller
     public function fetch(Request $request, LazadaClient $client)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
         // Base params required by Lazada signing.
         $timestamp = (string)round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string)$setting->app_key,
+            'app_key' => (string)$creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
         ];
 
         $apiPath = '/category/tree/get';
-        $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
 
         $result = $client->get((string)$setting->region, $apiPath, $params);
         $body = $result['body'] ?? null;

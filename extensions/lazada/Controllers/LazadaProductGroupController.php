@@ -474,7 +474,8 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->back()->with('error', 'Missing Lazada credentials.');
         }
 
@@ -511,16 +512,16 @@ class LazadaProductGroupController extends Controller
             $apiPath = '/products/get';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'filter' => 'all',
                 'search' => $sku,
                 'limit' => '50',
                 'offset' => '0',
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             $result = $client->get((string) $setting->region, $apiPath, $params);
 
             if (!($result['ok'] ?? false)) continue;
@@ -575,13 +576,13 @@ class LazadaProductGroupController extends Controller
 
         $apiPath = '/product/item/get';
         $params = [
-            'app_key'      => (string) $setting->app_key,
+            'app_key'      => (string) $creds['app_key'],
             'sign_method'  => 'sha256',
             'timestamp'    => (string) round(microtime(true) * 1000),
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
             'item_id'      => $itemId,
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $res = $client->get((string) $setting->region, $apiPath, $params);
         $body = $res['body'] ?? [];
@@ -709,7 +710,8 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -814,13 +816,13 @@ class LazadaProductGroupController extends Controller
             $apiPath = '/product/create';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -891,7 +893,8 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -970,13 +973,13 @@ class LazadaProductGroupController extends Controller
             $apiPath = '/product/update';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
                 'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -1026,7 +1029,8 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1139,13 +1143,13 @@ class LazadaProductGroupController extends Controller
 
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params = [
-                    'app_key' => (string) $setting->app_key,
+                    'app_key' => (string) $creds['app_key'],
                     'sign_method' => 'sha256',
                     'timestamp' => $timestamp,
-                    'access_token' => (string) $setting->access_token,
+                    'access_token' => (string) $creds['access_token'],
                     'payload' => $payloadXml,
                 ];
-                $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+                $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
                 $result = $client->post((string) $setting->region, $apiPath, $params);
 
                 LazadaApiLog::safeCreate([
@@ -1180,7 +1184,8 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1283,13 +1288,13 @@ class LazadaProductGroupController extends Controller
 
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params = [
-                    'app_key' => (string) $setting->app_key,
+                    'app_key' => (string) $creds['app_key'],
                     'sign_method' => 'sha256',
                     'timestamp' => $timestamp,
-                    'access_token' => (string) $setting->access_token,
+                    'access_token' => (string) $creds['access_token'],
                     'payload' => $payloadXml,
                 ];
-                $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+                $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
                 $result = $client->post((string) $setting->region, $apiPath, $params);
 
                 LazadaApiLog::safeCreate([
@@ -1325,7 +1330,8 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return $this->productsRedirect($id)->with('error', 'Missing Lazada settings.');
         }
 
@@ -1383,9 +1389,9 @@ class LazadaProductGroupController extends Controller
                     $skuIdList = $lazCtrl->fetchSkuIdListByItemId(
                         $client,
                         (string) $setting->region,
-                        (string) $setting->app_key,
-                        (string) $setting->app_secret,
-                        (string) $setting->access_token,
+                        (string) $creds['app_key'],
+                        (string) $creds['app_secret'],
+                        (string) $creds['access_token'],
                         $itemId
                     );
                 } catch (\Throwable $ex) {}
@@ -1394,10 +1400,10 @@ class LazadaProductGroupController extends Controller
             $apiPath = '/product/remove';
             $timestamp = (string) round(microtime(true) * 1000);
             $params = [
-                'app_key' => (string) $setting->app_key,
+                'app_key' => (string) $creds['app_key'],
                 'sign_method' => 'sha256',
                 'timestamp' => $timestamp,
-                'access_token' => (string) $setting->access_token,
+                'access_token' => (string) $creds['access_token'],
             ];
 
             if (!empty($skuIdList)) {
@@ -1405,7 +1411,7 @@ class LazadaProductGroupController extends Controller
             } else {
                 $params['seller_sku_list'] = json_encode($sellerSkuList, JSON_UNESCAPED_SLASHES);
             }
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             $result = $client->post((string) $setting->region, $apiPath, $params);
 
@@ -1413,7 +1419,7 @@ class LazadaProductGroupController extends Controller
             $e = $this->extractLazadaError($result);
             if (!empty($e['code']) && (string) $e['code'] === '6') {
                 $params['timestamp'] = (string) round(microtime(true) * 1000);
-                $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+                $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
                 $result = $client->post((string) $setting->region, $apiPath, $params);
                 $e = $this->extractLazadaError($result);
             }
@@ -1545,13 +1551,13 @@ class LazadaProductGroupController extends Controller
         $apiPath = '/product/item/get';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
             'item_id' => $itemId,
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
         $res = $client->get((string) $setting->region, $apiPath, $params);
         $body = $res['body'] ?? [];
@@ -1633,7 +1639,8 @@ class LazadaProductGroupController extends Controller
         $group->update(['lazada_category_id' => $lazadaCategoryId]);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.product-groups.edit', $group->id)
                 ->with('status', 'Missing Lazada settings.');
         }
@@ -1641,12 +1648,12 @@ class LazadaProductGroupController extends Controller
         $apiPath = '/category/attributes/get';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
             'primary_category_id' => (string) $lazadaCategoryId,
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
         $result = $client->get((string) $setting->region, $apiPath, $params);
 
         LazadaCategoryTemplate::query()->updateOrCreate(
@@ -1756,18 +1763,19 @@ class LazadaProductGroupController extends Controller
     public function refreshCategories(LazadaClient $client)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return response()->json(['ok' => false, 'message' => 'Missing Lazada settings.']);
         }
 
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
         ];
         $apiPath = '/category/tree/get';
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
         $result = $client->get((string) $setting->region, $apiPath, $params);
         $body = $result['body'] ?? null;
 
@@ -1840,19 +1848,20 @@ class LazadaProductGroupController extends Controller
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+        $creds = $setting?->activeCredentials() ?? [];
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Lazada settings.</div>']);
         }
 
         $apiPath = '/category/attributes/get';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key' => (string) $setting->app_key,
+            'app_key' => (string) $creds['app_key'],
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
             'primary_category_id' => (string) $categoryId,
         ];
-        $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
         $result = $client->get((string) $setting->region, $apiPath, $params);
 
         $template = LazadaCategoryTemplate::query()->updateOrCreate(

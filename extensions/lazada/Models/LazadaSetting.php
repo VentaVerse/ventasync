@@ -77,15 +77,20 @@ class LazadaSetting extends Model
      * the mode toggle. Every call site reads through this — if mode='sandbox'
      * it gets sandbox_* values, if mode='live' it gets the live values.
      *
-     * Returns null when the active mode has missing required credentials
-     * (app_key/app_secret/access_token). Call sites must check for null and
-     * abort instead of falling back to the other mode — that would defeat
-     * the whole point of mode isolation.
+     * Always returns the full key set (mode, app_key, app_secret, access_token,
+     * refresh_token, expires_at, complete). Missing values are returned as null
+     * so call sites can safely do `!$creds['access_token']` without worrying
+     * about array-access errors. Check `$creds['complete']` to know whether
+     * the active mode has the minimum (app_key + app_secret + access_token).
+     *
+     * Falling back to the other mode's credentials is explicitly NOT done —
+     * that would defeat mode isolation. If sandbox is selected but sandbox
+     * credentials are missing, the call site sees nulls and refuses to call.
      *
      * Expects $this to be the decrypted() result. Calling on an encrypted
      * row returns ciphertext, which Lazada will reject as InvalidSignature.
      */
-    public function activeCredentials(): ?array
+    public function activeCredentials(): array
     {
         $isSandbox = (($this->mode ?? 'live') === 'sandbox');
 
@@ -95,17 +100,14 @@ class LazadaSetting extends Model
         $refreshToken = $isSandbox ? ($this->sandbox_refresh_token ?? null) : ($this->refresh_token ?? null);
         $expiresAt    = $isSandbox ? ($this->sandbox_expires_at    ?? null) : ($this->expires_at    ?? null);
 
-        if (empty($appKey) || empty($appSecret) || empty($accessToken)) {
-            return null;
-        }
-
         return [
             'mode'          => $isSandbox ? 'sandbox' : 'live',
-            'app_key'       => (string) $appKey,
-            'app_secret'    => (string) $appSecret,
-            'access_token'  => (string) $accessToken,
+            'app_key'       => $appKey       ? (string) $appKey       : null,
+            'app_secret'    => $appSecret    ? (string) $appSecret    : null,
+            'access_token'  => $accessToken  ? (string) $accessToken  : null,
             'refresh_token' => $refreshToken ? (string) $refreshToken : null,
             'expires_at'    => $expiresAt,
+            'complete'      => !empty($appKey) && !empty($appSecret) && !empty($accessToken),
         ];
     }
 }
