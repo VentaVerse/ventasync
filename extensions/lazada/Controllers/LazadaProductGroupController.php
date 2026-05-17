@@ -16,6 +16,7 @@ use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
 use App\Services\ActivityLogger;
 use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\LazadaStockPushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1154,53 +1155,34 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $pid = (int) $product->product_id;
             $basePrice = max(0, (float) ($product->price ?? 0));
 
-            $variants = $variantPriceByProductId->get($pid);
-            $variantSkus = [];
-            if ($variants && count($variants) > 0) {
-                foreach ($variants as $vr) {
-                    $vSku = trim((string) ($vr->sku ?? ''));
-                    if ($vSku === '') continue;
-                    $vPrice = (float) ($vr->absolute_price ?? $basePrice);
-                    if ($vPrice < 0) $vPrice = 0;
-                    $variantSkus[] = ['seller_sku' => $vSku, 'price' => $vPrice];
-                }
+            $listing->load('variants');
+            $items = app(LazadaStockPushService::class)->buildPushItems($listing, $product, $pfx);
+
+            if (empty($items)) {
+                $this->persistSyncStatus($listing, 'sync_price', false, 'EMPTY_SKU', 'No variants to push.');
+                $errCount++;
+                continue;
             }
 
-            if (empty($variantSkus)) {
-                $sku = trim((string) ($product->sku ?? ''));
-                if ($sku === '') {
-                    $this->persistSyncStatus($listing, 'sync_price', false, 'EMPTY_SKU', 'ERP product SKU is empty.');
-                    $errCount++;
-                    continue;
-                }
-                $variantSkus = [['seller_sku' => $sku, 'price' => $basePrice]];
-            }
-
-            // Apply group markup
+            // Apply group markup over the per-variant base price.
             $fixedMarkup = $listing->markup_fixed;
             $percentMarkup = $listing->markup_percent;
             if ($fixedMarkup === null && $percentMarkup === null) {
                 $fixedMarkup = $group->markup_fixed;
                 $percentMarkup = $group->markup_percent;
             }
-            foreach ($variantSkus as &$vs) {
-                $vs['price'] = LazadaProductController::computeFinalPrice((float) $vs['price'], $fixedMarkup, $percentMarkup);
-            }
-            unset($vs);
 
             $ok = 0;
             $err = 0;
             $apiPath = '/product/price_quantity/update';
-            foreach ($variantSkus as $v) {
-                $sku = trim((string) ($v['seller_sku'] ?? ''));
-                if ($sku === '') continue;
-                $skuId = $skuIdMap[$sku] ?? null;
-                if ($skuId === null) { $err++; continue; }
-                $price = max(0, (float) ($v['price'] ?? 0));
-                $priceStr = number_format($price, 2, '.', '');
+            foreach ($items as $item) {
+                $skuId = $item['sku_id'];
+                if (!$skuId) { $err++; continue; }
+                $rawPrice = $item['price'] ?? $basePrice;
+                $finalPrice = LazadaProductController::computeFinalPrice(max(0, (float) $rawPrice), $fixedMarkup, $percentMarkup);
+                $priceStr = number_format(max(0, $finalPrice), 2, '.', '');
                 $payloadXml = $this->buildPriceUpdateXml($skuId, $priceStr);
 
                 $timestamp = (string) round(microtime(true) * 1000);
@@ -1312,27 +1294,13 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
-            $pid = (int) $product->product_id;
-            $erpOvs = $erpOptionsByProduct->get($pid);
-            $variantSkus = [];
+            // Reload the variants relation so the freshly-cached Lazada SkuIds
+            // are visible to the service.
+            $listing->load('variants');
+            $items = app(LazadaStockPushService::class)->buildPushItems($listing, $product, $pfx);
 
-            if ($erpOvs && count($erpOvs) > 0) {
-                foreach ($erpOvs as $ov) {
-                    $sku = trim((string) ($ov->sku ?? ''));
-                    if ($sku === '') continue;
-                    $variantSkus[] = ['seller_sku' => $sku, 'quantity' => max(0, (int) ($ov->quantity ?? 0))];
-                }
-            }
-
-            if (empty($variantSkus)) {
-                $sku = trim((string) ($product->sku ?? ''));
-                if ($sku !== '') {
-                    $variantSkus[] = ['seller_sku' => $sku, 'quantity' => max(0, (int) ($product->quantity ?? 0))];
-                }
-            }
-
-            if (empty($variantSkus)) {
-                $this->persistSyncStatus($listing, 'sync_qty', false, 'EMPTY_SKU', 'No SKU found.');
+            if (empty($items)) {
+                $this->persistSyncStatus($listing, 'sync_qty', false, 'EMPTY_SKU', 'No variants to push.');
                 $errCount++;
                 continue;
             }
@@ -1340,12 +1308,10 @@ class LazadaProductGroupController extends Controller
             $ok = 0;
             $err = 0;
             $apiPath = '/product/price_quantity/update';
-            foreach ($variantSkus as $v) {
-                $sku = trim((string) ($v['seller_sku'] ?? ''));
-                if ($sku === '') continue;
-                $skuId = $skuIdMap[$sku] ?? null;
-                if ($skuId === null) { $err++; continue; }
-                $qty = max(0, (int) ($v['quantity'] ?? 0));
+            foreach ($items as $item) {
+                $skuId = $item['sku_id'];
+                if (!$skuId) { $err++; continue; }
+                $qty = $item['quantity'];
                 $payloadXml = $this->buildQuantityUpdateXml($skuId, $qty);
 
                 $timestamp = (string) round(microtime(true) * 1000);

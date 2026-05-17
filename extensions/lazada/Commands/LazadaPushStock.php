@@ -7,6 +7,7 @@ use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductVariant;
 use Extensions\lazada\Models\LazadaSetting;
 use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\lazada\Services\LazadaStockPushService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -216,65 +217,19 @@ class LazadaPushStock extends Command
      */
     private function buildPushItems(string $pfx, LazadaProduct $listing, object $product): array
     {
-        $items = [];
-        $lazadaVariants = $listing->variants; // eager-loaded
+        // Delegates to LazadaStockPushService — combinations-aware. See that
+        // class for why this is shared with the UI controller's push path.
+        $service = app(LazadaStockPushService::class);
+        $rows = $service->buildPushItems($listing, $product, $pfx);
 
-        if ($lazadaVariants->isEmpty()) {
-            return $items;
-        }
-
-        // Build a map of seller_sku => quantity from current ERP option values
-        $erpOptionQty = [];
-        $erpOptions = DB::table($pfx . 'product_option_value')
-            ->where('product_id', (int) $product->product_id)
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->get(['product_option_value_id', 'sku', 'quantity']);
-
-        foreach ($erpOptions as $opt) {
-            $erpOptionQty[trim((string) $opt->sku)] = (int) $opt->quantity;
-        }
-
-        foreach ($lazadaVariants as $variant) {
-            $skuId = $variant->sku_id ?? null;
-            if (!$skuId) continue;
-
-            $sellerSku = trim((string) ($variant->seller_sku ?? ''));
-
-            // Match by seller_sku first (resilient to option value ID changes)
-            if ($sellerSku !== '' && array_key_exists($sellerSku, $erpOptionQty)) {
-                $qty = max(0, $erpOptionQty[$sellerSku]);
-            } else {
-                // Fallback to product_option_value_id if seller_sku didn't match
-                $povId = $variant->product_option_value_id;
-                if ($povId) {
-                    $erpQty = DB::table($pfx . 'product_option_value')
-                        ->where('product_option_value_id', $povId)
-                        ->value('quantity');
-                    $qty = max(0, (int) ($erpQty ?? 0));
-                } elseif (!empty($erpOptionQty)) {
-                    // Product has ERP option values but this Lazada variant couldn't be matched.
-                    // Use 0 to avoid pushing the parent sum (which would overcount).
-                    $qty = 0;
-                    Log::warning('Lazada push-stock: unmatched variant, defaulting to 0', [
-                        'product_id' => $product->product_id,
-                        'lazada_seller_sku' => $sellerSku,
-                        'lazada_sku_id' => $skuId,
-                    ]);
-                } else {
-                    // No option values at all — simple product, use base product quantity
-                    $qty = max(0, (int) ($product->quantity ?? 0));
-                }
-            }
-
-            $items[] = [
-                'sku_id'     => (int) $skuId,
-                'seller_sku' => $sellerSku,
-                'quantity'   => $qty,
+        // Cron only consumes sku_id/seller_sku/quantity. Strip the price field.
+        return array_map(function ($r) {
+            return [
+                'sku_id'     => $r['sku_id'],
+                'seller_sku' => $r['seller_sku'],
+                'quantity'   => $r['quantity'],
             ];
-        }
-
-        return $items;
+        }, $rows);
     }
 
     /**
