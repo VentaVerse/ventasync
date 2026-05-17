@@ -27,23 +27,27 @@ public function root(Request $request, ShopeeClient $client)
         return redirect()->route('dashboard');
     }
 
-    // Persist shop_id if present
+    $setting = ShopeeSetting::query()->first()?->decrypted();
+    $mode = $setting->mode ?? 'sandbox';
+
+    // Persist shop_id to the env-appropriate column.
     if ($shopId) {
         $raw = ShopeeSetting::query()->first() ?? new ShopeeSetting();
-        $raw->shop_id = (int)$shopId;
-        $raw->save();
+        $this->persistShopId($raw, $mode, (int)$shopId);
+        // Reload so the activeAuth() check below sees the just-saved shop_id.
+        $setting = ShopeeSetting::query()->first()?->decrypted();
     }
 
-    $setting = ShopeeSetting::query()->first()?->decrypted();
+    $auth = $this->activeAuth($setting);
 
     // If we have everything required, perform token exchange automatically
-    if ($code && $setting && $setting->partner_id && $setting->partner_key && $setting->shop_id) {
+    if ($code && $setting && $auth['partner_id'] && $auth['partner_key'] && $auth['shop_id']) {
         $result = $client->exchangeToken(
-            $setting->mode ?? 'sandbox',
-            (int)$setting->partner_id,
-            (string)$setting->partner_key,
+            $auth['mode'],
+            (int)$auth['partner_id'],
+            (string)$auth['partner_key'],
             (string)$code,
-            (int)$setting->shop_id
+            (int)$auth['shop_id']
         );
 
         // Persist tokens if present
@@ -54,15 +58,7 @@ public function root(Request $request, ShopeeClient $client)
             if ($access) {
                 $raw = ShopeeSetting::query()->first();
                 if ($raw) {
-                    $raw->access_token = encrypt($access);
-                    if ($refresh) {
-                        $raw->refresh_token = encrypt($refresh);
-                    }
-                    $expiresIn = $result['body']['expire_in'] ?? null;
-                    if (is_numeric($expiresIn)) {
-                        $raw->expires_at = now()->addSeconds((int)$expiresIn);
-                    }
-                    $raw->save();
+                    $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
             }
         }
@@ -81,8 +77,59 @@ public function root(Request $request, ShopeeClient $client)
     ]);
 }
 
-public function index()
+public function index(Request $request = null, ShopeeClient $client = null)
     {
+        $request = $request ?? request();
+        $client = $client ?? app(ShopeeClient::class);
+
+        // Auto-exchange on OAuth callback. Shopee redirects to our
+        // computedRedirectUri() which is `route('ext.shopee.index')`, so the
+        // /shopee URL is what receives ?code=...&shop_id=.... If those params
+        // are present and we have credentials for the active env, exchange
+        // immediately and persist via the env-aware helpers below.
+        $cbCode = (string) $request->query('code', '');
+        $cbShopId = (string) $request->query('shop_id', '');
+        if ($cbCode !== '' || $cbShopId !== '') {
+            $rawSetting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+            $mode = $rawSetting->mode ?? 'sandbox';
+            if ($cbShopId !== '') {
+                $this->persistShopId($rawSetting, $mode, (int) $cbShopId);
+            }
+            $dec = ShopeeSetting::query()->first()?->decrypted();
+            $auth = $this->activeAuth($dec);
+            if ($cbCode !== '' && $auth['partner_id'] && $auth['partner_key'] && $auth['shop_id']) {
+                $result = $client->exchangeToken(
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    $cbCode,
+                    (int) $auth['shop_id']
+                );
+                if (($result['ok'] ?? false) && is_array($result['body'] ?? null)) {
+                    $access = $result['body']['access_token'] ?? null;
+                    if ($access) {
+                        $raw = ShopeeSetting::query()->first();
+                        if ($raw) {
+                            $this->persistTokens(
+                                $raw,
+                                $auth['mode'],
+                                (string) $access,
+                                $result['body']['refresh_token'] ?? null,
+                                $result['body']['expire_in'] ?? null
+                            );
+                        }
+                    }
+                }
+                // Strip the OAuth params from the URL so a refresh doesn't
+                // re-exchange a stale (one-time-use) code.
+                return redirect()->route('ext.shopee.index')->with('shopee_result', [
+                    'ok'    => (bool) ($result['ok'] ?? false),
+                    'title' => 'OAuth callback — token exchange',
+                    'data'  => $result,
+                ]);
+            }
+        }
+
         $setting = ShopeeSetting::query()->first();
 
         $pfx = (string) config('catalog.prefix');
@@ -213,11 +260,10 @@ public function index()
         $code = $request->query('code');
         $shopId = $request->query('shop_id');
 
-        // Store shop_id if present (safe), keep code only for immediate token exchange
+        // Store shop_id in the env-appropriate column.
         if ($shopId) {
-            $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
-            $setting->shop_id = (int)$shopId;
-            $setting->save();
+            $raw = ShopeeSetting::query()->first() ?? new ShopeeSetting();
+            $this->persistShopId($raw, $raw->mode ?? 'sandbox', (int)$shopId);
         }
 
         return view('ext-shopee::callback', [
@@ -252,6 +298,81 @@ public function index()
             'redirect_uri' => $redirect,
             'mode'         => 'live',
         ];
+    }
+
+    /**
+     * Full env-aware credential bundle for a token-exchange / token-refresh call.
+     * Extends activeCredentials() with shop_id + tokens, all read from the
+     * env-appropriate columns (live vs sandbox_*). Returns null partner_id etc
+     * when the column is empty, so callers can validate up front.
+     */
+    private function activeAuth(?object $setting): array
+    {
+        if (!$setting) {
+            return [
+                'mode'          => 'sandbox',
+                'partner_id'    => null,
+                'partner_key'   => null,
+                'shop_id'       => null,
+                'access_token'  => null,
+                'refresh_token' => null,
+            ];
+        }
+        $mode = $setting->mode ?? 'sandbox';
+        $isSandbox = $mode === 'sandbox';
+        return [
+            'mode'          => $mode,
+            'partner_id'    => $isSandbox ? ($setting->sandbox_partner_id    ?? null) : ($setting->partner_id    ?? null),
+            'partner_key'   => $isSandbox ? ($setting->sandbox_partner_key   ?? null) : ($setting->partner_key   ?? null),
+            'shop_id'       => $isSandbox ? ($setting->sandbox_shop_id       ?? null) : ($setting->shop_id       ?? null),
+            'access_token'  => $isSandbox ? ($setting->sandbox_access_token  ?? null) : ($setting->access_token  ?? null),
+            'refresh_token' => $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null),
+        ];
+    }
+
+    /**
+     * Persist freshly-exchanged tokens to the right pair of columns. Encrypts
+     * access_token + refresh_token, and computes expires_at from expire_in.
+     * Mirrors the Lazada activeCredentials/persist pattern from a28c2d8 so
+     * sandbox-mode auth never spills tokens into the live columns.
+     */
+    private function persistTokens(ShopeeSetting $raw, string $mode, string $access, ?string $refresh, $expireIn): void
+    {
+        $isSandbox = $mode === 'sandbox';
+        if ($isSandbox) {
+            $raw->sandbox_access_token = encrypt($access);
+            if ($refresh) {
+                $raw->sandbox_refresh_token = encrypt($refresh);
+            }
+            if (is_numeric($expireIn)) {
+                $raw->sandbox_expires_at = now()->addSeconds((int)$expireIn);
+            }
+        } else {
+            $raw->access_token = encrypt($access);
+            if ($refresh) {
+                $raw->refresh_token = encrypt($refresh);
+            }
+            if (is_numeric($expireIn)) {
+                $raw->expires_at = now()->addSeconds((int)$expireIn);
+            }
+        }
+        $raw->save();
+    }
+
+    /**
+     * Save the shop_id returned by Shopee's callback to the right column.
+     * Sandbox callback flow returns the sandbox shop_id; in live mode it's
+     * the live shop_id. Routing both into a single shop_id column was the
+     * cause of sandbox auth flow overwriting live credentials.
+     */
+    private function persistShopId(ShopeeSetting $raw, string $mode, int $shopId): void
+    {
+        if ($mode === 'sandbox') {
+            $raw->sandbox_shop_id = $shopId;
+        } else {
+            $raw->shop_id = $shopId;
+        }
+        $raw->save();
     }
 
     /**
@@ -335,20 +456,22 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->shop_id) {
+        $auth = $this->activeAuth($setting);
+        if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID, Partner Key, and Shop ID are required.'],
+                'data' => ['message' => "Partner ID, Partner Key, and Shop ID for {$modeLabel} mode are required."],
             ]);
         }
 
         $result = $client->exchangeToken(
-            $setting->mode ?? 'sandbox',
-            (int)$setting->partner_id,
-            (string)$setting->partner_key,
+            $auth['mode'],
+            (int)$auth['partner_id'],
+            (string)$auth['partner_key'],
             (string)$data['code'],
-            (int)$setting->shop_id
+            (int)$auth['shop_id']
         );
 
         // Persist tokens if present
@@ -359,15 +482,7 @@ public function buildAuthUrl(ShopeeClient $client)
             if ($access) {
                 $raw = ShopeeSetting::query()->first();
                 if ($raw) {
-                    $raw->access_token = encrypt($access);
-                    if ($refresh) {
-                        $raw->refresh_token = encrypt($refresh);
-                    }
-                    $expiresIn = $result['body']['expire_in'] ?? null;
-                    if (is_numeric($expiresIn)) {
-                        $raw->expires_at = now()->addSeconds((int)$expiresIn);
-                    }
-                    $raw->save();
+                    $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
             }
         }
@@ -382,31 +497,33 @@ public function buildAuthUrl(ShopeeClient $client)
     public function tokenRefresh(ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->shop_id || !$setting->refresh_token) {
+        $auth = $this->activeAuth($setting);
+        if (!$setting || !$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID, Partner Key, Shop ID, and Refresh Token are required.'],
+                'data' => ['message' => "Partner ID, Partner Key, Shop ID, and Refresh Token for {$modeLabel} mode are required."],
             ]);
         }
 
         $path = '/api/v2/auth/access_token/get';
         $timestamp = time();
-        $sign = $client->signAuth((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp);
+        $sign = $client->signAuth((int)$auth['partner_id'], (string)$auth['partner_key'], $path, $timestamp);
 
         $query = [
-            'partner_id' => (int)$setting->partner_id,
+            'partner_id' => (int)$auth['partner_id'],
             'timestamp' => $timestamp,
             'sign' => $sign,
         ];
 
         $body = [
-            'refresh_token' => (string)$setting->refresh_token,
-            'shop_id' => (int)$setting->shop_id,
-            'partner_id' => (int)$setting->partner_id,
+            'refresh_token' => (string)$auth['refresh_token'],
+            'shop_id' => (int)$auth['shop_id'],
+            'partner_id' => (int)$auth['partner_id'],
         ];
 
-        $result = $client->postJson($setting->mode, $path, $query, $body);
+        $result = $client->postJson($auth['mode'], $path, $query, $body);
 
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
@@ -415,15 +532,7 @@ public function buildAuthUrl(ShopeeClient $client)
             if ($access) {
                 $raw = ShopeeSetting::query()->first();
                 if ($raw) {
-                    $raw->access_token = encrypt($access);
-                    if ($refresh) {
-                        $raw->refresh_token = encrypt($refresh);
-                    }
-                    $expiresIn = $result['body']['expire_in'] ?? null;
-                    if (is_numeric($expiresIn)) {
-                        $raw->expires_at = now()->addSeconds((int)$expiresIn);
-                    }
-                    $raw->save();
+                    $this->persistTokens($raw, $auth['mode'], (string)$access, $refresh, $result['body']['expire_in'] ?? null);
                 }
                 Cache::forget('shopee_sync_paused');
             }

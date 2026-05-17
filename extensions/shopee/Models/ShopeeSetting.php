@@ -68,4 +68,56 @@ class ShopeeSetting extends Model
 
         return $s;
     }
+
+    /**
+     * Pick the credentials/tokens the active mode wants. Shopee stores live
+     * and sandbox creds in separate columns; reading $setting->partner_id
+     * directly silently breaks every sandbox flow. Every call site that
+     * authenticates against Shopee should pull through this helper.
+     *
+     * Returns: mode, partner_id, partner_key, shop_id, access_token,
+     * refresh_token, region, expires_at, complete.
+     * Mirrors the Lazada activeCredentials() shape from a28c2d8.
+     *
+     * Expects the decrypted() result. Passing a raw model returns ciphertext.
+     */
+    public static function activeAuth(?object $setting): array
+    {
+        if (!$setting) {
+            return [
+                'mode'          => 'sandbox',
+                'partner_id'    => null,
+                'partner_key'   => null,
+                'shop_id'       => null,
+                'access_token'  => null,
+                'refresh_token' => null,
+                'region'        => null,
+                'expires_at'    => null,
+                'complete'      => false,
+            ];
+        }
+
+        $mode = $setting->mode ?? 'sandbox';
+        $isSandbox = $mode === 'sandbox';
+
+        $partnerId    = $isSandbox ? ($setting->sandbox_partner_id    ?? null) : ($setting->partner_id    ?? null);
+        $partnerKey   = $isSandbox ? ($setting->sandbox_partner_key   ?? null) : ($setting->partner_key   ?? null);
+        $shopId       = $isSandbox ? ($setting->sandbox_shop_id       ?? null) : ($setting->shop_id       ?? null);
+        $accessToken  = $isSandbox ? ($setting->sandbox_access_token  ?? null) : ($setting->access_token  ?? null);
+        $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
+        $region       = $isSandbox ? ($setting->sandbox_region        ?? null) : ($setting->region        ?? null);
+        $expiresAt    = $isSandbox ? ($setting->sandbox_expires_at    ?? null) : ($setting->expires_at    ?? null);
+
+        return [
+            'mode'          => $mode,
+            'partner_id'    => $partnerId,
+            'partner_key'   => $partnerKey,
+            'shop_id'       => $shopId,
+            'access_token'  => $accessToken  ? (string) $accessToken  : null,
+            'refresh_token' => $refreshToken ? (string) $refreshToken : null,
+            'region'        => $region,
+            'expires_at'    => $expiresAt,
+            'complete'      => !empty($partnerId) && !empty($partnerKey) && !empty($accessToken) && !empty($shopId),
+        ];
+    }
 }

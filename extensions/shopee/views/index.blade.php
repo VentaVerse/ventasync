@@ -148,11 +148,8 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
                         <span class="font-semibold text-sm">Authorize with Shopee</span>
                     </div>
-                    <form method="GET" action="{{ route('ext.shopee.authorize') }}">
-                        @csrf
-                        <button class="btn small" type="submit">Authorize with Shopee</button>
-                    </form>
-                    <div class="hint" style="margin-top:6px;">Opens Shopee login. After granting access, you'll be redirected back with an auth code.</div>
+                    <a class="btn small" href="{{ route('ext.shopee.authorize') }}" target="_blank" rel="noopener">Authorize with Shopee</a>
+                    <div class="hint" style="margin-top:6px;">Opens Shopee login in a new tab. After granting access, you'll be redirected back with an auth code.</div>
                 </div>
 
                 {{-- Step 2 --}}
@@ -281,11 +278,8 @@
                         <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
                         <span class="font-semibold text-sm">Authorize with Shopee Sandbox</span>
                     </div>
-                    <form method="GET" action="{{ route('ext.shopee.authorize') }}">
-                        @csrf
-                        <button class="btn small" type="submit">Authorize Sandbox</button>
-                    </form>
-                    <div class="hint" style="margin-top:6px;">Uses sandbox credentials to authorize with the Shopee test environment.</div>
+                    <a class="btn small" href="{{ route('ext.shopee.authorize') }}" target="_blank" rel="noopener">Authorize Sandbox</a>
+                    <div class="hint" style="margin-top:6px;">Opens Shopee sandbox login in a new tab. Uses sandbox credentials to authorize with the Shopee test environment.</div>
                 </div>
 
                 <div class="detail-section">

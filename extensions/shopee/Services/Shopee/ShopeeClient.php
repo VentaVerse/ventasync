@@ -9,11 +9,18 @@ class ShopeeClient
 {
     public function baseUrl(string $mode): string
     {
-        // sandbox: partner.test-stable.shopeemobile.com
-        // live: partner.shopeemobile.com
+        // live:    partner.shopeemobile.com
+        // sandbox: openplatform.sandbox.test-stable.shopee.sg (Sandbox V2)
+        //
+        // Shopee retired their Sandbox V1 host partner.test-stable.shopeemobile.com
+        // when they introduced "Test Account — Sandbox v2" in the developer console.
+        // Newly-issued sandbox partner_keys (shpk_… prefix) only authenticate against
+        // the V2 host — calls to V1 return error_sign. Production is unaffected.
+        // The V2 docs also document a CN variant (.cn) for China-Seller-Center apps;
+        // wire that up when we have a CN-bound install. SEA installs all use .sg.
         return $mode === 'live'
             ? 'https://partner.shopeemobile.com'
-            : 'https://partner.test-stable.shopeemobile.com';
+            : 'https://openplatform.sandbox.test-stable.shopee.sg';
     }
 
     private function http(): PendingRequest
@@ -125,11 +132,13 @@ class ShopeeClient
         $resp = $this->http()
             ->post($url . '?' . http_build_query($query), $body);
 
-        return [
+        $result = [
             'status' => $resp->status(),
             'ok' => $resp->ok(),
             'body' => $resp->json() ?? $resp->body(),
         ];
+        $this->logCall('POST', $path, array_merge($query, ['_body' => $body]), $result);
+        return $result;
     }
 
     public function get(string $mode, string $path, array $query): array
@@ -139,11 +148,41 @@ class ShopeeClient
         $resp = $this->http()
             ->get($url . '?' . http_build_query($query));
 
-        return [
+        $result = [
             'status' => $resp->status(),
             'ok' => $resp->ok(),
             'body' => $resp->json() ?? $resp->body(),
         ];
+        $this->logCall('GET', $path, $query, $result);
+        return $result;
+    }
+
+    /**
+     * Record every signed Shopee API call to shopee_api_logs so operators
+     * can see what came back without re-running the request. Mirrors the
+     * Lazada LazadaApiLog::safeCreate pattern. Auth errors are tagged with
+     * the Shopee error code so they're easy to spot.
+     */
+    private function logCall(string $method, string $path, array $params, array $result): void
+    {
+        try {
+            $body = $result['body'] ?? null;
+            $apiError = is_array($body) ? (string)($body['error'] ?? '') : '';
+            $okFinal = ($result['ok'] ?? false) && $apiError === '';
+            \Extensions\shopee\Models\ShopeeApiLog::safeCreate([
+                'pack'            => 'shopee.client',
+                'method'          => $method,
+                'api_path'        => $path,
+                'auth_required'   => true,
+                'request_params'  => $params,
+                'response_status' => (int) ($result['status'] ?? 0),
+                'ok'              => $okFinal,
+                'response_body'   => $body,
+                'user_id'         => function_exists('auth') ? optional(auth())->id() : null,
+            ]);
+        } catch (\Throwable $e) {
+            // Logging must never break a real API call.
+        }
     }
 
     /**

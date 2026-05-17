@@ -43,21 +43,24 @@ class ShopeeCategoryController extends Controller
     public function fetch(Request $request, ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.categories.index')
-                ->with('error', 'Missing Shopee settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.');
+                ->with('error', "Missing Shopee {$modeLabel} settings. Please configure Partner ID, Partner Key, Access Token, and Shop ID first.");
         }
 
         $path = '/api/v2/product/get_category';
+        $language = $auth['region'] ?: 'en';
 
         $result = $client->shopGet(
-            $setting->mode ?? 'sandbox',
-            (int)$setting->partner_id,
-            (string)$setting->partner_key,
-            (string)$setting->access_token,
-            (int)$setting->shop_id,
+            $auth['mode'],
+            (int)$auth['partner_id'],
+            (string)$auth['partner_key'],
+            (string)$auth['access_token'],
+            (int)$auth['shop_id'],
             $path,
-            ['language' => $setting->region ?: 'en']
+            ['language' => $language]
         );
 
         ShopeeApiLog::safeCreate([
@@ -65,7 +68,7 @@ class ShopeeCategoryController extends Controller
             'method' => 'GET',
             'api_path' => $path,
             'auth_required' => true,
-            'request_params' => ['language' => $setting->region ?: 'en'],
+            'request_params' => ['language' => $language],
             'response_status' => $result['status'] ?? null,
             'ok' => (bool)($result['ok'] ?? false),
             'response_body' => $result['body'] ?? null,
