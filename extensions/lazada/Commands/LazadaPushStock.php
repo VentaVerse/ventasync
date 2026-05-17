@@ -285,6 +285,8 @@ class LazadaPushStock extends Command
         $itemId = (string) ($listing->lazada_item_id ?? '');
         if ($itemId === '') return;
 
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $apiPath = '/product/item/get';
         $params = [
             'app_key'      => (string) $creds['app_key'],
@@ -372,6 +374,8 @@ class LazadaPushStock extends Command
 
     private function pushToLazada(LazadaClient $client, object $setting, string $apiPath, string $payloadXml): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $creds['app_key'];
         $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];
         $minIntervalMs = 500;
@@ -384,7 +388,7 @@ class LazadaPushStock extends Command
             'payload'      => $payloadXml,
         ];
 
-        $callOnce = function () use ($client, $setting, $apiPath, &$params) {
+        $callOnce = function () use ($client, $setting, $apiPath, &$params, $creds) {
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             return $client->post($setting->region, $apiPath, $params);
         };

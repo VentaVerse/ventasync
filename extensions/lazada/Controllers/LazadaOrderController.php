@@ -554,6 +554,7 @@ class LazadaOrderController extends Controller
         $needsDetail = $refresh || !$this->rawLikelyHasOrderDetail($order->raw ?? []);
 
         $setting = $settingRaw?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
         $hasCreds = $setting && $setting->region && $creds['app_key'] && $creds['app_secret'] && $creds['access_token'];
 
         if ($hasCreds && $needsDetail) {
@@ -564,7 +565,7 @@ class LazadaOrderController extends Controller
                     Cache::forget($cacheKey);
                 }
 
-                $apiOrder = Cache::remember($cacheKey, $ttlSeconds, function () use ($client, $setting, $orderId) {
+                $apiOrder = Cache::remember($cacheKey, $ttlSeconds, function () use ($client, $setting, $orderId, $creds) {
                     $res = $this->runSignedApiCall(
                         $client,
                         $setting->region,
@@ -2285,6 +2286,8 @@ public function reset(Request $request)
      */
     private function fetchOrderStatusFromApi(LazadaClient $client, $setting, string $orderId): ?string
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $res = $this->runSignedApiCall(
             $client,
             $setting->region,
@@ -2325,6 +2328,8 @@ public function reset(Request $request)
     {
         $oid = (string)($order->order_id ?? '');
         if ($oid === '') return null;
+
+        $creds = LazadaSetting::activeCredentials($setting);
 
         $itemsRes = $this->runSignedApiCall(
             $client,
@@ -2429,6 +2434,8 @@ public function reset(Request $request)
      */
     private function getOrderItems(LazadaClient $client, $setting, $orderId): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $itemsRes = $this->runSignedApiCall(
             $client,
             $setting->region,
@@ -2501,6 +2508,8 @@ public function reset(Request $request)
      */
     private function buildPrintableItems(LazadaClient $client, $setting, $orderId, ?LazadaOrder $order = null): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $items = [];
 
         // DB first
@@ -2572,6 +2581,8 @@ public function reset(Request $request)
      */
     private function getSellerId(LazadaClient $client, $setting): string
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $region = (string)($setting->region ?? '');
         $appKey = (string)($creds['app_key'] ?? '');
         $accessToken = (string)($creds['access_token'] ?? '');

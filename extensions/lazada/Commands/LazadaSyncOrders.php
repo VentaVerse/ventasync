@@ -392,6 +392,8 @@ class LazadaSyncOrders extends Command
      */
     private function runSignedApiCall(LazadaClient $client, object $setting, string $method, string $apiPath, array $customParams, ?string $pack = null): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $apiPath = trim($apiPath);
         if (!str_starts_with($apiPath, '/')) $apiPath = '/' . $apiPath;
 
@@ -413,7 +415,7 @@ class LazadaSyncOrders extends Command
         $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];
         $minIntervalMs = 1200;
 
-        $callOnce = function () use ($client, $setting, $apiPath, &$params, $method) {
+        $callOnce = function () use ($client, $setting, $apiPath, &$params, $method, $creds) {
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             return $method === 'POST'
                 ? $client->post($setting->region, $apiPath, $params)

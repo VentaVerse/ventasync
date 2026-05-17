@@ -1870,7 +1870,7 @@ class LazadaProductGroupController extends Controller
         );
 
         $attributes = $this->extractAttributes($template->template_body);
-        $erpSourceFields = \App\Http\Controllers\LazadaProductController::ERP_SOURCE_FIELDS;
+        $erpSourceFields = \Extensions\lazada\Controllers\LazadaProductController::ERP_SOURCE_FIELDS;
 
         $html = view('ext-lazada::product-groups._attributes', [
             'attributes' => $attributes,

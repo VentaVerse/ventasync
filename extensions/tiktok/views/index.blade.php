@@ -100,8 +100,8 @@
                     </div>
                     <div>
                         <label>Redirect URI</label>
-                        <input class="input" name="redirect_uri" value="{{ old('redirect_uri', $setting->redirect_uri ?? $defaultRedirect) }}">
-                        <div class="hint">Must match the redirect URI in your TikTok Shop app settings.</div>
+                        <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
+                        <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your TikTok Shop developer console. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                     </div>
                 </div>
                 <div style="margin-top:14px;">
@@ -237,8 +237,8 @@
                     </div>
                     <div>
                         <label>Sandbox Redirect URI</label>
-                        <input class="input" name="sandbox_redirect_uri" value="{{ old('sandbox_redirect_uri', $setting->sandbox_redirect_uri ?? $defaultRedirect) }}">
-                        <div class="hint">Callback URL for sandbox app.</div>
+                        <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
+                        <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your TikTok Shop sandbox app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                     </div>
                 </div>
                 <div style="margin-top:14px;">

@@ -547,6 +547,8 @@ private function refreshLazadaProductCache(LazadaProduct $listing, object $setti
     $itemId = (string) ($listing->lazada_item_id ?? '');
     if ($itemId === '') return;
 
+    $creds = LazadaSetting::activeCredentials($setting);
+
     $apiPath = '/product/item/get';
     $params = [
         'app_key'      => (string) $creds['app_key'],
@@ -634,6 +636,8 @@ private function fetchAndCacheLazadaVariants(LazadaProduct $listing, object $set
 {
     $itemId = (string) ($listing->lazada_item_id ?? '');
     if ($itemId === '') return [];
+
+    $creds = LazadaSetting::activeCredentials($setting);
 
     $apiPath = '/product/item/get';
     $timestamp = (string) round(microtime(true) * 1000);
@@ -3610,6 +3614,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
      */
     public function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $images = data_get($productPayload, 'Request.Product.Images.Image', []);
         if (!is_array($images) || empty($images)) {
             throw \Illuminate\Validation\ValidationException::withMessages([

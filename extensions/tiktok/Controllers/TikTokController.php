@@ -89,13 +89,24 @@ class TikTokController extends Controller
 
         return view('ext-tiktok::index', [
             'setting' => $setting?->decrypted(),
-            'defaultRedirect' => url('/tiktok/callback'),
+            'defaultRedirect' => $this->computedRedirectUri(),
             'result' => session('tiktok_result'),
             'logs' => $logs,
             'orderStatusMap' => $orderStatusMap,
             'erpOrderStatuses' => $erpOrderStatuses,
             'tikTokStatuses' => $tikTokStatuses,
         ]);
+    }
+
+    /**
+     * Canonical TikTok OAuth redirect URI for this install. Force HTTPS — TikTok
+     * Shop requires it, and the URL must byte-match what is registered in the
+     * TikTok Shop developer console. Derive from route() rather than letting the
+     * user type it: typos silently break OAuth.
+     */
+    private function computedRedirectUri(): string
+    {
+        return preg_replace('/^http:/i', 'https:', route('ext.tiktok.callback'));
     }
 
     // -- Save credentials -------------------------------------------------
@@ -106,20 +117,18 @@ class TikTokController extends Controller
             'env' => 'nullable|in:live,sandbox',
             'app_key' => 'nullable|string|max:64',
             'app_secret' => 'nullable|string|max:255',
-            'redirect_uri' => 'nullable|string|max:255',
             'region' => 'nullable|string|max:16',
             'sandbox_app_key' => 'nullable|string|max:64',
             'sandbox_app_secret' => 'nullable|string|max:255',
-            'sandbox_redirect_uri' => 'nullable|string|max:255',
         ]);
 
         $setting = TikTokSetting::query()->first() ?? new TikTokSetting();
 
         $env = $data['env'] ?? 'live';
+        $setting->mode = $env;
 
         if ($env === 'live') {
             $setting->app_key = $data['app_key'] ?? null;
-            $setting->redirect_uri = $data['redirect_uri'] ?? null;
             $setting->region = $data['region'] ?? null;
 
             $setting->app_secret = isset($data['app_secret']) && $data['app_secret'] !== ''
@@ -127,7 +136,6 @@ class TikTokController extends Controller
                 : null;
         } else {
             $setting->sandbox_app_key = $data['sandbox_app_key'] ?? null;
-            $setting->sandbox_redirect_uri = $data['sandbox_redirect_uri'] ?? null;
 
             $setting->sandbox_app_secret = isset($data['sandbox_app_secret']) && $data['sandbox_app_secret'] !== ''
                 ? encrypt(trim($data['sandbox_app_secret']))
