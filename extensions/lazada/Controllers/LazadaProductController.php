@@ -563,6 +563,19 @@ private function refreshLazadaProductCache(LazadaProduct $listing, object $setti
     $body = $res['body'] ?? [];
     $data = $body['data'] ?? $body;
 
+    $apiCode = is_array($body) ? (string)($body['code'] ?? '') : '';
+    LazadaApiLog::safeCreate([
+        'pack'            => 'lazada.product.item.get.cache',
+        'method'          => 'GET',
+        'api_path'        => $apiPath,
+        'auth_required'   => true,
+        'request_params'  => $params,
+        'response_status' => (int) ($res['status'] ?? 0),
+        'ok'              => ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0'),
+        'response_body'   => $body,
+        'user_id'         => auth()->id(),
+    ]);
+
     if (empty($data) || !is_array($data)) return;
 
     // 1. Update product status from Lazada
@@ -653,6 +666,19 @@ private function fetchAndCacheLazadaVariants(LazadaProduct $listing, object $set
     $res = $client->get((string) $setting->region, $apiPath, $params);
     $body = $res['body'] ?? [];
     $data = $body['data'] ?? $body;
+
+    $apiCode = is_array($body) ? (string)($body['code'] ?? '') : '';
+    LazadaApiLog::safeCreate([
+        'pack'            => 'lazada.product.item.get.variants',
+        'method'          => 'GET',
+        'api_path'        => $apiPath,
+        'auth_required'   => true,
+        'request_params'  => $params,
+        'response_status' => (int) ($res['status'] ?? 0),
+        'ok'              => ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0'),
+        'response_body'   => $body,
+        'user_id'         => auth()->id(),
+    ]);
 
     $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
     if (!is_array($skus)) return [];
@@ -3878,7 +3904,21 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $body = $resp['body'] ?? [];
 
         $inlink = data_get($body, 'data.image.url') ?? data_get($body, 'data.image.Url');
-        return (is_string($inlink) && $inlink !== '') ? $inlink : null;
+        $ok = is_string($inlink) && $inlink !== '';
+
+        LazadaApiLog::safeCreate([
+            'pack'            => 'lazada.image.migrate.single',
+            'method'          => 'POST',
+            'api_path'        => $apiPath,
+            'auth_required'   => true,
+            'request_params'  => $params,
+            'response_status' => (int) ($resp['status'] ?? 0),
+            'ok'              => $ok,
+            'response_body'   => $body,
+            'user_id'         => auth()->id(),
+        ]);
+
+        return $ok ? $inlink : null;
     }
 
 private function tryMigrateBatchImagesXml(string $region, array $urls, string $appKey, string $appSecret, string $accessToken, LazadaClient $client): array
@@ -3926,6 +3966,18 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
             ?? data_get($body, 'request_id')
             ?? data_get($body, 'data.request_id')
             ?? data_get($body, 'data.requestId');
+
+        LazadaApiLog::safeCreate([
+            'pack'            => 'lazada.images.migrate.batch',
+            'method'          => 'POST',
+            'api_path'        => $apiPath,
+            'auth_required'   => true,
+            'request_params'  => $params,
+            'response_status' => (int) ($resp['status'] ?? 0),
+            'ok'              => (bool) $batchId,
+            'response_body'   => $body,
+            'user_id'         => auth()->id(),
+        ]);
 
         if (!$batchId) {
             continue;
