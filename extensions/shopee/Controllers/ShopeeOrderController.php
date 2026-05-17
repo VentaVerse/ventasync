@@ -19,7 +19,9 @@ class ShopeeOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $setting = ShopeeSetting::query()->first();
+        $settingRaw = ShopeeSetting::query()->first();
+        $setting = $settingRaw?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
 
         $filters = $request->validate([
             'order_number' => ['nullable', 'string', 'max:80'],
@@ -100,10 +102,10 @@ class ShopeeOrderController extends Controller
         ];
 
         $query = ShopeeOrder::query()
-            ->where('region', $setting->region ?? 'ph')
+            ->where('region', $auth['region'] ?? 'ph')
             ->with('products');
 
-        $baseCountQuery = ShopeeOrder::query()->where('region', $setting->region ?? 'ph');
+        $baseCountQuery = ShopeeOrder::query()->where('region', $auth['region'] ?? 'ph');
 
         if ($tab !== 'ALL') {
             if ($tab === 'PENDING' && $pendingSubtab !== '') {
@@ -176,7 +178,7 @@ class ShopeeOrderController extends Controller
         }
 
         return view('ext-shopee::orders.index', [
-            'setting' => $setting,
+            'setting' => $settingRaw,
             'orders' => $orders,
             'per_page' => $perPage,
             'last_result' => session('shopee_orders_last_result'),
@@ -185,7 +187,7 @@ class ShopeeOrderController extends Controller
             'pending_subtab' => $pendingSubtab,
             'tab_counts' => $tab_counts,
             'pending_sub_counts' => $pending_sub_counts,
-            'pending_courier_counts' => $this->buildToShipCourierCounts($setting->region ?? 'ph'),
+            'pending_courier_counts' => $this->buildToShipCourierCounts($auth['region'] ?? 'ph'),
             'savedAwbs' => $savedAwbs,
             'sort' => $sortKey,
             'filters' => [
@@ -245,7 +247,9 @@ class ShopeeOrderController extends Controller
 
     public function returns(Request $request)
     {
-        $setting = ShopeeSetting::query()->first();
+        $settingRaw = ShopeeSetting::query()->first();
+        $setting = $settingRaw?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
 
         $filters = $request->validate([
             'return_sn' => ['nullable', 'string', 'max:80'],
@@ -283,7 +287,7 @@ class ShopeeOrderController extends Controller
             $tab = 'ALL';
         }
 
-        $region = $setting->region ?? 'ph';
+        $region = $auth['region'] ?? 'ph';
         $query = ShopeeReturn::query()->where('region', $region);
         $baseCountQuery = ShopeeReturn::query()->where('region', $region);
 
@@ -314,7 +318,7 @@ class ShopeeOrderController extends Controller
             ->appends($request->query());
 
         return view('ext-shopee::orders.returns', [
-            'setting'    => $setting,
+            'setting'    => $settingRaw,
             'returns'    => $returns,
             'per_page'   => $perPage,
             'last_result' => session('shopee_orders_last_result'),
@@ -336,7 +340,9 @@ class ShopeeOrderController extends Controller
         }
 
         $settingRaw = ShopeeSetting::query()->first();
-        $region = $settingRaw->region ?? 'ph';
+        $setting = $settingRaw?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        $region = $auth['region'] ?? 'ph';
 
         $order = ShopeeOrder::query()
             ->where('region', $region)
@@ -347,17 +353,16 @@ class ShopeeOrderController extends Controller
         $apiError = null;
 
         $refresh = (bool) $request->boolean('refresh');
-        $setting = $settingRaw?->decrypted();
-        $hasCreds = $setting && $setting->partner_id && $setting->partner_key && $setting->access_token && $setting->shop_id;
+        $hasCreds = $setting && $auth['complete'];
 
         if ($hasCreds && $refresh) {
             try {
                 $res = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/order/get_order_detail',
                     [
                         'order_sn_list' => $orderSn,
@@ -386,11 +391,11 @@ class ShopeeOrderController extends Controller
                         if (empty($detail['tracking_no'])) {
                             try {
                                 $trackRes = $client->shopGet(
-                                    $setting->mode ?? 'live',
-                                    (int) $setting->partner_id,
-                                    (string) $setting->partner_key,
-                                    (string) $setting->access_token,
-                                    (int) $setting->shop_id,
+                                    $auth['mode'],
+                                    (int) $auth['partner_id'],
+                                    (string) $auth['partner_key'],
+                                    (string) $auth['access_token'],
+                                    (int) $auth['shop_id'],
                                     '/api/v2/logistics/get_tracking_number',
                                     ['order_sn' => $orderSn]
                                 );
@@ -421,11 +426,11 @@ class ShopeeOrderController extends Controller
         if ($hasCreds && (empty($order->fees) || $refresh)) {
             try {
                 $escrowRes = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/payment/get_escrow_detail',
                     ['order_sn' => $orderSn]
                 );
@@ -485,10 +490,12 @@ class ShopeeOrderController extends Controller
         $skipStock = !empty($data['no_stock']);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Missing Shopee credentials/token. Please configure Shopee settings first.',
+                'message' => "Missing Shopee {$modeLabel} credentials/token. Please configure Shopee settings first.",
             ]);
         }
 
@@ -522,11 +529,11 @@ class ShopeeOrderController extends Controller
                 }
 
                 $res = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/order/get_order_list',
                     $extraQuery
                 );
@@ -591,11 +598,11 @@ class ShopeeOrderController extends Controller
 
         foreach (array_chunk($allOrderSns, 50) as $chunk) {
             $detailRes = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/order/get_order_detail',
                 [
                     'order_sn_list' => implode(',', $chunk),
@@ -631,7 +638,7 @@ class ShopeeOrderController extends Controller
                 if ($orderSn === '') continue;
 
                 $existing = ShopeeOrder::query()
-                    ->where('region', $setting->region ?? 'ph')
+                    ->where('region', $auth['region'] ?? 'ph')
                     ->where('order_sn', $orderSn)
                     ->first();
 
@@ -646,7 +653,7 @@ class ShopeeOrderController extends Controller
 
                 try {
                     $newOrder = ShopeeOrder::query()->create([
-                        'region'           => $setting->region ?? 'ph',
+                        'region'           => $auth['region'] ?? 'ph',
                         'order_sn'         => $orderSn,
                         'status'           => $status,
                         'order_created_at' => $createdAt,
@@ -690,10 +697,12 @@ class ShopeeOrderController extends Controller
         ]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Missing Shopee credentials/token.',
+                'message' => "Missing Shopee {$modeLabel} credentials/token.",
             ]);
         }
 
@@ -723,11 +732,11 @@ class ShopeeOrderController extends Controller
                 }
 
                 $res = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/order/get_order_list',
                     $extraQuery
                 );
@@ -763,11 +772,11 @@ class ShopeeOrderController extends Controller
 
         foreach (array_chunk($allOrderSns, 50) as $chunk) {
             $detailRes = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/order/get_order_detail',
                 [
                     'order_sn_list' => implode(',', $chunk),
@@ -789,7 +798,7 @@ class ShopeeOrderController extends Controller
                 if ($orderSn === '') continue;
 
                 $existing = ShopeeOrder::query()
-                    ->where('region', $setting->region ?? 'ph')
+                    ->where('region', $auth['region'] ?? 'ph')
                     ->where('order_sn', $orderSn)
                     ->first();
 
@@ -831,16 +840,18 @@ class ShopeeOrderController extends Controller
     public function getShippingAddresses(ShopeeClient $client, string $orderSn)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials.'], 422);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials."], 422);
         }
 
         $res = $client->shopGet(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/logistics/get_shipping_parameter',
             ['order_sn' => $orderSn]
         );
@@ -875,16 +886,18 @@ class ShopeeOrderController extends Controller
         $json = $request->expectsJson();
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            if ($json) return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials/token.'], 422);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            if ($json) return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials/token."], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Missing Shopee credentials/token.',
+                'message' => "Missing Shopee {$modeLabel} credentials/token.",
             ]);
         }
 
         $order = ShopeeOrder::query()
-            ->where('region', $setting->region ?? 'ph')
+            ->where('region', $auth['region'] ?? 'ph')
             ->where('order_sn', $orderSn)
             ->first();
 
@@ -898,11 +911,11 @@ class ShopeeOrderController extends Controller
 
         // Step 1: Get shipping parameter
         $paramRes = $client->shopGet(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/logistics/get_shipping_parameter',
             ['order_sn' => $orderSn]
         );
@@ -961,11 +974,11 @@ class ShopeeOrderController extends Controller
         }
 
         $shipRes = $client->shopPost(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/logistics/ship_order',
             [],
             $shipBody
@@ -1015,16 +1028,18 @@ class ShopeeOrderController extends Controller
     public function getTrackingNumber(ShopeeClient $client, string $orderSn)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials.'], 422);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials."], 422);
         }
 
         $res = $client->shopGet(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/logistics/get_tracking_number',
             ['order_sn' => $orderSn]
         );
@@ -1053,16 +1068,18 @@ class ShopeeOrderController extends Controller
     public function getTrackingInfo(ShopeeClient $client, string $orderSn)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return response()->json(['ok' => false, 'message' => 'Missing Shopee credentials.'], 422);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} credentials."], 422);
         }
 
         $res = $client->shopGet(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/logistics/get_tracking_info',
             ['order_sn' => $orderSn]
         );
@@ -1083,11 +1100,11 @@ class ShopeeOrderController extends Controller
 
         // Also fetch tracking number
         $trackRes = $client->shopGet(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/logistics/get_tracking_number',
             ['order_sn' => $orderSn]
         );
@@ -1126,19 +1143,21 @@ class ShopeeOrderController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            if ($json) return response()->json(['ok' => false, 'ready' => false, 'message' => 'Missing Shopee credentials/token.'], 422);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            if ($json) return response()->json(['ok' => false, 'ready' => false, 'message' => "Missing Shopee {$modeLabel} credentials/token."], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Missing Shopee credentials/token.',
+                'message' => "Missing Shopee {$modeLabel} credentials/token.",
             ]);
         }
 
-        $mode = $setting->mode ?? 'live';
-        $pid = (int) $setting->partner_id;
-        $pkey = (string) $setting->partner_key;
-        $token = (string) $setting->access_token;
-        $shopId = (int) $setting->shop_id;
+        $mode = $auth['mode'];
+        $pid = (int) $auth['partner_id'];
+        $pkey = (string) $auth['partner_key'];
+        $token = (string) $auth['access_token'];
+        $shopId = (int) $auth['shop_id'];
 
         // Fetch tracking number from Shopee — needed for create_shipping_document
         $trackRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
@@ -1336,8 +1355,10 @@ class ShopeeOrderController extends Controller
             ]);
         }
 
-        $setting = ShopeeSetting::query()->first();
-        $region = $setting->region ?? 'ph';
+        $settingRaw = ShopeeSetting::query()->first();
+        $setting = $settingRaw?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        $region = $auth['region'] ?? 'ph';
 
         try {
             $count = ShopeeOrder::query()->where('region', $region)->count();
@@ -1365,14 +1386,16 @@ class ShopeeOrderController extends Controller
         try { @set_time_limit(0); } catch (\Throwable $e) {}
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.orders.index', ['tab' => 'RETURN'])->with('shopee_orders_last_result', [
                 'ok' => false,
-                'message' => 'Missing Shopee credentials/token. Please configure Shopee settings first.',
+                'message' => "Missing Shopee {$modeLabel} credentials/token. Please configure Shopee settings first.",
             ]);
         }
 
-        $region = $setting->region ?? 'ph';
+        $region = $auth['region'] ?? 'ph';
         $saved = 0;
         $errors = 0;
         $pageNo = 0;
@@ -1380,11 +1403,11 @@ class ShopeeOrderController extends Controller
 
         while (true) {
             $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/returns/get_return_list',
                 ['page_no' => $pageNo, 'page_size' => $pageSize]
             );
@@ -1422,11 +1445,11 @@ class ShopeeOrderController extends Controller
 
                 // Fetch detail for this return
                 $detailRes = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/returns/get_return_detail',
                     ['return_sn' => $returnSn]
                 );

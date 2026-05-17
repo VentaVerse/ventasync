@@ -25,8 +25,10 @@ class ShopeeSyncOrders extends Command
     public function handle(ShopeeClient $client): int
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            $this->error('Missing Shopee credentials/token. Configure Shopee settings first.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings first.");
             return 1;
         }
 
@@ -40,7 +42,7 @@ class ShopeeSyncOrders extends Command
 
         if (!$returnsOnly) {
             $this->info('--- Syncing Shopee orders ---');
-            $this->syncOrders($client, $setting);
+            $this->syncOrders($client, $setting, $auth);
             ShopeeSetting::query()->update(['last_order_sync_at' => now()]);
         }
 
@@ -50,15 +52,15 @@ class ShopeeSyncOrders extends Command
 
         if (!$returnsOnly) {
             $this->info('--- Backfilling missing escrow fees ---');
-            $this->backfillMissingFees($client, $setting);
+            $this->backfillMissingFees($client, $setting, $auth);
 
             $this->info('--- Syncing Shopee payout statuses ---');
-            $this->syncPayoutStatuses($client, $setting);
+            $this->syncPayoutStatuses($client, $setting, $auth);
         }
 
         if (!$skipReturns) {
             $this->info('--- Syncing Shopee returns ---');
-            $this->syncReturns($client, $setting);
+            $this->syncReturns($client, $setting, $auth);
             ShopeeSetting::query()->update(['last_return_sync_at' => now()]);
         }
 
@@ -66,11 +68,11 @@ class ShopeeSyncOrders extends Command
         return 0;
     }
 
-    private function syncOrders(ShopeeClient $client, object $setting): void
+    private function syncOrders(ShopeeClient $client, object $setting, array $auth): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
         $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
-        $region = $setting->region ?? 'ph';
+        $region = $auth['region'] ?? 'ph';
 
         $latestUpdated = ShopeeOrder::query()
             ->where('region', $region)
@@ -114,11 +116,11 @@ class ShopeeSyncOrders extends Command
                 }
 
                 $res = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/order/get_order_list',
                     $extraQuery
                 );
@@ -172,11 +174,11 @@ class ShopeeSyncOrders extends Command
 
         foreach (array_chunk($allOrderSns, 50) as $chunk) {
             $detailRes = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/order/get_order_detail',
                 [
                     'order_sn_list' => implode(',', $chunk),
@@ -195,7 +197,7 @@ class ShopeeSyncOrders extends Command
             if (!is_array($detailList)) $detailList = [];
 
             // Buyer invoice info — batched once per chunk, results applied below.
-            $invoiceMap = $this->fetchBuyerInvoiceForChunk($client, $setting, $chunk);
+            $invoiceMap = $this->fetchBuyerInvoiceForChunk($client, $setting, $auth, $chunk);
 
             foreach ($detailList as $o) {
                 if (!is_array($o)) continue;
@@ -234,7 +236,7 @@ class ShopeeSyncOrders extends Command
                         Log::warning('Shopee sync: catalog sync failed for order ' . $orderSn, ['error' => $e->getMessage()]);
                     }
 
-                    $this->fetchFeesIfReady($client, $setting, $existing);
+                    $this->fetchFeesIfReady($client, $setting, $auth, $existing);
                 } else {
                     // --- Create new order ---
                     try {
@@ -261,7 +263,7 @@ class ShopeeSyncOrders extends Command
                             Log::warning('Shopee sync: failed to sync order ' . $orderSn . ' to catalog', ['error' => $e->getMessage()]);
                         }
 
-                        $this->fetchFeesIfReady($client, $setting, $newOrder);
+                        $this->fetchFeesIfReady($client, $setting, $auth, $newOrder);
                     } catch (\Throwable $e) {
                         $errors++;
                         Log::error('Shopee sync: failed to create order ' . $orderSn, ['error' => $e->getMessage()]);
@@ -273,9 +275,9 @@ class ShopeeSyncOrders extends Command
         $this->info("  Synced: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} errors" : ''));
     }
 
-    private function syncReturns(ShopeeClient $client, object $setting): void
+    private function syncReturns(ShopeeClient $client, object $setting, array $auth): void
     {
-        $region = $setting->region ?? 'ph';
+        $region = $auth['region'] ?? 'ph';
         $saved = 0;
         $errors = 0;
         $pageNo = 0;
@@ -295,11 +297,11 @@ class ShopeeSyncOrders extends Command
             ];
 
             $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/returns/get_return_list',
                 $queryParams
             );
@@ -334,11 +336,11 @@ class ShopeeSyncOrders extends Command
                 if (!$returnSn) continue;
 
                 $detailRes = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/returns/get_return_detail',
                     ['return_sn' => $returnSn]
                 );
@@ -406,7 +408,7 @@ class ShopeeSyncOrders extends Command
      * Fetch escrow/fee details for completed orders.
      * Only calls the API if: order is COMPLETED and fees not already stored.
      */
-    private function fetchFeesIfReady(ShopeeClient $client, object $setting, ShopeeOrder $order): void
+    private function fetchFeesIfReady(ShopeeClient $client, object $setting, array $auth, ShopeeOrder $order): void
     {
         $status = strtoupper(trim((string) $order->status));
 
@@ -419,11 +421,11 @@ class ShopeeSyncOrders extends Command
 
         try {
             $escrowRes = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/payment/get_escrow_detail',
                 ['order_sn' => $order->order_sn]
             );
@@ -458,9 +460,9 @@ class ShopeeSyncOrders extends Command
     /**
      * Fetch escrow fees for shipped/completed orders that don't have fee data yet.
      */
-    private function backfillMissingFees(ShopeeClient $client, object $setting): void
+    private function backfillMissingFees(ShopeeClient $client, object $setting, array $auth): void
     {
-        $region = $setting->region ?? 'ph';
+        $region = $auth['region'] ?? 'ph';
 
         $orders = ShopeeOrder::query()
             ->where('region', $region)
@@ -475,7 +477,7 @@ class ShopeeSyncOrders extends Command
 
         $filled = 0;
         foreach ($orders as $order) {
-            $this->fetchFeesIfReady($client, $setting, $order);
+            $this->fetchFeesIfReady($client, $setting, $auth, $order);
             if (!empty($order->fresh()->fees)) {
                 $filled++;
             }
@@ -489,9 +491,9 @@ class ShopeeSyncOrders extends Command
      * Fetch wallet transactions from Shopee and update payout_status/paid_at
      * for COMPLETED orders that haven't been marked as Paid yet.
      */
-    private function syncPayoutStatuses(ShopeeClient $client, object $setting): void
+    private function syncPayoutStatuses(ShopeeClient $client, object $setting, array $auth): void
     {
-        $region = $setting->region ?? 'ph';
+        $region = $auth['region'] ?? 'ph';
 
         // Find COMPLETED orders without payout_status = 'Paid'
         $pendingOrders = ShopeeOrder::query()
@@ -516,11 +518,11 @@ class ShopeeSyncOrders extends Command
         try {
             do {
                 $res = $client->shopGet(
-                    $setting->mode ?? 'live',
-                    (int) $setting->partner_id,
-                    (string) $setting->partner_key,
-                    (string) $setting->access_token,
-                    (int) $setting->shop_id,
+                    $auth['mode'],
+                    (int) $auth['partner_id'],
+                    (string) $auth['partner_key'],
+                    (string) $auth['access_token'],
+                    (int) $auth['shop_id'],
                     '/api/v2/payment/get_wallet_transaction_list',
                     [
                         'page_no'          => $pageNo,
@@ -642,16 +644,16 @@ class ShopeeSyncOrders extends Command
      *   - { is_requested: false }                                                  (buyer declined)
      *   - { error: "...message..." }                                               (Shopee couldn't classify)
      */
-    private function fetchBuyerInvoiceForChunk(ShopeeClient $client, object $setting, array $chunk): array
+    private function fetchBuyerInvoiceForChunk(ShopeeClient $client, object $setting, array $auth, array $chunk): array
     {
         $queries = array_map(fn ($sn) => ['order_sn' => (string) $sn], $chunk);
 
         $res = $client->shopPost(
-            $setting->mode ?? 'live',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/order/get_buyer_invoice_info',
             [],
             ['queries' => $queries]

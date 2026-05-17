@@ -225,7 +225,8 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
     private function shopeeUpdateItemSku(ShopeeProductLink $link, int $itemId, string $newSku): ?string
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
             return null;
         }
 
@@ -238,11 +239,11 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
             ];
 
             $result = $client->shopPost(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 $path,
                 [],
                 $body

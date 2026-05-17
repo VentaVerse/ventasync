@@ -495,16 +495,18 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return redirect()->back()->with('error', 'Missing Shopee credentials.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials.");
         }
 
         $pfx = (string) config('catalog.prefix');
-        $mode = $setting->mode ?? 'live';
-        $pid = (int) $setting->partner_id;
-        $pkey = (string) $setting->partner_key;
-        $token = (string) $setting->access_token;
-        $shopId = (int) $setting->shop_id;
+        $mode = $auth['mode'];
+        $pid = (int) $auth['partner_id'];
+        $pkey = (string) $auth['partner_key'];
+        $token = (string) $auth['access_token'];
+        $shopId = (int) $auth['shop_id'];
 
         // Collect all SKUs for this product
         $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
@@ -741,8 +743,10 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
         if (!$group->shopee_category_id) {
@@ -815,7 +819,7 @@ class ShopeeProductGroupController extends Controller
                 $localPath = $this->resolveLocalImagePath($imgPath);
                 if (!$localPath || !file_exists($localPath)) continue;
 
-                $uploadResult = $this->uploadImage($client, $setting, $localPath);
+                $uploadResult = $this->uploadImage($client, $auth, $localPath);
                 if ($uploadResult['ok'] ?? false) {
                     $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
                     if ($imgId) $imageIds[] = (string) $imgId;
@@ -861,9 +865,9 @@ class ShopeeProductGroupController extends Controller
 
             $path = '/api/v2/product/add_item';
             $result = $client->shopPost(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id, (string) $setting->partner_key,
-                (string) $setting->access_token, (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
                 $path, [], $payload
             );
 
@@ -929,8 +933,10 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -992,7 +998,7 @@ class ShopeeProductGroupController extends Controller
                 $localPath = $this->resolveLocalImagePath($imgPath);
                 if (!$localPath || !file_exists($localPath)) continue;
 
-                $uploadResult = $this->uploadImage($client, $setting, $localPath);
+                $uploadResult = $this->uploadImage($client, $auth, $localPath);
                 if ($uploadResult['ok'] ?? false) {
                     $imgId = $uploadResult['body']['response']['image_info']['image_id'] ?? null;
                     if ($imgId) $imageIds[] = (string) $imgId;
@@ -1022,9 +1028,9 @@ class ShopeeProductGroupController extends Controller
 
             $path = '/api/v2/product/update_item';
             $result = $client->shopPost(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id, (string) $setting->partner_key,
-                (string) $setting->access_token, (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
                 $path, [], $payload
             );
 
@@ -1041,8 +1047,8 @@ class ShopeeProductGroupController extends Controller
             if (($result['ok'] ?? false) && $respError === '') {
                 // Also update price and stock via dedicated endpoints
                 $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
-                $this->pushPriceForLinks($client, $setting, $pfx, $links, $group);
-                $this->pushStockForLinks($client, $setting, $pfx, $links);
+                $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
+                $this->pushStockForLinks($client, $auth, $pfx, $links);
 
                 ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                     ->where('product_id', $productId)
@@ -1081,15 +1087,17 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
         $pfx = (string) config('catalog.prefix');
         $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get();
         $skip = count($productIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushPriceForLinks($client, $setting, $pfx, $links, $group);
+        $results = $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
 
         return $this->productsRedirect($id)
             ->with('status', "Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).");
@@ -1104,8 +1112,10 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
         $pfx = (string) config('catalog.prefix');
@@ -1121,7 +1131,7 @@ class ShopeeProductGroupController extends Controller
         $links = ShopeeProductLink::query()->whereIn('product_id', $enabledIds)->get();
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushStockForLinks($client, $setting, $pfx, $links);
+        $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
 
         $msg = "Sync Qty: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)";
         if ($disabledCount > 0) {
@@ -1140,8 +1150,10 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return $this->productsRedirect($id)->with('error', 'Missing Shopee settings.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
         $okCount = 0;
@@ -1158,11 +1170,11 @@ class ShopeeProductGroupController extends Controller
             $itemId = (int) $link->shopee_item_id;
 
             $result = $client->shopPost(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 $path,
                 [],
                 ['item_id' => $itemId]
@@ -1212,7 +1224,7 @@ class ShopeeProductGroupController extends Controller
         return array_values(array_unique(array_filter(array_map(fn($v) => (int) $v, $ids), fn($v) => $v > 0)));
     }
 
-    private function pushStockForLinks(ShopeeClient $client, object $setting, string $pfx, $links): array
+    private function pushStockForLinks(ShopeeClient $client, array $auth, string $pfx, $links): array
     {
         $ok = 0;
         $err = 0;
@@ -1255,9 +1267,9 @@ class ShopeeProductGroupController extends Controller
             $payload = ['item_id' => (int) $itemId, 'stock_list' => $stockList];
 
             $result = $client->shopPost(
-                $setting->mode ?? 'sandbox',
-                (int) $setting->partner_id, (string) $setting->partner_key,
-                (string) $setting->access_token, (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
                 $path, [], $payload
             );
 
@@ -1290,7 +1302,7 @@ class ShopeeProductGroupController extends Controller
         return ['ok' => $ok, 'err' => $err];
     }
 
-    private function pushPriceForLinks(ShopeeClient $client, object $setting, string $pfx, $links, ShopeeProductGroup $group): array
+    private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links, ShopeeProductGroup $group): array
     {
         $ok = 0;
         $err = 0;
@@ -1337,9 +1349,9 @@ class ShopeeProductGroupController extends Controller
             $payload = ['item_id' => (int) $itemId, 'price_list' => $priceList];
 
             $result = $client->shopPost(
-                $setting->mode ?? 'sandbox',
-                (int) $setting->partner_id, (string) $setting->partner_key,
-                (string) $setting->access_token, (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
                 $path, [], $payload
             );
 
@@ -1385,22 +1397,22 @@ class ShopeeProductGroupController extends Controller
         return null;
     }
 
-    private function uploadImage(ShopeeClient $client, object $setting, string $localPath): array
+    private function uploadImage(ShopeeClient $client, array $auth, string $localPath): array
     {
         $path = '/api/v2/media_space/upload_image';
         $timestamp = time();
         $sign = $client->signShop(
-            (int) $setting->partner_id, (string) $setting->partner_key,
-            $path, $timestamp, (string) $setting->access_token, (int) $setting->shop_id
+            (int) $auth['partner_id'], (string) $auth['partner_key'],
+            $path, $timestamp, (string) $auth['access_token'], (int) $auth['shop_id']
         );
 
         $query = http_build_query([
-            'partner_id' => (int) $setting->partner_id, 'timestamp' => $timestamp,
-            'sign' => $sign, 'access_token' => (string) $setting->access_token,
-            'shop_id' => (int) $setting->shop_id,
+            'partner_id' => (int) $auth['partner_id'], 'timestamp' => $timestamp,
+            'sign' => $sign, 'access_token' => (string) $auth['access_token'],
+            'shop_id' => (int) $auth['shop_id'],
         ]);
 
-        $url = $client->baseUrl($setting->mode ?? 'live') . $path . '?' . $query;
+        $url = $client->baseUrl($auth['mode']) . $path . '?' . $query;
 
         $contents = file_get_contents($localPath);
         if ($contents === false) {
@@ -1423,21 +1435,23 @@ class ShopeeProductGroupController extends Controller
         $group->update(['shopee_category_id' => $shopeeCategoryId]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.product-groups.edit', $group->id)
-                ->with('error', 'Missing Shopee settings.');
+                ->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
         $path = '/api/v2/product/get_attribute_tree';
 
         $result = $client->shopGet(
-            $setting->mode ?? 'sandbox',
-            (int)$setting->partner_id,
-            (string)$setting->partner_key,
-            (string)$setting->access_token,
-            (int)$setting->shop_id,
+            $auth['mode'],
+            (int)$auth['partner_id'],
+            (string)$auth['partner_key'],
+            (string)$auth['access_token'],
+            (int)$auth['shop_id'],
             $path,
-            ['category_id' => $shopeeCategoryId, 'language' => $setting->region ?: 'en']
+            ['category_id' => $shopeeCategoryId, 'language' => $auth['region'] ?: 'en']
         );
 
         $body = $result['body'] ?? null;
@@ -1461,7 +1475,7 @@ class ShopeeProductGroupController extends Controller
         ShopeeCategoryTemplate::query()->updateOrCreate(
             ['category_id' => $shopeeCategoryId],
             [
-                'region' => (string)($setting->region ?? ''),
+                'region' => (string)($auth['region'] ?? ''),
                 'attributes' => $attrList ?? ($response ?? $body),
                 'fetched_at' => now(),
             ]
@@ -1541,18 +1555,20 @@ class ShopeeProductGroupController extends Controller
     public function refreshCategories(ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return response()->json(['ok' => false, 'message' => 'Missing Shopee settings.']);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} settings."]);
         }
 
         $result = $client->shopGet(
-            $setting->mode ?? 'sandbox',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/product/get_category',
-            ['language' => $setting->region ?: 'en']
+            ['language' => $auth['region'] ?: 'en']
         );
 
         $body = $result['body'] ?? null;
@@ -1624,18 +1640,20 @@ class ShopeeProductGroupController extends Controller
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Shopee settings.</div>']);
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Shopee ' . $modeLabel . ' settings.</div>']);
         }
 
         $result = $client->shopGet(
-            $setting->mode ?? 'sandbox',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             '/api/v2/product/get_attribute_tree',
-            ['category_id' => $categoryId, 'language' => $setting->region ?: 'en']
+            ['category_id' => $categoryId, 'language' => $auth['region'] ?: 'en']
         );
 
         $body = $result['body'] ?? null;
@@ -1648,7 +1666,7 @@ class ShopeeProductGroupController extends Controller
         $template = ShopeeCategoryTemplate::query()->updateOrCreate(
             ['category_id' => $categoryId],
             [
-                'region' => (string) ($setting->region ?? ''),
+                'region' => (string) ($auth['region'] ?? ''),
                 'attributes' => $attrList ?? ($response ?? $body),
                 'fetched_at' => now(),
             ]

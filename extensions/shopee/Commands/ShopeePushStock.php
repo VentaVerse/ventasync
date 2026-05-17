@@ -19,8 +19,10 @@ class ShopeePushStock extends Command
     public function handle(ShopeeClient $client): int
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            $this->error('Missing Shopee credentials/token. Configure Shopee settings first.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings first.");
             return 1;
         }
 
@@ -101,11 +103,11 @@ class ShopeePushStock extends Command
             ];
 
             $res = $client->shopPost(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/product/update_stock',
                 [],
                 $body
