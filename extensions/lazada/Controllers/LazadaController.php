@@ -1312,7 +1312,7 @@ class LazadaController extends Controller
         // Matches the same auto-sync we did for the env-driven settings save.
         $setting->mode = 'sandbox';
         $setting->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
-        $setting->sandbox_expires_at   = now()->addDays($data['expires_in_days'] ?? 7);
+        $setting->sandbox_expires_at   = now()->addDays((int) ($data['expires_in_days'] ?? 7));
         $setting->save();
 
         return redirect()->route('ext.lazada.index')->with('lazada_result', [
