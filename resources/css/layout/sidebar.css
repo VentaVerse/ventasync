@@ -102,49 +102,37 @@
     padding-top: 8px;
 }
 
-/* Swipe-left animation when entering the 2nd-layer contextual sidebar
-   (Integrations / Orders). The whole nav enters from the right edge and
-   slides left into place; child items stagger so the layer reads as a
-   distinct level rather than a swap of the same shell. */
-.sidebar-nav--layer2 {
-    animation: sidebarLayer2In 280ms cubic-bezier(.22,.61,.36,1) both;
-    overflow: hidden;
+/* Sliding sidebar track. Both layer-1 and layer-2 are rendered side-by-side
+   inside .sidebar-track (each pane occupies one viewport width of the track,
+   the track itself is 200% wide). Translating the track by -50% of its own
+   width = -100% of the visible viewport, which slides layer 2 into view
+   while layer 1 sweeps out to the left. Both layers move together — neither
+   disappears abruptly. JS in app.blade.php toggles the --layer2 class and
+   defers navigation until the slide finishes. */
+.sidebar-inner {
+    /* parent already had overflow:hidden in earlier rule; keep here for layout safety */
+    overflow-x: hidden;
 }
-.sidebar-nav--layer2 > * {
-    opacity: 0;
-    animation: sidebarLayer2Item 260ms cubic-bezier(.22,.61,.36,1) forwards;
+.sidebar-track {
+    display: flex;
+    flex-direction: row;
+    width: 200%;
+    transform: translateX(0);
+    transition: transform 280ms cubic-bezier(.22,.61,.36,1);
 }
-.sidebar-nav--layer2 > *:nth-child(1) { animation-delay: 60ms; }
-.sidebar-nav--layer2 > *:nth-child(2) { animation-delay: 95ms; }
-.sidebar-nav--layer2 > *:nth-child(3) { animation-delay: 130ms; }
-.sidebar-nav--layer2 > *:nth-child(4) { animation-delay: 165ms; }
-.sidebar-nav--layer2 > *:nth-child(5) { animation-delay: 200ms; }
-.sidebar-nav--layer2 > *:nth-child(6) { animation-delay: 235ms; }
-.sidebar-nav--layer2 > *:nth-child(7) { animation-delay: 270ms; }
-.sidebar-nav--layer2 > *:nth-child(n+8) { animation-delay: 305ms; }
-
-/* Swipe-right exit when the operator clicks "Back". A JS handler in
-   app.blade.php adds .is-leaving on click, then defers navigation by
-   the same duration. */
-.sidebar-nav--layer2.is-leaving {
-    animation: sidebarLayer2Out 220ms cubic-bezier(.4,.0,.6,1) forwards;
+.sidebar-track--layer2 {
+    transform: translateX(-50%);
 }
-.sidebar-nav--layer2.is-leaving > * {
-    animation: none;
-    opacity: 1;
+.sidebar-track > .sidebar-nav {
+    width: 50%;
+    flex: 0 0 50%;
+    min-width: 0;
 }
 
-@keyframes sidebarLayer2In {
-    from { transform: translateX(100%); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
-}
-@keyframes sidebarLayer2Item {
-    from { transform: translateX(28px); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
-}
-@keyframes sidebarLayer2Out {
-    from { transform: translateX(0);    opacity: 1; }
-    to   { transform: translateX(100%); opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-track {
+        transition: none;
+    }
 }
 
 /* Section title at the top of the 2nd-layer sidebar so the operator
