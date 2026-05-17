@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Lazada / Products')
+@section('breadcrumb', 'Integrations / Lazada / Products')
 
 @section('title', 'Lazada Products')
 

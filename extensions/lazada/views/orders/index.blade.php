@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Lazada / Orders')
+@section('breadcrumb', 'Integrations / Lazada / Orders')
 
 @section('content')
 <div class="marketplace-lazada">

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / ' . $setting->store_name . ' / ' . $group->name . ' / Products')
+@section('breadcrumb', 'Integrations / ' . $setting->store_name . ' / ' . $group->name . ' / Products')
 
 @section('content')
     <div class="page-header">

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', $group->name . ' — TikTok Products')
-@section('breadcrumb', 'Marketplace / TikTok Shop / ' . $group->name . ' / Products')
+@section('breadcrumb', 'Integrations / TikTok Shop / ' . $group->name . ' / Products')
 
 @section('content')
     <div class="page-header">

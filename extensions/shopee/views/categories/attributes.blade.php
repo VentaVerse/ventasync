@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Shopee / Categories / Attributes')
+@section('breadcrumb', 'Integrations / Shopee / Categories / Attributes')
 
 @section('title', 'Shopee Category Attributes')
 

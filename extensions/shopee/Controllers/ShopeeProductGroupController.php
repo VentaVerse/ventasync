@@ -17,6 +17,7 @@ use Extensions\shopee\Models\ShopeeProductLink;
 use Extensions\shopee\Models\ShopeeSetting;
 use App\Services\ActivityLogger;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\shopee\Services\ShopeeStockPushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -84,7 +85,16 @@ class ShopeeProductGroupController extends Controller
             ->orderBy('name')
             ->get(['manufacturer_id', 'name']);
 
-        $shopeeCategories = ShopeeCategory::query()->orderBy('name')->limit(5000)->get();
+        // Shopee's product-create API only accepts leaf categories. Filter
+        // non-leaves out of the picker so the operator can't pick one and
+        // discover the rejection at push time. Falls back to the full list
+        // only if no leaf flags are populated (e.g. legacy installs that
+        // haven't refreshed the category cache).
+        $leafQuery = ShopeeCategory::query()->where('leaf', 1)->orderBy('name')->limit(5000);
+        $shopeeCategories = $leafQuery->get();
+        if ($shopeeCategories->isEmpty()) {
+            $shopeeCategories = ShopeeCategory::query()->orderBy('name')->limit(5000)->get();
+        }
 
         // Fetch logistics channels
         $logistics = $this->fetchLogistics();
@@ -360,27 +370,73 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        // Option rows
+        // Option rows (variations) for display — combinations first, fallback
+        // to option values. Single-option products store SKU/qty/price on
+        // product_option_value; multi-option products store them on
+        // product_option_combinations. Mirrors the Lazada listing fix.
         $optionRowsByProductId = collect();
         if (!empty($pivotProductIds)) {
-            $optionRowsByProductId = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
-                })
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $pivotProductIds)
-                ->select(
-                    'pov.product_id', 'pov.product_option_value_id',
-                    'od.name as option_name', 'ovd.name as option_value_name',
-                    'pov.quantity as option_quantity', 'pov.sku as option_sku',
-                    'pov.absolute_price as option_absolute_price'
-                )
-                ->orderBy('pov.product_id')
-                ->orderBy('pov.product_option_value_id')
-                ->get()
-                ->groupBy('product_id');
+            $combos = DB::table('product_option_combinations as poc')
+                ->whereIn('poc.product_id', $pivotProductIds)
+                ->orderBy('poc.product_id')
+                ->orderBy('poc.sort_order')
+                ->get();
+
+            $comboProductIds = $combos->pluck('product_id')->unique()->toArray();
+
+            if ($combos->isNotEmpty()) {
+                $comboIds = $combos->pluck('id')->toArray();
+                $comboValues = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->select('pocv.combination_id', 'ovd.name as value_name')
+                    ->get()
+                    ->groupBy('combination_id');
+
+                foreach ($combos as $c) {
+                    $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
+                    $row = (object) [
+                        'product_id'              => $c->product_id,
+                        'product_option_value_id' => $c->id,
+                        'option_name'             => 'Option',
+                        'option_value_name'       => $valueNames,
+                        'option_quantity'         => (int) $c->quantity,
+                        'option_sku'              => $c->sku,
+                        'option_absolute_price'   => (float) $c->absolute_price,
+                    ];
+                    if (!$optionRowsByProductId->has($c->product_id)) {
+                        $optionRowsByProductId[$c->product_id] = collect();
+                    }
+                    $optionRowsByProductId[$c->product_id]->push($row);
+                }
+            }
+
+            $nonComboIds = array_diff($pivotProductIds, $comboProductIds);
+            if (!empty($nonComboIds)) {
+                $optValues = DB::table($pfx . 'product_option_value as pov')
+                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                        $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                    })
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pov.product_id', $nonComboIds)
+                    ->select(
+                        'pov.product_id', 'pov.product_option_value_id',
+                        'od.name as option_name', 'ovd.name as option_value_name',
+                        'pov.quantity as option_quantity', 'pov.sku as option_sku',
+                        'pov.absolute_price as option_absolute_price'
+                    )
+                    ->orderBy('pov.product_id')
+                    ->orderBy('pov.product_option_value_id')
+                    ->get()
+                    ->groupBy('product_id');
+
+                $optionRowsByProductId = $optionRowsByProductId->merge($optValues);
+            }
         }
 
         // All product IDs in this group (for "Remove from Group" action)
@@ -396,6 +452,222 @@ class ShopeeProductGroupController extends Controller
             'syncStatus' => $syncStatus,
             'erpStatus' => $erpStatus,
         ]);
+    }
+
+    /**
+     * Build Shopee's tier_variation + per-combination model_list payload from
+     * the ERP product's product_option_combinations rows. Single-option
+     * products (whose data lives on product_option_value rather than
+     * combinations) fall through and return empty arrays — the caller keeps
+     * the existing flat add_item payload for those.
+     *
+     * Shape returned:
+     *   [
+     *     'tier_variation' => [
+     *       ['name' => 'Color', 'option_list' => [['option' => 'black'], ['option' => 'Blue']]],
+     *       ['name' => 'Length', 'option_list' => [['option' => '10'], ['option' => '20']]],
+     *     ],
+     *     'models' => [
+     *       ['tier_index' => [0,0], 'model_sku' => 'pro-c-11', 'original_price' => 6020.0, 'stock' => 200],
+     *       ...
+     *     ],
+     *   ]
+     *
+     * tier_index entries are 0-indexed positions into each option_list, in the
+     * same order tier_variation enumerates the options.
+     */
+    private function buildTierVariation(int $productId, string $pfx, int $langId, float $markupPct, float $markupFixed, float $baseProductPrice): array
+    {
+        if ($productId <= 0) {
+            return ['tier_variation' => [], 'models' => []];
+        }
+
+        $combos = DB::table('product_option_combinations')
+            ->where('product_id', $productId)
+            ->orderBy('sort_order')
+            ->get(['id', 'sku', 'quantity', 'absolute_price']);
+        if ($combos->isEmpty()) {
+            return ['tier_variation' => [], 'models' => []];
+        }
+
+        $values = DB::table('product_option_combination_values as pocv')
+            ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
+            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+            })
+            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+            })
+            ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
+            ->select(
+                'pocv.combination_id',
+                'pov.option_id',
+                'od.name as option_name',
+                'ovd.name as value_name'
+            )
+            ->orderBy('pocv.combination_id')
+            ->orderBy('pov.option_id')
+            ->get();
+        if ($values->isEmpty()) {
+            return ['tier_variation' => [], 'models' => []];
+        }
+
+        // Discover option groups in stable order (by option_id), each with its
+        // value list (de-duped, order preserved by first occurrence).
+        $orderedOptionIds = [];
+        $optionNameById = [];
+        $valuesByOption = [];
+        foreach ($values as $v) {
+            $oid = (int) $v->option_id;
+            if (!in_array($oid, $orderedOptionIds, true)) {
+                $orderedOptionIds[] = $oid;
+                $optionNameById[$oid] = (string) $v->option_name;
+                $valuesByOption[$oid] = [];
+            }
+            $name = (string) $v->value_name;
+            if (!in_array($name, $valuesByOption[$oid], true)) {
+                $valuesByOption[$oid][] = $name;
+            }
+        }
+
+        $tierVariation = [];
+        foreach ($orderedOptionIds as $oid) {
+            $tierVariation[] = [
+                'name' => $optionNameById[$oid],
+                'option_list' => array_map(fn ($v) => ['option' => $v], $valuesByOption[$oid]),
+            ];
+        }
+
+        // Index combination → [option_id => value_name].
+        $valuesByCombo = [];
+        foreach ($values as $v) {
+            $valuesByCombo[(int) $v->combination_id][(int) $v->option_id] = (string) $v->value_name;
+        }
+
+        $models = [];
+        foreach ($combos as $c) {
+            $cid = (int) $c->id;
+            $tierIndex = [];
+            foreach ($orderedOptionIds as $oid) {
+                $valueName = $valuesByCombo[$cid][$oid] ?? null;
+                if ($valueName === null) {
+                    // Combination missing a value for this option; skip — Shopee
+                    // would reject the tier_index anyway.
+                    continue 2;
+                }
+                $idx = array_search($valueName, $valuesByOption[$oid], true);
+                if ($idx === false) {
+                    continue 2;
+                }
+                $tierIndex[] = $idx;
+            }
+
+            $rawPrice = (float) ($c->absolute_price ?? $baseProductPrice);
+            $finalPrice = round($rawPrice + ($rawPrice * $markupPct / 100) + $markupFixed, 2);
+            $models[] = [
+                'tier_index'     => $tierIndex,
+                'model_sku'      => (string) ($c->sku ?? ''),
+                'original_price' => max(0, $finalPrice),
+                'stock'          => max(0, (int) ($c->quantity ?? 0)),
+            ];
+        }
+
+        if (empty($models)) {
+            return ['tier_variation' => [], 'models' => []];
+        }
+
+        return [
+            'tier_variation' => $tierVariation,
+            'models'         => $models,
+        ];
+    }
+
+    /**
+     * Build the `attribute_list` array Shopee's add_item / update_item expects.
+     *
+     * Reads the operator's per-attribute values from shopee_product_group_attributes
+     * (saved when the form is submitted), then resolves each one against the
+     * cached attribute tree in shopee_category_templates to figure out:
+     *   - the numeric attribute_id Shopee wants (template has it; our pivot uses
+     *     a human key);
+     *   - whether the attribute is enum (value_id picked from the template's
+     *     option list, original_value_name omitted) or free-text (value_id=0,
+     *     original_value_name carries the value).
+     *
+     * Skips attributes whose value is blank — Shopee's validation flags the
+     * mandatory ones it actually needs and stays quiet about the optional ones.
+     */
+    private function buildAttributeList(int $groupId, int $categoryId): array
+    {
+        if ($groupId <= 0 || $categoryId <= 0) {
+            return [];
+        }
+
+        $savedByKey = ShopeeProductGroupAttribute::query()
+            ->where('shopee_product_group_id', $groupId)
+            ->pluck('value', 'attribute_key')
+            ->toArray();
+        if (empty($savedByKey)) {
+            return [];
+        }
+
+        $template = ShopeeCategoryTemplate::query()
+            ->where('category_id', $categoryId)
+            ->first();
+        if (!$template) {
+            return [];
+        }
+        $raw = is_array($template->attributes) ? $template->attributes : (json_decode((string) $template->attributes, true) ?: []);
+        // Template may have been cached as the full response wrapper or just the list.
+        $list = $raw['attribute_list'] ?? $raw['attribute_tree'] ?? $raw['attributes'] ?? $raw;
+        if (!is_array($list)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($list as $attr) {
+            if (!is_array($attr)) continue;
+            $attrId = (int) ($attr['attribute_id'] ?? 0);
+            $attrKey = (string) ($attr['display_attribute_name'] ?? $attr['original_attribute_name'] ?? $attr['attribute_name'] ?? '');
+            if ($attrId <= 0 || $attrKey === '') continue;
+
+            $value = trim((string) ($savedByKey[$attrKey] ?? ''));
+            if ($value === '') continue;
+
+            // Determine input shape: enum (one of attribute_value_list) vs free text.
+            $valueList = $attr['attribute_value_list'] ?? $attr['values'] ?? $attr['options'] ?? [];
+            $matchedValueId = null;
+            if (is_array($valueList)) {
+                foreach ($valueList as $opt) {
+                    if (!is_array($opt)) continue;
+                    $optName = (string) ($opt['display_value_name'] ?? $opt['original_value_name'] ?? $opt['value_name'] ?? '');
+                    if ($optName !== '' && strcasecmp($optName, $value) === 0) {
+                        $matchedValueId = (int) ($opt['value_id'] ?? 0);
+                        break;
+                    }
+                }
+            }
+
+            if ($matchedValueId !== null && $matchedValueId > 0) {
+                $out[] = [
+                    'attribute_id' => $attrId,
+                    'attribute_value_list' => [
+                        ['value_id' => $matchedValueId],
+                    ],
+                ];
+            } else {
+                // Free-text fallback. Some Shopee attributes (e.g. model names)
+                // accept value_id=0 + original_value_name, treated as a custom value.
+                $out[] = [
+                    'attribute_id' => $attrId,
+                    'attribute_value_list' => [
+                        ['value_id' => 0, 'original_value_name' => $value],
+                    ],
+                ];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -415,6 +687,66 @@ class ShopeeProductGroupController extends Controller
             ->first();
         $name = $row ? (string) $row->name : 'No Brand';
         return ['brand_id' => $brandId, 'original_brand_name' => $name];
+    }
+
+    /**
+     * AJAX category search for the product-group form combobox. Matches by
+     * substring on name OR category_id. Only leaves (Shopee's API requirement
+     * for product creation) are returned. Limit kept tight so the dropdown
+     * stays scannable.
+     */
+    public function searchCategories(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+        $limit = max(1, min(50, (int) $request->input('limit', 25)));
+
+        $query = ShopeeCategory::query()->where('leaf', 1);
+
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('name', 'like', '%' . $q . '%');
+                if (ctype_digit($q)) {
+                    $w->orWhere('category_id', (int) $q);
+                }
+            });
+        }
+
+        $rows = $query->orderBy('name')->limit($limit)->get(['category_id', 'name']);
+
+        return response()->json([
+            'ok' => true,
+            'categories' => $rows->map(fn ($c) => [
+                'category_id' => (int) $c->category_id,
+                'name'        => (string) $c->name,
+            ])->values()->all(),
+        ]);
+    }
+
+    /**
+     * Return the cached name for a single category_id. Used by the combobox
+     * to display the pre-selected category's name on edit-page load without
+     * fetching the entire 2k-row list.
+     */
+    public function categoryLookup(Request $request)
+    {
+        $cid = (int) $request->input('category_id', 0);
+        if ($cid <= 0) {
+            return response()->json(['ok' => false], 422);
+        }
+        $row = ShopeeCategory::query()
+            ->where('category_id', $cid)
+            ->first(['category_id', 'name', 'leaf']);
+        if (!$row) {
+            return response()->json(['ok' => false], 404);
+        }
+        return response()->json([
+            'ok' => true,
+            'category' => [
+                'category_id' => (int) $row->category_id,
+                'name'        => (string) $row->name,
+                'leaf'        => (bool) $row->leaf,
+            ],
+        ]);
     }
 
     /**
@@ -987,6 +1319,12 @@ class ShopeeProductGroupController extends Controller
             $markupFixed = (float) ($group->markup_fixed ?? 0);
             $sellingPrice = round($basePrice + ($basePrice * $markupPct / 100) + $markupFixed, 2);
 
+            // Build tier_variation + per-combination model list when the
+            // product has multi-option variants in product_option_combinations.
+            // Single-option products fall through to the legacy flat payload.
+            $tierData = $this->buildTierVariation((int) $productId, $pfx, $langId, $markupPct, $markupFixed, $basePrice);
+            $hasTierVariation = !empty($tierData['tier_variation']) && !empty($tierData['models']);
+
             $payload = [
                 'original_price' => $sellingPrice,
                 'description' => mb_substr($description, 0, 5000),
@@ -1004,6 +1342,23 @@ class ShopeeProductGroupController extends Controller
                 'logistic_info' => $logisticInfo,
                 'brand' => $this->buildBrandPayload((int) $group->shopee_category_id, (int) ($group->shopee_brand_id ?? 0)),
             ];
+
+            // Shopee V2 does not honour tier_variation inside add_item — it
+            // silently creates a plain single-SKU item and a subsequent
+            // add_model fails with "Item without tier_variation. Please use
+            // init_tier_variation". The correct flow is:
+            //   1) add_item (basic, with item_sku)
+            //   2) init_tier_variation (tier_variation + initial model_list)
+            //   3) add_model only for appending later
+            // Keep item_sku as the parent SKU for both flavours.
+
+            $attributeList = $this->buildAttributeList(
+                (int) $group->id,
+                (int) $group->shopee_category_id
+            );
+            if (!empty($attributeList)) {
+                $payload['attribute_list'] = $attributeList;
+            }
 
             $path = '/api/v2/product/add_item';
             $result = $client->shopPost(
@@ -1024,6 +1379,44 @@ class ShopeeProductGroupController extends Controller
             $itemId = ($result['ok'] ?? false) ? ($body['response']['item_id'] ?? null) : null;
 
             if ($itemId) {
+                // For multi-variant products, push per-combo models with
+                // tier_index + model_sku + stock + price BEFORE seeding the
+                // parent link — so refreshShopeeProductLinks below sees real
+                // models and creates the per-model link rows the sync flow
+                // depends on.
+                if ($hasTierVariation && !empty($tierData['models'])) {
+                    $initPath = '/api/v2/product/init_tier_variation';
+                    $initPayload = [
+                        'item_id' => (int) $itemId,
+                        'tier_variation' => $tierData['tier_variation'],
+                        'model' => array_map(function ($m) {
+                            return [
+                                'tier_index'     => $m['tier_index'],
+                                'model_sku'      => (string) $m['model_sku'],
+                                'original_price' => (float) $m['original_price'],
+                                'seller_stock'   => [['stock' => (int) $m['stock']]],
+                            ];
+                        }, $tierData['models']),
+                    ];
+                    $initResult = $client->shopPost(
+                        $auth['mode'],
+                        (int) $auth['partner_id'], (string) $auth['partner_key'],
+                        (string) $auth['access_token'], (int) $auth['shop_id'],
+                        $initPath, [], $initPayload
+                    );
+                    ShopeeApiLog::safeCreate([
+                        'pack' => 'shopee.products.init_tier_variation.group',
+                        'method' => 'POST', 'api_path' => $initPath,
+                        'auth_required' => true, 'request_params' => $initPayload,
+                        'response_status' => $initResult['status'] ?? null,
+                        'ok' => (bool) ($initResult['ok'] ?? false),
+                        'response_body' => $initResult['body'] ?? null,
+                        'user_id' => auth()->id(),
+                    ]);
+                }
+
+                // Seed a parent link first so any later read sees the item_id
+                // even if the model fetch below fails partway.
                 ShopeeProductLink::create([
                     'product_id' => $productId,
                     'shopee_item_id' => (int) $itemId,
@@ -1038,6 +1431,53 @@ class ShopeeProductGroupController extends Controller
                         'shopee_item_id' => (int) $itemId,
                         'sync_status' => 'pushed',
                     ]);
+
+                // For multi-variant products, the parent link alone isn't
+                // enough — Sync Qty/Price work per shopee_model_id. Fetch
+                // model_list and create per-model link rows now so the
+                // operator doesn't need to manually run "Sync ID" after a
+                // push.
+                $erpSkus = DB::table($pfx . 'product_option_value')
+                    ->where('product_id', $productId)
+                    ->whereNotNull('sku')
+                    ->where('sku', '!=', '')
+                    ->pluck('sku')
+                    ->map(fn ($s) => strtolower(trim((string) $s)))
+                    ->all();
+                $comboSkus = DB::table('product_option_combinations')
+                    ->where('product_id', $productId)
+                    ->whereNotNull('sku')
+                    ->where('sku', '!=', '')
+                    ->pluck('sku')
+                    ->map(fn ($s) => strtolower(trim((string) $s)))
+                    ->all();
+                $allSkus = array_values(array_unique(array_merge($erpSkus, $comboSkus)));
+                $erpHasOptions = !empty($allSkus);
+
+                if ($erpHasOptions) {
+                    try {
+                        $pivot = ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                            ->where('product_id', $productId)
+                            ->first();
+                        if ($pivot) {
+                            $this->refreshShopeeProductLinks(
+                                $pivot, $productId, (int) $itemId, $allSkus, true,
+                                $client, $auth['mode'], (int) $auth['partner_id'],
+                                (string) $auth['partner_key'], (string) $auth['access_token'],
+                                (int) $auth['shop_id']
+                            );
+                        }
+                    } catch (\Throwable $e) {
+                        // Don't fail the whole push if the model refresh fails.
+                        // The parent link above already exists and the operator
+                        // can still hit "Sync ID" to recover variant links.
+                        \Illuminate\Support\Facades\Log::warning('Shopee model link refresh failed after push', [
+                            'product_id' => $productId,
+                            'item_id' => $itemId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
 
                 $okCount++;
             } else {
@@ -1371,36 +1811,22 @@ class ShopeeProductGroupController extends Controller
         $ok = 0;
         $err = 0;
 
+        // Resolve qty per link through the shared service (combinations
+        // first, POV fallback). Cron uses the same resolver.
+        $resolved = app(ShopeeStockPushService::class)->resolve($links, $pfx);
+
         $grouped = [];
-        foreach ($links as $link) {
-            $grouped[$link->shopee_item_id][] = $link;
+        foreach ($resolved as $row) {
+            $grouped[$row['item_id']][] = $row;
         }
 
-        foreach ($grouped as $itemId => $itemLinks) {
+        foreach ($grouped as $itemId => $rows) {
             $stockList = [];
+            $itemLinks = [];
 
-            foreach ($itemLinks as $link) {
-                $productId = (int) $link->product_id;
-                $sku = trim((string) ($link->sku ?? ''));
-                $modelId = (int) ($link->shopee_model_id ?? 0);
-                $qty = 0;
-
-                if ($sku !== '') {
-                    $povQty = DB::table($pfx . 'product_option_value')
-                        ->where('product_id', $productId)
-                        ->where('sku', $sku)
-                        ->value('quantity');
-
-                    if ($povQty !== null) {
-                        $qty = max(0, (int) $povQty);
-                    } else {
-                        $qty = max(0, (int) (DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity') ?? 0));
-                    }
-                } else {
-                    $qty = max(0, (int) (DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity') ?? 0));
-                }
-
-                $stockList[] = ['model_id' => $modelId, 'seller_stock' => [['stock' => $qty]]];
+            foreach ($rows as $row) {
+                $stockList[] = ['model_id' => $row['model_id'], 'seller_stock' => [['stock' => $row['quantity']]]];
+                $itemLinks[] = $row['link'];
             }
 
             if (empty($stockList)) continue;
@@ -1449,40 +1875,26 @@ class ShopeeProductGroupController extends Controller
         $ok = 0;
         $err = 0;
 
-        $grouped = [];
-        foreach ($links as $link) {
-            $grouped[$link->shopee_item_id][] = $link;
-        }
+        $resolved = app(ShopeeStockPushService::class)->resolve($links, $pfx);
 
         $markupPct = (float) ($group->markup_percent ?? 0);
         $markupFixed = (float) ($group->markup_fixed ?? 0);
 
-        foreach ($grouped as $itemId => $itemLinks) {
+        $grouped = [];
+        foreach ($resolved as $row) {
+            $grouped[$row['item_id']][] = $row;
+        }
+
+        foreach ($grouped as $itemId => $rows) {
             $priceList = [];
+            $itemLinks = [];
 
-            foreach ($itemLinks as $link) {
-                $productId = (int) $link->product_id;
-                $sku = trim((string) ($link->sku ?? ''));
-                $modelId = (int) ($link->shopee_model_id ?? 0);
-
-                $productRow = DB::table($pfx . 'product')->where('product_id', $productId)->first(['price']);
-                $price = max(0, (float) ($productRow->price ?? 0));
-
-                if ($sku !== '') {
-                    $pov = DB::table($pfx . 'product_option_value')
-                        ->where('product_id', $productId)
-                        ->where('sku', $sku)
-                        ->first(['absolute_price']);
-
-                    if ($pov && $pov->absolute_price !== null) {
-                        $price = max(0, (float) $pov->absolute_price);
-                    }
-                }
-
+            foreach ($rows as $row) {
+                $price = $row['price'];
                 // Apply product group markup
                 $price = $price + ($price * $markupPct / 100) + $markupFixed;
-
-                $priceList[] = ['model_id' => $modelId, 'original_price' => round($price, 2)];
+                $priceList[] = ['model_id' => $row['model_id'], 'original_price' => round($price, 2)];
+                $itemLinks[] = $row['link'];
             }
 
             if (empty($priceList)) continue;
@@ -1744,7 +2156,12 @@ class ShopeeProductGroupController extends Controller
             }
         });
 
-        $categories = ShopeeCategory::query()->orderBy('name')->limit(5000)->get(['category_id', 'name']);
+        // Mirror the index() filter: only leaves are pickable.
+        $leafQuery = ShopeeCategory::query()->where('leaf', 1)->orderBy('name')->limit(5000);
+        $categories = $leafQuery->get(['category_id', 'name']);
+        if ($categories->isEmpty()) {
+            $categories = ShopeeCategory::query()->orderBy('name')->limit(5000)->get(['category_id', 'name']);
+        }
         return response()->json(['ok' => true, 'count' => count($rows), 'categories' => $categories]);
     }
 

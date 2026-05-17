@@ -557,28 +557,30 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID and Partner Key are required.'],
+                'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required."],
             ]);
         }
 
         $path = '/' . ltrim($data['path'], '/');
         $timestamp = time();
 
-        $accessToken = (!empty($data['use_access_token']) && $setting->access_token) ? (string)$setting->access_token : null;
-        $shopId = (!empty($data['use_shop_id']) && $setting->shop_id) ? (int)$setting->shop_id : null;
+        $accessToken = (!empty($data['use_access_token']) && $auth['access_token']) ? (string)$auth['access_token'] : null;
+        $shopId = (!empty($data['use_shop_id']) && $auth['shop_id']) ? (int)$auth['shop_id'] : null;
 
         if ($accessToken && $shopId) {
-            $sign = $client->signShop((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp, $accessToken, $shopId);
+            $sign = $client->signShop((int)$auth['partner_id'], (string)$auth['partner_key'], $path, $timestamp, $accessToken, $shopId);
         } else {
-            $sign = $client->signAuth((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp);
+            $sign = $client->signAuth((int)$auth['partner_id'], (string)$auth['partner_key'], $path, $timestamp);
         }
 
         $query = [
-            'partner_id' => (int)$setting->partner_id,
+            'partner_id' => (int)$auth['partner_id'],
             'timestamp' => $timestamp,
             'sign' => $sign,
         ];
@@ -762,11 +764,13 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['partner_id'] || !$auth['partner_key']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID and Partner Key are required.'],
+                'data' => ['message' => "Partner ID and Partner Key for {$modeLabel} mode are required."],
             ]);
         }
 
@@ -796,17 +800,17 @@ public function buildAuthUrl(ShopeeClient $client)
         }
 
         $timestamp = time();
-        $accessToken = ($useAccessToken && $setting->access_token) ? (string)$setting->access_token : null;
-        $shopId = ($useShopId && $setting->shop_id) ? (int)$setting->shop_id : null;
+        $accessToken = ($useAccessToken && $auth['access_token']) ? (string)$auth['access_token'] : null;
+        $shopId = ($useShopId && $auth['shop_id']) ? (int)$auth['shop_id'] : null;
 
         if ($accessToken && $shopId) {
-            $sign = $client->signShop((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp, $accessToken, $shopId);
+            $sign = $client->signShop((int)$auth['partner_id'], (string)$auth['partner_key'], $path, $timestamp, $accessToken, $shopId);
         } else {
-            $sign = $client->signAuth((int)$setting->partner_id, (string)$setting->partner_key, $path, $timestamp);
+            $sign = $client->signAuth((int)$auth['partner_id'], (string)$auth['partner_key'], $path, $timestamp);
         }
 
         $query = [
-            'partner_id' => (int)$setting->partner_id,
+            'partner_id' => (int)$auth['partner_id'],
             'timestamp' => $timestamp,
             'sign' => $sign,
         ];
@@ -828,8 +832,8 @@ public function buildAuthUrl(ShopeeClient $client)
         }
 
         $result = $data['method'] === 'POST'
-            ? $client->postJson($setting->mode, $path, $query, $body)
-            : $client->get($setting->mode, $path, $query);
+            ? $client->postJson($auth['mode'], $path, $query, $body)
+            : $client->get($auth['mode'], $path, $query);
 
         ShopeeApiLog::safeCreate([
             'pack' => null,
@@ -857,13 +861,17 @@ public function buildAuthUrl(ShopeeClient $client)
         ]);
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID, Partner Key, Access Token, and Shop ID are required for preset packs.'],
+                'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required for preset packs."],
             ]);
         }
+
+        $language = $auth['region'] ?: 'en';
 
         $packs = [
             'shop_info' => [
@@ -871,7 +879,7 @@ public function buildAuthUrl(ShopeeClient $client)
                 ['GET', '/api/v2/shop/get_profile', []],
             ],
             'catalog' => [
-                ['GET', '/api/v2/product/get_category', ['language' => $setting->region ?: 'en']],
+                ['GET', '/api/v2/product/get_category', ['language' => $language]],
                 ['GET', '/api/v2/product/get_item_list', ['offset' => 0, 'page_size' => 10, 'item_status' => 'NORMAL']],
             ],
             'orders' => [
@@ -888,7 +896,7 @@ public function buildAuthUrl(ShopeeClient $client)
             ],
             'full' => [
                 ['GET', '/api/v2/shop/get_shop_info', []],
-                ['GET', '/api/v2/product/get_category', ['language' => $setting->region ?: 'en']],
+                ['GET', '/api/v2/product/get_category', ['language' => $language]],
                 ['GET', '/api/v2/product/get_item_list', ['offset' => 0, 'page_size' => 10, 'item_status' => 'NORMAL']],
                 ['GET', '/api/v2/order/get_order_list', [
                     'order_status' => 'READY_TO_SHIP',
@@ -907,20 +915,20 @@ public function buildAuthUrl(ShopeeClient $client)
         foreach ($endpoints as [$method, $path, $extra]) {
             $result = $method === 'POST'
                 ? $client->shopPost(
-                    $setting->mode ?? 'sandbox',
-                    (int)$setting->partner_id,
-                    (string)$setting->partner_key,
-                    (string)$setting->access_token,
-                    (int)$setting->shop_id,
+                    $auth['mode'],
+                    (int)$auth['partner_id'],
+                    (string)$auth['partner_key'],
+                    (string)$auth['access_token'],
+                    (int)$auth['shop_id'],
                     $path,
                     $extra
                 )
                 : $client->shopGet(
-                    $setting->mode ?? 'sandbox',
-                    (int)$setting->partner_id,
-                    (string)$setting->partner_key,
-                    (string)$setting->access_token,
-                    (int)$setting->shop_id,
+                    $auth['mode'],
+                    (int)$auth['partner_id'],
+                    (string)$auth['partner_key'],
+                    (string)$auth['access_token'],
+                    (int)$auth['shop_id'],
                     $path,
                     $extra
                 );
@@ -955,22 +963,24 @@ public function buildAuthUrl(ShopeeClient $client)
     public function logisticsChannels(ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.index')->with('shopee_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Partner ID, Partner Key, Access Token, and Shop ID are required.'],
+                'data' => ['message' => "Partner ID, Partner Key, Access Token, and Shop ID for {$modeLabel} mode are required."],
             ]);
         }
 
         $path = '/api/v2/logistics/get_channel_list';
 
         $result = $client->shopGet(
-            $setting->mode ?? 'sandbox',
-            (int)$setting->partner_id,
-            (string)$setting->partner_key,
-            (string)$setting->access_token,
-            (int)$setting->shop_id,
+            $auth['mode'],
+            (int)$auth['partner_id'],
+            (string)$auth['partner_key'],
+            (string)$auth['access_token'],
+            (int)$auth['shop_id'],
             $path
         );
 

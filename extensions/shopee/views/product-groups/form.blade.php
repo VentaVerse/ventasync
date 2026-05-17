@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Shopee / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@section('breadcrumb', 'Integrations / Shopee / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
 
 @section('title', $mode === 'create' ? 'Add Shopee Product Group' : 'Edit Shopee Product Group')
 
@@ -52,17 +52,22 @@
             {{-- Shopee Mapping --}}
             <h3 class="section-title" style="margin-top:20px;">Shopee Mapping</h3>
 
+            @php
+                $__selectedCatId = (int) old('shopee_category_id', $group->shopee_category_id ?? 0);
+            @endphp
             <div>
                 <label>Shopee Category <span style="color:var(--danger);">*</span></label>
                 <div style="display:flex; gap:8px; align-items:start;">
-                    <select name="shopee_category_id" id="shopeeCategorySelect" class="input" style="flex:1;">
-                        <option value="">-- Select Shopee Category --</option>
-                        @foreach(($shopeeCategories ?? collect()) as $c)
-                            <option value="{{ (int)$c->category_id }}" {{ (string)old('shopee_category_id', $group->shopee_category_id) === (string)$c->category_id ? 'selected' : '' }}>
-                                {{ $c->name }} ({{ $c->category_id }})
-                            </option>
-                        @endforeach
-                    </select>
+                    {{-- Hidden field is what the form actually submits. The
+                         visible text input is just the combobox display. JS keeps
+                         them in sync. --}}
+                    <input type="hidden" name="shopee_category_id" id="shopeeCategorySelect" value="{{ $__selectedCatId > 0 ? $__selectedCatId : '' }}">
+                    <div style="flex:1; position:relative;" id="shopeeCategoryBox">
+                        <input type="text" class="input" id="shopeeCategorySearchInput" autocomplete="off"
+                               placeholder="Type to search Shopee categories…" />
+                        <div id="shopeeCategoryResults" style="position:absolute; left:0; right:0; top:100%; z-index:30; background:#fff; border:1px solid var(--border); border-top:none; max-height:300px; overflow-y:auto; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
+                        <div class="hint" id="shopeeCategoryHint" style="margin-top:4px;">Only leaf categories are listed — Shopee only accepts leaves for product creation.</div>
+                    </div>
                     <button type="button" class="btn small secondary" id="refreshCatsBtn" title="Refresh categories from Shopee API">Refresh</button>
                 </div>
             </div>
@@ -228,11 +233,89 @@
 (function() {
     // ── Refresh Categories ──────────────────────────────────────
     var refreshCatsBtn = document.getElementById('refreshCatsBtn');
-    var catSelect = document.getElementById('shopeeCategorySelect');
+    var catSelect = document.getElementById('shopeeCategorySelect'); // hidden input now
+    var catSearchInput = document.getElementById('shopeeCategorySearchInput');
+    var catResultsBox = document.getElementById('shopeeCategoryResults');
+    var catBox = document.getElementById('shopeeCategoryBox');
     var refreshCatsUrl = @json(route('ext.shopee.product-groups.refreshCategories'));
+    var searchCatsUrl = @json(route('ext.shopee.product-groups.searchCategories'));
+    var lookupCatUrl  = @json(route('ext.shopee.product-groups.categoryLookup'));
     var fetchAttrsUrl = @json(route('ext.shopee.product-groups.fetchAttributes'));
     var brandsUrl = @json(route('ext.shopee.product-groups.brandsForCategory'));
     var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    // ── Category combobox: AJAX search + select ─────────────────
+    var catSearchDebounceTimer = null;
+    function emitCategoryChange(){
+        if (catSelect) catSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    function renderCatResults(items){
+        if (!catResultsBox) return;
+        catResultsBox.textContent = '';
+        if (!items || items.length === 0) {
+            var empty = document.createElement('div');
+            empty.style.padding = '10px 12px';
+            empty.className = 'text-muted';
+            empty.textContent = 'No leaf categories match.';
+            catResultsBox.appendChild(empty);
+            catResultsBox.style.display = 'block';
+            return;
+        }
+        items.forEach(function(c){
+            var row = document.createElement('div');
+            row.style.padding = '8px 12px';
+            row.style.cursor = 'pointer';
+            row.style.borderBottom = '1px solid var(--border)';
+            row.textContent = c.name + ' (' + c.category_id + ')';
+            row.addEventListener('mouseenter', function(){ row.style.background = 'var(--surface, #f3f4f6)'; });
+            row.addEventListener('mouseleave', function(){ row.style.background = ''; });
+            row.addEventListener('click', function(){
+                catSelect.value = String(c.category_id);
+                catSearchInput.value = c.name + ' (' + c.category_id + ')';
+                catResultsBox.style.display = 'none';
+                emitCategoryChange();
+            });
+            catResultsBox.appendChild(row);
+        });
+        catResultsBox.style.display = 'block';
+    }
+    function doCatSearch(q){
+        var u = new URL(searchCatsUrl, window.location.origin);
+        u.searchParams.set('q', q);
+        u.searchParams.set('limit', '25');
+        fetch(u.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data && data.ok) renderCatResults(data.categories || []);
+            })
+            .catch(function(){});
+    }
+    if (catSearchInput && catResultsBox && catSelect) {
+        catSearchInput.addEventListener('input', function(){
+            // User typed — invalidate the saved category_id until they pick one.
+            catSelect.value = '';
+            if (catSearchDebounceTimer) clearTimeout(catSearchDebounceTimer);
+            var q = catSearchInput.value.trim();
+            catSearchDebounceTimer = setTimeout(function(){ doCatSearch(q); }, 200);
+        });
+        catSearchInput.addEventListener('focus', function(){ doCatSearch(catSearchInput.value.trim()); });
+        document.addEventListener('click', function(e){
+            if (catBox && !catBox.contains(e.target)) catResultsBox.style.display = 'none';
+        });
+        // Restore the pre-selected category's name on edit-page load.
+        if (catSelect.value) {
+            var u = new URL(lookupCatUrl, window.location.origin);
+            u.searchParams.set('category_id', catSelect.value);
+            fetch(u.toString(), { headers: { 'Accept': 'application/json' } })
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if (data && data.ok && data.category) {
+                        catSearchInput.value = data.category.name + ' (' + data.category.category_id + ')';
+                    }
+                })
+                .catch(function(){});
+        }
+    }
 
     // ── Brand Picker: lazy-load on category change ──────────────
     var brandSelect = document.getElementById('shopeeBrandSelect');
@@ -285,7 +368,7 @@
         .catch(function () { setBrandHint('Network error loading brands.'); });
     }
 
-    if (refreshCatsBtn && catSelect) {
+    if (refreshCatsBtn) {
         refreshCatsBtn.addEventListener('click', function() {
             refreshCatsBtn.disabled = true;
             refreshCatsBtn.textContent = 'Refreshing...';
@@ -296,20 +379,10 @@
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (data.ok && data.categories) {
-                    var curVal = catSelect.value;
-                    catSelect.textContent = '';
-                    var def = document.createElement('option');
-                    def.value = '';
-                    def.textContent = '-- Select Shopee Category --';
-                    catSelect.appendChild(def);
-                    data.categories.forEach(function(c) {
-                        var opt = document.createElement('option');
-                        opt.value = c.category_id;
-                        opt.textContent = c.name + ' (' + c.category_id + ')';
-                        if (String(c.category_id) === String(curVal)) opt.selected = true;
-                        catSelect.appendChild(opt);
-                    });
+                if (data.ok) {
+                    // The cache is now refreshed — re-trigger a search so
+                    // any newly-added leaves surface.
+                    if (catSearchInput) doCatSearch(catSearchInput.value.trim());
                     showFlashSuccess(data.count + ' categories refreshed.');
                 } else {
                     showFlashError(data.message || 'Failed to refresh categories.');
@@ -320,21 +393,25 @@
         });
     }
 
+    // ── Brand fetch (independent of attributes card — must fire even
+    //    when the attributes UI isn't on the page).
+    if (catSelect) {
+        if (catSelect.value) {
+            loadBrandsFor(catSelect.value, { keepSelected: true });
+        }
+        catSelect.addEventListener('change', function () {
+            savedBrandId = 0;
+            loadBrandsFor(catSelect.value, { keepSelected: false });
+        });
+    }
+
     // ── Proactive Attribute Fetch on Category Change ──────────
     var attrsCard = document.getElementById('shopee-attributes-card');
     var attrsContainer = document.getElementById('shopee-attributes-container');
 
     if (catSelect && attrsCard && attrsContainer) {
-        // Initial brand load if a category is already selected (edit page).
-        if (catSelect.value) {
-            loadBrandsFor(catSelect.value, { keepSelected: true });
-        }
-
         catSelect.addEventListener('change', function() {
             var catId = catSelect.value;
-            // Reset saved selection — a fresh category gets a fresh brand pick.
-            savedBrandId = 0;
-            loadBrandsFor(catId, { keepSelected: false });
             if (!catId) {
                 attrsCard.style.display = 'none';
                 attrsContainer.textContent = '';

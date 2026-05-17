@@ -132,13 +132,11 @@ class ShopeeClient
         $resp = $this->http()
             ->post($url . '?' . http_build_query($query), $body);
 
-        $result = [
+        return [
             'status' => $resp->status(),
             'ok' => $resp->ok(),
             'body' => $resp->json() ?? $resp->body(),
         ];
-        $this->logCall('POST', $path, array_merge($query, ['_body' => $body]), $result);
-        return $result;
     }
 
     public function get(string $mode, string $path, array $query): array
@@ -148,41 +146,11 @@ class ShopeeClient
         $resp = $this->http()
             ->get($url . '?' . http_build_query($query));
 
-        $result = [
+        return [
             'status' => $resp->status(),
             'ok' => $resp->ok(),
             'body' => $resp->json() ?? $resp->body(),
         ];
-        $this->logCall('GET', $path, $query, $result);
-        return $result;
-    }
-
-    /**
-     * Record every signed Shopee API call to shopee_api_logs so operators
-     * can see what came back without re-running the request. Mirrors the
-     * Lazada LazadaApiLog::safeCreate pattern. Auth errors are tagged with
-     * the Shopee error code so they're easy to spot.
-     */
-    private function logCall(string $method, string $path, array $params, array $result): void
-    {
-        try {
-            $body = $result['body'] ?? null;
-            $apiError = is_array($body) ? (string)($body['error'] ?? '') : '';
-            $okFinal = ($result['ok'] ?? false) && $apiError === '';
-            \Extensions\shopee\Models\ShopeeApiLog::safeCreate([
-                'pack'            => 'shopee.client',
-                'method'          => $method,
-                'api_path'        => $path,
-                'auth_required'   => true,
-                'request_params'  => $params,
-                'response_status' => (int) ($result['status'] ?? 0),
-                'ok'              => $okFinal,
-                'response_body'   => $body,
-                'user_id'         => function_exists('auth') ? optional(auth())->id() : null,
-            ]);
-        } catch (\Throwable $e) {
-            // Logging must never break a real API call.
-        }
     }
 
     /**

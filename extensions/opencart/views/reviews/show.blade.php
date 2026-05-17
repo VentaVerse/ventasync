@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Reviews / Detail')
+@section('breadcrumb', 'Integrations / Reviews / Detail')
 
 @section('content')
 <div class="card">

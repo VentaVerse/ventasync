@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Shopee')
+@section('breadcrumb', 'Integrations / Shopee')
 
 @section('content')
 <div class="page-header">

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Reviews')
+@section('breadcrumb', 'Integrations / Reviews')
 
 @section('content')
 

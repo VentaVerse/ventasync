@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / OpenCart / Settings')
+@section('breadcrumb', 'Integrations / OpenCart / Settings')
 
 @section('title', 'OpenCart Settings')
 

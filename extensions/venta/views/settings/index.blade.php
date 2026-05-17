@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Venta / Settings')
+@section('breadcrumb', 'Integrations / Venta / Settings')
 
 @section('title', 'Venta Settings')
 

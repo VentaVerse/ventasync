@@ -102,6 +102,86 @@
     padding-top: 8px;
 }
 
+/* Swipe-left animation when entering the 2nd-layer contextual sidebar
+   (Integrations / Orders). The whole nav enters from the right edge and
+   slides left into place; child items stagger so the layer reads as a
+   distinct level rather than a swap of the same shell. */
+.sidebar-nav--layer2 {
+    animation: sidebarLayer2In 280ms cubic-bezier(.22,.61,.36,1) both;
+    overflow: hidden;
+}
+.sidebar-nav--layer2 > * {
+    opacity: 0;
+    animation: sidebarLayer2Item 260ms cubic-bezier(.22,.61,.36,1) forwards;
+}
+.sidebar-nav--layer2 > *:nth-child(1) { animation-delay: 60ms; }
+.sidebar-nav--layer2 > *:nth-child(2) { animation-delay: 95ms; }
+.sidebar-nav--layer2 > *:nth-child(3) { animation-delay: 130ms; }
+.sidebar-nav--layer2 > *:nth-child(4) { animation-delay: 165ms; }
+.sidebar-nav--layer2 > *:nth-child(5) { animation-delay: 200ms; }
+.sidebar-nav--layer2 > *:nth-child(6) { animation-delay: 235ms; }
+.sidebar-nav--layer2 > *:nth-child(7) { animation-delay: 270ms; }
+.sidebar-nav--layer2 > *:nth-child(n+8) { animation-delay: 305ms; }
+
+/* Swipe-right exit when the operator clicks "Back". A JS handler in
+   app.blade.php adds .is-leaving on click, then defers navigation by
+   the same duration. */
+.sidebar-nav--layer2.is-leaving {
+    animation: sidebarLayer2Out 220ms cubic-bezier(.4,.0,.6,1) forwards;
+}
+.sidebar-nav--layer2.is-leaving > * {
+    animation: none;
+    opacity: 1;
+}
+
+@keyframes sidebarLayer2In {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes sidebarLayer2Item {
+    from { transform: translateX(28px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes sidebarLayer2Out {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(100%); opacity: 0; }
+}
+
+/* Section title at the top of the 2nd-layer sidebar so the operator
+   knows which context they're in. */
+.sidebar-layer2-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 12px 10px;
+    color: #f1f5f9;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(148,163,184,.12);
+    margin-bottom: 6px;
+}
+.sidebar-layer2-title .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--accent-neon, #39ff14); }
+.sidebar-layer2-title .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Neon-green highlight for active nav items — applies to both the main
+   sidebar and the 2nd-layer contextual sidebar. Text stays white; only the
+   background tint, left bar, and glow are neon. */
+:root {
+    --accent-neon: #39ff14;
+    --accent-neon-soft: rgba(57,255,20,.18);
+    --accent-neon-glow: rgba(57,255,20,.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-nav--layer2,
+    .sidebar-nav--layer2 > * {
+        animation: none;
+        opacity: 1;
+    }
+}
+
 /* Top-level link (Dashboard) */
 .sidebar-nav > a {
     display: flex;
@@ -117,7 +197,7 @@
 }
 .sidebar-nav > a:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
 .sidebar-nav > a.active {
-    background: rgba(59,130,246,.12);
+    background: var(--accent-neon-soft);
     color: #fff;
     position: relative;
 }
@@ -126,8 +206,9 @@
     position: absolute;
     left: 0; top: 6px; bottom: 6px;
     width: 3px;
-    background: var(--accent);
+    background: var(--accent-neon);
     border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 8px var(--accent-neon-glow);
 }
 .sidebar-nav > a .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
 .sidebar-nav > a .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
@@ -199,7 +280,7 @@
 }
 .nav-sub a:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
 .nav-sub a.active {
-    background: rgba(59,130,246,.12);
+    background: var(--accent-neon-soft);
     color: #fff;
 }
 .nav-sub a.active::before {
@@ -207,8 +288,9 @@
     position: absolute;
     left: 0; top: 6px; bottom: 6px;
     width: 3px;
-    background: var(--accent);
+    background: var(--accent-neon);
     border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 8px var(--accent-neon-glow);
 }
 .nav-sub a .nav-icon { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
 .nav-sub a .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }

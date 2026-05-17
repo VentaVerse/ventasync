@@ -113,8 +113,12 @@
             @endphp
 
             @if($__navContext === 'orders')
-                <nav class="sidebar-nav">
-                    <a href="{{ route('dashboard') }}">
+                <nav class="sidebar-nav sidebar-nav--layer2" data-layer2>
+                    <div class="sidebar-layer2-title">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+                        <span class="label">Orders</span>
+                    </div>
+                    <a href="{{ route('dashboard') }}" data-layer2-back>
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
                         <span class="label">Back</span>
                     </a>
@@ -137,14 +141,14 @@
                     @endforeach
                 </nav>
             @elseif($__navContext === 'integrations')
-                <nav class="sidebar-nav">
-                    <a href="{{ route('dashboard') }}">
+                <nav class="sidebar-nav sidebar-nav--layer2" data-layer2>
+                    <div class="sidebar-layer2-title">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+                        <span class="label">Integrations</span>
+                    </div>
+                    <a href="{{ route('dashboard') }}" data-layer2-back>
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
                         <span class="label">Back</span>
-                    </a>
-                    <a href="{{ route('integrations.index') }}" class="{{ $__rn === 'integrations.index' ? 'active' : '' }}">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
-                        <span class="label">All Integrations</span>
                     </a>
                     @foreach($__intCards as $__card)
                         @php
@@ -253,7 +257,7 @@
                         <div class="nav-sub-wrap">
                             <div class="nav-sub">
                                 @if($canOrders)
-                                <a href="{{ route('orders.index') }}" class="{{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                                <a href="{{ route('orders.index') }}" class="{{ request()->routeIs('orders.*') && !request()->routeIs('orders.payments_report') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
                                     <span class="label">Orders</span>
                                 </a>
@@ -429,28 +433,59 @@
                         'Users' => 'users.index',
                         'User Groups' => 'user_groups.index',
                         'Currencies' => 'currencies.index',
-                        'Marketplace' => 'ext.shopee.orders.index',
-                        'Marketplace API' => 'ext.shopee.orders.index',
-                        'Shopee' => 'ext.shopee.orders.index',
-                        'Lazada' => 'ext.lazada.orders.index',
+                        'Integrations' => 'integrations.index',
+                        'Shopee' => 'ext.shopee.index',
+                        'Lazada' => 'ext.lazada.index',
                         'TikTok Shop' => 'ext.tiktok.index',
                         'Pedallion' => 'ext.pedallion.index',
                         'OpenCart' => 'ext.opencart.index',
+                        'Venta' => 'ext.venta.index',
                         'Reports' => 'ext.reports.orders',
                     ];
                     $__bcRaw = trim($__env->yieldContent('breadcrumb', 'Dashboard'));
                     $__bcParts = array_map('trim', explode('/', $__bcRaw));
                     $__bcCount = count($__bcParts);
+
+                    // Context-aware segment resolver: when the operator is
+                    // inside an extension (route name `ext.{marketplace}...`),
+                    // resolve generic labels like "Product Groups" / "Orders"
+                    // / "Categories" against the active marketplace so each
+                    // crumb links back to the correct module subsection
+                    // instead of being unclickable.
+                    $__bcRn = (string)(request()->route()?->getName() ?? '');
+                    $__bcExt = null;
+                    if (preg_match('/^ext\.([a-z0-9_-]+)\./', $__bcRn, $__bcM)) {
+                        $__bcExt = $__bcM[1];
+                    }
+                    $__bcExtSubMap = [
+                        'Product Groups' => 'product-groups.index',
+                        'Orders'         => 'orders.index',
+                        'Categories'     => 'categories.index',
+                        'Brands'         => 'brands.index',
+                        'Logistics'      => 'logistics.index',
+                        'Products'       => 'products.index',
+                    ];
+                    $__bcResolve = function (string $label) use ($__bcRoutes, $__bcExt, $__bcExtSubMap): ?string {
+                        if (isset($__bcRoutes[$label])) {
+                            return \Route::has($__bcRoutes[$label]) ? $__bcRoutes[$label] : null;
+                        }
+                        if ($__bcExt && isset($__bcExtSubMap[$label])) {
+                            $candidate = "ext.{$__bcExt}.{$__bcExtSubMap[$label]}";
+                            return \Route::has($candidate) ? $candidate : null;
+                        }
+                        return null;
+                    };
                 @endphp
                 @foreach($__bcParts as $__bcIdx => $__bcPart)
-                    @if($__bcIdx < $__bcCount - 1 && isset($__bcRoutes[$__bcPart]))
-                        <a href="{{ route($__bcRoutes[$__bcPart]) }}" style="color:var(--text-muted); text-decoration:none;">{{ $__bcPart }}</a>
-                        <span style="margin:0 4px; color:var(--text-muted);">/</span>
+                    @php($__bcTarget = $__bcIdx < $__bcCount - 1 ? $__bcResolve($__bcPart) : null)
+                    @if($__bcTarget)
+                        <a href="{{ route($__bcTarget) }}">{{ $__bcPart }}</a>
+                        <span class="bc-sep">/</span>
                     @elseif($__bcIdx < $__bcCount - 1)
                         <span>{{ $__bcPart }}</span>
-                        <span style="margin:0 4px; color:var(--text-muted);">/</span>
+                        <span class="bc-sep">/</span>
                     @else
-                        <span>{{ $__bcPart }}</span>
+                        <span class="bc-current">{{ $__bcPart }}</span>
                     @endif
                 @endforeach
             </div>
@@ -1321,6 +1356,25 @@ document.addEventListener('mousemove', function(e) {
             }
         });
     }, true);
+})();
+</script>
+<script>
+// Swipe-right exit animation when the operator clicks "Back" inside the
+// 2nd-layer contextual sidebar. Intercept the click, add .is-leaving so
+// the slide-out keyframe runs, then navigate after the animation
+// duration. Respects prefers-reduced-motion.
+(function() {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.addEventListener('click', function(e) {
+        var back = e.target.closest && e.target.closest('[data-layer2-back]');
+        if (!back) return;
+        var nav = back.closest('[data-layer2]');
+        if (!nav || reduce) return;
+        e.preventDefault();
+        nav.classList.add('is-leaving');
+        var href = back.getAttribute('href');
+        setTimeout(function() { window.location.href = href; }, 200);
+    });
 })();
 </script>
 </body>

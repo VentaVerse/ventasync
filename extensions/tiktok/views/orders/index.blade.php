@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'TikTok Shop Orders')
-@section('breadcrumb', 'Marketplace / TikTok Shop / Orders')
+@section('breadcrumb', 'Integrations / TikTok Shop / Orders')
 
 @section('content')
 <div class="marketplace-tiktok">

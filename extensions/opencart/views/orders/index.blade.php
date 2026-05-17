@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / OpenCart / Orders')
+@section('breadcrumb', 'Integrations / OpenCart / Orders')
 
 @section('content')
 @include('integrations.partials._tab_strip', ['activeTabId' => 'opencart:' . $store])

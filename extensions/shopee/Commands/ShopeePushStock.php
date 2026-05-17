@@ -40,56 +40,32 @@ class ShopeePushStock extends Command
         $totalErr = 0;
         $totalSkipped = 0;
 
-        // Group links by item_id for batch stock updates
+        // Delegate qty resolution to the shared service so the UI sync
+        // (ShopeeProductGroupController::pushStockForLinks) and this cron
+        // walk identical logic — both honour product_option_combinations
+        // for multi-option products. Previously this cron read POV only,
+        // missing every multi-option SKU.
+        $resolved = app(\Extensions\shopee\Services\ShopeeStockPushService::class)->resolve($links, $pfx);
+
+        // Drop disabled products before grouping.
+        $resolved = array_values(array_filter($resolved, function ($row) use (&$totalSkipped) {
+            if (($row['product_status'] ?? 1) === 0) {
+                $totalSkipped++;
+                return false;
+            }
+            return true;
+        }));
+
         $grouped = [];
-        foreach ($links as $link) {
-            $grouped[$link->shopee_item_id][] = $link;
+        foreach ($resolved as $row) {
+            $grouped[$row['item_id']][] = $row;
         }
 
-        foreach ($grouped as $itemId => $itemLinks) {
+        foreach ($grouped as $itemId => $rows) {
             $stockList = [];
 
-            foreach ($itemLinks as $link) {
-                $productId = (int) $link->product_id;
-
-                // Skip disabled products
-                $productStatus = DB::table($pfx . 'product')->where('product_id', $productId)->value('status');
-                if ((int) $productStatus === 0) {
-                    $totalSkipped++;
-                    continue;
-                }
-
-                // If there's a model_id, try to find qty from option value by SKU
-                $qty = 0;
-                $sku = trim((string) ($link->sku ?? ''));
-
-                if ($sku !== '') {
-                    // Try option value SKU
-                    $povQty = DB::table($pfx . 'product_option_value')
-                        ->where('product_id', $productId)
-                        ->where('sku', $sku)
-                        ->value('quantity');
-
-                    if ($povQty !== null) {
-                        $qty = max(0, (int) $povQty);
-                    } else {
-                        // Fallback: main product qty
-                        $prodQty = DB::table($pfx . 'product')
-                            ->where('product_id', $productId)
-                            ->value('quantity');
-                        $qty = max(0, (int) ($prodQty ?? 0));
-                    }
-                } else {
-                    $prodQty = DB::table($pfx . 'product')
-                        ->where('product_id', $productId)
-                        ->value('quantity');
-                    $qty = max(0, (int) ($prodQty ?? 0));
-                }
-
-                $modelId = (int) ($link->shopee_model_id ?? 0);
-
-                $stockEntry = ['model_id' => $modelId, 'seller_stock' => [['stock' => $qty]]];
-                $stockList[] = $stockEntry;
+            foreach ($rows as $row) {
+                $stockList[] = ['model_id' => $row['model_id'], 'seller_stock' => [['stock' => $row['quantity']]]];
             }
 
             if (empty($stockList)) {
@@ -135,8 +111,8 @@ class ShopeePushStock extends Command
                 'last_sync_error_code' => $isOk ? null : (string) ($errMsg ?? ''),
                 'last_sync_error_message' => $isOk ? null : (is_array($resBody) ? (string) ($resBody['message'] ?? '') : ''),
             ];
-            foreach ($itemLinks as $link) {
-                $link->update($syncData);
+            foreach ($rows as $row) {
+                $row['link']->update($syncData);
             }
 
             if ($isOk) {

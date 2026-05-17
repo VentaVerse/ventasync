@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Shopee / Orders')
+@section('breadcrumb', 'Integrations / Shopee / Orders')
 
 @section('content')
 <div class="marketplace-shopee">

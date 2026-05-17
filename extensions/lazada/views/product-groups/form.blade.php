@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Lazada / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@section('breadcrumb', 'Integrations / Lazada / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
 
 @section('title', $mode === 'create' ? 'Add Lazada Product Group' : 'Edit Lazada Product Group')
 

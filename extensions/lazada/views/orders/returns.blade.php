@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Lazada / Return or Refund')
+@section('breadcrumb', 'Integrations / Lazada / Return or Refund')
 
 @section('content')
 <div class="marketplace-lazada">

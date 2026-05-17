@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Product Group')
-@section('breadcrumb', 'Marketplace / TikTok Shop / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@section('breadcrumb', 'Integrations / TikTok Shop / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
 
 @section('content')
     <div class="page-header">

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('breadcrumb', 'Marketplace / Shopee / ' . $group->name . ' / Products')
+@section('breadcrumb', 'Integrations / Shopee / ' . $group->name . ' / Products')
 
 @section('content')
     <div class="page-header">
