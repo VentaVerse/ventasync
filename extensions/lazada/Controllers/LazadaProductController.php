@@ -5290,6 +5290,8 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
      */
     private function lazadaProductsGet(object $setting, LazadaClient $client, array $extra = []): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $apiPath = '/products/get';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = array_merge([
@@ -5342,6 +5344,8 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
      */
     private function fetchLazadaSkuMap(object $setting, LazadaClient $client): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $skuMap = []; // SellerSku => [item_id, ...]
         $offset = 0;
         $limit = 50;
