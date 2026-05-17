@@ -42,17 +42,19 @@
                             $visibleMenu = collect($card->menu)
                                 ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
                                 ->values();
-                            $canAddStore = !empty($card->addStore)
-                                && (!$card->addStore->permission || (auth()->user() && auth()->user()->hasPermission($card->addStore->permission)));
+                            $isMultiStore = !empty($card->addStore) || !empty($card->stores);
+                            $storeCount = is_array($card->stores ?? null) ? count($card->stores) : 0;
                         @endphp
 
-                        {{-- Add Store CTA sits above the flat menu so it reads as the
-                             primary action when there's no store yet — Reviews and
-                             other flat menu items fall below it. --}}
-                        @if($canAddStore)
-                            <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-cta">
-                                <span class="int-card-cta-icon" aria-hidden="true">+</span>
-                                <span>{{ $card->addStore->label }}</span>
+                        {{-- For multi-store modules the "Manage all N stores" link is the
+                             primary entry point (the + Add Store button lives on the
+                             module page itself, so the card just routes there). It sits
+                             above the flat menu so flat items (e.g. Reviews) read as
+                             secondary. --}}
+                        @if($isMultiStore)
+                            <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-stores-link int-card-stores-link--top">
+                                Manage all {{ $storeCount }} {{ \Illuminate\Support\Str::plural('store', $storeCount) }}
+                                <span class="int-card-stores-arrow" aria-hidden="true">→</span>
                             </a>
                         @endif
 
@@ -68,12 +70,7 @@
                             </ul>
                         @endif
 
-                        @if(!empty($card->stores))
-                            <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-stores-link">
-                                Manage all {{ count($card->stores) }} stores
-                                <span class="int-card-stores-arrow" aria-hidden="true">→</span>
-                            </a>
-                        @elseif(!$canAddStore && $visibleMenu->isEmpty())
+                        @if(!$isMultiStore && $visibleMenu->isEmpty())
                             <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-stores-link">
                                 Open module
                                 <span class="int-card-stores-arrow" aria-hidden="true">→</span>

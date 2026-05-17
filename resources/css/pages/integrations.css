@@ -127,38 +127,19 @@
     line-height: 1.45;
 }
 
-.int-card-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    align-self: flex-start;
-    margin: 14px 14px 4px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    background: var(--accent-neon-soft, rgba(57,255,20,.18));
+/* Top-of-card variant for the Manage Stores link on multi-store cards.
+   Sits between the card head and the flat menu (DOM order handles
+   placement) and reads as the primary action via neon-green tint. */
+.int-card-stores-link--top {
+    margin-top: 4px;
+    background: rgba(57,255,20,.10);
+    border: 1px solid rgba(57,255,20,.30);
     color: #f8fafc;
-    font-size: 13px;
     font-weight: 600;
-    text-decoration: none;
-    border: 1px solid rgba(57,255,20,.35);
-    transition: background var(--transition-fast), border-color var(--transition-fast);
 }
-.int-card-cta:hover {
-    background: rgba(57,255,20,.28);
-    border-color: rgba(57,255,20,.55);
-}
-.int-card-cta-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--accent-neon, #39ff14);
-    color: #0f172a;
-    font-weight: 700;
-    font-size: 14px;
-    line-height: 1;
+.int-card-stores-link--top:hover {
+    background: rgba(57,255,20,.18);
+    border-color: rgba(57,255,20,.50);
 }
 
 .int-card-menu {
