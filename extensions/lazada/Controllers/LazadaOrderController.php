@@ -1525,7 +1525,6 @@ class LazadaOrderController extends Controller
         // credential set (sandbox vs live) the current mode toggle wants.
         $setting = LazadaSetting::query()->first()?->decrypted();
         $creds = LazadaSetting::activeCredentials($setting);
-        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || empty($creds['complete'])) {
             $modeLabel = (($setting->mode ?? 'live') === 'sandbox') ? 'sandbox' : 'production';
             return $this->redirectBackOrIndex($request)->with('lazada_orders_last_result', [
