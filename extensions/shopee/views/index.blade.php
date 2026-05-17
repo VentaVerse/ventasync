@@ -103,7 +103,12 @@
                         </div>
                         <div>
                             <label>Region</label>
-                            <input class="input" name="region" value="{{ old('region', $setting->region ?? '') }}" placeholder="PH, SG, MY...">
+                            <select name="region" class="input">
+                                <option value="">(not set)</option>
+                                @foreach(['sg' => 'Singapore', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam', 'id' => 'Indonesia', 'ph' => 'Philippines', 'tw' => 'Taiwan', 'br' => 'Brazil', 'mx' => 'Mexico', 'co' => 'Colombia', 'cl' => 'Chile', 'pl' => 'Poland'] as $code => $name)
+                                    <option value="{{ $code }}" {{ strtolower((string)($setting->region ?? '')) === $code ? 'selected' : '' }}>{{ $name }} ({{ strtoupper($code) }})</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -233,7 +238,12 @@
                         </div>
                         <div>
                             <label>Region</label>
-                            <input class="input" name="sandbox_region" value="{{ old('sandbox_region', $setting->sandbox_region ?? '') }}" placeholder="PH, SG, MY...">
+                            <select name="sandbox_region" class="input">
+                                <option value="">(not set)</option>
+                                @foreach(['sg' => 'Singapore', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam', 'id' => 'Indonesia', 'ph' => 'Philippines', 'tw' => 'Taiwan', 'br' => 'Brazil', 'mx' => 'Mexico', 'co' => 'Colombia', 'cl' => 'Chile', 'pl' => 'Poland'] as $code => $name)
+                                    <option value="{{ $code }}" {{ strtolower((string)($setting->sandbox_region ?? '')) === $code ? 'selected' : '' }}>{{ $name }} ({{ strtoupper($code) }})</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
                 </div>

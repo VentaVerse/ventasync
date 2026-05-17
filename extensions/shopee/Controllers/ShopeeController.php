@@ -151,12 +151,12 @@ public function index()
             'partner_key' => 'nullable|string',
             'shop_id' => 'nullable|integer|min:1',
             'access_token' => 'nullable|string',
-            'region' => 'nullable|string|max:16',
+            'region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
             'sandbox_partner_id' => 'nullable|integer|min:1',
             'sandbox_partner_key' => 'nullable|string',
             'sandbox_shop_id' => 'nullable|integer|min:1',
             'sandbox_access_token' => 'nullable|string',
-            'sandbox_region' => 'nullable|string|max:16',
+            'sandbox_region' => 'nullable|in:sg,my,th,vn,id,ph,tw,br,mx,co,cl,pl',
         ]);
 
         $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
