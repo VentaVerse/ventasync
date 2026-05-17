@@ -81,6 +81,7 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 menu: [
                     new MenuItem('Settings', 'ext.shopee.index', 'manage_shopee'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'manage_shopee'),
+                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'manage_shopee'),
                     new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'manage_shopee'),
                     new MenuItem('Orders', 'ext.shopee.orders.index', 'manage_shopee_orders'),
                 ],

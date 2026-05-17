@@ -27,19 +27,21 @@ class ShopeeLogisticsController extends Controller
     public function fetch(ShopeeClient $client)
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.logistics.index')
-                ->with('error', 'Missing Shopee settings. Configure Partner ID, Partner Key, Access Token and Shop ID first.');
+                ->with('error', "Missing Shopee {$modeLabel} settings. Configure Partner ID, Partner Key, Access Token and Shop ID first.");
         }
 
         $path = '/api/v2/logistics/get_channel_list';
 
         $result = $client->shopGet(
-            $setting->mode ?? 'sandbox',
-            (int) $setting->partner_id,
-            (string) $setting->partner_key,
-            (string) $setting->access_token,
-            (int) $setting->shop_id,
+            $auth['mode'],
+            (int) $auth['partner_id'],
+            (string) $auth['partner_key'],
+            (string) $auth['access_token'],
+            (int) $auth['shop_id'],
             $path
         );
 
