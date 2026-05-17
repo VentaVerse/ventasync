@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -21,10 +22,21 @@ return new class extends Migration
             ],
         ];
 
+        // Guard: label/description are dropped by 2026_04_09. Skip missing columns.
+        $hasLabel = Schema::hasColumn('permissions', 'label');
+        $hasDescription = Schema::hasColumn('permissions', 'description');
+
         $newIds = [];
         foreach ($permissions as $perm) {
             if (!DB::table('permissions')->where('key', $perm['key'])->exists()) {
-                $newIds[] = DB::table('permissions')->insertGetId($perm);
+                $row = ['key' => $perm['key']];
+                if ($hasLabel) {
+                    $row['label'] = $perm['label'];
+                }
+                if ($hasDescription) {
+                    $row['description'] = $perm['description'];
+                }
+                $newIds[] = DB::table('permissions')->insertGetId($row);
             }
         }
 

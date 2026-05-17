@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -13,12 +14,22 @@ return new class extends Migration
             'manage_purchase_orders' => ['label' => 'Manage Purchase Orders', 'description' => 'Access purchase order management'],
         ];
 
+        // Guard: label/description are dropped by 2026_04_09. On a late-arriving
+        // upgrade (community-then-Plus) those columns no longer exist when this
+        // runs. Skip the missing columns and let the runtime resolve labels via
+        // the extension's lang file.
+        $hasLabel = Schema::hasColumn('permissions', 'label');
+        $hasDescription = Schema::hasColumn('permissions', 'description');
+
         foreach ($permissions as $key => $meta) {
-            DB::table('permissions')->insertOrIgnore([
-                'key' => $key,
-                'label' => $meta['label'],
-                'description' => $meta['description'],
-            ]);
+            $row = ['key' => $key];
+            if ($hasLabel) {
+                $row['label'] = $meta['label'];
+            }
+            if ($hasDescription) {
+                $row['description'] = $meta['description'];
+            }
+            DB::table('permissions')->insertOrIgnore($row);
         }
 
         // Grant to Administrator group (id = 1)

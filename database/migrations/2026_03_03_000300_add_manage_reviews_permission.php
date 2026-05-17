@@ -2,22 +2,28 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        $perm = [
-            'key'         => 'manage_reviews',
-            'label'       => 'Reviews',
-            'description' => 'View marketplace reviews and manage OpenCart review sync',
-        ];
+        $key = 'manage_reviews';
 
-        if (DB::table('permissions')->where('key', $perm['key'])->exists()) {
+        if (DB::table('permissions')->where('key', $key)->exists()) {
             return;
         }
 
-        $permId = DB::table('permissions')->insertGetId($perm);
+        // Guard: label/description columns are dropped by 2026_04_09. Skip them if absent.
+        $row = ['key' => $key];
+        if (Schema::hasColumn('permissions', 'label')) {
+            $row['label'] = 'Reviews';
+        }
+        if (Schema::hasColumn('permissions', 'description')) {
+            $row['description'] = 'View marketplace reviews and manage OpenCart review sync';
+        }
+
+        $permId = DB::table('permissions')->insertGetId($row);
 
         // Auto-assign to Administrator group
         $adminGroup = DB::table('user_groups')->where('name', 'Administrator')->first();
