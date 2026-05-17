@@ -156,6 +156,15 @@
                             $__cardId = (string) $__card->id;
                             $__cardPrefix = 'ext.' . (str_contains($__cardId, ':') ? strstr($__cardId, ':', true) : $__cardId) . '.';
                             $__cardActive = str_starts_with($__rn, $__cardPrefix);
+                            $__cardMenu = collect($__card->menu ?? [])
+                                ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
+                                ->values();
+                            // Multi-store marketplaces (Venta, OpenCart, multi-store Lazada) have
+                            // an empty card-level menu — their menu items live per-store inside
+                            // $card->stores. For those, fall back to a single "Manage" link to
+                            // the module hub so the operator can reach Add Store / per-store
+                            // settings without leaving the sidebar.
+                            $__cardIsMulti = $__cardMenu->isEmpty() && (!empty($__card->stores) || !empty($__card->addStore));
                         @endphp
                         <div class="nav-group">
                             <details {{ $__cardActive ? 'open' : '' }}>
@@ -165,13 +174,31 @@
                                 </summary>
                                 <div class="nav-sub-wrap">
                                     <div class="nav-sub">
-                                        @foreach($__card->menu as $__item)
-                                            @if(!$__item->permission || ($u && $u->hasPermission($__item->permission)))
-                                                <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
-                                                    <span class="label">{{ $__item->label }}</span>
-                                                </a>
-                                            @endif
+                                        @foreach($__cardMenu as $__item)
+                                            <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
+                                                <span class="label">{{ $__item->label }}</span>
+                                            </a>
                                         @endforeach
+                                        @if($__cardIsMulti)
+                                            @foreach($__card->stores ?? [] as $__store)
+                                                @php
+                                                    $__storeMenu = collect($__store->menu ?? [])
+                                                        ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
+                                                        ->values();
+                                                @endphp
+                                                @if($__storeMenu->isNotEmpty())
+                                                    <div class="nav-sub-divider">{{ $__store->label }}</div>
+                                                    @foreach($__storeMenu as $__item)
+                                                        <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
+                                                            <span class="label">{{ $__item->label }}</span>
+                                                        </a>
+                                                    @endforeach
+                                                @endif
+                                            @endforeach
+                                            <a href="{{ route('integrations.module', ['module' => $__cardId]) }}" class="{{ $__rn === 'integrations.module' && request()->route('module') === $__cardId ? 'active' : '' }}">
+                                                <span class="label">Manage Stores</span>
+                                            </a>
+                                        @endif
                                     </div>
                                 </div>
                             </details>
@@ -477,7 +504,9 @@
                     };
                 @endphp
                 @foreach($__bcParts as $__bcIdx => $__bcPart)
-                    @php($__bcTarget = $__bcIdx < $__bcCount - 1 ? $__bcResolve($__bcPart) : null)
+                    @php
+                        $__bcTarget = $__bcIdx < $__bcCount - 1 ? $__bcResolve($__bcPart) : null;
+                    @endphp
                     @if($__bcTarget)
                         <a href="{{ route($__bcTarget) }}">{{ $__bcPart }}</a>
                         <span class="bc-sep">/</span>

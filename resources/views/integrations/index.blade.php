@@ -61,6 +61,18 @@
                                 Manage all {{ count($card->stores) }} stores
                                 <span class="int-card-stores-arrow" aria-hidden="true">→</span>
                             </a>
+                        @elseif($visibleMenu->isEmpty())
+                            {{-- Multi-store card with no stores yet (or single-store with no menu).
+                                 Always give the operator a way into the module hub so they can
+                                 add a store / configure settings. --}}
+                            <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-stores-link">
+                                @if(!empty($card->addStore) && (!$card->addStore->permission || (auth()->user() && auth()->user()->hasPermission($card->addStore->permission))))
+                                    {{ $card->addStore->label }}
+                                @else
+                                    Open module
+                                @endif
+                                <span class="int-card-stores-arrow" aria-hidden="true">→</span>
+                            </a>
                         @endif
                     </div>
                 @endforeach
