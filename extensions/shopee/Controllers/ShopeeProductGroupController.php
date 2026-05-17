@@ -5,6 +5,7 @@ namespace Extensions\shopee\Controllers;
 use App\Http\Controllers\Controller;
 
 use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\shopee\Models\ShopeeBrand;
 use Extensions\shopee\Models\ShopeeCategory;
 use Extensions\shopee\Models\ShopeeCategoryTemplate;
 use Extensions\shopee\Models\ShopeeItemCache;
@@ -152,6 +153,7 @@ class ShopeeProductGroupController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'shopee_category_id' => 'required|integer|min:1',
+            'shopee_brand_id' => 'nullable|integer|min:0',
             'logistic_ids' => 'required|array',
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
@@ -170,6 +172,7 @@ class ShopeeProductGroupController extends Controller
             'catalog_category_ids' => null,
             'manufacturer_ids' => null,
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
+            'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
             'markup_percent' => $data['markup_percent'] ?? null,
@@ -199,6 +202,7 @@ class ShopeeProductGroupController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'shopee_category_id' => 'required|integer|min:1',
+            'shopee_brand_id' => 'nullable|integer|min:0',
             'logistic_ids' => 'required|array',
             'logistic_ids.*' => 'integer',
             'markup_fixed' => 'nullable|numeric|min:0',
@@ -217,6 +221,7 @@ class ShopeeProductGroupController extends Controller
             'catalog_category_ids' => null,
             'manufacturer_ids' => null,
             'shopee_category_id' => $data['shopee_category_id'] ?? null,
+            'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
             'markup_percent' => $data['markup_percent'] ?? null,
@@ -390,6 +395,143 @@ class ShopeeProductGroupController extends Controller
             'q' => $q,
             'syncStatus' => $syncStatus,
             'erpStatus' => $erpStatus,
+        ]);
+    }
+
+    /**
+     * Build the `brand` block for a Shopee add_item / update_item payload.
+     * Looks up the human-readable brand name from the cached shopee_brands
+     * table so Shopee accepts the brand_id + name pair. brand_id=0 → "No Brand"
+     * default that every category accepts.
+     */
+    private function buildBrandPayload(int $categoryId, int $brandId): array
+    {
+        if ($brandId <= 0) {
+            return ['brand_id' => 0, 'original_brand_name' => 'No Brand'];
+        }
+        $row = ShopeeBrand::query()
+            ->where('category_id', $categoryId)
+            ->where('brand_id', $brandId)
+            ->first();
+        $name = $row ? (string) $row->name : 'No Brand';
+        return ['brand_id' => $brandId, 'original_brand_name' => $name];
+    }
+
+    /**
+     * AJAX: return the brand list for a Shopee category. Lazy-fetches from
+     * the Shopee API the first time a category is queried, then serves from
+     * the shopee_brands cache table forever. Used by the product-group form
+     * to populate the Brand dropdown once the operator picks a category.
+     *
+     * Shopee's /api/v2/product/get_brand_list is paginated (100 per page);
+     * we walk all pages so a single fetch fully populates the category.
+     */
+    public function brandsForCategory(Request $request, ShopeeClient $client)
+    {
+        $categoryId = (int) $request->query('category_id', 0);
+        if ($categoryId <= 0) {
+            return response()->json(['ok' => false, 'message' => 'category_id is required.'], 422);
+        }
+
+        // Serve from cache if we've fetched this category before.
+        $cached = ShopeeBrand::query()
+            ->where('category_id', $categoryId)
+            ->orderBy('name')
+            ->get(['brand_id', 'name']);
+
+        if ($cached->isNotEmpty()) {
+            return response()->json([
+                'ok' => true,
+                'cached' => true,
+                'brands' => $cached->map(fn ($b) => ['brand_id' => (int) $b->brand_id, 'name' => (string) $b->name])->all(),
+            ]);
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return response()->json([
+                'ok' => false,
+                'message' => "Missing Shopee {$modeLabel} settings.",
+            ], 412);
+        }
+
+        $path = '/api/v2/product/get_brand_list';
+        $offset = 0;
+        $pageSize = 100;
+        $collected = [];
+        $maxPages = 50; // safety: 5000 brands per category is already an absurd cap
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $result = $client->shopGet(
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
+                $path,
+                [
+                    'category_id' => $categoryId,
+                    'offset'      => $offset,
+                    'page_size'   => $pageSize,
+                    'status'      => 1, // active brands only
+                ]
+            );
+
+            if (!($result['ok'] ?? false)) {
+                $body = $result['body'] ?? null;
+                $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API call failed')) : 'API call failed';
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Failed to fetch brands: ' . $msg,
+                ], 502);
+            }
+
+            $body = $result['body'] ?? [];
+            $resp = $body['response'] ?? $body;
+            $brandList = $resp['brand_list'] ?? [];
+            if (!is_array($brandList) || empty($brandList)) {
+                break;
+            }
+
+            foreach ($brandList as $b) {
+                if (!is_array($b)) continue;
+                $bid = (int) ($b['brand_id'] ?? 0);
+                $name = trim((string) ($b['original_brand_name'] ?? $b['display_brand_name'] ?? $b['name'] ?? ''));
+                if ($bid <= 0 || $name === '') continue;
+
+                $collected[] = ['brand_id' => $bid, 'name' => $name, 'raw' => $b];
+            }
+
+            $hasNext = (bool) ($resp['has_next_page'] ?? false);
+            if (!$hasNext) {
+                break;
+            }
+            $offset += $pageSize;
+        }
+
+        // Persist + de-dup. Use upsert keyed on (category_id, brand_id).
+        $now = now();
+        foreach ($collected as $row) {
+            ShopeeBrand::updateOrCreate(
+                ['category_id' => $categoryId, 'brand_id' => $row['brand_id']],
+                ['name' => $row['name'], 'status' => 1, 'raw' => $row['raw'], 'updated_at' => $now]
+            );
+        }
+
+        $brands = ShopeeBrand::query()
+            ->where('category_id', $categoryId)
+            ->orderBy('name')
+            ->get(['brand_id', 'name'])
+            ->map(fn ($b) => ['brand_id' => (int) $b->brand_id, 'name' => (string) $b->name])
+            ->all();
+
+        return response()->json([
+            'ok' => true,
+            'cached' => false,
+            'brands' => $brands,
+            'fetched' => count($collected),
         ]);
     }
 
@@ -860,7 +1002,7 @@ class ShopeeProductGroupController extends Controller
                 'category_id' => (int) $group->shopee_category_id,
                 'image' => ['image_id_list' => $imageIds],
                 'logistic_info' => $logisticInfo,
-                'brand' => ['brand_id' => 0, 'original_brand_name' => 'No Brand'],
+                'brand' => $this->buildBrandPayload((int) $group->shopee_category_id, (int) ($group->shopee_brand_id ?? 0)),
             ];
 
             $path = '/api/v2/product/add_item';

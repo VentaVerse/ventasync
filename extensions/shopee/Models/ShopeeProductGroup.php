@@ -10,7 +10,7 @@ class ShopeeProductGroup extends Model
 
     protected $fillable = [
         'name', 'catalog_category_ids', 'manufacturer_ids',
-        'shopee_category_id', 'logistic_ids',
+        'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_fixed', 'markup_percent',
     ];
 

@@ -67,6 +67,28 @@
                 </div>
             </div>
 
+            @php
+                $selectedBrandId = (int) old('shopee_brand_id', $group->shopee_brand_id ?? 0);
+                $initialBrands = ($group->shopee_category_id ?? null)
+                    ? \Extensions\shopee\Models\ShopeeBrand::query()
+                        ->where('category_id', (int) $group->shopee_category_id)
+                        ->orderBy('name')
+                        ->get(['brand_id', 'name'])
+                    : collect();
+            @endphp
+            <div style="margin-top:12px;">
+                <label>Shopee Brand</label>
+                <select name="shopee_brand_id" id="shopeeBrandSelect" class="input">
+                    <option value="0" {{ $selectedBrandId === 0 ? 'selected' : '' }}>No Brand</option>
+                    @foreach($initialBrands as $b)
+                        <option value="{{ (int) $b->brand_id }}" {{ $selectedBrandId === (int) $b->brand_id ? 'selected' : '' }}>
+                            {{ $b->name }}
+                        </option>
+                    @endforeach
+                </select>
+                <div class="hint" id="shopeeBrandHint" style="margin-top:4px;">Brands load automatically when you pick a category. Defaults to No Brand.</div>
+            </div>
+
             {{-- Logistics Channels --}}
             <h3 class="section-title" style="margin-top:20px;">Logistics Channels <span style="color:var(--danger);">*</span></h3>
             <div class="hint" style="margin-bottom:8px;">Select the logistics channels to use when pushing products from this product group.</div>
@@ -209,7 +231,59 @@
     var catSelect = document.getElementById('shopeeCategorySelect');
     var refreshCatsUrl = @json(route('ext.shopee.product-groups.refreshCategories'));
     var fetchAttrsUrl = @json(route('ext.shopee.product-groups.fetchAttributes'));
+    var brandsUrl = @json(route('ext.shopee.product-groups.brandsForCategory'));
     var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    // ── Brand Picker: lazy-load on category change ──────────────
+    var brandSelect = document.getElementById('shopeeBrandSelect');
+    var brandHint = document.getElementById('shopeeBrandHint');
+    var savedBrandId = @json($selectedBrandId ?? 0);
+
+    function setBrandHint(text) {
+        if (brandHint) brandHint.textContent = text;
+    }
+
+    function loadBrandsFor(catId, opts) {
+        opts = opts || {};
+        if (!brandSelect) return;
+        if (!catId) {
+            brandSelect.innerHTML = '<option value="0">No Brand</option>';
+            setBrandHint('Brands load automatically when you pick a category. Defaults to No Brand.');
+            return;
+        }
+        setBrandHint('Loading brands for this category…');
+        var u = new URL(brandsUrl, window.location.origin);
+        u.searchParams.set('category_id', catId);
+        fetch(u.toString(), {
+            method: 'GET',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) {
+                setBrandHint(data.message || 'Failed to load brands for this category.');
+                return;
+            }
+            var prev = opts.keepSelected ? String(savedBrandId) : '0';
+            brandSelect.innerHTML = '';
+            var none = document.createElement('option');
+            none.value = '0';
+            none.textContent = 'No Brand';
+            if (prev === '0') none.selected = true;
+            brandSelect.appendChild(none);
+            (data.brands || []).forEach(function (b) {
+                var opt = document.createElement('option');
+                opt.value = String(b.brand_id);
+                opt.textContent = b.name;
+                if (String(b.brand_id) === prev) opt.selected = true;
+                brandSelect.appendChild(opt);
+            });
+            var n = (data.brands || []).length;
+            var src = data.cached ? 'cached' : 'fetched from Shopee';
+            setBrandHint(n + ' brand(s) ' + src + ' for this category. Defaults to No Brand if unsure.');
+        })
+        .catch(function () { setBrandHint('Network error loading brands.'); });
+    }
 
     if (refreshCatsBtn && catSelect) {
         refreshCatsBtn.addEventListener('click', function() {
@@ -251,8 +325,16 @@
     var attrsContainer = document.getElementById('shopee-attributes-container');
 
     if (catSelect && attrsCard && attrsContainer) {
+        // Initial brand load if a category is already selected (edit page).
+        if (catSelect.value) {
+            loadBrandsFor(catSelect.value, { keepSelected: true });
+        }
+
         catSelect.addEventListener('change', function() {
             var catId = catSelect.value;
+            // Reset saved selection — a fresh category gets a fresh brand pick.
+            savedBrandId = 0;
+            loadBrandsFor(catId, { keepSelected: false });
             if (!catId) {
                 attrsCard.style.display = 'none';
                 attrsContainer.textContent = '';

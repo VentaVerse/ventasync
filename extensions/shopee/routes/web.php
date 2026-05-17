@@ -48,6 +48,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/shopee/product-groups/create', [ShopeeProductGroupController::class, 'create'])->name('ext.shopee.product-groups.create');
         Route::post('/shopee/product-groups', [ShopeeProductGroupController::class, 'store'])->name('ext.shopee.product-groups.store');
         Route::get('/shopee/product-groups/search-products', [ShopeeProductGroupController::class, 'searchProducts'])->name('ext.shopee.product-groups.searchProducts');
+        Route::get('/shopee/product-groups/brands', [ShopeeProductGroupController::class, 'brandsForCategory'])->name('ext.shopee.product-groups.brandsForCategory');
         Route::get('/shopee/product-groups/{id}/edit', [ShopeeProductGroupController::class, 'edit'])->name('ext.shopee.product-groups.edit');
         Route::put('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('ext.shopee.product-groups.update');
         Route::delete('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('ext.shopee.product-groups.destroy');
