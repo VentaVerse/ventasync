@@ -4187,27 +4187,126 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
 
         // If we have ERP option rows, Lazada requires *variation attributes* (aka sale props) per SKU.
         // Otherwise, Lazada will reject multi-SKU products with CHK_SKU_PROPS_DUPLICATE.
-        // We map the ERP option value(s) to the first available Lazada sale-prop keys for the category.
+        // Multi-option products are stored in product_option_combinations (each combo = one SKU).
+        // Single-option products store variant data directly on product_option_value rows.
+        // We map ERP option value(s) onto Lazada sale-prop keys for the category.
         $variantKeys = [];
+        $combos = collect();
+        $comboValuesByCombo = collect();
         if ($povRows->count() > 0) {
-            // OpenCart core schema stores option values per option, not per combination.
-            // To avoid uploading wrong data, we only support a single option group for now.
             $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
-            if ($optionIds->count() > 1) {
+
+            $combos = DB::table('product_option_combinations as poc')
+                ->where('poc.product_id', (int)$listing->product_id)
+                ->orderBy('poc.sort_order')
+                ->get();
+
+            if ($combos->isNotEmpty()) {
+                $comboIds = $combos->pluck('id')->toArray();
+                $comboValuesByCombo = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
+                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                        $j->on('pov2.option_id', '=', 'od.option_id')
+                            ->where('od.language_id', '=', $langId);
+                    })
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pov2.option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->select(
+                        'pocv.combination_id',
+                        'pov2.option_id',
+                        'od.name as option_name',
+                        'ovd.name as value_name'
+                    )
+                    ->orderBy('pocv.combination_id')
+                    ->orderBy('pov2.option_id')
+                    ->get()
+                    ->groupBy('combination_id');
+            } elseif ($optionIds->count() > 1) {
+                // Multi-option product without a combinations row — the saver should have populated them.
+                // Bail rather than uploading wrong data.
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => 'This ERP product has multiple option groups. Lazada variants require SKU-level combinations. Please use only 1 option group for now (or implement a combinations table) before uploading.'
+                    'variants' => 'This ERP product has multiple option groups but no combinations stored. Re-save the product to populate combinations, then retry.'
                 ]);
             }
 
+            $optionNamesOrdered = $combos->isNotEmpty()
+                ? ($comboValuesByCombo->first() ?? collect())->pluck('option_name')->filter()->values()
+                : $povRows->pluck('option_name')->filter()->unique()->values();
+
+            // Resolve sale-prop keys, in priority order:
+            //   1. Live API (/category/attributes/get) — most accurate
+            //   2. Cached category template (lazada_category_templates) — survives rate limits
+            //   3. Name-based guess for single-option products only
+            //
+            // We never invent extra keys beyond what the category actually exposes — Lazada
+            // silently ignores unknown sale-prop keys, which collapses multi-SKU payloads
+            // into duplicates and triggers CHK_SKU_PROPS_DUPLICATE.
             if ($setting && $client && !empty($listing->primary_category_id)) {
                 $variantKeys = $this->getLazadaSalePropKeys((int)$listing->primary_category_id, $setting, $client);
             }
-            // Safe fallback for sandbox/testing when sale-prop keys cannot be fetched.
-            if (empty($variantKeys)) {
+            if (empty($variantKeys) && !empty($listing->primary_category_id)) {
+                $variantKeys = $this->cachedSalePropKeys((int)$listing->primary_category_id);
+            }
+            if (empty($variantKeys) && !$combos->isNotEmpty()) {
                 $variantKeys = $this->guessLazadaVariantKeysFromOptionName((string)($povRows->first()->option_name ?? ''));
             }
+            $variantKeys = array_values(array_filter(array_unique($variantKeys), fn ($k) => trim((string)$k) !== ''));
+
+            if ($combos->isNotEmpty() && count($variantKeys) < $optionNamesOrdered->count()) {
+                $allowed = count($variantKeys);
+                $have = $optionNamesOrdered->count();
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'variants' => "Lazada won't accept this product. The selected Lazada category only allows {$allowed} variation per product, but your product has {$have}. Either remove a variation, or move this listing to a Lazada category that supports {$have}."
+                ]);
+            }
         }
-        if ($povRows->count() > 0) {
+        if ($combos->isNotEmpty()) {
+            // Multi-option: each combination row is one Lazada SKU.
+            // Map ERP options to Lazada sale-prop slots POSITIONALLY (first ERP option
+            // → first Lazada key, etc.) so the ERP variation order is preserved in
+            // Lazada's UI. Semantic matching ("Color" → color_family) would put values
+            // in correctly-labeled slots but flip the display order whenever Lazada's
+            // sale-prop order differs from the ERP option order.
+            foreach ($combos as $c) {
+                $values = $comboValuesByCombo->get($c->id) ?? collect();
+
+                $candidate = trim((string)($c->sku ?? ''));
+                if ($candidate === '') {
+                    $valLabel = $values->pluck('value_name')->filter()->implode(' / ');
+                    $human = $valLabel !== '' ? ('Variant: ' . $valLabel) : 'Variant';
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'variants.sku' => $human . ' SKU is required before uploading to Lazada.'
+                    ]);
+                }
+                if (isset($usedSellerSkus[$candidate])) {
+                    $candidate = $candidate . '-' . (int)$c->id;
+                }
+                $usedSellerSkus[$candidate] = true;
+
+                $erpPrice = (float)($c->absolute_price ?? $basePrice);
+                $finalPrice = self::computeFinalPrice($erpPrice, $effectiveFixed, $effectivePercent);
+                $skuRow = [
+                    'SellerSku' => $candidate,
+                    'price' => $finalPrice,
+                    'quantity' => (int)($c->quantity ?? 0),
+                ];
+
+                foreach ($values->values() as $i => $v) {
+                    if (!isset($variantKeys[$i])) {
+                        continue;
+                    }
+                    $valName = trim((string)($v->value_name ?? ''));
+                    if ($valName !== '') {
+                        $skuRow[$variantKeys[$i]] = $valName;
+                    }
+                }
+
+                $skus[] = $skuRow;
+            }
+        } elseif ($povRows->count() > 0) {
             foreach ($povRows as $r) {
                 $key = (string)$r->product_option_value_id;
                 $m = $map->get($key);
@@ -4906,8 +5005,10 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
      *
      * Returns up to 2 attribute keys (strings). Empty array if not available.
      */
-    private function getLazadaSalePropKeys(int $primaryCategoryId, LazadaSetting $setting, LazadaClient $client): array
+    private function getLazadaSalePropKeys(int $primaryCategoryId, object $setting, LazadaClient $client): array
     {
+        $creds = LazadaSetting::activeCredentials($setting);
+
         if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($setting->region)) {
             return [];
         }
@@ -4961,6 +5062,86 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
         } catch (\Throwable $e) {
             return [];
         }
+    }
+
+    /**
+     * Read sale-prop keys for a category from the cached template (lazada_category_templates).
+     * Used as a fallback when the live API is rate-limited or unreachable. Returns the keys
+     * in the order Lazada returned them — that order is meaningful (first sale-prop is the
+     * primary variant axis, second is the secondary, etc.).
+     */
+    private function cachedSalePropKeys(int $primaryCategoryId): array
+    {
+        if ($primaryCategoryId <= 0) {
+            return [];
+        }
+        $template = LazadaCategoryTemplate::query()
+            ->where('region', $this->region())
+            ->where('primary_category_id', $primaryCategoryId)
+            ->first();
+        if (!$template || empty($template->template_body)) {
+            return [];
+        }
+        $body = is_string($template->template_body)
+            ? json_decode($template->template_body, true)
+            : (array) $template->template_body;
+        if (!is_array($body)) {
+            return [];
+        }
+        $attrs = $body['data']['attributes'] ?? $body['data'] ?? $body['attributes'] ?? $body;
+        if (!is_array($attrs)) {
+            return [];
+        }
+        $keys = [];
+        foreach ($attrs as $a) {
+            if (!is_array($a)) continue;
+            $isSale = (bool)($a['is_sale_prop'] ?? $a['isSaleProp'] ?? $a['sale_prop'] ?? false);
+            if (!$isSale) continue;
+            $k = trim((string)($a['name'] ?? $a['attribute_name'] ?? $a['key'] ?? ''));
+            if ($k !== '') {
+                $keys[] = $k;
+            }
+        }
+        return $keys;
+    }
+
+    /**
+     * Map of Lazada sale-prop key → human label (e.g. color_family → "Color Family").
+     * Used only for operator-facing error messages.
+     */
+    private function cachedSalePropLabels(int $primaryCategoryId): array
+    {
+        if ($primaryCategoryId <= 0) {
+            return [];
+        }
+        $template = LazadaCategoryTemplate::query()
+            ->where('region', $this->region())
+            ->where('primary_category_id', $primaryCategoryId)
+            ->first();
+        if (!$template || empty($template->template_body)) {
+            return [];
+        }
+        $body = is_string($template->template_body)
+            ? json_decode($template->template_body, true)
+            : (array) $template->template_body;
+        if (!is_array($body)) {
+            return [];
+        }
+        $attrs = $body['data']['attributes'] ?? $body['data'] ?? $body['attributes'] ?? $body;
+        if (!is_array($attrs)) {
+            return [];
+        }
+        $labels = [];
+        foreach ($attrs as $a) {
+            if (!is_array($a)) continue;
+            if (empty($a['is_sale_prop'] ?? $a['isSaleProp'] ?? $a['sale_prop'] ?? false)) continue;
+            $k = trim((string)($a['name'] ?? $a['attribute_name'] ?? $a['key'] ?? ''));
+            $label = trim((string)($a['label'] ?? $a['display_name'] ?? ''));
+            if ($k !== '' && $label !== '') {
+                $labels[$k] = $label;
+            }
+        }
+        return $labels;
     }
 
     /**

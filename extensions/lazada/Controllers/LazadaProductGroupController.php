@@ -343,27 +343,74 @@ class LazadaProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        // Option rows
+        // Option rows (variations) for display — combinations first, fallback to option values.
+        // Single-option products store SKU/qty/price directly on product_option_value rows;
+        // multi-option products store them on product_option_combinations (with the option
+        // value rows kept empty as structural placeholders). Mirrors VentaProductGroupController.
         $optionRowsByProductId = collect();
         if (!empty($pivotProductIds)) {
-            $optionRowsByProductId = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
-                })
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
-                })
-                ->whereIn('pov.product_id', $pivotProductIds)
-                ->select(
-                    'pov.product_id', 'pov.product_option_value_id',
-                    'od.name as option_name', 'ovd.name as option_value_name',
-                    'pov.quantity as option_quantity', 'pov.sku as option_sku',
-                    'pov.absolute_price as option_absolute_price'
-                )
-                ->orderBy('pov.product_id')
-                ->orderBy('pov.product_option_value_id')
-                ->get()
-                ->groupBy('product_id');
+            $combos = DB::table('product_option_combinations as poc')
+                ->whereIn('poc.product_id', $pivotProductIds)
+                ->orderBy('poc.product_id')
+                ->orderBy('poc.sort_order')
+                ->get();
+
+            $comboProductIds = $combos->pluck('product_id')->unique()->toArray();
+
+            if ($combos->isNotEmpty()) {
+                $comboIds = $combos->pluck('id')->toArray();
+                $comboValues = DB::table('product_option_combination_values as pocv')
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pocv.product_option_value_id', '=', 'ovd.option_value_id')
+                            ->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pocv.combination_id', $comboIds)
+                    ->select('pocv.combination_id', 'ovd.name as value_name')
+                    ->get()
+                    ->groupBy('combination_id');
+
+                foreach ($combos as $c) {
+                    $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
+                    $row = (object) [
+                        'product_id'              => $c->product_id,
+                        'product_option_value_id' => $c->id,
+                        'option_name'             => 'Option',
+                        'option_value_name'       => $valueNames,
+                        'option_quantity'         => (int) $c->quantity,
+                        'option_sku'              => $c->sku,
+                        'option_absolute_price'   => (float) $c->absolute_price,
+                    ];
+                    if (!$optionRowsByProductId->has($c->product_id)) {
+                        $optionRowsByProductId[$c->product_id] = collect();
+                    }
+                    $optionRowsByProductId[$c->product_id]->push($row);
+                }
+            }
+
+            // Fallback for products without combinations (single-option variations)
+            $nonComboIds = array_diff($pivotProductIds, $comboProductIds);
+            if (!empty($nonComboIds)) {
+                $optValues = DB::table($pfx . 'product_option_value as pov')
+                    ->join($pfx . 'option_description as od', function ($j) use ($langId) {
+                        $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                    })
+                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
+                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                    })
+                    ->whereIn('pov.product_id', $nonComboIds)
+                    ->select(
+                        'pov.product_id', 'pov.product_option_value_id',
+                        'od.name as option_name', 'ovd.name as option_value_name',
+                        'pov.quantity as option_quantity', 'pov.sku as option_sku',
+                        'pov.absolute_price as option_absolute_price'
+                    )
+                    ->orderBy('pov.product_id')
+                    ->orderBy('pov.product_option_value_id')
+                    ->get()
+                    ->groupBy('product_id');
+
+                $optionRowsByProductId = $optionRowsByProductId->merge($optValues);
+            }
         }
 
         // All product IDs in this group
@@ -574,6 +621,8 @@ class LazadaProductGroupController extends Controller
         $itemId = (string) ($listing->lazada_item_id ?? '');
         if ($itemId === '') return;
 
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $apiPath = '/product/item/get';
         $params = [
             'app_key'      => (string) $creds['app_key'],
@@ -587,6 +636,19 @@ class LazadaProductGroupController extends Controller
         $res = $client->get((string) $setting->region, $apiPath, $params);
         $body = $res['body'] ?? [];
         $data = $body['data'] ?? $body;
+
+        $apiCode = is_array($body) ? (string)($body['code'] ?? '') : '';
+        \Extensions\lazada\Models\LazadaApiLog::safeCreate([
+            'pack'            => 'lazada.product.item.get.cache.group',
+            'method'          => 'GET',
+            'api_path'        => $apiPath,
+            'auth_required'   => true,
+            'request_params'  => $params,
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok'              => ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0'),
+            'response_body'   => $body,
+            'user_id'         => auth()->id(),
+        ]);
 
         if (empty($data) || !is_array($data)) return;
 
@@ -1548,6 +1610,8 @@ class LazadaProductGroupController extends Controller
         $itemId = (string) ($listing->lazada_item_id ?? '');
         if ($itemId === '') return [];
 
+        $creds = LazadaSetting::activeCredentials($setting);
+
         $apiPath = '/product/item/get';
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
@@ -1562,6 +1626,19 @@ class LazadaProductGroupController extends Controller
         $res = $client->get((string) $setting->region, $apiPath, $params);
         $body = $res['body'] ?? [];
         $data = $body['data'] ?? $body;
+
+        $apiCode = is_array($body) ? (string)($body['code'] ?? '') : '';
+        \Extensions\lazada\Models\LazadaApiLog::safeCreate([
+            'pack'            => 'lazada.product.item.get.variants.group',
+            'method'          => 'GET',
+            'api_path'        => $apiPath,
+            'auth_required'   => true,
+            'request_params'  => $params,
+            'response_status' => (int) ($res['status'] ?? 0),
+            'ok'              => ($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0'),
+            'response_body'   => $body,
+            'user_id'         => auth()->id(),
+        ]);
 
         $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
         if (!is_array($skus)) return [];
