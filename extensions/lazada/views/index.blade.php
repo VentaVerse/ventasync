@@ -211,8 +211,17 @@
             <form method="POST" action="{{ route('ext.lazada.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
-                <input type="hidden" name="region" value="{{ $setting->region ?? '' }}">
                 <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label>Region</label>
+                        <select name="region" class="input">
+                            <option value="">(not set)</option>
+                            @foreach(['ph' => 'Philippines', 'sg' => 'Singapore', 'my' => 'Malaysia', 'id' => 'Indonesia', 'th' => 'Thailand', 'vn' => 'Vietnam'] as $code => $name)
+                                <option value="{{ $code }}" {{ ($setting->region ?? '') === $code ? 'selected' : '' }}>{{ $name }} ({{ $code }})</option>
+                            @endforeach
+                        </select>
+                        <div class="hint">Shared with production — picking here also applies to the live form.</div>
+                    </div>
                     <div>
                         <label>Sandbox App Key</label>
                         <input class="input" name="sandbox_app_key" autocomplete="off" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}">
