@@ -71,4 +71,41 @@ class LazadaSetting extends Model
 
         return $s;
     }
+
+    /**
+     * Pick the credentials Lazada API calls should use right now, based on
+     * the mode toggle. Every call site reads through this — if mode='sandbox'
+     * it gets sandbox_* values, if mode='live' it gets the live values.
+     *
+     * Returns null when the active mode has missing required credentials
+     * (app_key/app_secret/access_token). Call sites must check for null and
+     * abort instead of falling back to the other mode — that would defeat
+     * the whole point of mode isolation.
+     *
+     * Expects $this to be the decrypted() result. Calling on an encrypted
+     * row returns ciphertext, which Lazada will reject as InvalidSignature.
+     */
+    public function activeCredentials(): ?array
+    {
+        $isSandbox = (($this->mode ?? 'live') === 'sandbox');
+
+        $appKey       = $isSandbox ? ($this->sandbox_app_key       ?? null) : ($this->app_key       ?? null);
+        $appSecret    = $isSandbox ? ($this->sandbox_app_secret    ?? null) : ($this->app_secret    ?? null);
+        $accessToken  = $isSandbox ? ($this->sandbox_access_token  ?? null) : ($this->access_token  ?? null);
+        $refreshToken = $isSandbox ? ($this->sandbox_refresh_token ?? null) : ($this->refresh_token ?? null);
+        $expiresAt    = $isSandbox ? ($this->sandbox_expires_at    ?? null) : ($this->expires_at    ?? null);
+
+        if (empty($appKey) || empty($appSecret) || empty($accessToken)) {
+            return null;
+        }
+
+        return [
+            'mode'          => $isSandbox ? 'sandbox' : 'live',
+            'app_key'       => (string) $appKey,
+            'app_secret'    => (string) $appSecret,
+            'access_token'  => (string) $accessToken,
+            'refresh_token' => $refreshToken ? (string) $refreshToken : null,
+            'expires_at'    => $expiresAt,
+        ];
+    }
 }

@@ -9,14 +9,20 @@ class LazadaClient
 {
     /**
      * Lazada REST API endpoints by region.
-     * NOTE: Lazada has announced endpoint changes/deprecations; keep this mapping configurable in UI.
+     *
+     * Sandbox and live use the SAME regional URL — the distinction lives in
+     * which app_key/app_secret/access_token are presented in the request, not
+     * in the host. Verified empirically 2026-05-16: sandbox app 114192's
+     * credentials authenticated cleanly against api.lazada.com.ph/rest (HTTP
+     * 200 from Lazada). The previous "if mode='sandbox' return api.lazada.test"
+     * branch was a placeholder — .test is RFC 6761-reserved and never resolves
+     * — which silently broke every sandbox API call once the rest of the
+     * mode-aware plumbing started routing to it.
+     *
+     * The $mode parameter is preserved but no longer affects the URL.
      */
     public function baseUrl(?string $region, string $mode = 'live'): string
     {
-        if ($mode === 'sandbox') {
-            return 'https://api.lazada.test/rest';
-        }
-
         $region = strtolower(trim((string)$region));
 
         $map = [
