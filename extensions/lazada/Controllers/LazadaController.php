@@ -1285,6 +1285,41 @@ class LazadaController extends Controller
         ]);
     }
 
+    /**
+     * Save a pre-issued sandbox access token directly to sandbox_access_token.
+     *
+     * Workflow this supports: Lazada Open Platform → API Explorer → "Get Token"
+     * button hands the developer a pre-issued sandbox access token bound to a
+     * Lazada-owned test seller. The developer pastes that token here instead
+     * of running the full OAuth handshake (which requires logging in as the
+     * test seller — credential that Lazada doesn't always make available).
+     *
+     * The token saved here lands in sandbox_access_token; only API calls made
+     * with mode='sandbox' will use it.
+     */
+    public function saveSandboxToken(Request $request)
+    {
+        $data = $request->validate([
+            'sandbox_access_token' => 'required|string|min:10|max:255',
+            'expires_in_days'      => 'nullable|integer|min:1|max:365',
+        ]);
+
+        $setting = LazadaSetting::query()->first() ?? new LazadaSetting();
+
+        // Saving a sandbox token implies the user wants to be in sandbox mode.
+        // Matches the same auto-sync we did for the env-driven settings save.
+        $setting->mode = 'sandbox';
+        $setting->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
+        $setting->sandbox_expires_at   = now()->addDays($data['expires_in_days'] ?? 7);
+        $setting->save();
+
+        return redirect()->route('ext.lazada.index')->with('lazada_result', [
+            'ok'    => true,
+            'title' => 'Sandbox token saved',
+            'data'  => ['message' => 'Pre-issued sandbox access token saved. Mode is now Sandbox — every Lazada API call will use this token until you toggle back to Production.'],
+        ]);
+    }
+
     public function callApi(Request $request, LazadaClient $client)
     {
         $request->validate([

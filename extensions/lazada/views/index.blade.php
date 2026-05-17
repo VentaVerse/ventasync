@@ -295,6 +295,30 @@
                         <button class="btn small secondary" type="submit">Refresh Sandbox Token</button>
                     </form>
                 </div>
+
+                <div class="detail-section" style="border-top:1px dashed #d1d5db; padding-top:14px; margin-top:14px;">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <span class="badge badge-yellow" style="font-size:10px;">Alternative</span>
+                        <span class="font-semibold text-sm">Paste a pre-issued sandbox access token</span>
+                    </div>
+                    <div class="hint" style="margin-bottom:10px;">
+                        If you can't log in as the sandbox test seller, use Lazada Open Platform → API Explorer → <strong>Get Token</strong> button to get a pre-issued sandbox access token, then paste it here. Skips the OAuth handshake entirely. Mode auto-switches to Sandbox on save.
+                    </div>
+                    <form method="POST" action="{{ route('ext.lazada.sandbox_token_save') }}">
+                        @csrf
+                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:240px;">
+                                <label class="text-xs text-muted">Sandbox Access Token</label>
+                                <input class="input" name="sandbox_access_token" type="password" autocomplete="off" placeholder="Paste the token from API Explorer's Get Token button">
+                            </div>
+                            <div style="width:120px;">
+                                <label class="text-xs text-muted">Expires In (days)</label>
+                                <input class="input" name="expires_in_days" type="number" min="1" max="365" value="7">
+                            </div>
+                            <button class="btn small" type="submit">Save Sandbox Token</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

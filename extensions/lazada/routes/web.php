@@ -31,6 +31,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/lazada/api-logs', [LazadaController::class, 'clearApiLogs'])->name('ext.lazada.clear_api_logs');
         Route::post('/lazada/token/create', [LazadaController::class, 'tokenCreate'])->name('ext.lazada.token_create');
         Route::post('/lazada/token/refresh', [LazadaController::class, 'tokenRefresh'])->name('ext.lazada.token_refresh');
+        Route::post('/lazada/sandbox-token/save', [LazadaController::class, 'saveSandboxToken'])->name('ext.lazada.sandbox_token_save');
         Route::post('/lazada/call', [LazadaController::class, 'callApi'])->name('ext.lazada.call_api');
         Route::post('/lazada/explorer/run', [LazadaController::class, 'explorerRun'])->name('ext.lazada.explorer_run');
         Route::post('/lazada/packs/run', [LazadaController::class, 'packsRun'])->name('ext.lazada.packs_run');
