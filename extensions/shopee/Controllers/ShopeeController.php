@@ -132,7 +132,7 @@ public function index()
 
         return view('ext-shopee::index', [
             'setting' => $setting?->decrypted(),
-            'defaultRedirect' => config('app.url'),
+            'defaultRedirect' => $this->computedRedirectUri(),
             'result' => session('shopee_result'),
             'orderStatusMap' => $orderStatusMap,
             'erpOrderStatuses' => $erpOrderStatuses,
@@ -151,13 +151,11 @@ public function index()
             'partner_key' => 'nullable|string',
             'shop_id' => 'nullable|integer|min:1',
             'access_token' => 'nullable|string',
-            'redirect_uri' => 'nullable|string|max:255',
             'region' => 'nullable|string|max:16',
             'sandbox_partner_id' => 'nullable|integer|min:1',
             'sandbox_partner_key' => 'nullable|string',
             'sandbox_shop_id' => 'nullable|integer|min:1',
             'sandbox_access_token' => 'nullable|string',
-            'sandbox_redirect_uri' => 'nullable|string|max:255',
             'sandbox_region' => 'nullable|string|max:16',
         ]);
 
@@ -169,7 +167,6 @@ public function index()
         if ($env === 'live') {
             $setting->partner_id = $data['partner_id'] ?? null;
             $setting->shop_id = $data['shop_id'] ?? null;
-            $setting->redirect_uri = $data['redirect_uri'] ?? null;
             $setting->region = $data['region'] ?? null;
 
             $setting->partner_key = isset($data['partner_key']) && $data['partner_key'] !== ''
@@ -182,7 +179,6 @@ public function index()
         } else {
             $setting->sandbox_partner_id = $data['sandbox_partner_id'] ?? null;
             $setting->sandbox_shop_id = $data['sandbox_shop_id'] ?? null;
-            $setting->sandbox_redirect_uri = $data['sandbox_redirect_uri'] ?? null;
             $setting->sandbox_region = $data['sandbox_region'] ?? null;
 
             $setting->sandbox_partner_key = isset($data['sandbox_partner_key']) && $data['sandbox_partner_key'] !== ''
@@ -237,24 +233,39 @@ public function index()
      */
     private function activeCredentials(?object $setting): array
     {
+        $redirect = $this->computedRedirectUri();
         if (!$setting) {
-            return ['partner_id' => null, 'partner_key' => null, 'redirect_uri' => null, 'mode' => 'sandbox'];
+            return ['partner_id' => null, 'partner_key' => null, 'redirect_uri' => $redirect, 'mode' => 'sandbox'];
         }
         $mode = $setting->mode ?? 'sandbox';
         if ($mode === 'sandbox') {
             return [
                 'partner_id'   => $setting->sandbox_partner_id ?? null,
                 'partner_key'  => $setting->sandbox_partner_key ?? null,
-                'redirect_uri' => $setting->sandbox_redirect_uri ?? null,
+                'redirect_uri' => $redirect,
                 'mode'         => 'sandbox',
             ];
         }
         return [
             'partner_id'   => $setting->partner_id ?? null,
             'partner_key'  => $setting->partner_key ?? null,
-            'redirect_uri' => $setting->redirect_uri ?? null,
+            'redirect_uri' => $redirect,
             'mode'         => 'live',
         ];
+    }
+
+    /**
+     * Redirect URI we send to Shopee and display to the operator. Derived
+     * from APP_URL with HTTPS forced and pointed at the Shopee settings page
+     * — Shopee bounces the user back with `?code=...&shop_id=...` in the URL,
+     * so landing them on the settings page (which has the code-paste form
+     * in plain sight) is the right UX. Read-only in the UI prevents typos
+     * silently breaking OAuth, since the URL must byte-match what's
+     * registered in the Shopee Open Platform console.
+     */
+    private function computedRedirectUri(): string
+    {
+        return preg_replace('/^http:/i', 'https:', route('ext.shopee.index'));
     }
 
     public function redirectToShopeeAuth(ShopeeClient $client)

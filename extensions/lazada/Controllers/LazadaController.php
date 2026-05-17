@@ -160,7 +160,7 @@ class LazadaController extends Controller
 
         return view('ext-lazada::index', [
             'setting' => $setting?->decrypted(),
-            'defaultRedirect' => route('lazada.callback'),
+            'defaultRedirect' => $this->computedRedirectUri(),
             'result' => session('lazada_result'),
             'products' => $products,
             'logs' => $logs,
@@ -945,10 +945,8 @@ class LazadaController extends Controller
             'region' => 'nullable|in:ph,sg,my,id,th,vn',
             'app_key' => 'nullable|string|max:64',
             'app_secret' => 'nullable|string|max:255',
-            'redirect_uri' => 'nullable|string|max:255',
             'sandbox_app_key' => 'nullable|string|max:64',
             'sandbox_app_secret' => 'nullable|string|max:255',
-            'sandbox_redirect_uri' => 'nullable|string|max:255',
         ]);
 
         $setting = LazadaSetting::query()->first() ?? new LazadaSetting();
@@ -956,16 +954,15 @@ class LazadaController extends Controller
         $setting->region = $data['region'] ?? null;
 
         $env = $data['env'] ?? 'live';
+        $setting->mode = $env;
 
         if ($env === 'live') {
             $setting->app_key = $data['app_key'] ?? null;
-            $setting->redirect_uri = $data['redirect_uri'] ?? null;
             $setting->app_secret = isset($data['app_secret']) && $data['app_secret'] !== ''
                 ? encrypt(trim($data['app_secret']))
                 : null;
         } else {
             $setting->sandbox_app_key = $data['sandbox_app_key'] ?? null;
-            $setting->sandbox_redirect_uri = $data['sandbox_redirect_uri'] ?? null;
             $setting->sandbox_app_secret = isset($data['sandbox_app_secret']) && $data['sandbox_app_secret'] !== ''
                 ? encrypt(trim($data['sandbox_app_secret']))
                 : null;
@@ -986,25 +983,52 @@ class LazadaController extends Controller
         return redirect()->route('ext.lazada.index')->with('status', 'Switched to ' . ($data['mode'] === 'sandbox' ? 'Sandbox' : 'Production') . ' mode.');
     }
 
-    public function redirectToAuth(LazadaClient $client)
+    public function redirectToAuth(Request $request, LazadaClient $client)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
 
-        if (!$setting || !$setting->app_key || !$setting->redirect_uri) {
+        // ?sandbox=1 from "Authorize Sandbox" button forces sandbox mode.
+        // Otherwise the mode toggle (`$setting->mode`) decides.
+        $isSandbox = $request->has('sandbox')
+            ? $request->boolean('sandbox')
+            : (($setting->mode ?? 'live') === 'sandbox');
+
+        $appKey = $isSandbox
+            ? ($setting->sandbox_app_key ?? null)
+            : ($setting->app_key ?? null);
+
+        if (!$setting || !$appKey) {
+            $modeLabel = $isSandbox ? 'Sandbox' : 'Production';
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'App Key and Redirect URI are required to authorize.'],
+                'data' => ['message' => "{$modeLabel} App Key is required to authorize."],
             ]);
         }
 
         // Stateless POC, but we still bind a state token to reduce accidental cross-account redirects.
+        // The sandbox flag is stashed so callback() can route the auth code + token to the right columns.
         $state = Str::random(24);
-        session(['lazada_oauth_state' => $state]);
+        session([
+            'lazada_oauth_state'   => $state,
+            'lazada_oauth_sandbox' => $isSandbox,
+        ]);
 
-        $url = $client->authUrl((string)$setting->app_key, (string)$setting->redirect_uri, $state);
+        $url = $client->authUrl((string)$appKey, $this->computedRedirectUri(), $state);
 
         return redirect()->away($url);
+    }
+
+    /**
+     * The redirect URI we send to Lazada and display to the operator. Derived
+     * from APP_URL with HTTPS forced — Lazada requires HTTPS for production
+     * callbacks and a stable byte-for-byte match against the value registered
+     * in the Lazada Open Platform console. Read-only in the UI prevents typos
+     * silently breaking OAuth.
+     */
+    private function computedRedirectUri(): string
+    {
+        return preg_replace('/^http:/i', 'https:', route('lazada.callback'));
     }
 
     public function callback(Request $request, LazadaClient $client)
@@ -1022,11 +1046,20 @@ class LazadaController extends Controller
             $stateOk = false;
         }
 
+        // Read the sandbox flag set by redirectToAuth so we route the auth
+        // code, token-exchange credentials, and persisted tokens to the right
+        // column set (sandbox_* vs live).
+        $isSandbox = (bool) session('lazada_oauth_sandbox', false);
+
         // Persist the auth code so it's visible in the UI even if token exchange fails.
         if ($code !== '') {
             try {
                 $rawForCode = LazadaSetting::query()->first() ?? new LazadaSetting();
-                $rawForCode->auth_code = encrypt($code);
+                if ($isSandbox) {
+                    $rawForCode->sandbox_auth_code = encrypt($code);
+                } else {
+                    $rawForCode->auth_code = encrypt($code);
+                }
                 $rawForCode->save();
                 $saved = true;
             } catch (\Throwable $e) {
@@ -1043,8 +1076,11 @@ class LazadaController extends Controller
         $tokenResult = null;
         $setting = LazadaSetting::query()->first()?->decrypted();
 
-        if ($code !== '' && $stateOk && $setting && $setting->region && $setting->app_key && $setting->app_secret) {
-            $tokenResult = $this->doTokenCreate($client, (string)$setting->region, (string)$setting->app_key, (string)$setting->app_secret, $code);
+        $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($setting->app_key ?? null);
+        $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($setting->app_secret ?? null);
+
+        if ($code !== '' && $stateOk && $setting && $setting->region && $appKey && $appSecret) {
+            $tokenResult = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, $code);
 
             if (($tokenResult['ok'] ?? false) && is_array($tokenResult['body'] ?? null)) {
                 $access = $tokenResult['body']['access_token'] ?? null;
@@ -1054,17 +1090,32 @@ class LazadaController extends Controller
 
                 $raw = LazadaSetting::query()->first() ?? new LazadaSetting();
 
-                if ($access) {
-                    $raw->access_token = encrypt((string)$access);
-                }
-                if ($refresh) {
-                    $raw->refresh_token = encrypt((string)$refresh);
-                }
-                if (is_numeric($expiresIn)) {
-                    $raw->expires_at = now()->addSeconds((int)$expiresIn);
-                }
-                if (is_numeric($refreshExpiresIn)) {
-                    $raw->refresh_expires_at = now()->addSeconds((int)$refreshExpiresIn);
+                if ($isSandbox) {
+                    if ($access) {
+                        $raw->sandbox_access_token = encrypt((string)$access);
+                    }
+                    if ($refresh) {
+                        $raw->sandbox_refresh_token = encrypt((string)$refresh);
+                    }
+                    if (is_numeric($expiresIn)) {
+                        $raw->sandbox_expires_at = now()->addSeconds((int)$expiresIn);
+                    }
+                    if (is_numeric($refreshExpiresIn)) {
+                        $raw->sandbox_refresh_expires_at = now()->addSeconds((int)$refreshExpiresIn);
+                    }
+                } else {
+                    if ($access) {
+                        $raw->access_token = encrypt((string)$access);
+                    }
+                    if ($refresh) {
+                        $raw->refresh_token = encrypt((string)$refresh);
+                    }
+                    if (is_numeric($expiresIn)) {
+                        $raw->expires_at = now()->addSeconds((int)$expiresIn);
+                    }
+                    if (is_numeric($refreshExpiresIn)) {
+                        $raw->refresh_expires_at = now()->addSeconds((int)$refreshExpiresIn);
+                    }
                 }
 
                 $raw->account = $tokenResult['body']['account'] ?? $raw->account;

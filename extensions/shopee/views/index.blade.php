@@ -98,7 +98,8 @@
                     <div class="form-grid">
                         <div>
                             <label>Redirect URI</label>
-                            <input class="input" name="redirect_uri" value="{{ old('redirect_uri', $setting->redirect_uri ?? $defaultRedirect) }}">
+                            <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
+                            <div class="hint">Register this exact URL in your Shopee Open Platform live app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                         </div>
                         <div>
                             <label>Region</label>
@@ -227,7 +228,8 @@
                     <div class="form-grid">
                         <div>
                             <label>Redirect URI</label>
-                            <input class="input" name="sandbox_redirect_uri" value="{{ old('sandbox_redirect_uri', $setting->sandbox_redirect_uri ?? $defaultRedirect) }}">
+                            <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
+                            <div class="hint">Register this exact URL in your Shopee Open Platform sandbox app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                         </div>
                         <div>
                             <label>Region</label>
