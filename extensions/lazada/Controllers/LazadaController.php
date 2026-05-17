@@ -1080,7 +1080,7 @@ class LazadaController extends Controller
         $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($setting->app_secret ?? null);
 
         if ($code !== '' && $stateOk && $setting && $setting->region && $appKey && $appSecret) {
-            $tokenResult = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, $code);
+            $tokenResult = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, $code, $isSandbox ? 'sandbox' : 'live');
 
             if (($tokenResult['ok'] ?? false) && is_array($tokenResult['body'] ?? null)) {
                 $access = $tokenResult['body']['access_token'] ?? null;
@@ -1157,34 +1157,87 @@ class LazadaController extends Controller
     {
         $request->validate([
             'code' => 'required|string',
+            'sandbox' => 'nullable|in:0,1',
         ]);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret) {
+
+        // The form may carry an explicit `sandbox` flag (the sandbox tab posts
+        // <input name="sandbox" value="1">). Otherwise fall back to the mode toggle.
+        $isSandbox = $request->has('sandbox')
+            ? $request->boolean('sandbox')
+            : (($setting->mode ?? 'live') === 'sandbox');
+
+        $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($setting->app_key ?? null);
+        $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($setting->app_secret ?? null);
+
+        if (!$setting || !$setting->region || !$appKey || !$appSecret) {
+            $modeLabel = $isSandbox ? 'Sandbox' : 'Production';
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Region, App Key, and App Secret are required.'],
+                'data' => ['message' => "Region, {$modeLabel} App Key, and {$modeLabel} App Secret are required."],
             ]);
         }
 
-        $result = $this->doTokenCreate($client, (string)$setting->region, (string)$setting->app_key, (string)$setting->app_secret, (string)$request->input('code'));
+        $result = $this->doTokenCreate($client, (string)$setting->region, (string)$appKey, (string)$appSecret, (string)$request->input('code'), $isSandbox ? 'sandbox' : 'live');
+
+        // Persist the resulting token to the right column set, mirroring callback().
+        if (($result['ok'] ?? false) && is_array($result['body'] ?? null)) {
+            $access = $result['body']['access_token'] ?? null;
+            $refresh = $result['body']['refresh_token'] ?? null;
+            $expiresIn = $result['body']['expires_in'] ?? null;
+            $refreshExpiresIn = $result['body']['refresh_expires_in'] ?? null;
+
+            $raw = LazadaSetting::query()->first() ?? new LazadaSetting();
+
+            if ($isSandbox) {
+                if ($access) $raw->sandbox_access_token = encrypt((string)$access);
+                if ($refresh) $raw->sandbox_refresh_token = encrypt((string)$refresh);
+                if (is_numeric($expiresIn)) $raw->sandbox_expires_at = now()->addSeconds((int)$expiresIn);
+                if (is_numeric($refreshExpiresIn)) $raw->sandbox_refresh_expires_at = now()->addSeconds((int)$refreshExpiresIn);
+            } else {
+                if ($access) $raw->access_token = encrypt((string)$access);
+                if ($refresh) $raw->refresh_token = encrypt((string)$refresh);
+                if (is_numeric($expiresIn)) $raw->expires_at = now()->addSeconds((int)$expiresIn);
+                if (is_numeric($refreshExpiresIn)) $raw->refresh_expires_at = now()->addSeconds((int)$refreshExpiresIn);
+            }
+
+            $raw->account = $result['body']['account'] ?? $raw->account;
+            $raw->country = $result['body']['country'] ?? $raw->country;
+
+            try {
+                $raw->save();
+            } catch (\Throwable $e) {
+                // ignore — tokenResult will surface in UI
+            }
+        }
 
         return redirect()->route('ext.lazada.index')->with('lazada_result', [
             'ok' => (bool)$result['ok'],
-            'title' => 'Token Create',
+            'title' => $isSandbox ? 'Sandbox Token Create' : 'Token Create',
             'data' => $result,
         ]);
     }
 
-    public function tokenRefresh(LazadaClient $client)
+    public function tokenRefresh(Request $request, LazadaClient $client)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->refresh_token) {
+
+        $isSandbox = $request->has('sandbox')
+            ? $request->boolean('sandbox')
+            : (($setting->mode ?? 'live') === 'sandbox');
+
+        $appKey = $isSandbox ? ($setting->sandbox_app_key ?? null) : ($setting->app_key ?? null);
+        $appSecret = $isSandbox ? ($setting->sandbox_app_secret ?? null) : ($setting->app_secret ?? null);
+        $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
+
+        if (!$setting || !$setting->region || !$appKey || !$appSecret || !$refreshToken) {
+            $modeLabel = $isSandbox ? 'Sandbox' : 'Production';
             return redirect()->route('ext.lazada.index')->with('lazada_result', [
                 'ok' => false,
                 'title' => 'Missing settings',
-                'data' => ['message' => 'Region, App Key, App Secret, and Refresh Token are required.'],
+                'data' => ['message' => "Region, {$modeLabel} App Key, {$modeLabel} App Secret, and a {$modeLabel} Refresh Token are required."],
             ]);
         }
 
@@ -1192,36 +1245,16 @@ class LazadaController extends Controller
         $timestamp = (string)round(microtime(true) * 1000);
 
         $params = [
-            'app_key' => (string)$setting->app_key,
+            'app_key' => (string)$appKey,
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
-            'refresh_token' => (string)$setting->refresh_token,
+            'refresh_token' => (string)$refreshToken,
             'grant_type' => 'refresh_token',
         ];
 
+        $params['sign'] = $client->sign($apiPath, $params, (string)$appSecret);
 
-        // Normalize pagination params for specific Lazada endpoints
-        if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
-            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
-            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
-
-            if ($pageNo !== null && $pageSize !== null) {
-                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
-                $params['pageSize'] = max(1, $pageSize);
-                unset($params['page_no'], $params['page_size']);
-            } else {
-                // if client already provided correct keys, ensure casing matches Lazada
-                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
-                    $params['pageSize'] = (int)$params['page_size'];
-                    unset($params['page_size']);
-                }
-            }
-        }
-
-        $params['sign'] = $client->sign($apiPath, $params, (string)$setting->app_secret);
-
-        $result = $client->post((string)$setting->region, $apiPath, $params);
+        $result = $client->post((string)$setting->region, $apiPath, $params, $isSandbox ? 'sandbox' : 'live');
 
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;
@@ -1229,9 +1262,16 @@ class LazadaController extends Controller
 
             $raw = LazadaSetting::query()->first();
             if ($raw && $access) {
-                $raw->access_token = encrypt((string)$access);
-                if (is_numeric($expiresIn)) {
-                    $raw->expires_at = now()->addSeconds((int)$expiresIn);
+                if ($isSandbox) {
+                    $raw->sandbox_access_token = encrypt((string)$access);
+                    if (is_numeric($expiresIn)) {
+                        $raw->sandbox_expires_at = now()->addSeconds((int)$expiresIn);
+                    }
+                } else {
+                    $raw->access_token = encrypt((string)$access);
+                    if (is_numeric($expiresIn)) {
+                        $raw->expires_at = now()->addSeconds((int)$expiresIn);
+                    }
                 }
                 $raw->save();
                 Cache::forget('lazada_sync_paused');
@@ -1828,7 +1868,7 @@ class LazadaController extends Controller
         return $skus;
     }
 
-    private function doTokenCreate(LazadaClient $client, string $region, string $appKey, string $appSecret, string $code): array
+    private function doTokenCreate(LazadaClient $client, string $region, string $appKey, string $appSecret, string $code, string $mode = 'live'): array
     {
         $apiPath = '/auth/token/create';
         $timestamp = (string)round(microtime(true) * 1000);
@@ -1841,29 +1881,9 @@ class LazadaController extends Controller
             'grant_type' => 'authorization_code',
         ];
 
-
-        // Normalize pagination params for specific Lazada endpoints
-        if ($apiPath === '/category/brands/query') {
-            // Lazada requires startRow + pageSize (not page_no/page_size)
-            $pageNo = isset($params['page_no']) ? (int)$params['page_no'] : null;
-            $pageSize = isset($params['page_size']) ? (int)$params['page_size'] : null;
-
-            if ($pageNo !== null && $pageSize !== null) {
-                $params['startRow'] = max(0, ($pageNo - 1) * $pageSize);
-                $params['pageSize'] = max(1, $pageSize);
-                unset($params['page_no'], $params['page_size']);
-            } else {
-                // if client already provided correct keys, ensure casing matches Lazada
-                if (isset($params['startRow']) && !isset($params['pageSize']) && isset($params['page_size'])) {
-                    $params['pageSize'] = (int)$params['page_size'];
-                    unset($params['page_size']);
-                }
-            }
-        }
-
         $params['sign'] = $client->sign($apiPath, $params, trim($appSecret));
 
-        return $client->post($region, $apiPath, $params);
+        return $client->post($region, $apiPath, $params, $mode);
     }
 
     
