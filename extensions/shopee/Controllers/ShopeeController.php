@@ -164,6 +164,7 @@ public function index()
         $setting = ShopeeSetting::query()->first() ?? new ShopeeSetting();
 
         $env = $data['env'] ?? 'live';
+        $setting->mode = $env;
 
         if ($env === 'live') {
             $setting->partner_id = $data['partner_id'] ?? null;
