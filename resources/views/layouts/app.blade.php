@@ -159,12 +159,12 @@
                             $__cardMenu = collect($__card->menu ?? [])
                                 ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
                                 ->values();
-                            // Multi-store marketplaces (Venta, OpenCart, multi-store Lazada) have
-                            // an empty card-level menu — their menu items live per-store inside
-                            // $card->stores. For those, fall back to a single "Manage" link to
-                            // the module hub so the operator can reach Add Store / per-store
-                            // settings without leaving the sidebar.
-                            $__cardIsMulti = $__cardMenu->isEmpty() && (!empty($__card->stores) || !empty($__card->addStore));
+                            // Multi-store marketplaces (Venta, OpenCart, multi-store Lazada) expose
+                            // their store-specific actions under $card->stores / $card->addStore in
+                            // addition to (or instead of) the flat card-level menu. Always surface
+                            // a "Manage Stores" link when those exist so the operator can reach
+                            // Add Store / per-store settings without leaving the sidebar.
+                            $__cardIsMulti = !empty($__card->stores) || !empty($__card->addStore);
                         @endphp
                         <div class="nav-group">
                             <details {{ $__cardActive ? 'open' : '' }}>

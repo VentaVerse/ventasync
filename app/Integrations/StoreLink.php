@@ -11,11 +11,16 @@ class StoreLink
 {
     /**
      * @param MenuItem[] $menu Per-store action links (e.g. Product Groups, Orders).
+     * @param string $status 'active' (configured + enabled) or 'setup_pending'
+     *                       (created but not yet enabled). The UI shows a
+     *                       badge so freshly-created stores stay visible
+     *                       until the operator finishes configuring them.
      */
     public function __construct(
         public string $id,
         public string $label,
         public array $menu = [],
+        public string $status = 'active',
     ) {
     }
 }

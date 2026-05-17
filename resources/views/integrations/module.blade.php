@@ -64,9 +64,15 @@
                     $visibleStoreMenu = collect($store->menu)
                         ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
                         ->values();
+                    $isPending = ($store->status ?? 'active') === 'setup_pending';
                 @endphp
-                <li class="int-module-store">
-                    <div class="int-module-store-name">{{ $store->label }}</div>
+                <li class="int-module-store {{ $isPending ? 'is-pending' : '' }}">
+                    <div class="int-module-store-name">
+                        {{ $store->label }}
+                        @if($isPending)
+                            <span class="int-module-store-badge">Setup pending</span>
+                        @endif
+                    </div>
                     @if($visibleStoreMenu->isNotEmpty())
                         <div class="int-module-store-actions">
                             @foreach($visibleStoreMenu as $item)

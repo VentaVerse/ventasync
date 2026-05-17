@@ -55,7 +55,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
     public function integrationCards(): array
     {
         $stores = [];
-        foreach ($this->enabledStores() as $store) {
+        foreach ($this->allStores() as $store) {
             $stores[] = new StoreLink(
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
@@ -64,6 +64,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                     new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'manage_venta', null, ['store' => $store->id]),
                     new MenuItem('Orders', 'ext.venta.orders.index', 'manage_venta_orders', null, ['store' => $store->id]),
                 ],
+                status: $store->enabled ? 'active' : 'setup_pending',
             );
         }
 
@@ -103,6 +104,22 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             return [];
         }
         return VentaSetting::where('enabled', true)->orderBy('id')->get();
+    }
+
+    /**
+     * All stores regardless of enabled flag — used by the Integrations UI
+     * (cards / sidebar / module page) so freshly-created disabled stores
+     * remain visible to the operator while they finish configuring them.
+     * Sync/cron paths continue to filter via enabledStores().
+     *
+     * @return iterable<\Extensions\venta\Models\VentaSetting>
+     */
+    protected function allStores(): iterable
+    {
+        if (!Schema::hasTable('venta_settings')) {
+            return [];
+        }
+        return VentaSetting::orderBy('id')->get();
     }
 
     protected function buildOrderTab(int $storeId, string $storeName): OrderTab

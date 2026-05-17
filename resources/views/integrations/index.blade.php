@@ -42,7 +42,19 @@
                             $visibleMenu = collect($card->menu)
                                 ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
                                 ->values();
+                            $canAddStore = !empty($card->addStore)
+                                && (!$card->addStore->permission || (auth()->user() && auth()->user()->hasPermission($card->addStore->permission)));
                         @endphp
+
+                        {{-- Add Store CTA sits above the flat menu so it reads as the
+                             primary action when there's no store yet — Reviews and
+                             other flat menu items fall below it. --}}
+                        @if($canAddStore)
+                            <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-cta">
+                                <span class="int-card-cta-icon" aria-hidden="true">+</span>
+                                <span>{{ $card->addStore->label }}</span>
+                            </a>
+                        @endif
 
                         @if($visibleMenu->isNotEmpty())
                             <ul class="int-card-menu">
@@ -61,16 +73,9 @@
                                 Manage all {{ count($card->stores) }} stores
                                 <span class="int-card-stores-arrow" aria-hidden="true">→</span>
                             </a>
-                        @elseif($visibleMenu->isEmpty())
-                            {{-- Multi-store card with no stores yet (or single-store with no menu).
-                                 Always give the operator a way into the module hub so they can
-                                 add a store / configure settings. --}}
+                        @elseif(!$canAddStore && $visibleMenu->isEmpty())
                             <a href="{{ route('integrations.module', ['module' => $card->id]) }}" class="int-card-stores-link">
-                                @if(!empty($card->addStore) && (!$card->addStore->permission || (auth()->user() && auth()->user()->hasPermission($card->addStore->permission))))
-                                    {{ $card->addStore->label }}
-                                @else
-                                    Open module
-                                @endif
+                                Open module
                                 <span class="int-card-stores-arrow" aria-hidden="true">→</span>
                             </a>
                         @endif
