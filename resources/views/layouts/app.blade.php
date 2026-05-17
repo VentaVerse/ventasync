@@ -87,6 +87,94 @@
         </div>
 
         <div class="sidebar-inner">
+            @php
+                // Contextual sidebar: replace the main nav with a section-scoped one
+                // when the operator is inside Integrations (any marketplace extension
+                // page) or inside the unified Orders page (marketplace order tabs).
+                // Visibility rules match the main sidebar — same permission gates,
+                // same enable/license gates via IntegrationRegistry.
+                $__route = request()->route();
+                $__rn = $__route ? ((string)($__route->getName() ?? '')) : '';
+                $__navContext = null;
+                if ($__rn === 'integrations.orders' || preg_match('/^ext\.[a-z0-9_-]+\.orders\b/', $__rn)) {
+                    $__navContext = 'orders';
+                } elseif (
+                    $__rn === 'integrations.index'
+                    || $__rn === 'integrations.module'
+                    || preg_match('/^ext\.(lazada|shopee|tiktok|venta|opencart|pedallion)\./', $__rn)
+                ) {
+                    $__navContext = 'integrations';
+                }
+
+                // Hoisted from later in the file so both the default + contextual
+                // navs share one lookup.
+                $__orderTabs = app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($u);
+                $__intCards = app(\App\Integrations\IntegrationRegistry::class)->visibleCards($u);
+            @endphp
+
+            @if($__navContext === 'orders')
+                <nav class="sidebar-nav">
+                    <a href="{{ route('dashboard') }}">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                        <span class="label">Back</span>
+                    </a>
+                    <a href="{{ route('integrations.orders') }}" class="{{ $__rn === 'integrations.orders' ? 'active' : '' }}">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+                        <span class="label">Summary</span>
+                    </a>
+                    @foreach($__orderTabs as $__tab)
+                        @php
+                            $__tabActive = $__rn === $__tab->routeName;
+                            $__tabCount = $__tab->unprocessedCount();
+                        @endphp
+                        <a href="{{ route($__tab->routeName, $__tab->routeParams ?? []) }}" class="{{ $__tabActive ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+                            <span class="label">{{ $__tab->label }}</span>
+                            @if($__tabCount !== null && $__tabCount > 0)
+                                <span class="nav-badge">{{ $__tabCount }}</span>
+                            @endif
+                        </a>
+                    @endforeach
+                </nav>
+            @elseif($__navContext === 'integrations')
+                <nav class="sidebar-nav">
+                    <a href="{{ route('dashboard') }}">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                        <span class="label">Back</span>
+                    </a>
+                    <a href="{{ route('integrations.index') }}" class="{{ $__rn === 'integrations.index' ? 'active' : '' }}">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+                        <span class="label">All Integrations</span>
+                    </a>
+                    @foreach($__intCards as $__card)
+                        @php
+                            // Marketplace currently being viewed: open its <details> by default.
+                            $__cardId = (string) $__card->id;
+                            $__cardPrefix = 'ext.' . (str_contains($__cardId, ':') ? strstr($__cardId, ':', true) : $__cardId) . '.';
+                            $__cardActive = str_starts_with($__rn, $__cardPrefix);
+                        @endphp
+                        <div class="nav-group">
+                            <details {{ $__cardActive ? 'open' : '' }}>
+                                <summary class="{{ $__cardActive ? 'active' : '' }}">
+                                    <span class="label">{{ $__card->name }}</span>
+                                    <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                                </summary>
+                                <div class="nav-sub-wrap">
+                                    <div class="nav-sub">
+                                        @foreach($__card->menu as $__item)
+                                            @if(!$__item->permission || ($u && $u->hasPermission($__item->permission)))
+                                                <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
+                                                    <span class="label">{{ $__item->label }}</span>
+                                                </a>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    @endforeach
+                </nav>
+            @else
             <nav class="sidebar-nav">
                 <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
@@ -98,7 +186,6 @@
                      visibility (and the badge total) is driven by IntegrationRegistry,
                      gated by license + enabled + per-tab permission. --}}
                 @php
-                    $__orderTabs = app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($u);
                     $__orderBadge = 0;
                     foreach ($__orderTabs as $__t) {
                         $__c = $__t->unprocessedCount();
@@ -194,9 +281,6 @@
                      (Marketplace API, OpenCart, Venta Store). Visibility of cards
                      and order tabs is driven by IntegrationRegistry, gated by
                      license + enabled + permission. --}}
-                @php
-                    $__intCards = app(\App\Integrations\IntegrationRegistry::class)->visibleCards($u);
-                @endphp
                 @if(!empty($__intCards))
                 <a href="{{ route('integrations.index') }}" class="{{ request()->routeIs('integrations.index') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
@@ -306,6 +390,7 @@
                 </div>
                 @endif
             </nav>
+            @endif {{-- /default nav (closes $__navContext branch) --}}
         </div>
 
         @auth
