@@ -279,7 +279,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
     private function lazadaUpdateSellerSku(LazadaProduct $listing, string $oldSku, string $newSku): ?string
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$creds['access_token'] || !$creds['app_key']) {
             return null;
         }

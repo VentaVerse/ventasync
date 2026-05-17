@@ -90,15 +90,27 @@ class LazadaSetting extends Model
      * Expects $this to be the decrypted() result. Calling on an encrypted
      * row returns ciphertext, which Lazada will reject as InvalidSignature.
      */
-    public function activeCredentials(): array
+    public static function activeCredentials(?object $setting): array
     {
-        $isSandbox = (($this->mode ?? 'live') === 'sandbox');
+        if (!$setting) {
+            return [
+                'mode'          => 'live',
+                'app_key'       => null,
+                'app_secret'    => null,
+                'access_token'  => null,
+                'refresh_token' => null,
+                'expires_at'    => null,
+                'complete'      => false,
+            ];
+        }
 
-        $appKey       = $isSandbox ? ($this->sandbox_app_key       ?? null) : ($this->app_key       ?? null);
-        $appSecret    = $isSandbox ? ($this->sandbox_app_secret    ?? null) : ($this->app_secret    ?? null);
-        $accessToken  = $isSandbox ? ($this->sandbox_access_token  ?? null) : ($this->access_token  ?? null);
-        $refreshToken = $isSandbox ? ($this->sandbox_refresh_token ?? null) : ($this->refresh_token ?? null);
-        $expiresAt    = $isSandbox ? ($this->sandbox_expires_at    ?? null) : ($this->expires_at    ?? null);
+        $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
+
+        $appKey       = $isSandbox ? ($setting->sandbox_app_key       ?? null) : ($setting->app_key       ?? null);
+        $appSecret    = $isSandbox ? ($setting->sandbox_app_secret    ?? null) : ($setting->app_secret    ?? null);
+        $accessToken  = $isSandbox ? ($setting->sandbox_access_token  ?? null) : ($setting->access_token  ?? null);
+        $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
+        $expiresAt    = $isSandbox ? ($setting->sandbox_expires_at    ?? null) : ($setting->expires_at    ?? null);
 
         return [
             'mode'          => $isSandbox ? 'sandbox' : 'live',

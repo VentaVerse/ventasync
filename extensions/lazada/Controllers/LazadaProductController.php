@@ -1039,7 +1039,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -1164,7 +1164,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -1310,7 +1310,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -1510,7 +1510,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         if (!empty($listing->lazada_item_id) && !$listing->unlinked_at) {
             // Already linked and not unlinked — full cache refresh
             $setting = LazadaSetting::query()->first()?->decrypted();
-            $creds = $setting?->activeCredentials() ?? [];
+            $creds = LazadaSetting::activeCredentials($setting);
             if ($setting) {
                 $this->refreshLazadaProductCache($listing, $setting, $client);
             }
@@ -1518,7 +1518,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -1610,7 +1610,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -1806,7 +1806,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -1916,7 +1916,7 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
         }
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -2046,7 +2046,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
-    $creds = $setting?->activeCredentials() ?? [];
+    $creds = LazadaSetting::activeCredentials($setting);
     if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -2219,7 +2219,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
-    $creds = $setting?->activeCredentials() ?? [];
+    $creds = LazadaSetting::activeCredentials($setting);
     if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -2408,7 +2408,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
     }
 
     $setting = LazadaSetting::query()->first()?->decrypted();
-    $creds = $setting?->activeCredentials() ?? [];
+    $creds = LazadaSetting::activeCredentials($setting);
     if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -2808,7 +2808,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $pageSize = (int)($req['pageSize'] ?? ($req['page_size'] ?? 200));
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret).');
@@ -2905,7 +2905,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $pageSize = (int)($req['pageSize'] ?? ($req['page_size'] ?? 200));
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return back()->with('status', 'Missing Lazada settings (region/app key/app secret).');
         }
@@ -3078,7 +3078,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->save();
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)->with('status', 'Missing Lazada settings.');
         }
@@ -3538,7 +3538,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing = LazadaProduct::query()->findOrFail($id);
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.products.edit', $listing->id)
                 ->with('status', 'Missing Lazada settings (region/app key/app secret/access token).');
@@ -4413,7 +4413,7 @@ private function tryMigrateBatchImagesXml(string $region, array $urls, string $a
     public function syncUnmatchedItems(LazadaClient $client)
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return redirect()->route('ext.lazada.products.index')
                 ->with('status', 'Missing Lazada settings.');

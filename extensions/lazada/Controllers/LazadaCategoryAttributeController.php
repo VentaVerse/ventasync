@@ -18,7 +18,7 @@ class LazadaCategoryAttributeController extends Controller
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         $region = (string)($setting->region ?? '');
 
         $template = null;
@@ -54,7 +54,7 @@ class LazadaCategoryAttributeController extends Controller
         $category = LazadaCategory::query()->where('category_id', $categoryId)->firstOrFail();
 
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.categories.attributes.show', $categoryId)
                 ->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');

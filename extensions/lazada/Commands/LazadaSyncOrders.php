@@ -25,7 +25,7 @@ class LazadaSyncOrders extends Command
     public function handle(LazadaClient $client): int
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
             return 1;

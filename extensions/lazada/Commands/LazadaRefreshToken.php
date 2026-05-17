@@ -16,7 +16,7 @@ class LazadaRefreshToken extends Command
     public function handle(LazadaClient $client): int
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        $creds = $setting?->activeCredentials() ?? [];
+        $creds = LazadaSetting::activeCredentials($setting);
         $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
         $modeLabel = $isSandbox ? 'sandbox' : 'live';
 
