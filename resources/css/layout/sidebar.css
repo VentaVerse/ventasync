@@ -23,8 +23,23 @@
 .sidebar-inner {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0 12px 20px;
+    /* `overflow-x: clip` disables the visible scrollbar AND blocks user-
+       initiated horizontal scroll (trackpad swipe, shift+wheel), which were
+       the QA-reported attack vectors. `overscroll-behavior-x: none` prevents
+       scroll-chaining from descendant overflow contexts. Note: programmatic
+       `inner.scrollLeft = N` from JS is still honored by Chromium even with
+       overflow:clip — that's a Chromium quirk we accept since no first-party
+       code does it and it's not reachable from normal user input. */
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    /* IMPORTANT: only vertical padding lives here. Horizontal padding has
+       been moved onto the panes (.sidebar-track > .sidebar-nav) so the
+       sliding track's panes are exactly the visual content width. If we
+       padded here, the 200%-wide track would still measure against the
+       padded box, leaving each pane 24px wider than the content area —
+       which caused the active-tint of layer-1's selected row to bleed
+       ~12px into layer 2 at rest. */
+    padding: 0 0 20px;
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
@@ -99,7 +114,8 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding-top: 8px;
+    /* padding-top moved to .sidebar-track > .sidebar-nav so both panes
+       inherit the same top inset without doubling under the brand line. */
 }
 
 /* Sliding sidebar track. Both layer-1 and layer-2 are rendered side-by-side
@@ -109,10 +125,9 @@
    while layer 1 sweeps out to the left. Both layers move together — neither
    disappears abruptly. JS in app.blade.php toggles the --layer2 class and
    defers navigation until the slide finishes. */
-.sidebar-inner {
-    /* parent already had overflow:hidden in earlier rule; keep here for layout safety */
-    overflow-x: hidden;
-}
+/* Canonical .sidebar-inner overflow rules live in the block above
+   (overflow-y: auto + overflow-x: clip). This block intentionally left
+   blank — kept as a comment so future grepping finds the intent. */
 .sidebar-track {
     display: flex;
     flex-direction: row;
@@ -127,6 +142,11 @@
     width: 50%;
     flex: 0 0 50%;
     min-width: 0;
+    box-sizing: border-box;
+    /* Horizontal padding hoisted from .sidebar-inner — see comment there.
+       Vertical 8px preserves the previous gap between the brand divider
+       and the first nav item. */
+    padding: 8px 12px 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -154,7 +174,8 @@
 }
 
 /* Section title at the top of the 2nd-layer sidebar so the operator
-   knows which context they're in. */
+   knows which context they're in. Sticky so it stays visible while the
+   operator scrolls through long marketplace lists on short viewports. */
 .sidebar-layer2-title {
     display: flex;
     align-items: center;
@@ -167,6 +188,12 @@
     text-transform: uppercase;
     border-bottom: 1px solid rgba(148,163,184,.12);
     margin-bottom: 6px;
+    position: sticky;
+    top: 0;
+    /* Match the sidebar surface so content scrolling underneath is fully
+       occluded — anything translucent would let row hover bleed through. */
+    background: var(--bg2);
+    z-index: 2;
 }
 .sidebar-layer2-title .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--accent-neon, #39ff14); }
 .sidebar-layer2-title .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -188,8 +215,29 @@
     }
 }
 
-/* Top-level link (Dashboard) */
-.sidebar-nav > a {
+/* Top-level link (Dashboard) + layer-2 anchors.
+   --------------------------------------------------------------------
+   Layer-2 anchors (Back, Integrations Hub, Summary, per-tab Orders links)
+   are NOT direct children of .sidebar-nav — Blade wraps them in
+   .layer2-variant divs so layer 2 can hold both the "orders" and
+   "integrations" variants in one DOM and swap them via [data-variant].
+   Without the second selector below those anchors fall back to the
+   browser default: blue underlined links + black 236×236px SVGs.
+
+   We use a comma-separated selector list (not :where()) so specificity
+   stays equal to the original `.sidebar-nav > a` rule — the chained
+   `.active` / `.active::before` / descendant `.nav-icon` selectors
+   below rely on this specificity matching across both shapes.
+
+   Strategy chosen: SELECTOR BROADENING (not adding a new class in
+   Blade). Reasons: (1) zero Blade churn — 5 static anchors + 1 looped
+   anchor would all need the class; (2) all 6 rules in this section
+   share the same prefix, so the fix is one mechanical swap; (3) keeps
+   the layer-1 / layer-2 styling fully unified at the CSS layer, which
+   matches the design intent ("layer-2 must feel like the SAME ui as
+   Layer 1"). */
+.sidebar-nav > a,
+.sidebar-nav .layer2-variant > a {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -201,13 +249,16 @@
     font-weight: 500;
     transition: background var(--transition-fast), color var(--transition-fast);
 }
-.sidebar-nav > a:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
-.sidebar-nav > a.active {
+.sidebar-nav > a:hover,
+.sidebar-nav .layer2-variant > a:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
+.sidebar-nav > a.active,
+.sidebar-nav .layer2-variant > a.active {
     background: var(--accent-neon-soft);
     color: #fff;
     position: relative;
 }
-.sidebar-nav > a.active::before {
+.sidebar-nav > a.active::before,
+.sidebar-nav .layer2-variant > a.active::before {
     content: '';
     position: absolute;
     left: 0; top: 6px; bottom: 6px;
@@ -216,8 +267,22 @@
     border-radius: 0 3px 3px 0;
     box-shadow: 0 0 8px var(--accent-neon-glow);
 }
-.sidebar-nav > a .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
-.sidebar-nav > a .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-nav > a .nav-icon,
+.sidebar-nav .layer2-variant > a .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
+.sidebar-nav > a .nav-icon svg,
+.sidebar-nav .layer2-variant > a .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Keyboard focus — visible neon ring on every layer-1 and layer-2 anchor.
+   Replaces the browser-default 1px dotted outline, which on the dark
+   sidebar surface was nearly invisible. Uses outline (not box-shadow) so
+   it stacks cleanly with the .active left-bar without clipping. */
+.sidebar-nav > a:focus-visible,
+.sidebar-nav .layer2-variant > a:focus-visible,
+.nav-group summary:focus-visible,
+.nav-sub a:focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: -2px;
+}
 
 /* Nav group (details/summary) */
 .nav-group { margin: 2px 0; }

@@ -234,7 +234,12 @@
                      and order tabs is driven by IntegrationRegistry, gated by
                      license + enabled + permission. --}}
                 @if(!empty($__intCards))
-                <a href="{{ route('integrations.index') }}" data-layer2-enter="integrations" class="{{ request()->routeIs('integrations.index') ? 'active' : '' }}">
+                {{-- Active state spans the full Integrations layer-2 scope so the
+                     operator can see which layer-1 entry "owns" their current
+                     page after they hit Back. Mirrors the Orders link above
+                     (line 148) but excludes the ext.*.orders.* routes — those
+                     belong to the Orders layer-1 entry. --}}
+                <a href="{{ route('integrations.index') }}" data-layer2-enter="integrations" class="{{ (request()->routeIs('integrations.index') || request()->routeIs('integrations.module') || (preg_match('/^ext\\.(lazada|shopee|tiktok|venta|opencart|pedallion)\\./', $__rn) && !preg_match('/^ext\\.(lazada|shopee|tiktok|venta|opencart|pedallion)\\.orders\\./', $__rn))) ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
                     <span class="label">Integrations</span>
                 </a>
