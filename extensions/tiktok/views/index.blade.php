@@ -4,6 +4,9 @@
 @section('content')
 <div class="page-header">
     <h2>TikTok Shop Settings</h2>
+    <div class="page-header-actions">
+        <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
+    </div>
 </div>
 
 @php

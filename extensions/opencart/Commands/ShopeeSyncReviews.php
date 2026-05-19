@@ -21,8 +21,10 @@ class ShopeeSyncReviews extends Command
     public function handle(ShopeeClient $client): int
     {
         $setting = ShopeeSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->partner_id || !$setting->partner_key || !$setting->access_token || !$setting->shop_id) {
-            $this->error('Missing Shopee credentials/token. Configure Shopee settings first.');
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings for the active mode.");
             return 1;
         }
 
@@ -63,7 +65,7 @@ class ShopeeSyncReviews extends Command
             if (Cache::get('shopee_sync_paused')) break;
 
             try {
-                [$c, $u] = $this->syncItemReviews($client, $setting, $itemId, $lastSync, $days);
+                [$c, $u] = $this->syncItemReviews($client, $auth, $itemId, $lastSync, $days);
                 $created += $c;
                 $updated += $u;
             } catch (\Throwable $e) {
@@ -87,7 +89,7 @@ class ShopeeSyncReviews extends Command
      *
      * @return array [created, updated]
      */
-    private function syncItemReviews(ShopeeClient $client, object $setting, string $itemId, ?int $lastSync, int $days): array
+    private function syncItemReviews(ShopeeClient $client, array $auth, string $itemId, ?int $lastSync, int $days): array
     {
         // Resolve product_id from product links
         $link = ShopeeProductLink::query()
@@ -109,11 +111,11 @@ class ShopeeSyncReviews extends Command
             ];
 
             $res = $client->shopGet(
-                $setting->mode ?? 'live',
-                (int) $setting->partner_id,
-                (string) $setting->partner_key,
-                (string) $setting->access_token,
-                (int) $setting->shop_id,
+                $auth['mode'],
+                (int) $auth['partner_id'],
+                (string) $auth['partner_key'],
+                (string) $auth['access_token'],
+                (int) $auth['shop_id'],
                 '/api/v2/product/get_comment',
                 $params
             );

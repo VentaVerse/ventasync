@@ -212,6 +212,30 @@
 {{-- Maintenance Tab --}}
 <div class="hidden" id="tab-maintenance">
     <div class="card">
+        <h3 class="section-title mt-0">Scheduled Tasks (Cron)</h3>
+        <div class="hint" style="margin-bottom:12px;">
+            One OS-level cron entry drives every scheduled task across this app. Add the line below
+            to your server's crontab; per-job cadence is then editable from each integration's
+            <strong>Automations</strong> tab — no need to touch the system crontab again.
+        </div>
+        @php
+            $cronLine = '* * * * * /usr/bin/php ' . base_path('artisan') . ' schedule:run >> /dev/null 2>&1';
+        @endphp
+        <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
+            <code id="ws-global-cron" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $cronLine }}</code>
+            <button type="button" class="btn small secondary" onclick="(function(b){var c=document.getElementById('ws-global-cron');navigator.clipboard.writeText(c.innerText);var o=b.innerText;b.innerText='Copied';setTimeout(function(){b.innerText=o;},1200);})(this)" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
+        </div>
+        <details style="margin-top:10px;">
+            <summary style="cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-secondary); user-select:none;">How to set this up</summary>
+            <ol style="margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-secondary); line-height:1.8;">
+                <li>Open your hosting panel (HestiaCP, cPanel, etc.) and find <strong>Cron Jobs</strong> / <strong>Scheduled Tasks</strong>.</li>
+                <li>Paste the command above. Set the interval to every minute (<code>* * * * *</code>).</li>
+                <li>Save. From now on, every job listed in each integration's <strong>Automations</strong> tab runs at its configured cadence.</li>
+            </ol>
+        </details>
+    </div>
+
+    <div class="card mt-16">
         <h3 class="section-title mt-0">Database Maintenance</h3>
         <div class="form-grid">
             <div class="full">

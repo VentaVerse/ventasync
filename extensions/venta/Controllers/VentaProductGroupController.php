@@ -28,7 +28,12 @@ class VentaProductGroupController extends Controller
 
     private function store_(int $storeId): VentaSetting
     {
-        return VentaSetting::where('id', $storeId)->where('enabled', true)->firstOrFail();
+        // Allow navigation into disabled stores so operators can finish
+        // configuring them after Add Store. Sync/cron paths use their
+        // own enabled-filtered lookups so disabled stores never reach
+        // the marketplace API; UI-only flows (index, edit, products
+        // list) just need the row to exist.
+        return VentaSetting::findOrFail($storeId);
     }
 
     private function productsRedirect(int $store, int $group)

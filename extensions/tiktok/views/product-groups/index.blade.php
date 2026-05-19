@@ -9,6 +9,7 @@
             <div class="text-muted text-sm">Map ERP products to TikTok categories, then push to TikTok Shop.</div>
         </div>
         <div class="page-header-actions">
+            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
             <a class="btn" href="{{ route('ext.tiktok.product-groups.create') }}">Add Product Group</a>
         </div>
     </div>

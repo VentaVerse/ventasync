@@ -283,6 +283,43 @@
 .nav-sub a .nav-icon { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
 .nav-sub a .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
+/* Card-level action inside nav-sub (e.g., "Manage Stores" for multi-store
+   integrations). Sits at the top of the sub-list, visually distinct from
+   per-store menu items via an inline icon, lighter weight, and a faint
+   dotted bottom border that separates the action from the first store. */
+.nav-sub-action {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px !important;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed rgba(148, 163, 184, .14);
+    color: #cbd5e1 !important;
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    font-style: italic;
+    letter-spacing: .01em;
+}
+.nav-sub-action:hover {
+    color: #f1f5f9 !important;
+}
+.nav-sub-action-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+.nav-sub-action-icon svg {
+    width: 13px;
+    height: 13px;
+}
+.nav-sub-action .label {
+    flex: 1;
+}
+
 /* Section divider inside nav-sub */
 .nav-sub-divider {
     display: flex;

@@ -8,6 +8,7 @@
             <div class="text-muted text-sm">Group products by category/manufacturer, then push to OpenCart.</div>
         </div>
         <div class="page-header-actions">
+            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
             <a class="btn" href="{{ route('ext.opencart.product-groups.create', $setting->id) }}">Add Product Group</a>
         </div>
     </div>

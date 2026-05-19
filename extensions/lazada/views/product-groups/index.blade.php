@@ -10,6 +10,7 @@
             <div class="text-muted text-sm">Group products and mass-map to Lazada category, brand &amp; attributes.</div>
         </div>
         <div class="page-header-actions">
+            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
             <a class="btn" href="{{ route('ext.lazada.product-groups.create') }}">Add Product Group</a>
         </div>
     </div>

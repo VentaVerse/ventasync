@@ -5,8 +5,7 @@
 <div class="page-header">
     <h2>Lazada Settings</h2>
     <div class="page-header-actions">
-        <a class="btn small" href="{{ route('ext.lazada.orders.index') }}">Orders</a>
-        <a class="btn" href="{{ route('ext.lazada.product-groups.index') }}">Product Groups</a>
+        <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
     </div>
 </div>
 
@@ -39,6 +38,7 @@
             <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
         @endif
     </button>
+    <button class="tab" data-tab="lz-tab-automations" type="button">Automations</button>
 </div>
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
@@ -333,129 +333,16 @@
     </div>
     </div>
 
-    {{-- Order Sync & Cronjob Setup --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Order Sync & Cronjob Setup</h3>
+    {{-- Order sync window + cron-command catalog were here; replaced by the
+         Automations tab (universal admin scheduler). See the Automations tab
+         to edit cadence / sync window / per-job options. --}}
+</div>
 
-        <div class="detail-section" style="margin-bottom:16px;">
-            <label class="font-semibold text-sm" style="margin-bottom:8px; display:block;">Sync Last N Days</label>
-            <div class="hint" style="margin-bottom:10px;">
-                How far back the cronjob looks for orders. Defaults to 14 days.
-            </div>
-            <form method="POST" action="{{ route('ext.lazada.sync_days') }}">
-                @csrf
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="number" name="sync_last_days" class="input"
-                           value="{{ $setting->sync_last_days ?? '' }}"
-                           placeholder="e.g. 7" min="1" max="365" style="width:100px;">
-                    <span class="text-muted text-xs">days</span>
-                    <button class="btn small" type="submit">Save</button>
-                </div>
-            </form>
-            @if(($setting->sync_last_days ?? null) > 0)
-                <div class="hint" style="margin-top:8px;">
-                    Fetching orders from the <strong>last {{ $setting->sync_last_days }} days</strong>.
-                </div>
-            @else
-                <div class="hint" style="margin-top:8px;">
-                    Using default window of <strong>14 days</strong>.
-                </div>
-            @endif
-        </div>
-
-        <div class="detail-section" style="margin-bottom:16px;">
-            <label class="font-semibold text-sm" style="margin-bottom:8px; display:block;">Sync Last N Days (Returns)</label>
-            <div class="hint" style="margin-bottom:10px;">
-                How far back the cronjob looks for <strong>return/refund</strong> orders. Independent from order sync. Defaults to 14 days.
-            </div>
-            <form method="POST" action="{{ route('ext.lazada.sync_days_returns') }}">
-                @csrf
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="number" name="sync_last_days_returns" class="input"
-                           value="{{ $setting->sync_last_days_returns ?? '' }}"
-                           placeholder="e.g. 7" min="1" max="365" style="width:100px;">
-                    <span class="text-muted text-xs">days</span>
-                    <button class="btn small" type="submit">Save</button>
-                </div>
-            </form>
-            @if(($setting->sync_last_days_returns ?? null) > 0)
-                <div class="hint" style="margin-top:8px;">
-                    Fetching returns from the <strong>last {{ $setting->sync_last_days_returns }} days</strong>.
-                </div>
-            @else
-                <div class="hint" style="margin-top:8px;">
-                    Using default window of <strong>14 days</strong>.
-                </div>
-            @endif
-        </div>
-
-        <h3 class="section-title">Cronjob Commands</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            Add these commands to your hosting panel's scheduled tasks (HestiaCP, cPanel, etc.).
-        </div>
-
-        @php
-            $artisanPath = '/usr/bin/php ' . base_path('artisan');
-        @endphp
-
-        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Sync Orders</span>
-                    <span class="text-muted">— Create new + update existing orders (no returns)</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">every 1 min</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="laz-cron-sync" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:sync-orders --no-returns</code>
-                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-sync', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Push Stock</span>
-                    <span class="text-muted">— Push ERP stock quantities to Lazada</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">every 30 min</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="laz-cron-push" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:push-stock</code>
-                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-push', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Sync Returns</span>
-                    <span class="text-muted">— Fetch return/refund orders from Lazada</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">every 5 min</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="laz-cron-returns" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:sync-orders --returns</code>
-                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-returns', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Refresh Token</span>
-                    <span class="text-muted">— Auto-refresh access token before expiry (~2 days)</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">every 6 hours</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="laz-cron-refresh" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} lazada:refresh-token</code>
-                    <button type="button" class="btn small secondary" onclick="lazCopy('laz-cron-refresh', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-        </div>
-
-        <details>
-            <summary style="cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-secondary); user-select:none;">How to set up cronjobs</summary>
-            <ol style="margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-secondary); line-height:1.8;">
-                <li>Go to your hosting panel (HestiaCP, cPanel, etc.)</li>
-                <li>Find <strong style="color:var(--text-primary);">Cron Jobs</strong> or <strong style="color:var(--text-primary);">Scheduled Tasks</strong></li>
-                <li>Set the interval (e.g. <code style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background:#f1f5f9; padding:1px 6px; border-radius:4px; color:#0f172a;">* * * * *</code> for every minute)</li>
-                <li>Paste the command into the command field</li>
-                <li>Save</li>
-            </ol>
-        </details>
-    </div>
+{{-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  AUTOMATIONS TAB — universal admin scheduler                    ║
+     ╚══════════════════════════════════════════════════════════════════╝ --}}
+<div id="lz-tab-automations" class="hidden">
+    @include('partials._automations_tab', ['integration' => 'lazada', 'storeId' => null])
 </div>
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
@@ -834,7 +721,7 @@ function lazCopy(id, btn) {
 
 // Tab switching
 (function(){
-    var ids = ['lz-tab-settings', 'lz-tab-explorer', 'lz-tab-status', 'lz-tab-logs'];
+    var ids = ['lz-tab-settings', 'lz-tab-automations', 'lz-tab-explorer', 'lz-tab-status', 'lz-tab-logs'];
     var tabs = document.querySelectorAll('[data-tab^="lz-tab-"]');
     var storageKey = 'lz-active-tab';
 

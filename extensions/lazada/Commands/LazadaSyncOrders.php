@@ -18,7 +18,9 @@ class LazadaSyncOrders extends Command
     protected $signature = 'lazada:sync-orders
         {--both : Sync orders and returns (default behavior)}
         {--returns : Sync reverse orders (returns/refunds) only}
-        {--no-returns : Skip reverse order sync}';
+        {--no-returns : Skip reverse order sync}
+        {--days= : Override sync_last_days for this run (passed by the universal scheduler)}
+        {--days-returns= : Override sync_last_days_returns for this run}';
 
     protected $description = 'Sync orders from Lazada (create new + update existing + returns)';
 
@@ -76,7 +78,10 @@ class LazadaSyncOrders extends Command
         $pageLimit = 100;
         $maxOrdersPerRun = 2000;
 
-        $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
+        $cliDays = $this->option('days');
+        $syncDays = $cliDays !== null && $cliDays !== ''
+            ? max(1, (int) $cliDays)
+            : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
 
         $baseParams = ['limit' => $pageLimit];
 
@@ -225,7 +230,10 @@ class LazadaSyncOrders extends Command
      */
     private function syncReturns(LazadaClient $client, object $setting): void
     {
-        $syncDays = ($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14;
+        $cliDaysReturns = $this->option('days-returns');
+        $syncDays = $cliDaysReturns !== null && $cliDaysReturns !== ''
+            ? max(1, (int) $cliDaysReturns)
+            : (($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14);
         $tz = new \DateTimeZone('Asia/Manila');
         $dt = (new \DateTime('now', $tz))->modify("-{$syncDays} days");
         $this->info("  Returns window: last {$syncDays} days (since " . $dt->format('Y-m-d H:i:s') . ")");

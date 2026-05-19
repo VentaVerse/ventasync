@@ -10,7 +10,7 @@
             <div class="text-muted text-sm">Fetch and view available logistics channels from your Shopee shop.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('ext.shopee.index') }}">Shopee Settings</a>
+            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
             <form method="POST" action="{{ route('ext.shopee.logistics.fetch') }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch from Shopee</button>

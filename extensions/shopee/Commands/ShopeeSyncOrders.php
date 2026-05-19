@@ -18,7 +18,9 @@ class ShopeeSyncOrders extends Command
     protected $signature = 'shopee:sync-orders
         {--both : Sync orders and returns (default behavior)}
         {--returns : Sync return/refund details only}
-        {--no-returns : Skip return sync}';
+        {--no-returns : Skip return sync}
+        {--days= : Override sync_last_days for this run (passed by the universal scheduler)}
+        {--days-returns= : Override sync_last_days_returns for this run}';
 
     protected $description = 'Sync orders from Shopee (create new + update existing + returns)';
 
@@ -71,7 +73,10 @@ class ShopeeSyncOrders extends Command
     private function syncOrders(ShopeeClient $client, object $setting, array $auth): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
-        $syncDays = ($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14;
+        $cliDays = $this->option('days');
+        $syncDays = $cliDays !== null && $cliDays !== ''
+            ? max(1, (int) $cliDays)
+            : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
         $region = $auth['region'] ?? 'ph';
 
         $latestUpdated = ShopeeOrder::query()
@@ -283,7 +288,10 @@ class ShopeeSyncOrders extends Command
         $pageNo = 0;
         $pageSize = 50;
 
-        $syncDays = ($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14;
+        $cliDaysReturns = $this->option('days-returns');
+        $syncDays = $cliDaysReturns !== null && $cliDaysReturns !== ''
+            ? max(1, (int) $cliDaysReturns)
+            : (($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14);
         $tz = new \DateTimeZone('Asia/Manila');
         $createTimeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
         $this->info("  Returns window: last {$syncDays} days");

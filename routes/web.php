@@ -34,6 +34,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/integrations/module/{module}', [IntegrationController::class, 'module'])
         ->where('module', '[A-Za-z0-9_:-]+')
         ->name('integrations.module');
+
+    // Universal admin scheduler — Automations tab on each integration
+    // settings page POSTs here. The route is shared across integrations
+    // because the underlying table is uniform; permission gating happens
+    // on the parent integration's settings page.
+    Route::post('/automations/{id}', [\App\Http\Controllers\AutomationsController::class, 'update'])
+        ->whereNumber('id')
+        ->name('automations.update');
     Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
     Route::get('/dashboard/platform-data', [DashboardController::class, 'platformData'])->name('dashboard.platform_data');
 

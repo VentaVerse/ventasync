@@ -60,7 +60,40 @@ class IntegrationRegistry
             }
         }
 
-        return $cards;
+        return $this->sortByDisplayOrder($cards);
+    }
+
+    /**
+     * Stable display order across the Integrations hub, the contextual
+     * sidebar, and the unified Orders tabs. Cards whose base id is not in
+     * the list are appended at the end in their natural (registration)
+     * order. The base id is the part before the colon for compound
+     * per-store ids like "venta:1".
+     */
+    protected function sortByDisplayOrder(array $cards): array
+    {
+        $priority = [
+            'lazada'    => 1,
+            'shopee'    => 2,
+            'tiktok'    => 3,
+            'shopify'   => 4,
+            'venta'     => 5,
+            'opencart'  => 6,
+            'pedallion' => 7,
+        ];
+        $rankFor = function ($id) use ($priority) {
+            $base = str_contains((string) $id, ':') ? strstr((string) $id, ':', true) : (string) $id;
+            return $priority[$base] ?? 999;
+        };
+
+        $indexed = [];
+        foreach ($cards as $i => $card) {
+            $indexed[] = [$rankFor($card->id), $i, $card];
+        }
+        usort($indexed, function ($a, $b) {
+            return $a[0] === $b[0] ? $a[1] <=> $b[1] : $a[0] <=> $b[0];
+        });
+        return array_map(fn($t) => $t[2], $indexed);
     }
 
     /**
@@ -316,7 +349,7 @@ class IntegrationRegistry
             }
         }
 
-        return $tabs;
+        return $this->sortByDisplayOrder($tabs);
     }
 
     /**

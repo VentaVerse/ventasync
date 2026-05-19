@@ -95,6 +95,7 @@ class LazadaSetting extends Model
         if (!$setting) {
             return [
                 'mode'          => 'live',
+                'region'        => null,
                 'app_key'       => null,
                 'app_secret'    => null,
                 'access_token'  => null,
@@ -112,8 +113,14 @@ class LazadaSetting extends Model
         $refreshToken = $isSandbox ? ($setting->sandbox_refresh_token ?? null) : ($setting->refresh_token ?? null);
         $expiresAt    = $isSandbox ? ($setting->sandbox_expires_at    ?? null) : ($setting->expires_at    ?? null);
 
+        // Region is a single shared column on lazada_settings (no
+        // sandbox_region) — Lazada uses the same regional API hosts
+        // for sandbox and production within a given country.
+        $region = $setting->region ?? null;
+
         return [
             'mode'          => $isSandbox ? 'sandbox' : 'live',
+            'region'        => $region ? (string) $region : null,
             'app_key'       => $appKey       ? (string) $appKey       : null,
             'app_secret'    => $appSecret    ? (string) $appSecret    : null,
             'access_token'  => $accessToken  ? (string) $accessToken  : null,

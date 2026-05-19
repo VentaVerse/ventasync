@@ -22,13 +22,16 @@ class LazadaSyncReviews extends Command
     public function handle(LazadaClient $client): int
     {
         $setting = LazadaSetting::query()->first()?->decrypted();
-        if (!$setting || !$setting->region || !$setting->app_key || !$setting->app_secret || !$setting->access_token) {
-            $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
+            $modeLabel = ($creds['mode'] ?? 'live') === 'sandbox' ? 'Sandbox' : 'Production';
+            $this->error("Missing Lazada {$modeLabel} credentials/token. Configure Lazada settings for the active mode.");
             return 1;
         }
 
-        if (!empty($setting->expires_at) && strtotime($setting->expires_at) <= time()) {
-            $this->warn('Lazada access token expired (' . $setting->expires_at . '). Refresh it from Lazada Settings.');
+        $expiresAt = $creds['expires_at'] ?? null;
+        if (!empty($expiresAt) && strtotime((string) $expiresAt) <= time()) {
+            $this->warn("Lazada access token expired ({$expiresAt}). Refresh it from Lazada Settings.");
             return 1;
         }
 
@@ -114,7 +117,7 @@ class LazadaSyncReviews extends Command
                         'current'    => $page,
                     ];
 
-                    $res = $this->runSignedApiCall($client, $setting, 'GET', '/review/seller/history/list', $params, 'lazada.review.history_list');
+                    $res = $this->runSignedApiCall($client, $creds, 'GET', '/review/seller/history/list', $params, 'lazada.review.history_list');
 
                     $body = $res['body'] ?? [];
                     $bodyCode = is_array($body) ? ($body['code'] ?? '') : '';
@@ -151,7 +154,7 @@ class LazadaSyncReviews extends Command
             // Fetch details and save immediately for this item's reviews
             if (!empty($itemReviewIds)) {
                 foreach (array_chunk($itemReviewIds, 20) as $batch) {
-                    $res = $this->runSignedApiCall($client, $setting, 'GET', '/review/seller/list/v2', [
+                    $res = $this->runSignedApiCall($client, $creds, 'GET', '/review/seller/list/v2', [
                         'id_list' => json_encode(array_map('intval', $batch)),
                     ], 'lazada.review.detail');
 
@@ -278,18 +281,20 @@ class LazadaSyncReviews extends Command
 
     /**
      * Signed API call with rate limiting and retry (same pattern as LazadaSyncOrders).
+     * Takes the activeCredentials() bundle so this works in either
+     * sandbox or production mode without reading the wrong columns.
      */
-    private function runSignedApiCall(LazadaClient $client, object $setting, string $method, string $apiPath, array $customParams, ?string $pack = null): array
+    private function runSignedApiCall(LazadaClient $client, array $creds, string $method, string $apiPath, array $customParams, ?string $pack = null): array
     {
         $apiPath = trim($apiPath);
         if (!str_starts_with($apiPath, '/')) $apiPath = '/' . $apiPath;
 
         $timestamp = (string) round(microtime(true) * 1000);
         $params = [
-            'app_key'      => (string) $setting->app_key,
+            'app_key'      => (string) $creds['app_key'],
             'sign_method'  => 'sha256',
             'timestamp'    => $timestamp,
-            'access_token' => (string) $setting->access_token,
+            'access_token' => (string) $creds['access_token'],
         ];
 
         foreach ($customParams as $k => $v) {
@@ -298,15 +303,16 @@ class LazadaSyncReviews extends Command
         }
 
         $method = strtoupper($method);
-        $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $setting->app_key;
-        $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $setting->app_key;
+        $region = (string) ($creds['region'] ?? 'ph');
+        $rateKey = 'lazada_api_last_call:' . $region . ':' . $creds['app_key'];
+        $lockKey = 'lazada_api_lock:' . $region . ':' . $creds['app_key'];
         $minIntervalMs = 1200;
 
-        $callOnce = function () use ($client, $setting, $apiPath, &$params, $method) {
-            $params['sign'] = $client->sign($apiPath, $params, (string) $setting->app_secret);
+        $callOnce = function () use ($client, $creds, $region, $apiPath, &$params, $method) {
+            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
             return $method === 'POST'
-                ? $client->post($setting->region, $apiPath, $params)
-                : $client->get($setting->region, $apiPath, $params);
+                ? $client->post($region, $apiPath, $params)
+                : $client->get($region, $apiPath, $params);
         };
 
         $result = null;

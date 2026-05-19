@@ -408,6 +408,27 @@
                                             </a>
                                         @endforeach
                                         @if($__cardIsMulti)
+                                            {{-- Manage Stores sits at the TOP of the card's
+                                                 sub-list, before any per-store divider,
+                                                 so it reads as a card-level action and
+                                                 isn't visually tied to the last store. --}}
+                                            <a href="{{ route('integrations.module', ['module' => $__cardId]) }}" class="nav-sub-action {{ $__rn === 'integrations.module' && request()->route('module') === $__cardId ? 'active' : '' }}">
+                                                <span class="nav-sub-action-icon" aria-hidden="true">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M3 9l3-6h12l3 6"/>
+                                                        <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9"/>
+                                                        <path d="M9 22V12h6v10"/>
+                                                    </svg>
+                                                </span>
+                                                <span class="label">Manage Stores</span>
+                                            </a>
+                                            @php
+                                                // The current store id (from the URL) is needed so per-store
+                                                // menu links highlight only the active store. Multi-store
+                                                // extensions reuse the same route name across stores —
+                                                // matching on name alone would light up every store's row.
+                                                $__currentStoreId = (string) (request()->route('store') ?? '');
+                                            @endphp
                                             @foreach($__card->stores ?? [] as $__store)
                                                 @php
                                                     $__storeMenu = collect($__store->menu ?? [])
@@ -417,15 +438,17 @@
                                                 @if($__storeMenu->isNotEmpty())
                                                     <div class="nav-sub-divider">{{ $__store->label }}</div>
                                                     @foreach($__storeMenu as $__item)
-                                                        <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
+                                                        @php
+                                                            $__itemStoreId = (string) ($__item->routeParams['store'] ?? '');
+                                                            $__itemActive = $__rn === $__item->routeName
+                                                                && ($__itemStoreId === '' || $__itemStoreId === $__currentStoreId);
+                                                        @endphp
+                                                        <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__itemActive ? 'active' : '' }}">
                                                             <span class="label">{{ $__item->label }}</span>
                                                         </a>
                                                     @endforeach
                                                 @endif
                                             @endforeach
-                                            <a href="{{ route('integrations.module', ['module' => $__cardId]) }}" class="{{ $__rn === 'integrations.module' && request()->route('module') === $__cardId ? 'active' : '' }}">
-                                                <span class="label">Manage Stores</span>
-                                            </a>
                                         @endif
                                     </div>
                                 </div>

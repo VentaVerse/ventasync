@@ -20,7 +20,7 @@ class LazadaRefreshToken extends Command
         $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
         $modeLabel = $isSandbox ? 'sandbox' : 'live';
 
-        if (!$setting || !$setting->region || !$creds['complete'] || empty($creds['refresh_token'])) {
+        if (!$setting || empty($creds['region']) || !$creds['complete'] || empty($creds['refresh_token'])) {
             $this->error("Missing Lazada {$modeLabel} credentials. Region, app_key, app_secret, and refresh_token are required for the active mode.");
             return 1;
         }
@@ -45,7 +45,7 @@ class LazadaRefreshToken extends Command
 
         $params['sign'] = $client->sign($apiPath, $params, $creds['app_secret']);
 
-        $result = $client->post((string) $setting->region, $apiPath, $params);
+        $result = $client->post((string) $creds['region'], $apiPath, $params);
 
         if ($result['ok'] && is_array($result['body'])) {
             $access = $result['body']['access_token'] ?? null;

@@ -17,7 +17,12 @@ class OpenCartProductGroupController extends Controller
 {
     private function store_(int $storeId): OpenCartSetting
     {
-        return OpenCartSetting::where('id', $storeId)->where('enabled', true)->firstOrFail();
+        // Allow navigation into disabled stores so operators can finish
+        // configuring them after Add Store. Sync/cron paths use their
+        // own enabled-filtered lookups so disabled stores never reach
+        // the marketplace API; UI-only flows (index, edit, products
+        // list) just need the row to exist.
+        return OpenCartSetting::findOrFail($storeId);
     }
 
     public function index(int $store)
