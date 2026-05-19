@@ -1204,9 +1204,9 @@ class VentaProductGroupController extends Controller
         $categoryId = (int) $request->input('category_id', 0);
         $manufacturerId = (int) $request->input('manufacturer_id', 0);
 
-        if (strlen($q) < 2 && !$categoryId && !$manufacturerId) {
-            return response()->json(['items' => []]);
-        }
+        // Empty filters return the latest 100 products (the LIMIT below) so
+        // operators can browse everything without first picking a category
+        // or typing a search term.
 
         $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {

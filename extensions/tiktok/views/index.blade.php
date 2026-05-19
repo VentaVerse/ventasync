@@ -31,6 +31,7 @@
 {{-- Tabs --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab {{ !$hasResult ? 'active' : '' }}" data-tab="tt-tab-settings" type="button">Settings</button>
+    <button class="tab" data-tab="tt-tab-status" type="button">Status Mapping</button>
     <button class="tab" data-tab="tt-tab-explorer" type="button">API Explorer</button>
     <button class="tab {{ $hasResult ? 'active' : '' }}" data-tab="tt-tab-logs" type="button">
         API Logs
@@ -38,6 +39,12 @@
             <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
         @endif
     </button>
+    <button class="tab" data-tab="tt-tab-automations" type="button">Automations</button>
+</div>
+
+{{-- AUTOMATIONS TAB — universal admin scheduler --}}
+<div id="tt-tab-automations" class="hidden">
+    @include('partials._automations_tab', ['integration' => 'tiktok', 'storeId' => null])
 </div>
 
 {{-- TAB 1 -- SETTINGS --}}
@@ -324,21 +331,50 @@
     </div>
     </div>
 
-    {{-- Sync Days --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Sync Settings</h3>
-        <form method="POST" action="{{ route('ext.tiktok.sync_days') }}" style="display:flex; align-items:end; gap:10px; flex-wrap:wrap;">
-            @csrf
-            <div style="min-width:160px;">
-                <label>Sync last N days</label>
-                <input class="input" type="number" name="sync_last_days" min="1" max="365" value="{{ $setting->sync_last_days ?? 15 }}" placeholder="15">
-                <div class="hint">How many days of orders to sync (default 15).</div>
-            </div>
-            <button class="btn small" type="submit">Save</button>
-        </form>
-    </div>
+    {{-- Sync settings + cron commands moved to the Automations tab.
+         Order Status Mapping promoted to its own top-level tab. --}}
 
-    {{-- Order Status Mapping --}}
+    {{-- Setup Guide --}}
+    <div class="card mb-16">
+        <h3 class="section-title mt-0">Setup Guide</h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+                <strong>1. Register as a TikTok Shop Developer</strong>
+                <div class="hint">Go to <code>partner.tiktokshop.com</code> and register for a developer account.</div>
+            </div>
+            <div>
+                <strong>2. Create an App</strong>
+                <div class="hint">In the Partner Center, create a new application. You will receive an App Key and App Secret.</div>
+            </div>
+            <div>
+                <strong>3. Configure Redirect URI</strong>
+                <div class="hint">In your TikTok app settings, set the Redirect URI to: <code>{{ url('/tiktok/callback') }}</code></div>
+            </div>
+            <div>
+                <strong>4. Enter credentials above</strong>
+                <div class="hint">Paste the App Key and App Secret in the Connection card and save.</div>
+            </div>
+            <div>
+                <strong>5. Authorize your shop</strong>
+                <div class="hint">Click "Authorize with TikTok Shop" to start the OAuth flow. After granting access, the token will be exchanged automatically.</div>
+            </div>
+            <div>
+                <strong>6. Get authorized shops</strong>
+                <div class="hint">Click "Get Shops" to fetch your shop information (shop_cipher is required for most API calls).</div>
+            </div>
+        </div>
+        <div style="margin-top:12px; padding:10px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border);">
+            <div class="text-xs text-muted" style="margin-bottom:4px;">Important</div>
+            <div class="hint">
+                Use <strong>partner.tiktokshop.com</strong> (TikTok Shop Partner Center) for seller/e-commerce integrations.
+                <br><strong>developers.tiktok.com</strong> is for general TikTok platform features (Login Kit, Share Kit) and is NOT used for shop/order/product sync.
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- STATUS MAPPING TAB --}}
+<div id="tt-tab-status" class="hidden">
     <div class="card mb-16">
         <h3 class="section-title mt-0">Order Status Mapping</h3>
         <div class="hint" style="margin-bottom:14px;">
@@ -380,107 +416,6 @@
                 <button class="btn" type="submit">Save Mapping</button>
             </div>
         </form>
-    </div>
-
-    {{-- Cronjob Commands --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Cronjob Commands</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            Add these commands to your hosting panel's scheduled tasks (HestiaCP, cPanel, etc.).
-        </div>
-
-        @php
-            $artisanPath = '/usr/bin/php ' . base_path('artisan');
-        @endphp
-
-        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Sync Orders</span>
-                    <span class="text-muted">— Fetch and update TikTok Shop orders</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">every 15 min</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="tt-cron-sync" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} tiktok:sync-orders</code>
-                    <button type="button" class="btn small secondary" onclick="ttCopy('tt-cron-sync', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Push Stock</span>
-                    <span class="text-muted">— Push ERP stock quantities to TikTok Shop</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">every 30 min</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="tt-cron-stock" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} tiktok:push-stock</code>
-                    <button type="button" class="btn small secondary" onclick="ttCopy('tt-cron-stock', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                    <span style="font-weight:600; color:var(--text-primary);">Refresh Token</span>
-                    <span class="text-muted">— Refresh TikTok access token before expiry</span>
-                    <span style="margin-left:auto; color:var(--text-muted);">daily at 3 AM</span>
-                </label>
-                <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                    <code id="tt-cron-token" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} tiktok:refresh-token</code>
-                    <button type="button" class="btn small secondary" onclick="ttCopy('tt-cron-token', this)" title="Copy" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-                </div>
-            </div>
-        </div>
-
-        <details>
-            <summary style="cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-secondary); user-select:none;">How to set up cronjobs</summary>
-            <ol style="margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-secondary); line-height:1.8;">
-                <li>Go to your hosting panel (HestiaCP, cPanel, etc.)</li>
-                <li>Find <strong style="color:var(--text-primary);">Cron Jobs</strong> or <strong style="color:var(--text-primary);">Scheduled Tasks</strong></li>
-                <li>Set the interval (e.g. <code style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; background:#f1f5f9; padding:1px 6px; border-radius:4px; color:#0f172a;">*/15 * * * *</code> for every 15 minutes)</li>
-                <li>Paste the command into the command field</li>
-                <li>Save</li>
-            </ol>
-        </details>
-
-        <div class="hint" style="margin-top:12px;">
-            <strong>Note:</strong> These artisan commands will be available once created. For now, use the manual buttons on the Orders and Product Groups pages.
-        </div>
-    </div>
-
-    {{-- Setup Guide --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Setup Guide</h3>
-        <div style="display:flex; flex-direction:column; gap:12px;">
-            <div>
-                <strong>1. Register as a TikTok Shop Developer</strong>
-                <div class="hint">Go to <code>partner.tiktokshop.com</code> and register for a developer account.</div>
-            </div>
-            <div>
-                <strong>2. Create an App</strong>
-                <div class="hint">In the Partner Center, create a new application. You will receive an App Key and App Secret.</div>
-            </div>
-            <div>
-                <strong>3. Configure Redirect URI</strong>
-                <div class="hint">In your TikTok app settings, set the Redirect URI to: <code>{{ url('/tiktok/callback') }}</code></div>
-            </div>
-            <div>
-                <strong>4. Enter credentials above</strong>
-                <div class="hint">Paste the App Key and App Secret in the Connection card and save.</div>
-            </div>
-            <div>
-                <strong>5. Authorize your shop</strong>
-                <div class="hint">Click "Authorize with TikTok Shop" to start the OAuth flow. After granting access, the token will be exchanged automatically.</div>
-            </div>
-            <div>
-                <strong>6. Get authorized shops</strong>
-                <div class="hint">Click "Get Shops" to fetch your shop information (shop_cipher is required for most API calls).</div>
-            </div>
-        </div>
-        <div style="margin-top:12px; padding:10px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border);">
-            <div class="text-xs text-muted" style="margin-bottom:4px;">Important</div>
-            <div class="hint">
-                Use <strong>partner.tiktokshop.com</strong> (TikTok Shop Partner Center) for seller/e-commerce integrations.
-                <br><strong>developers.tiktok.com</strong> is for general TikTok platform features (Login Kit, Share Kit) and is NOT used for shop/order/product sync.
-            </div>
-        </div>
     </div>
 </div>
 
@@ -763,7 +698,7 @@ function ttCopy(id, btn) {
 
 // Tab switching
 (function(){
-    var ids = ['tt-tab-settings', 'tt-tab-explorer', 'tt-tab-logs'];
+    var ids = ['tt-tab-settings', 'tt-tab-status', 'tt-tab-automations', 'tt-tab-explorer', 'tt-tab-logs'];
     var tabs = document.querySelectorAll('[data-tab^="tt-tab-"]');
     tabs.forEach(function(btn){
         btn.addEventListener('click', function(){

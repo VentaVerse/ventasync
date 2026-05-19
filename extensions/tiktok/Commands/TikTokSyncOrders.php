@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Log;
 
 class TikTokSyncOrders extends Command
 {
-    protected $signature = 'tiktok:sync-orders';
+    protected $signature = 'tiktok:sync-orders
+        {--days= : Override sync_last_days for this run (passed by the universal scheduler)}';
 
     protected $description = 'Sync orders from TikTok Shop (create new + update existing + catalog sync)';
 
@@ -44,7 +45,10 @@ class TikTokSyncOrders extends Command
             return 1;
         }
 
-        $syncDays = max(1, (int) ($raw->sync_last_days ?? 15));
+        $cliDays = $this->option('days');
+        $syncDays = $cliDays !== null && $cliDays !== ''
+            ? max(1, (int) $cliDays)
+            : max(1, (int) ($raw->sync_last_days ?? 15));
         $tz = new \DateTimeZone('Asia/Manila');
         $from = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->setTime(0, 0, 0)->getTimestamp();
         $to = (new \DateTime('now', $tz))->setTime(23, 59, 59)->getTimestamp();

@@ -94,10 +94,11 @@ return new class extends Migration
             ], $now);
         }
 
-        // TikTok (single-store). Refresh-token + sync-orders if commands exist.
+        // TikTok (single-store).
         if (in_array('tiktok', $enabledExtensions, true)) {
             $this->seedJobs('tiktok', null, [
                 ['tiktok:sync-orders',   'Sync Orders',          15, 'minute', null],
+                ['tiktok:push-stock',    'Push Stock & Price',   30, 'minute', null],
                 ['tiktok:refresh-token', 'Refresh Access Token', 12, 'hour',   null],
             ], $now);
         }

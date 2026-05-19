@@ -76,6 +76,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 permission: 'manage_tiktok',
                 menu: [
                     new MenuItem('Settings', 'ext.tiktok.index', 'manage_tiktok'),
+                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'manage_tiktok'),
                     new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'manage_tiktok'),
                     new MenuItem('Orders', 'ext.tiktok.orders.index', 'manage_tiktok_orders'),
                 ],

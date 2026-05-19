@@ -131,6 +131,22 @@ class TikTokProductGroupController extends Controller
         ]);
     }
 
+    // ── Categories: list view ───────────────────────────────────
+
+    public function indexCategories(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+        $query = TikTokCategory::query()->orderBy('name');
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('name', 'like', '%' . $q . '%')
+                    ->orWhere('id', 'like', '%' . $q . '%');
+            });
+        }
+        $categories = $query->paginate(50)->withQueryString();
+        return view('ext-tiktok::categories.index', compact('categories', 'q'));
+    }
+
     // ── Category Sync ───────────────────────────────────────────
 
     public function syncCategories()
@@ -779,9 +795,9 @@ class TikTokProductGroupController extends Controller
         $categoryId = (int) $request->input('category_id', 0);
         $manufacturerId = (int) $request->input('manufacturer_id', 0);
 
-        if (strlen($q) < 2 && !$categoryId && !$manufacturerId) {
-            return response()->json(['items' => []]);
-        }
+        // Empty filters return the latest 100 products (the LIMIT below) so
+        // operators can browse everything without first picking a category
+        // or typing a search term.
 
         $query = DB::table($pfx . 'product as p')
             ->join($pfx . 'product_description as pd', function ($j) use ($langId) {

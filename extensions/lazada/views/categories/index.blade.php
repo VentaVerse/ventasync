@@ -10,7 +10,7 @@
             <div class="text-muted text-sm">Fetch and cache Lazada's category tree locally for fast search and mapping.</div>
         </div>
         <div class="page-header-actions">
-            <a class="btn" href="{{ route('ext.lazada.index') }}">Back to Lazada</a>
+            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
 
             <form method="POST" action="{{ route('ext.lazada.categories.fetch') }}" style="display:inline;">
                 @csrf

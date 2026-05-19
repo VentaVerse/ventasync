@@ -135,6 +135,24 @@
     }
 }
 
+/* Layer 2 holds BOTH the orders + integrations variants in the DOM so
+   the slide-in animation can target either one without a page reload.
+   The .sidebar-nav--layer2[data-variant=…] attribute (set server-side
+   from $__layer2Variant and toggled client-side by the nav-expander
+   click handler) picks which variant is currently visible. */
+.sidebar-nav--layer2 .layer2-variant {
+    display: none;
+}
+/* Variants reproduce the parent nav's flex-column layout so items
+   inside the active variant still stack with consistent gaps — they
+   are now grandchildren of .sidebar-nav, not direct children. */
+.sidebar-nav--layer2[data-variant="orders"] .layer2-variant--orders,
+.sidebar-nav--layer2[data-variant="integrations"] .layer2-variant--integrations {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 /* Section title at the top of the 2nd-layer sidebar so the operator
    knows which context they're in. */
 .sidebar-layer2-title {

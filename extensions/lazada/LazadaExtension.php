@@ -81,6 +81,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 permission: 'manage_lazada',
                 menu: [
                     new MenuItem('Settings', 'ext.lazada.index', 'manage_lazada'),
+                    new MenuItem('Categories', 'ext.lazada.categories.index', 'manage_lazada'),
                     new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'manage_lazada'),
                     new MenuItem('Orders', 'ext.lazada.orders.index', 'manage_lazada_orders', null, ['tab' => 'TO_SHIP']),
                 ],

@@ -348,8 +348,8 @@
                  abruptly. The Blade $__layer2Variant chooses orders vs
                  integrations content based on $__navContext (default
                  integrations on layer-1 pages). --}}
-            <nav class="sidebar-nav sidebar-nav--layer2" data-layer2>
-                @if($__layer2Variant === 'orders')
+            <nav class="sidebar-nav sidebar-nav--layer2" data-layer2 data-variant="{{ $__layer2Variant ?? 'integrations' }}">
+                <div class="layer2-variant layer2-variant--orders">
                     <div class="sidebar-layer2-title">
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
                         <span class="label">Orders</span>
@@ -375,7 +375,9 @@
                             @endif
                         </a>
                     @endforeach
-                @else
+                </div>{{-- /.layer2-variant--orders --}}
+
+                <div class="layer2-variant layer2-variant--integrations">
                     <div class="sidebar-layer2-title">
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
                         <span class="label">Integrations</span>
@@ -383,6 +385,13 @@
                     <a href="{{ route('dashboard') }}" data-layer2-back>
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
                         <span class="label">Back</span>
+                    </a>
+                    {{-- The Integrations Hub (summary card grid). Lives here
+                         in layer 2 because the top-level "Integrations" link
+                         in layer 1 is now a pure nav-expander (no navigate). --}}
+                    <a href="{{ route('integrations.index') }}" class="{{ $__rn === 'integrations.index' ? 'active' : '' }}">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+                        <span class="label">Integrations Hub</span>
                     </a>
                     @foreach($__intCards as $__card)
                         @php
@@ -455,7 +464,7 @@
                             </details>
                         </div>
                     @endforeach
-                @endif
+                </div>{{-- /.layer2-variant--integrations --}}
             </nav>
             </div> {{-- /.sidebar-track --}}
         </div>
@@ -1426,35 +1435,90 @@ document.addEventListener('mousemove', function(e) {
 <script>
 // Sidebar layer-1 <-> layer-2 sliding track. Both layers always live in
 // the DOM inside [data-sidebar-track]; the .sidebar-track--layer2 class
-// shifts the track left so layer 2 takes over. We intercept navigation
-// in both directions so the slide finishes before the page jumps, and
-// the two layers sweep together (neither disappears abruptly).
+// shifts the track left so layer 2 takes over.
+//
+// Behaviour rules:
+//   - "Integrations" link in layer 1 and "Back" button in layer 2 are
+//     pure nav-expanders — they slide the track and do NOT navigate.
+//     The current page content stays put; the operator picks a real
+//     destination from the revealed layer.
+//   - Any other [data-layer2-enter] (e.g. "Orders") still navigates
+//     after the slide so it remains a real destination link.
+//   - The user-controlled layer state is remembered in sessionStorage
+//     so a page reload preserves the operator's choice rather than
+//     snapping back to the URL-derived default.
 (function() {
     var SLIDE_MS = 280;
+    var STORAGE_KEY = 'sidebar.layer';
+    var VARIANT_KEY = 'sidebar.layer2.variant';
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // On page load, restore the operator's last-chosen layer + variant.
+    // Server already picks the matching layer for marketplace pages;
+    // we only override when the operator manually expanded/collapsed
+    // or switched between Orders/Integrations variants.
+    try {
+        var stored = sessionStorage.getItem(STORAGE_KEY);
+        var storedVariant = sessionStorage.getItem(VARIANT_KEY);
+        var track0 = document.querySelector('[data-sidebar-track]');
+        var layer2 = document.querySelector('.sidebar-nav--layer2');
+        if (track0 && stored) {
+            var isCurrentlyLayer2 = track0.classList.contains('sidebar-track--layer2');
+            if (stored === 'layer2' && !isCurrentlyLayer2) {
+                track0.classList.add('sidebar-track--layer2');
+            } else if (stored === 'layer1' && isCurrentlyLayer2) {
+                track0.classList.remove('sidebar-track--layer2');
+            }
+        }
+        if (layer2 && storedVariant && (storedVariant === 'orders' || storedVariant === 'integrations')) {
+            layer2.setAttribute('data-variant', storedVariant);
+        }
+    } catch (e) { /* sessionStorage may be unavailable */ }
+
+    function rememberLayer(name) {
+        try { sessionStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+    }
+    function rememberVariant(name) {
+        try { sessionStorage.setItem(VARIANT_KEY, name); } catch (e) {}
+    }
+
     document.addEventListener('click', function(e) {
         var track = document.querySelector('[data-sidebar-track]');
         if (!track) return;
 
-        // Forward: layer 1 -> layer 2 (Integrations / Orders link).
+        // Forward: layer 1 -> layer 2. Pure nav-expander — no navigation.
+        // Both "Integrations" and "Orders" links in layer 1 just slide the
+        // track open; the operator picks the real destination (a marketplace
+        // sub-link, a per-tab Orders link, or the explicit Summary/Hub link)
+        // from the revealed layer-2 nav.
         var enter = e.target.closest && e.target.closest('[data-layer2-enter]');
-        if (enter && !track.classList.contains('sidebar-track--layer2')) {
+        if (enter) {
             if (reduce) return;
             e.preventDefault();
-            track.classList.add('sidebar-track--layer2');
-            var href = enter.getAttribute('href');
-            setTimeout(function() { window.location.href = href; }, SLIDE_MS);
+            // Pick the matching variant inside layer 2 BEFORE the slide
+            // starts so it animates with the correct content visible.
+            var kind = enter.getAttribute('data-layer2-enter');
+            var layer2 = document.querySelector('.sidebar-nav--layer2');
+            if (layer2 && (kind === 'orders' || kind === 'integrations')) {
+                layer2.setAttribute('data-variant', kind);
+                rememberVariant(kind);
+            }
+            if (!track.classList.contains('sidebar-track--layer2')) {
+                track.classList.add('sidebar-track--layer2');
+                rememberLayer('layer2');
+            }
             return;
         }
 
-        // Back: layer 2 -> layer 1 (the "Back" entry inside the contextual nav).
+        // Back: layer 2 -> layer 1. Pure collapser — no navigation,
+        // the operator's current page stays loaded and they can pick
+        // a fresh destination from the now-visible main nav.
         var back = e.target.closest && e.target.closest('[data-layer2-back]');
         if (back) {
             if (reduce) return;
             e.preventDefault();
             track.classList.remove('sidebar-track--layer2');
-            var hrefBack = back.getAttribute('href');
-            setTimeout(function() { window.location.href = hrefBack; }, SLIDE_MS);
+            rememberLayer('layer1');
             return;
         }
     });

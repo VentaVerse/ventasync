@@ -25,6 +25,7 @@
     $settingModel = match ($integration) {
         'shopee' => \Extensions\shopee\Models\ShopeeSetting::class,
         'lazada' => \Extensions\lazada\Models\LazadaSetting::class,
+        'tiktok' => \Extensions\tiktok\Models\TikTokSetting::class,
         default  => null,
     };
     $setting = ($settingModel && class_exists($settingModel)) ? $settingModel::query()->first() : null;

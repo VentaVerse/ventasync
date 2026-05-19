@@ -342,11 +342,6 @@
         var catId = document.getElementById('pl-category').value;
         var mfgId = document.getElementById('pl-manufacturer').value;
 
-        if (q.length < 2 && !catId && !mfgId) {
-            showFlashError('Enter a search term or select a category/manufacturer.');
-            return;
-        }
-
         var params = [];
         if (q) params.push('q=' + encodeURIComponent(q));
         if (catId) params.push('category_id=' + catId);
