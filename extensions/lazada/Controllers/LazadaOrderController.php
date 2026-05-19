@@ -62,8 +62,15 @@ class LazadaOrderController extends Controller
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
+        // Per-marketplace sort persistence — see ShopeeOrderController
+        // for the rationale. Session key is namespaced to "lazada".
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
         $sortKey = strtolower((string)$request->query('sort', ''));
+        if ($sortKey !== '') {
+            session(['marketplace_sort.lazada' => $sortKey]);
+        } else {
+            $sortKey = strtolower((string) session('marketplace_sort.lazada', ''));
+        }
         if ($sortKey === '') {
             $sortKey = 'created_' . $defaultDir;
         }

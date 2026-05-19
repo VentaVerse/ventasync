@@ -359,10 +359,6 @@
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
                         <span class="label">Orders</span>
                     </div>
-                    <a href="{{ route('dashboard') }}" data-layer2-back>
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-                        <span class="label">Back</span>
-                    </a>
                     <a href="{{ route('integrations.orders') }}" class="{{ $__rn === 'integrations.orders' ? 'active' : '' }}">
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
                         <span class="label">Summary</span>
@@ -380,6 +376,13 @@
                             @endif
                         </a>
                     @endforeach
+                    {{-- Back sits at the BOTTOM of the list (inline, not a
+                         sticky footer) so it appears right after the last
+                         menu item the operator scrolled past. --}}
+                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-bottom">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                        <span class="label">Back</span>
+                    </a>
                 </div>{{-- /.layer2-variant--orders --}}
 
                 <div class="layer2-variant layer2-variant--integrations">
@@ -387,10 +390,6 @@
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
                         <span class="label">Integrations</span>
                     </div>
-                    <a href="{{ route('dashboard') }}" data-layer2-back>
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-                        <span class="label">Back</span>
-                    </a>
                     {{-- The Integrations Hub (summary card grid). Lives here
                          in layer 2 because the top-level "Integrations" link
                          in layer 1 is now a pure nav-expander (no navigate). --}}
@@ -469,6 +468,13 @@
                             </details>
                         </div>
                     @endforeach
+                    {{-- Back at the BOTTOM of the marketplace list (inline,
+                         not a sticky footer) so it appears immediately after
+                         the last card the operator scrolled past. --}}
+                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-bottom">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                        <span class="label">Back</span>
+                    </a>
                 </div>{{-- /.layer2-variant--integrations --}}
             </nav>
             </div> {{-- /.sidebar-track --}}

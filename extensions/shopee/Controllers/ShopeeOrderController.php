@@ -56,8 +56,18 @@ class ShopeeOrderController extends Controller
             $tab = 'ALL';
         }
 
+        // Per-marketplace sort persistence: an explicit ?sort= in the
+        // URL becomes the new sticky default for THIS marketplace only
+        // (different marketplaces keep separate prefs). With no URL
+        // param, fall back to the session value, then to the per-tab
+        // default direction.
         $defaultDir = ($tab === 'PENDING') ? 'asc' : 'desc';
         $sortKey = strtolower((string) $request->query('sort', ''));
+        if ($sortKey !== '') {
+            session(['marketplace_sort.shopee' => $sortKey]);
+        } else {
+            $sortKey = strtolower((string) session('marketplace_sort.shopee', ''));
+        }
         if ($sortKey === '') {
             $sortKey = 'created_' . $defaultDir;
         }
@@ -955,22 +965,61 @@ class ShopeeOrderController extends Controller
             $shipBody['dropoff'] = $branchId > 0 ? ['branch_id' => $branchId] : new \stdClass();
         } else {
             // Use user-selected address_id if provided, otherwise find pickup_address flag
+            $addressList = ($paramResp['pickup']['address_list'] ?? []);
             $addressId = (int) $request->input('address_id', 0);
+            $chosenAddress = null;
             if ($addressId === 0) {
-                $addressList = ($paramResp['pickup']['address_list'] ?? []);
                 foreach ($addressList as $addr) {
                     if (is_array($addr) && in_array('pickup_address', $addr['address_flag'] ?? [])) {
                         $addressId = (int) ($addr['address_id'] ?? 0);
+                        $chosenAddress = $addr;
                         break;
                     }
                 }
                 if ($addressId === 0 && !empty($addressList) && is_array($addressList[0] ?? null)) {
                     $addressId = (int) ($addressList[0]['address_id'] ?? 0);
+                    $chosenAddress = $addressList[0];
+                }
+            } else {
+                foreach ($addressList as $addr) {
+                    if (is_array($addr) && (int) ($addr['address_id'] ?? 0) === $addressId) {
+                        $chosenAddress = $addr;
+                        break;
+                    }
                 }
             }
-            $shipBody['pickup'] = [
-                'address_id' => $addressId,
-            ];
+
+            $pickup = ['address_id' => $addressId];
+
+            // Honour info_needed: Shopee tells us per-region which extra
+            // fields are required. PH carriers commonly require
+            // pickup_time_id; we previously ignored that and Shopee
+            // returned "Pickup time is out of range". Pick the
+            // operator-supplied slot if any, else the slot flagged
+            // `recommended`, else the first slot in the list.
+            $pickupNeeds = (array) ($infoList['pickup'] ?? []);
+            if (in_array('pickup_time_id', $pickupNeeds, true)) {
+                $pickupTimeId = $request->input('pickup_time_id', null);
+                if ($pickupTimeId === null || $pickupTimeId === '') {
+                    $slots = (array) ($chosenAddress['time_slot_list'] ?? []);
+                    foreach ($slots as $slot) {
+                        if (is_array($slot) && in_array('recommended', (array) ($slot['flags'] ?? []), true)) {
+                            $pickupTimeId = $slot['pickup_time_id'] ?? null;
+                            break;
+                        }
+                    }
+                    if ($pickupTimeId === null && !empty($slots) && is_array($slots[0] ?? null)) {
+                        $pickupTimeId = $slots[0]['pickup_time_id'] ?? null;
+                    }
+                }
+                if ($pickupTimeId !== null && $pickupTimeId !== '') {
+                    // Shopee returns pickup_time_id as a string in the
+                    // time_slot_list — keep the same type when sending it back.
+                    $pickup['pickup_time_id'] = (string) $pickupTimeId;
+                }
+            }
+
+            $shipBody['pickup'] = $pickup;
         }
 
         $shipRes = $client->shopPost(

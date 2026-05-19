@@ -94,8 +94,15 @@ class TikTokOrderController extends Controller
             'CANCELLED'    => 'Cancelled',
         ];
 
+        // Per-marketplace sort persistence — see ShopeeOrderController
+        // for the rationale. Session key is namespaced to "tiktok".
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
-        $sortKey = strtolower((string) $request->query('sort', 'created_' . $defaultDir));
+        $sortKey = strtolower((string) $request->query('sort', ''));
+        if ($sortKey !== '') {
+            session(['marketplace_sort.tiktok' => $sortKey]);
+        } else {
+            $sortKey = strtolower((string) session('marketplace_sort.tiktok', ''));
+        }
         if (!in_array($sortKey, ['created_asc', 'created_desc'], true)) {
             $sortKey = 'created_' . $defaultDir;
         }
