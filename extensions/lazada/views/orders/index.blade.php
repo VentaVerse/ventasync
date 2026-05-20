@@ -2,12 +2,18 @@
 @section('breadcrumb', 'Integrations / Lazada / Orders')
 
 @section('content')
+@php
+    // Phase 3 — Lazada Orders is visible to view_lazada_orders holders; the
+    // Fetch/Update/Pack/Ship/Cancel actions require manage_lazada_orders.
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+@endphp
 <div class="marketplace-lazada">
 @include('integrations.partials._tab_strip', ['activeTabId' => 'lazada'])
 <div class="page-header">
     <h2>Lazada Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
 
+@if($canManageLazadaOrders)
 <div class="card mb-16">
 <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -33,6 +39,11 @@
         </div>
     </form>
 </div>
+@else
+<div class="card mb-16" style="background:#fef3c7; border:1px solid #fcd34d; color:#92400e; padding:10px 14px; font-size:13px;">
+    <strong>Read-only view.</strong> Order fetch/sync, pack &amp; print, arrange shipment, and cancel are managed by operators with the <code>manage_lazada_orders</code> permission tier.
+</div>
+@endif
 
     @if($last_result)
         <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
@@ -513,36 +524,47 @@
                                     <span class="text-muted">—</span>
                                 @else
                                     <div class="d-flex gap-8 flex-wrap items-center">
-                                        {{-- TO PACK (pending): only Pack & Print --}}
-                                        @if($isToPack)
-                                            <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}" data-confirm="Pack this order now? This will create packages and make AWB available.">
-                                                @csrf
-                                                <button type="submit" class="btn small">Pack &amp; Print</button>
-                                            </form>
-                                        @endif
+                                        {{-- All Pack/Ship/Recreate are write actions; viewers see only
+                                             AWB print links (which open a server-rendered PDF of already-
+                                             fetched shipping data). --}}
+                                        @if($canManageLazadaOrders)
+                                            {{-- TO PACK (pending): only Pack & Print --}}
+                                            @if($isToPack)
+                                                <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}" data-confirm="Pack this order now? This will create packages and make AWB available.">
+                                                    @csrf
+                                                    <button type="submit" class="btn small">Pack &amp; Print</button>
+                                                </form>
+                                            @endif
 
-                                        {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
-                                        @if($isToArrange)
-                                            <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
+                                            @if($isToArrange)
+                                                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
 
-                                            <form method="POST" action="{{ route('ext.lazada.orders.rts', ['orderId' => $orderId]) }}" data-confirm="Arrange Shipment (Ready To Ship) for this order?">
-                                                @csrf
-                                                <button type="submit" class="btn small" style="background:#16a34a; border-color:#16a34a; color:#fff;">Arrange Shipment</button>
-                                            </form>
+                                                <form method="POST" action="{{ route('ext.lazada.orders.rts', ['orderId' => $orderId]) }}" data-confirm="Arrange Shipment (Ready To Ship) for this order?">
+                                                    @csrf
+                                                    <button type="submit" class="btn small" style="background:#16a34a; border-color:#16a34a; color:#fff;">Arrange Shipment</button>
+                                                </form>
 
-                                            <form method="POST" action="{{ route('ext.lazada.orders.recreate_package', ['orderId' => $orderId]) }}" data-confirm="Recreate Package (local)? Lazada may still keep the original package. Continue?">
-                                                @csrf
-                                                <button type="submit" class="btn small secondary">Recreate Package</button>
-                                            </form>
-                                        @endif
+                                                <form method="POST" action="{{ route('ext.lazada.orders.recreate_package', ['orderId' => $orderId]) }}" data-confirm="Recreate Package (local)? Lazada may still keep the original package. Continue?">
+                                                    @csrf
+                                                    <button type="submit" class="btn small secondary">Recreate Package</button>
+                                                </form>
+                                            @endif
 
-                                        {{-- TO HANDOVER (ready_to_ship): Print only --}}
-                                        @if($isToHandover)
-                                            <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            {{-- TO HANDOVER (ready_to_ship): Print only --}}
+                                            @if($isToHandover)
+                                                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            @endif
+                                        @else
+                                            {{-- Viewers always get the AWB shortcut on any non-pending order
+                                                 — opening a saved PDF is read-only. --}}
+                                            @if(!$isToPack && ($savedAwbs[$orderId] ?? false))
+                                                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
+                                            @endif
                                         @endif
 
                                         {{-- Post-fulfilment: only show AWB if a local copy exists --}}
-                                        @if(!$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && ($savedAwbs[$orderId] ?? false))
+                                        @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && ($savedAwbs[$orderId] ?? false))
                                             <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
                                         @endif
                                     </div>
@@ -598,7 +620,8 @@
     </div>
 </div>
 
-{{-- Pack & Print follow-up modal --}}
+@if($canManageLazadaOrders)
+{{-- Pack & Print follow-up modal — only meaningful for write-tier operators. --}}
 <div id="lzPackPrintModal" class="modal-backdrop">
     <div class="modal" style="max-width:520px;">
         <div class="modal-header">
@@ -623,6 +646,7 @@
         </div>
     </div>
 </div>
+@endif
 
 {{-- Logistics status modal --}}
 <div id="lzLogisticsModal" class="modal-backdrop">

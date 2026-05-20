@@ -2,11 +2,15 @@
 @section('breadcrumb', 'Integrations / Lazada / Return or Refund')
 
 @section('content')
+@php
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+@endphp
 <div class="marketplace-lazada">
 <div class="page-header">
     <h2>Lazada Return or Refund <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
 
+@if($canManageLazadaOrders)
 <div class="card mb-16">
     <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -26,6 +30,7 @@
         </div>
     </form>
 </div>
+@endif
 
 @if($last_result)
     <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">

@@ -4,6 +4,15 @@
 @section('title', 'Lazada Products')
 
 @section('content')
+    @php
+        // Phase 3 view/manage tier — Lazada Products listings are visible to
+        // view_lazada holders, but every action button below ("Add Product",
+        // Upload, Sync, Delete, Unlink, Link, Dismiss, etc.) must be hidden
+        // for a read-only operator. The destination routes are write-gated
+        // separately, so this is purely a UX courtesy.
+        $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    @endphp
+
     <div class="page-header">
         <div>
             <h2>Lazada Products</h2>
@@ -11,12 +20,15 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('ext.lazada.product-groups.index') }}">Product Groups</a>
-            <a class="btn" href="{{ route('ext.lazada.products.create') }}">Add Product</a>
+            @if($canManageLazada)
+                <a class="btn" href="{{ route('ext.lazada.products.create') }}">Add Product</a>
+            @endif
         </div>
     </div>
 
-    {{-- Unmatched Items Section --}}
-    @if(isset($unmatchedItems) && $unmatchedItems->count() > 0)
+    {{-- Unmatched Items Section — entire workflow (link, dismiss, re-scan) is
+         write-tier only. Read-only operators don't see it. --}}
+    @if($canManageLazada && isset($unmatchedItems) && $unmatchedItems->count() > 0)
         <div class="card mb-12" id="lazada-unmatched-section">
             <div class="d-flex justify-between items-center" style="margin-bottom:12px;">
                 <div>
@@ -83,7 +95,7 @@
     @endif
 
     {{-- Sync Unmatched button in header area --}}
-    @if(!isset($unmatchedItems) || $unmatchedItems->count() === 0)
+    @if($canManageLazada && (!isset($unmatchedItems) || $unmatchedItems->count() === 0))
         <div style="margin-bottom:12px;">
             <form method="POST" action="{{ route('ext.lazada.products.sync_unmatched') }}" style="display:inline;">
                 @csrf
@@ -163,7 +175,10 @@
                 : url('/lazada/products/bulk/delete');
         @endphp
 
-        {{-- Bulk action bar (hidden until items selected) --}}
+        {{-- Bulk action bar (hidden until items selected) — write-tier only.
+             For Lazada Viewers the entire bar is omitted from the DOM along
+             with the per-row checkbox column (gated below in the table). --}}
+        @if($canManageLazada)
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
@@ -189,6 +204,7 @@
                 </form>
             </div>
         </div>
+        @endif
 
 
         <div class="table-wrap">
@@ -215,7 +231,9 @@
             };
         @endphp
 
+        @if($canManageLazada)
         <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
+        @endif
         <th style="width:60px;"><a href="{{ $sortUrl('id') }}" style="text-decoration:none; color:inherit;">ID{!! $sortIcon('id') !!}</a></th>
         <th style="width:56px;">Image</th>
         <th><a href="{{ $sortUrl('product') }}" style="text-decoration:none; color:inherit;">Product Name{!! $sortIcon('product') !!}</a></th>
@@ -255,7 +273,9 @@
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($l->product_id) : null;
         @endphp
         <tr>
+            @if($canManageLazada)
             <td><input type="checkbox" class="row-check" value="{{ $l->id }}"></td>
+            @endif
             <td>{{ $l->product_id ?? '-' }}</td>
             <td>
                 @if($thumb)
@@ -355,6 +375,7 @@
                 @endif
             </td>
             <td>
+                @if($canManageLazada)
                 <div style="position:relative;" class="row-actions">
                     <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -423,6 +444,9 @@
                         @endif
                     </div>
                 </div>
+                @else
+                <span class="text-muted text-xs">-</span>
+                @endif
             </td>
         </tr>
     @empty

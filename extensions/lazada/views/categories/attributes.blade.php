@@ -4,6 +4,9 @@
 @section('title', 'Lazada Category Attributes')
 
 @section('content')
+    @php
+        $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    @endphp
     <div class="page-header">
         <div>
             <h2>Lazada Category Attributes</h2>
@@ -12,10 +15,12 @@
         <div class="page-header-actions">
             <a class="btn" href="{{ route('ext.lazada.categories.index') }}">Back to Categories</a>
 
+            @if($canManageLazada)
             <form method="POST" action="{{ route('ext.lazada.categories.attributes.fetch', $category->category_id) }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch Attributes from Lazada</button>
             </form>
+            @endif
         </div>
     </div>
 

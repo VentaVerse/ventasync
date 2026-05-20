@@ -25,20 +25,41 @@
 
     $logCount = count($logs);
     $hasResult = !empty($result);
+
+    // Phase 3 (view/manage tier split): operators with only `view_lazada` get
+    // here through the read-tier route gate. Action triggers (Save, Authorize,
+    // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
+    // them — the routes still 403 if probed directly, but the UI surface
+    // should match the operator's capability set.
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
 @endphp
 
+@unless($canManageLazada)
+<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
+    <strong>Read-only view.</strong> You can browse Lazada settings, mappings, and logs. To edit credentials, run syncs, or trigger marketplace actions, your user group needs the <code>manage_lazada</code> permission tier.
+</div>
+@endunless
+
 {{-- ═══ Tabs ═══ --}}
+{{-- API Explorer + Automations tabs are write-only tools (they invoke the
+     Lazada API directly and configure the cron schedule). Read-only operators
+     don't see them; the Status Mapping and API Logs tabs render the data
+     they hold without exposing write actions. --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab active" data-tab="lz-tab-settings" type="button">Settings</button>
     <button class="tab" data-tab="lz-tab-status" type="button">Status Mapping</button>
+    @if($canManageLazada)
     <button class="tab" data-tab="lz-tab-explorer" type="button">API Explorer</button>
+    @endif
     <button class="tab" data-tab="lz-tab-logs" type="button">
         API Logs
         @if($logCount > 0)
             <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
         @endif
     </button>
+    @if($canManageLazada)
     <button class="tab" data-tab="lz-tab-automations" type="button">Automations</button>
+    @endif
 </div>
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
@@ -49,6 +70,7 @@
     {{-- Environment Toggle --}}
     <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
         <span class="font-semibold text-sm">Environment:</span>
+        @if($canManageLazada)
         <form method="POST" action="{{ route('ext.lazada.toggle_mode') }}" id="lz-mode-form" style="display:flex; align-items:center; gap:10px;">
             @csrf
             <input type="hidden" name="mode" id="lz-mode-value" value="{{ $currentMode }}">
@@ -67,6 +89,12 @@
                 {{ $isSandbox ? 'Sandbox' : 'Production' }}
             </span>
         </form>
+        @else
+        {{-- Read-only badge — operator sees the current environment but can't switch. --}}
+        <span class="badge {{ $isSandbox ? 'badge-gray' : 'badge-green' }}" style="font-size:12px;">
+            {{ $isSandbox ? 'Sandbox' : 'Production' }}
+        </span>
+        @endif
     </div>
 
     {{-- Connection + Auth side-by-side --}}
@@ -94,7 +122,7 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Region</label>
-                        <select name="region" class="input">
+                        <select name="region" class="input" {{ $canManageLazada ? '' : 'disabled' }}>
                             <option value="">(not set)</option>
                             @foreach(['ph' => 'Philippines', 'sg' => 'Singapore', 'my' => 'Malaysia', 'id' => 'Indonesia', 'th' => 'Thailand', 'vn' => 'Vietnam'] as $code => $name)
                                 <option value="{{ $code }}" {{ ($setting->region ?? '') === $code ? 'selected' : '' }}>{{ $name }} ({{ $code }})</option>
@@ -103,11 +131,11 @@
                     </div>
                     <div>
                         <label>App Key</label>
-                        <input class="input" name="app_key" autocomplete="off" value="{{ old('app_key', $setting->app_key ?? '') }}">
+                        <input class="input" name="app_key" autocomplete="off" value="{{ old('app_key', $setting->app_key ?? '') }}" {{ $canManageLazada ? '' : 'readonly' }}>
                     </div>
                     <div>
                         <label>App Secret</label>
-                        <input class="input" name="app_secret" type="password" autocomplete="off" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
+                        <input class="input" name="app_secret" type="password" autocomplete="off" value="{{ old('app_secret', $setting->app_secret ?? '') }}" {{ $canManageLazada ? '' : 'readonly' }}>
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
@@ -116,9 +144,11 @@
                         <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your Lazada Open Platform live app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                     </div>
                 </div>
+                @if($canManageLazada)
                 <div style="margin-top:14px;">
                     <button class="btn" type="submit">Save Settings</button>
                 </div>
+                @endif
             </form>
         </div>
 
@@ -145,6 +175,7 @@
                 </div>
             @endif
 
+            @if($canManageLazada)
             <div style="display:flex; flex-direction:column; gap:16px;">
                 {{-- Step 1 --}}
                 <div class="detail-section">
@@ -187,6 +218,9 @@
                     <div class="hint" style="margin-top:6px;">Lazada tokens expire periodically. Use this to renew without re-authorizing.</div>
                 </div>
             </div>
+            @else
+            <div class="hint" style="padding:10px; background:var(--surface); border-radius:var(--radius-md);">Authorization actions (Authorize, Exchange Token, Refresh Token) require the <code>manage_lazada</code> permission tier.</div>
+            @endif
         </div>
     </div>
     </div>
@@ -214,7 +248,7 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Region</label>
-                        <select name="region" class="input">
+                        <select name="region" class="input" {{ $canManageLazada ? '' : 'disabled' }}>
                             <option value="">(not set)</option>
                             @foreach(['ph' => 'Philippines', 'sg' => 'Singapore', 'my' => 'Malaysia', 'id' => 'Indonesia', 'th' => 'Thailand', 'vn' => 'Vietnam'] as $code => $name)
                                 <option value="{{ $code }}" {{ ($setting->region ?? '') === $code ? 'selected' : '' }}>{{ $name }} ({{ $code }})</option>
@@ -224,11 +258,11 @@
                     </div>
                     <div>
                         <label>Sandbox App Key</label>
-                        <input class="input" name="sandbox_app_key" autocomplete="off" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}">
+                        <input class="input" name="sandbox_app_key" autocomplete="off" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}" {{ $canManageLazada ? '' : 'readonly' }}>
                     </div>
                     <div>
                         <label>Sandbox App Secret</label>
-                        <input class="input" name="sandbox_app_secret" type="password" autocomplete="off" value="{{ old('sandbox_app_secret', $setting->sandbox_app_secret ?? '') }}">
+                        <input class="input" name="sandbox_app_secret" type="password" autocomplete="off" value="{{ old('sandbox_app_secret', $setting->sandbox_app_secret ?? '') }}" {{ $canManageLazada ? '' : 'readonly' }}>
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
@@ -237,9 +271,11 @@
                         <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your Lazada Open Platform sandbox app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                     </div>
                 </div>
+                @if($canManageLazada)
                 <div style="margin-top:14px;">
                     <button class="btn" type="submit">Save Sandbox Settings</button>
                 </div>
+                @endif
             </form>
         </div>
 
@@ -265,6 +301,7 @@
                 </div>
             @endif
 
+            @if($canManageLazada)
             <div style="display:flex; flex-direction:column; gap:16px;">
                 <div class="detail-section">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
@@ -329,6 +366,9 @@
                     </form>
                 </div>
             </div>
+            @else
+            <div class="hint" style="padding:10px; background:var(--surface); border-radius:var(--radius-md);">Sandbox authorization actions require the <code>manage_lazada</code> permission tier.</div>
+            @endif
         </div>
     </div>
     </div>
@@ -341,13 +381,16 @@
 {{-- ╔══════════════════════════════════════════════════════════════════╗
      ║  AUTOMATIONS TAB — universal admin scheduler                    ║
      ╚══════════════════════════════════════════════════════════════════╝ --}}
+@if($canManageLazada)
 <div id="lz-tab-automations" class="hidden">
     @include('partials._automations_tab', ['integration' => 'lazada', 'storeId' => null])
 </div>
+@endif
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
      ║  TAB 2 — API EXPLORER                                          ║
      ╚══════════════════════════════════════════════════════════════════╝ --}}
+@if($canManageLazada)
 <div id="lz-tab-explorer" class="hidden">
 <div class="card">
     <h3 class="section-title mt-0">API Explorer</h3>
@@ -490,6 +533,7 @@
     </div>
 </div>
 </div>
+@endif
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
      ║  TAB 3 — STATUS MAPPING                                        ║
@@ -521,7 +565,7 @@
                             <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
                         </td>
                         <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageLazada ? '' : 'disabled' }}>
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
                                         {{ $os->name }}
@@ -534,9 +578,11 @@
                 </tbody>
             </table>
             </div>
+            @if($canManageLazada)
             <div style="margin-top:14px;">
                 <button class="btn" type="submit">Save Mapping</button>
             </div>
+            @endif
         </form>
     </div>
 
@@ -565,7 +611,7 @@
                             <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
                         </td>
                         <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageLazada ? '' : 'disabled' }}>
                                 <option value="">(not mapped)</option>
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($reverseStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
@@ -579,9 +625,11 @@
                 </tbody>
             </table>
             </div>
+            @if($canManageLazada)
             <div style="margin-top:14px;">
                 <button class="btn" type="submit">Save Mapping</button>
             </div>
+            @endif
         </form>
     </div>
 
@@ -597,6 +645,7 @@
             <span class="font-semibold text-sm">API Logging</span>
             <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
         </div>
+        @if($canManageLazada)
         <label class="d-flex items-center gap-10" style="cursor:pointer;" id="lz-log-toggle">
             <span style="position:relative; display:inline-block; width:44px; height:24px;">
                 <input type="checkbox" id="lz-log-cb" value="1"
@@ -609,6 +658,11 @@
                 {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
             </span>
         </label>
+        @else
+        <span class="badge {{ ($setting->api_logging ?? true) ? 'badge-green' : 'badge-gray' }}" style="font-size:12px;">
+            Logging: {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
+        </span>
+        @endif
     </div>
 
     @if($result)
@@ -625,7 +679,7 @@
     <div class="card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
-            @if($logCount > 0)
+            @if($logCount > 0 && $canManageLazada)
                 <form method="POST" action="{{ route('ext.lazada.clear_api_logs') }}" data-confirm="Delete all Lazada API logs?">
                     @csrf
                     @method('DELETE')

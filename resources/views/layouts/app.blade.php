@@ -58,9 +58,12 @@
             $canOrderStatuses = $u && $u->hasPermission('manage_order_statuses');
             $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
             $canShopee = $u && $u->hasPermission('manage_shopee');
-            $canLazada = $u && $u->hasPermission('manage_lazada');
+            // Lazada sidebar uses the VIEW tier so read-only operators see
+            // the link. hasPermission('view_lazada') returns true for either
+            // view_lazada or manage_lazada holders (manage-implies-view).
+            $canLazada = $u && $u->hasPermission('view_lazada');
             $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
-            $canLazadaOrders = $u && $u->hasPermission('manage_lazada_orders');
+            $canLazadaOrders = $u && $u->hasPermission('view_lazada_orders');
             $canTikTok = $u && $u->hasPermission('manage_tiktok');
             $canTikTokOrders = $u && $u->hasPermission('manage_tiktok_orders');
             $canOpencart = $u && $u->hasPermission('manage_opencart');

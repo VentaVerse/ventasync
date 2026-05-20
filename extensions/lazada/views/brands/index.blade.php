@@ -2,6 +2,9 @@
 @section('breadcrumb', 'Integrations / Lazada / Brands')
 
 @section('content')
+@php
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+@endphp
 <div class="page-header">
     <h1>Lazada Brands</h1>
     <div class="page-header-actions">
@@ -20,10 +23,12 @@
             <button class="btn" type="submit">Search</button>
         </form>
 
+        @if($canManageLazada)
         <form method="POST" action="{{ route('ext.lazada.brands.fetch') }}">
             @csrf
             <button class="btn" type="submit">Fetch All Brands</button>
         </form>
+        @endif
     </div>
 
     <div style="height:1px; background:var(--border); margin:14px 0;"></div>

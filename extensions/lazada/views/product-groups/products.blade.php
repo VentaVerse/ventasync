@@ -2,13 +2,18 @@
 @section('breadcrumb', 'Integrations / Lazada / ' . $group->name . ' / Products')
 
 @section('content')
+    @php
+        $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    @endphp
     <div class="page-header">
         <div>
             <h2>{{ $group->name }} — Products</h2>
             <div class="text-muted text-sm">Lazada — push catalog products, sync stock &amp; price.</div>
         </div>
         <div class="page-header-actions">
+            @if($canManageLazada)
             <a class="btn secondary" href="{{ route('ext.lazada.product-groups.edit', $group->id) }}">Edit Group</a>
+            @endif
             <a class="btn secondary" href="{{ route('ext.lazada.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
@@ -47,7 +52,8 @@
     </div>
 
     <div class="card">
-        {{-- Bulk action bar (hidden until items selected) --}}
+        @if($canManageLazada)
+        {{-- Bulk action bar (hidden until items selected) — write-tier only. --}}
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
@@ -73,12 +79,15 @@
                 </form>
             </div>
         </div>
+        @endif
 
         <div class="table-wrap">
             <table class="table" id="lazadaProductsTable">
                 <thead>
                 <tr>
+                    @if($canManageLazada)
                     <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
+                    @endif
                     <th style="width:60px;">ID</th>
                     <th style="width:56px;">Image</th>
                     <th>Product Name</th>
@@ -90,7 +99,9 @@
                     <th style="width:90px;">ERP Status</th>
                     <th style="width:100px;">Sync Status</th>
                     <th style="width:160px;">Error</th>
+                    @if($canManageLazada)
                     <th style="width:50px;"></th>
+                    @endif
                 </tr>
                 </thead>
                 <tbody>
@@ -106,7 +117,9 @@
                         $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
                     @endphp
                     <tr>
+                        @if($canManageLazada)
                         <td><input type="checkbox" class="row-check" value="{{ $p->product_id }}"></td>
+                        @endif
                         <td>{{ $p->product_id }}</td>
                         <td>
                             @if($src)
@@ -194,6 +207,7 @@
                                 <span class="text-muted">-</span>
                             @endif
                         </td>
+                        @if($canManageLazada)
                         <td>
                             <div style="position:relative;" class="row-actions">
                                 <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
@@ -279,6 +293,7 @@
                                 </div>
                             </div>
                         </td>
+                        @endif
                     </tr>
                 @empty
                     <tr>

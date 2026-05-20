@@ -28,6 +28,7 @@
 @import './components/tabs.css';
 @import './components/detail.css';
 @import './components/modals.css';
+@import './components/permission-pill.css';
 
 /* Pages */
 @import './pages/dashboard.css';

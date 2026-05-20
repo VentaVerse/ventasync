@@ -4,6 +4,9 @@
 @section('title', 'Lazada Product Groups')
 
 @section('content')
+    @php
+        $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+    @endphp
     <div class="page-header">
         <div>
             <h2>Lazada Product Groups</h2>
@@ -11,7 +14,9 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
+            @if($canManageLazada)
             <a class="btn" href="{{ route('ext.lazada.product-groups.create') }}">Add Product Group</a>
+            @endif
         </div>
     </div>
 
@@ -59,6 +64,7 @@
                         <td>
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('ext.lazada.product-groups.products', $g->id) }}">Products</a>
+                                @if($canManageLazada)
                                 <a class="btn small secondary" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit</a>
 
                                 <form method="POST" action="{{ route('ext.lazada.product-groups.destroy', $g->id) }}" style="margin:0;" data-confirm="Delete product group? Products with no other group links will be removed.">
@@ -66,6 +72,7 @@
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>
                                 </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

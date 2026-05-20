@@ -1,267 +1,429 @@
-{{-- Shared permission picker for user group create/edit --}}
+{{-- ============================================================
+    User-group permission picker (Phase 2)
+    -------------------------------------------------------------
+    Renders the permission tree as a list of segmented "pills". A
+    row is built per **resource base** (e.g. "lazada", "user_groups"),
+    not per individual permission record:
+
+      - If both view_X and manage_X exist for a base → 3-segment pill
+      - If only manage_X exists                       → 2-segment pill
+      - If only view_X exists                         → 2-segment pill (Off | View)
+
+    Hidden inputs (`permissions[]`) underneath each pill carry the
+    actual DB permission IDs. The JS controller toggles each input's
+    `disabled` attribute so the submission contract stays identical
+    to the legacy checkbox UI — the backend still receives a flat
+    array of granted IDs.
+
+    Display labels come from the existing Permission::label accessor,
+    which already resolves through the extension's translation
+    namespace, so this view never needs to know which extension owns
+    a key.
+============================================================ --}}
 @php
     $selected = $selected ?? [];
-    $totalPerms = 0;
-    $totalSelected = 0;
-    foreach ($permissionGroups as $pg) {
-        $totalPerms++;
-        if (in_array($pg['parent']->id, $selected)) $totalSelected++;
-        if (!empty($pg['children'])) {
-            foreach ($pg['children'] as $c) {
-                $totalPerms++;
-                if (in_array($c->id, $selected)) $totalSelected++;
+    $hierarchy = app(\App\Services\PermissionHierarchy::class);
+
+    // Collapse view_X / manage_X siblings into one logical row per base.
+    // Each "row" carries up to two permission records and the pill it should
+    // render. Standalone keys (no view/manage prefix — e.g. container parents)
+    // are surfaced as a 2-segment pill on the base itself.
+    $buildRows = function (array $perms) use ($hierarchy, $selected) {
+        $byBase = [];
+        $order = [];
+        foreach ($perms as $perm) {
+            $base = $hierarchy->baseOf($perm->key);
+            // Permissions without a view_/manage_ prefix (e.g. a standalone
+            // parent like 'manage_marketplace_api') keyed under themselves.
+            $bucket = $base ?? $perm->key;
+            if (!isset($byBase[$bucket])) {
+                $byBase[$bucket] = ['view' => null, 'manage' => null, 'base' => $bucket, 'fallback' => null];
+                $order[] = $bucket;
+            }
+            if (str_starts_with($perm->key, 'view_')) {
+                $byBase[$bucket]['view'] = $perm;
+            } elseif (str_starts_with($perm->key, 'manage_')) {
+                $byBase[$bucket]['manage'] = $perm;
+            } else {
+                // Container / standalone — bind it under "manage" so the pill
+                // collapses to Off|Manage with this id as the manage tier.
+                $byBase[$bucket]['manage'] = $perm;
+                $byBase[$bucket]['fallback'] = $perm;
             }
         }
+        $rows = [];
+        foreach ($order as $base) {
+            $entry = $byBase[$base];
+            // segCount is 3 when BOTH view + manage exist (renders Off|View|Manage),
+            // otherwise 2. The single non-off segment for the 2-seg case carries
+            // the tier name of whichever variant actually exists (view OR manage),
+            // so a read-only extension key like view_petty_cash_transactions renders
+            // as [Off | View] — not the impossible [Off | Manage].
+            $hasView = (bool) $entry['view'];
+            $hasManage = (bool) $entry['manage'];
+            $segCount = ($hasView && $hasManage) ? 3 : 2;
+            $secondaryTier = $hasManage ? 'manage' : 'view';
+
+            // Initial state from selected[]
+            $state = 'off';
+            if ($entry['manage'] && in_array($entry['manage']->id, $selected)) {
+                $state = 'manage';
+            } elseif ($entry['view'] && in_array($entry['view']->id, $selected)) {
+                $state = 'view';
+            }
+
+            // The "primary" permission record is used purely for the label —
+            // prefer manage (since it's the broader scope and most familiar
+            // to existing operators).
+            $primary = $entry['manage'] ?? $entry['view'];
+
+            $rows[] = [
+                'base'          => $base,
+                'segments'      => $segCount,
+                'secondaryTier' => $secondaryTier,
+                'state'         => $state,
+                'view'          => $entry['view'],
+                'manage'        => $entry['manage'],
+                'primary'       => $primary,
+            ];
+        }
+        return $rows;
+    };
+
+    // Collect every permission ID that WILL be surfaced as a pill so we know
+    // which selected IDs are "orphans" (e.g. top-level container parents like
+    // manage_marketplace_api that don't appear as their own row). Orphans are
+    // re-emitted as hidden, untouchable inputs so existing saves stay
+    // wire-compatible — they're invisible to the operator but survive Save.
+    $pillSurfacedIds = [];
+    foreach ($permissionGroups as $pg) {
+        $kids = $pg['children'] ?? [];
         if (!empty($pg['subgroups'])) {
             foreach ($pg['subgroups'] as $sg) {
-                foreach ($sg['children'] as $c) {
-                    $totalPerms++;
-                    if (in_array($c->id, $selected)) $totalSelected++;
+                $kids = array_merge($kids, $sg['children']);
+            }
+        }
+        if (empty($kids)) {
+            // Standalone group — its single parent IS the pill.
+            $pillSurfacedIds[] = $pg['parent']->id;
+        } else {
+            foreach ($kids as $perm) {
+                $pillSurfacedIds[] = $perm->id;
+            }
+        }
+    }
+    $pillSurfacedIds = array_flip($pillSurfacedIds);
+    $orphanSelected = array_values(array_filter($selected, fn($id) => !isset($pillSurfacedIds[$id])));
+
+    // Walk the tree, build everything we need for render, accumulate totals.
+    $renderGroups = [];
+    $totalPills = 0;
+    $grantedPills = 0;
+    foreach ($permissionGroups as $pg) {
+        $section = [
+            'key'         => $pg['key'],
+            'label'       => $pg['label'],
+            'parent'      => $pg['parent'],
+            'parent_row'  => null,  // shown if the parent itself is a real assignable permission (i.e. standalone)
+            'subsections' => [],
+            'count_manage' => 0,
+            'count_view'   => 0,
+        ];
+
+        $childrenFlat = $pg['children'] ?? null;
+        $subgroups = $pg['subgroups'] ?? null;
+
+        $isStandalone = empty($childrenFlat) && empty($subgroups);
+        if ($isStandalone) {
+            // Whole "group" is just the parent (e.g. some extension might
+            // declare a single top-level permission). Surface as 1-row pill.
+            $section['subsections'][] = [
+                'label' => null,
+                'rows'  => $buildRows([$pg['parent']]),
+            ];
+        } else {
+            if (!empty($childrenFlat)) {
+                $section['subsections'][] = [
+                    'label' => null,
+                    'rows'  => $buildRows($childrenFlat),
+                ];
+            }
+            if (!empty($subgroups)) {
+                foreach ($subgroups as $sg) {
+                    $section['subsections'][] = [
+                        'label' => $sg['label'],
+                        'rows'  => $buildRows($sg['children']),
+                    ];
                 }
             }
         }
+
+        // Tally for this section and globally
+        foreach ($section['subsections'] as &$sub) {
+            foreach ($sub['rows'] as $row) {
+                $totalPills++;
+                if ($row['state'] === 'manage') { $section['count_manage']++; $grantedPills++; }
+                elseif ($row['state'] === 'view') { $section['count_view']++; $grantedPills++; }
+            }
+        }
+        unset($sub);
+
+        $renderGroups[] = $section;
     }
 @endphp
 
-<div id="perm-picker">
-    {{-- Global toolbar --}}
-    <div class="perm-toolbar">
-        <div class="perm-toolbar-label">
-            Permissions
-            <span id="perm-global-badge" class="perm-badge perm-badge-gray">{{ $totalSelected }} / {{ $totalPerms }}</span>
+<div id="perm-picker-v2"
+     data-total="{{ $totalPills }}"
+     data-empty="0">
+
+    {{-- Carry-over hidden inputs for currently-granted IDs that don't have
+         their own pill (top-level group/container permissions). These survive
+         the save round-trip even though the operator can't toggle them; if
+         the operator wants to revoke them too, they must use the "Off all"
+         cascade which detaches everything including these. --}}
+    @foreach($orphanSelected as $orphanId)
+        <input type="hidden" name="permissions[]" value="{{ $orphanId }}" data-orphan="1">
+    @endforeach
+
+    {{-- ============================================================
+         Sticky toolbar — global counter, cascade buttons, presets, search
+         ============================================================ --}}
+    <div class="permv2-toolbar">
+        <div class="permv2-title">
+            <span>Permissions</span>
+            <span class="permv2-counter"
+                  data-permv2="counter"
+                  data-empty="{{ $grantedPills === 0 ? '1' : '0' }}"
+                  data-full="{{ $grantedPills === $totalPills ? '1' : '0' }}">
+                {{ $grantedPills }} / {{ $totalPills }}
+            </span>
         </div>
-        <div class="perm-toolbar-actions">
-            <button type="button" id="perm-select-all">Select All</button>
-            <button type="button" id="perm-deselect-all">Deselect All</button>
+
+        <div class="permv2-actions">
+            <button type="button" class="permv2-cascade" data-cascade="off" title="Set every pill to Off">
+                <span class="permv2-dot"></span> Off all
+            </button>
+            <button type="button" class="permv2-cascade" data-cascade="view" title="Set every pill that supports View to View">
+                <span class="permv2-dot"></span> View all
+            </button>
+            <button type="button" class="permv2-cascade" data-cascade="manage" title="Set every pill to Manage (full control)">
+                <span class="permv2-dot"></span> Manage all
+            </button>
+
+            <div class="permv2-preset" data-permv2="preset" data-open="0">
+                <button type="button"
+                        class="permv2-preset-trigger"
+                        data-permv2="preset-trigger"
+                        aria-haspopup="menu"
+                        aria-expanded="false">
+                    Preset
+                </button>
+                <div class="permv2-preset-menu" data-permv2="preset-menu" role="menu">
+                    <button type="button" data-preset="viewer" role="menuitem">
+                        <span class="permv2-preset-name">Viewer</span>
+                        <span class="permv2-preset-hint">Read-only across products, sales, marketplaces. Settings stay locked.</span>
+                    </button>
+                    <button type="button" data-preset="operator" role="menuitem">
+                        <span class="permv2-preset-name">Operator</span>
+                        <span class="permv2-preset-hint">Full control of day-to-day work. Cannot touch user groups or system settings.</span>
+                    </button>
+                    <button type="button" data-preset="administrator" role="menuitem">
+                        <span class="permv2-preset-name">Administrator</span>
+                        <span class="permv2-preset-hint">Every permission granted. Equivalent to the built-in Administrator group.</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="permv2-search-wrap">
+            <span class="permv2-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+            <input type="search"
+                   class="permv2-search"
+                   placeholder="Filter — e.g. ‘lazada’, ‘orders’, ‘settings’ — press Esc to clear"
+                   aria-label="Filter permissions"
+                   data-permv2="search">
         </div>
     </div>
 
-    {{-- Permission groups --}}
-    @foreach($permissionGroups as $pg)
-        @php
-            $groupChildren = [];
-            if (!empty($pg['children'])) {
-                $groupChildren = $pg['children'];
-            }
-            if (!empty($pg['subgroups'])) {
-                foreach ($pg['subgroups'] as $sg) {
-                    $groupChildren = array_merge($groupChildren, $sg['children']);
-                }
-            }
-            $childCount = count($groupChildren);
-            $checkedCount = 0;
-            $isStandalone = ($childCount === 0);
-            if ($isStandalone) {
-                // Standalone permission: badge reflects parent's own state
-                $childCount = 1;
-                $checkedCount = in_array($pg['parent']->id, $selected) ? 1 : 0;
-            } else {
-                foreach ($groupChildren as $c) {
-                    if (in_array($c->id, $selected)) $checkedCount++;
-                }
-            }
-        @endphp
+    <div class="permv2-footnote">
+        <span class="permv2-footnote-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </span>
+        <span>
+            <strong>Manage</strong> automatically includes <strong>View</strong>. Use the segmented pills below or
+            <kbd>←</kbd> / <kbd>→</kbd> on the keyboard once focused.
+        </span>
+    </div>
 
-        <details class="perm-group" open data-group="{{ $pg['key'] }}">
-            <summary>
-                {{ $pg['label'] }}
-                <span class="perm-badge {{ $checkedCount === 0 ? 'perm-badge-gray' : ($checkedCount === $childCount ? 'perm-badge-green' : 'perm-badge-blue') }}"
-                      data-badge-group="{{ $pg['key'] }}">{{ $checkedCount }} / {{ $childCount }}</span>
-            </summary>
-
-            <div class="perm-group-body">
-                {{-- Parent row --}}
-                <div class="perm-parent-row">
-                    <input type="checkbox" class="perm-cb perm-parent-cb"
-                           name="permissions[]" value="{{ $pg['parent']->id }}"
-                           data-group="{{ $pg['key'] }}"
-                           {{ in_array($pg['parent']->id, $selected) ? 'checked' : '' }}>
-                    <div class="perm-parent-info">
-                        <div class="perm-parent-label">{{ $pg['parent']->label }}</div>
-                        @if($pg['parent']->description)
-                            <div class="perm-parent-desc">{{ $pg['parent']->description }}</div>
-                        @endif
-                    </div>
-                    @if(!$isStandalone)
-                        <div class="perm-parent-hint">Select All in Group</div>
+    {{-- ============================================================
+         Groups
+         ============================================================ --}}
+    @foreach($renderGroups as $section)
+        <section class="permv2-group" data-group-key="{{ $section['key'] }}" data-collapsed="0">
+            <button type="button"
+                    class="permv2-group-head"
+                    aria-expanded="true"
+                    aria-controls="permv2-body-{{ $section['key'] }}">
+                <span class="permv2-chev" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+                <span class="permv2-group-title">
+                    <span class="permv2-group-title-text">{{ $section['label'] }}</span>
+                    @if($section['parent']->description)
+                        <span class="permv2-group-desc">{{ $section['parent']->description }}</span>
                     @endif
-                </div>
+                </span>
+                <span class="permv2-group-stats">
+                    <span class="permv2-stat"
+                          data-stat="manage"
+                          data-kind="manage"
+                          data-zero="{{ $section['count_manage'] === 0 ? '1' : '0' }}">
+                        <span class="permv2-stat-pip"></span>
+                        <span data-stat-value>{{ $section['count_manage'] }}</span>&nbsp;manage
+                    </span>
+                    <span class="permv2-stat"
+                          data-stat="view"
+                          data-kind="view"
+                          data-zero="{{ $section['count_view'] === 0 ? '1' : '0' }}">
+                        <span class="permv2-stat-pip"></span>
+                        <span data-stat-value>{{ $section['count_view'] }}</span>&nbsp;view
+                    </span>
+                </span>
+            </button>
 
-                {{-- Children: flat list or sub-grouped --}}
-                @if(!empty($pg['children']))
-                    <div class="perm-children-grid">
-                        @foreach($pg['children'] as $perm)
-                            <label class="perm-card {{ in_array($perm->id, $selected) ? 'is-checked' : '' }}">
-                                <input type="checkbox" class="perm-cb perm-child-cb"
-                                       name="permissions[]" value="{{ $perm->id }}"
-                                       data-group="{{ $pg['key'] }}"
-                                       {{ in_array($perm->id, $selected) ? 'checked' : '' }}>
-                                <div>
-                                    <div class="perm-card-label">{{ $perm->label }}</div>
-                                    @if($perm->description)
-                                        <div class="perm-card-desc">{{ $perm->description }}</div>
-                                    @endif
+            <div class="permv2-group-body" id="permv2-body-{{ $section['key'] }}">
+                @foreach($section['subsections'] as $sub)
+                    @if(!empty($sub['label']))
+                        <div class="permv2-subgroup-label">{{ $sub['label'] }}</div>
+                    @endif
+
+                    @foreach($sub['rows'] as $row)
+                        @php
+                            $primary = $row['primary'];
+                            $base = $row['base'];
+                            $label = $primary->label;
+                            $desc = $primary->description;
+                            $segments = $row['segments'];
+                            $state = $row['state'];
+                            $pillId = 'permv2-pill-' . str_replace(['.', '/'], '_', $base);
+                            $searchHaystack = trim(strtolower($base . ' ' . $label . ' ' . ($desc ?? '')));
+                        @endphp
+
+                        <div class="permv2-row"
+                             data-hidden="0"
+                             data-search="{{ $searchHaystack }}">
+
+                            <div class="permv2-row-info">
+                                <div class="permv2-row-label">
+                                    <span>{{ $label }}</span>
+                                    <span class="permv2-row-base" title="permission key base">{{ $base }}</span>
                                 </div>
-                            </label>
-                        @endforeach
-                    </div>
-                @endif
+                                @if($desc)
+                                    <div class="permv2-row-desc">{{ $desc }}</div>
+                                @endif
+                            </div>
 
-                @if(!empty($pg['subgroups']))
-                    @foreach($pg['subgroups'] as $sg)
-                        <div class="perm-subgroup-label">{{ $sg['label'] }}</div>
-                        <div class="perm-children-grid" style="margin-bottom:12px;">
-                            @foreach($sg['children'] as $perm)
-                                <label class="perm-card {{ in_array($perm->id, $selected) ? 'is-checked' : '' }}">
-                                    <input type="checkbox" class="perm-cb perm-child-cb"
-                                           name="permissions[]" value="{{ $perm->id }}"
-                                           data-group="{{ $pg['key'] }}"
-                                           {{ in_array($perm->id, $selected) ? 'checked' : '' }}>
-                                    <div>
-                                        <div class="perm-card-label">{{ $perm->label }}</div>
-                                        @if($perm->description)
-                                            <div class="perm-card-desc">{{ $perm->description }}</div>
-                                        @endif
-                                    </div>
-                                </label>
-                            @endforeach
+                            <div class="permv2-pill"
+                                 id="{{ $pillId }}"
+                                 role="radiogroup"
+                                 aria-label="{{ $label }} permission level"
+                                 data-segments="{{ $segments }}"
+                                 data-state="{{ $state }}"
+                                 data-base="{{ $base }}">
+                                <span class="permv2-pill-thumb" aria-hidden="true"></span>
+
+                                <button type="button"
+                                        class="permv2-pill-seg"
+                                        role="radio"
+                                        data-value="off"
+                                        aria-checked="{{ $state === 'off' ? 'true' : 'false' }}"
+                                        tabindex="{{ $state === 'off' ? '0' : '-1' }}"
+                                        title="No access">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+                                    <span>Off</span>
+                                </button>
+
+                                @if($segments === 3)
+                                    <button type="button"
+                                            class="permv2-pill-seg"
+                                            role="radio"
+                                            data-value="view"
+                                            aria-checked="{{ $state === 'view' ? 'true' : 'false' }}"
+                                            tabindex="{{ $state === 'view' ? '0' : '-1' }}"
+                                            title="Read-only access">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        <span>View</span>
+                                    </button>
+
+                                    <button type="button"
+                                            class="permv2-pill-seg"
+                                            role="radio"
+                                            data-value="manage"
+                                            aria-checked="{{ $state === 'manage' ? 'true' : 'false' }}"
+                                            tabindex="{{ $state === 'manage' ? '0' : '-1' }}"
+                                            title="Full control — includes view">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                                        <span>Manage</span>
+                                    </button>
+                                @elseif($row['secondaryTier'] === 'view')
+                                    <button type="button"
+                                            class="permv2-pill-seg"
+                                            role="radio"
+                                            data-value="view"
+                                            aria-checked="{{ $state === 'view' ? 'true' : 'false' }}"
+                                            tabindex="{{ $state === 'view' ? '0' : '-1' }}"
+                                            title="Read-only access (no full-control tier exists for this resource)">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        <span>View</span>
+                                    </button>
+                                @else
+                                    <button type="button"
+                                            class="permv2-pill-seg"
+                                            role="radio"
+                                            data-value="manage"
+                                            aria-checked="{{ $state === 'manage' ? 'true' : 'false' }}"
+                                            tabindex="{{ $state === 'manage' ? '0' : '-1' }}"
+                                            title="Full control — includes view">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                                        <span>Manage</span>
+                                    </button>
+                                @endif
+
+                                {{-- Hidden inputs.
+                                     - The active tier's input is enabled and submits its DB id.
+                                     - The inactive tier (if any) is disabled and is skipped at submit time.
+                                     - When state="off" BOTH are disabled and the row contributes nothing
+                                       to permissions[] — equivalent to the old "unchecked" state. --}}
+                                @if($row['view'])
+                                    <input type="hidden"
+                                           name="permissions[]"
+                                           value="{{ $row['view']->id }}"
+                                           data-tier="view"
+                                           data-perm-key="{{ $row['view']->key }}"
+                                           {{ $state === 'view' ? '' : 'disabled' }}>
+                                @endif
+                                @if($row['manage'])
+                                    <input type="hidden"
+                                           name="permissions[]"
+                                           value="{{ $row['manage']->id }}"
+                                           data-tier="manage"
+                                           data-perm-key="{{ $row['manage']->key }}"
+                                           {{ $state === 'manage' ? '' : 'disabled' }}>
+                                @endif
+                            </div>
                         </div>
                     @endforeach
-                @endif
+                @endforeach
             </div>
-        </details>
+        </section>
     @endforeach
+
+    <div class="permv2-empty" role="status" aria-live="polite">
+        <div class="permv2-empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        No permissions match your filter.
+    </div>
 </div>
-
-@push('scripts')
-<script>
-(function() {
-    var picker = document.getElementById('perm-picker');
-    if (!picker) return;
-
-    var allCheckboxes  = picker.querySelectorAll('.perm-cb');
-    var parentCbs      = picker.querySelectorAll('.perm-parent-cb');
-    var childCbs       = picker.querySelectorAll('.perm-child-cb');
-    var globalBadge    = document.getElementById('perm-global-badge');
-    var selectAllBtn   = document.getElementById('perm-select-all');
-    var deselectAllBtn = document.getElementById('perm-deselect-all');
-
-    function updateGroupBadge(groupKey) {
-        var children = picker.querySelectorAll('.perm-child-cb[data-group="' + groupKey + '"]');
-        var total = children.length;
-        var checked = 0;
-        children.forEach(function(c) { if (c.checked) checked++; });
-
-        // Standalone permission (no children) — badge reflects parent state
-        if (total === 0) {
-            var parent = picker.querySelector('.perm-parent-cb[data-group="' + groupKey + '"]');
-            total = 1;
-            checked = (parent && parent.checked) ? 1 : 0;
-        }
-
-        var badge = picker.querySelector('[data-badge-group="' + groupKey + '"]');
-        if (badge) {
-            badge.textContent = checked + ' / ' + total;
-            badge.className = 'perm-badge ' +
-                (checked === 0 ? 'perm-badge-gray' : (checked === total ? 'perm-badge-green' : 'perm-badge-blue'));
-        }
-    }
-
-    function updateGlobalBadge() {
-        var total = allCheckboxes.length;
-        var checked = 0;
-        allCheckboxes.forEach(function(c) { if (c.checked) checked++; });
-        globalBadge.textContent = checked + ' / ' + total;
-        globalBadge.className = 'perm-badge ' +
-            (checked === 0 ? 'perm-badge-gray' : (checked === total ? 'perm-badge-green' : 'perm-badge-blue'));
-    }
-
-    function updateParentState(groupKey) {
-        var parent = picker.querySelector('.perm-parent-cb[data-group="' + groupKey + '"]');
-        if (!parent) return;
-        var children = picker.querySelectorAll('.perm-child-cb[data-group="' + groupKey + '"]');
-        var total = children.length;
-
-        // Standalone permission (no children) — parent acts as its own toggle,
-        // so preserve its checked state as-is instead of deriving it from children.
-        if (total === 0) return;
-
-        var checked = 0;
-        children.forEach(function(c) { if (c.checked) checked++; });
-
-        if (checked === 0) {
-            parent.checked = false;
-            parent.indeterminate = false;
-        } else if (checked === total) {
-            parent.checked = true;
-            parent.indeterminate = false;
-        } else {
-            parent.checked = false;
-            parent.indeterminate = true;
-        }
-    }
-
-    function updateCardHighlight(cb) {
-        var card = cb.closest('.perm-card');
-        if (card) {
-            card.classList.toggle('is-checked', cb.checked);
-        }
-    }
-
-    // Parent toggle all children
-    parentCbs.forEach(function(parent) {
-        parent.addEventListener('change', function() {
-            var groupKey = parent.dataset.group;
-            var children = picker.querySelectorAll('.perm-child-cb[data-group="' + groupKey + '"]');
-            children.forEach(function(child) {
-                child.checked = parent.checked;
-                updateCardHighlight(child);
-            });
-            parent.indeterminate = false;
-            updateGroupBadge(groupKey);
-            updateGlobalBadge();
-        });
-    });
-
-    // Child updates parent
-    childCbs.forEach(function(child) {
-        child.addEventListener('change', function() {
-            var groupKey = child.dataset.group;
-            updateCardHighlight(child);
-            updateParentState(groupKey);
-            updateGroupBadge(groupKey);
-            updateGlobalBadge();
-        });
-    });
-
-    // Global Select All
-    selectAllBtn.addEventListener('click', function() {
-        allCheckboxes.forEach(function(cb) {
-            cb.checked = true;
-            cb.indeterminate = false;
-            updateCardHighlight(cb);
-        });
-        picker.querySelectorAll('[data-badge-group]').forEach(function(badge) {
-            updateGroupBadge(badge.dataset.badgeGroup);
-        });
-        // Update all group badges
-        parentCbs.forEach(function(p) { updateGroupBadge(p.dataset.group); });
-        updateGlobalBadge();
-    });
-
-    // Global Deselect All
-    deselectAllBtn.addEventListener('click', function() {
-        allCheckboxes.forEach(function(cb) {
-            cb.checked = false;
-            cb.indeterminate = false;
-            updateCardHighlight(cb);
-        });
-        parentCbs.forEach(function(p) { updateGroupBadge(p.dataset.group); });
-        updateGlobalBadge();
-    });
-
-    // Init: set parent indeterminate states on load
-    parentCbs.forEach(function(p) { updateParentState(p.dataset.group); });
-})();
-</script>
-@endpush

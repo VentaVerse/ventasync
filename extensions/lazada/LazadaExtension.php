@@ -78,12 +78,17 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 tagline: 'Lazada marketplace integration — products, orders, returns.',
                 icon: 'lazada',
                 accent: '#0f146d',
-                permission: 'manage_lazada',
+                // Card + menu use the VIEW tier so read-only operators still
+                // see Lazada in the Integrations hub and contextual sidebar.
+                // User::hasPermission('view_lazada') returns true for users who
+                // hold either view_lazada OR manage_lazada (cascade), so
+                // managers are not excluded by tightening this gate.
+                permission: 'view_lazada',
                 menu: [
-                    new MenuItem('Settings', 'ext.lazada.index', 'manage_lazada'),
-                    new MenuItem('Categories', 'ext.lazada.categories.index', 'manage_lazada'),
-                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'manage_lazada'),
-                    new MenuItem('Orders', 'ext.lazada.orders.index', 'manage_lazada_orders', null, ['tab' => 'TO_SHIP']),
+                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada'),
+                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada'),
+                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada'),
+                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada_orders', null, ['tab' => 'TO_SHIP']),
                 ],
             ),
         ];
@@ -98,7 +103,11 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 icon: 'lazada',
                 accent: '#0f146d',
                 routeName: 'ext.lazada.orders.index',
-                permission: 'manage_lazada_orders',
+                // OrderTab visibility uses view tier so a Lazada Orders Viewer
+                // still sees the marketplace's orders tab on the unified Orders
+                // workspace. The destination route GETs are read-tier gated,
+                // and per-action write buttons are gated separately in the view.
+                permission: 'view_lazada_orders',
                 routeParams: ['tab' => 'TO_SHIP'],
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('lazada_orders')) {

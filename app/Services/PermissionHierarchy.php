@@ -33,7 +33,11 @@ use Illuminate\Support\Facades\Cache;
  */
 class PermissionHierarchy
 {
-    private const CACHE_KEY = 'permission_hierarchy_v1';
+    // v2: introduces optional "tiers" metadata on permission entries and the
+    // view_X / manage_X twin-key pattern surfaced via tiersOf(). Bumping the
+    // cache key forces a rebuild on first hit after upgrade — no manual
+    // cache:clear required.
+    private const CACHE_KEY = 'permission_hierarchy_v2';
     private const CACHE_TTL_SECONDS = 86400; // 24 hours
 
     /**
@@ -84,6 +88,71 @@ class PermissionHierarchy
     public function ownerOf(string $key): ?string
     {
         return $this->build()['owners'][$key] ?? null;
+    }
+
+    /**
+     * Optional manifest-declared tier list for a permission key. Empty array
+     * means "no explicit declaration — infer from keyspace via tiersOf()".
+     *
+     * Authors may declare e.g. {"key": "manage_lazada", "tiers": ["view","manage"]}
+     * to signal the UI that both read-only and full-control variants exist,
+     * even before the twin view_lazada key has been added to the manifest.
+     *
+     * @return string[]
+     */
+    public function declaredTiersOf(string $key): array
+    {
+        return $this->build()['declared_tiers'][$key] ?? [];
+    }
+
+    /**
+     * Tier list for a permission key, derived from the merged hierarchy.
+     *
+     * Strips the "view_" / "manage_" prefix from $key to get the resource
+     * base, then reports which prefixed variants exist as registered keys.
+     *
+     *  - ['view','manage'] if both view_<base> and manage_<base> exist
+     *  - ['manage']        if only manage_<base> exists
+     *  - ['view']          if only view_<base> exists
+     *  - []                if neither exists (unknown key)
+     *
+     * A manifest-declared "tiers" field (declaredTiersOf) is intentionally
+     * NOT consulted here — tiersOf reflects the *actual* keyspace, which is
+     * what Phase 2 UI and Phase 3 middleware will reason about.
+     *
+     * @return string[]
+     */
+    public function tiersOf(string $key): array
+    {
+        $base = $this->baseOf($key);
+        if ($base === null) {
+            return [];
+        }
+        $keys = $this->build()['child_to_parent']; // key → parent map; presence test only
+        $tiers = [];
+        if (array_key_exists('view_' . $base, $keys)) {
+            $tiers[] = 'view';
+        }
+        if (array_key_exists('manage_' . $base, $keys)) {
+            $tiers[] = 'manage';
+        }
+        return $tiers;
+    }
+
+    /**
+     * Strip the "view_" or "manage_" tier prefix from a permission key,
+     * returning the resource base. Returns null if the key has neither
+     * prefix (e.g. top-level group keys like "marketplace_api").
+     */
+    public function baseOf(string $key): ?string
+    {
+        if (str_starts_with($key, 'manage_')) {
+            return substr($key, 7);
+        }
+        if (str_starts_with($key, 'view_')) {
+            return substr($key, 5);
+        }
+        return null;
     }
 
     /**
@@ -140,6 +209,9 @@ class PermissionHierarchy
         $labels = [];
         $owners = [];
         $sortOrder = [];
+        // Optional author-declared tier list per key (for UI hints — does NOT
+        // affect actual permission resolution; tiersOf() reads the keyspace).
+        $declaredTiers = [];
         // subgroup membership: parent_key => subgroup_label => [permission_keys]
         $subgroupMembers = [];
         // Permission keys that go directly under a parent (no subgroup level)
@@ -183,6 +255,9 @@ class PermissionHierarchy
                 $owners[$key] = $extensionId;
                 if ($entry['sort'] !== null) {
                     $sortOrder[$key] = $entry['sort'];
+                }
+                if (!empty($entry['tiers'])) {
+                    $declaredTiers[$key] = $entry['tiers'];
                 }
                 if ($parent !== null) {
                     $parentToChildren[$parent][] = $key;
@@ -251,6 +326,7 @@ class PermissionHierarchy
             'parent_to_children' => $parentToChildren,
             'child_to_parent'    => $childToParent,
             'owners'             => $owners,
+            'declared_tiers'     => $declaredTiers,
             'tree'               => $tree,
         ];
     }
@@ -267,19 +343,34 @@ class PermissionHierarchy
      * — those live in the extension's own lang/{locale}/permissions.php
      * so a new locale can be added by dropping a file without touching JSON.
      *
-     * @return ?array{key:string,parent:?string,subgroup:?string,sort:?int}
+     * The optional "tiers" field (e.g. ["view","manage"]) is structural
+     * metadata only — it does NOT auto-register a twin key. Authors must
+     * still declare both view_X and manage_X entries explicitly. This field
+     * is preserved on the merged metadata so the Phase 2 UI can label rows.
+     *
+     * @return ?array{key:string,parent:?string,subgroup:?string,sort:?int,tiers:string[]}
      */
     private function normalizePermissionEntry(mixed $perm): ?array
     {
         if (is_string($perm)) {
-            return ['key' => $perm, 'parent' => null, 'subgroup' => null, 'sort' => null];
+            return ['key' => $perm, 'parent' => null, 'subgroup' => null, 'sort' => null, 'tiers' => []];
         }
         if (is_array($perm) && !empty($perm['key']) && is_string($perm['key'])) {
+            $tiers = [];
+            if (isset($perm['tiers']) && is_array($perm['tiers'])) {
+                foreach ($perm['tiers'] as $t) {
+                    if (is_string($t) && in_array($t, ['view', 'manage'], true)) {
+                        $tiers[] = $t;
+                    }
+                }
+                $tiers = array_values(array_unique($tiers));
+            }
             return [
                 'key'      => $perm['key'],
                 'parent'   => isset($perm['parent']) && is_string($perm['parent']) ? $perm['parent'] : null,
                 'subgroup' => isset($perm['subgroup']) && is_string($perm['subgroup']) ? $perm['subgroup'] : null,
                 'sort'     => isset($perm['sort']) && is_numeric($perm['sort']) ? (int) $perm['sort'] : null,
+                'tiers'    => $tiers,
             ];
         }
         return null;
