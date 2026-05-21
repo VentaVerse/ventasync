@@ -42,11 +42,14 @@ return [
     | Public Image Directory Prefix
     |--------------------------------------------------------------------------
     |
-    | OpenCart usually serves images under /image/....
-    | Keep this configurable for custom setups.
+    | Catalog images live under storage/app/public/catalog/... and serve via
+    | the `storage:link` symlink at /storage/catalog/.... This is the
+    | convention across both fresh installs and existing production deploys.
+    | Override via CATALOG_IMAGE_PREFIX in .env only if you have a non-
+    | standard layout.
     |
     */
 
-    'image_prefix' => trim((string) env('CATALOG_IMAGE_PREFIX', 'image'), '/'),
+    'image_prefix' => trim((string) env('CATALOG_IMAGE_PREFIX', 'storage'), '/'),
 
 ];
