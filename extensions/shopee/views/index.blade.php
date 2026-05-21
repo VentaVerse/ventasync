@@ -110,20 +110,28 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Partner ID</label>
-                        <input class="input" name="partner_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->partner_id) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" name="partner_id" type="password" autocomplete="off"
+                               value="{{ !empty($setting->partner_id) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->partner_id) ? '1' : '0' }}">
                     </div>
                     <div>
                         <label>Partner Key</label>
-                        <input class="input" name="partner_key" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->partner_key) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" name="partner_key" type="password" autocomplete="off"
+                               value="{{ !empty($setting->partner_key) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->partner_key) ? '1' : '0' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
                         <label>Shop ID</label>
-                        <input class="input" name="shop_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->shop_id) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" name="shop_id" type="password" autocomplete="off"
+                               value="{{ !empty($setting->shop_id) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->shop_id) ? '1' : '0' }}">
                     </div>
                     <div>
                         <label>Access Token</label>
-                        <input class="input" type="password" autocomplete="off" name="access_token" value="" placeholder="{{ !empty($setting->access_token) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" type="password" autocomplete="off" name="access_token"
+                               value="{{ !empty($setting->access_token) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->access_token) ? '1' : '0' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">
@@ -248,20 +256,28 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Sandbox Partner ID</label>
-                        <input class="input" name="sandbox_partner_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_partner_id) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" name="sandbox_partner_id" type="password" autocomplete="off"
+                               value="{{ !empty($setting->sandbox_partner_id) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->sandbox_partner_id) ? '1' : '0' }}">
                     </div>
                     <div>
                         <label>Sandbox Partner Key</label>
-                        <input class="input" name="sandbox_partner_key" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_partner_key) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" name="sandbox_partner_key" type="password" autocomplete="off"
+                               value="{{ !empty($setting->sandbox_partner_key) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->sandbox_partner_key) ? '1' : '0' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
                         <label>Sandbox Shop ID</label>
-                        <input class="input" name="sandbox_shop_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_shop_id) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" name="sandbox_shop_id" type="password" autocomplete="off"
+                               value="{{ !empty($setting->sandbox_shop_id) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->sandbox_shop_id) ? '1' : '0' }}">
                     </div>
                     <div>
                         <label>Sandbox Access Token</label>
-                        <input class="input" type="password" autocomplete="off" name="sandbox_access_token" value="" placeholder="{{ !empty($setting->sandbox_access_token) ? '•••••••• (leave blank to keep)' : '' }}">
+                        <input class="input" type="password" autocomplete="off" name="sandbox_access_token"
+                               value="{{ !empty($setting->sandbox_access_token) ? '••••••••' : '' }}"
+                               data-credential-mask="{{ !empty($setting->sandbox_access_token) ? '1' : '0' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">
