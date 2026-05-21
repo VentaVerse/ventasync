@@ -939,16 +939,17 @@ class LazadaController extends Controller
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
 
+        // Credential fields are masked in the form (value="" + placeholder).
+        // A blank submission means "keep existing" — never wipe stored creds
+        // just because the user re-saved the form without typing them in.
+        // (Also fixes a pre-existing bug where the live branch built a
+        // throwaway $creds array that was never assigned back to $setting.)
         if ($env === 'live') {
-            $creds['app_key'] = $data['app_key'] ?? null;
-            $creds['app_secret'] = isset($data['app_secret']) && $data['app_secret'] !== ''
-                ? encrypt(trim($data['app_secret']))
-                : null;
+            if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
+            if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
         } else {
-            $setting->sandbox_app_key = $data['sandbox_app_key'] ?? null;
-            $setting->sandbox_app_secret = isset($data['sandbox_app_secret']) && $data['sandbox_app_secret'] !== ''
-                ? encrypt(trim($data['sandbox_app_secret']))
-                : null;
+            if (!empty($data['sandbox_app_key']))    $setting->sandbox_app_key = $data['sandbox_app_key'];
+            if (!empty($data['sandbox_app_secret'])) $setting->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
         }
 
         $setting->save();

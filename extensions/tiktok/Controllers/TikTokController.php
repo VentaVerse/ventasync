@@ -127,19 +127,16 @@ class TikTokController extends Controller
         $env = $data['env'] ?? 'live';
         $setting->mode = $env;
 
+        // Credential fields are masked in the form (value="" + placeholder).
+        // A blank submission means "keep existing" — never wipe stored creds
+        // just because the user re-saved the form without typing them in.
         if ($env === 'live') {
-            $setting->app_key = $data['app_key'] ?? null;
+            if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
+            if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
             $setting->region = $data['region'] ?? null;
-
-            $setting->app_secret = isset($data['app_secret']) && $data['app_secret'] !== ''
-                ? encrypt(trim($data['app_secret']))
-                : null;
         } else {
-            $setting->sandbox_app_key = $data['sandbox_app_key'] ?? null;
-
-            $setting->sandbox_app_secret = isset($data['sandbox_app_secret']) && $data['sandbox_app_secret'] !== ''
-                ? encrypt(trim($data['sandbox_app_secret']))
-                : null;
+            if (!empty($data['sandbox_app_key']))    $setting->sandbox_app_key = $data['sandbox_app_key'];
+            if (!empty($data['sandbox_app_secret'])) $setting->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
         }
 
         $setting->save();

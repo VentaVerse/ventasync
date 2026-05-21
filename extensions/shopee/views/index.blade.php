@@ -110,20 +110,20 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Partner ID</label>
-                        <input class="input" name="partner_id" value="{{ old('partner_id', $setting->partner_id ?? '') }}">
+                        <input class="input" name="partner_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->partner_id) ? '•••••••• (leave blank to keep)' : '' }}">
                     </div>
                     <div>
                         <label>Partner Key</label>
-                        <input class="input" name="partner_key" value="{{ old('partner_key', $setting->partner_key ?? '') }}">
+                        <input class="input" name="partner_key" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->partner_key) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
                         <label>Shop ID</label>
-                        <input class="input" name="shop_id" autocomplete="off" value="{{ old('shop_id', $setting->shop_id ?? '') }}">
+                        <input class="input" name="shop_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->shop_id) ? '•••••••• (leave blank to keep)' : '' }}">
                     </div>
                     <div>
                         <label>Access Token</label>
-                        <input class="input" type="password" autocomplete="off" name="access_token" value="{{ old('access_token', $setting->access_token ?? '') }}">
+                        <input class="input" type="password" autocomplete="off" name="access_token" value="" placeholder="{{ !empty($setting->access_token) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">
@@ -248,20 +248,20 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Sandbox Partner ID</label>
-                        <input class="input" name="sandbox_partner_id" value="{{ old('sandbox_partner_id', $setting->sandbox_partner_id ?? '') }}">
+                        <input class="input" name="sandbox_partner_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_partner_id) ? '•••••••• (leave blank to keep)' : '' }}">
                     </div>
                     <div>
                         <label>Sandbox Partner Key</label>
-                        <input class="input" name="sandbox_partner_key" value="{{ old('sandbox_partner_key', $setting->sandbox_partner_key ?? '') }}">
+                        <input class="input" name="sandbox_partner_key" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_partner_key) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
                         <label>Sandbox Shop ID</label>
-                        <input class="input" name="sandbox_shop_id" autocomplete="off" value="{{ old('sandbox_shop_id', $setting->sandbox_shop_id ?? '') }}">
+                        <input class="input" name="sandbox_shop_id" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_shop_id) ? '•••••••• (leave blank to keep)' : '' }}">
                     </div>
                     <div>
                         <label>Sandbox Access Token</label>
-                        <input class="input" type="password" autocomplete="off" name="sandbox_access_token" value="{{ old('sandbox_access_token', $setting->sandbox_access_token ?? '') }}">
+                        <input class="input" type="password" autocomplete="off" name="sandbox_access_token" value="" placeholder="{{ !empty($setting->sandbox_access_token) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div class="form-grid">

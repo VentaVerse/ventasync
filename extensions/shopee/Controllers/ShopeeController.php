@@ -212,29 +212,21 @@ public function index(Request $request = null, ShopeeClient $client = null)
         $setting->mode = $env;
 
         if ($env === 'live') {
-            $setting->partner_id = $data['partner_id'] ?? null;
-            $setting->shop_id = $data['shop_id'] ?? null;
+            // Credential fields are masked in the form (value="" + placeholder).
+            // A blank submission means "keep existing" — never wipe stored creds
+            // just because the user re-saved the form without typing them in.
+            // Region is a dropdown; a blank selection is the explicit "(not set)" choice.
+            if (!empty($data['partner_id']))    $setting->partner_id = $data['partner_id'];
+            if (!empty($data['shop_id']))       $setting->shop_id = $data['shop_id'];
+            if (!empty($data['partner_key']))   $setting->partner_key = encrypt(trim($data['partner_key']));
+            if (!empty($data['access_token']))  $setting->access_token = encrypt(trim($data['access_token']));
             $setting->region = $data['region'] ?? null;
-
-            $setting->partner_key = isset($data['partner_key']) && $data['partner_key'] !== ''
-                ? encrypt(trim($data['partner_key']))
-                : null;
-
-            $setting->access_token = isset($data['access_token']) && $data['access_token'] !== ''
-                ? encrypt(trim($data['access_token']))
-                : null;
         } else {
-            $setting->sandbox_partner_id = $data['sandbox_partner_id'] ?? null;
-            $setting->sandbox_shop_id = $data['sandbox_shop_id'] ?? null;
+            if (!empty($data['sandbox_partner_id']))    $setting->sandbox_partner_id = $data['sandbox_partner_id'];
+            if (!empty($data['sandbox_shop_id']))       $setting->sandbox_shop_id = $data['sandbox_shop_id'];
+            if (!empty($data['sandbox_partner_key']))   $setting->sandbox_partner_key = encrypt(trim($data['sandbox_partner_key']));
+            if (!empty($data['sandbox_access_token']))  $setting->sandbox_access_token = encrypt(trim($data['sandbox_access_token']));
             $setting->sandbox_region = $data['sandbox_region'] ?? null;
-
-            $setting->sandbox_partner_key = isset($data['sandbox_partner_key']) && $data['sandbox_partner_key'] !== ''
-                ? encrypt(trim($data['sandbox_partner_key']))
-                : null;
-
-            $setting->sandbox_access_token = isset($data['sandbox_access_token']) && $data['sandbox_access_token'] !== ''
-                ? encrypt(trim($data['sandbox_access_token']))
-                : null;
         }
 
         $setting->save();

@@ -125,12 +125,12 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>App Key</label>
-                        <input class="input" name="app_key" autocomplete="off" value="{{ old('app_key', $setting->app_key ?? '') }}">
+                        <input class="input" name="app_key" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->app_key) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">From TikTok Shop Partner Center.</div>
                     </div>
                     <div>
                         <label>App Secret</label>
-                        <input class="input" name="app_secret" type="password" autocomplete="off" value="{{ old('app_secret', $setting->app_secret ?? '') }}">
+                        <input class="input" name="app_secret" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->app_secret) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
@@ -269,11 +269,11 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Sandbox App Key</label>
-                        <input class="input" name="sandbox_app_key" autocomplete="off" value="{{ old('sandbox_app_key', $setting->sandbox_app_key ?? '') }}">
+                        <input class="input" name="sandbox_app_key" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_app_key) ? '•••••••• (leave blank to keep)' : '' }}">
                     </div>
                     <div>
                         <label>Sandbox App Secret</label>
-                        <input class="input" name="sandbox_app_secret" type="password" autocomplete="off" value="{{ old('sandbox_app_secret', $setting->sandbox_app_secret ?? '') }}">
+                        <input class="input" name="sandbox_app_secret" type="password" autocomplete="off" value="" placeholder="{{ !empty($setting->sandbox_app_secret) ? '•••••••• (leave blank to keep)' : '' }}">
                         <div class="hint">Stored encrypted.</div>
                     </div>
                     <div>
