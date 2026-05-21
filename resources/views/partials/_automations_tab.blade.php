@@ -29,8 +29,16 @@
         default  => null,
     };
     $setting = ($settingModel && class_exists($settingModel)) ? $settingModel::query()->first() : null;
-    $hasOrdersWindow  = $setting !== null && \Illuminate\Support\Facades\Route::has("ext.{$integration}.sync_days");
-    $hasReturnsWindow = $setting !== null && \Illuminate\Support\Facades\Route::has("ext.{$integration}.sync_days_returns");
+
+    // Feature-detect sync-window support by the column itself, not by
+    // legacy per-window routes. The columns are persisted by
+    // AutomationsController::batchUpdate, so column presence ===
+    // capability. Works even after the old ext.X.sync_days* routes
+    // are removed.
+    $hasOrdersWindow  = $setting !== null
+        && \Illuminate\Support\Facades\Schema::hasColumn($setting->getTable(), 'sync_last_days');
+    $hasReturnsWindow = $setting !== null
+        && \Illuminate\Support\Facades\Schema::hasColumn($setting->getTable(), 'sync_last_days_returns');
 
     // Reviews lookback lives on the matching review job's options.days
     // (no DB column for it on the integration settings table).

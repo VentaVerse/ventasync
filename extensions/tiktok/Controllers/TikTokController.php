@@ -698,31 +698,6 @@ class TikTokController extends Controller
         return back()->with('status', "Deleted {$count} TikTok API log entries.");
     }
 
-    // -- Save sync days ---------------------------------------------------
-
-    public function saveSyncDays(Request $request)
-    {
-        $request->validate([
-            'sync_last_days' => ['nullable', 'integer', 'min:1', 'max:365'],
-        ]);
-
-        $setting = TikTokSetting::query()->first();
-        if (!$setting) {
-            return back()->with('error', 'TikTok settings not found.');
-        }
-
-        $setting->update([
-            'sync_last_days' => $request->input('sync_last_days') ?: null,
-        ]);
-
-        $days = $request->input('sync_last_days');
-        $msg = $days
-            ? "Order sync window set to last {$days} days."
-            : 'Order sync window cleared (defaults to 15 days).';
-
-        return back()->with('status', $msg);
-    }
-
     // -- Save order tab mapping -------------------------------------------
 
     public function saveOrderStatusMap(Request $request)

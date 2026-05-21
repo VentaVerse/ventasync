@@ -201,58 +201,6 @@ class LazadaController extends Controller
     }
 
     /**
-     * Save the "Sync Last N Days" setting for Lazada order sync.
-     */
-    public function saveSyncDays(Request $request)
-    {
-        $request->validate([
-            'sync_last_days' => ['nullable', 'integer', 'min:1', 'max:365'],
-        ]);
-
-        $setting = LazadaSetting::query()->first();
-        if (!$setting) {
-            return back()->with('error', 'Lazada settings not found.');
-        }
-
-        $setting->update([
-            'sync_last_days' => $request->input('sync_last_days') ?: null,
-        ]);
-
-        $days = $request->input('sync_last_days');
-        $msg = $days
-            ? "Order sync window set to last {$days} days."
-            : 'Order sync window cleared (defaults to 14 days).';
-
-        return back()->with('status', $msg);
-    }
-
-    /**
-     * Save the "Sync Last N Days" setting for Lazada returns sync (independent from orders).
-     */
-    public function saveSyncDaysReturns(Request $request)
-    {
-        $request->validate([
-            'sync_last_days_returns' => ['nullable', 'integer', 'min:1', 'max:365'],
-        ]);
-
-        $setting = LazadaSetting::query()->first();
-        if (!$setting) {
-            return back()->with('error', 'Lazada settings not found.');
-        }
-
-        $setting->update([
-            'sync_last_days_returns' => $request->input('sync_last_days_returns') ?: null,
-        ]);
-
-        $days = $request->input('sync_last_days_returns');
-        $msg = $days
-            ? "Returns sync window set to last {$days} days."
-            : 'Returns sync window cleared (defaults to 14 days).';
-
-        return back()->with('status', $msg);
-    }
-
-    /**
      * Save the Lazada → ERP reverse order status mapping.
      */
     public function saveReverseStatusMap(Request $request)

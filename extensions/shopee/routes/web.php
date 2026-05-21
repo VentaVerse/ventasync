@@ -70,8 +70,6 @@ Route::middleware(['auth'])->group(function () {
         // Status-map saves + sync window saves
         Route::post('/shopee/order-status-map', [ShopeeController::class, 'saveOrderStatusMap'])->name('ext.shopee.order_status_map');
         Route::post('/shopee/return-status-map', [ShopeeController::class, 'saveReturnStatusMap'])->name('ext.shopee.return_status_map');
-        Route::post('/shopee/sync-days', [ShopeeController::class, 'saveSyncDays'])->name('ext.shopee.sync_days');
-        Route::post('/shopee/sync-days-returns', [ShopeeController::class, 'saveSyncDaysReturns'])->name('ext.shopee.sync_days_returns');
 
         // API logging admin
         Route::post('/shopee/toggle-logging', [ShopeeController::class, 'toggleLogging'])->name('ext.shopee.toggle_logging');

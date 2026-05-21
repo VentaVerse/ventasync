@@ -74,8 +74,6 @@ Route::middleware(['auth'])->group(function () {
 
         // Status-map saves
         Route::post('/lazada/order-status-map', [LazadaController::class, 'saveOrderStatusMap'])->name('ext.lazada.order_status_map');
-        Route::post('/lazada/sync-days', [LazadaController::class, 'saveSyncDays'])->name('ext.lazada.sync_days');
-        Route::post('/lazada/sync-days-returns', [LazadaController::class, 'saveSyncDaysReturns'])->name('ext.lazada.sync_days_returns');
         Route::post('/lazada/reverse-status-map', [LazadaController::class, 'saveReverseStatusMap'])->name('ext.lazada.reverse_status_map');
 
         // API logging admin

@@ -48,8 +48,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/tiktok/toggle-logging', [TikTokController::class, 'toggleLogging'])->name('ext.tiktok.toggle_logging');
         Route::delete('/tiktok/api-logs', [TikTokController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
 
-        // Status-map + sync window saves
-        Route::post('/tiktok/sync-days', [TikTokController::class, 'saveSyncDays'])->name('ext.tiktok.sync_days');
+        // Status-map saves
         Route::post('/tiktok/order-status-map', [TikTokController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');
 
         // Categories — sync from TikTok and persist
