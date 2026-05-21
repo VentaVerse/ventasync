@@ -73,12 +73,16 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 tagline: 'TikTok Shop integration — OAuth, product sync, orders.',
                 icon: 'video',
                 accent: '#fe2c55',
-                permission: 'manage_tiktok',
+                // Card + menu use the VIEW tier so read-only operators still see
+                // TikTok in the Integrations hub and contextual sidebar. The
+                // 'manage implies view' cascade in PermissionHierarchy means
+                // managers continue to see these entries.
+                permission: 'view_tiktok',
                 menu: [
-                    new MenuItem('Settings', 'ext.tiktok.index', 'manage_tiktok'),
-                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'manage_tiktok'),
-                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'manage_tiktok'),
-                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'manage_tiktok_orders'),
+                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok'),
+                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok'),
+                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok'),
+                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok_orders'),
                 ],
             ),
         ];
@@ -93,7 +97,10 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 icon: 'video',
                 accent: '#fe2c55',
                 routeName: 'ext.tiktok.orders.index',
-                permission: 'manage_tiktok_orders',
+                // OrderTab visibility uses view tier so a TikTok Orders Viewer
+                // still sees the marketplace's orders tab on the unified Orders
+                // workspace.
+                permission: 'view_tiktok_orders',
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('tiktok_orders')) {
                         return 0;

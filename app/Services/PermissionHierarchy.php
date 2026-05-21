@@ -228,6 +228,20 @@ class PermissionHierarchy
                 $parentToChildren[$parent][] = $key;
                 $directChildren[$parent][] = $key;
             }
+            // Phase 4.5: core config supports an optional `tiers` UI hint, same
+            // shape as the extension-manifest field. Whitelist to known tier
+            // names to avoid arbitrary strings polluting the merged metadata.
+            if (isset($meta['tiers']) && is_array($meta['tiers'])) {
+                $coreTiers = [];
+                foreach ($meta['tiers'] as $t) {
+                    if (is_string($t) && in_array($t, ['view', 'manage'], true)) {
+                        $coreTiers[] = $t;
+                    }
+                }
+                if (!empty($coreTiers)) {
+                    $declaredTiers[$key] = array_values(array_unique($coreTiers));
+                }
+            }
         }
 
         // 2. Extension-contributed permissions.

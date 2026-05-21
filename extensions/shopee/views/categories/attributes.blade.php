@@ -4,6 +4,9 @@
 @section('title', 'Shopee Category Attributes')
 
 @section('content')
+@php
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>Shopee Category Attributes</h2>
@@ -12,10 +15,12 @@
         <div class="page-header-actions">
             <a class="btn" href="{{ route('ext.shopee.categories.index') }}">Back to Categories</a>
 
+            @if($canManageShopee)
             <form method="POST" action="{{ route('ext.shopee.categories.attributes.fetch', $category->category_id) }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch Attributes from Shopee</button>
             </form>
+            @endif
         </div>
     </div>
 

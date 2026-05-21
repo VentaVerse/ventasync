@@ -68,9 +68,11 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
                 menu: [
-                    new MenuItem('Settings', 'ext.opencart.settings.show', 'manage_opencart', null, ['store' => $store->id]),
-                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'manage_opencart', null, ['store' => $store->id]),
-                    new MenuItem('Orders', 'ext.opencart.orders.index', 'manage_opencart_orders', null, ['store' => $store->id]),
+                    // Phase 4 — view-tier visibility: read-only operators can
+                    // open Settings / Product Groups / Orders for browsing.
+                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart', null, ['store' => $store->id]),
+                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart', null, ['store' => $store->id]),
+                    new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart_orders', null, ['store' => $store->id]),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );
@@ -83,9 +85,12 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 tagline: 'Multi-store OpenCart — add stores, sync products, push reviews.',
                 icon: 'cart',
                 accent: '#1f8fea',
-                permission: 'manage_opencart',
+                // Card uses view tier so read-only operators still see OpenCart
+                // in the Integrations hub. Reviews menu is also view-tier; the
+                // Add-store action stays manage-only.
+                permission: 'view_opencart',
                 menu: [
-                    new MenuItem('Reviews', 'ext.opencart.reviews.index', 'manage_reviews'),
+                    new MenuItem('Reviews', 'ext.opencart.reviews.index', 'view_reviews'),
                 ],
                 addStore: new \App\Integrations\AddStoreAction(
                     route: 'ext.opencart.stores.store',
@@ -144,7 +149,8 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
             icon: 'cart',
             accent: '#1f8fea',
             routeName: 'ext.opencart.orders.index',
-            permission: 'manage_opencart_orders',
+            // OrderTab visibility uses view tier.
+            permission: 'view_opencart_orders',
             routeParams: ['store' => $storeId],
             unprocessedCounter: function () use ($marketplaceSource, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {

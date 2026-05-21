@@ -26,26 +26,45 @@
 
     $logCount = count($logs);
     $hasResult = !empty($result);
+
+    // Phase 4 (view/manage tier split): operators with only `view_tiktok` get
+    // here through the read-tier route gate. Action triggers (Save, Authorize,
+    // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
+    // them — the routes still 403 if probed directly, but the UI surface
+    // should match the operator's capability set.
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
 @endphp
+
+@unless($canManageTiktok)
+<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
+    <strong>Read-only view.</strong> You can browse TikTok Shop settings, mappings, and logs. To edit credentials, run syncs, or trigger marketplace actions, your user group needs the <code>manage_tiktok</code> permission tier.
+</div>
+@endunless
 
 {{-- Tabs --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab {{ !$hasResult ? 'active' : '' }}" data-tab="tt-tab-settings" type="button">Settings</button>
     <button class="tab" data-tab="tt-tab-status" type="button">Status Mapping</button>
+    @if($canManageTiktok)
     <button class="tab" data-tab="tt-tab-explorer" type="button">API Explorer</button>
+    @endif
     <button class="tab {{ $hasResult ? 'active' : '' }}" data-tab="tt-tab-logs" type="button">
         API Logs
         @if($logCount > 0)
             <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
         @endif
     </button>
+    @if($canManageTiktok)
     <button class="tab" data-tab="tt-tab-automations" type="button">Automations</button>
+    @endif
 </div>
 
 {{-- AUTOMATIONS TAB — universal admin scheduler --}}
+@if($canManageTiktok)
 <div id="tt-tab-automations" class="hidden">
     @include('partials._automations_tab', ['integration' => 'tiktok', 'storeId' => null])
 </div>
+@endif
 
 {{-- TAB 1 -- SETTINGS --}}
 <div id="tt-tab-settings" class="{{ $hasResult ? 'hidden' : '' }}">
@@ -53,6 +72,7 @@
     {{-- Environment Toggle --}}
     <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
         <span class="font-semibold text-sm">Environment:</span>
+        @if($canManageTiktok)
         <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" id="tt-mode-form" style="display:flex; align-items:center; gap:10px;">
             @csrf
             <input type="hidden" name="mode" id="tt-mode-value" value="{{ $currentMode }}">
@@ -71,6 +91,11 @@
                 {{ $isSandbox ? 'Sandbox' : 'Production' }}
             </span>
         </form>
+        @else
+        <span class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
+            {{ $isSandbox ? 'Sandbox' : 'Production' }}
+        </span>
+        @endif
     </div>
 
     {{-- Connection + Auth side-by-side --}}
@@ -114,9 +139,11 @@
                         <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your TikTok Shop developer console. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
                     </div>
                 </div>
+                @if($canManageTiktok)
                 <div style="margin-top:14px;">
                     <button class="btn" type="submit">Save Settings</button>
                 </div>
+                @endif
             </form>
         </div>
 
@@ -143,6 +170,7 @@
                 </div>
             @endif
 
+            @if($canManageTiktok)
             <div style="display:flex; flex-direction:column; gap:16px;">
                 {{-- Step 1: Authorize --}}
                 <div class="detail-section">
@@ -211,6 +239,9 @@
                     <div class="hint" style="margin-top:6px;">TikTok tokens expire periodically. Use this to renew without re-authorizing.</div>
                 </div>
             </div>
+            @else
+            <div class="hint">Token-related actions require the <code>manage_tiktok</code> permission tier.</div>
+            @endif
         </div>
     </div>
     </div>
@@ -252,7 +283,9 @@
                     </div>
                 </div>
                 <div style="margin-top:14px;">
+                    @if($canManageTiktok)
                     <button class="btn" type="submit">Save Sandbox Settings</button>
+                    @endif
                 </div>
             </form>
         </div>
@@ -279,6 +312,7 @@
                 </div>
             @endif
 
+            @if($canManageTiktok)
             <div style="display:flex; flex-direction:column; gap:16px;">
                 <div class="detail-section">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
@@ -327,6 +361,9 @@
                     </form>
                 </div>
             </div>
+            @else
+            <div class="hint">Sandbox token actions require the <code>manage_tiktok</code> permission tier.</div>
+            @endif
         </div>
     </div>
     </div>
@@ -399,7 +436,7 @@
                             <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
                         </td>
                         <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageTiktok ? '' : 'disabled' }}>
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
                                         {{ $os->name }}
@@ -412,9 +449,11 @@
                 </tbody>
             </table>
             </div>
+            @if($canManageTiktok)
             <div style="margin-top:14px;">
                 <button class="btn" type="submit">Save Mapping</button>
             </div>
+            @endif
         </form>
     </div>
 </div>
@@ -569,6 +608,7 @@
             <span class="font-semibold text-sm">API Logging</span>
             <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
         </div>
+        @if($canManageTiktok)
         <form method="POST" action="{{ route('ext.tiktok.toggle_logging') }}">
             @csrf
             <label class="d-flex items-center gap-10" style="cursor:pointer;">
@@ -586,6 +626,11 @@
                 </span>
             </label>
         </form>
+        @else
+        <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
+            API Logging: {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
+        </span>
+        @endif
     </div>
 
     @if($result)
@@ -602,7 +647,7 @@
     <div class="card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
-            @if($logCount > 0)
+            @if($logCount > 0 && $canManageTiktok)
                 <form method="POST" action="{{ route('ext.tiktok.clear_api_logs') }}" data-confirm="Delete all TikTok API logs?">
                     @csrf
                     @method('DELETE')

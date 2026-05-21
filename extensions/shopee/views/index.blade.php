@@ -24,20 +24,41 @@
 
     $logCount = count($logs);
     $hasResult = !empty($result);
+
+    // Phase 4 (view/manage tier split): operators with only `view_shopee` get
+    // here through the read-tier route gate. Action triggers (Save, Authorize,
+    // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
+    // them — the routes still 403 if probed directly, but the UI surface
+    // should match the operator's capability set.
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
 @endphp
 
+@unless($canManageShopee)
+<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
+    <strong>Read-only view.</strong> You can browse Shopee settings, mappings, and logs. To edit credentials, run syncs, or trigger marketplace actions, your user group needs the <code>manage_shopee</code> permission tier.
+</div>
+@endunless
+
 {{-- ═══ Tabs ═══ --}}
+{{-- API Explorer + Automations tabs are write-only tools (they invoke the
+     Shopee API directly and configure the cron schedule). Read-only operators
+     don't see them; the Status Mapping and API Logs tabs render the data
+     they hold without exposing write actions. --}}
 <div class="tabs mb-12" style="justify-content:flex-start;">
     <button class="tab active" data-tab="sp-tab-settings" type="button">Settings</button>
     <button class="tab" data-tab="sp-tab-status" type="button">Status Mapping</button>
+    @if($canManageShopee)
     <button class="tab" data-tab="sp-tab-explorer" type="button">API Explorer</button>
+    @endif
     <button class="tab" data-tab="sp-tab-logs" type="button">
         API Logs
         @if($logCount > 0)
             <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
         @endif
     </button>
+    @if($canManageShopee)
     <button class="tab" data-tab="sp-tab-automations" type="button">Automations</button>
+    @endif
 </div>
 
 {{-- ╔══════════════════════════════════════════════════════════════════╗
@@ -48,6 +69,7 @@
     {{-- Environment Toggle --}}
     <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
         <span class="font-semibold text-sm">Environment:</span>
+        @if($canManageShopee)
         <form method="POST" action="{{ route('ext.shopee.toggle_mode') }}" id="sp-mode-form" style="display:flex; align-items:center; gap:10px;">
             @csrf
             <input type="hidden" name="mode" id="sp-mode-value" value="{{ $currentMode }}">
@@ -66,6 +88,11 @@
                 {{ $isSandbox ? 'Sandbox' : 'Production' }}
             </span>
         </form>
+        @else
+        <span class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
+            {{ $isSandbox ? 'Sandbox' : 'Production' }}
+        </span>
+        @endif
     </div>
 
     {{-- Connection + Auth side-by-side on wide screens --}}
@@ -116,9 +143,11 @@
                         </div>
                     </div>
                 </div>
+                @if($canManageShopee)
                 <div style="margin-top:14px;">
                     <button class="btn" type="submit">Save Settings</button>
                 </div>
+                @endif
             </form>
         </div>
 
@@ -145,6 +174,7 @@
                 </div>
             @endif
 
+            @if($canManageShopee)
             <div style="display:flex; flex-direction:column; gap:16px;">
                 {{-- Step 1 --}}
                 <div class="detail-section">
@@ -187,6 +217,9 @@
                     <div class="hint" style="margin-top:6px;">Shopee tokens expire every ~4 hours. Use this to renew without re-authorizing.</div>
                 </div>
             </div>
+            @else
+            <div class="hint">Token-related actions require the <code>manage_shopee</code> permission tier.</div>
+            @endif
         </div>
     </div>
     </div>
@@ -248,9 +281,11 @@
                         </div>
                     </div>
                 </div>
+                @if($canManageShopee)
                 <div style="margin-top:14px;">
                     <button class="btn" type="submit">Save Sandbox Settings</button>
                 </div>
+                @endif
             </form>
         </div>
 
@@ -276,6 +311,7 @@
                 </div>
             @endif
 
+            @if($canManageShopee)
             <div style="display:flex; flex-direction:column; gap:16px;">
                 <div class="detail-section">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
@@ -314,11 +350,15 @@
                     </form>
                 </div>
             </div>
+            @else
+            <div class="hint">Sandbox token actions require the <code>manage_shopee</code> permission tier.</div>
+            @endif
         </div>
     </div>
     </div>
 
     {{-- Logistics Channels --}}
+    @if($canManageShopee)
     <div class="card mb-16">
         <h3 class="section-title mt-0">Logistics Channels</h3>
         <div class="hint" style="margin-bottom:12px;">
@@ -329,6 +369,7 @@
             <button class="btn" type="submit">Fetch Logistics Channels</button>
         </form>
     </div>
+    @endif
 
     {{-- Order sync window + cron-command catalog were here; replaced by the
          Automations tab (universal admin scheduler). See the Automations tab
@@ -512,7 +553,7 @@
                             <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
                         </td>
                         <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageShopee ? '' : 'disabled' }}>
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
                                         {{ $os->name }}
@@ -525,9 +566,11 @@
                 </tbody>
             </table>
             </div>
+            @if($canManageShopee)
             <div style="margin-top:14px;">
                 <button class="btn" type="submit">Save Mapping</button>
             </div>
+            @endif
         </form>
     </div>
 
@@ -556,7 +599,7 @@
                             <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
                         </td>
                         <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;">
+                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageShopee ? '' : 'disabled' }}>
                                 <option value="">(not mapped)</option>
                                 @foreach($erpOrderStatuses as $os)
                                     <option value="{{ $os->order_status_id }}" {{ (int)($returnStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
@@ -570,9 +613,11 @@
                 </tbody>
             </table>
             </div>
+            @if($canManageShopee)
             <div style="margin-top:14px;">
                 <button class="btn" type="submit">Save Mapping</button>
             </div>
+            @endif
         </form>
     </div>
 
@@ -588,6 +633,7 @@
             <span class="font-semibold text-sm">API Logging</span>
             <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
         </div>
+        @if($canManageShopee)
         <label class="d-flex items-center gap-10" style="cursor:pointer;" id="sp-log-toggle">
             <span style="position:relative; display:inline-block; width:44px; height:24px;">
                 <input type="checkbox" id="sp-log-cb" value="1"
@@ -600,6 +646,11 @@
                 {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
             </span>
         </label>
+        @else
+        <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
+            API Logging: {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
+        </span>
+        @endif
     </div>
 
     @if($result)
@@ -616,7 +667,7 @@
     <div class="card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
-            @if($logCount > 0)
+            @if($logCount > 0 && $canManageShopee)
                 <form method="POST" action="{{ route('ext.shopee.clear_api_logs') }}" data-confirm="Delete all Shopee API logs?">
                     @csrf
                     @method('DELETE')

@@ -7,8 +7,10 @@
     "tier": "community",
     "license_required": false,
     "permissions": [
-        {"key": "manage_shopee",        "parent": "manage_marketplace_api", "subgroup": "Shopee"},
-        {"key": "manage_shopee_orders", "parent": "manage_marketplace_api", "subgroup": "Shopee"}
+        {"key": "view_shopee",          "parent": "manage_marketplace_api", "subgroup": "Shopee", "tiers": ["view","manage"]},
+        {"key": "manage_shopee",        "parent": "manage_marketplace_api", "subgroup": "Shopee", "tiers": ["view","manage"]},
+        {"key": "view_shopee_orders",   "parent": "manage_marketplace_api", "subgroup": "Shopee", "tiers": ["view","manage"]},
+        {"key": "manage_shopee_orders", "parent": "manage_marketplace_api", "subgroup": "Shopee", "tiers": ["view","manage"]}
     ],
     "tables": [
         "shopee_settings",

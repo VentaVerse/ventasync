@@ -3,6 +3,9 @@
 @section('breadcrumb', 'Integrations / Venta / ' . $setting->store_name . ' / Orders')
 
 @section('content')
+@php
+    $canManageVentaOrders = auth()->user()?->hasPermission('manage_venta_orders') ?? false;
+@endphp
 @include('integrations.partials._tab_strip', ['activeTabId' => 'venta:' . $setting->id])
 <div class="page-header">
     <div>
@@ -12,6 +15,7 @@
 </div>
 
 {{-- Fetch / Pull Orders --}}
+@if($canManageVentaOrders)
 <div class="card mb-16">
     <form method="POST" action="{{ route('ext.venta.orders.fetch', $setting->id) }}" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -31,6 +35,7 @@
         </div>
     </form>
 </div>
+@endif
 
 @php
     $currentStatus = request('status', '');
@@ -54,11 +59,13 @@
         @endforeach
     </div>
 
+    @if($canManageVentaOrders)
     <form id="venta-bulk-delete-form" method="POST" action="{{ route('ext.venta.orders.bulk_delete', $setting->id) }}" data-confirm="Delete selected Venta orders?" style="display:none; padding:8px 16px; margin-bottom:12px; background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-md); align-items:center; gap:10px;">
         @csrf
         <span class="text-sm font-bold"><span id="venta-bulk-count">0</span> selected</span>
         <button type="submit" class="btn small danger">Delete Selected</button>
     </form>
+    @endif
 
     {{-- Search --}}
     <form method="GET" action="{{ route('ext.venta.orders.index', $setting->id) }}">
@@ -95,7 +102,7 @@
         <table class="table">
             <thead>
             <tr>
-                <th style="width:36px;"><input type="checkbox" id="venta-select-all"></th>
+                <th style="width:36px;">@if($canManageVentaOrders)<input type="checkbox" id="venta-select-all">@endif</th>
                 <th style="width:80px;"><a href="{{ $sortUrl('catalog_order_id') }}">ERP # {!! $arrow('catalog_order_id') !!}</a></th>
                 <th style="width:100px;"><a href="{{ $sortUrl('venta_order_number') }}">Venta # {!! $arrow('venta_order_number') !!}</a></th>
                 <th><a href="{{ $sortUrl('customer_name') }}">Customer {!! $arrow('customer_name') !!}</a></th>
@@ -120,7 +127,7 @@
                     };
                 @endphp
                 <tr>
-                    <td><input type="checkbox" class="venta-order-check" name="ids[]" value="{{ $o->id }}" form="venta-bulk-delete-form"></td>
+                    <td>@if($canManageVentaOrders)<input type="checkbox" class="venta-order-check" name="ids[]" value="{{ $o->id }}" form="venta-bulk-delete-form">@endif</td>
                     <td>@if($o->catalog_order_id)<a href="{{ route('orders.show', $o->catalog_order_id) }}">#{{ $o->catalog_order_id }}</a>@else <span class="text-muted">—</span> @endif</td>
                     <td class="font-bold">{{ $o->venta_order_number ?: $o->venta_order_id }}</td>
                     <td>{{ $o->customer_name ?: '—' }}</td>
@@ -134,10 +141,12 @@
                             @if($o->catalog_order_id)
                                 <a class="btn small" href="{{ route('orders.show', $o->catalog_order_id) }}">View</a>
                             @endif
+                            @if($canManageVentaOrders)
                             <form method="POST" action="{{ route('ext.venta.orders.destroy', [$setting->id, $o->id]) }}" data-confirm="Delete this Venta order?" style="margin:0;">
                                 @csrf @method('DELETE')
                                 <button class="btn danger small" type="submit">Delete</button>
                             </form>
+                            @endif
                         </div>
                     </td>
                 </tr>

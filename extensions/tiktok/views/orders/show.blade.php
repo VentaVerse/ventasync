@@ -64,8 +64,13 @@
         </div>
     </div>
     <div class="page-header-actions">
+        @php
+            $canManageTiktokOrders = auth()->user()?->hasPermission('manage_tiktok_orders') ?? false;
+        @endphp
         <a href="{{ route('ext.tiktok.orders.index') }}" class="btn secondary">← Back to Orders</a>
+        @if($canManageTiktokOrders)
         <a href="{{ route('ext.tiktok.orders.show', ['id' => $order->id, 'refresh' => 1]) }}" class="btn secondary">Refresh from TikTok</a>
+        @endif
     </div>
 </div>
 

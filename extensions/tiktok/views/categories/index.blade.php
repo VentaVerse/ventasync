@@ -4,6 +4,9 @@
 @section('title', 'TikTok Shop Categories')
 
 @section('content')
+@php
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>TikTok Shop Category List</h2>
@@ -12,10 +15,12 @@
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
 
+            @if($canManageTiktok)
             <form method="POST" action="{{ route('ext.tiktok.categories.sync') }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch Categories from TikTok</button>
             </form>
+            @endif
         </div>
     </div>
 

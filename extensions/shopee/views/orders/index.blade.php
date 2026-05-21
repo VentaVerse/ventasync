@@ -2,12 +2,18 @@
 @section('breadcrumb', 'Integrations / Shopee / Orders')
 
 @section('content')
+@php
+    // Phase 4 — Shopee Orders is visible to view_shopee_orders holders; the
+    // Fetch/Update/Ship/Reset actions require manage_shopee_orders.
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
+@endphp
 <div class="marketplace-shopee">
 @include('integrations.partials._tab_strip', ['activeTabId' => 'shopee'])
 <div class="page-header">
     <h2>Shopee Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>
 
+@if($canManageShopeeOrders)
 <div class="card mb-16">
     <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -33,6 +39,7 @@
         </div>
     </form>
 </div>
+@endif
 
 @if($last_result)
     <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">

@@ -2,10 +2,22 @@
 @section('breadcrumb', 'Settings')
 
 @section('content')
+@php
+    // Phase 4.5: read-tier (view_website_settings) can browse the settings
+    // form but cannot save. All write controls (Save buttons, Test Mail,
+    // Purge Raw) are hidden — inputs render but become read-only-ish via
+    // the missing submit. The underlying routes still 403 if probed.
+    $canManageSettings = auth()->user()?->hasPermission('manage_website_settings') ?? false;
+@endphp
 <div class="page-header">
     <h2>Settings</h2>
     <a class="btn secondary" href="{{ route('dashboard') }}">Back</a>
 </div>
+@unless($canManageSettings)
+<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
+    <strong>Read-only view.</strong> You can browse settings. To save changes, send test mail, or purge raw data, your user group needs the <code>manage_website_settings</code> permission tier.
+</div>
+@endunless
 
 {{-- Tabs --}}
 <div class="tabs mb-16">
@@ -72,9 +84,11 @@
                 </div>
             </div>
 
+            @if($canManageSettings)
             <div class="d-flex justify-end mt-16">
                 <button class="btn" type="submit">Save Settings</button>
             </div>
+            @endif
         </div>
     </div>
 
@@ -120,9 +134,11 @@
                 </div>
             </div>
 
+            @if($canManageSettings)
             <div class="d-flex justify-end mt-16">
                 <button class="btn" type="submit">Save Settings</button>
             </div>
+            @endif
         </div>
     </div>
 
@@ -185,11 +201,14 @@
                 </div>
             </div>
 
+            @if($canManageSettings)
             <div class="d-flex justify-end mt-16">
                 <button class="btn" type="submit">Save Settings</button>
             </div>
+            @endif
         </div>
 
+        @if($canManageSettings)
         <div class="card mt-16">
             <h3 class="section-title mt-0">Send Test Email</h3>
             <div class="hint" style="margin-bottom:12px;">
@@ -206,6 +225,7 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 </form>
 
@@ -235,6 +255,7 @@
         </details>
     </div>
 
+    @if($canManageSettings)
     <div class="card mt-16">
         <h3 class="section-title mt-0">Database Maintenance</h3>
         <div class="form-grid">
@@ -252,6 +273,7 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 
 @push('scripts')
@@ -305,7 +327,8 @@
         }
     }
 
-    document.getElementById('btnPurgeRaw').addEventListener('click', function () {
+    var _purgeBtn = document.getElementById('btnPurgeRaw');
+    if (_purgeBtn) _purgeBtn.addEventListener('click', function () {
         var days = document.getElementById('purgeDays').value;
         if (!days || days < 1) { showFlashError('Please enter a valid number of days.'); return; }
 

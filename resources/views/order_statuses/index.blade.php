@@ -2,12 +2,17 @@
 @section('breadcrumb', 'Sales / Order Statuses')
 
 @section('content')
+@php
+    $canManageOrderStatuses = auth()->user()?->hasPermission('manage_order_statuses') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Order Statuses</h2>
         <div class="page-header-actions">
+            @if($canManageOrderStatuses)
             <a class="btn" href="{{ route('order_statuses.create') }}">Add Order Status</a>
             <button class="btn danger" type="submit" form="os-bulk-form" id="os-bulk-delete-btn">Delete Selected</button>
+            @endif
         </div>
     </div>
 
@@ -26,7 +31,7 @@
         <table>
             <thead>
             <tr>
-                <th style="width:36px;"><input type="checkbox" id="os-select-all" title="Select all"></th>
+                <th style="width:36px;">@if($canManageOrderStatuses)<input type="checkbox" id="os-select-all" title="Select all">@endif</th>
                 <th style="width:90px;">ID</th>
                 <th>Name</th>
                 <th style="width:120px;">Subtract Stock</th>
@@ -37,7 +42,7 @@
             <tbody>
             @foreach($statuses as $s)
                 <tr>
-                    <td><input type="checkbox" class="os-row-check" name="ids[]" value="{{ (int)$s->order_status_id }}" form="os-bulk-form"></td>
+                    <td>@if($canManageOrderStatuses)<input type="checkbox" class="os-row-check" name="ids[]" value="{{ (int)$s->order_status_id }}" form="os-bulk-form">@endif</td>
                     <td>{{ $s->order_status_id }}</td>
                     <td>{{ $s->name }}</td>
                     <td>
@@ -55,12 +60,14 @@
                         @endif
                     </td>
                     <td class="d-flex gap-8 items-center">
+                        @if($canManageOrderStatuses)
                         <a class="btn small" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
                         <form method="POST" action="{{ route('order_statuses.destroy', $s->order_status_id) }}" data-confirm="Delete this order status?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>
                         </form>
+                        @endif
                     </td>
                 </tr>
             @endforeach

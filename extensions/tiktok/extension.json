@@ -7,8 +7,10 @@
     "tier": "community",
     "license_required": false,
     "permissions": [
-        {"key": "manage_tiktok",        "parent": "manage_marketplace_api", "subgroup": "TikTok Shop"},
-        {"key": "manage_tiktok_orders", "parent": "manage_marketplace_api", "subgroup": "TikTok Shop"}
+        {"key": "view_tiktok",          "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "tiers": ["view","manage"]},
+        {"key": "manage_tiktok",        "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "tiers": ["view","manage"]},
+        {"key": "view_tiktok_orders",   "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "tiers": ["view","manage"]},
+        {"key": "manage_tiktok_orders", "parent": "manage_marketplace_api", "subgroup": "TikTok Shop", "tiers": ["view","manage"]}
     ],
     "tables": [
         "tiktok_settings",

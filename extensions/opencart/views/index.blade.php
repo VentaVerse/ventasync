@@ -4,6 +4,12 @@
 @section('title', 'OpenCart Settings')
 
 @section('content')
+@php
+    // Phase 4 (view/manage tier split): operators with only `view_opencart`
+    // get here through the read-tier route gate. Save/Test/Delete/Sync/Push
+    // actions are hidden; routes still 403 if probed directly.
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>OpenCart Settings</h2>
@@ -13,6 +19,12 @@
             <a href="{{ route('integrations.module', ['module' => 'opencart']) }}" class="btn secondary">← Back to OpenCart</a>
         </div>
     </div>
+
+    @unless($canManageOpencart)
+    <div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
+        <strong>Read-only view.</strong> You can browse OpenCart store settings and mappings. To edit connections, run syncs, or push products, your user group needs the <code>manage_opencart</code> permission tier.
+    </div>
+    @endunless
 
     @php
         $singleStore = $singleStore ?? false;
@@ -112,13 +124,16 @@
                                     </div>
                                 </div>
 
+                                @if($canManageOpencart)
                                 <div class="d-flex gap-8 mt-16 items-center">
                                     <button class="btn" type="submit">Save</button>
                                     <button class="btn secondary" type="button" onclick="testStore({{ $store->id }}, this)">Test Connection</button>
                                     <div class="test-result" data-store="{{ $store->id }}" style="display:none; flex:1;"></div>
                                 </div>
+                                @endif
                             </form>
 
+                            @if($canManageOpencart)
                             <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-light); display:flex; justify-content:flex-end;">
                                 <form method="POST" action="{{ route('ext.opencart.destroy', $store->id) }}" style="display:inline;" data-confirm="Delete this store and all its product links? This cannot be undone.">
                                     @csrf
@@ -126,6 +141,7 @@
                                     <button class="btn small danger" type="submit">Delete Store</button>
                                 </form>
                             </div>
+                            @endif
                         </div>
 
                         @if($store->enabled)
@@ -180,7 +196,9 @@
                                             <input type="date" name="sync_orders_from" class="input" value="{{ $store->sync_orders_from ? $store->sync_orders_from->format('Y-m-d') : '' }}" style="width:180px;">
                                         </div>
 
+                                        @if($canManageOpencart)
                                         <button class="btn small" type="submit">Save</button>
+                                        @endif
                                     </div>
                                 </form>
 
@@ -219,12 +237,14 @@
                                         Map OpenCart order statuses to ERP statuses. Click "Fetch Statuses" to load available statuses from the OpenCart store, then select the corresponding ERP status for each.
                                     </div>
 
+                                    @if($canManageOpencart)
                                     <div style="margin-bottom:12px;">
                                         <button class="btn small secondary oc-fetch-statuses-btn" type="button" data-store="{{ $store->id }}">
                                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                                             Fetch Statuses from OpenCart
                                         </button>
                                     </div>
+                                    @endif
 
                                     <div class="oc-status-map-table" data-store="{{ $store->id }}">
                                         @php $storeMap = $orderStatusMaps->get($store->id, collect()); @endphp
@@ -245,7 +265,7 @@
                                                         <td>{{ $map->oc_status_name }}</td>
                                                         <td style="text-align:center; color:var(--text-muted);">→</td>
                                                         <td>
-                                                            <select class="input oc-map-select" data-oc-id="{{ $map->oc_status_id }}" data-oc-name="{{ $map->oc_status_name }}" style="width:100%;">
+                                                            <select class="input oc-map-select" data-oc-id="{{ $map->oc_status_id }}" data-oc-name="{{ $map->oc_status_name }}" style="width:100%;" {{ $canManageOpencart ? '' : 'disabled' }}>
                                                                 <option value="0">— Unmapped (use raw ID) —</option>
                                                                 @foreach($erpOrderStatuses as $erp)
                                                                     <option value="{{ $erp->order_status_id }}" {{ $map->order_status_id == $erp->order_status_id ? 'selected' : '' }}>{{ $erp->name }} (ID: {{ $erp->order_status_id }})</option>
@@ -263,7 +283,7 @@
                                         @endif
                                     </div>
 
-                                    @if($storeMap->isNotEmpty())
+                                    @if($storeMap->isNotEmpty() && $canManageOpencart)
                                         <button class="btn small oc-save-status-map-btn" type="button" data-store="{{ $store->id }}">Save Mapping</button>
                                     @endif
                                 </div>
@@ -282,10 +302,12 @@
 
                                     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                                         <label class="d-flex items-center gap-8" style="margin-bottom:0;">
-                                            <input type="checkbox" name="review_auto_approve" value="1" {{ $store->review_auto_approve ? 'checked' : '' }}>
+                                            <input type="checkbox" name="review_auto_approve" value="1" {{ $store->review_auto_approve ? 'checked' : '' }} {{ $canManageOpencart ? '' : 'disabled' }}>
                                             <span>Auto-approve pushed reviews</span>
                                         </label>
+                                        @if($canManageOpencart)
                                         <button class="btn small" type="submit">Save</button>
+                                        @endif
                                     </div>
                                     <div class="hint" style="margin-top:6px;">
                                         When enabled, reviews pushed from marketplace platforms will appear on the storefront immediately. When disabled, they will be set to "Pending" in OpenCart for manual approval.
@@ -354,6 +376,7 @@
                             </div>
 
                             {{-- ── Quick Actions ── --}}
+                            @if($canManageOpencart)
                             <div class="oc-section">
                                 <div class="oc-section-header">
                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -381,8 +404,10 @@
                                 </div>
                                 <div class="hint" style="margin-top:6px;">Leave dates empty to use the Sync Last N Days setting.</div>
                             </div>
+                            @endif
 
                             {{-- ── Initial Import / Full Sync ── --}}
+                            @if($canManageOpencart)
                             <div class="oc-section">
                                 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                                     <div class="oc-section-header" style="margin-bottom:0;">
@@ -480,6 +505,7 @@
                                     </div>
                                 </div>
                             </div>
+                            @endif
                         @else
                             <div style="padding:20px; background:var(--surface-alt); border-radius:var(--radius-sm); border:1px solid var(--border-light); text-align:center;">
                                 <div class="text-muted" style="font-size:13px;">This store is disabled. Enable it in Settings to access sync operations.</div>
@@ -490,7 +516,8 @@
             @endforeach
 
             {{-- Add New Store panel — hidden in single-store mode (use the modal on the module page) --}}
-            <div class="oc-panel{{ $stores->isEmpty() ? ' active' : '' }} {{ $singleStore ? 'd-none' : '' }}" id="store-new">
+            {{-- Also hidden entirely for read-only operators — they cannot create new stores. --}}
+            <div class="oc-panel{{ ($stores->isEmpty() && $canManageOpencart) ? ' active' : '' }} {{ $singleStore || !$canManageOpencart ? 'd-none' : '' }}" id="store-new">
                 <div class="card">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
                         <div style="width:36px; height:36px; border-radius:8px; background:linear-gradient(135deg,#22c55e,#16a34a); display:flex; align-items:center; justify-content:center; flex-shrink:0;">

@@ -4,6 +4,12 @@
 @section('title', 'Venta Settings')
 
 @section('content')
+@php
+    // Phase 4 (view/manage tier split): operators with only `view_venta` get
+    // here through the read-tier route gate. Save/Test/Delete/Mapping/Fetch
+    // actions are hidden; the routes still 403 if probed directly.
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>Venta Settings</h2>
@@ -13,6 +19,12 @@
             <a href="{{ route('integrations.module', ['module' => 'venta']) }}" class="btn secondary">← Back to Venta</a>
         </div>
     </div>
+
+    @unless($canManageVenta)
+    <div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
+        <strong>Read-only view.</strong> You can browse Venta store settings and order status mappings. To edit connections, run syncs, or save changes, your user group needs the <code>manage_venta</code> permission tier.
+    </div>
+    @endunless
 
     @php
         $singleStore = $singleStore ?? false;
@@ -168,13 +180,16 @@
                                         </div>
                                     </div>
 
+                                    @if($canManageVenta)
                                     <div class="d-flex gap-8 mt-16 items-center">
                                         <button class="btn" type="submit">Save</button>
                                         <button class="btn secondary" type="button" onclick="ventaTestStore({{ $store->id }}, this)">Test Connection</button>
                                         <div class="test-result" data-store="{{ $store->id }}" style="display:none; flex:1;"></div>
                                     </div>
+                                    @endif
                                 </form>
 
+                                @if($canManageVenta)
                                 <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-light); display:flex; justify-content:flex-end;">
                                     <form method="POST" action="{{ route('ext.venta.destroy', $store->id) }}" style="display:inline;" data-confirm="Delete this store and all its product links? This cannot be undone.">
                                         @csrf
@@ -182,6 +197,7 @@
                                         <button class="btn small danger" type="submit">Delete Store</button>
                                     </form>
                                 </div>
+                                @endif
                             </div>
 
                             {{-- Tab: Status Mapping --}}
@@ -195,12 +211,14 @@
                                         Map Venta order statuses to ERP statuses. Click "Fetch Statuses" to load available statuses from the Venta store, then select the corresponding ERP status for each.
                                     </div>
 
+                                    @if($canManageVenta)
                                     <div style="margin-bottom:12px;">
                                         <button class="btn small secondary venta-fetch-statuses-btn" type="button" data-store="{{ $store->id }}">
                                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                                             Fetch Statuses from Venta
                                         </button>
                                     </div>
+                                    @endif
 
                                     <div class="venta-status-map-table" data-store="{{ $store->id }}">
                                         @php $storeMap = $orderStatusMaps->get($store->id, collect()); @endphp
@@ -221,7 +239,7 @@
                                                         <td>{{ $map->venta_status_name }}</td>
                                                         <td style="text-align:center; color:var(--text-muted);">&rarr;</td>
                                                         <td>
-                                                            <select class="input venta-map-select" data-venta-id="{{ $map->venta_status_id }}" data-venta-name="{{ $map->venta_status_name }}" style="width:100%;">
+                                                            <select class="input venta-map-select" data-venta-id="{{ $map->venta_status_id }}" data-venta-name="{{ $map->venta_status_name }}" style="width:100%;" {{ $canManageVenta ? '' : 'disabled' }}>
                                                                 <option value="0">&mdash; Unmapped (use raw ID) &mdash;</option>
                                                                 @foreach($erpOrderStatuses as $erp)
                                                                     <option value="{{ $erp->order_status_id }}" {{ $map->order_status_id == $erp->order_status_id ? 'selected' : '' }}>{{ $erp->name }} (ID: {{ $erp->order_status_id }})</option>
@@ -239,7 +257,7 @@
                                         @endif
                                     </div>
 
-                                    @if($storeMap->isNotEmpty())
+                                    @if($storeMap->isNotEmpty() && $canManageVenta)
                                         <button class="btn small venta-save-status-map-btn" type="button" data-store="{{ $store->id }}">Save Mapping</button>
                                     @endif
                                 @endif
@@ -306,6 +324,7 @@
 
                             {{-- Tab: API Logs --}}
                             <div class="tab-pane" id="tab-api-logs-{{ $store->id }}">
+                                @if($canManageVenta)
                                 <div class="d-flex items-center justify-between mb-12" style="flex-wrap:wrap; gap:8px;">
                                     <form method="POST" action="{{ route('ext.venta.toggle_api_logging', $store->id) }}">
                                         @csrf
@@ -324,6 +343,9 @@
                                         <button type="submit" class="btn small danger">Delete All Logs</button>
                                     </form>
                                 </div>
+                                @else
+                                <div class="hint mb-12">API logging actions require the <code>manage_venta</code> permission tier. Read-only view of existing logs below.</div>
+                                @endif
 
                                 @php $storeApiLogs = ($apiLogs ?? collect())->where('venta_setting_id', $store->id); @endphp
                                 @if($storeApiLogs->count() > 0)
@@ -484,7 +506,8 @@
             @endforeach
 
             {{-- Add New Store panel — hidden in single-store mode (use the modal on the module page) --}}
-            <div class="oc-panel{{ $stores->isEmpty() ? ' active' : '' }} {{ $singleStore ? 'd-none' : '' }}" id="store-new">
+            {{-- Also hidden entirely for read-only operators — they cannot create new stores. --}}
+            <div class="oc-panel{{ ($stores->isEmpty() && $canManageVenta) ? ' active' : '' }} {{ $singleStore || !$canManageVenta ? 'd-none' : '' }}" id="store-new">
                 <div class="card">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
                         <div style="width:36px; height:36px; border-radius:8px; background:linear-gradient(135deg,#22c55e,#16a34a); display:flex; align-items:center; justify-content:center; flex-shrink:0;">

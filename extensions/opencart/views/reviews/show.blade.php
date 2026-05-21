@@ -2,24 +2,29 @@
 @section('breadcrumb', 'Integrations / Reviews / Detail')
 
 @section('content')
+@php
+    $canManageReviews = auth()->user()?->hasPermission('manage_reviews') ?? false;
+    // Venta push lives under manage_venta tier (see venta/routes/web.php).
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Review Detail</h2>
         <div class="page-header-actions d-flex gap-8">
             <a href="{{ route('ext.opencart.reviews.index') }}" class="btn secondary">Back to Reviews</a>
-            @if(in_array($review->oc_sync_status, ['pending', 'error']))
+            @if(in_array($review->oc_sync_status, ['pending', 'error']) && $canManageReviews)
                 <form method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" style="display:inline;">
                     @csrf
                     <button class="btn" type="submit">Push to OpenCart</button>
                 </form>
             @endif
-            @if(in_array($review->venta_sync_status ?? 'pending', ['pending', 'error']) && Route::has('ext.venta.reviews.push'))
+            @if(in_array($review->venta_sync_status ?? 'pending', ['pending', 'error']) && Route::has('ext.venta.reviews.push') && $canManageVenta)
                 <form method="POST" action="{{ route('ext.venta.reviews.push', $review->id) }}" style="display:inline;">
                     @csrf
                     <button class="btn" type="submit">Push to Venta</button>
                 </form>
             @endif
-            @if(in_array($review->oc_sync_status, ['pending', 'error']))
+            @if(in_array($review->oc_sync_status, ['pending', 'error']) && $canManageReviews)
                 <form method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" style="display:inline;">
                     @csrf
                     <button class="btn secondary" type="submit">Skip</button>

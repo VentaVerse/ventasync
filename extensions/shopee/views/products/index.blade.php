@@ -4,23 +4,30 @@
 @section('title', 'Shopee Products')
 
 @section('content')
+@php
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>Shopee Products</h2>
             <div class="text-muted text-sm">Push catalog products to Shopee and sync stock/price.</div>
         </div>
         <div class="page-header-actions">
+            @if($canManageShopee)
             <form method="POST" action="{{ route('ext.shopee.products.rebuild_cache') }}" style="margin:0; display:inline;" data-confirm="Rebuild the Shopee product cache? This scans all Shopee items and may take a minute.">
                 @csrf
                 <button type="submit" class="btn secondary">Rebuild Cache</button>
             </form>
+            @endif
             <a class="btn secondary" href="{{ route('ext.shopee.product-groups.index') }}">Product Groups</a>
+            @if($canManageShopee)
             <a class="btn" href="{{ route('ext.shopee.products.add') }}">Add Product</a>
+            @endif
         </div>
     </div>
 
     {{-- Unmatched Items Section --}}
-    @if(isset($unmatchedItems) && $unmatchedItems->count() > 0)
+    @if(isset($unmatchedItems) && $unmatchedItems->count() > 0 && $canManageShopee)
         <div class="card mb-12" id="unmatched-section">
             <div class="d-flex justify-between items-center" style="margin-bottom:12px;">
                 <div>
@@ -89,7 +96,7 @@
         </div>
     @endif
 
-    @if(!isset($unmatchedItems) || $unmatchedItems->count() === 0)
+    @if((!isset($unmatchedItems) || $unmatchedItems->count() === 0) && $canManageShopee)
         <div style="margin-bottom:12px;">
             <form method="POST" action="{{ route('ext.shopee.products.sync_unmatched') }}" style="display:inline;">
                 @csrf
@@ -151,6 +158,7 @@
 
     <div class="card">
         {{-- Bulk action bar --}}
+        @if($canManageShopee)
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
@@ -176,13 +184,14 @@
                 </form>
             </div>
         </div>
+        @endif
 
 
         <div class="table-wrap">
             <table class="table" id="shopeeProductsTable">
                 <thead>
                 <tr>
-                    <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
+                    <th style="width:36px;">@if($canManageShopee)<input type="checkbox" id="checkAll" title="Select all">@endif</th>
                     <th style="width:60px;">ID</th>
                     <th style="width:56px;">Image</th>
                     <th>Product Name</th>
@@ -206,7 +215,7 @@
                         $pGroups = isset($groupsByProductId) ? ($groupsByProductId[$p->product_id] ?? []) : [];
                     @endphp
                     <tr>
-                        <td><input type="checkbox" class="row-check" value="{{ $p->product_id }}"></td>
+                        <td>@if($canManageShopee)<input type="checkbox" class="row-check" value="{{ $p->product_id }}">@endif</td>
                         <td>{{ $p->product_id }}</td>
                         <td>
                             @if($p->image)
@@ -294,6 +303,7 @@
                             @endif
                         </td>
                         <td>
+                            @if($canManageShopee)
                             <div style="position:relative;" class="row-actions">
                                 <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -358,6 +368,7 @@
                                     @endif
                                 </div>
                             </div>
+                            @endif
                         </td>
                     </tr>
                 @empty

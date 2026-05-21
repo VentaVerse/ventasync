@@ -2,11 +2,17 @@
 @section('breadcrumb', 'Settings / Error Log')
 
 @section('content')
+@php
+    // Phase 4.5: read-tier (view_error_log) can read the log but can't clear
+    // it or fire test warnings. Clear/Test routes are gated by manage_error_log.
+    $canManageErrorLog = auth()->user()?->hasPermission('manage_error_log') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Error Log</h2>
 
         <div class="page-header-actions">
+            @if($canManageErrorLog)
             <form method="POST" action="{{ route('error_log.clear') }}" style="margin:0;" data-confirm="Clear error.log? This cannot be undone.">
                 @csrf
                 <button type="submit" class="btn danger">Clear error.log</button>
@@ -16,6 +22,7 @@
                 @csrf
                 <button type="submit" class="btn">Generate Test Warning</button>
             </form>
+            @endif
         </div>
     </div>
 

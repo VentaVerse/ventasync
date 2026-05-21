@@ -2,12 +2,22 @@
 @section('breadcrumb', 'Sales / Orders / View')
 
 @section('content')
+@php
+    // Phase 4.5 (view/manage tier split): operators with only `view_orders`
+    // see the show page through the read-tier route gate. Action triggers
+    // (Edit, Backfill, Status update, fee CRUD, payment CRUD, toggle
+    // tracking) are hidden for them — the routes still 403 if probed
+    // directly, but the UI surface matches the operator's capability set.
+    $canManageOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Order #{{ $order->order_id }}</h2>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('orders.index') }}">Back</a>
+            @if($canManageOrders)
             <a class="btn" href="{{ route('orders.edit', $order->order_id) }}">Edit</a>
+            @endif
         </div>
     </div>
 
@@ -139,7 +149,7 @@
     {{-- Products --}}
     <div class="d-flex items-center justify-between">
         <h3 class="section-title" style="margin-bottom:0;">Products</h3>
-        @if($products->contains(fn($p) => !$p->cost || (float)$p->cost == 0))
+        @if($canManageOrders && $products->contains(fn($p) => !$p->cost || (float)$p->cost == 0))
             <form method="POST" action="{{ route('orders.backfill_costs', $order->order_id) }}" style="margin:0;">
                 @csrf
                 <button type="submit" class="btn small secondary" title="Update products with missing costs from current catalog data">Backfill Missing Costs</button>
@@ -214,7 +224,11 @@
                 <td class="text-right">{{ number_format($p->price, 2) }}</td>
                 <td class="text-right font-semibold">{{ number_format($p->total, 2) }}</td>
                 <td class="text-right text-secondary">
+                    @if($canManageOrders)
                     <span class="inline-edit-cost" data-op-id="{{ $p->order_product_id }}" data-cost="{{ $unitCost }}" title="Click to edit cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}</span>
+                    @else
+                    {{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}
+                    @endif
                 </td>
                 <td class="text-right text-secondary">{{ $unitCost > 0 ? number_format($cogs, 2) : '-' }}</td>
                 <td class="text-right font-semibold" style="color: {{ $profit >= 0 ? 'var(--success)' : 'var(--danger)' }}">
@@ -294,7 +308,11 @@
             <tr>
                 <td class="text-secondary">Shipping Cost</td>
                 <td class="text-right">
+                    @if($canManageOrders)
                     <span class="inline-edit-shipping" data-order-id="{{ $order->order_id }}" data-cost="{{ $shippingCost }}" title="Click to edit shipping cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px; {{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . number_format($shippingCost, 2) : '0.00' }}</span>
+                    @else
+                    <span style="{{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . number_format($shippingCost, 2) : '0.00' }}</span>
+                    @endif
                 </td>
             </tr>
 
@@ -302,14 +320,14 @@
             @foreach($mktFeeItems as $fee)
             <tr>
                 <td class="text-secondary">
-                    @if(isset($fee['fee_id']))
+                    @if(isset($fee['fee_id']) && $canManageOrders)
                         <span class="inline-edit-fee-label" data-fee-id="{{ $fee['fee_id'] }}" data-label="{{ $fee['label'] }}" title="Click to edit label" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $fee['label'] }}</span>
                     @else
                         {{ $fee['label'] }}
                     @endif
                 </td>
                 <td class="text-right" style="color:var(--danger);">
-                    @if(isset($fee['fee_id']))
+                    @if(isset($fee['fee_id']) && $canManageOrders)
                         <span class="inline-edit-fee-amount" data-fee-id="{{ $fee['fee_id'] }}" data-amount="{{ $fee['amount'] }}" title="Click to edit amount" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">-{{ number_format($fee['amount'], 2) }}</span>
                         <form method="POST" action="{{ route('orders.destroy_fee', [$order->order_id, $fee['fee_id']]) }}" style="display:inline; margin-left:4px;" data-confirm="Remove this fee?">
                             @csrf @method('DELETE')
@@ -323,6 +341,7 @@
             @endforeach
 
             {{-- Add Fee --}}
+            @if($canManageOrders)
             <tr>
                 <td colspan="2" style="padding:4px 0;">
                     <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="d-flex gap-6 items-center" style="justify-content:flex-end;">
@@ -333,6 +352,7 @@
                     </form>
                 </td>
             </tr>
+            @endif
 
             {{-- Net Profit --}}
             <tr class="order-totals-row-profit">
@@ -372,10 +392,12 @@
                 <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ number_format($balance, 2) }}</span>
             @endif
         </h3>
+        @if($canManageOrders)
         <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}" data-confirm="Disable payment tracking for this order?">
             @csrf
             <button type="submit" class="btn small secondary">Disable Tracking</button>
         </form>
+        @endif
     </div>
 
     @if($payments->count())
@@ -400,12 +422,14 @@
                 <td class="text-right font-semibold">{{ number_format((float) $p->amount, 2) }}</td>
                 <td class="text-muted text-sm">{{ $p->notes ?: '' }}</td>
                 <td>
+                    @if($canManageOrders)
                     <form method="POST" action="{{ route('orders.destroy_payment', [$order->order_id, $p->id]) }}" data-confirm="Delete this payment?">
                         @csrf @method('DELETE')
                         <button type="submit" class="btn small danger" title="Delete">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                     </form>
+                    @endif
                 </td>
             </tr>
             @endforeach
@@ -429,6 +453,7 @@
     @endif
 
     {{-- Add Payment Form --}}
+    @if($canManageOrders)
     <form method="POST" action="{{ route('orders.store_payment', $order->order_id) }}" class="mb-24">
         @csrf
         <div class="d-flex gap-12 items-end flex-wrap">
@@ -464,7 +489,9 @@
             </div>
         </div>
     </form>
+    @endif
     @else
+    @if($canManageOrders)
     {{-- Payment tracking disabled — show enable button --}}
     <div class="mt-24 mb-24" style="display:flex; align-items:center; gap:12px;">
         <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
@@ -474,8 +501,10 @@
         <span class="text-muted text-sm">Track partial payments for this order</span>
     </div>
     @endif
+    @endif
 
     {{-- Status Update --}}
+    @if($canManageOrders)
     <h3 class="section-title mt-24">Update Status</h3>
     <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
         @csrf
@@ -497,6 +526,7 @@
             </div>
         </div>
     </form>
+    @endif
 
     {{-- Order History --}}
     <h3 class="section-title mt-24">Order History</h3>

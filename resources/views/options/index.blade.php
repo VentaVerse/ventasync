@@ -2,12 +2,17 @@
 @section('breadcrumb', 'Catalog / Options')
 
 @section('content')
+@php
+    $canManageOptions = auth()->user()?->hasPermission('manage_options') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Options</h2>
         <div class="page-header-actions">
+            @if($canManageOptions)
             <a class="btn" href="{{ route('options.create') }}">Add Option</a>
             <button class="btn danger" type="submit" form="option-bulk-form" id="option-bulk-delete-btn">Delete Selected</button>
+            @endif
         </div>
     </div>
 
@@ -30,7 +35,7 @@
     <table>
         <thead>
         <tr>
-            <th style="width:36px;"><input type="checkbox" id="option-select-all" title="Select all"></th>
+            <th style="width:36px;">@if($canManageOptions)<input type="checkbox" id="option-select-all" title="Select all">@endif</th>
             <th style="width:90px;">ID</th>
             <th>Name</th>
             <th style="width:160px;">Type</th>
@@ -41,18 +46,20 @@
         <tbody>
         @foreach($options as $o)
             <tr>
-                <td><input type="checkbox" class="option-row-check" name="ids[]" value="{{ (int)$o->option_id }}" form="option-bulk-form"></td>
+                <td>@if($canManageOptions)<input type="checkbox" class="option-row-check" name="ids[]" value="{{ (int)$o->option_id }}" form="option-bulk-form">@endif</td>
                 <td>{{ (int)$o->option_id }}</td>
                 <td>{{ $o->name }}</td>
                 <td>{{ $o->type }}</td>
                 <td>{{ (int)$o->sort_order }}</td>
                 <td class="d-flex gap-8 items-center">
+                    @if($canManageOptions)
                     <a class="btn small" href="{{ route('options.edit', $o->option_id) }}">Edit</a>
                     <form method="POST" action="{{ route('options.destroy', $o->option_id) }}" data-confirm="Delete this option? This cannot be undone.">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>
                     </form>
+                    @endif
                 </td>
             </tr>
         @endforeach

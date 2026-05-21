@@ -61,9 +61,17 @@
     </div>
 
     <div class="page-header-actions">
+        @php
+            // Phase 4 — Shopee order detail: refresh-from-Shopee and Arrange
+            // Shipment are write-tier actions (refresh re-pulls from the API
+            // and persists, ship triggers a marketplace state change).
+            $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
+        @endphp
         <a href="{{ route('ext.shopee.orders.index') }}" class="btn secondary">← Back to Orders</a>
+        @if($canManageShopeeOrders)
         <a href="{{ route('ext.shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1]) }}" class="btn secondary">Refresh from Shopee</a>
-        @if($isToPack)
+        @endif
+        @if($isToPack && $canManageShopeeOrders)
             <button type="button" id="btnArrangeShipShow" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;">Arrange Shipment</button>
         @endif
     </div>

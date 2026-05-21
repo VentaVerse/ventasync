@@ -3,13 +3,18 @@
 @section('breadcrumb', 'Integrations / TikTok Shop / ' . $group->name . ' / Products')
 
 @section('content')
+@php
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>{{ $group->name }} — Products</h2>
             <div class="text-muted text-sm">TikTok Shop — push catalog products, sync stock &amp; price.</div>
         </div>
         <div class="page-header-actions">
+            @if($canManageTiktok)
             <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.edit', $group->id) }}">Edit Group</a>
+            @endif
             <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.index') }}">← Back to Product Groups</a>
         </div>
     </div>
@@ -49,6 +54,7 @@
 
     <div class="card">
         {{-- Bulk action bar (hidden until items selected) --}}
+        @if($canManageTiktok)
         <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
             <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
             <div class="d-flex gap-6 flex-wrap">
@@ -74,12 +80,13 @@
                 </form>
             </div>
         </div>
+        @endif
 
         <div class="table-wrap">
             <table class="table" id="tiktokProductsTable">
                 <thead>
                 <tr>
-                    <th style="width:36px;"><input type="checkbox" id="checkAll" title="Select all"></th>
+                    <th style="width:36px;">@if($canManageTiktok)<input type="checkbox" id="checkAll" title="Select all">@endif</th>
                     <th style="width:60px;">ID</th>
                     <th style="width:56px;">Image</th>
                     <th>Product Name</th>
@@ -107,7 +114,7 @@
                         $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
                     @endphp
                     <tr>
-                        <td><input type="checkbox" class="row-check" value="{{ $p->product_id }}"></td>
+                        <td>@if($canManageTiktok)<input type="checkbox" class="row-check" value="{{ $p->product_id }}">@endif</td>
                         <td>{{ $p->product_id }}</td>
                         <td>
                             @if($src)
@@ -198,6 +205,7 @@
                             @endif
                         </td>
                         <td>
+                            @if($canManageTiktok)
                             <div style="position:relative;" class="row-actions">
                                 <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -290,6 +298,7 @@
                                     @endif
                                 </div>
                             </div>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -312,6 +321,7 @@
     </div>
 
     {{-- Add Individual Products --}}
+    @if($canManageTiktok)
     <div class="card mt-16">
         <h3 class="section-title mt-0">Add Products Manually</h3>
         <div class="hint" style="margin-bottom:10px;">Search for products to add individually to this product group.</div>
@@ -341,6 +351,7 @@
             </table>
         </div>
     </div>
+    @endif
 
 <div class="bulk-loading-overlay" id="loadingOverlay">
     <div class="bulk-loading-box">

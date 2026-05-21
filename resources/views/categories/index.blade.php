@@ -2,10 +2,14 @@
 @section('breadcrumb', 'Catalog / Categories')
 
 @section('content')
+@php
+    $canManageCategories = auth()->user()?->hasPermission('manage_categories') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Categories</h2>
         <div class="page-header-actions">
+            @if($canManageCategories)
             <a class="btn" href="{{ route('categories.create') }}">Add Category</a>
 
             <select class="input" name="action" form="category-bulk-form" style="width:180px;">
@@ -14,6 +18,7 @@
                 <option value="disable">Disable</option>
             </select>
             <button class="btn" type="submit" form="category-bulk-form" id="category-apply-btn">Apply To Selected</button>
+            @endif
         </div>
     </div>
 
@@ -32,7 +37,7 @@
     <table>
         <thead>
         <tr>
-            <th style="width:36px;"><input type="checkbox" id="category-select-all" title="Select all"></th>
+            <th style="width:36px;">@if($canManageCategories)<input type="checkbox" id="category-select-all" title="Select all">@endif</th>
             <th style="width:90px;">ID</th>
             <th>Name</th>
             <th style="width:220px;">Parent</th>
@@ -45,7 +50,9 @@
         @foreach($categories as $c)
             <tr>
                 <td>
+                    @if($canManageCategories)
                     <input type="checkbox" class="category-row-check" name="ids[]" value="{{ (int)$c->category_id }}" form="category-bulk-form">
+                    @endif
                 </td>
                 <td>{{ $c->category_id }}</td>
                 <td>{{ $c->name ?? '-' }}</td>
@@ -53,12 +60,14 @@
                 <td>{{ (int)$c->sort_order }}</td>
                 <td>{{ (int)$c->status === 1 ? 'Enabled' : 'Disabled' }}</td>
                 <td class="d-flex gap-8 items-center">
+                    @if($canManageCategories)
                     <a class="btn small" href="{{ route('categories.edit', $c->category_id) }}">Edit</a>
                     <form method="POST" action="{{ route('categories.destroy', $c->category_id) }}" data-confirm="Delete this category?">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>
                     </form>
+                    @endif
                 </td>
             </tr>
         @endforeach

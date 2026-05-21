@@ -60,9 +60,11 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 id: $this->id . ':' . $store->id,
                 label: $store->store_name,
                 menu: [
-                    new MenuItem('Settings', 'ext.venta.settings.show', 'manage_venta', null, ['store' => $store->id]),
-                    new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'manage_venta', null, ['store' => $store->id]),
-                    new MenuItem('Orders', 'ext.venta.orders.index', 'manage_venta_orders', null, ['store' => $store->id]),
+                    // Phase 4 — view-tier visibility: read-only operators can
+                    // open Settings / Product Groups / Orders for browsing.
+                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta', null, ['store' => $store->id]),
+                    new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta', null, ['store' => $store->id]),
+                    new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta_orders', null, ['store' => $store->id]),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );
@@ -75,7 +77,9 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 tagline: 'Multi-store ecommerce — add stores, sync orders, push inventory.',
                 icon: 'shop',
                 accent: '#7c3aed',
-                permission: 'manage_venta',
+                // Card uses view tier so read-only operators still see Venta in
+                // the Integrations hub. Add-store action stays manage-only.
+                permission: 'view_venta',
                 menu: [],
                 stores: $stores,
                 addStore: new \App\Integrations\AddStoreAction(
@@ -134,7 +138,9 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             icon: 'shop',
             accent: '#7c3aed',
             routeName: 'ext.venta.orders.index',
-            permission: 'manage_venta_orders',
+            // OrderTab visibility uses view tier so a Venta Orders Viewer
+            // still sees the per-store tab on the unified Orders workspace.
+            permission: 'view_venta_orders',
             routeParams: ['store' => $storeId],
             unprocessedCounter: function () use ($marketplaceSource, $orderTable) {
                 if (!Schema::hasTable($orderTable)) {

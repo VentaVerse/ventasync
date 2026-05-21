@@ -47,33 +47,38 @@
             $companyName = $s->company_name ?? 'Company';
             $logoPath = $s->logo_path ?? null;
 
+            // Phase 4.5 — sidebar visibility uses the VIEW tier for every
+            // core resource AND marketplace/extension so read-only operators
+            // still see the links. hasPermission('view_X') returns true for
+            // either view_X or manage_X holders (manage-implies-view cascade).
+            // Container parents (manage_catalog, manage_sales, manage_settings)
+            // stay on the parent key — hasPermission expands child grants up
+            // to the parent so any tier holder satisfies the parent gate.
             $canCatalog = $u && $u->hasPermission('manage_catalog');
-            $canProducts = $u && $u->hasPermission('manage_products');
-            $canCategories = $u && $u->hasPermission('manage_categories');
-            $canManufacturers = $u && $u->hasPermission('manage_manufacturers');
-            $canOptions = $u && $u->hasPermission('manage_options');
+            $canProducts = $u && $u->hasPermission('view_products');
+            $canCategories = $u && $u->hasPermission('view_categories');
+            $canManufacturers = $u && $u->hasPermission('view_manufacturers');
+            $canOptions = $u && $u->hasPermission('view_options');
 
             $canSales = $u && $u->hasPermission('manage_sales');
-            $canOrders = $u && $u->hasPermission('manage_orders');
-            $canOrderStatuses = $u && $u->hasPermission('manage_order_statuses');
+            $canOrders = $u && $u->hasPermission('view_orders');
+            $canOrderStatuses = $u && $u->hasPermission('view_order_statuses');
             $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
-            $canShopee = $u && $u->hasPermission('manage_shopee');
-            // Lazada sidebar uses the VIEW tier so read-only operators see
-            // the link. hasPermission('view_lazada') returns true for either
-            // view_lazada or manage_lazada holders (manage-implies-view).
+            $canShopee = $u && $u->hasPermission('view_shopee');
             $canLazada = $u && $u->hasPermission('view_lazada');
-            $canShopeeOrders = $u && $u->hasPermission('manage_shopee_orders');
+            $canShopeeOrders = $u && $u->hasPermission('view_shopee_orders');
             $canLazadaOrders = $u && $u->hasPermission('view_lazada_orders');
-            $canTikTok = $u && $u->hasPermission('manage_tiktok');
-            $canTikTokOrders = $u && $u->hasPermission('manage_tiktok_orders');
-            $canOpencart = $u && $u->hasPermission('manage_opencart');
-            $canOpencartOrders = $u && $u->hasPermission('manage_opencart_orders');
-            $canVenta = $u && $u->hasPermission('manage_venta');
-            $canVentaOrders = $u && $u->hasPermission('manage_venta_orders');
+            $canTikTok = $u && $u->hasPermission('view_tiktok');
+            $canTikTokOrders = $u && $u->hasPermission('view_tiktok_orders');
+            $canOpencart = $u && $u->hasPermission('view_opencart');
+            $canOpencartOrders = $u && $u->hasPermission('view_opencart_orders');
+            $canVenta = $u && $u->hasPermission('view_venta');
+            $canVentaOrders = $u && $u->hasPermission('view_venta_orders');
             $canSettingsParent = $u && $u->hasPermission('manage_settings');
-            $canUsers = $u && $u->hasPermission('manage_users');
-            $canUserGroups = $u && $u->hasPermission('manage_user_groups');
-            $canWebsiteSettings = $u && $u->hasPermission('manage_website_settings');
+            $canUsers = $u && $u->hasPermission('view_users');
+            $canUserGroups = $u && $u->hasPermission('view_user_groups');
+            $canWebsiteSettings = $u && $u->hasPermission('view_website_settings');
+            $canErrorLog = $u && $u->hasPermission('view_error_log');
         @endphp
 
         <div class="brand">
@@ -339,6 +344,8 @@
                                     <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
                                     <span class="label">Extensions</span>
                                 </a>
+                                @endif
+                                @if($canErrorLog)
                                 <a href="{{ route('error_log.index') }}" class="{{ request()->routeIs('error_log.*') ? 'active' : '' }}">
                                     <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                                     <span class="label">Error Log</span>
@@ -362,6 +369,15 @@
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
                         <span class="label">Orders</span>
                     </div>
+                    {{-- Back sits at the TOP of the list (right under the title)
+                         so the operator's escape route is visible without
+                         scrolling. A hairline bottom border separates it from
+                         the menu list below so it doesn't read as another nav
+                         item. --}}
+                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-top">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                        <span class="label">Back</span>
+                    </a>
                     <a href="{{ route('integrations.orders') }}" class="{{ $__rn === 'integrations.orders' ? 'active' : '' }}">
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
                         <span class="label">Summary</span>
@@ -379,13 +395,6 @@
                             @endif
                         </a>
                     @endforeach
-                    {{-- Back sits at the BOTTOM of the list (inline, not a
-                         sticky footer) so it appears right after the last
-                         menu item the operator scrolled past. --}}
-                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-bottom">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-                        <span class="label">Back</span>
-                    </a>
                 </div>{{-- /.layer2-variant--orders --}}
 
                 <div class="layer2-variant layer2-variant--integrations">
@@ -393,6 +402,14 @@
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
                         <span class="label">Integrations</span>
                     </div>
+                    {{-- Back sits at the TOP of the list so the escape route
+                         is visible without scrolling past every marketplace
+                         card. Hairline bottom border separates it from the
+                         menu list below. --}}
+                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-top">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                        <span class="label">Back</span>
+                    </a>
                     {{-- The Integrations Hub (summary card grid). Lives here
                          in layer 2 because the top-level "Integrations" link
                          in layer 1 is now a pure nav-expander (no navigate). --}}
@@ -471,13 +488,6 @@
                             </details>
                         </div>
                     @endforeach
-                    {{-- Back at the BOTTOM of the marketplace list (inline,
-                         not a sticky footer) so it appears immediately after
-                         the last card the operator scrolled past. --}}
-                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-bottom">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-                        <span class="label">Back</span>
-                    </a>
                 </div>{{-- /.layer2-variant--integrations --}}
             </nav>
             </div> {{-- /.sidebar-track --}}
@@ -722,19 +732,52 @@
     });
 
     // ── Smooth slide for nav <details> (accordion — one open at a time) ──
+    //
+    // Animates wrap.style.height between 0 and scrollHeight on summary click.
+    // Listens for `transitionend` (filtered to the `height` property) to flip
+    // `details.open`. Defensive against the race condition where scrollHeight
+    // is 0 at click time — e.g. a sibling close animation just finished, a
+    // CSS variant flipped to hidden, or rapid double-clicks queued. In that
+    // case the height transition from 0→0 fires no event and the old code
+    // got stuck with `details.open=true` but the dropdown collapsed forever.
+    // Snap-close when scrollHeight is 0 and a safety timeout completes the
+    // state machine if transitionend never arrives.
     var allNavDetails = Array.from(document.querySelectorAll('.nav-group details'));
+    var SAFETY_MS = 600; // > CSS transition (500ms) — fallback for missed events
+
+    function onHeightTransitionEnd(wrap, after) {
+        var done = function (ev) {
+            if (ev && ev.propertyName && ev.propertyName !== 'height') return;
+            wrap.removeEventListener('transitionend', done);
+            clearTimeout(timer);
+            after();
+        };
+        wrap.addEventListener('transitionend', done);
+        var timer = setTimeout(function () {
+            wrap.removeEventListener('transitionend', done);
+            after();
+        }, SAFETY_MS);
+    }
 
     function closeDetails(details) {
         var wrap = details.querySelector('.nav-sub-wrap');
-        if (!wrap || !details.open) return;
+        if (!wrap || !details.open || wrap._animating) return;
         var h = wrap.scrollHeight;
-        wrap.style.height = h + 'px';
-        wrap.offsetHeight;
-        wrap.style.height = '0px';
-        wrap.addEventListener('transitionend', function handler() {
-            wrap.removeEventListener('transitionend', handler);
+        if (h === 0) {
+            // Already collapsed visually — just sync the state and stop.
+            // Avoids the stuck-open state when scrollHeight is 0 at click time.
             details.open = false;
             wrap.style.height = '0px';
+            return;
+        }
+        wrap._animating = true;
+        wrap.style.height = h + 'px';
+        wrap.offsetHeight; // force reflow so the next assignment animates
+        wrap.style.height = '0px';
+        onHeightTransitionEnd(wrap, function () {
+            details.open = false;
+            wrap.style.height = '0px';
+            wrap._animating = false;
         });
     }
 
@@ -742,35 +785,34 @@
         var wrap = details.querySelector('.nav-sub-wrap');
         if (!wrap) return;
 
-        // Set initial state
-        if (details.open) {
-            wrap.style.height = 'auto';
-        } else {
-            wrap.style.height = '0px';
-        }
+        // Set initial state to match server-rendered details.open
+        wrap.style.height = details.open ? 'auto' : '0px';
 
-        details.querySelector('summary').addEventListener('click', function (e) {
+        var summary = details.querySelector('summary');
+        if (!summary) return;
+
+        summary.addEventListener('click', function (e) {
             e.preventDefault();
+            if (wrap._animating) return; // Ignore clicks mid-animation
 
             if (details.open) {
-                // ── Closing ──
                 closeDetails(details);
             } else {
-                // ── Close all others first ──
+                // Close all others first (accordion semantics)
                 allNavDetails.forEach(function (other) {
                     if (other !== details) closeDetails(other);
                 });
 
-                // ── Opening ──
+                // Open this one with height animation
+                wrap._animating = true;
                 details.open = true;
                 var h = wrap.scrollHeight;
                 wrap.style.height = '0px';
-                wrap.offsetHeight;
+                wrap.offsetHeight; // force reflow
                 wrap.style.height = h + 'px';
-
-                wrap.addEventListener('transitionend', function handler() {
-                    wrap.removeEventListener('transitionend', handler);
-                    wrap.style.height = 'auto';
+                onHeightTransitionEnd(wrap, function () {
+                    wrap.style.height = 'auto'; // allow content to grow later
+                    wrap._animating = false;
                 });
             }
         });

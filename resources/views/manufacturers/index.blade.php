@@ -2,12 +2,17 @@
 @section('breadcrumb', 'Catalog / Manufacturers')
 
 @section('content')
+@php
+    $canManageManufacturers = auth()->user()?->hasPermission('manage_manufacturers') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Manufacturers</h2>
         <div class="page-header-actions">
+            @if($canManageManufacturers)
             <a class="btn" href="{{ route('manufacturers.create') }}">Add Manufacturer</a>
             <button class="btn danger" type="submit" form="manufacturer-bulk-form" id="manufacturer-bulk-delete-btn">Delete Selected</button>
+            @endif
         </div>
     </div>
 
@@ -31,7 +36,7 @@
     <table>
         <thead>
         <tr>
-            <th style="width:36px;"><input type="checkbox" id="manufacturer-select-all" title="Select all"></th>
+            <th style="width:36px;">@if($canManageManufacturers)<input type="checkbox" id="manufacturer-select-all" title="Select all">@endif</th>
             <th style="width:90px;">ID</th>
             <th>Name</th>
             <th style="width:140px;">Sort</th>
@@ -41,17 +46,19 @@
         <tbody>
         @foreach($manufacturers as $m)
             <tr>
-                <td><input type="checkbox" class="manufacturer-row-check" name="ids[]" value="{{ (int)$m->manufacturer_id }}" form="manufacturer-bulk-form"></td>
+                <td>@if($canManageManufacturers)<input type="checkbox" class="manufacturer-row-check" name="ids[]" value="{{ (int)$m->manufacturer_id }}" form="manufacturer-bulk-form">@endif</td>
                 <td>{{ $m->manufacturer_id }}</td>
                 <td>{{ $m->name ?? '' }}</td>
                 <td>{{ (int)$m->sort_order }}</td>
                 <td class="d-flex gap-8 items-center">
+                    @if($canManageManufacturers)
                     <a class="btn small" href="{{ route('manufacturers.edit', $m->manufacturer_id) }}">Edit</a>
                     <form method="POST" action="{{ route('manufacturers.destroy', $m->manufacturer_id) }}" data-confirm="Delete this manufacturer?">
                         @csrf
                         @method('DELETE')
                         <button class="btn danger small" type="submit">Delete</button>
                     </form>
+                    @endif
                 </td>
             </tr>
         @endforeach

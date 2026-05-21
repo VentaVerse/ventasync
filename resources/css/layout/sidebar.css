@@ -198,16 +198,17 @@
 .sidebar-layer2-title .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--accent-neon, #39ff14); }
 .sidebar-layer2-title .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* The Back link inside layer 2 has been moved from right under the title
-   to BELOW the last menu item. A hairline top-border separates it from
-   the list above so it doesn't read as just-another-row. */
-.sidebar-nav--layer2 .layer2-back-bottom {
-    margin-top: 8px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(148, 163, 184, .12);
+/* The Back link sits at the TOP of layer 2 (right under the title) so the
+   operator's escape route is visible without scrolling. A hairline bottom
+   border separates Back from the menu list below it so it doesn't read as
+   just-another-row. */
+.sidebar-nav--layer2 .layer2-back-top {
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, .12);
     color: #94a3b8;
 }
-.sidebar-nav--layer2 .layer2-back-bottom:hover {
+.sidebar-nav--layer2 .layer2-back-top:hover {
     color: #e2e8f0;
 }
 

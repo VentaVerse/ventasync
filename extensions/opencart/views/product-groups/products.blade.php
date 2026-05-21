@@ -2,15 +2,22 @@
 @section('breadcrumb', 'Integrations / ' . $setting->store_name . ' / ' . $group->name . ' / Products')
 
 @section('content')
+@php
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>{{ $group->name }} — Products</h2>
             <div class="text-muted text-sm">{{ $setting->store_name }} — select products and push to OpenCart.</div>
         </div>
         <div class="page-header-actions">
+            @if($canManageOpencart)
             <a class="btn secondary" href="{{ route('ext.opencart.product-groups.edit', [$setting->id, $group->id]) }}">Edit Product Group</a>
+            @endif
             <a class="btn secondary" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">Back to Product Groups</a>
+            @if($canManageOpencart)
             <button class="btn" type="submit" form="push-form" onclick="return confirmPush(event);">Push Selected</button>
+            @endif
         </div>
     </div>
 
@@ -38,7 +45,7 @@
                 <thead>
                 <tr>
                     <th style="width:36px;">
-                        <input type="checkbox" id="select-all" title="Select all">
+                        @if($canManageOpencart)<input type="checkbox" id="select-all" title="Select all">@endif
                     </th>
                     <th style="width:70px;">ID</th>
                     <th style="width:70px;">Image</th>
@@ -62,7 +69,7 @@
                     @endphp
                     <tr>
                         <td>
-                            <input type="checkbox" class="row-check" name="ids[]" value="{{ (int)$p->product_id }}" form="push-form">
+                            @if($canManageOpencart)<input type="checkbox" class="row-check" name="ids[]" value="{{ (int)$p->product_id }}" form="push-form">@endif
                         </td>
                         <td>{{ $p->product_id }}</td>
                         <td>
@@ -111,6 +118,7 @@
                             @endif
                         </td>
                         <td class="d-flex gap-4">
+                            @if($canManageOpencart)
                             <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-confirm="Push this product to {{ $setting->store_name }}?">
                                 @csrf
                                 <button type="submit" class="btn small">Push</button>
@@ -121,6 +129,7 @@
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Remove</button>
                                 </form>
+                            @endif
                             @endif
                         </td>
                     </tr>

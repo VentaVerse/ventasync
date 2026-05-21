@@ -2,10 +2,16 @@
 @section('breadcrumb', 'Catalog / Products')
 
 @section('content')
+@php
+    // Phase 4.5 view/manage gating: read-tier sees the list + sales/stock
+    // history pages; create/edit/delete/bulk-actions are manage-tier only.
+    $canManageProducts = auth()->user()?->hasPermission('manage_products') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Products</h2>
         <div class="page-header-actions">
+            @if($canManageProducts)
             <a class="btn" href="{{ route('products.create') }}">Add Product</a>
             <select class="input" name="action" form="product-bulk-form" style="width:180px;">
                 <option value="">-- Action --</option>
@@ -14,6 +20,7 @@
                 <option value="delete">Delete</option>
             </select>
             <button class="btn" type="submit" form="product-bulk-form" id="product-apply-btn">Apply To Selected</button>
+            @endif
         </div>
     </div>
 
@@ -56,7 +63,9 @@
 @endphp
 <tr>
     <th style="width:36px;">
+        @if($canManageProducts)
         <input type="checkbox" id="product-select-all" title="Select all">
+        @endif
     </th>
     <th style="width:90px;">{!! sort_link('product_id','ID',$currentSort,$currentDir,$q ?? '',$status ?? '') !!}</th>
     <th style="width:70px;">Image</th>
@@ -72,7 +81,9 @@
         @foreach($products as $p)
             <tr>
                 <td>
+                    @if($canManageProducts)
                     <input type="checkbox" class="product-row-check" name="ids[]" value="{{ (int)$p->product_id }}" form="product-bulk-form">
+                    @endif
                 </td>
                 <td>{{ $p->product_id }}</td>
                 <td>
@@ -103,12 +114,14 @@
                     <div class="d-flex gap-8 items-center">
                         <a class="btn small secondary" href="{{ route('products.sales', $p->product_id) }}?back={{ urlencode(request()->fullUrl()) }}">Sales</a>
                         <a class="btn small secondary" href="{{ route('products.stock_history', $p->product_id) }}?back={{ urlencode(request()->fullUrl()) }}">Stock</a>
+                        @if($canManageProducts)
                         <a class="btn small" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
                         <form method="POST" action="{{ route('products.destroy', $p->product_id) }}" data-confirm="Delete this product?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>
                         </form>
+                        @endif
                     </div>
                 </td>
             </tr>

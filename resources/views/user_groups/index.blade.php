@@ -2,10 +2,15 @@
 @section('breadcrumb', 'Settings / User Groups')
 
 @section('content')
+@php
+    $canManageUserGroups = auth()->user()?->hasPermission('manage_user_groups') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>User Groups</h2>
+        @if($canManageUserGroups)
         <a class="btn" href="{{ route('user_groups.create') }}">Add Group</a>
+        @endif
     </div>
 
     <div class="toolbar">
@@ -30,12 +35,14 @@
                     <td>{{ $g->id }}</td>
                     <td>{{ $g->name }}</td>
                     <td class="d-flex gap-8 items-center">
+                        @if($canManageUserGroups)
                         <a class="btn small" href="{{ route('user_groups.edit', $g->id) }}">Edit</a>
                         <form method="POST" action="{{ route('user_groups.destroy', $g->id) }}" data-confirm="Delete this group?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>
                         </form>
+                        @endif
                     </td>
                 </tr>
             @endforeach

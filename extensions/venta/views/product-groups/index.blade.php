@@ -3,6 +3,9 @@
 @section('breadcrumb', 'Integrations / ' . $setting->store_name . ' / Product Groups')
 
 @section('content')
+@php
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>{{ $setting->store_name }} Product Groups</h2>
@@ -10,7 +13,9 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
+            @if($canManageVenta)
             <a class="btn" href="{{ route('ext.venta.product-groups.create', $setting->id) }}">Add Product Group</a>
+            @endif
         </div>
     </div>
 
@@ -34,12 +39,14 @@
                         <td>
                             <div class="d-flex gap-6 items-center text-nowrap">
                                 <a class="btn small" href="{{ route('ext.venta.product-groups.products', [$setting->id, $g->id]) }}">Products</a>
+                                @if($canManageVenta)
                                 <a class="btn small secondary" href="{{ route('ext.venta.product-groups.edit', [$setting->id, $g->id]) }}">Edit</a>
                                 <form method="POST" action="{{ route('ext.venta.product-groups.destroy', [$setting->id, $g->id]) }}" style="margin:0;" data-confirm="Delete this product group?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn small danger">Delete</button>
                                 </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

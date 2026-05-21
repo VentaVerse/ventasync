@@ -2,12 +2,19 @@
 @section('breadcrumb', 'Sales / Orders')
 
 @section('content')
+@php
+    // Phase 4.5 view/manage gating: read-tier operators see the list and can
+    // open detail pages; create/bulk-delete/edit/delete are manage-tier only.
+    $canManageOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Orders</h2>
         <div class="page-header-actions">
+            @if($canManageOrders)
             <a class="btn" href="{{ route('orders.create') }}">Add Order</a>
             <button class="btn danger" type="submit" form="ord-bulk-form" id="ord-bulk-delete-btn">Delete Selected</button>
+            @endif
         </div>
     </div>
 
@@ -57,7 +64,7 @@
     <table>
         <thead>
         <tr>
-            <th style="width:36px;"><input type="checkbox" id="ord-select-all" title="Select all"></th>
+            <th style="width:36px;">@if($canManageOrders)<input type="checkbox" id="ord-select-all" title="Select all">@endif</th>
             <th style="width:70px;">
                 <a href="{{ route('orders.index', array_merge(request()->except('sort','dir'), ['sort' => 'order_id', 'dir' => ($sort === 'order_id' && $dir === 'asc') ? 'desc' : 'asc'])) }}">
                     ID {!! $sort === 'order_id' ? ($dir === 'asc' ? '&#9650;' : '&#9660;') : '' !!}
@@ -97,7 +104,7 @@
                 }
             @endphp
             <tr>
-                <td><input type="checkbox" class="ord-row-check" name="ids[]" value="{{ (int)$o->order_id }}" form="ord-bulk-form"></td>
+                <td>@if($canManageOrders)<input type="checkbox" class="ord-row-check" name="ids[]" value="{{ (int)$o->order_id }}" form="ord-bulk-form">@endif</td>
                 <td>{{ $o->order_id }}</td>
                 <td>
                     @if($imgSrc)
@@ -148,12 +155,14 @@
                 <td>
                     <div class="d-flex gap-6 items-center">
                         <a class="btn small" href="{{ route('orders.show', $o->order_id) }}">View</a>
+                        @if($canManageOrders)
                         <a class="btn small secondary" href="{{ route('orders.edit', $o->order_id) }}">Edit</a>
                         <form method="POST" action="{{ route('orders.destroy', $o->order_id) }}" data-confirm="Delete this order?">
                             @csrf
                             @method('DELETE')
                             <button class="btn danger small" type="submit">Delete</button>
                         </form>
+                        @endif
                     </div>
                 </td>
             </tr>

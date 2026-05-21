@@ -4,6 +4,9 @@
 @section('title', 'Shopee Logistics Channels')
 
 @section('content')
+@php
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+@endphp
     <div class="page-header">
         <div>
             <h2>Shopee Logistics Channels</h2>
@@ -11,10 +14,12 @@
         </div>
         <div class="page-header-actions">
             <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
+            @if($canManageShopee)
             <form method="POST" action="{{ route('ext.shopee.logistics.fetch') }}" style="display:inline;">
                 @csrf
                 <button class="btn" type="submit">Fetch from Shopee</button>
             </form>
+            @endif
         </div>
     </div>
 

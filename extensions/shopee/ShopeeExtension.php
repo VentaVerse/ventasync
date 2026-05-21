@@ -77,13 +77,18 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 tagline: 'Shopee marketplace integration — OAuth, products, orders, returns.',
                 icon: 'shopee',
                 accent: '#ee4d2d',
-                permission: 'manage_shopee',
+                // Card + menu use the VIEW tier so read-only operators still
+                // see Shopee in the Integrations hub and contextual sidebar.
+                // User::hasPermission('view_shopee') returns true for users who
+                // hold either view_shopee OR manage_shopee (cascade), so
+                // managers are not excluded by tightening this gate.
+                permission: 'view_shopee',
                 menu: [
-                    new MenuItem('Settings', 'ext.shopee.index', 'manage_shopee'),
-                    new MenuItem('Categories', 'ext.shopee.categories.index', 'manage_shopee'),
-                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'manage_shopee'),
-                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'manage_shopee'),
-                    new MenuItem('Orders', 'ext.shopee.orders.index', 'manage_shopee_orders'),
+                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee'),
+                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee'),
+                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee'),
+                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee'),
+                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders'),
                 ],
             ),
         ];
@@ -98,7 +103,11 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 icon: 'shopee',
                 accent: '#ee4d2d',
                 routeName: 'ext.shopee.orders.index',
-                permission: 'manage_shopee_orders',
+                // OrderTab visibility uses view tier so a Shopee Orders Viewer
+                // still sees the marketplace's orders tab on the unified Orders
+                // workspace. The destination route GETs are read-tier gated,
+                // and per-action write buttons are gated separately in the view.
+                permission: 'view_shopee_orders',
                 unprocessedCounter: function () {
                     if (!Schema::hasTable('shopee_orders')) {
                         return 0;

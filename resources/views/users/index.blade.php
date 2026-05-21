@@ -2,10 +2,15 @@
 @section('breadcrumb', 'Settings / Users')
 
 @section('content')
+@php
+    $canManageUsers = auth()->user()?->hasPermission('manage_users') ?? false;
+@endphp
 <div class="card">
     <div class="page-header">
         <h2>Users</h2>
+        @if($canManageUsers)
         <a class="btn" href="{{ route('users.create') }}">Add User</a>
+        @endif
     </div>
 
     <div class="toolbar">
@@ -44,22 +49,26 @@
                         @endif
                     </td>
                     <td class="d-flex gap-8 items-center">
+                        @if($canManageUsers)
                         <a class="btn small" href="{{ route('users.edit', $u->id) }}">Edit</a>
+                        @endif
                         @if(Route::has('ext.audit.activity-log.index'))
                         <a class="btn small secondary" href="{{ route('ext.audit.activity-log.index', ['user_id' => $u->id]) }}">Activity</a>
                         @endif
-                        @if(($u->userGroup->name ?? '') !== 'Administrator')
+                        @if($canManageUsers)
+                            @if(($u->userGroup->name ?? '') !== 'Administrator')
 
-                        <form method="POST" action="{{ route('users.destroy', $u->id) }}" data-confirm="Delete this user?">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn danger small" type="submit">Delete</button>
-                        </form>
+                            <form method="POST" action="{{ route('users.destroy', $u->id) }}" data-confirm="Delete this user?">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn danger small" type="submit">Delete</button>
+                            </form>
 
-                        @else
+                            @else
 
-                        <span class="badge badge-gray">Admin protected</span>
+                            <span class="badge badge-gray">Admin protected</span>
 
+                            @endif
                         @endif
                     </td>
                 </tr>

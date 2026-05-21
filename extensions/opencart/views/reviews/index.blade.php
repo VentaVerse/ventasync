@@ -2,8 +2,12 @@
 @section('breadcrumb', 'Integrations / Reviews')
 
 @section('content')
+@php
+    $canManageReviews = auth()->user()?->hasPermission('manage_reviews') ?? false;
+@endphp
 
 {{-- Fetch / Delete bar --}}
+@if($canManageReviews)
 <div class="card mb-16">
     <form method="POST" action="{{ route('ext.opencart.reviews.fetch') }}" id="formFetchReviews" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -32,6 +36,7 @@
         </div>
     </form>
 </div>
+@endif
 
 @if(session('review_result'))
     @php $rr = session('review_result'); @endphp
@@ -46,7 +51,7 @@
                 Avg: <strong>{{ number_format($avgRating ?? 0, 1) }}</strong>/5
                 &middot; {{ $pendingCount }} pending
             </span>
-            @if($pendingCount > 0)
+            @if($pendingCount > 0 && $canManageReviews)
                 <form method="POST" action="{{ route('ext.opencart.reviews.push_all') }}" style="display:inline;" data-confirm="Push ALL pending/error reviews to OpenCart? This runs in the background.">
                     @csrf
                     <button class="btn" type="submit">Push All to OC</button>
@@ -203,7 +208,7 @@
                             </td>
                             <td class="d-flex gap-4">
                                 <a href="{{ route('ext.opencart.reviews.show', $review->id) }}" class="btn secondary" style="font-size:11px; padding:2px 8px;">View</a>
-                                @if(in_array($review->oc_sync_status, ['pending', 'error']))
+                                @if(in_array($review->oc_sync_status, ['pending', 'error']) && $canManageReviews)
                                     <form method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" style="display:inline;">
                                         @csrf
                                         <button class="btn{{ $review->oc_sync_status === 'error' ? ' danger' : '' }}" style="font-size:11px; padding:2px 8px;" type="submit">{{ $review->oc_sync_status === 'error' ? 'Retry' : 'Push' }}</button>

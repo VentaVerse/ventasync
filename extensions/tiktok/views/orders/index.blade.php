@@ -3,6 +3,11 @@
 @section('breadcrumb', 'Integrations / TikTok Shop / Orders')
 
 @section('content')
+@php
+    // Phase 4 — TikTok Orders is visible to view_tiktok_orders holders; the
+    // Fetch/Update/Ship actions require manage_tiktok_orders.
+    $canManageTiktokOrders = auth()->user()?->hasPermission('manage_tiktok_orders') ?? false;
+@endphp
 <div class="marketplace-tiktok">
 @include('integrations.partials._tab_strip', ['activeTabId' => 'tiktok'])
 <div class="page-header">
@@ -10,6 +15,7 @@
 </div>
 
 {{-- Fetch / Update --}}
+@if($canManageTiktokOrders)
 <div class="card mb-16">
     <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -30,6 +36,7 @@
         </div>
     </form>
 </div>
+@endif
 
 @if($last_result)
     <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
@@ -367,7 +374,7 @@
                                     </td>
                                     <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
                                         <div class="d-flex flex-wrap gap-6">
-                                            @if($isToPack)
+                                            @if($isToPack && $canManageTiktokOrders)
                                                 <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" data-confirm="Ship this order?">
                                                     @csrf
                                                     <button type="submit" class="btn small">Arrange Shipment</button>

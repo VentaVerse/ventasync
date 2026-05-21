@@ -7,9 +7,12 @@
     "tier": "plus",
     "license_required": true,
     "permissions": [
-        {"key": "manage_opencart",        "parent": "manage_marketplace_api", "subgroup": "OpenCart"},
-        {"key": "manage_opencart_orders", "parent": "manage_marketplace_api", "subgroup": "OpenCart"},
-        {"key": "manage_reviews",         "parent": "manage_marketplace_api", "subgroup": "Reviews"}
+        {"key": "view_opencart",          "parent": "manage_marketplace_api", "subgroup": "OpenCart", "tiers": ["view","manage"]},
+        {"key": "manage_opencart",        "parent": "manage_marketplace_api", "subgroup": "OpenCart", "tiers": ["view","manage"]},
+        {"key": "view_opencart_orders",   "parent": "manage_marketplace_api", "subgroup": "OpenCart", "tiers": ["view","manage"]},
+        {"key": "manage_opencart_orders", "parent": "manage_marketplace_api", "subgroup": "OpenCart", "tiers": ["view","manage"]},
+        {"key": "view_reviews",           "parent": "manage_marketplace_api", "subgroup": "Reviews",  "tiers": ["view","manage"]},
+        {"key": "manage_reviews",         "parent": "manage_marketplace_api", "subgroup": "Reviews",  "tiers": ["view","manage"]}
     ],
     "nav": []
 }

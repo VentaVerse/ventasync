@@ -2,11 +2,15 @@
 @section('breadcrumb', 'Integrations / Shopee / Return or Refund')
 
 @section('content')
+@php
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
+@endphp
 <div class="marketplace-shopee">
 <div class="page-header">
     <h2>Shopee Return or Refund <span class="text-secondary text-sm">({{ $returns->total() }})</span></h2>
 </div>
 
+@if($canManageShopeeOrders)
 <div class="card mb-16">
     <form method="POST" action="{{ route('ext.shopee.orders.fetch_returns') }}" class="d-flex gap-12 flex-wrap items-center">
         @csrf
@@ -18,6 +22,7 @@
         </div>
     </form>
 </div>
+@endif
 
 @if($last_result)
     <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
