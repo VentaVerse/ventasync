@@ -19,6 +19,20 @@ class ExtensionServiceProvider extends ServiceProvider
         $manager = $this->app->make(ExtensionManager::class);
         $manifests = $manager->getManifests();
 
+        // ─── Core permissions (auto-sync from config/permissions.php) ──────
+        // Core permissions are CODE — every install should converge on the
+        // same set of keys without manual tinker. Cache key fingerprints the
+        // declared keys, so any edit to config/permissions.php auto-triggers
+        // a re-sync on the next boot.
+        $coreKeys = array_keys((array) config('permissions', []));
+        if (!empty($coreKeys)) {
+            $coreCacheKey = 'core_perms_synced_' . md5(json_encode($coreKeys));
+            if (!cache()->has($coreCacheKey)) {
+                $manager->syncCorePermissions();
+                cache()->put($coreCacheKey, true, now()->addHours(24));
+            }
+        }
+
         // ─── System extensions (load FIRST, no DB dependency) ──────────────
         // Extensions with "system": true in their manifest boot from
         // filesystem regardless of DB state — useful for any extension

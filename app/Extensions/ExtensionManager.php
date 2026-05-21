@@ -337,6 +337,52 @@ class ExtensionManager
     }
 
     /**
+     * Sync core permission rows declared in config/permissions.php.
+     * Inserts any missing keys and grants them to the Administrator
+     * group. Idempotent — safe to call on every boot.
+     *
+     * Mirrors syncPermissions($id) but reads from config instead of
+     * an extension manifest. Core permissions are CODE, not data —
+     * every install of the ERP should converge on the exact same
+     * set of permission keys without manual intervention.
+     */
+    public function syncCorePermissions(): void
+    {
+        if (!Schema::hasTable('permissions')) {
+            return;
+        }
+
+        $keys = array_keys((array) config('permissions', []));
+
+        if (empty($keys)) {
+            return;
+        }
+
+        $adminGroupId = DB::table('user_groups')->where('name', 'Administrator')->value('id');
+
+        foreach ($keys as $key) {
+            $existing = DB::table('permissions')->where('key', $key)->first();
+
+            if (!$existing) {
+                $permId = DB::table('permissions')->insertGetId([
+                    'key' => $key,
+                ]);
+            } else {
+                $permId = $existing->id;
+            }
+
+            if ($adminGroupId) {
+                DB::table('user_group_permissions')->updateOrInsert([
+                    'user_group_id' => $adminGroupId,
+                    'permission_id' => $permId,
+                ]);
+            }
+        }
+
+        app(\App\Services\PermissionHierarchy::class)->invalidate();
+    }
+
+    /**
      * Insert permission rows declared in the extension manifest.
      * Grants them to the Administrator group automatically.
      */
