@@ -39,65 +39,6 @@
 @endphp
 
 <div class="automations-tab">
-    @if($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow)
-        <div class="automations-windows">
-            <div class="automations-windows-head">
-                <h4>Sync windows</h4>
-                <p>How far back to look when fetching orders, returns, and reviews. Applied globally to the matching jobs below.</p>
-            </div>
-            <div class="automations-windows-body">
-                @if($hasOrdersWindow)
-                    <form method="POST" action="{{ route('ext.'.$integration.'.sync_days') }}" class="automations-window-form">
-                        @csrf
-                        <label class="automation-window">
-                            <span class="automation-window-prefix">Orders &mdash; look back</span>
-                            <input type="number" name="sync_last_days"
-                                   value="{{ $setting->sync_last_days ?? '' }}"
-                                   placeholder="14" min="1" max="365"
-                                   class="input automation-window-value">
-                            <span class="automation-window-suffix">days</span>
-                        </label>
-                        <button type="submit" class="btn small automation-btn-save">Save</button>
-                    </form>
-                @endif
-                @if($hasReturnsWindow)
-                    <form method="POST" action="{{ route('ext.'.$integration.'.sync_days_returns') }}" class="automations-window-form">
-                        @csrf
-                        <label class="automation-window">
-                            <span class="automation-window-prefix">Returns &mdash; look back</span>
-                            <input type="number" name="sync_last_days_returns"
-                                   value="{{ $setting->sync_last_days_returns ?? '' }}"
-                                   placeholder="14" min="1" max="365"
-                                   class="input automation-window-value">
-                            <span class="automation-window-suffix">days</span>
-                        </label>
-                        <button type="submit" class="btn small automation-btn-save">Save</button>
-                    </form>
-                @endif
-                @if($hasReviewsWindow)
-                    {{-- Reviews window writes to the review job's options.days
-                         via the AutomationsController. We send the current
-                         cadence inputs back unchanged so validation passes. --}}
-                    <form method="POST" action="{{ route('automations.update', $reviewsJob->id) }}" class="automations-window-form">
-                        @csrf
-                        <input type="hidden" name="cadence_value" value="{{ $reviewsJob->cadence_value }}">
-                        <input type="hidden" name="cadence_unit" value="{{ $reviewsJob->cadence_unit }}">
-                        @if($reviewsJob->enabled) <input type="hidden" name="enabled" value="1"> @endif
-                        <label class="automation-window">
-                            <span class="automation-window-prefix">Reviews &mdash; look back</span>
-                            <input type="number" name="days"
-                                   value="{{ $reviewsJob->getOption('days', 7) }}"
-                                   placeholder="7" min="1" max="365"
-                                   class="input automation-window-value">
-                            <span class="automation-window-suffix">days</span>
-                        </label>
-                        <button type="submit" class="btn small automation-btn-save">Save</button>
-                    </form>
-                @endif
-            </div>
-        </div>
-    @endif
-
     @if($jobs->isEmpty())
         <div class="automations-empty">
             <div class="automations-empty-icon" aria-hidden="true">
@@ -112,15 +53,64 @@
             <p>No scheduled jobs are configured for this integration. They&rsquo;ll show up here as soon as the extension registers them.</p>
         </div>
     @else
-        {{-- One form covers every row. The operator can flip toggles and
-             retune cadence values freely, then commit the lot with the
-             single Save All button at the bottom. Inputs are namespaced
-             by job id (`jobs[ID][field]`) so the controller's
-             `jobs.*.X` validation rules pick them up. --}}
+        {{-- One form covers every row. The operator can flip toggles,
+             retune cadence values, AND adjust the Sync Windows at the
+             top — then commit the lot with the single Save All button
+             at the bottom. Job inputs are namespaced by job id
+             (`jobs[ID][field]`); sync-window columns ride under
+             `windows[X]` with a hidden `integration` so the controller
+             knows which Setting model to write. --}}
         <form method="POST"
               action="{{ route('automations.batch_update') }}"
               class="automations-batch-form">
             @csrf
+            <input type="hidden" name="integration" value="{{ $integration }}">
+
+            @if($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow)
+                <div class="automations-windows">
+                    <div class="automations-windows-head">
+                        <h4>Sync windows</h4>
+                        <p>How far back to look when fetching orders, returns, and reviews. Applied globally to the matching jobs below.</p>
+                    </div>
+                    <div class="automations-windows-body">
+                        @if($hasOrdersWindow)
+                            <label class="automation-window">
+                                <span class="automation-window-prefix">Orders &mdash; look back</span>
+                                <input type="number" name="windows[sync_last_days]"
+                                       value="{{ $setting->sync_last_days ?? '' }}"
+                                       placeholder="14" min="1" max="365"
+                                       class="input automation-window-value">
+                                <span class="automation-window-suffix">days</span>
+                            </label>
+                        @endif
+                        @if($hasReturnsWindow)
+                            <label class="automation-window">
+                                <span class="automation-window-prefix">Returns &mdash; look back</span>
+                                <input type="number" name="windows[sync_last_days_returns]"
+                                       value="{{ $setting->sync_last_days_returns ?? '' }}"
+                                       placeholder="14" min="1" max="365"
+                                       class="input automation-window-value">
+                                <span class="automation-window-suffix">days</span>
+                            </label>
+                        @endif
+                        @if($hasReviewsWindow)
+                            {{-- Reviews look-back is actually a job option, not a
+                                 settings column. Route it through jobs[ID][days]
+                                 so the controller writes to the matching review
+                                 job's options.days field. --}}
+                            <label class="automation-window">
+                                <span class="automation-window-prefix">Reviews &mdash; look back</span>
+                                <input type="number" name="jobs[{{ $reviewsJob->id }}][days]"
+                                       value="{{ $reviewsJob->getOption('days', 7) }}"
+                                       placeholder="7" min="1" max="365"
+                                       class="input automation-window-value">
+                                <span class="automation-window-suffix">days</span>
+                            </label>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
             <div class="automations-list">
                 @foreach($jobs as $job)
                     @php
