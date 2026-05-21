@@ -129,7 +129,20 @@
                     <div class="hint">Shown in the sidebar and on the login screen. If not uploaded, the default VentaSync logo is used.</div>
                     <div class="mt-12" id="logo-preview">
                         <div class="text-xs text-muted" style="margin-bottom:6px;">{{ $setting->logo_path ? 'Current logo:' : 'Default logo:' }}</div>
-                        <img src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync-legacy.png') }}" alt="Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="logo-preview-img">
+                        <img src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync.png') }}" alt="Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="logo-preview-img">
+                    </div>
+                </div>
+
+                <div class="full">
+                    <label>Favicon</label>
+                    <input class="input" type="file" name="favicon" accept="image/*,.ico,.svg" onchange="previewLogo(this, 'favicon-preview')">
+                    <div class="hint">Shown in the browser tab. PNG, SVG, or ICO. A square image (32×32 or 64×64) reads best. If not uploaded, the default VentaSync favicon is used.</div>
+                    <div class="mt-12" id="favicon-preview" style="display:flex; align-items:center; gap:12px;">
+                        <img src="{{ $setting->favicon_path ? asset('storage/'.$setting->favicon_path) : asset('images/brand/ventasync-icon.png') }}"
+                             alt="Favicon"
+                             style="width:48px; height:48px; object-fit:contain; border-radius:var(--radius-sm); background:#0f172a; padding:6px;"
+                             id="favicon-preview-img">
+                        <span class="text-xs text-muted">{{ $setting->favicon_path ? 'Current favicon' : 'Default favicon' }}</span>
                     </div>
                 </div>
             </div>

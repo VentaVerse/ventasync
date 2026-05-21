@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ optional(\App\Models\Setting::query()->first())->company_name ?? 'VentaSync' }}</title>
+    @php
+        $__appSetting = \App\Models\Setting::query()->first();
+        $__faviconUrl = $__appSetting && $__appSetting->favicon_path
+            ? asset('storage/' . $__appSetting->favicon_path)
+            : asset('images/brand/ventasync-icon.png');
+    @endphp
+    <title>{{ $__appSetting->company_name ?? 'VentaSync' }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/png" href="{{ $__faviconUrl }}">
+    <link rel="shortcut icon" href="{{ $__faviconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -69,9 +78,13 @@
         <div class="brand">
             <a href="{{ route('dashboard') }}" class="brand-stack" style="text-decoration:none; color:inherit;">
                 @if($logoPath)
-                    <img class="brand-logo" src="{{ asset('storage/'.$logoPath) }}" alt="Company Logo">
+                    <img class="brand-logo" src="{{ asset('storage/'.$logoPath) }}" alt="{{ $companyName }}">
                 @else
-                    <div class="brand-company">{{ $companyName }}</div>
+                    {{-- No upload yet — show the bundled default logo (kept in
+                         public/images/brand/) instead of plain company-name
+                         text. Fresh installs read as a polished product, not
+                         a half-set-up Laravel skeleton. --}}
+                    <img class="brand-logo" src="{{ asset('images/brand/ventasync.png') }}" alt="VentaSync">
                 @endif
             </a>
             <button class="toggle-btn" id="sidebarToggle" type="button" aria-label="Toggle Sidebar" title="Toggle Sidebar">
@@ -466,6 +479,14 @@
 
         @auth
             <div class="sidebar-footer">
+                <div class="sidebar-user" title="{{ auth()->user()->email ?? '' }}">
+                    <span class="sidebar-user-avatar" aria-hidden="true">
+                        {{ strtoupper(mb_substr(auth()->user()->name ?? auth()->user()->username ?? 'U', 0, 1)) }}
+                    </span>
+                    <span class="sidebar-user-name">
+                        {{ auth()->user()->name ?? auth()->user()->username ?? 'User' }}
+                    </span>
+                </div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit" class="logout-btn">

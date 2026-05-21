@@ -37,6 +37,7 @@ class SettingController extends Controller
             'timezone'                    => ['required', 'string', 'timezone'],
             'activity_log_retention_days' => ['required', 'integer', 'min:7', 'max:3650'],
             'logo'                        => ['nullable', 'image', 'max:2048'],
+            'favicon'                     => ['nullable', 'image', 'mimes:png,jpg,jpeg,gif,svg,webp,ico,x-icon,vnd.microsoft.icon', 'max:512'],
             'mail_mailer'         => ['required', 'in:smtp,sendmail'],
             'mail_host'           => ['nullable', 'string', 'max:190'],
             'mail_port'           => ['nullable', 'integer', 'between:1,65535'],
@@ -54,6 +55,17 @@ class SettingController extends Controller
             }
             $data['logo_path'] = $request->file('logo')->store('company', 'public');
         }
+
+        // Favicon: upload replaces. If no new file is sent, the existing
+        // favicon stays untouched (no UI option to revert to default —
+        // operators can upload again to replace).
+        if ($request->hasFile('favicon')) {
+            if ($setting->favicon_path) {
+                Storage::disk('public')->delete($setting->favicon_path);
+            }
+            $data['favicon_path'] = $request->file('favicon')->store('company', 'public');
+        }
+        unset($data['favicon']);
 
         if ($request->boolean('clear_mail_password')) {
             $data['mail_password'] = null;

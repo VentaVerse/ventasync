@@ -51,14 +51,20 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 20px 16px 16px;
+    padding: 10px 16px;
     border-bottom: 1px solid rgba(148,163,184,.12);
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 .brand-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.brand-logo { height: 56px; width: auto; object-fit: contain; display: block; }
+.brand-logo {
+    max-height: 80px;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
 .brand-company { font-weight: 700; font-size: 15px; letter-spacing: .3px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f1f5f9; }
-.brand-user { font-size: 12px; color: #94a3b8; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Toggle / Hamburger */
 .toggle-btn {
@@ -464,6 +470,41 @@
 .sidebar-footer .logout-btn:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
 .sidebar-footer .logout-btn .nav-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
 .sidebar-footer .logout-btn .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    color: #cbd5e1;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    border-radius: var(--radius-sm);
+    cursor: default;
+}
+.sidebar-user-avatar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(59,130,246,.18);
+    color: #93c5fd;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .02em;
+}
+.sidebar-user-name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 /* Sidebar pending-orders badge — used by the unified Marketplace Orders link. */
 .nav-badge {

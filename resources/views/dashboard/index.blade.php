@@ -160,27 +160,27 @@
 </div>
 @endif
 
-{{-- Sales chart --}}
-@if(true)
-<div class="card mb-16">
-    <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
-        <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales (Last 30 Days)</h3>
-        <div class="d-flex items-center gap-8">
-            <div class="chart-range-toggle" id="chartRangeToggle">
-                <button class="chart-range-btn active" data-range="30d">30 Days</button>
-                <button class="chart-range-btn" data-range="monthly">Monthly</button>
-                <button class="chart-range-btn" data-range="yearly">Yearly</button>
+{{-- Sales chart + Platform distribution row (side-by-side) --}}
+<div style="display:grid; grid-template-columns: 3fr 2fr; gap:16px; margin-bottom:16px;">
+    {{-- Sales chart --}}
+    @if(true)
+    <div class="card">
+        <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
+            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales (Last 30 Days)</h3>
+            <div class="d-flex items-center gap-8">
+                <div class="chart-range-toggle" id="chartRangeToggle">
+                    <button class="chart-range-btn active" data-range="30d">30 Days</button>
+                    <button class="chart-range-btn" data-range="monthly">Monthly</button>
+                    <button class="chart-range-btn" data-range="yearly">Yearly</button>
+                </div>
             </div>
         </div>
+        <div style="position:relative; width:100%; height:320px;">
+            <canvas id="salesChart"></canvas>
+        </div>
     </div>
-    <div style="position:relative; width:100%; height:320px;">
-        <canvas id="salesChart"></canvas>
-    </div>
-</div>
-@endif
+    @endif
 
-{{-- Platform distribution + Sync status row --}}
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
     {{-- Platform distribution pie chart --}}
     @if(true)
     <div class="card" style="position:relative; z-index:2; overflow:visible;">
@@ -200,8 +200,10 @@
         </div>
     </div>
     @endif
+</div>
 
-    {{-- Sync status column --}}
+{{-- Sync status row (now its own row, was previously to the right of the pie) --}}
+<div style="display:flex; flex-direction:column; gap:16px; margin-bottom:16px;">
     @php
         // Freshness helper: green <1h, yellow <6h, red >6h or never
         $syncDotClass = function ($timestamp, $tokenExpiry = null) {
@@ -312,7 +314,6 @@
             </div>
         </div>
         @endif
-    </div>
 </div>
 
 {{-- Bottom row: Quick links + Recent orders --}}

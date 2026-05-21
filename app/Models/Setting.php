@@ -19,6 +19,7 @@ class Setting extends Model
         'from_email',
         'timezone',
         'logo_path',
+        'favicon_path',
         'activity_log_retention_days',
         'mail_mailer',
         'mail_host',
