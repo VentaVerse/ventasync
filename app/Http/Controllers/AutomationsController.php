@@ -65,6 +65,67 @@ class AutomationsController extends Controller
         return back()->with('status', "Automation saved: {$job->display_name}");
     }
 
+    /**
+     * Batch update — the jobs list submits all rows in a single form.
+     *
+     * Per-row buttons made the Automations tab look like 7+ tiny forms
+     * stacked vertically. Folding them into one form lets the operator
+     * tweak everything (toggles, cadence, options) and commit once.
+     *
+     * Permission policy is the same as the single-row update: the
+     * required key is derived from each job's `integration` column. We
+     * deny the WHOLE batch if any row belongs to an integration the
+     * caller can't manage — partial commits would let a low-permission
+     * user smuggle authorized rows past the gate.
+     */
+    public function batchUpdate(Request $request)
+    {
+        $data = $request->validate([
+            'jobs'                  => ['required', 'array'],
+            'jobs.*.cadence_value'  => ['required', 'integer', 'min:1', 'max:9999'],
+            'jobs.*.cadence_unit'   => ['required', 'in:minute,hour,day'],
+            'jobs.*.enabled'        => ['nullable'],
+            'jobs.*.days'           => ['nullable', 'integer', 'min:1', 'max:365'],
+            'jobs.*.days_returns'   => ['nullable', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $ids  = array_map('intval', array_keys($data['jobs']));
+        $jobs = ScheduledJob::whereIn('id', $ids)->get()->keyBy('id');
+
+        foreach ($jobs as $job) {
+            if (!auth()->user()?->hasPermission("manage_{$job->integration}")) {
+                return back()->with('error', "You don't have permission to do this action.");
+            }
+        }
+
+        $saved = 0;
+        foreach ($data['jobs'] as $id => $payload) {
+            $job = $jobs[(int) $id] ?? null;
+            if (!$job) {
+                continue;
+            }
+
+            $job->cadence_value = (int) $payload['cadence_value'];
+            $job->cadence_unit  = (string) $payload['cadence_unit'];
+            $job->enabled       = !empty($payload['enabled']);
+
+            $options = is_array($job->options) ? $job->options : [];
+            if (isset($payload['days']) && $payload['days'] !== '' && $payload['days'] !== null) {
+                $options['days'] = (int) $payload['days'];
+            }
+            if (isset($payload['days_returns']) && $payload['days_returns'] !== '' && $payload['days_returns'] !== null) {
+                $options['days_returns'] = (int) $payload['days_returns'];
+            }
+            $job->options = $options;
+
+            $job->syncCronExpression();
+            $job->save();
+            $saved++;
+        }
+
+        return back()->with('status', "Saved {$saved} automation" . ($saved === 1 ? '' : 's') . '.');
+    }
+
     // Run-now was removed intentionally: the same actions exist on the
     // marketplace's Orders / Product Group pages with proper progress +
     // result detail. The Automations tab is scoped to cadence + window

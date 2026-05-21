@@ -112,84 +112,91 @@
             <p>No scheduled jobs are configured for this integration. They&rsquo;ll show up here as soon as the extension registers them.</p>
         </div>
     @else
-        <div class="automations-list">
-            @foreach($jobs as $job)
-                @php
-                    $statusState = $job->last_run_at
-                        ? ($job->last_run_ok === false ? 'fail' : ($job->last_run_ok === true ? 'ok' : 'pending'))
-                        : 'never';
-                @endphp
-                <form method="POST"
-                      action="{{ route('automations.update', $job->id) }}"
-                      class="automation-row {{ $job->enabled ? 'is-enabled' : 'is-disabled' }}">
-                    @csrf
+        {{-- One form covers every row. The operator can flip toggles and
+             retune cadence values freely, then commit the lot with the
+             single Save All button at the bottom. Inputs are namespaced
+             by job id (`jobs[ID][field]`) so the controller's
+             `jobs.*.X` validation rules pick them up. --}}
+        <form method="POST"
+              action="{{ route('automations.batch_update') }}"
+              class="automations-batch-form">
+            @csrf
+            <div class="automations-list">
+                @foreach($jobs as $job)
+                    @php
+                        $statusState = $job->last_run_at
+                            ? ($job->last_run_ok === false ? 'fail' : ($job->last_run_ok === true ? 'ok' : 'pending'))
+                            : 'never';
+                    @endphp
+                    <div class="automation-row {{ $job->enabled ? 'is-enabled' : 'is-disabled' }}">
 
-                    {{-- Toggle acts as the row's status indicator at the far left --}}
-                    <label class="automation-toggle" title="Enable or disable this job">
-                        <input type="checkbox" name="enabled" value="1" {{ $job->enabled ? 'checked' : '' }}>
-                        <span class="automation-toggle-track" aria-hidden="true">
-                            <span class="automation-toggle-thumb"></span>
-                        </span>
-                    </label>
+                        {{-- Toggle acts as the row's status indicator at the far left --}}
+                        <label class="automation-toggle" title="Enable or disable this job">
+                            <input type="checkbox" name="jobs[{{ $job->id }}][enabled]" value="1" {{ $job->enabled ? 'checked' : '' }}>
+                            <span class="automation-toggle-track" aria-hidden="true">
+                                <span class="automation-toggle-thumb"></span>
+                            </span>
+                        </label>
 
-                    {{-- Identity: status dot + display name. The underlying
-                         artisan command is intentionally hidden from the UI;
-                         operators reason about jobs by display name only. --}}
-                    <div class="automation-ident">
-                        <div class="automation-ident-line">
-                            <span class="automation-dot" data-state="{{ $statusState }}" aria-hidden="true"></span>
-                            <span class="automation-name">{{ $job->display_name }}</span>
+                        {{-- Identity: status dot + display name. The underlying
+                             artisan command is intentionally hidden from the UI;
+                             operators reason about jobs by display name only. --}}
+                        <div class="automation-ident">
+                            <div class="automation-ident-line">
+                                <span class="automation-dot" data-state="{{ $statusState }}" aria-hidden="true"></span>
+                                <span class="automation-name">{{ $job->display_name }}</span>
+                            </div>
                         </div>
-                    </div>
 
-                    {{-- Cadence pill — only "every N (unit)" lives on the main
-                         line. The look-back window pills are pushed to a
-                         second row below (see .automation-row-sub) so an
-                         operator never reads them as a compound cadence. --}}
-                    <div class="automation-controls">
-                        <div class="automation-cadence" title="How often this job runs">
-                            <span class="automation-cadence-prefix">every</span>
-                            <input id="automation-{{ $job->id }}-cadence"
-                                   type="number"
-                                   name="cadence_value"
-                                   value="{{ $job->cadence_value }}"
-                                   min="1"
-                                   max="9999"
-                                   class="input automation-cadence-value"
-                                   required>
-                            <select name="cadence_unit" class="input automation-cadence-unit" aria-label="Cadence unit">
-                                <option value="minute" {{ $job->cadence_unit === 'minute' ? 'selected' : '' }}>min</option>
-                                <option value="hour"   {{ $job->cadence_unit === 'hour'   ? 'selected' : '' }}>hr</option>
-                                <option value="day"    {{ $job->cadence_unit === 'day'    ? 'selected' : '' }}>day</option>
-                            </select>
+                        {{-- Cadence pill — only "every N (unit)" lives on the
+                             main line. The look-back window pills are kept
+                             in the Sync Windows block above the list. --}}
+                        <div class="automation-controls">
+                            <div class="automation-cadence" title="How often this job runs">
+                                <span class="automation-cadence-prefix">every</span>
+                                <input id="automation-{{ $job->id }}-cadence"
+                                       type="number"
+                                       name="jobs[{{ $job->id }}][cadence_value]"
+                                       value="{{ $job->cadence_value }}"
+                                       min="1"
+                                       max="9999"
+                                       class="input automation-cadence-value"
+                                       required>
+                                <select name="jobs[{{ $job->id }}][cadence_unit]" class="input automation-cadence-unit" aria-label="Cadence unit">
+                                    <option value="minute" {{ $job->cadence_unit === 'minute' ? 'selected' : '' }}>min</option>
+                                    <option value="hour"   {{ $job->cadence_unit === 'hour'   ? 'selected' : '' }}>hr</option>
+                                    <option value="day"    {{ $job->cadence_unit === 'day'    ? 'selected' : '' }}>day</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
 
-                    {{-- Right cluster: last-run + Save. One-shot "Run now"
-                         was intentionally removed — the same actions live
-                         on the marketplace's Orders / Product Group pages
-                         with proper progress + result detail. This tab is
-                         scoped to cadence + window config only. --}}
-                    <div class="automation-actions">
-                        <span class="automation-lastrun" aria-label="Last run">
-                            @if($job->last_run_at)
-                                <span class="automation-lastrun-prefix">Last run</span>
-                                <time datetime="{{ $job->last_run_at->toIso8601String() }}">{{ $job->last_run_at->format('M d, H:i') }}</time>
-                                @if($job->last_run_ok === true)
-                                    <span class="badge badge-green">OK</span>
-                                @elseif($job->last_run_ok === false)
-                                    <span class="badge badge-red">Failed</span>
+                        {{-- Right cluster: last-run only. The per-row Save
+                             button was folded into the single Save All
+                             button at the bottom of the list. --}}
+                        <div class="automation-actions">
+                            <span class="automation-lastrun" aria-label="Last run">
+                                @if($job->last_run_at)
+                                    <span class="automation-lastrun-prefix">Last run</span>
+                                    <time datetime="{{ $job->last_run_at->toIso8601String() }}">{{ $job->last_run_at->format('M d, H:i') }}</time>
+                                    @if($job->last_run_ok === true)
+                                        <span class="badge badge-green">OK</span>
+                                    @elseif($job->last_run_ok === false)
+                                        <span class="badge badge-red">Failed</span>
+                                    @endif
+                                @else
+                                    <span class="automation-lastrun-prefix">Last run</span>
+                                    <span class="automation-lastrun-never">never</span>
                                 @endif
-                            @else
-                                <span class="automation-lastrun-prefix">Last run</span>
-                                <span class="automation-lastrun-never">never</span>
-                            @endif
-                        </span>
-                        <button type="submit" class="btn small automation-btn-save" title="Save changes to this job">Save</button>
-                    </div>
+                            </span>
+                        </div>
 
-                </form>
-            @endforeach
-        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="automations-batch-actions">
+                <button type="submit" class="btn automation-btn-save-all">Save All Automations</button>
+            </div>
+        </form>
     @endif
 </div>

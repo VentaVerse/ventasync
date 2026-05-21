@@ -514,6 +514,35 @@
     box-shadow: 0 0 0 3px var(--auto-accent-glow);
 }
 
+/* Batch Save All — one button that commits every row at once. Sits
+   below the list, right-aligned, sized larger than the per-window
+   .small buttons so the operator's eye lands on it as the primary
+   commit action of the tab. */
+.automations-batch-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--auto-border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+.automation-btn-save-all {
+    background: var(--auto-accent);
+    border-color: var(--auto-accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 22px;
+}
+
+.automation-btn-save-all:hover {
+    background: var(--auto-accent-hover);
+    border-color: var(--auto-accent-hover);
+}
+
+.automation-btn-save-all:focus-visible {
+    box-shadow: 0 0 0 3px var(--auto-accent-glow);
+}
+
 .automation-btn-run {
     color: var(--auto-text-strong);
 }

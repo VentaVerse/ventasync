@@ -39,6 +39,8 @@ Route::middleware(['auth'])->group(function () {
     // settings page POSTs here. The route is shared across integrations
     // because the underlying table is uniform; permission gating happens
     // on the parent integration's settings page.
+    Route::post('/automations/batch', [\App\Http\Controllers\AutomationsController::class, 'batchUpdate'])
+        ->name('automations.batch_update');
     Route::post('/automations/{id}', [\App\Http\Controllers\AutomationsController::class, 'update'])
         ->whereNumber('id')
         ->name('automations.update');
