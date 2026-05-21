@@ -15,11 +15,7 @@
                 $__user = auth()->user();
             @endphp
             @foreach($__productActions as $__action)
-                @php
-                    $__perm = $__action['permission'] ?? null;
-                    $__visible = !$__perm || ($__user && $__user->hasPermission($__perm));
-                @endphp
-                @if($__visible)
+                {{-- Showroom mode — every product action button renders; click-time gated by middleware. --}}
                     <a class="btn secondary"
                        href="{{ $__action['url'] }}"
                        title="{{ $__action['label'] }}">
@@ -28,7 +24,6 @@
                         @endif
                         {{ $__action['label'] }}
                     </a>
-                @endif
             @endforeach
             <a class="btn secondary" href="{{ $returnUrl ?? route('products.index') }}">Back</a>
         </div>

@@ -47,38 +47,23 @@
             $companyName = $s->company_name ?? 'Company';
             $logoPath = $s->logo_path ?? null;
 
-            // Phase 4.5 — sidebar visibility uses the VIEW tier for every
-            // core resource AND marketplace/extension so read-only operators
-            // still see the links. hasPermission('view_X') returns true for
-            // either view_X or manage_X holders (manage-implies-view cascade).
-            // Container parents (manage_catalog, manage_sales, manage_settings)
-            // stay on the parent key — hasPermission expands child grants up
-            // to the parent so any tier holder satisfies the parent gate.
-            $canCatalog = $u && $u->hasPermission('manage_catalog');
-            $canProducts = $u && $u->hasPermission('view_products');
-            $canCategories = $u && $u->hasPermission('view_categories');
-            $canManufacturers = $u && $u->hasPermission('view_manufacturers');
-            $canOptions = $u && $u->hasPermission('view_options');
-
-            $canSales = $u && $u->hasPermission('manage_sales');
-            $canOrders = $u && $u->hasPermission('view_orders');
-            $canOrderStatuses = $u && $u->hasPermission('view_order_statuses');
-            $canMarketplace = $u && $u->hasPermission('manage_marketplace_api');
-            $canShopee = $u && $u->hasPermission('view_shopee');
-            $canLazada = $u && $u->hasPermission('view_lazada');
-            $canShopeeOrders = $u && $u->hasPermission('view_shopee_orders');
-            $canLazadaOrders = $u && $u->hasPermission('view_lazada_orders');
-            $canTikTok = $u && $u->hasPermission('view_tiktok');
-            $canTikTokOrders = $u && $u->hasPermission('view_tiktok_orders');
-            $canOpencart = $u && $u->hasPermission('view_opencart');
-            $canOpencartOrders = $u && $u->hasPermission('view_opencart_orders');
-            $canVenta = $u && $u->hasPermission('view_venta');
-            $canVentaOrders = $u && $u->hasPermission('view_venta_orders');
-            $canSettingsParent = $u && $u->hasPermission('manage_settings');
-            $canUsers = $u && $u->hasPermission('view_users');
-            $canUserGroups = $u && $u->hasPermission('view_user_groups');
-            $canWebsiteSettings = $u && $u->hasPermission('view_website_settings');
-            $canErrorLog = $u && $u->hasPermission('view_error_log');
+            // Showroom mode — sidebar links render unconditionally so every
+            // user (including demo visitors) sees the full surface area of
+            // the product. Click-time gating still happens server-side via
+            // the EnsurePermission middleware, which flashes a friendly
+            // "You don't have permission to do this action" on denial.
+            // Variables are left in place (rather than ripping out the
+            // downstream @if blocks) so the gating can be reintroduced
+            // surgically if any single section ever needs to hide again.
+            $canCatalog = $canProducts = $canCategories = $canManufacturers = $canOptions = true;
+            $canSales = $canOrders = $canOrderStatuses = true;
+            $canMarketplace = true;
+            $canShopee = $canShopeeOrders = true;
+            $canLazada = $canLazadaOrders = true;
+            $canTikTok = $canTikTokOrders = true;
+            $canOpencart = $canOpencartOrders = true;
+            $canVenta = $canVentaOrders = true;
+            $canSettingsParent = $canUsers = $canUserGroups = $canWebsiteSettings = $canErrorLog = true;
         @endphp
 
         <div class="brand">
@@ -257,17 +242,9 @@
                 @if(!empty($extensionNavGroups ?? []))
                     @foreach($extensionNavGroups as $extNav)
                         @php
-                            $extPerm = $extNav['permission'] ?? '';
-                            $canViewExt = $extPerm === '' || (auth()->user() && auth()->user()->hasPermission($extPerm));
-                            // Also show group if user has permission for any child item
-                            if (!$canViewExt && auth()->user()) {
-                                foreach ($extNav['items'] ?? [] as $_item) {
-                                    if (!empty($_item['permission']) && auth()->user()->hasPermission($_item['permission'])) {
-                                        $canViewExt = true;
-                                        break;
-                                    }
-                                }
-                            }
+                            // Showroom mode — extension nav groups always visible.
+                            // Click-time access still gated by EnsurePermission middleware.
+                            $canViewExt = true;
                             $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
                             $extIsOpen = false;
                             foreach ($extRoutes as $er) {
@@ -285,11 +262,7 @@
                                 <div class="nav-sub-wrap">
                                     <div class="nav-sub">
                                         @foreach($extNav['items'] ?? [] as $extItem)
-                                            @php
-                                                $itemPerm = $extItem['permission'] ?? '';
-                                                $canViewItem = $itemPerm === '' || (auth()->user() && auth()->user()->hasPermission($itemPerm));
-                                            @endphp
-                                            @if(\Route::has($extItem['route']) && $canViewItem)
+                                            @if(\Route::has($extItem['route']))
                                             <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
                                                 <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg></span>
                                                 <span class="label">{{ $extItem['label'] }}</span>
@@ -423,7 +396,6 @@
                             $__cardPrefix = 'ext.' . (str_contains($__cardId, ':') ? strstr($__cardId, ':', true) : $__cardId) . '.';
                             $__cardActive = str_starts_with($__rn, $__cardPrefix);
                             $__cardMenu = collect($__card->menu ?? [])
-                                ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
                                 ->values();
                             $__cardIsMulti = !empty($__card->stores) || !empty($__card->addStore);
                         @endphp
@@ -465,7 +437,6 @@
                                             @foreach($__card->stores ?? [] as $__store)
                                                 @php
                                                     $__storeMenu = collect($__store->menu ?? [])
-                                                        ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
                                                         ->values();
                                                 @endphp
                                                 @if($__storeMenu->isNotEmpty())

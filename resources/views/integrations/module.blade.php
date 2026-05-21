@@ -13,8 +13,7 @@
             <p>{{ $card->tagline }}</p>
         </div>
         @php
-            $canAdd = $card->addStore
-                && (!$card->addStore->permission || (auth()->user() && auth()->user()->hasPermission($card->addStore->permission)));
+            $canAdd = (bool) $card->addStore;
             $modalId = 'addStore_' . $card->id;
         @endphp
         <div class="int-module-actions">
@@ -29,9 +28,7 @@
     </header>
 
     @php
-        $visibleMenu = collect($card->menu)
-            ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
-            ->values();
+        $visibleMenu = collect($card->menu)->values();
     @endphp
 
     @if($visibleMenu->isNotEmpty())
@@ -61,9 +58,7 @@
         <ul class="int-module-stores">
             @foreach($card->stores as $store)
                 @php
-                    $visibleStoreMenu = collect($store->menu)
-                        ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
-                        ->values();
+                    $visibleStoreMenu = collect($store->menu)->values();
                     $isPending = ($store->status ?? 'active') === 'setup_pending';
                 @endphp
                 <li class="int-module-store {{ $isPending ? 'is-pending' : '' }}">

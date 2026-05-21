@@ -40,7 +40,6 @@
 
                         @php
                             $visibleMenu = collect($card->menu)
-                                ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
                                 ->values();
                             $isMultiStore = !empty($card->addStore) || !empty($card->stores);
                             $storeCount = is_array($card->stores ?? null) ? count($card->stores) : 0;
