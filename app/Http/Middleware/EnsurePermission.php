@@ -62,16 +62,24 @@ class EnsurePermission
         $referer = $request->headers->get('referer');
         $current = $request->fullUrl();
         $fallback = route('dashboard', [], false);
+        $method = strtoupper($request->getMethod());
 
-        // Avoid redirect loops: if the previous URL is missing or is the
-        // exact page we just failed on, send the user to the dashboard.
+        // Choose the redirect target:
+        //  - For POST/PUT/PATCH/DELETE the referer is the form page (a
+        //    different URL from the action), so go back there — the user
+        //    sees the flashed denial in context and can correct the call.
+        //  - For GET we need the loop check: if the referer equals the
+        //    current URL we just denied, we'd ping-pong forever.
+        //  - Always require a same-origin referer; never trust a forged
+        //    host to bounce the user off-site.
         $target = $fallback;
-        if ($referer && $referer !== $current) {
-            // Strip the host to keep it a same-origin redirect — never bounce
-            // the user off-site even if Referer is forged.
+        if ($referer) {
             $parsed = parse_url($referer);
             $host = $parsed['host'] ?? null;
-            if ($host === null || $host === $request->getHost()) {
+            $sameOrigin = ($host === null || $host === $request->getHost());
+
+            $isWrite = in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
+            if ($sameOrigin && ($isWrite || $referer !== $current)) {
                 $target = $referer;
             }
         }

@@ -33,6 +33,17 @@ class AutomationsController extends Controller
         ]);
 
         $job = ScheduledJob::findOrFail($id);
+
+        // Permission gate — the route can't declare a single `perm:` key
+        // because each scheduled job belongs to a different integration
+        // (shopee/lazada/tiktok/…). Derive the required permission from
+        // the job's `integration` column and reject mismatched callers
+        // here. Matches EnsurePermission's redirect-with-flash shape so
+        // the UX is identical to other denied actions.
+        $required = "manage_{$job->integration}";
+        if (!auth()->user()?->hasPermission($required)) {
+            return back()->with('error', "You don't have permission to do this action.");
+        }
         $job->cadence_value = (int) $data['cadence_value'];
         $job->cadence_unit  = (string) $data['cadence_unit'];
         $job->enabled       = $request->boolean('enabled');

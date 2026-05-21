@@ -508,6 +508,10 @@
                         'OpenCart' => 'ext.opencart.index',
                         'Venta' => 'ext.venta.index',
                         'Reports' => 'ext.reports.orders',
+                        'Petty Cash' => 'ext.pettycash.index',
+                        'Warehouses' => 'ext.warehousing.locations.index',
+                        'Transfers' => 'ext.warehousing.transfers.index',
+                        'Activity Log' => 'ext.audit.activity_log.index',
                     ];
                     $__bcRaw = trim($__env->yieldContent('breadcrumb', 'Dashboard'));
                     $__bcParts = array_map('trim', explode('/', $__bcRaw));

@@ -6,12 +6,11 @@
 @if(session('success'))
     <div class="alert success">{{ session('success') }}</div>
 @endif
-@if(session('error'))
-    <div class="alert danger">{{ session('error') }}</div>
-@endif
 @if(session('info'))
     <div class="alert info">{{ session('info') }}</div>
 @endif
+{{-- session('error') is rendered by the layout (layouts/app.blade.php).
+     Don't duplicate the render here or denied actions show twice. --}}
 
 <div class="card">
     <div class="page-header">
