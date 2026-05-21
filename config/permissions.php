@@ -38,7 +38,8 @@
 return [
 
     // ── Catalog ─────────────────────────────────────────────────
-    'manage_catalog'       => ['parent' => null,             'label' => 'Catalog',          'sort' => 10],
+    'view_catalog'         => ['parent' => null,             'label' => 'Catalog',          'sort' => 10, 'tiers' => ['view', 'manage']],
+    'manage_catalog'       => ['parent' => null,             'label' => 'Catalog',          'sort' => 10, 'tiers' => ['view', 'manage']],
 
     'view_products'        => ['parent' => 'manage_catalog', 'label' => 'View Products',        'tiers' => ['view', 'manage']],
     'manage_products'      => ['parent' => 'manage_catalog', 'label' => 'Manage Products',      'tiers' => ['view', 'manage']],
@@ -53,7 +54,8 @@ return [
     'manage_options'       => ['parent' => 'manage_catalog', 'label' => 'Manage Options',       'tiers' => ['view', 'manage']],
 
     // ── Sales ───────────────────────────────────────────────────
-    'manage_sales'          => ['parent' => null,           'label' => 'Sales',              'sort' => 20],
+    'view_sales'            => ['parent' => null,           'label' => 'Sales',              'sort' => 20, 'tiers' => ['view', 'manage']],
+    'manage_sales'          => ['parent' => null,           'label' => 'Sales',              'sort' => 20, 'tiers' => ['view', 'manage']],
 
     'view_orders'           => ['parent' => 'manage_sales', 'label' => 'View Orders',           'tiers' => ['view', 'manage']],
     'manage_orders'         => ['parent' => 'manage_sales', 'label' => 'Manage Orders',         'tiers' => ['view', 'manage']],
@@ -62,10 +64,12 @@ return [
     'manage_order_statuses' => ['parent' => 'manage_sales', 'label' => 'Manage Order Statuses', 'tiers' => ['view', 'manage']],
 
     // ── Marketplace API (container — extensions add their own children) ──
-    'manage_marketplace_api' => ['parent' => null, 'label' => 'Marketplace API', 'sort' => 30],
+    'view_marketplace_api'   => ['parent' => null, 'label' => 'Marketplace API', 'sort' => 30, 'tiers' => ['view', 'manage']],
+    'manage_marketplace_api' => ['parent' => null, 'label' => 'Marketplace API', 'sort' => 30, 'tiers' => ['view', 'manage']],
 
     // ── Settings ────────────────────────────────────────────────
-    'manage_settings'          => ['parent' => null,             'label' => 'Settings',          'sort' => 90],
+    'view_settings'            => ['parent' => null,             'label' => 'Settings',          'sort' => 90, 'tiers' => ['view', 'manage']],
+    'manage_settings'          => ['parent' => null,             'label' => 'Settings',          'sort' => 90, 'tiers' => ['view', 'manage']],
 
     'view_users'               => ['parent' => 'manage_settings', 'label' => 'View Users',               'tiers' => ['view', 'manage']],
     'manage_users'             => ['parent' => 'manage_settings', 'label' => 'Manage Users',             'tiers' => ['view', 'manage']],

@@ -119,6 +119,15 @@ class User extends Authenticatable
         $parent = $hierarchy->parentOf($key);
         if ($parent !== null) {
             $keysToCheck[] = $parent;
+            // Tier-aware parent cascade: granting view_<parent> (e.g. view_catalog)
+            // means "view access to the whole domain" and must satisfy view-tier
+            // checks on every child resource. Only add the parent's view sibling
+            // when the caller is asking for the view tier — never widen a
+            // manage-tier check to accept the parent's view-only grant.
+            $parentBase = $hierarchy->baseOf($parent);
+            if ($parentBase !== null && $effectiveTier === 'view') {
+                $keysToCheck[] = 'view_' . $parentBase;
+            }
         }
 
         // Legacy compatibility for pre-Laravel-rebuild permission key

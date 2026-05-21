@@ -26,6 +26,10 @@
 return [
 
     // ── Catalog (core) ────────────────────────────────────────
+    'view_catalog' => [
+        'label'       => 'Catalog (View All)',
+        'description' => 'Read-only access to every resource in the catalog domain',
+    ],
     'manage_catalog' => [
         'label'       => 'Catalog (All)',
         'description' => 'Full access to all catalog features',
@@ -64,6 +68,10 @@ return [
     ],
 
     // ── Sales (core) ──────────────────────────────────────────
+    'view_sales' => [
+        'label'       => 'Sales (View All)',
+        'description' => 'Read-only access to every resource in the sales domain',
+    ],
     'manage_sales' => [
         'label'       => 'Sales (All)',
         'description' => 'Full access to all sales features',
@@ -86,12 +94,20 @@ return [
     ],
 
     // ── Marketplace API container (core; children come from extensions) ──
+    'view_marketplace_api' => [
+        'label'       => 'Marketplace API (View All)',
+        'description' => 'Read-only access to every marketplace integration',
+    ],
     'manage_marketplace_api' => [
         'label'       => 'Marketplace API (All)',
         'description' => 'Full access to all marketplace integrations',
     ],
 
     // ── Settings (core) ───────────────────────────────────────
+    'view_settings' => [
+        'label'       => 'Settings (View All)',
+        'description' => 'Read-only access to every system settings page',
+    ],
     'manage_settings' => [
         'label'       => 'Settings (All)',
         'description' => 'Full access to all system settings',
