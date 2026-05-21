@@ -704,6 +704,42 @@ public function buildAuthUrl(ShopeeClient $client)
         return redirect()->route('ext.shopee.index', ['tab' => 'logs'])->with('status', "Deleted {$count} Shopee API log entries.");
     }
 
+    /**
+     * Null the `raw` API-response payload on Shopee order tables for rows
+     * older than N days. The synced order data itself is left intact —
+     * only the verbose raw blob is cleared, freeing DB space.
+     *
+     * Moved here from SettingController::purgeRaw so each integration
+     * owns its own table list and a low-permission user can't trigger
+     * Shopee-wide deletes via a generic Settings page action.
+     */
+    public function purgeRaw(Request $request)
+    {
+        $request->validate([
+            'days' => ['required', 'integer', 'min:1', 'max:3650'],
+        ]);
+
+        $cutoff = now()->subDays((int) $request->days);
+        $tables = [
+            'shopee_orders',
+            'shopee_order_products',
+            'shopee_returns',
+        ];
+
+        $total = 0;
+        foreach ($tables as $table) {
+            $total += DB::table($table)
+                ->whereNotNull('raw')
+                ->where('created_at', '<', $cutoff)
+                ->update(['raw' => null]);
+        }
+
+        \App\Services\ActivityLogger::log('purged', 'ShopeeSetting', null, "Raw data ({$request->days} days)");
+
+        return redirect()->route('ext.shopee.index', ['tab' => 'logs'])
+            ->with('status', "Purged raw payloads from {$total} Shopee row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
+    }
+
     public function explorerRun(Request $request, ShopeeClient $client)
     {
         $data = $request->validate([

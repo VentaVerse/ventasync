@@ -4,9 +4,9 @@
 @section('content')
 @php
     // Phase 4.5: read-tier (view_website_settings) can browse the settings
-    // form but cannot save. All write controls (Save buttons, Test Mail,
-    // Purge Raw) are hidden — inputs render but become read-only-ish via
-    // the missing submit. The underlying routes still 403 if probed.
+    // form but cannot save. All write controls (Save buttons, Test Mail)
+    // are hidden — inputs render but become read-only-ish via the missing
+    // submit. The underlying routes still 403 if probed.
     $canManageSettings = true;
 @endphp
 <div class="page-header">
@@ -15,7 +15,7 @@
 </div>
 @unless($canManageSettings)
 <div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
-    <strong>Read-only view.</strong> You can browse settings. To save changes, send test mail, or purge raw data, your user group needs the <code>manage_website_settings</code> permission tier.
+    <strong>Read-only view.</strong> You can browse settings. To save changes or send test mail, your user group needs the <code>manage_website_settings</code> permission tier.
 </div>
 @endunless
 
@@ -255,25 +255,6 @@
         </details>
     </div>
 
-    @if($canManageSettings)
-    <div class="card mt-16">
-        <h3 class="section-title mt-0">Database Maintenance</h3>
-        <div class="form-grid">
-            <div class="full">
-                <label>Purge Marketplace Raw Data</label>
-                <div class="hint" style="margin-bottom:12px;">
-                    Clears the raw API response data from Lazada and Shopee order tables for orders older than the specified number of days. This frees up database space without affecting synced order data.
-                </div>
-                <div class="d-flex items-center gap-12">
-                    <input class="input" type="number" id="purgeDays" value="30" min="1" style="width:120px;">
-                    <span class="text-secondary">days</span>
-                    <button type="button" class="btn danger" id="btnPurgeRaw">Purge Raw Data</button>
-                </div>
-                <div id="purgeResult" style="margin-top:12px; display:none;"></div>
-            </div>
-        </div>
-    </div>
-    @endif
 </div>
 
 @push('scripts')
@@ -326,57 +307,6 @@
             reader.readAsDataURL(input.files[0]);
         }
     }
-
-    var _purgeBtn = document.getElementById('btnPurgeRaw');
-    if (_purgeBtn) _purgeBtn.addEventListener('click', function () {
-        var days = document.getElementById('purgeDays').value;
-        if (!days || days < 1) { showFlashError('Please enter a valid number of days.'); return; }
-
-        var btn = this;
-
-        confirmModal('Purge raw API data older than ' + days + ' days? This cannot be undone.').then(function (ok) {
-            if (!ok) return;
-
-            var resultEl = document.getElementById('purgeResult');
-            btn.classList.add('is-loading');
-            btn.disabled = true;
-            resultEl.style.display = 'none';
-
-            fetch('{{ route("settings.purge_raw") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({ days: parseInt(days) })
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                btn.classList.remove('is-loading');
-                btn.disabled = false;
-                resultEl.style.display = '';
-                resultEl.textContent = '';
-                var div = document.createElement('div');
-                div.className = 'alert ' + (data.ok ? 'success' : 'danger');
-                var span = document.createElement('span');
-                span.textContent = data.ok ? data.message : (data.message || 'An error occurred.');
-                div.appendChild(span);
-                resultEl.appendChild(div);
-            })
-            .catch(function (err) {
-                btn.classList.remove('is-loading');
-                btn.disabled = false;
-                resultEl.style.display = '';
-                resultEl.textContent = '';
-                var div = document.createElement('div');
-                div.className = 'alert danger';
-                var span = document.createElement('span');
-                span.textContent = 'Network error: ' + err.message;
-                div.appendChild(span);
-                resultEl.appendChild(div);
-            });
-        });
-    });
 
     // Toggle SMTP fields visibility based on mailer dropdown
     (function() {

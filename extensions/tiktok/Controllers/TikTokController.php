@@ -698,6 +698,39 @@ class TikTokController extends Controller
         return back()->with('status', "Deleted {$count} TikTok API log entries.");
     }
 
+    /**
+     * Null the `raw` API-response payload on TikTok order tables for rows
+     * older than N days. The synced order data itself is left intact —
+     * only the verbose raw blob is cleared, freeing DB space.
+     *
+     * TikTok has no returns table (returns ride a different path), so
+     * only orders + order_products carry a raw column.
+     */
+    public function purgeRaw(Request $request)
+    {
+        $request->validate([
+            'days' => ['required', 'integer', 'min:1', 'max:3650'],
+        ]);
+
+        $cutoff = now()->subDays((int) $request->days);
+        $tables = [
+            'tiktok_orders',
+            'tiktok_order_products',
+        ];
+
+        $total = 0;
+        foreach ($tables as $table) {
+            $total += DB::table($table)
+                ->whereNotNull('raw')
+                ->where('created_at', '<', $cutoff)
+                ->update(['raw' => null]);
+        }
+
+        \App\Services\ActivityLogger::log('purged', 'TikTokSetting', null, "Raw data ({$request->days} days)");
+
+        return back()->with('status', "Purged raw payloads from {$total} TikTok row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
+    }
+
     // -- Save order tab mapping -------------------------------------------
 
     public function saveOrderStatusMap(Request $request)

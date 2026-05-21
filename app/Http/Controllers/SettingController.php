@@ -76,41 +76,6 @@ class SettingController extends Controller
         return back()->with('success', 'Settings updated.');
     }
 
-    public function purgeRaw(Request $request)
-    {
-        $request->validate(['days' => ['required', 'integer', 'min' => 1]]);
-
-        $cutoff = now()->subDays((int) $request->days);
-
-        $tables = [
-            'lazada_orders',
-            'lazada_order_products',
-            'lazada_order_items',
-            'lazada_reverse_orders',
-            'shopee_orders',
-            'shopee_order_products',
-            'shopee_returns',
-        ];
-
-        $total = 0;
-
-        foreach ($tables as $table) {
-            $affected = DB::table($table)
-                ->whereNotNull('raw')
-                ->where('created_at', '<', $cutoff)
-                ->update(['raw' => null]);
-
-            $total += $affected;
-        }
-
-        ActivityLogger::log('purged', 'Setting', null, 'Raw marketplace data (' . $request->days . ' days)');
-
-        return response()->json([
-            'ok'      => true,
-            'message' => "Purged raw data from {$total} rows (older than {$request->days} days).",
-        ]);
-    }
-
     public function sendTestMail(Request $request)
     {
         $data = $request->validate([

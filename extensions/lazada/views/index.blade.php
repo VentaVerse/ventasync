@@ -733,6 +733,27 @@
             <div class="text-center text-muted" style="padding:32px 0;">No API logs yet.</div>
         @endif
     </div>
+
+    {{-- Data Maintenance — clears the verbose `raw` API payload column
+         on Lazada order tables for rows older than N days. Synced
+         order data is left intact; only the raw blob is nulled. --}}
+    <div class="card mt-16">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">Data Maintenance</h3>
+        </div>
+        <div class="hint" style="margin-bottom:12px;">
+            Clears the raw API response payloads from Lazada order tables for rows older than the specified number of days. Frees database space without affecting any synced order data.
+        </div>
+        <form method="POST" action="{{ route('ext.lazada.purge_raw') }}"
+              data-confirm="Permanently null the raw payloads on Lazada rows older than the specified days? This cannot be undone.">
+            @csrf
+            <div class="d-flex items-center gap-12">
+                <input class="input" type="number" name="days" value="30" min="1" max="3650" required style="width:120px;">
+                <span class="text-secondary">days</span>
+                <button type="submit" class="btn small danger">Purge Raw Data</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 @push('scripts')

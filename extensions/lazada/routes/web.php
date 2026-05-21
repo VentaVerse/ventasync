@@ -79,6 +79,7 @@ Route::middleware(['auth'])->group(function () {
         // API logging admin
         Route::post('/lazada/toggle-logging', [LazadaController::class, 'toggleLogging'])->name('ext.lazada.toggle_logging');
         Route::delete('/lazada/api-logs', [LazadaController::class, 'clearApiLogs'])->name('ext.lazada.clear_api_logs');
+        Route::post('/lazada/purge-raw', [LazadaController::class, 'purgeRaw'])->name('ext.lazada.purge_raw');
 
         // API Explorer — these call the live Lazada API (state-changing on some
         // endpoints), even when the operator picks a "GET" route in the UI.

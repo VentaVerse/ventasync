@@ -197,7 +197,6 @@ Route::middleware(['auth'])->group(function () {
     // Settings + Currencies + Extensions — WRITE
     Route::middleware(['perm:manage_website_settings'])->group(function () {
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
-        Route::post('/settings/purge-raw', [SettingController::class, 'purgeRaw'])->name('settings.purge_raw');
         Route::post('/settings/mail/test', [SettingController::class, 'sendTestMail'])->name('settings.mail.test');
 
         // Currencies — writes (rate updates, CRUD)

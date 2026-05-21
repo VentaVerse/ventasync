@@ -47,6 +47,7 @@ Route::middleware(['auth'])->group(function () {
         // API logging admin
         Route::post('/tiktok/toggle-logging', [TikTokController::class, 'toggleLogging'])->name('ext.tiktok.toggle_logging');
         Route::delete('/tiktok/api-logs', [TikTokController::class, 'clearApiLogs'])->name('ext.tiktok.clear_api_logs');
+        Route::post('/tiktok/purge-raw', [TikTokController::class, 'purgeRaw'])->name('ext.tiktok.purge_raw');
 
         // Status-map saves
         Route::post('/tiktok/order-status-map', [TikTokController::class, 'saveOrderStatusMap'])->name('ext.tiktok.order_status_map');

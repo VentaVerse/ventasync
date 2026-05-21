@@ -74,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
         // API logging admin
         Route::post('/shopee/toggle-logging', [ShopeeController::class, 'toggleLogging'])->name('ext.shopee.toggle_logging');
         Route::delete('/shopee/api-logs', [ShopeeController::class, 'clearApiLogs'])->name('ext.shopee.clear_api_logs');
+        Route::post('/shopee/purge-raw', [ShopeeController::class, 'purgeRaw'])->name('ext.shopee.purge_raw');
 
         // Shopee Categories — fetches that pull from Shopee and persist locally
         Route::post('/shopee/categories/fetch', [ShopeeCategoryController::class, 'fetch'])->name('ext.shopee.categories.fetch');

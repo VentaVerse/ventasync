@@ -263,6 +263,39 @@ class LazadaController extends Controller
     }
 
     /**
+     * Null the `raw` API-response payload on Lazada order tables for rows
+     * older than N days. The synced order data itself is left intact —
+     * only the verbose raw blob is cleared, freeing DB space.
+     */
+    public function purgeRaw(Request $request)
+    {
+        $request->validate([
+            'days' => ['required', 'integer', 'min:1', 'max:3650'],
+        ]);
+
+        $cutoff = now()->subDays((int) $request->days);
+        $tables = [
+            'lazada_orders',
+            'lazada_order_products',
+            'lazada_order_items',
+            'lazada_reverse_orders',
+        ];
+
+        $total = 0;
+        foreach ($tables as $table) {
+            $total += DB::table($table)
+                ->whereNotNull('raw')
+                ->where('created_at', '<', $cutoff)
+                ->update(['raw' => null]);
+        }
+
+        \App\Services\ActivityLogger::log('purged', 'LazadaSetting', null, "Raw data ({$request->days} days)");
+
+        return redirect()->route('ext.lazada.index', ['tab' => 'logs'])
+            ->with('status', "Purged raw payloads from {$total} Lazada row" . ($total === 1 ? '' : 's') . " older than {$request->days} days.");
+    }
+
+    /**
      * Phase 1: API Explorer runner for testing arbitrary endpoints.
      * Supports GET/POST and optional auth (access_token).
      */
