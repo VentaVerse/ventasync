@@ -61,7 +61,27 @@
             inp.disabled = !(state !== 'off' && inp.dataset.tier === state);
         });
 
-        recomputeGroupStats(pill.closest('.permv2-group'));
+        // Parent → children Off cascade. If THIS pill is the parent of its
+        // group (i.e. its base matches the group's key) and the new state
+        // is "off", flip every sibling pill in the same group to off too.
+        // Matches the server-side cascade in UserGroupController so the
+        // visible form state never diverges from what will be saved.
+        // Recursion is bounded: cascaded children have a different base
+        // than the group key, so they don't re-trigger this branch.
+        const group = pill.closest('.permv2-group');
+        if (group && state === 'off') {
+            const groupKey = group.dataset.groupKey;
+            const myBase = pill.dataset.base;
+            if (myBase && myBase === groupKey) {
+                group.querySelectorAll('.permv2-pill').forEach((sib) => {
+                    if (sib !== pill && sib.dataset.state !== 'off') {
+                        setPillState(sib, 'off');
+                    }
+                });
+            }
+        }
+
+        recomputeGroupStats(group);
         recomputeGlobal();
     }
 
