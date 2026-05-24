@@ -8,7 +8,7 @@
     // (Edit, Backfill, Status update, fee CRUD, payment CRUD, toggle
     // tracking) are hidden for them — the routes still 403 if probed
     // directly, but the UI surface matches the operator's capability set.
-    $canManageOrders = true;
+    $canManageOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

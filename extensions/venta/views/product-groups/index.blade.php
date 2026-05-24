@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $canManageVenta = true;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
 @endphp
     <div class="page-header">
         <div>

@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageLazadaOrders = true;
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
 @endphp
 <div class="marketplace-lazada">
 <div class="page-header">

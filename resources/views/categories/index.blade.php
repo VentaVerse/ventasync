@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageCategories = true;
+    $canManageCategories = auth()->user()?->hasPermission('manage_categories') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

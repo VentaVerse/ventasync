@@ -30,7 +30,7 @@
     // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
     // them — the routes still 403 if probed directly, but the UI surface
     // should match the operator's capability set.
-    $canManageShopee = true;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
 @endphp
 
 @unless($canManageShopee)

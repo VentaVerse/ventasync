@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageReviews = true;
+    $canManageReviews = auth()->user()?->hasPermission('manage_reviews') ?? false;
 @endphp
 
 {{-- Fetch / Delete bar --}}

@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageOpencart = true;
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
 @endphp
     <div class="page-header">
         <div>

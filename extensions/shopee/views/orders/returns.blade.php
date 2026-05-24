@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageShopeeOrders = true;
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
 @endphp
 <div class="marketplace-shopee">
 <div class="page-header">

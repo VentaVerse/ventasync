@@ -53,8 +53,9 @@ class IntegrationRegistry
                 if (!$card instanceof IntegrationCard) {
                     continue;
                 }
-                // Showroom mode — permission no longer hides cards from view.
-                // Click-time access still enforced by EnsurePermission middleware.
+                if ($card->permission && (!$user || !$user->hasPermission($card->permission))) {
+                    continue;
+                }
                 $cards[] = $card;
             }
         }
@@ -341,8 +342,9 @@ class IntegrationRegistry
                 if (!$tab instanceof OrderTab) {
                     continue;
                 }
-                // Showroom mode — permission no longer hides tabs from view.
-                // Click-time access still enforced by EnsurePermission middleware.
+                if ($tab->permission && (!$user || !$user->hasPermission($tab->permission))) {
+                    continue;
+                }
                 $tabs[] = $tab;
             }
         }

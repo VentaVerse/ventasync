@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $canManageVentaOrders = true;
+    $canManageVentaOrders = auth()->user()?->hasPermission('manage_venta_orders') ?? false;
 @endphp
 @include('integrations.partials._tab_strip', ['activeTabId' => 'venta:' . $setting->id])
 <div class="page-header">

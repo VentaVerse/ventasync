@@ -7,7 +7,7 @@
     // form but cannot save. All write controls (Save buttons, Test Mail)
     // are hidden — inputs render but become read-only-ish via the missing
     // submit. The underlying routes still 403 if probed.
-    $canManageSettings = true;
+    $canManageSettings = auth()->user()?->hasPermission('manage_settings') ?? false;
 @endphp
 <div class="page-header">
     <h2>Settings</h2>

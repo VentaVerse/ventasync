@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageManufacturers = true;
+    $canManageManufacturers = auth()->user()?->hasPermission('manage_manufacturers') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

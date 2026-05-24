@@ -5,7 +5,7 @@
 @php
     // Phase 4.5 view/manage gating: read-tier operators see the list and can
     // open detail pages; create/bulk-delete/edit/delete are manage-tier only.
-    $canManageOrders = true;
+    $canManageOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

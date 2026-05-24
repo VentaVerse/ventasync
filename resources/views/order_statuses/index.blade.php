@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageOrderStatuses = true;
+    $canManageOrderStatuses = auth()->user()?->hasPermission('manage_order_statuses') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

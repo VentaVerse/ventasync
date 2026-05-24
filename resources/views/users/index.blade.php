@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageUsers = true;
+    $canManageUsers = auth()->user()?->hasPermission('manage_users') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

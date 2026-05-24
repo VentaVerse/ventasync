@@ -3,9 +3,9 @@
 
 @section('content')
 @php
-    $canManageReviews = true;
+    $canManageReviews = auth()->user()?->hasPermission('manage_reviews') ?? false;
     // Venta push lives under manage_venta tier (see venta/routes/web.php).
-    $canManageVenta = true;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

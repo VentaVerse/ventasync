@@ -5,7 +5,7 @@
 
 @section('content')
 @php
-    $canManageTiktok = true;
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
 @endphp
     <div class="page-header">
         <div>

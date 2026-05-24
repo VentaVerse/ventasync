@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $canManageOptions = true;
+    $canManageOptions = auth()->user()?->hasPermission('manage_options') ?? false;
 @endphp
 <div class="card">
     <div class="page-header">

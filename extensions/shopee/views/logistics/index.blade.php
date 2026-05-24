@@ -5,7 +5,7 @@
 
 @section('content')
 @php
-    $canManageShopee = true;
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
 @endphp
     <div class="page-header">
         <div>

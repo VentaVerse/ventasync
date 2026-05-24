@@ -5,7 +5,7 @@
 
 @section('content')
     @php
-        $canManageLazada = true;
+        $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
     @endphp
     <div class="page-header">
         <div>

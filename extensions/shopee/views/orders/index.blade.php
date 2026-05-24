@@ -5,7 +5,7 @@
 @php
     // Phase 4 — Shopee Orders is visible to view_shopee_orders holders; the
     // Fetch/Update/Ship/Reset actions require manage_shopee_orders.
-    $canManageShopeeOrders = true;
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
 @endphp
 <div class="marketplace-shopee">
 @include('integrations.partials._tab_strip', ['activeTabId' => 'shopee'])

@@ -8,7 +8,7 @@
     // Phase 4 (view/manage tier split): operators with only `view_venta` get
     // here through the read-tier route gate. Save/Test/Delete/Mapping/Fetch
     // actions are hidden; the routes still 403 if probed directly.
-    $canManageVenta = true;
+    $canManageVenta = auth()->user()?->hasPermission('manage_venta') ?? false;
 @endphp
     <div class="page-header">
         <div>

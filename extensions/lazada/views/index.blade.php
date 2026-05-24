@@ -31,7 +31,7 @@
     // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
     // them — the routes still 403 if probed directly, but the UI surface
     // should match the operator's capability set.
-    $canManageLazada = true;
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
 @endphp
 
 @unless($canManageLazada)
