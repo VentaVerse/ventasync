@@ -71,17 +71,22 @@
             // Demo / showroom override lives downstream on the
             // `demo-public` branch — it rewrites each flag to `true` via a
             // sed pass. The production trunk respects real permissions.
-            $canCatalog        = $u && $u->hasPermission('manage_catalog');
+            // Container parents use the VIEW tier so anyone with either tier
+            // (view OR manage) on the container passes — the within-base
+            // manage-implies-view cascade in User::hasPermission promotes
+            // manage_X to satisfy view_X checks. Using manage_X here would
+            // hide the section from anyone who set the container to View.
+            $canCatalog        = $u && $u->hasPermission('view_catalog');
             $canProducts       = $u && $u->hasPermission('view_products');
             $canCategories     = $u && $u->hasPermission('view_categories');
             $canManufacturers  = $u && $u->hasPermission('view_manufacturers');
             $canOptions        = $u && $u->hasPermission('view_options');
 
-            $canSales          = $u && $u->hasPermission('manage_sales');
+            $canSales          = $u && $u->hasPermission('view_sales');
             $canOrders         = $u && $u->hasPermission('view_orders');
             $canOrderStatuses  = $u && $u->hasPermission('view_order_statuses');
 
-            $canSettingsParent  = $u && $u->hasPermission('manage_settings');
+            $canSettingsParent  = $u && $u->hasPermission('view_settings');
             $canUsers           = $u && $u->hasPermission('view_users');
             $canUserGroups      = $u && $u->hasPermission('view_user_groups');
             $canWebsiteSettings = $u && $u->hasPermission('view_website_settings');
@@ -275,11 +280,18 @@
                             //      grant of one nested page is enough to
                             //      surface the parent group.
                             // Parent permission gates the whole group — child grants no
-                            // longer surface the parent. If the admin wants the section
-                            // visible, they grant the parent explicitly. (Matches the
-                            // permission model: parent and children are independent.)
+                            // longer surface the parent. Manifest authors declare nav
+                            // permission as either view_X or manage_X (or anything
+                            // really); we normalize to the VIEW tier for the sidebar
+                            // visibility check, so anyone holding either tier passes.
+                            // Route middleware (perm:manage_X) still enforces real
+                            // access at click-time — this is just whether the link
+                            // shows up in nav.
                             $extPerm = $extNav['permission'] ?? '';
-                            $canViewExt = $extPerm === '' || ($u && $u->hasPermission($extPerm));
+                            $extPermView = str_starts_with($extPerm, 'manage_')
+                                ? ('view_' . substr($extPerm, 7))
+                                : $extPerm;
+                            $canViewExt = $extPermView === '' || ($u && $u->hasPermission($extPermView));
                             $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
                             $extIsOpen = false;
                             foreach ($extRoutes as $er) {
@@ -299,7 +311,13 @@
                                         @foreach($extNav['items'] ?? [] as $extItem)
                                             @php
                                                 $itemPerm = $extItem['permission'] ?? '';
-                                                $canViewItem = $itemPerm === '' || ($u && $u->hasPermission($itemPerm));
+                                                // Same normalization as the parent group — sidebar
+                                                // visibility uses view tier; manage holders still
+                                                // pass via the within-base cascade.
+                                                $itemPermView = str_starts_with($itemPerm, 'manage_')
+                                                    ? ('view_' . substr($itemPerm, 7))
+                                                    : $itemPerm;
+                                                $canViewItem = $itemPermView === '' || ($u && $u->hasPermission($itemPermView));
                                             @endphp
                                             @if(\Route::has($extItem['route']) && $canViewItem)
                                             <a href="{{ route($extItem['route']) }}" class="{{ request()->routeIs($extItem['route'] . '*') ? 'active' : '' }}">
