@@ -22,21 +22,21 @@ class ExtensionController extends Controller
         ]);
     }
 
-    public function toggle(Request $request, ExtensionManager $manager, string $id)
+    public function toggle(Request $request, ExtensionManager $manager, string $extension)
     {
-        $extension = Extension::find($id);
+        $row = Extension::find($extension);
 
-        if (!$extension) {
-            return back()->with('error', "Extension '{$id}' is not installed.");
+        if (!$row) {
+            return back()->with('error', "Extension '{$extension}' is not installed.");
         }
 
-        if ($extension->enabled) {
-            $manager->disable($id);
-            return back()->with('success', "Extension '{$extension->name}' disabled.");
+        if ($row->enabled) {
+            $manager->disable($extension);
+            return back()->with('success', "Extension '{$row->name}' disabled.");
         }
 
-        $manager->enable($id);
-        return back()->with('success', "Extension '{$extension->name}' enabled.");
+        $manager->enable($extension);
+        return back()->with('success', "Extension '{$row->name}' enabled.");
     }
 
     public function install(Request $request, ExtensionManager $manager)
@@ -121,21 +121,21 @@ class ExtensionController extends Controller
         return back()->with('success', "Extension '{$manifest['name']}' installed successfully.");
     }
 
-    public function reinstall(ExtensionManager $manager, string $id)
+    public function reinstall(ExtensionManager $manager, string $extension)
     {
-        $manager->install($id);
+        $manager->install($extension);
 
         Artisan::call('migrate', ['--force' => true]);
 
-        return back()->with('success', "Extension '{$id}' installed.");
+        return back()->with('success', "Extension '{$extension}' installed.");
     }
 
-    public function uninstall(ExtensionManager $manager, string $id)
+    public function uninstall(ExtensionManager $manager, string $extension)
     {
-        $extension = Extension::find($id);
-        $name = $extension->name ?? $id;
+        $row = Extension::find($extension);
+        $name = $row->name ?? $extension;
 
-        $manager->uninstall($id, false);
+        $manager->uninstall($extension, false);
 
         return back()->with('success', "Extension '{$name}' uninstalled.");
     }

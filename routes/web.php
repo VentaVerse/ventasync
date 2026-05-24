@@ -209,9 +209,13 @@ Route::middleware(['auth'])->group(function () {
 
         // Extensions — install / toggle / reinstall / uninstall are writes.
         Route::post('/settings/extensions/install', [\App\Http\Controllers\ExtensionController::class, 'install'])->name('extensions.install');
-        Route::post('/settings/extensions/{id}/toggle', [\App\Http\Controllers\ExtensionController::class, 'toggle'])->name('extensions.toggle');
-        Route::post('/settings/extensions/{id}/reinstall', [\App\Http\Controllers\ExtensionController::class, 'reinstall'])->name('extensions.reinstall');
-        Route::delete('/settings/extensions/{id}', [\App\Http\Controllers\ExtensionController::class, 'uninstall'])->name('extensions.uninstall');
+        // {extension} (not {id}) because the param is the extension's
+        // string slug like "pedallion", not a numeric DB id. The global
+        // Route::pattern('id', '[0-9]+') in RouteServiceProvider would
+        // otherwise reject every slug and 404 the toggle/reinstall.
+        Route::post('/settings/extensions/{extension}/toggle', [\App\Http\Controllers\ExtensionController::class, 'toggle'])->name('extensions.toggle');
+        Route::post('/settings/extensions/{extension}/reinstall', [\App\Http\Controllers\ExtensionController::class, 'reinstall'])->name('extensions.reinstall');
+        Route::delete('/settings/extensions/{extension}', [\App\Http\Controllers\ExtensionController::class, 'uninstall'])->name('extensions.uninstall');
     });
 
     // ── Error Log — READ ──
