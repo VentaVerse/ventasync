@@ -274,16 +274,12 @@
                             //  (b) any child item's permission is satisfied —
                             //      grant of one nested page is enough to
                             //      surface the parent group.
+                            // Parent permission gates the whole group — child grants no
+                            // longer surface the parent. If the admin wants the section
+                            // visible, they grant the parent explicitly. (Matches the
+                            // permission model: parent and children are independent.)
                             $extPerm = $extNav['permission'] ?? '';
                             $canViewExt = $extPerm === '' || ($u && $u->hasPermission($extPerm));
-                            if (!$canViewExt && $u) {
-                                foreach ($extNav['items'] ?? [] as $_item) {
-                                    if (!empty($_item['permission']) && $u->hasPermission($_item['permission'])) {
-                                        $canViewExt = true;
-                                        break;
-                                    }
-                                }
-                            }
                             $extRoutes = collect($extNav['items'] ?? [])->pluck('route')->toArray();
                             $extIsOpen = false;
                             foreach ($extRoutes as $er) {

@@ -99,7 +99,10 @@ class UserGroupController extends Controller
         ]);
 
         $group = UserGroup::create(['name' => $request->name]);
-        $group->permissions()->sync($request->permissions ?? []);
+
+        // Parent Off cascades to children (same rule as update()).
+        $permissionIds = $this->applyParentOffCascade($request->permissions ?? []);
+        $group->permissions()->sync($permissionIds);
 
         ActivityLogger::log('created', 'User Group', $group->id, $group->name);
 
@@ -138,6 +141,7 @@ class UserGroupController extends Controller
             $permissionIds = array_values(array_unique(array_merge($permissionIds, $coreIds)));
         }
 
+        $permissionIds = $this->applyParentOffCascade($permissionIds);
         $group->permissions()->sync($permissionIds);
 
         $changes = ActivityLogger::diff($original, $group->getAttributes(), ['name']);
@@ -169,5 +173,52 @@ class UserGroupController extends Controller
         ActivityLogger::log('deleted', 'User Group', (int) $id, $groupName);
 
         return redirect()->route('user_groups.index');
+    }
+
+    /**
+     * Filter the submitted permission-id list so children whose parent
+     * isn't being granted are dropped. The permission model otherwise
+     * treats each row as independent — this method is the only place
+     * that knows about the parent/child relationship at save time.
+     *
+     * Why: an admin who toggles a parent Off in the editor expects the
+     * whole domain to go dark (e.g. Off-ing Warehousing should also
+     * revoke Locations, Transfers, Inventory). Without this filter,
+     * children retain their explicit grants and the Off pill is a lie.
+     *
+     * Granting the parent on its own does NOT auto-grant children —
+     * that asymmetry is intentional. Admins build access up by
+     * checking each child explicitly.
+     *
+     * @param  array<int, int>  $permissionIds  raw ids from the form
+     * @return array<int, int>                 filtered ids ready for sync()
+     */
+    private function applyParentOffCascade(array $permissionIds): array
+    {
+        if (empty($permissionIds)) {
+            return $permissionIds;
+        }
+
+        $hierarchy = app(\App\Services\PermissionHierarchy::class);
+        $rows = Permission::whereIn('id', $permissionIds)->pluck('key', 'id')->all();
+        $grantedSet = array_flip($rows);
+
+        $kept = [];
+        foreach ($rows as $id => $key) {
+            $parent = $hierarchy->parentOf($key);
+            if ($parent === null) {
+                $kept[] = $id;
+                continue;
+            }
+            // Parent is "granted" when either tier of its base is in the submitted set.
+            $base = $hierarchy->baseOf($parent);
+            $parentGranted = $base !== null
+                ? (isset($grantedSet['view_' . $base]) || isset($grantedSet['manage_' . $base]))
+                : isset($grantedSet[$parent]);
+            if ($parentGranted) {
+                $kept[] = $id;
+            }
+        }
+        return $kept;
     }
 }

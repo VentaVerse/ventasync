@@ -104,31 +104,15 @@ class User extends Authenticatable
             $keysToCheck = ['manage_' . $base];
         }
 
-        // Parent grants access to all children (legacy hierarchical expansion).
-        // Run this for each candidate key so manage_lazada → manage_lazada_orders etc.
-        foreach ($keysToCheck as $candidate) {
-            $children = $hierarchy->childrenOf($candidate);
-            if (!empty($children)) {
-                $keysToCheck = array_merge($keysToCheck, $children);
-            }
-        }
-
-        // Child grants access to parent (for sidebar visibility). Only the
-        // originally-requested key participates here — we don't want a user
-        // who holds the parent of view_X to inadvertently satisfy manage_X.
-        $parent = $hierarchy->parentOf($key);
-        if ($parent !== null) {
-            $keysToCheck[] = $parent;
-            // Tier-aware parent cascade: granting view_<parent> (e.g. view_catalog)
-            // means "view access to the whole domain" and must satisfy view-tier
-            // checks on every child resource. Only add the parent's view sibling
-            // when the caller is asking for the view tier — never widen a
-            // manage-tier check to accept the parent's view-only grant.
-            $parentBase = $hierarchy->baseOf($parent);
-            if ($parentBase !== null && $effectiveTier === 'view') {
-                $keysToCheck[] = 'view_' . $parentBase;
-            }
-        }
+        // Parent/child cascades intentionally removed. Each permission row
+        // is an independent grant — granting the parent does NOT grant the
+        // children, and a child grant does NOT satisfy a parent check.
+        // Admins toggle each row explicitly; if they Off the parent in the
+        // editor, the save handler also revokes the children (kill switch).
+        //
+        // Only the within-base "manage-implies-view" cascade (handled above
+        // by the $base/$effectiveTier expansion) stays — that's tier
+        // conversion on the SAME resource key, not a parent/child relation.
 
         // Legacy compatibility for pre-Laravel-rebuild permission key
         if ($key === 'manage_settings' || $key === 'manage_users' || $key === 'manage_user_groups') {
