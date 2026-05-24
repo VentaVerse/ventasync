@@ -412,9 +412,21 @@
                         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
                         <span class="label">Summary</span>
                     </a>
+                    @php
+                        // Multi-store extensions (Venta, OpenCart, …) emit one
+                        // OrderTab per store but every tab carries the same
+                        // route name (ext.venta.orders.index). Matching on the
+                        // route name alone would light up every store's row.
+                        // Pin the active tab by also comparing the {store}
+                        // route parameter — same pattern as the per-store
+                        // sidebar menu below.
+                        $__currentStoreParam = (string) (request()->route('store') ?? '');
+                    @endphp
                     @foreach($__orderTabs as $__tab)
                         @php
-                            $__tabActive = $__rn === $__tab->routeName;
+                            $__tabStoreParam = (string) ($__tab->routeParams['store'] ?? '');
+                            $__tabActive = $__rn === $__tab->routeName
+                                && ($__tabStoreParam === '' || $__tabStoreParam === $__currentStoreParam);
                             $__tabCount = $__tab->unprocessedCount();
                         @endphp
                         <a href="{{ route($__tab->routeName, $__tab->routeParams ?? []) }}" class="{{ $__tabActive ? 'active' : '' }}">
