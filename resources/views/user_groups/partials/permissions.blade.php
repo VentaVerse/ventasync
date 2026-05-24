@@ -170,6 +170,80 @@
 
         $renderGroups[] = $section;
     }
+
+    // ---------------------------------------------------------------
+    // Collapse twin top-level sections into a single section.
+    //
+    // Twin pattern: a domain (Warehousing, Catalog, Sales, etc.) has
+    // BOTH view_<domain> and manage_<domain> declared at top level
+    // (no `parent` field). PermissionHierarchy::compute() treats each
+    // as its own group, so the rendering loop above emits two
+    // <section> blocks per domain — one with just the parent pill,
+    // one with the children.
+    //
+    // We want a single section per domain so:
+    //   - parent and children sit visibly under one header
+    //   - data-group-key is the bare base (e.g. "warehousing"), so
+    //     the JS Off-cascade can walk siblings within the section
+    //     and flip them too
+    //
+    // Merge rule: any section whose parent->key is view_<X> AND
+    // there's another section with parent->key manage_<X> gets
+    // folded into the manage_<X> section as a leading row. The
+    // manage_<X> section becomes the canonical header (it already
+    // owns the children).
+    // ---------------------------------------------------------------
+    $collapsed = [];
+    $byBase = []; // base => index in $collapsed
+    foreach ($renderGroups as $section) {
+        $parentKey = $section['parent']->key;
+        $base = $hierarchy->baseOf($parentKey) ?? $parentKey;
+        $isManageParent = str_starts_with($parentKey, 'manage_');
+
+        if (isset($byBase[$base])) {
+            $idx = $byBase[$base];
+            $existing = $collapsed[$idx];
+            $existingParentKey = $existing['parent']->key;
+            $existingIsManage = str_starts_with($existingParentKey, 'manage_');
+
+            // Decide which section stays as the host (the manage_<X> one).
+            if ($isManageParent && !$existingIsManage) {
+                // Current iteration brings the manage_<X> section — promote it,
+                // fold the existing (view_<X>) section into it as a row.
+                $host = $section;
+                $orphan = $existing;
+            } else {
+                // Existing section already owns manage_<X> — fold the current
+                // (view_<X>) one into it.
+                $host = $existing;
+                $orphan = $section;
+            }
+
+            // Surface the orphan's parent as the first row of the host's body.
+            $parentRow = $buildRows([$orphan['parent']]);
+            array_unshift($host['subsections'], ['label' => null, 'rows' => $parentRow]);
+
+            // Tally the inserted row into the host's counts.
+            foreach ($parentRow as $r) {
+                $totalPills++;
+                if ($r['state'] === 'manage') { $host['count_manage']++; $grantedPills++; }
+                elseif ($r['state'] === 'view') { $host['count_view']++; $grantedPills++; }
+            }
+
+            // The host's section key becomes the bare base so JS sees the
+            // children as siblings of the parent inside this single section.
+            $host['key'] = $base;
+            $collapsed[$idx] = $host;
+        } else {
+            // First time we see this base. Normalize key to the bare base so
+            // domains that DON'T have a twin (e.g. Purchasing) still match
+            // the convention.
+            $section['key'] = $base;
+            $collapsed[] = $section;
+            $byBase[$base] = array_key_last($collapsed);
+        }
+    }
+    $renderGroups = $collapsed;
 @endphp
 
 <div id="perm-picker-v2"
