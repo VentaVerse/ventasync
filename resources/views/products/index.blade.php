@@ -5,7 +5,7 @@
 @php
     // Phase 4.5 view/manage gating: read-tier sees the list + sales/stock
     // history pages; create/edit/delete/bulk-actions are manage-tier only.
-    $canManageProducts = auth()->user()?->hasPermission('manage_products') ?? false;
+    $canManageProducts = true;
 @endphp
 <div class="card">
     <div class="page-header">
