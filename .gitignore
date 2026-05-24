@@ -36,3 +36,6 @@ Thumbs.db
 /.claude
 /docs
 CLAUDE.md
+
+# Playwright MCP scratch snapshots
+.playwright-mcp/
