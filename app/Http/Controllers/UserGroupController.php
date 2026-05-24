@@ -100,8 +100,8 @@ class UserGroupController extends Controller
 
         $group = UserGroup::create(['name' => $request->name]);
 
-        // Parent Off cascades to children (same rule as update()).
-        $permissionIds = $this->applyParentOffCascade($request->permissions ?? []);
+        // Child grants auto-elevate their parent to view tier (same rule as update()).
+        $permissionIds = $this->applyChildParentElevation($request->permissions ?? []);
         $group->permissions()->sync($permissionIds);
 
         ActivityLogger::log('created', 'User Group', $group->id, $group->name);
@@ -141,7 +141,7 @@ class UserGroupController extends Controller
             $permissionIds = array_values(array_unique(array_merge($permissionIds, $coreIds)));
         }
 
-        $permissionIds = $this->applyParentOffCascade($permissionIds);
+        $permissionIds = $this->applyChildParentElevation($permissionIds);
         $group->permissions()->sync($permissionIds);
 
         $changes = ActivityLogger::diff($original, $group->getAttributes(), ['name']);
@@ -176,24 +176,30 @@ class UserGroupController extends Controller
     }
 
     /**
-     * Filter the submitted permission-id list so children whose parent
-     * isn't being granted are dropped. The permission model otherwise
-     * treats each row as independent — this method is the only place
-     * that knows about the parent/child relationship at save time.
+     * Ensure a parent permission is present whenever any of its children
+     * are granted. Maintains the invariant that the parent's tier is
+     * always >= max(children's tiers), so a child grant never lands as
+     * a dead permission (parent Off hides the sidebar section, making
+     * the child unreachable from nav).
      *
-     * Why: an admin who toggles a parent Off in the editor expects the
-     * whole domain to go dark (e.g. Off-ing Warehousing should also
-     * revoke Locations, Transfers, Inventory). Without this filter,
-     * children retain their explicit grants and the Off pill is a lie.
+     * Mirrors the client-side cascade in permission-pill.js: granting
+     * a child auto-elevates the parent to view tier — or to manage for
+     * container parents that don't expose a view tier.
      *
-     * Granting the parent on its own does NOT auto-grant children —
-     * that asymmetry is intentional. Admins build access up by
-     * checking each child explicitly.
+     * Why this is permissive (elevates parent) rather than restrictive
+     * (drops orphan children): the child grant is the explicit user
+     * action, so preserving it best matches operator intent. The UI
+     * already prevents orphan-child states; this method is the
+     * defensive backstop for DOM tamper / direct-API submission.
+     *
+     * Parent-Off-cascades-children is handled UI-side only — by the
+     * time the form posts, children have already been flipped Off, so
+     * the server just persists what was submitted.
      *
      * @param  array<int, int>  $permissionIds  raw ids from the form
-     * @return array<int, int>                 filtered ids ready for sync()
+     * @return array<int, int>                 ids with elevated parents added
      */
-    private function applyParentOffCascade(array $permissionIds): array
+    private function applyChildParentElevation(array $permissionIds): array
     {
         if (empty($permissionIds)) {
             return $permissionIds;
@@ -201,24 +207,47 @@ class UserGroupController extends Controller
 
         $hierarchy = app(\App\Services\PermissionHierarchy::class);
         $rows = Permission::whereIn('id', $permissionIds)->pluck('key', 'id')->all();
-        $grantedSet = array_flip($rows);
+        $grantedKeys = array_flip($rows);
 
-        $kept = [];
-        foreach ($rows as $id => $key) {
+        $parentKeysToAdd = [];
+        foreach ($rows as $key) {
             $parent = $hierarchy->parentOf($key);
             if ($parent === null) {
-                $kept[] = $id;
-                continue;
+                continue; // top-level grant — no parent to elevate
             }
-            // Parent is "granted" when either tier of its base is in the submitted set.
             $base = $hierarchy->baseOf($parent);
-            $parentGranted = $base !== null
-                ? (isset($grantedSet['view_' . $base]) || isset($grantedSet['manage_' . $base]))
-                : isset($grantedSet[$parent]);
-            if ($parentGranted) {
-                $kept[] = $id;
+            if ($base !== null) {
+                // Twin parent (view_X + manage_X). Granted when either tier present.
+                if (!isset($grantedKeys['view_' . $base]) && !isset($grantedKeys['manage_' . $base])) {
+                    $parentKeysToAdd[] = 'view_' . $base;
+                }
+            } elseif (!isset($grantedKeys[$parent])) {
+                // Container parent (only one key, no view/manage split).
+                $parentKeysToAdd[] = $parent;
             }
         }
-        return $kept;
+
+        if (empty($parentKeysToAdd)) {
+            return $permissionIds;
+        }
+
+        // Resolve to ids. view_X may not exist for a manage-only parent —
+        // fall back to manage_X in that case.
+        $parentKeysToAdd = array_unique($parentKeysToAdd);
+        $existing = Permission::whereIn('key', $parentKeysToAdd)->pluck('id', 'key')->all();
+        $fallbackKeys = [];
+        foreach ($parentKeysToAdd as $key) {
+            if (!isset($existing[$key]) && str_starts_with($key, 'view_')) {
+                $fallbackKeys[] = 'manage_' . substr($key, 5);
+            }
+        }
+        if (!empty($fallbackKeys)) {
+            $existing = array_merge(
+                $existing,
+                Permission::whereIn('key', $fallbackKeys)->pluck('id', 'key')->all()
+            );
+        }
+
+        return array_values(array_unique(array_merge($permissionIds, array_values($existing))));
     }
 }

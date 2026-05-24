@@ -81,6 +81,27 @@
             }
         }
 
+        // Child → parent View elevation. If THIS pill is a CHILD of its
+        // group (its base differs from the group key) and the new state
+        // grants any tier, ensure the parent pill is not Off — promote it
+        // to "view" (or "manage" for container parents that don't expose
+        // a view tier). Symmetric counterpart to the parent-off cascade
+        // above: keeps the invariant that the parent's tier is always
+        // >= max(children's tiers), so a child grant never lands as a
+        // dead permission (parent Off hides the sidebar section,
+        // rendering the child unreachable from nav).
+        if (group && (state === 'view' || state === 'manage')) {
+            const groupKey = group.dataset.groupKey;
+            const myBase = pill.dataset.base;
+            if (myBase && myBase !== groupKey) {
+                const parentPill = group.querySelector('.permv2-pill[data-base="' + groupKey + '"]');
+                if (parentPill && parentPill.dataset.state === 'off') {
+                    const parentSupportsView = !!parentPill.querySelector('input[data-tier="view"]');
+                    setPillState(parentPill, parentSupportsView ? 'view' : 'manage');
+                }
+            }
+        }
+
         recomputeGroupStats(group);
         recomputeGlobal();
     }
