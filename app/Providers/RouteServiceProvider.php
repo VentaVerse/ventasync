@@ -40,7 +40,7 @@ class RouteServiceProvider extends ServiceProvider
         // Applied to every parameter name that holds a numeric DB id across
         // core + extensions. To opt out for a non-numeric id, a specific
         // route can override with ->where('id', '...').
-        foreach (['id', 'store', 'order', 'product', 'group', 'category_id'] as $param) {
+        foreach (['id', 'store', 'order', 'product', 'productId', 'group', 'category_id'] as $param) {
             Route::pattern($param, '[0-9]+');
         }
 
