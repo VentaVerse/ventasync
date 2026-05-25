@@ -55,6 +55,19 @@
         </span>
     </a>
     <a href="{{ route('orders.index') }}" class="dash-snap-item">
+        <span class="dash-snap-label">Monthly</span>
+        @php
+            $monthRevDelta = $lastMonthRevenue > 0 ? round(($monthRevenue - $lastMonthRevenue) / $lastMonthRevenue * 100) : ($monthRevenue > 0 ? 100 : 0);
+        @endphp
+        <span class="dash-snap-value">{{ number_format($monthOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">&#8369;{{ number_format($monthRevenue, 0) }}</span></span>
+        <span class="dash-snap-compare">
+            @if($monthRevDelta != 0)
+                <span class="dash-snap-arrow {{ $monthRevDelta > 0 ? 'is-up' : 'is-down' }}">{{ $monthRevDelta > 0 ? '↑' : '↓' }} {{ abs($monthRevDelta) }}%</span>
+            @endif
+            vs {{ number_format($lastMonthOrders) }} orders / &#8369;{{ number_format($lastMonthRevenue, 0) }} last month
+        </span>
+    </a>
+    <a href="{{ route('orders.index') }}" class="dash-snap-item">
         <span class="dash-snap-label">All-time</span>
         <span class="dash-snap-value">{{ number_format($totalOrders) }}<span class="dash-snap-unit">orders</span></span>
         <span class="dash-snap-sub"><b>&#8369;{{ number_format($totalRevenue, 0) }}</b> gross</span>
@@ -83,7 +96,12 @@
     </a>
     <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'received']) }}" class="dash-snap-item">
         <span class="dash-snap-label">PO Spend (MTD)</span>
-        <span class="dash-snap-value" style="font-size:20px;">&#8369;{{ number_format($monthlyPoSpend, 0) }}</span>
+        <span class="dash-snap-value" style="font-size:16px;">&#8369;{{ number_format($monthlyPoSpend, 0) }}</span>
+    </a>
+    <a href="{{ route('ext.reports.inventory') }}" class="dash-snap-item">
+        <span class="dash-snap-label">Inventory Value</span>
+        <span class="dash-snap-value" style="font-size:16px;">&#8369;{{ number_format($inventoryAtCost ?? 0, 0) }}<span class="dash-snap-sep-dot">/</span>&#8369;{{ number_format($inventoryAtSale ?? 0, 0) }}</span>
+        <span class="dash-snap-compare">cost / sale · {{ $inventoryMargin ?? 0 }}% margin</span>
     </a>
 </div>
 @endif

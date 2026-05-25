@@ -52,6 +52,14 @@ class DashboardController extends Controller
         $lastWeekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->count();
         $lastWeekRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
+        $monthStart = now()->startOfMonth();
+        $lastMonthStart = now()->subMonthNoOverflow()->startOfMonth();
+        $lastMonthEnd = $monthStart;
+        $monthOrders = DB::table($pfx . 'order')->where('date_added', '>=', $monthStart)->count();
+        $monthRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $monthStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $lastMonthOrders = DB::table($pfx . 'order')->where('date_added', '>=', $lastMonthStart)->where('date_added', '<', $lastMonthEnd)->count();
+        $lastMonthRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $lastMonthStart)->where('date_added', '<', $lastMonthEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+
         // --- Sales chart: default 30 days (loaded via JS) ---
         $chart = $this->buildChartData('30d');
         $chartLabels = $chart['labels'];
@@ -87,6 +95,14 @@ class DashboardController extends Controller
             'overduePos' => 0,
             'monthlyPoSpend' => 0,
         ];
+
+        $invRow = DB::table($pfx . 'product')
+            ->where('status', 1)
+            ->selectRaw('SUM(quantity * cost) as at_cost, SUM(quantity * price) as at_sale')
+            ->first();
+        $inventoryAtCost = (float) ($invRow->at_cost ?? 0);
+        $inventoryAtSale = (float) ($invRow->at_sale ?? 0);
+        $inventoryMargin = $inventoryAtSale > 0 ? round(($inventoryAtSale - $inventoryAtCost) / $inventoryAtSale * 100, 1) : 0;
 
         $registry = app(IntegrationRegistry::class);
 
@@ -125,12 +141,19 @@ class DashboardController extends Controller
             'weekRevenue' => $weekRevenue,
             'lastWeekOrders' => $lastWeekOrders,
             'lastWeekRevenue' => $lastWeekRevenue,
+            'monthOrders' => $monthOrders,
+            'monthRevenue' => $monthRevenue,
+            'lastMonthOrders' => $lastMonthOrders,
+            'lastMonthRevenue' => $lastMonthRevenue,
             'chartLabels' => $chartLabels,
             'chartRevenue' => $chartRevenue,
             'chartOrders' => $chartOrders,
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
             'sourceLabelsMap' => $sourceLabelsMap,
+            'inventoryAtCost' => $inventoryAtCost,
+            'inventoryAtSale' => $inventoryAtSale,
+            'inventoryMargin' => $inventoryMargin,
         ], $extensionDashboardData));
     }
 
