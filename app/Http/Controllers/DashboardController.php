@@ -20,10 +20,6 @@ class DashboardController extends Controller
         $langId = (int) config('catalog.default_language_id');
 
         // --- Stat cards ---
-        $totalProducts = DB::table($pfx . 'product')->count();
-        $totalCategories = DB::table($pfx . 'category')->count();
-        $totalManufacturers = DB::table($pfx . 'manufacturer')->count();
-
         $totalOrders = DB::table($pfx . 'order')->count();
         $revenueStatusIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $totalRevenue = (float) DB::table($pfx . 'order')->whereIn('order_status_id', $revenueStatusIds)->sum('total');
@@ -41,10 +37,20 @@ class DashboardController extends Controller
 
         // --- Today's snapshot ---
         $todayStart = now()->startOfDay();
-        $weekStart = now()->startOfWeek();
+        $rolling7 = now()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $yesterdayStart = now()->subDay()->startOfDay();
+        $yesterdayEnd = now()->startOfDay();
+        $lastWeek7 = now()->subWeek()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $lastWeekEnd = $rolling7;
+
         $todayOrders = DB::table($pfx . 'order')->where('date_added', '>=', $todayStart)->count();
         $todayRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $todayStart)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
-        $weekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $weekStart)->count();
+        $yesterdayOrders = DB::table($pfx . 'order')->where('date_added', '>=', $yesterdayStart)->where('date_added', '<', $yesterdayEnd)->count();
+        $yesterdayRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $yesterdayStart)->where('date_added', '<', $yesterdayEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $weekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $rolling7)->count();
+        $weekRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $rolling7)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
+        $lastWeekOrders = DB::table($pfx . 'order')->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->count();
+        $lastWeekRevenue = (float) DB::table($pfx . 'order')->where('date_added', '>=', $lastWeek7)->where('date_added', '<', $lastWeekEnd)->whereIn('order_status_id', $revenueStatusIds)->sum('total');
 
         // --- Sales chart: default 30 days (loaded via JS) ---
         $chart = $this->buildChartData('30d');
@@ -108,15 +114,17 @@ class DashboardController extends Controller
 
 
         return view('dashboard.index', array_merge([
-            'totalProducts' => $totalProducts,
-            'totalCategories' => $totalCategories,
-            'totalManufacturers' => $totalManufacturers,
             'totalOrders' => $totalOrders,
             'totalRevenue' => $totalRevenue,
             'ordersBySource' => $ordersBySource,
             'todayOrders' => $todayOrders,
             'todayRevenue' => $todayRevenue,
+            'yesterdayOrders' => $yesterdayOrders,
+            'yesterdayRevenue' => $yesterdayRevenue,
             'weekOrders' => $weekOrders,
+            'weekRevenue' => $weekRevenue,
+            'lastWeekOrders' => $lastWeekOrders,
+            'lastWeekRevenue' => $lastWeekRevenue,
             'chartLabels' => $chartLabels,
             'chartRevenue' => $chartRevenue,
             'chartOrders' => $chartOrders,
@@ -147,12 +155,10 @@ class DashboardController extends Controller
         $query = DB::table($pfx . 'order');
 
         if ($range === 'yearly') {
-            $query->where('date_added', '>=', now()->startOfYear());
+            $query->where('date_added', '>=', now()->subYears(4)->startOfYear());
         } elseif ($range === 'monthly') {
-            $query->where('date_added', '>=', now()->subDays(29)->startOfDay());
-        }
-        // '30d' also uses last 30 days (same as monthly for this chart)
-        if ($range === '30d') {
+            $query->where('date_added', '>=', now()->subMonths(11)->startOfMonth());
+        } else {
             $query->where('date_added', '>=', now()->subDays(29)->startOfDay());
         }
 

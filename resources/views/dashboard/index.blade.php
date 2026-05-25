@@ -6,200 +6,112 @@
     <h2>{{ $greeting }}, {{ auth()->user()->name ?? 'there' }}</h2>
 </div>
 
-{{-- Today's snapshot --}}
+{{-- KPI strip --}}
+@php
+    $globalPending = 0;
+    $user = auth()->user();
+    if ($user?->hasPermission('view_lazada_orders')) $globalPending += ($lazadaPending ?? 0);
+    if ($user?->hasPermission('view_shopee_orders')) $globalPending += ($shopeePending ?? 0);
+    if ($user?->hasPermission('view_tiktok_orders')) $globalPending += ($tiktokPending ?? 0);
+    if ($user?->hasPermission('view_opencart_orders') && $syncStatuses instanceof \Illuminate\Support\Collection) {
+        $globalPending += $syncStatuses->sum('pending_count');
+    }
+    if ($user?->hasPermission('view_venta_orders') && !empty($ventaStoreNames ?? [])) {
+        $pendingStatusIds = \App\Models\Catalog\OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
+        foreach ($ventaStoreNames as $storeId => $storeName) {
+            $globalPending += (int) DB::table(config('catalog.prefix') . 'order')
+                ->where('marketplace_source', 'venta:' . $storeId)
+                ->whereIn('order_status_id', $pendingStatusIds)
+                ->count();
+        }
+    }
+    $pendingLink = Route::has('integrations.orders') ? route('integrations.orders') : route('orders.index');
+@endphp
 <div class="dash-snapshot">
-    <div class="dash-snap-item">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-        <span class="dash-snap-value">{{ number_format($todayOrders) }}</span>
-        <span class="dash-snap-label">orders today</span>
-    </div>
-    <div class="dash-snap-sep"></div>
-    <div class="dash-snap-item">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <span class="dash-snap-value">&#8369;{{ number_format($todayRevenue, 2) }}</span>
-        <span class="dash-snap-label">revenue today</span>
-    </div>
-    <div class="dash-snap-sep"></div>
-    <div class="dash-snap-item">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span class="dash-snap-value">{{ number_format($weekOrders) }}</span>
-        <span class="dash-snap-label">orders this week</span>
-    </div>
-</div>
-
-{{-- Stat cards --}}
-<div class="dash-stat-grid">
-    <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#3b82f6; --stat-bg:rgba(59,130,246,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($totalOrders) }}</div>
-            <div class="dash-stat-label">Total Orders</div>
-            <div class="dash-stat-breakdown">
-                @foreach(['direct' => 'Direct', 'lazada' => 'Lazada', 'opencart' => 'OpenCart'] as $key => $label)
-                    @if(($ordersBySource->get($key)->cnt ?? 0) > 0)
-                        <span>{{ $label }}: {{ number_format($ordersBySource->get($key)->cnt) }}</span>
-                    @endif
-                @endforeach
-            </div>
-        </div>
+    <a href="{{ route('orders.index') }}" class="dash-snap-item">
+        <span class="dash-snap-label">Today</span>
+        @php
+            $todayRevDelta = $yesterdayRevenue > 0 ? round(($todayRevenue - $yesterdayRevenue) / $yesterdayRevenue * 100) : ($todayRevenue > 0 ? 100 : 0);
+        @endphp
+        <span class="dash-snap-value">{{ number_format($todayOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">&#8369;{{ number_format($todayRevenue, 0) }}</span></span>
+        <span class="dash-snap-compare">
+            @if($todayRevDelta != 0)
+                <span class="dash-snap-arrow {{ $todayRevDelta > 0 ? 'is-up' : 'is-down' }}">{{ $todayRevDelta > 0 ? '↑' : '↓' }} {{ abs($todayRevDelta) }}%</span>
+            @endif
+            vs {{ number_format($yesterdayOrders) }} orders / &#8369;{{ number_format($yesterdayRevenue, 0) }} yesterday
+        </span>
     </a>
-    <a href="{{ route('orders.index') }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">&#8369;{{ number_format($totalRevenue, 2) }}</div>
-            <div class="dash-stat-label">Total Revenue</div>
-            <div class="dash-stat-breakdown">
-                @foreach(['direct' => 'Direct', 'lazada' => 'Lazada', 'opencart' => 'OpenCart'] as $key => $label)
-                    @if(($ordersBySource->get($key)->rev ?? 0) > 0)
-                        <span>{{ $label }}: &#8369;{{ number_format((float)$ordersBySource->get($key)->rev, 0) }}</span>
-                    @endif
-                @endforeach
-            </div>
-        </div>
+    <a href="{{ route('orders.index') }}" class="dash-snap-item">
+        <span class="dash-snap-label">Weekly</span>
+        @php
+            $weekRevDelta = $lastWeekRevenue > 0 ? round(($weekRevenue - $lastWeekRevenue) / $lastWeekRevenue * 100) : ($weekRevenue > 0 ? 100 : 0);
+        @endphp
+        <span class="dash-snap-value">{{ number_format($weekOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">&#8369;{{ number_format($weekRevenue, 0) }}</span></span>
+        <span class="dash-snap-compare">
+            @if($weekRevDelta != 0)
+                <span class="dash-snap-arrow {{ $weekRevDelta > 0 ? 'is-up' : 'is-down' }}">{{ $weekRevDelta > 0 ? '↑' : '↓' }} {{ abs($weekRevDelta) }}%</span>
+            @endif
+            vs {{ number_format($lastWeekOrders) }} orders / &#8369;{{ number_format($lastWeekRevenue, 0) }} last week
+        </span>
     </a>
-    <a href="{{ route('products.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($totalProducts) }}</div>
-            <div class="dash-stat-label">Products</div>
-        </div>
+    <a href="{{ route('orders.index') }}" class="dash-snap-item">
+        <span class="dash-snap-label">All-time</span>
+        <span class="dash-snap-value">{{ number_format($totalOrders) }}<span class="dash-snap-unit">orders</span></span>
+        <span class="dash-snap-sub"><b>&#8369;{{ number_format($totalRevenue, 0) }}</b> gross</span>
     </a>
-    @if(auth()->user()?->hasPermission('view_lazada_orders') && Route::has('ext.lazada.orders.index'))
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'PENDING']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($lazadaPending) }}</div>
-            <div class="dash-stat-label">Lazada Pending</div>
-        </div>
+    <a href="{{ $pendingLink }}" class="dash-snap-item">
+        <span class="dash-snap-label">Pending</span>
+        <span class="dash-snap-value" style="{{ $globalPending > 0 ? 'color:var(--danger);' : '' }}">{{ number_format($globalPending) }}<span class="dash-snap-unit">orders</span></span>
+        <span class="dash-snap-sub">across all channels</span>
     </a>
-    @endif
-    @if(auth()->user()?->hasPermission('view_shopee_orders') && Route::has('ext.shopee.orders.index'))
-    <a href="{{ route('ext.shopee.orders.index', ['tab' => 'PENDING']) }}" class="dash-stat" style="--stat-accent:#ee4d2d; --stat-bg:rgba(238,77,45,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($shopeePending) }}</div>
-            <div class="dash-stat-label">Shopee Pending</div>
-        </div>
-    </a>
-    @endif
-    @if(auth()->user()?->hasPermission('view_tiktok_orders') && Route::has('ext.tiktok.orders.index'))
-    <a href="{{ route('ext.tiktok.orders.index') }}" class="dash-stat" style="--stat-accent:#1e1e1e; --stat-bg:rgba(30,30,30,.08);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($tiktokPending ?? 0) }}</div>
-            <div class="dash-stat-label">TikTok Pending</div>
-        </div>
-    </a>
-    @endif
-    @if(auth()->user()?->hasPermission('view_opencart_orders') && Route::has('ext.opencart.orders.index') && $syncStatuses->isNotEmpty())
-        @foreach($syncStatuses as $store)
-            <a href="{{ route('ext.opencart.orders.index', $store->id) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
-                <div class="dash-stat-icon">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </div>
-                <div class="dash-stat-body">
-                    <div class="dash-stat-value">{{ number_format((int) ($store->pending_count ?? 0)) }}</div>
-                    <div class="dash-stat-label">{{ $store->store_name ?: 'OpenCart #'.$store->id }} Pending</div>
-                </div>
-            </a>
-        @endforeach
-    @endif
 </div>
 
 {{-- Purchasing stats (from extension) --}}
 @if(Route::has('ext.purchasing.purchase_orders.index') && auth()->user()?->hasPermission('manage_purchasing'))
-<div class="dash-stats">
-    <a href="{{ route('ext.purchasing.purchase_orders.index') }}" class="dash-stat" style="--stat-accent:#8b5cf6; --stat-bg:rgba(139,92,246,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($openPos) }}</div>
-            <div class="dash-stat-label">Open POs</div>
-        </div>
+<div class="dash-snapshot">
+    <a href="{{ route('ext.purchasing.purchase_orders.index') }}" class="dash-snap-item">
+        <span class="dash-snap-label">Open POs</span>
+        <span class="dash-snap-value">{{ number_format($openPos) }}</span>
     </a>
-    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#f59e0b; --stat-bg:rgba(245,158,11,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($pendingDelivery) }}</div>
-            <div class="dash-stat-label">Pending Delivery</div>
-        </div>
+    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'ordered']) }}" class="dash-snap-item">
+        <span class="dash-snap-label">Pending Delivery</span>
+        <span class="dash-snap-value">{{ number_format($pendingDelivery) }}</span>
     </a>
-    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'ordered']) }}" class="dash-stat" style="--stat-accent:#ef4444; --stat-bg:rgba(239,68,68,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">{{ number_format($overduePos) }}</div>
-            <div class="dash-stat-label">Overdue POs</div>
-        </div>
+    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'ordered']) }}" class="dash-snap-item">
+        <span class="dash-snap-label">Overdue</span>
+        <span class="dash-snap-value" style="{{ $overduePos > 0 ? 'color:var(--danger);' : '' }}">{{ number_format($overduePos) }}</span>
     </a>
-    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'received']) }}" class="dash-stat" style="--stat-accent:#22c55e; --stat-bg:rgba(34,197,94,.1);">
-        <div class="dash-stat-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div class="dash-stat-body">
-            <div class="dash-stat-value">&#8369;{{ number_format($monthlyPoSpend, 2) }}</div>
-            <div class="dash-stat-label">Monthly PO Spend</div>
-        </div>
+    <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'received']) }}" class="dash-snap-item">
+        <span class="dash-snap-label">PO Spend (MTD)</span>
+        <span class="dash-snap-value" style="font-size:20px;">&#8369;{{ number_format($monthlyPoSpend, 0) }}</span>
     </a>
 </div>
 @endif
 
-{{-- Sales chart + Platform distribution row (side-by-side) --}}
-<div style="display:grid; grid-template-columns: 3fr 2fr; gap:16px; margin-bottom:16px;">
-    {{-- Sales chart --}}
-    @if(true)
-    <div class="card">
-        <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
-            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales (Last 30 Days)</h3>
-            <div class="d-flex items-center gap-8">
-                <div class="chart-range-toggle" id="chartRangeToggle">
-                    <button class="chart-range-btn active" data-range="30d">30 Days</button>
-                    <button class="chart-range-btn" data-range="monthly">Monthly</button>
-                    <button class="chart-range-btn" data-range="yearly">Yearly</button>
-                </div>
-            </div>
+{{-- Charts: unified filter + side-by-side layout --}}
+<div class="card" style="margin-bottom:16px;">
+    <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:16px;">
+        <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="chartTitle">Sales Overview (Last 30 Days)</h3>
+        <div class="chart-range-toggle" id="chartRangeToggle">
+            <button class="chart-range-btn active" data-range="30d">30 Days</button>
+            <button class="chart-range-btn" data-range="monthly">Monthly</button>
+            <button class="chart-range-btn" data-range="yearly">Yearly</button>
         </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 3fr 2fr; gap:24px; align-items:start;">
         <div style="position:relative; width:100%; height:320px;">
             <canvas id="salesChart"></canvas>
         </div>
-    </div>
-    @endif
-
-    {{-- Platform distribution pie chart --}}
-    @if(true)
-    <div class="card" style="position:relative; z-index:2; overflow:visible;">
-        <div class="d-flex justify-between items-center flex-wrap gap-8" style="margin-bottom:12px;">
-            <h3 class="section-title mt-0" style="border:0; padding:0; margin:0;" id="pieTitle">Orders by Platform (Last 30 Days)</h3>
-            <div class="chart-range-toggle" id="pieRangeToggle">
-                <button class="chart-range-btn active" data-range="30d">30 Days</button>
-                <button class="chart-range-btn" data-range="monthly">Monthly</button>
-                <button class="chart-range-btn" data-range="yearly">Yearly</button>
+        <div style="position:relative; overflow:visible;">
+            <h4 style="margin:0 0 12px; font-size:13px; font-weight:600; color:var(--text-secondary);">Orders by Platform</h4>
+            <div style="display:flex; align-items:center; gap:24px;">
+                <div style="position:relative; width:200px; height:200px; flex-shrink:0; overflow:visible;">
+                    <canvas id="platformChart"></canvas>
+                </div>
+                <div id="pieLegend" style="flex:1; font-size:13px;"></div>
             </div>
         </div>
-        <div style="display:flex; align-items:center; gap:24px;">
-            <div style="position:relative; width:220px; height:220px; flex-shrink:0; overflow:visible;">
-                <canvas id="platformChart"></canvas>
-            </div>
-            <div id="pieLegend" style="flex:1; font-size:13px;"></div>
-        </div>
     </div>
-    @endif
 </div>
 
 {{-- Sync status row (now its own row, was previously to the right of the pie) --}}
@@ -567,33 +479,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Range toggle buttons (sales chart only)
-    document.querySelectorAll('#chartRangeToggle .chart-range-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var range = this.dataset.range;
-            this.closest('.chart-range-toggle').querySelectorAll('.chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
-            this.classList.add('active');
-            document.getElementById('chartTitle').textContent = titles[range] || titles['30d'];
-
-            fetch('{{ route("dashboard.chart_data") }}?range=' + range)
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    salesChart.data.labels = data.labels;
-                    salesChart.data.datasets[0].data = data.revenue;
-                    salesChart.data.datasets[1].data = data.orders;
-                    salesChart.update();
-                });
-        });
-    });
-
     // ---- Platform distribution pie chart ----
     var pieCtx = document.getElementById('platformChart');
     var pieLegend = document.getElementById('pieLegend');
-    var pieTitles = {
-        '30d': 'Orders by Platform (Last 30 Days)',
-        'monthly': 'Orders by Platform (Monthly)',
-        'yearly': 'Orders by Platform (Yearly)'
-    };
 
     var platformChart = null;
 
@@ -698,13 +586,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial load
     loadPieData('30d');
 
-    // Pie range toggle
-    document.querySelectorAll('#pieRangeToggle .chart-range-btn').forEach(function(btn) {
+    // Unified range toggle — drives BOTH charts
+    document.querySelectorAll('#chartRangeToggle .chart-range-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var range = this.dataset.range;
             this.closest('.chart-range-toggle').querySelectorAll('.chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
             this.classList.add('active');
-            document.getElementById('pieTitle').textContent = pieTitles[range] || pieTitles['30d'];
+            document.getElementById('chartTitle').textContent = titles[range] || titles['30d'];
+
+            fetch('{{ route("dashboard.chart_data") }}?range=' + range)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    salesChart.data.labels = data.labels;
+                    salesChart.data.datasets[0].data = data.revenue;
+                    salesChart.data.datasets[1].data = data.orders;
+                    salesChart.update();
+                });
+
             loadPieData(range);
         });
     });
