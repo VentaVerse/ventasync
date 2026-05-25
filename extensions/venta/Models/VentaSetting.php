@@ -11,6 +11,7 @@ class VentaSetting extends Model
 
     protected $fillable = [
         'store_name',
+        'brand_color',
         'base_url',
         'api_token',
         'enabled',

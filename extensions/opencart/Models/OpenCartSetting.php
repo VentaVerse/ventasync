@@ -10,6 +10,7 @@ class OpenCartSetting extends Model
 
     protected $fillable = [
         'store_name',
+        'brand_color',
         'base_url',
         'api_key',
         'enabled',

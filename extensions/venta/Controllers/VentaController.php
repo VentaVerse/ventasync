@@ -94,6 +94,7 @@ class VentaController extends Controller
         $data = $request->validate([
             'store_id'       => ['nullable', 'integer'],
             'store_name'     => ['nullable', 'string', 'max:128'],
+            'brand_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'base_url'       => ['required', 'string', 'max:255'],
             'api_token'      => ['required', 'string', 'max:255'],
             'enabled'        => ['nullable'],
@@ -110,6 +111,7 @@ class VentaController extends Controller
             $setting = VentaSetting::findOrFail((int) $storeId);
             $setting->update([
                 'store_name'       => $data['store_name'] ?? '',
+                'brand_color'      => $data['brand_color'] ?? $setting->brand_color,
                 'base_url'         => $data['base_url'],
                 'api_token'        => $data['api_token'],
                 'enabled'          => $data['enabled'],
@@ -121,6 +123,7 @@ class VentaController extends Controller
         } else {
             $setting = VentaSetting::create([
                 'store_name'       => $data['store_name'] ?? '',
+                'brand_color'      => $data['brand_color'] ?? null,
                 'base_url'         => $data['base_url'],
                 'api_token'        => $data['api_token'],
                 'enabled'          => $data['enabled'],

@@ -403,12 +403,12 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
         // Stable hue per store derived from store id so the platform pie chart
         // colors don't shuffle on every page render.
         $palette = ['#16a34a', '#38bdf8', '#a855f7', '#f97316', '#0ea5e9', '#ec4899', '#65a30d'];
-        return OpenCartSetting::orderBy('id')->get(['id', 'store_name'])
+        return OpenCartSetting::orderBy('id')->get(['id', 'store_name', 'brand_color'])
             ->map(fn ($s) => [
                 'value'       => 'opencart:' . $s->id,
                 'label'       => $s->store_name ?: ('OpenCart #' . $s->id),
                 'badge_class' => 'badge-dark',
-                'chart_color' => $palette[($s->id - 1) % count($palette)],
+                'chart_color' => $s->brand_color ?: $palette[($s->id - 1) % count($palette)],
             ])->all();
     }
 }

@@ -146,6 +146,14 @@
                                             <input type="text" name="store_name" class="input" value="{{ $store->store_name }}" placeholder="e.g. My Venta Store">
                                         </div>
                                         <div>
+                                            <label>Brand Color</label>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <input type="color" name="brand_color" value="{{ $store->brand_color ?: '#059669' }}" style="width:40px; height:34px; padding:2px; border:1px solid var(--border); border-radius:6px; cursor:pointer;">
+                                                <input type="text" class="input" value="{{ $store->brand_color ?: '#059669' }}" maxlength="7" style="width:90px; font-family:monospace;" oninput="this.previousElementSibling.value=this.value" onchange="this.previousElementSibling.value=this.value">
+                                            </div>
+                                            <div class="hint">Used in pie charts, reports, and badges.</div>
+                                        </div>
+                                        <div>
                                             <label class="required">Base URL</label>
                                             <input type="text" name="base_url" class="input" value="{{ $store->base_url }}" placeholder="https://store.example.com">
                                         </div>
@@ -569,6 +577,13 @@
 
 @push('scripts')
 <script>
+    /* Color picker ↔ hex input sync */
+    document.querySelectorAll('input[type="color"][name="brand_color"]').forEach(function(picker) {
+        var hex = picker.nextElementSibling;
+        picker.addEventListener('input', function() { hex.value = picker.value; });
+        hex.addEventListener('input', function() { if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) picker.value = hex.value; });
+    });
+
     /* Store switcher */
     function switchStore(btn) {
         var target = btn.getAttribute('data-target');
