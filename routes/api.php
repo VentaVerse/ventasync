@@ -51,10 +51,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/order-statuses', [ApiOrderController::class, 'statuses']);
     });
 
-    Route::middleware('perm:manage_marketplace_api')->group(function () {
-        Route::get('/marketplace/{platform}/orders', [ApiMarketplaceOrderController::class, 'index']);
-        Route::get('/marketplace/{platform}/orders/{id}', [ApiMarketplaceOrderController::class, 'show']);
-    });
+    // Per-platform permission is enforced inside MarketplaceOrderController
+    // (manage_{platform}_orders) — the container 'manage_marketplace_api'
+    // is intentionally view-only and only gates menu visibility.
+    Route::get('/marketplace/{platform}/orders', [ApiMarketplaceOrderController::class, 'index']);
+    Route::get('/marketplace/{platform}/orders/{id}', [ApiMarketplaceOrderController::class, 'show']);
 
     Route::middleware('perm:manage_venta_orders')->group(function () {
         Route::get('/venta-stores', [VentaOrderApiController::class, 'stores']);

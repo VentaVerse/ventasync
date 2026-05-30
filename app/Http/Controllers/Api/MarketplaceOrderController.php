@@ -20,6 +20,10 @@ class MarketplaceOrderController extends Controller
 {
     public function index(Request $request, string $platform)
     {
+        if ($denied = $this->denyIfNoPermission($request, $platform)) {
+            return $denied;
+        }
+
         $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
         if ($provider === null) {
             return response()->json(['error' => 'Invalid platform'], 404);
@@ -30,6 +34,10 @@ class MarketplaceOrderController extends Controller
 
     public function show(Request $request, string $platform, int $id)
     {
+        if ($denied = $this->denyIfNoPermission($request, $platform)) {
+            return $denied;
+        }
+
         $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
         if ($provider === null) {
             return response()->json(['error' => 'Invalid platform'], 404);
@@ -41,5 +49,23 @@ class MarketplaceOrderController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * Per-marketplace permission gate: a user with manage_{platform}_orders
+     * can access that platform's orders, regardless of the parent container
+     * permission. Returns null on pass, a 403 JsonResponse on fail.
+     */
+    private function denyIfNoPermission(Request $request, string $platform): ?\Illuminate\Http\JsonResponse
+    {
+        $key = 'manage_' . $platform . '_orders';
+        if ($request->user()->hasPermission($key)) {
+            return null;
+        }
+
+        return response()->json([
+            'error'   => 'permission_denied',
+            'message' => "You don't have permission to access {$platform} orders.",
+        ], 403);
     }
 }
