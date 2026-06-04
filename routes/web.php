@@ -8,7 +8,6 @@ use App\Http\Controllers\ManufacturerController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
 use App\Http\Controllers\ProductOptionController;
-use App\Http\Controllers\OptionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\SettingController;
@@ -113,20 +112,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/catalog/products/{id}/options', [ProductOptionController::class, 'update'])->whereNumber('id')->name('products.options.update');
     });
 
-    // ── Options — READ ──
-    Route::middleware(['perm:view_options|manage_options'])->group(function () {
-        Route::get('/catalog/options', [OptionController::class, 'index'])->name('options.index');
-    });
-    // ── Options — WRITE ──
-    Route::middleware(['perm:manage_options'])->group(function () {
-        Route::get('/catalog/options/create', [OptionController::class, 'create'])->name('options.create');
-        Route::post('/catalog/options', [OptionController::class, 'store'])->name('options.store');
-        Route::get('/catalog/options/{id}/edit', [OptionController::class, 'edit'])->name('options.edit');
-        Route::put('/catalog/options/{id}', [OptionController::class, 'update'])->name('options.update');
-        Route::delete('/catalog/options/{id}', [OptionController::class, 'destroy'])->name('options.destroy');
-        Route::post('/catalog/options/bulk-delete', [OptionController::class, 'bulkDestroy'])->name('options.bulk_delete');
-        Route::delete('/catalog/options/{optionId}/values/{valueId}', [OptionController::class, 'destroyValue'])->name('options.values.destroy');
-    });
+    // Standalone catalog Options page removed (2026-06) — options/variations are
+    // created at the product level (ProductOptionController::resolveOptionId,
+    // find-or-create by name). The OptionController, its routes, and the
+    // options index view were dead weight. Product-level option editing lives
+    // under products.options.* (gated by manage_products), unaffected.
 
     // ── Manufacturers — READ ──
     Route::middleware(['perm:view_manufacturers|manage_manufacturers'])->group(function () {
