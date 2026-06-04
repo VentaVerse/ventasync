@@ -9,14 +9,14 @@
 <div id="options-error" class="alert danger d-none" style="margin-bottom:12px;"></div>
 <div id="options-root">
     <input type="hidden" name="_options_format" value="absolute">
-    {{-- Option 1 + Option 2 side by side --}}
+    {{-- Variation 1 + Variation 2 side by side --}}
     <div class="opt-row">
-        {{-- Option 1 --}}
+        {{-- Variation 1 --}}
         <div id="option1-group" class="d-none opt-col">
             <div class="card opt-card">
                 <div class="d-flex gap-10 flex-wrap opt-header">
                     <div style="flex:1; min-width:160px;">
-                        <label class="required">Option 1 Name</label>
+                        <label class="required">Variation 1 Name</label>
                         <input class="input" id="opt1-name-input" placeholder="e.g. Cable Length, Color" autocomplete="off">
                     </div>
                     <div>
@@ -24,7 +24,7 @@
                     </div>
                 </div>
 
-                {{-- Option 1 values (editable list — visible in 2-option mode only) --}}
+                {{-- Variation 1 values (editable list — visible in 2-option mode only) --}}
                 <div class="mt-8 d-none" id="opt1-values-section">
                     <label>Values</label>
                     <div id="opt1-value-list"></div>
@@ -36,17 +36,17 @@
             </div>
         </div>
 
-        {{-- Add Option 2 button (beside opt1 card) --}}
+        {{-- Add Variation 2 button (beside opt1 card) --}}
         <div id="add-opt2-wrapper" class="d-none opt-add-opt2">
-            <button class="btn secondary opt-btn-sm" type="button" id="add-opt2-btn">+ Add Option 2</button>
+            <button class="btn secondary opt-btn-sm" type="button" id="add-opt2-btn">+ Add Variation 2</button>
         </div>
 
-        {{-- Option 2 (2-option mode only) --}}
+        {{-- Variation 2 (2-option mode only) --}}
         <div id="option2-group" class="d-none opt-col">
             <div class="card opt-card">
                 <div class="d-flex gap-10 flex-wrap opt-header">
                     <div style="flex:1; min-width:160px;">
-                        <label class="required">Option 2 Name</label>
+                        <label class="required">Variation 2 Name</label>
                         <input class="input" id="opt2-name-input" placeholder="e.g. Size, Plug Type" autocomplete="off">
                     </div>
                     <div>
@@ -81,7 +81,7 @@
 </div>
 
 <div id="add-option-wrapper" class="mt-12">
-    <button class="btn secondary" type="button" id="add-option-btn">Add Option</button>
+    <button class="btn secondary" type="button" id="add-option-btn">Add Variation</button>
 </div>
 
 @push('scripts')
@@ -169,7 +169,7 @@ function setMode(newMode) {
     $addOptWrapper.classList.toggle('d-none', mode !== 'none');
     $tableWrap.classList.toggle('d-none', mode === 'none');
     $addRowBtn.classList.toggle('d-none', mode !== 'one');
-    // Option 1 chip UI only in 2-option mode
+    // Variation 1 chip UI only in 2-option mode
     $opt1ValSection.classList.toggle('d-none', mode !== 'two');
     if (mode === 'two') renderOpt1List();
     renderTable();
@@ -343,8 +343,8 @@ function bindRowEvents(tr) {
 function buildHeaderRow(is2) {
     const tr = document.createElement('tr');
     if (is2) {
-        const th1 = createEl('th', { className: 'opt-col-opt' }, $opt1Name.value || 'Option 1');
-        const th2 = createEl('th', { className: 'opt-col-opt' }, $opt2Name.value || 'Option 2');
+        const th1 = createEl('th', { className: 'opt-col-opt' }, $opt1Name.value || 'Variation 1');
+        const th2 = createEl('th', { className: 'opt-col-opt' }, $opt2Name.value || 'Variation 2');
         tr.appendChild(th1);
         tr.appendChild(th2);
     } else {
@@ -511,7 +511,7 @@ function recalcProductQty() {
         qtyInput.readOnly = true;
         qtyInput.value = total;
         qtyInput.classList.add('opt-qty-readonly');
-        qtyInput.title = 'Auto-calculated from option quantities';
+        qtyInput.title = 'Auto-calculated from variation quantities';
         if (hint) hint.classList.remove('d-none');
     } else {
         qtyInput.readOnly = false;
@@ -711,48 +711,48 @@ if (form) {
 
         // Option name(s) must not be empty
         if (!$opt1Name.value.trim()) {
-            errors.push('Option 1 name is required.');
+            errors.push('Variation 1 name is required.');
             $opt1Name.classList.add('input-error');
             if (!firstBadInput) firstBadInput = $opt1Name;
         }
         if (mode === 'two' && !$opt2Name.value.trim()) {
-            errors.push('Option 2 name is required.');
+            errors.push('Variation 2 name is required.');
             $opt2Name.classList.add('input-error');
             if (!firstBadInput) firstBadInput = $opt2Name;
         }
 
-        // Option 1 and Option 2 names must differ
+        // Variation 1 and Variation 2 names must differ
         if (mode === 'two' && $opt1Name.value.trim() && $opt2Name.value.trim()
             && $opt1Name.value.trim().toLowerCase() === $opt2Name.value.trim().toLowerCase()) {
-            errors.push('Option 1 and Option 2 cannot have the same name.');
+            errors.push('Variation 1 and Variation 2 cannot have the same name.');
             $opt2Name.classList.add('input-error');
             if (!firstBadInput) firstBadInput = $opt2Name;
         }
 
         if (opt1Values.length === 0) {
-            errors.push('Option 1 must have at least one value.');
+            errors.push('Variation 1 must have at least one value.');
         }
         if (mode === 'two' && opt2Values.length === 0) {
-            errors.push('Option 2 must have at least one value.');
+            errors.push('Variation 2 must have at least one value.');
         }
 
-        // Duplicate value names within Option 1
+        // Duplicate value names within Variation 1
         const seen1 = {};
         opt1Values.forEach(v => {
             const lower = (v.name || '').trim().toLowerCase();
             if (lower && seen1[lower]) {
-                errors.push('Duplicate value name "' + v.name.trim() + '" in Option 1.');
+                errors.push('Duplicate value name "' + v.name.trim() + '" in Variation 1.');
             }
             if (lower) seen1[lower] = true;
         });
 
-        // Duplicate value names within Option 2
+        // Duplicate value names within Variation 2
         if (mode === 'two') {
             const seen2 = {};
             opt2Values.forEach(v => {
                 const lower = (v.name || '').trim().toLowerCase();
                 if (lower && seen2[lower]) {
-                    errors.push('Duplicate value name "' + v.name.trim() + '" in Option 2.');
+                    errors.push('Duplicate value name "' + v.name.trim() + '" in Variation 2.');
                 }
                 if (lower) seen2[lower] = true;
             });
@@ -794,10 +794,10 @@ if (form) {
         });
 
         if ($tbody.querySelectorAll('.js-value-name.input-error').length > 0) {
-            errors.unshift('All option values must have a name.');
+            errors.unshift('All variation values must have a name.');
         }
         if ($tbody.querySelectorAll('.js-sku.input-error').length > 0 && !errors.some(e => e.includes('SKU'))) {
-            errors.push('All option values must have a SKU.');
+            errors.push('All variation values must have a SKU.');
         }
 
         if (errors.length > 0) {
@@ -826,7 +826,7 @@ if (form) {
                 let remoteBad = null;
                 for (const [key, type] of Object.entries(taken)) {
                     const input = skuInputMap[key];
-                    const label = type === 'option_value' ? "another product's option value" : 'another product';
+                    const label = type === 'option_value' ? "another product's variation value" : 'another product';
                     remoteErrors.push('SKU "' + (input ? input.value.trim() : key) + '" is already used by ' + label + '.');
                     if (input) { input.classList.add('input-error'); if (!remoteBad) remoteBad = input; }
                 }

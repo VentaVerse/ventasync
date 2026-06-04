@@ -41,7 +41,7 @@
 
         <div class="tabs mb-12">
             <button type="button" class="tab active" data-tab="prod-tab-general">General</button>
-            <button type="button" class="tab" data-tab="prod-tab-options">Options</button>
+            <button type="button" class="tab" data-tab="prod-tab-options">Variations</button>
         </div>
 
         {{-- ===== GENERAL TAB ===== --}}
@@ -90,7 +90,7 @@
                 <div>
                     <label>Quantity</label>
                     <input class="input" id="product_quantity" name="quantity" value="{{ old('quantity', $product->quantity) }}">
-                    <div class="hint" id="qty_hint" style="display:none;">Quantity is auto-calculated from option quantities.</div>
+                    <div class="hint" id="qty_hint" style="display:none;">Quantity is auto-calculated from variation quantities.</div>
                     @php
                         $__inventoryBreakdown = null;
                         foreach (app(\App\Integrations\IntegrationRegistry::class)->productInventoryDetailContributors() as $__c) {

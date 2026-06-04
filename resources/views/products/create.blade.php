@@ -14,7 +14,7 @@
 
         <div class="tabs mb-12">
             <button type="button" class="tab active" data-tab="prod-tab-general">General</button>
-            <button type="button" class="tab" data-tab="prod-tab-options">Options</button>
+            <button type="button" class="tab" data-tab="prod-tab-options">Variations</button>
         </div>
 
         {{-- ===== GENERAL TAB ===== --}}
@@ -70,7 +70,7 @@
                     @error('quantity')
                         <div class="field-error">{{ $message }}</div>
                     @enderror
-                    <div class="hint hidden" id="qty_hint">Quantity is auto-calculated from option quantities.</div>
+                    <div class="hint hidden" id="qty_hint">Quantity is auto-calculated from variation quantities.</div>
                 </div>
 
                 <div>
