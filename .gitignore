@@ -39,3 +39,6 @@ CLAUDE.md
 
 # Playwright MCP scratch snapshots
 .playwright-mcp/
+
+# Dev/QA screenshots — collected out of the repo root into one folder
+.dev-screenshots/
