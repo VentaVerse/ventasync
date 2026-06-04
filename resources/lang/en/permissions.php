@@ -58,14 +58,6 @@ return [
         'label'       => 'Manage Manufacturers',
         'description' => 'View, create, edit, and delete manufacturers',
     ],
-    'view_options' => [
-        'label'       => 'View Options',
-        'description' => 'Browse product options (read-only)',
-    ],
-    'manage_options' => [
-        'label'       => 'Manage Options',
-        'description' => 'View, create, edit, and delete product options',
-    ],
 
     // ── Sales (core) ──────────────────────────────────────────
     'view_sales' => [

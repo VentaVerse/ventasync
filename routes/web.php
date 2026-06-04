@@ -64,7 +64,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Catalog (parent permission OR any child grants access via expansion)
     // ── Read-tier: lookups + read APIs (any catalog tier holder can use) ──
-    Route::middleware(['perm:view_products|manage_products|view_categories|manage_categories|view_manufacturers|manage_manufacturers|view_options|manage_options|manage_catalog'])->group(function () {
+    Route::middleware(['perm:view_products|manage_products|view_categories|manage_categories|view_manufacturers|manage_manufacturers|manage_catalog'])->group(function () {
         Route::get('/lookup/manufacturers', [ManufacturerController::class, 'lookup'])->name('manufacturers.lookup');
         Route::get('/lookup/categories', [CategoryController::class, 'lookup'])->name('categories.lookup');
         Route::get('/api/catalog/manufacturers', [ApiCatalogController::class, 'manufacturers'])->name('api.catalog.manufacturers');

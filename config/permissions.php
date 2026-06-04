@@ -50,8 +50,8 @@ return [
     'view_manufacturers'   => ['parent' => 'manage_catalog', 'label' => 'View Manufacturers',   'tiers' => ['view', 'manage']],
     'manage_manufacturers' => ['parent' => 'manage_catalog', 'label' => 'Manage Manufacturers', 'tiers' => ['view', 'manage']],
 
-    'view_options'         => ['parent' => 'manage_catalog', 'label' => 'View Options',         'tiers' => ['view', 'manage']],
-    'manage_options'       => ['parent' => 'manage_catalog', 'label' => 'Manage Options',       'tiers' => ['view', 'manage']],
+    // view_options / manage_options removed 2026-06 — the standalone Options
+    // page is gone; product variations are gated by manage_products.
 
     // ── Sales ───────────────────────────────────────────────────
     'view_sales'            => ['parent' => null,           'label' => 'Sales',              'sort' => 20, 'tiers' => ['view', 'manage']],
