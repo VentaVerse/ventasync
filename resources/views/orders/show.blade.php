@@ -579,7 +579,7 @@ document.addEventListener('click', function(e) {
         span.textContent = newCost > 0 ? newCost.toFixed(2) : '-';
         span.dataset.cost = newCost;
 
-        fetch(@json(url('/orders')) + '/' + @json($order->order_id) + '/update-product-cost', {
+        fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/update-product-cost', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -640,7 +640,7 @@ document.addEventListener('click', function(e) {
         span.textContent = newAmount > 0 ? '-' + newAmount.toFixed(2) : '0.00';
         span.dataset.amount = newAmount;
 
-        fetch(@json(url('/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
+        fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -696,7 +696,7 @@ document.addEventListener('click', function(e) {
         span.textContent = newLabel;
         span.dataset.label = newLabel;
 
-        fetch(@json(url('/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
+        fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -751,7 +751,7 @@ document.addEventListener('click', function(e) {
         span.dataset.cost = newCost;
         span.style.color = newCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
 
-        fetch(@json(url('/orders')) + '/' + orderId + '/update-shipping-cost', {
+        fetch(@json(url('/sales/orders')) + '/' + orderId + '/update-shipping-cost', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
