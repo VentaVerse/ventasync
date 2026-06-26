@@ -106,7 +106,7 @@
                 <th style="width:80px;"><a href="{{ $sortUrl('catalog_order_id') }}">ERP # {!! $arrow('catalog_order_id') !!}</a></th>
                 <th style="width:100px;"><a href="{{ $sortUrl('venta_order_number') }}">Venta # {!! $arrow('venta_order_number') !!}</a></th>
                 <th><a href="{{ $sortUrl('customer_name') }}">Customer {!! $arrow('customer_name') !!}</a></th>
-                <th><a href="{{ $sortUrl('status') }}">Status {!! $arrow('status') !!}</a></th>
+                <th><a href="{{ $sortUrl('status') }}">Venta Status {!! $arrow('status') !!}</a></th>
                 <th style="width:140px;"><a href="{{ $sortUrl('payment_method') }}">Payment {!! $arrow('payment_method') !!}</a></th>
                 <th class="text-right" style="width:100px;"><a href="{{ $sortUrl('total') }}">Total {!! $arrow('total') !!}</a></th>
                 <th style="width:130px;"><a href="{{ $sortUrl('tracking_number') }}">Tracking {!! $arrow('tracking_number') !!}</a></th>
