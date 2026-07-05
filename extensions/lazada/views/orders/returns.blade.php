@@ -58,6 +58,7 @@
     $active_tab = $active_tab ?? 'ALL';
     $tab_counts = $tab_counts ?? [];
     $erpMap = $erpMap ?? collect();
+    $imgMap = $imgMap ?? collect();
 @endphp
 
 {{-- Status tabs --}}
@@ -179,11 +180,14 @@
                             $sSku = (string)($it['seller_sku_id'] ?? '');
                             $itRefund = isset($it['refund_amount']) ? ((float)$it['refund_amount'] / 100) : null;
                             $itPrice = isset($it['item_unit_price']) ? ((float)$it['item_unit_price'] / 100) : null;
+                            $img = (string)($imgMap[$sSku] ?? ($imgMap[$pSku] ?? ''));
                         @endphp
                         <tr>
                             <td style="vertical-align:top;">
                                 <div class="d-flex gap-10">
-                                    <div class="order-img-wrap"><span class="text-xs text-muted">No image</span></div>
+                                    <div class="order-img-wrap">
+                                        @if($img)<img class="order-img" src="{{ $img }}" alt="">@else<span class="text-xs text-muted">No image</span>@endif
+                                    </div>
                                     <div style="min-width:0;">
                                         <div class="font-semibold" style="word-break:break-word;">{{ $pSku !== '' ? $pSku : ($sSku !== '' ? $sSku : '—') }}</div>
                                         @if($sSku !== '')

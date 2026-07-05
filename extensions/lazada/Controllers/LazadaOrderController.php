@@ -395,10 +395,22 @@ class LazadaOrderController extends Controller
             ->whereNotNull('catalog_order_id')
             ->pluck('catalog_order_id', 'order_id');
 
+        // Product images aren't in the return payload — resolve them by seller SKU
+        // from the synced order products (same image regardless of order).
+        $skus = collect($orders->items())
+            ->flatMap(fn ($o) => collect(is_array($o->items) ? $o->items : [])
+                ->map(fn ($it) => $it['seller_sku_id'] ?? ($it['product']['product_sku'] ?? null)))
+            ->filter()->unique()->values();
+        $imgMap = $skus->isEmpty() ? collect() : \DB::table('lazada_order_products')
+            ->whereIn('sku', $skus->all())
+            ->whereNotNull('image')->where('image', '!=', '')
+            ->pluck('image', 'sku');
+
         return view('ext-lazada::orders.returns', [
             'setting' => $setting,
             'orders' => $orders,
             'erpMap' => $erpMap,
+            'imgMap' => $imgMap,
             'per_page' => $perPage,
             'last_result' => session('lazada_orders_last_result'),
             'tabs' => $tabs,
