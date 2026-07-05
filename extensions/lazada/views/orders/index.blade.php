@@ -398,6 +398,9 @@
                                 <td colspan="7" style="padding:10px 12px 6px 12px;">
                                     <div class="d-flex justify-between items-start gap-12">
                                     <div class="text-xs text-secondary" style="line-height:1.35;">
+                                        @if($o->catalog_order_id)
+                                            <div style="font-weight:700; margin-bottom:2px;"><a href="{{ url('/sales/orders/'.$o->catalog_order_id) }}" style="color:var(--text-primary); text-decoration:none;">{{ $o->catalog_order_id }}</a></div>
+                                        @endif
                                         <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
                                         <span style="margin-left:8px;">Order Number:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $orderId }}</span>
                                         @if($itemCount > 0)
