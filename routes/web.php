@@ -248,6 +248,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/sales/orders/{id}/fees/{feeId}', [OrderController::class, 'destroyFee'])->whereNumber('id')->whereNumber('feeId')->name('orders.destroy_fee');
         Route::post('/sales/orders/bulk', [OrderController::class, 'bulkAction'])->name('orders.bulk');
         Route::post('/sales/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id')->name('orders.update_status');
+        Route::post('/sales/orders/{id}/toggle-override', [OrderController::class, 'toggleOverride'])->whereNumber('id')->name('orders.toggle_override');
         Route::get('/sales/orders/{id}/edit', [OrderController::class, 'edit'])->whereNumber('id')->name('orders.edit');
         Route::put('/sales/orders/{id}', [OrderController::class, 'update'])->whereNumber('id')->name('orders.update');
         Route::delete('/sales/orders/{id}', [OrderController::class, 'destroy'])->whereNumber('id')->name('orders.destroy');

@@ -447,6 +447,35 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $id)->with('status', 'Order status updated.');
     }
 
+    /**
+     * Toggle the per-order sync Override. When ON, marketplace syncs will not
+     * change this order's status or move its stock — the operator controls it
+     * manually (e.g. after verifying a return). Direct assignment (not mass
+     * assignment) so it works regardless of the model's fillable list.
+     */
+    public function toggleOverride($id)
+    {
+        $order = Order::where('order_id', (int) $id)->firstOrFail();
+        $new = (int) ($order->sync_override ?? 0) === 1 ? 0 : 1;
+        $order->sync_override = $new;
+        $order->save();
+
+        ActivityLogger::log(
+            'updated',
+            'Order',
+            $order->order_id,
+            '#' . $order->order_id,
+            ['sync_override' => [(string) ($new === 1 ? 0 : 1), (string) $new]]
+        );
+
+        return redirect()->route('orders.show', $id)->with(
+            'status',
+            $new === 1
+                ? 'Sync Override ON — this order is now manually controlled; marketplace syncs won\'t change its status or stock.'
+                : 'Sync Override OFF — the marketplace sync will manage this order again.'
+        );
+    }
+
     public function edit($id)
     {
         $order = Order::where('order_id', (int) $id)->firstOrFail();

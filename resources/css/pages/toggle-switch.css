@@ -7,3 +7,21 @@
 .toggle-slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
 .toggle-switch input:checked + .toggle-slider { background: var(--primary, #4f46e5); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+/* Per-order Sync Override banner (order detail → Update Status section) */
+.order-override {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    margin: 4px 0 14px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: var(--radius-md, 10px);
+    background: var(--surface-alt, #f8fafc);
+}
+.order-override.is-on {
+    border-color: #f59e0b;
+    background: #fff7ed;
+}
+.order-override.is-on .toggle-switch input:checked + .toggle-slider { background: #f59e0b; }
+.order-override .order-override-title { font-weight: 700; font-size: 14px; }

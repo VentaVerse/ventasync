@@ -150,6 +150,15 @@ class ShopeeCatalogOrderSync
 
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
+                // Override: the operator has manually finalised this order
+                // (e.g. Returned/Refunded after a verified return). Never let the
+                // sync change its status or move stock — preserve the current
+                // status so the status-change block below is a no-op. Other
+                // fields (tracking, totals, address) still update.
+                if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
+                    $statusId = $oldStatusId;
+                    $orderData['order_status_id'] = $oldStatusId;
+                }
                 $orderData['date_modified'] = $updatedAt;
                 $catalogOrder->update($orderData);
             } else {

@@ -506,6 +506,28 @@
     {{-- Status Update --}}
     @if($canManageOrders)
     <h3 class="section-title mt-24">Update Status</h3>
+
+    {{-- Sync Override: freeze this order's status against the marketplace sync --}}
+    <form method="POST" action="{{ route('orders.toggle_override', $order->order_id) }}" id="overrideForm">
+        @csrf
+        <div class="order-override {{ $order->sync_override ? 'is-on' : '' }}">
+            <label class="toggle-switch" title="Toggle sync override">
+                <input type="checkbox" {{ $order->sync_override ? 'checked' : '' }} onchange="document.getElementById('overrideForm').submit()">
+                <span class="toggle-slider"></span>
+            </label>
+            <div>
+                <span class="order-override-title">Sync Override {{ $order->sync_override ? 'ON' : 'OFF' }}</span>
+                <div class="text-xs text-secondary">
+                    @if($order->sync_override)
+                        Manually controlled — marketplace syncs will not change this order's status or stock.
+                    @else
+                        The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
+                    @endif
+                </div>
+            </div>
+        </div>
+    </form>
+
     <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
         @csrf
         <div class="d-flex gap-12 items-center flex-wrap">
