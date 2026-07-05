@@ -293,15 +293,22 @@ class ShopeeSyncOrders extends Command
             ? max(1, (int) $cliDaysReturns)
             : (($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14);
         $tz = new \DateTimeZone('Asia/Manila');
-        $createTimeFrom = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
-        $this->info("  Returns window: last {$syncDays} days");
+        $rangeStart = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
+        $rangeEnd = time();
+        $windowSecs = 15 * 86400; // Shopee caps each get_return_list request at 15 days
+        $this->info("  Returns window: last {$syncDays} days (in <=15-day slices)");
 
+        // Slide <=15-day windows across the whole range so a >15-day backfill
+        // works despite Shopee's per-request cap (e.g. --days-returns=180).
+        for ($winFrom = $rangeStart; $winFrom < $rangeEnd; $winFrom = $winTo) {
+        $winTo = min($winFrom + $windowSecs, $rangeEnd);
+        $pageNo = 0;
         while (true) {
             $queryParams = [
                 'page_no' => $pageNo,
                 'page_size' => $pageSize,
-                'create_time_from' => $createTimeFrom,
-                'create_time_to' => time(),
+                'create_time_from' => $winFrom,
+                'create_time_to' => $winTo,
             ];
 
             $res = $client->shopGet(
@@ -413,6 +420,7 @@ class ShopeeSyncOrders extends Command
 
             $pageNo++;
             if ($pageNo > 50) break;
+        }
         }
 
         $this->info("  Synced: {$saved} return(s)" . ($errors > 0 ? ", {$errors} error(s)" : ''));
