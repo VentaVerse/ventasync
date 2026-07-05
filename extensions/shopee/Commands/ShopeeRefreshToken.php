@@ -24,8 +24,13 @@ class ShopeeRefreshToken extends Command
             return 1;
         }
 
-        // Skip if token still has >30 minutes remaining
-        if (!empty($auth['expires_at']) && now()->diffInMinutes($auth['expires_at'], false) > 30) {
+        // Skip only if the token still has plenty of life left. This window
+        // (150 min) MUST exceed the refresh cron interval (2h) — otherwise a
+        // scheduled run keeps landing outside the window and skipping until the
+        // 4h access token dies (the old 30-min window vs 4h cron was the bug).
+        // 150 > 120 (cron) guarantees a run lands inside it before expiry, while
+        // still avoiding a redundant refresh of a just-minted token.
+        if (!empty($auth['expires_at']) && now()->diffInMinutes($auth['expires_at'], false) > 150) {
             $this->info('Token still valid (expires ' . $auth['expires_at'] . '). Skipping refresh.');
             return 0;
         }

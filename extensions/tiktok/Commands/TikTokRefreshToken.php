@@ -35,7 +35,10 @@ class TikTokRefreshToken extends Command
         }
 
         // Skip if token still has >30 minutes remaining
-        if ($expiresAt && now()->diffInMinutes($expiresAt, false) > 30) {
+        // Window (1440 min / 24h) must exceed the refresh cron interval (12h) so
+        // a scheduled run always lands inside it before expiry; also survives one
+        // missed run. Well within TikTok's ~7-day token TTL.
+        if ($expiresAt && now()->diffInMinutes($expiresAt, false) > 1440) {
             $this->info('Token still valid (expires ' . $expiresAt . '). Skipping refresh.');
             return 0;
         }

@@ -27,7 +27,10 @@ class LazadaRefreshToken extends Command
 
         // Skip if token still has >30 minutes remaining (read mode-appropriate expiry)
         $expiresAt = $creds['expires_at'] ?? null;
-        if (!empty($expiresAt) && now()->diffInMinutes($expiresAt, false) > 30) {
+        // Window (1440 min / 24h) must exceed the refresh cron interval (12h) so
+        // a scheduled run always lands inside it before the token expires; 24h
+        // also survives one missed run. Well within Lazada's ~2-day token TTL.
+        if (!empty($expiresAt) && now()->diffInMinutes($expiresAt, false) > 1440) {
             $this->info("{$modeLabel} token still valid (expires {$expiresAt}). Skipping refresh.");
             return 0;
         }
