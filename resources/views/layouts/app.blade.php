@@ -135,21 +135,8 @@
                 $__intCards = app(\App\Integrations\IntegrationRegistry::class)->visibleCards($u);
             @endphp
 
-            {{-- Sliding sidebar track: layer 1 (main nav) and layer 2 (contextual nav)
-                 are both always rendered side-by-side in a flex track. The
-                 `.sidebar-track--layer2` class shifts the track left by 50%
-                 (= 100% of one pane) so layer 2 takes over. CSS handles the
-                 sweep; JS intercepts navigation to delay the page jump until
-                 the slide finishes. Both layers move together — neither
-                 simply disappears. --}}
-            <div class="sidebar-track {{ $__navContext ? 'sidebar-track--layer2' : '' }}" data-sidebar-track>
-            @php
-                // Layer-2 content rendered on every page. On a layer-1 page we
-                // default to the integrations variant (the more common forward
-                // destination); when the operator clicks Orders from layer 1
-                // we re-render after navigation.
-                $__layer2Variant = $__navContext === 'orders' ? 'orders' : 'integrations';
-            @endphp
+            {{-- Single-layer sidebar: Orders and Integrations are inline
+                 accordions (like Catalog/Sales), no sliding layer-2 track. --}}
             <nav class="sidebar-nav sidebar-nav--layer1">
                 <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
@@ -168,13 +155,41 @@
                     }
                 @endphp
                 @if(!empty($__orderTabs))
-                <a href="{{ route('integrations.orders') }}" data-layer2-enter="orders" class="{{ request()->routeIs('integrations.orders') || request()->routeIs('ext.shopee.orders.*') || request()->routeIs('ext.lazada.orders.*') || request()->routeIs('ext.tiktok.orders.*') || request()->routeIs('ext.opencart.orders.*') || request()->routeIs('ext.venta.orders.*') || request()->routeIs('ext.pedallion.orders.*') ? 'active' : '' }}">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-                    <span class="label">Orders</span>
-                    @if($__orderBadge > 0)
-                        <span class="nav-badge">{{ $__orderBadge }}</span>
-                    @endif
-                </a>
+                @php
+                    $__ordersOpen = request()->routeIs('integrations.orders')
+                        || request()->routeIs('ext.shopee.orders.*') || request()->routeIs('ext.lazada.orders.*')
+                        || request()->routeIs('ext.tiktok.orders.*') || request()->routeIs('ext.opencart.orders.*')
+                        || request()->routeIs('ext.venta.orders.*') || request()->routeIs('ext.pedallion.orders.*');
+                    $__currentStoreParam = (string) (request()->route('store') ?? '');
+                @endphp
+                <div class="nav-group">
+                    <details {{ $__ordersOpen ? 'open' : '' }}>
+                        <summary class="{{ $__ordersOpen ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                            <span class="label">Orders</span>
+                            @if($__orderBadge > 0)<span class="nav-badge">{{ $__orderBadge }}</span>@endif
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('integrations.orders') }}" class="{{ $__rn === 'integrations.orders' ? 'active' : '' }}">
+                                    <span class="label">Summary</span>
+                                </a>
+                                @foreach($__orderTabs as $__tab)
+                                    @php
+                                        $__tabStoreParam = (string) ($__tab->routeParams['store'] ?? '');
+                                        $__tabActive = $__rn === $__tab->routeName && ($__tabStoreParam === '' || $__tabStoreParam === $__currentStoreParam);
+                                        $__tabCount = $__tab->unprocessedCount();
+                                    @endphp
+                                    <a href="{{ route($__tab->routeName, $__tab->routeParams ?? []) }}" class="{{ $__tabActive ? 'active' : '' }}">
+                                        <span class="label">{{ $__tab->label }}</span>
+                                        @if($__tabCount !== null && $__tabCount > 0)<span class="nav-badge">{{ $__tabCount }}</span>@endif
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    </details>
+                </div>
                 @endif
 
                 @if($canCatalog)
@@ -256,10 +271,79 @@
                      page after they hit Back. Mirrors the Orders link above
                      (line 148) but excludes the ext.*.orders.* routes — those
                      belong to the Orders layer-1 entry. --}}
-                <a href="{{ route('integrations.index') }}" data-layer2-enter="integrations" class="{{ (request()->routeIs('integrations.index') || request()->routeIs('integrations.module') || (preg_match('/^ext\\.(lazada|shopee|tiktok|venta|opencart|pedallion)\\./', $__rn) && !preg_match('/^ext\\.(lazada|shopee|tiktok|venta|opencart|pedallion)\\.orders\\./', $__rn))) ? 'active' : '' }}">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
-                    <span class="label">Integrations</span>
-                </a>
+                @php
+                    $__intOpen = request()->routeIs('integrations.index') || request()->routeIs('integrations.module')
+                        || (preg_match('/^ext\.(lazada|shopee|tiktok|venta|opencart|pedallion)\./', $__rn) && !preg_match('/^ext\.(lazada|shopee|tiktok|venta|opencart|pedallion)\.orders\./', $__rn));
+                @endphp
+                <div class="nav-group">
+                    <details {{ $__intOpen ? 'open' : '' }}>
+                        <summary class="{{ $__intOpen ? 'active' : '' }}">
+                            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+                            <span class="label">Integrations</span>
+                            <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </summary>
+                        <div class="nav-sub-wrap">
+                            <div class="nav-sub">
+                                <a href="{{ route('integrations.index') }}" class="{{ $__rn === 'integrations.index' ? 'active' : '' }}">
+                                    <span class="label">Integrations Hub</span>
+                                </a>
+                                @foreach($__intCards as $__card)
+                                    @php
+                                        $__cardId = (string) $__card->id;
+                                        $__cardPrefix = 'ext.' . (str_contains($__cardId, ':') ? strstr($__cardId, ':', true) : $__cardId) . '.';
+                                        $__cardActive = str_starts_with($__rn, $__cardPrefix) && !preg_match('/\.orders\./', $__rn);
+                                        $__cardMenu = collect($__card->menu ?? [])
+                                            ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
+                                            ->values();
+                                        $__cardIsMulti = !empty($__card->stores) || !empty($__card->addStore);
+                                    @endphp
+                                    <div class="nav-group nav-group--nested">
+                                        <details {{ $__cardActive ? 'open' : '' }}>
+                                            <summary class="{{ $__cardActive ? 'active' : '' }}">
+                                                <span class="label">{{ $__card->name }}</span>
+                                                <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                                            </summary>
+                                            <div class="nav-sub-wrap">
+                                                <div class="nav-sub">
+                                                    @foreach($__cardMenu as $__item)
+                                                        <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
+                                                            <span class="label">{{ $__item->label }}</span>
+                                                        </a>
+                                                    @endforeach
+                                                    @if($__cardIsMulti)
+                                                        <a href="{{ route('integrations.module', ['module' => $__cardId]) }}" class="nav-sub-action {{ $__rn === 'integrations.module' && request()->route('module') === $__cardId ? 'active' : '' }}">
+                                                            <span class="label">Manage Stores</span>
+                                                        </a>
+                                                        @php $__currentStoreId = (string) (request()->route('store') ?? ''); @endphp
+                                                        @foreach($__card->stores ?? [] as $__store)
+                                                            @php
+                                                                $__storeMenu = collect($__store->menu ?? [])
+                                                                    ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
+                                                                    ->values();
+                                                            @endphp
+                                                            @if($__storeMenu->isNotEmpty())
+                                                                <div class="nav-sub-divider">{{ $__store->label }}</div>
+                                                                @foreach($__storeMenu as $__item)
+                                                                    @php
+                                                                        $__itemStoreId = (string) ($__item->routeParams['store'] ?? '');
+                                                                        $__itemActive = $__rn === $__item->routeName && ($__itemStoreId === '' || $__itemStoreId === $__currentStoreId);
+                                                                    @endphp
+                                                                    <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__itemActive ? 'active' : '' }}">
+                                                                        <span class="label">{{ $__item->label }}</span>
+                                                                    </a>
+                                                                @endforeach
+                                                            @endif
+                                                        @endforeach
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </details>
+                </div>
                 @endif
 
                 {{-- Extension Nav Groups --}}
@@ -381,151 +465,6 @@
                 @endif
             </nav>
 
-            {{-- Layer 2: contextual sub-sidebar. Rendered on every page so it
-                 can slide IN/OUT alongside layer 1 — neither layer disappears
-                 abruptly. The Blade $__layer2Variant chooses orders vs
-                 integrations content based on $__navContext (default
-                 integrations on layer-1 pages). --}}
-            <nav class="sidebar-nav sidebar-nav--layer2" data-layer2 data-variant="{{ $__layer2Variant ?? 'integrations' }}">
-                <div class="layer2-variant layer2-variant--orders">
-                    <div class="sidebar-layer2-title">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
-                        <span class="label">Orders</span>
-                    </div>
-                    {{-- Back sits at the TOP of the list (right under the title)
-                         so the operator's escape route is visible without
-                         scrolling. A hairline bottom border separates it from
-                         the menu list below so it doesn't read as another nav
-                         item. --}}
-                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-top">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-                        <span class="label">Back</span>
-                    </a>
-                    <a href="{{ route('integrations.orders') }}" class="{{ $__rn === 'integrations.orders' ? 'active' : '' }}">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
-                        <span class="label">Summary</span>
-                    </a>
-                    @php
-                        // Multi-store extensions (Venta, OpenCart, …) emit one
-                        // OrderTab per store but every tab carries the same
-                        // route name (ext.venta.orders.index). Matching on the
-                        // route name alone would light up every store's row.
-                        // Pin the active tab by also comparing the {store}
-                        // route parameter — same pattern as the per-store
-                        // sidebar menu below.
-                        $__currentStoreParam = (string) (request()->route('store') ?? '');
-                    @endphp
-                    @foreach($__orderTabs as $__tab)
-                        @php
-                            $__tabStoreParam = (string) ($__tab->routeParams['store'] ?? '');
-                            $__tabActive = $__rn === $__tab->routeName
-                                && ($__tabStoreParam === '' || $__tabStoreParam === $__currentStoreParam);
-                            $__tabCount = $__tab->unprocessedCount();
-                        @endphp
-                        <a href="{{ route($__tab->routeName, $__tab->routeParams ?? []) }}" class="{{ $__tabActive ? 'active' : '' }}">
-                            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
-                            <span class="label">{{ $__tab->label }}</span>
-                            @if($__tabCount !== null && $__tabCount > 0)
-                                <span class="nav-badge">{{ $__tabCount }}</span>
-                            @endif
-                        </a>
-                    @endforeach
-                </div>{{-- /.layer2-variant--orders --}}
-
-                <div class="layer2-variant layer2-variant--integrations">
-                    <div class="sidebar-layer2-title">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
-                        <span class="label">Integrations</span>
-                    </div>
-                    {{-- Back sits at the TOP of the list so the escape route
-                         is visible without scrolling past every marketplace
-                         card. Hairline bottom border separates it from the
-                         menu list below. --}}
-                    <a href="{{ route('dashboard') }}" data-layer2-back class="layer2-back-top">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-                        <span class="label">Back</span>
-                    </a>
-                    {{-- The Integrations Hub (summary card grid). Lives here
-                         in layer 2 because the top-level "Integrations" link
-                         in layer 1 is now a pure nav-expander (no navigate). --}}
-                    <a href="{{ route('integrations.index') }}" class="{{ $__rn === 'integrations.index' ? 'active' : '' }}">
-                        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
-                        <span class="label">Integrations Hub</span>
-                    </a>
-                    @foreach($__intCards as $__card)
-                        @php
-                            $__cardId = (string) $__card->id;
-                            $__cardPrefix = 'ext.' . (str_contains($__cardId, ':') ? strstr($__cardId, ':', true) : $__cardId) . '.';
-                            $__cardActive = str_starts_with($__rn, $__cardPrefix);
-                            $__cardMenu = collect($__card->menu ?? [])
-                                ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
-                                ->values();
-                            $__cardIsMulti = !empty($__card->stores) || !empty($__card->addStore);
-                        @endphp
-                        <div class="nav-group">
-                            <details {{ $__cardActive ? 'open' : '' }}>
-                                <summary class="{{ $__cardActive ? 'active' : '' }}">
-                                    <span class="label">{{ $__card->name }}</span>
-                                    <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
-                                </summary>
-                                <div class="nav-sub-wrap">
-                                    <div class="nav-sub">
-                                        @foreach($__cardMenu as $__item)
-                                            <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__rn === $__item->routeName ? 'active' : '' }}">
-                                                <span class="label">{{ $__item->label }}</span>
-                                            </a>
-                                        @endforeach
-                                        @if($__cardIsMulti)
-                                            {{-- Manage Stores sits at the TOP of the card's
-                                                 sub-list, before any per-store divider,
-                                                 so it reads as a card-level action and
-                                                 isn't visually tied to the last store. --}}
-                                            <a href="{{ route('integrations.module', ['module' => $__cardId]) }}" class="nav-sub-action {{ $__rn === 'integrations.module' && request()->route('module') === $__cardId ? 'active' : '' }}">
-                                                <span class="nav-sub-action-icon" aria-hidden="true">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M3 9l3-6h12l3 6"/>
-                                                        <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9"/>
-                                                        <path d="M9 22V12h6v10"/>
-                                                    </svg>
-                                                </span>
-                                                <span class="label">Manage Stores</span>
-                                            </a>
-                                            @php
-                                                // The current store id (from the URL) is needed so per-store
-                                                // menu links highlight only the active store. Multi-store
-                                                // extensions reuse the same route name across stores —
-                                                // matching on name alone would light up every store's row.
-                                                $__currentStoreId = (string) (request()->route('store') ?? '');
-                                            @endphp
-                                            @foreach($__card->stores ?? [] as $__store)
-                                                @php
-                                                    $__storeMenu = collect($__store->menu ?? [])
-                                                        ->filter(fn($m) => !$m->permission || ($u && $u->hasPermission($m->permission)))
-                                                        ->values();
-                                                @endphp
-                                                @if($__storeMenu->isNotEmpty())
-                                                    <div class="nav-sub-divider">{{ $__store->label }}</div>
-                                                    @foreach($__storeMenu as $__item)
-                                                        @php
-                                                            $__itemStoreId = (string) ($__item->routeParams['store'] ?? '');
-                                                            $__itemActive = $__rn === $__item->routeName
-                                                                && ($__itemStoreId === '' || $__itemStoreId === $__currentStoreId);
-                                                        @endphp
-                                                        <a href="{{ route($__item->routeName, $__item->routeParams ?? []) }}" class="{{ $__itemActive ? 'active' : '' }}">
-                                                            <span class="label">{{ $__item->label }}</span>
-                                                        </a>
-                                                    @endforeach
-                                                @endif
-                                            @endforeach
-                                        @endif
-                                    </div>
-                                </div>
-                            </details>
-                        </div>
-                    @endforeach
-                </div>{{-- /.layer2-variant--integrations --}}
-            </nav>
-            </div> {{-- /.sidebar-track --}}
         </div>
 
         @auth
@@ -788,6 +727,10 @@
     // got stuck with `details.open=true` but the dropdown collapsed forever.
     // Snap-close when scrollHeight is 0 and a safety timeout completes the
     // state machine if transitionend never arrives.
+    // All nav accordions, including nested marketplace ones (.nav-group--nested).
+    // The "close others" logic below is scoped to SIBLINGS (same enclosing
+    // <details>) so opening a nested child never collapses its parent or the
+    // top-level groups — while every level still gets the height animation.
     var allNavDetails = Array.from(document.querySelectorAll('.nav-group details'));
     var SAFETY_MS = 600; // > CSS transition (500ms) — fallback for missed events
 
@@ -844,9 +787,14 @@
             if (details.open) {
                 closeDetails(details);
             } else {
-                // Close all others first (accordion semantics)
+                // Close only SIBLINGS (accordion semantics scoped to one level):
+                // details sharing the same enclosing <details>. A nested child
+                // thus closes its nested siblings but not its parent; a top-level
+                // group closes other top-level groups but not any nested items.
+                var myParent = details.parentElement.closest('details');
                 allNavDetails.forEach(function (other) {
-                    if (other !== details) closeDetails(other);
+                    if (other === details) return;
+                    if (other.parentElement.closest('details') === myParent) closeDetails(other);
                 });
 
                 // Open this one with height animation
@@ -1532,98 +1480,6 @@ document.addEventListener('mousemove', function(e) {
             }
         });
     }, true);
-})();
-</script>
-<script>
-// Sidebar layer-1 <-> layer-2 sliding track. Both layers always live in
-// the DOM inside [data-sidebar-track]; the .sidebar-track--layer2 class
-// shifts the track left so layer 2 takes over.
-//
-// Behaviour rules:
-//   - "Integrations" link in layer 1 and "Back" button in layer 2 are
-//     pure nav-expanders — they slide the track and do NOT navigate.
-//     The current page content stays put; the operator picks a real
-//     destination from the revealed layer.
-//   - Any other [data-layer2-enter] (e.g. "Orders") still navigates
-//     after the slide so it remains a real destination link.
-//   - The user-controlled layer state is remembered in sessionStorage
-//     so a page reload preserves the operator's choice rather than
-//     snapping back to the URL-derived default.
-(function() {
-    var SLIDE_MS = 280;
-    var STORAGE_KEY = 'sidebar.layer';
-    var VARIANT_KEY = 'sidebar.layer2.variant';
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    // On page load, restore the operator's last-chosen layer + variant.
-    // Server already picks the matching layer for marketplace pages;
-    // we only override when the operator manually expanded/collapsed
-    // or switched between Orders/Integrations variants.
-    try {
-        var stored = sessionStorage.getItem(STORAGE_KEY);
-        var storedVariant = sessionStorage.getItem(VARIANT_KEY);
-        var track0 = document.querySelector('[data-sidebar-track]');
-        var layer2 = document.querySelector('.sidebar-nav--layer2');
-        if (track0 && stored) {
-            var isCurrentlyLayer2 = track0.classList.contains('sidebar-track--layer2');
-            if (stored === 'layer2' && !isCurrentlyLayer2) {
-                track0.classList.add('sidebar-track--layer2');
-            } else if (stored === 'layer1' && isCurrentlyLayer2) {
-                track0.classList.remove('sidebar-track--layer2');
-            }
-        }
-        if (layer2 && storedVariant && (storedVariant === 'orders' || storedVariant === 'integrations')) {
-            layer2.setAttribute('data-variant', storedVariant);
-        }
-    } catch (e) { /* sessionStorage may be unavailable */ }
-
-    function rememberLayer(name) {
-        try { sessionStorage.setItem(STORAGE_KEY, name); } catch (e) {}
-    }
-    function rememberVariant(name) {
-        try { sessionStorage.setItem(VARIANT_KEY, name); } catch (e) {}
-    }
-
-    document.addEventListener('click', function(e) {
-        var track = document.querySelector('[data-sidebar-track]');
-        if (!track) return;
-
-        // Forward: layer 1 -> layer 2. Pure nav-expander — no navigation.
-        // Both "Integrations" and "Orders" links in layer 1 just slide the
-        // track open; the operator picks the real destination (a marketplace
-        // sub-link, a per-tab Orders link, or the explicit Summary/Hub link)
-        // from the revealed layer-2 nav.
-        var enter = e.target.closest && e.target.closest('[data-layer2-enter]');
-        if (enter) {
-            if (reduce) return;
-            e.preventDefault();
-            // Pick the matching variant inside layer 2 BEFORE the slide
-            // starts so it animates with the correct content visible.
-            var kind = enter.getAttribute('data-layer2-enter');
-            var layer2 = document.querySelector('.sidebar-nav--layer2');
-            if (layer2 && (kind === 'orders' || kind === 'integrations')) {
-                layer2.setAttribute('data-variant', kind);
-                rememberVariant(kind);
-            }
-            if (!track.classList.contains('sidebar-track--layer2')) {
-                track.classList.add('sidebar-track--layer2');
-                rememberLayer('layer2');
-            }
-            return;
-        }
-
-        // Back: layer 2 -> layer 1. Pure collapser — no navigation,
-        // the operator's current page stays loaded and they can pick
-        // a fresh destination from the now-visible main nav.
-        var back = e.target.closest && e.target.closest('[data-layer2-back]');
-        if (back) {
-            if (reduce) return;
-            e.preventDefault();
-            track.classList.remove('sidebar-track--layer2');
-            rememberLayer('layer1');
-            return;
-        }
-    });
 })();
 </script>
 </body>

@@ -120,9 +120,25 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    /* padding-top moved to .sidebar-track > .sidebar-nav so both panes
-       inherit the same top inset without doubling under the brand line. */
+    /* Single-layer sidebar: horizontal padding + top inset (previously on the
+       removed .sidebar-track pane wrapper) now sit directly on the nav. */
+    padding: 8px 12px 0;
+    box-sizing: border-box;
 }
+
+/* Nested accordion — marketplace cards live inside the Integrations group's
+   sub-list, so their details/summary must read as a second-level item. */
+.nav-sub .nav-group--nested { margin: 0; }
+.nav-sub .nav-group--nested > details > summary {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 500;
+}
+.nav-sub .nav-group--nested > details > summary:hover { background: rgba(148,163,184,.08); color: #e2e8f0; }
+.nav-sub .nav-group--nested > details[open] > summary { background: rgba(148,163,184,.06); color: #e2e8f0; }
+.nav-sub .nav-group--nested .nav-sub { padding-left: 16px; }
 
 /* Sliding sidebar track. Both layer-1 and layer-2 are rendered side-by-side
    inside .sidebar-track (each pane occupies one viewport width of the track,
