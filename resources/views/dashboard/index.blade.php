@@ -98,11 +98,22 @@
         <span class="dash-snap-label">PO Spend (MTD)</span>
         <span class="dash-snap-value" style="font-size:16px;">&#8369;{{ number_format($monthlyPoSpend, 0) }}</span>
     </a>
+    {{-- Inventory figures come from core queries; only the drill-down page
+         belongs to the reports extension. Guard the link per-extension —
+         this block's outer @if only proves purchasing is enabled. --}}
+    @if(Route::has('ext.reports.inventory'))
     <a href="{{ route('ext.reports.inventory') }}" class="dash-snap-item">
+    @else
+    <div class="dash-snap-item">
+    @endif
         <span class="dash-snap-label">Inventory Value</span>
         <span class="dash-snap-value" style="font-size:16px;">&#8369;{{ number_format($inventoryAtCost ?? 0, 0) }}<span class="dash-snap-sep-dot">/</span>&#8369;{{ number_format($inventoryAtSale ?? 0, 0) }}</span>
         <span class="dash-snap-compare">cost / sale · {{ $inventoryMargin ?? 0 }}% margin</span>
+    @if(Route::has('ext.reports.inventory'))
     </a>
+    @else
+    </div>
+    @endif
 </div>
 @endif
 
