@@ -334,7 +334,8 @@ class ShopeeSyncOrders extends Command
 
             $body = $res['body'] ?? [];
             $respData = $body['response'] ?? $body;
-            $returnList = $respData['return_list'] ?? [];
+            // Shopee's get_return_list returns the array under `return` (not `return_list`).
+            $returnList = $respData['return'] ?? $respData['return_list'] ?? [];
             if (!is_array($returnList) || empty($returnList)) {
                 break;
             }
@@ -382,6 +383,11 @@ class ShopeeSyncOrders extends Command
                             'order_sn'          => $orderSn,
                             'shopee_order_id'   => $shopeeOrder?->id,
                             'status'            => (string) ($detail['status'] ?? ($ret['status'] ?? '')),
+                            'needs_logistics'          => array_key_exists('needs_logistics', $detail) ? (bool) $detail['needs_logistics'] : null,
+                            'return_solution'          => array_key_exists('return_solution', $detail) ? (int) $detail['return_solution'] : null,
+                            'reverse_logistics_status' => (string) ($detail['reverse_logistics_status'] ?? ''),
+                            'is_arrived_at_warehouse'  => array_key_exists('is_arrived_at_warehouse', $detail) ? (bool) $detail['is_arrived_at_warehouse'] : null,
+                            'seller_compensation_status' => (string) ($detail['seller_compensation']['seller_compensation_status'] ?? ''),
                             'reason'            => (string) ($detail['reason'] ?? ($ret['reason'] ?? '')),
                             'reason_text'       => (string) ($detail['text_reason'] ?? ($detail['reason_text'] ?? '')),
                             'refund_amount'     => (float) ($detail['refund_amount'] ?? ($ret['refund_amount'] ?? 0)),

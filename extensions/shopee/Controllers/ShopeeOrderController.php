@@ -1483,7 +1483,8 @@ class ShopeeOrderController extends Controller
 
             $body = $res['body'] ?? [];
             $respData = $body['response'] ?? $body;
-            $returnList = $respData['return_list'] ?? [];
+            // Shopee's get_return_list returns the array under `return` (not `return_list`).
+            $returnList = $respData['return'] ?? $respData['return_list'] ?? [];
             if (!is_array($returnList) || empty($returnList)) {
                 break;
             }
