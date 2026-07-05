@@ -387,9 +387,18 @@ class LazadaOrderController extends Controller
             ->paginate($perPage)
             ->appends($request->query());
 
+        // Map each reverse order's trade_order_id -> linked ERP catalog order id
+        // (via lazada_orders) so the list can show the ERP # like Shopee.
+        $tradeIds = collect($orders->items())->pluck('trade_order_id')->filter()->unique()->values();
+        $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('lazada_orders')
+            ->whereIn('order_id', $tradeIds->all())
+            ->whereNotNull('catalog_order_id')
+            ->pluck('catalog_order_id', 'order_id');
+
         return view('ext-lazada::orders.returns', [
             'setting' => $setting,
             'orders' => $orders,
+            'erpMap' => $erpMap,
             'per_page' => $perPage,
             'last_result' => session('lazada_orders_last_result'),
             'tabs' => $tabs,

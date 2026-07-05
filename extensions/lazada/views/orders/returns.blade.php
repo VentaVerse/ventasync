@@ -57,6 +57,7 @@
     $tabs = $tabs ?? [];
     $active_tab = $active_tab ?? 'ALL';
     $tab_counts = $tab_counts ?? [];
+    $erpMap = $erpMap ?? collect();
 @endphp
 
 {{-- Status tabs --}}
@@ -113,70 +114,121 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>Reverse Order ID</th>
-                    <th>Original Order</th>
-                    <th>Status</th>
-                    <th>Type</th>
-                    <th>Reason</th>
-                    <th>Refund Amount</th>
-                    <th>Updated</th>
+                    <th style="min-width:300px;">Returned Products</th>
+                    <th style="width:110px;">Qty Returned</th>
+                    <th style="width:130px;">Refund</th>
+                    <th style="width:150px;">Status</th>
+                    <th style="width:150px;">Return Tracking</th>
+                    <th style="width:130px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($orders as $order)
-                    <tr>
-                        <td>
-                            <span class="font-semibold">{{ $order->reverse_order_id }}</span>
-                        </td>
-                        <td>
-                            @if($order->trade_order_id)
-                                <a href="{{ route('ext.lazada.orders.show', ['orderId' => $order->trade_order_id]) }}" style="color:var(--accent); text-decoration:none;">
-                                    {{ $order->trade_order_id }}
-                                </a>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php
-                                $statusColors = [
-                                    'initiated' => 'background:#dbeafe; color:#1e40af;',
-                                    'in_progress' => 'background:#fef3c7; color:#92400e;',
-                                    'in progress' => 'background:#fef3c7; color:#92400e;',
-                                    'processing' => 'background:#fef3c7; color:#92400e;',
-                                    'approved' => 'background:#dcfce7; color:#166534;',
-                                    'dispute' => 'background:#fce7f3; color:#9d174d;',
-                                    'refund_paid' => 'background:#dcfce7; color:#166534;',
-                                    'refund_issued' => 'background:#dcfce7; color:#166534;',
-                                    'refunded' => 'background:#dcfce7; color:#166534;',
-                                    'closed' => 'background:#f1f5f9; color:#475569;',
-                                    'completed' => 'background:#f1f5f9; color:#475569;',
-                                    'rejected' => 'background:#fee2e2; color:#991b1b;',
-                                    'cancelled' => 'background:#fee2e2; color:#991b1b;',
-                                ];
-                                $st = strtolower($order->reverse_status ?? '');
-                                $style = '';
-                                foreach ($statusColors as $key => $val) {
-                                    if (str_contains($st, $key)) { $style = $val; break; }
-                                }
-                            @endphp
-                            <span class="badge" style="{{ $style }}">{{ $order->reverse_status ?? '—' }}</span>
-                        </td>
-                        <td>{{ $order->reverse_type ?? '—' }}</td>
-                        <td>
-                            <span class="text-sm">{{ \Illuminate\Support\Str::limit($order->reason ?? '—', 50) }}</span>
-                        </td>
-                        <td>
-                            @if($order->refund_amount !== null)
-                                <strong style="color:#dc2626;">{{ ($order->currency ?: '₱') . number_format((float)$order->refund_amount, 2) }}</strong>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-                        <td>
-                            <span class="text-xs text-secondary">{{ $order->updated_at ? $order->updated_at->format('M d, Y H:i') : '—' }}</span>
+                    @php
+                        $cur = $order->currency ?: '₱';
+                        $items = is_array($order->items) ? $order->items : [];
+                        $lineCount = max(1, count($items));
+                        $erpId = $erpMap[$order->trade_order_id] ?? null;
+
+                        // Lazada item-line amounts are in cents (x100).
+                        $buyerId = $items[0]['buyer']['buyer_id'] ?? null;
+                        $firstTracking = $items[0]['tracking_number'] ?? null;
+                        $ofc = $items[0]['ofc_status'] ?? null;
+
+                        $st = strtolower($order->reverse_status ?? '');
+                        $badge = 'ret-badge-slate';
+                        foreach ([
+                            'initiated'=>'ret-badge-blue','in_progress'=>'ret-badge-amber','processing'=>'ret-badge-amber',
+                            'dispute'=>'ret-badge-pink','approved'=>'ret-badge-green','refund'=>'ret-badge-green',
+                            'success'=>'ret-badge-green','reject'=>'ret-badge-red','cancel'=>'ret-badge-red',
+                        ] as $k=>$cls) { if (str_contains($st,$k)) { $badge=$cls; break; } }
+
+                        $orderShowUrl = $order->trade_order_id
+                            ? route('ext.lazada.orders.show', ['orderId' => $order->trade_order_id])
+                            : null;
+                    @endphp
+
+                    {{-- Group header: ERP # / buyer / original order / reverse order --}}
+                    <tr class="order-header-row">
+                        <td colspan="6" style="padding:10px 12px 6px 12px;">
+                            <div class="d-flex justify-between items-start gap-12">
+                                <div class="text-xs text-secondary" style="line-height:1.35;">
+                                    @if($erpId)
+                                        <div style="font-weight:700; margin-bottom:2px;"><a href="{{ url('/sales/orders/'.$erpId) }}" style="color:var(--text-primary); text-decoration:none;">{{ $erpId }}</a></div>
+                                    @endif
+                                    @if($buyerId)<span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">#{{ $buyerId }}</span>@endif
+                                    <span style="margin-left:8px;">Order:</span>
+                                    @if($orderShowUrl)
+                                        <a href="{{ $orderShowUrl }}" class="font-semibold" style="color:var(--accent);">{{ $order->trade_order_id }}</a>
+                                    @else
+                                        <span class="font-semibold" style="color:var(--text-primary);">—</span>
+                                    @endif
+                                    <span style="margin-left:8px;">Reverse Order:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $order->reverse_order_id }}</span>
+                                    @if($order->reverse_type)<span style="margin-left:8px;">Type: {{ $order->reverse_type }}</span>@endif
+                                </div>
+                                <div class="text-xs text-secondary text-right" style="line-height:1.35;">
+                                    @if($order->updated_at)<span>Updated:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $order->updated_at->format('M d, Y H:i') }}</span>@endif
+                                </div>
+                            </div>
                         </td>
                     </tr>
+
+                    @foreach(($items ?: [[]]) as $idx => $it)
+                        @php
+                            $pSku = (string)($it['product']['product_sku'] ?? '');
+                            $sSku = (string)($it['seller_sku_id'] ?? '');
+                            $itRefund = isset($it['refund_amount']) ? ((float)$it['refund_amount'] / 100) : null;
+                            $itPrice = isset($it['item_unit_price']) ? ((float)$it['item_unit_price'] / 100) : null;
+                        @endphp
+                        <tr>
+                            <td style="vertical-align:top;">
+                                <div class="d-flex gap-10">
+                                    <div class="order-img-wrap"><span class="text-xs text-muted">No image</span></div>
+                                    <div style="min-width:0;">
+                                        <div class="font-semibold" style="word-break:break-word;">{{ $pSku !== '' ? $pSku : ($sSku !== '' ? $sSku : '—') }}</div>
+                                        @if($sSku !== '')
+                                            <div class="text-xs" style="margin-top:3px;"><span class="text-secondary">Seller SKU:</span> <strong>{{ $sSku }}</strong></div>
+                                        @endif
+                                        @if(!empty($it['reason_text']))
+                                            <div class="text-xs text-muted" style="margin-top:2px;">{{ \Illuminate\Support\Str::limit($it['reason_text'], 48) }}</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="vertical-align:top;">
+                                <div class="font-bold">x1</div>
+                            </td>
+                            <td style="vertical-align:top;">
+                                @if($itRefund !== null)
+                                    <strong style="color:var(--danger,#dc2626);">{{ $cur . number_format($itRefund, 2) }}</strong>
+                                    @if($itPrice !== null)<div class="text-xs text-muted">@ {{ $cur . number_format($itPrice, 2) }}</div>@endif
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+
+                            @if($idx === 0)
+                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                    <span class="ret-badge {{ $badge }}">{{ $order->reverse_status ?? '—' }}</span>
+                                    <div class="text-xs text-muted" style="margin-top:6px;">{{ \Illuminate\Support\Str::limit($order->reason ?? '', 40) }}</div>
+                                </td>
+                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                    @if($firstTracking)
+                                        <div class="font-semibold text-sm" style="word-break:break-all;">{{ $firstTracking }}</div>
+                                    @else
+                                        <span class="text-muted text-xs">—</span>
+                                    @endif
+                                    @if($ofc)<div class="text-xs text-muted" style="margin-top:4px;">{{ str_replace('_',' ',$ofc) }}</div>@endif
+                                </td>
+                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                    @if($orderShowUrl)
+                                        <a href="{{ $orderShowUrl }}" class="btn small">View Order</a>
+                                    @endif
+                                    <div class="text-xs text-secondary" style="margin-top:6px;">Total: <strong>{{ $cur . number_format((float)$order->refund_amount, 2) }}</strong></div>
+                                </td>
+                            @endif
+                        </tr>
+                    @endforeach
                 @endforeach
             </tbody>
         </table>
