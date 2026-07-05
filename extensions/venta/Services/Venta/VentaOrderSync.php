@@ -369,6 +369,13 @@ class VentaOrderSync
             if ($existing) {
                 $coreOrderId = (int) $existing->order_id;
                 $oldStatusId = (int) $existing->order_status_id;
+                // Sync Override: operator manually finalised this order. Keep its
+                // current status in the DB write, and equalise $oldStatusId so the
+                // post-transaction status-change block (history/FCM/stock) no-ops.
+                if ((int) ($existing->sync_override ?? 0) === 1) {
+                    $orderData['order_status_id'] = $oldStatusId;
+                    $oldStatusId = $coreStatusId;
+                }
                 $orderData['date_added'] = $existing->date_added;
                 // Preserve manually-set shipping_cost if API returns 0
                 if ((float) ($orderData['shipping_cost'] ?? 0) == 0 && (float) $existing->shipping_cost > 0) {

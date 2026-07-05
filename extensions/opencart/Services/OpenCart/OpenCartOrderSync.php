@@ -321,6 +321,12 @@ class OpenCartOrderSync
             if ($existing) {
                 $coreOrderId = (int) $existing->order_id;
                 $oldStatusId = (int) $existing->order_status_id;
+                // Sync Override: keep the manual status; equalise $oldStatusId so
+                // the post-transaction status-change blocks (history/FCM/stock) no-op.
+                if ((int) ($existing->sync_override ?? 0) === 1) {
+                    $orderData['order_status_id'] = $oldStatusId;
+                    $oldStatusId = $coreStatusId;
+                }
                 $orderData['date_added'] = $dateAdded;
                 Log::info('OC sync update order', [
                     'oc_order_id'      => $ocOrderId,

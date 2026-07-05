@@ -162,6 +162,13 @@ class LazadaCatalogOrderSync
 
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
+                // Sync Override: operator has manually finalised this order —
+                // preserve its status (no-op the status-change block below, so
+                // no stock moves). See order.sync_override.
+                if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
+                    $statusId = $oldStatusId;
+                    $orderData['order_status_id'] = $oldStatusId;
+                }
                 $orderData['date_modified'] = $updatedAt;
                 $catalogOrder->update($orderData);
             } else {
