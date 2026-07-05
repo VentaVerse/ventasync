@@ -110,9 +110,10 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Partner ID</label>
-                        <input class="input" name="partner_id" type="password" autocomplete="off"
-                               value="{{ !empty($setting->partner_id) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->partner_id) ? '1' : '0' }}">
+                        {{-- Numeric app identifier, not a secret — shown in full.
+                             Only Partner Key / Access Token stay masked. --}}
+                        <input class="input" name="partner_id" type="text" autocomplete="off"
+                               value="{{ $setting->partner_id ?? '' }}">
                     </div>
                     <div>
                         <label>Partner Key</label>
@@ -123,9 +124,8 @@
                     </div>
                     <div>
                         <label>Shop ID</label>
-                        <input class="input" name="shop_id" type="password" autocomplete="off"
-                               value="{{ !empty($setting->shop_id) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->shop_id) ? '1' : '0' }}">
+                        <input class="input" name="shop_id" type="text" autocomplete="off"
+                               value="{{ $setting->shop_id ?? '' }}">
                     </div>
                     <div>
                         <label>Access Token</label>
@@ -256,9 +256,8 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Sandbox Partner ID</label>
-                        <input class="input" name="sandbox_partner_id" type="password" autocomplete="off"
-                               value="{{ !empty($setting->sandbox_partner_id) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_partner_id) ? '1' : '0' }}">
+                        <input class="input" name="sandbox_partner_id" type="text" autocomplete="off"
+                               value="{{ $setting->sandbox_partner_id ?? '' }}">
                     </div>
                     <div>
                         <label>Sandbox Partner Key</label>

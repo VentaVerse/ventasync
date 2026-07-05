@@ -131,9 +131,11 @@
                     </div>
                     <div>
                         <label>App Key</label>
-                        <input class="input" name="app_key" type="password" autocomplete="off"
-                               value="{{ !empty($setting->app_key) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->app_key) ? '1' : '0' }}"
+                        {{-- App identifier, not a secret (stored plaintext) — shown
+                             in full so the operator can tell which Lazada app is
+                             connected. Only the App Secret below stays masked. --}}
+                        <input class="input" name="app_key" type="text" autocomplete="off"
+                               value="{{ $setting->app_key ?? '' }}"
                                {{ $canManageLazada ? '' : 'readonly' }}>
                     </div>
                     <div>
@@ -264,9 +266,8 @@
                     </div>
                     <div>
                         <label>Sandbox App Key</label>
-                        <input class="input" name="sandbox_app_key" type="password" autocomplete="off"
-                               value="{{ !empty($setting->sandbox_app_key) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_app_key) ? '1' : '0' }}"
+                        <input class="input" name="sandbox_app_key" type="text" autocomplete="off"
+                               value="{{ $setting->sandbox_app_key ?? '' }}"
                                {{ $canManageLazada ? '' : 'readonly' }}>
                     </div>
                     <div>

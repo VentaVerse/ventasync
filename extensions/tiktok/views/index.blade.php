@@ -125,9 +125,9 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>App Key</label>
-                        <input class="input" name="app_key" type="password" autocomplete="off"
-                               value="{{ !empty($setting->app_key) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->app_key) ? '1' : '0' }}">
+                        {{-- App identifier, not a secret — shown in full. --}}
+                        <input class="input" name="app_key" type="text" autocomplete="off"
+                               value="{{ $setting->app_key ?? '' }}">
                         <div class="hint">From TikTok Shop Partner Center.</div>
                     </div>
                     <div>
@@ -273,9 +273,8 @@
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
                         <label>Sandbox App Key</label>
-                        <input class="input" name="sandbox_app_key" type="password" autocomplete="off"
-                               value="{{ !empty($setting->sandbox_app_key) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_app_key) ? '1' : '0' }}">
+                        <input class="input" name="sandbox_app_key" type="text" autocomplete="off"
+                               value="{{ $setting->sandbox_app_key ?? '' }}">
                     </div>
                     <div>
                         <label>Sandbox App Secret</label>
