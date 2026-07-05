@@ -128,7 +128,16 @@
                     @php
                         $cur = $order->currency ?: '₱';
                         $items = is_array($order->items) ? $order->items : [];
-                        $lineCount = max(1, count($items));
+                        // Consolidate identical lines — Lazada emits one reverse line per unit.
+                        $grouped = [];
+                        foreach ($items as $__it) {
+                            $key = (($__it['seller_sku_id'] ?? '') . '|' . ($__it['product']['product_sku'] ?? '')) ?: uniqid();
+                            if (!isset($grouped[$key])) { $grouped[$key] = $__it; $grouped[$key]['_qty'] = 0; $grouped[$key]['_refund_sum'] = 0.0; }
+                            $grouped[$key]['_qty']++;
+                            $grouped[$key]['_refund_sum'] += (float) ($__it['refund_amount'] ?? 0);
+                        }
+                        $displayItems = array_values($grouped);
+                        $lineCount = max(1, count($displayItems));
                         $erpId = $erpMap[$order->trade_order_id] ?? null;
 
                         // Lazada item-line amounts are in cents (x100).
@@ -174,11 +183,12 @@
                         </td>
                     </tr>
 
-                    @foreach(($items ?: [[]]) as $idx => $it)
+                    @foreach(($displayItems ?: [[]]) as $idx => $it)
                         @php
                             $pSku = (string)($it['product']['product_sku'] ?? '');
                             $sSku = (string)($it['seller_sku_id'] ?? '');
-                            $itRefund = isset($it['refund_amount']) ? ((float)$it['refund_amount'] / 100) : null;
+                            $qty = (int)($it['_qty'] ?? 1);
+                            $itRefund = isset($it['_refund_sum']) ? ((float)$it['_refund_sum'] / 100) : null;
                             $itPrice = isset($it['item_unit_price']) ? ((float)$it['item_unit_price'] / 100) : null;
                             $img = (string)($imgMap[$sSku] ?? ($imgMap[$pSku] ?? ''));
                         @endphp
@@ -200,7 +210,7 @@
                                 </div>
                             </td>
                             <td style="vertical-align:top;">
-                                <div class="font-bold">x1</div>
+                                <div class="font-bold">x{{ $qty }}</div>
                             </td>
                             <td style="vertical-align:top;">
                                 @if($itRefund !== null)

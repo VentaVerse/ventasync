@@ -406,6 +406,25 @@ class LazadaOrderController extends Controller
             ->whereNotNull('image')->where('image', '!=', '')
             ->pluck('image', 'sku');
 
+        // Catalog fallback: many returns are for orders that were never synced,
+        // so resolve missing images from the ERP product catalog by SKU (product
+        // SKU or option-value SKU -> parent product image). Catalog images live
+        // on the local storage disk. Order-product images (marketplace URLs) win.
+        if ($skus->isNotEmpty()) {
+            $pfx = (string) config('catalog.prefix');
+            $catImg = \DB::table($pfx . 'product')
+                ->whereIn('sku', $skus->all())
+                ->whereNotNull('image')->where('image', '!=', '')
+                ->pluck('image', 'sku');
+            $ovImg = \DB::table($pfx . 'product_option_value as pov')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
+                ->whereIn('pov.sku', $skus->all())
+                ->whereNotNull('p.image')->where('p.image', '!=', '')
+                ->pluck('p.image', 'pov.sku');
+            $catImgMap = $catImg->merge($ovImg)->map(fn ($img) => asset('storage/' . ltrim($img, '/')));
+            $imgMap = $catImgMap->merge($imgMap); // order-product image wins; catalog fills gaps
+        }
+
         return view('ext-lazada::orders.returns', [
             'setting' => $setting,
             'orders' => $orders,
