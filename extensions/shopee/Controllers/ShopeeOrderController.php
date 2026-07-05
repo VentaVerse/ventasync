@@ -322,6 +322,7 @@ class ShopeeOrderController extends Controller
         }
 
         $returns = $query
+            ->with('order.products')
             ->orderByDesc('return_updated_at')
             ->orderByDesc('created_at')
             ->paginate($perPage)
@@ -339,6 +340,41 @@ class ShopeeOrderController extends Controller
                 'return_sn' => $returnSn,
                 'order_sn'  => $orderSn,
             ],
+        ]);
+    }
+
+    /**
+     * Rich, order-style detail view for a single Shopee return.
+     * Read-only (Phase 1): renders data already captured in the return's raw payload.
+     */
+    public function returnDetail(Request $request, string $returnSn)
+    {
+        $settingRaw = ShopeeSetting::query()->first();
+        $setting = $settingRaw?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        $region = $auth['region'] ?? 'ph';
+
+        $return = ShopeeReturn::query()
+            ->where('region', $region)
+            ->where('return_sn', $returnSn)
+            ->firstOrFail();
+
+        // Ordered-qty map from the linked Shopee order, keyed by item_id_model_id,
+        // so each returned line can show "returning X of Y ordered".
+        $orderedQty = [];
+        $return->loadMissing('order.products');
+        if ($return->order) {
+            foreach ($return->order->products as $p) {
+                $key = ((string) $p->item_id) . '_' . ((string) $p->model_id);
+                $orderedQty[$key] = ($orderedQty[$key] ?? 0) + (int) $p->quantity;
+            }
+        }
+
+        return view('ext-shopee::orders.return-detail', [
+            'setting'    => $settingRaw,
+            'return'     => $return,
+            'raw'        => is_array($return->raw) ? $return->raw : [],
+            'orderedQty' => $orderedQty,
         ]);
     }
 

@@ -129,6 +129,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['perm:view_shopee_orders|manage_shopee_orders'])->group(function () {
         Route::get('/shopee/orders', [ShopeeOrderController::class, 'index'])->name('ext.shopee.orders.index');
         Route::get('/shopee/orders/returns', [ShopeeOrderController::class, 'returns'])->name('ext.shopee.orders.returns');
+        Route::get('/shopee/orders/returns/{returnSn}', [ShopeeOrderController::class, 'returnDetail'])->where('returnSn', '[A-Za-z0-9]+')->name('ext.shopee.orders.return_detail');
         Route::get('/shopee/orders/{orderSn}', [ShopeeOrderController::class, 'show'])->name('ext.shopee.orders.show');
         Route::get('/shopee/orders/{orderSn}/tracking', [ShopeeOrderController::class, 'getTrackingNumber'])->name('ext.shopee.orders.tracking');
         Route::get('/shopee/orders/{orderSn}/shipping-addresses', [ShopeeOrderController::class, 'getShippingAddresses'])->name('ext.shopee.orders.shipping_addresses');

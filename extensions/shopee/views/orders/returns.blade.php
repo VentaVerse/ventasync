@@ -105,68 +105,136 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>Return SN</th>
-                    <th>Order SN</th>
-                    <th>Status</th>
-                    <th>Reason</th>
-                    <th>Refund Amount</th>
-                    <th>Created</th>
-                    <th>Updated</th>
+                    <th style="min-width:300px;">Returned Products</th>
+                    <th style="width:110px;">Qty Returned</th>
+                    <th style="width:130px;">Refund</th>
+                    <th style="width:140px;">Status</th>
+                    <th style="width:150px;">Return Tracking</th>
+                    <th style="width:130px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($returns as $ret)
-                    <tr>
-                        <td>
-                            <span class="font-semibold">{{ $ret->return_sn }}</span>
-                        </td>
-                        <td>
-                            @if($ret->order_sn)
-                                <a href="{{ route('ext.shopee.orders.show', ['orderSn' => $ret->order_sn]) }}" style="color:var(--accent); text-decoration:none;">
-                                    {{ $ret->order_sn }}
-                                </a>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php
-                                $statusColors = [
-                                    'requested'    => 'background:#dbeafe; color:#1e40af;',
-                                    'processing'   => 'background:#fef3c7; color:#92400e;',
-                                    'accepted'     => 'background:#fef3c7; color:#92400e;',
-                                    'judging'      => 'background:#fce7f3; color:#9d174d;',
-                                    'seller_dispute' => 'background:#fce7f3; color:#9d174d;',
-                                    'refund_paid'  => 'background:#dcfce7; color:#166534;',
-                                    'seller_compensation' => 'background:#dcfce7; color:#166534;',
-                                    'closed'       => 'background:#f1f5f9; color:#475569;',
-                                    'cancelled'    => 'background:#fee2e2; color:#991b1b;',
-                                ];
-                                $st = strtolower($ret->status ?? '');
-                                $style = '';
-                                foreach ($statusColors as $key => $val) {
-                                    if (str_contains($st, $key)) { $style = $val; break; }
-                                }
-                            @endphp
-                            <span class="badge" style="{{ $style }}">{{ $ret->status ?? '—' }}</span>
-                        </td>
-                        <td>
-                            <span class="text-sm">{{ \Illuminate\Support\Str::limit($ret->reason ?? ($ret->reason_text ?? '—'), 50) }}</span>
-                        </td>
-                        <td>
-                            @if($ret->refund_amount !== null && (float)$ret->refund_amount > 0)
-                                <strong style="color:#dc2626;">{{ ($ret->currency ?: '₱') . number_format((float)$ret->refund_amount, 2) }}</strong>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-                        <td>
-                            <span class="text-xs text-secondary">{{ $ret->return_created_at ? \Carbon\Carbon::parse($ret->return_created_at)->format('M d, Y H:i') : '—' }}</span>
-                        </td>
-                        <td>
-                            <span class="text-xs text-secondary">{{ $ret->return_updated_at ? \Carbon\Carbon::parse($ret->return_updated_at)->format('M d, Y H:i') : '—' }}</span>
+                    @php
+                        $cur = $ret->currency ?: '₱';
+                        $items = is_array($ret->items) ? $ret->items : [];
+                        $lineCount = max(1, count($items));
+
+                        // ordered-qty map (item_id_model_id => qty) from linked order
+                        $orderedMap = [];
+                        if ($ret->order && $ret->order->relationLoaded('products')) {
+                            foreach ($ret->order->products as $p) {
+                                $k = ((string)$p->item_id) . '_' . ((string)$p->model_id);
+                                $orderedMap[$k] = ($orderedMap[$k] ?? 0) + (int) $p->quantity;
+                            }
+                        }
+
+                        $st = strtolower($ret->status ?? '');
+                        $badge = 'ret-badge-slate';
+                        foreach ([
+                            'requested'=>'ret-badge-amber','processing'=>'ret-badge-amber','accepted'=>'ret-badge-amber',
+                            'judging'=>'ret-badge-pink','dispute'=>'ret-badge-pink',
+                            'refund'=>'ret-badge-green','compensation'=>'ret-badge-green','cancel'=>'ret-badge-red',
+                        ] as $k=>$cls) { if (str_contains($st,$k)) { $badge=$cls; break; } }
+
+                        $detailUrl = route('ext.shopee.orders.return_detail', ['returnSn' => $ret->return_sn]);
+                        $rawRet = is_array($ret->raw) ? $ret->raw : [];
+                        $buyer = (string)($rawRet['user']['username'] ?? '');
+                        $created = $ret->return_created_at ? \Carbon\Carbon::parse($ret->return_created_at)->format('M d, Y H:i') : '';
+                    @endphp
+
+                    {{-- Group header: buyer + order# + return# --}}
+                    <tr class="order-header-row">
+                        <td colspan="6" style="padding:10px 12px 6px 12px;">
+                            <div class="d-flex justify-between items-start gap-12">
+                                <div class="text-xs text-secondary" style="line-height:1.35;">
+                                    <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
+                                    <span style="margin-left:8px;">Order SN:</span>
+                                    @if($ret->order_sn)
+                                        <a href="{{ route('ext.shopee.orders.show', ['orderSn' => $ret->order_sn]) }}" class="font-semibold" style="color:var(--accent);">{{ $ret->order_sn }}</a>
+                                    @else
+                                        <span class="font-semibold" style="color:var(--text-primary);">—</span>
+                                    @endif
+                                    <span style="margin-left:8px;">Return SN:</span>
+                                    <a href="{{ $detailUrl }}" class="font-semibold" style="color:var(--text-primary);">{{ $ret->return_sn }}</a>
+                                </div>
+                                <div class="text-xs text-secondary text-right" style="line-height:1.35;">
+                                    @if($created)<span>Requested:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>@endif
+                                </div>
+                            </div>
                         </td>
                     </tr>
+
+                    @foreach(($items ?: [[]]) as $idx => $it)
+                        @php
+                            $name = (string)($it['name'] ?? '');
+                            $sku  = (string)($it['item_sku'] ?? '');
+                            $opt  = (string)($it['variation_sku'] ?? '');
+                            $img  = (string)($it['images'][0] ?? '');
+                            $retQty = (int)($it['amount'] ?? 0);
+                            $key = ((string)($it['item_id'] ?? '')) . '_' . ((string)($it['model_id'] ?? ''));
+                            $ordered = $orderedMap[$key] ?? null;
+                        @endphp
+                        <tr>
+                            <td style="vertical-align:top;">
+                                <div class="d-flex gap-10">
+                                    <div class="order-img-wrap">
+                                        @if($img)<img class="order-img" src="{{ $img }}" alt="">@else<span class="text-xs text-muted">No image</span>@endif
+                                    </div>
+                                    <div style="min-width:0;">
+                                        <div class="font-semibold" style="word-break:break-word;">
+                                            <a href="{{ $detailUrl }}" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">{{ $name !== '' ? $name : '—' }}</a>
+                                        </div>
+                                        <div class="text-xs" style="margin-top:3px;"><span class="text-secondary">SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong></div>
+                                        @if($opt !== '')
+                                            <div class="order-option-wrap">
+                                                <span class="order-option-label shopee-label">Option</span>
+                                                <span class="order-option-pill">{{ $opt }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="vertical-align:top;">
+                                <div class="font-bold">x{{ $retQty }}</div>
+                                @if($ordered !== null)<div class="text-xs text-muted">of {{ $ordered }} ordered</div>@endif
+                            </td>
+                            <td style="vertical-align:top;">
+                                @if(($it['refund_amount'] ?? null) !== null)
+                                    <strong style="color:var(--danger,#dc2626);">{{ $cur . number_format((float)$it['refund_amount'], 2) }}</strong>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+
+                            @if($idx === 0)
+                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                    <span class="ret-badge {{ $badge }}">{{ $ret->status ?? '—' }}</span>
+                                    <div class="text-xs text-muted" style="margin-top:6px;">{{ \Illuminate\Support\Str::limit($ret->reason ?? '', 40) }}</div>
+                                    <div class="text-xs text-secondary" style="margin-top:4px;">{{ $ret->return_updated_at ? \Carbon\Carbon::parse($ret->return_updated_at)->format('M d, H:i') : '' }}</div>
+                                </td>
+                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                    @if($ret->tracking_number)
+                                        <div class="font-semibold text-sm" style="word-break:break-all;">{{ $ret->tracking_number }}</div>
+                                    @else
+                                        <span class="text-muted text-xs">—</span>
+                                    @endif
+                                    @if($ret->reverse_logistics_status)
+                                        <div class="text-xs text-muted" style="margin-top:4px;">{{ str_replace('_',' ',$ret->reverse_logistics_status) }}</div>
+                                    @endif
+                                </td>
+                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
+                                    <div class="d-flex gap-6 flex-wrap">
+                                        <a href="{{ $detailUrl }}" class="btn small">View Detail</a>
+                                        @if($ret->order_sn)
+                                            <a href="{{ route('ext.shopee.orders.awb', ['orderSn' => $ret->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary" title="Print the original order's air waybill">Print AWB</a>
+                                        @endif
+                                    </div>
+                                    <div class="text-xs text-secondary" style="margin-top:6px;">Total: <strong>{{ $cur . number_format((float)$ret->refund_amount, 2) }}</strong></div>
+                                </td>
+                            @endif
+                        </tr>
+                    @endforeach
                 @endforeach
             </tbody>
         </table>

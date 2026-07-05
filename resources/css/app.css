@@ -34,6 +34,7 @@
 @import './pages/dashboard.css';
 @import './pages/marketplace-common.css';
 @import './pages/marketplace-orders.css';
+@import './pages/marketplace-returns.css';
 @import './pages/api-explorer.css';
 @import './pages/reports.css';
 @import './pages/opencart.css';
