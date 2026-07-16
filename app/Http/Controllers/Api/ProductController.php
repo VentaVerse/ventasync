@@ -215,6 +215,32 @@ class ProductController extends Controller
                         $inv->update(['quantity' => $qty]);
                     }
                 }
+
+                // Mirror the new qty into the SKU-level combinations table. The
+                // catalog list and the Shopee push read product_option_combinations,
+                // not product_option_value — without this mirror a mobile restock
+                // updates one table but not the other, so the two copies drift.
+                // Only touch combinations that map to EXACTLY this one option value:
+                // a multi-option combination (e.g. Color+Size) owns its own stock
+                // and must never be overwritten from a single choice.
+                $linkedComboIds = DB::table($p . 'product_option_combination_values')
+                    ->where('product_option_value_id', $povId)
+                    ->pluck('combination_id');
+
+                if ($linkedComboIds->isNotEmpty()) {
+                    $singleValueComboIds = DB::table($p . 'product_option_combination_values')
+                        ->whereIn('combination_id', $linkedComboIds)
+                        ->groupBy('combination_id')
+                        ->havingRaw('COUNT(*) = 1')
+                        ->pluck('combination_id');
+
+                    if ($singleValueComboIds->isNotEmpty()) {
+                        DB::table($p . 'product_option_combinations')
+                            ->whereIn('id', $singleValueComboIds)
+                            ->where('product_id', $id)
+                            ->update(['quantity' => $qty, 'updated_at' => now()]);
+                    }
+                }
             }
 
             // Auto-sum: set product quantity to total of option values
