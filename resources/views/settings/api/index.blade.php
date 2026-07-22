@@ -35,12 +35,7 @@
                 @forelse($clients as $row)
                     <tr>
                         <td>{{ $row->model->id }}</td>
-                        <td>
-                            {{ $row->model->name }}
-                            @if($row->model->description)
-                                <div class="text-xs text-secondary">{{ $row->model->description }}</div>
-                            @endif
-                        </td>
+                        <td>{{ $row->model->name }}</td>
                         <td class="text-xs">
                             @if($row->expires_at)
                                 @if($row->expires_at->isPast())

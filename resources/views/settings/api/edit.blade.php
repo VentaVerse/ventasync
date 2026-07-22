@@ -23,14 +23,10 @@
         @method('PUT')
 
         <div class="form-grid">
-            <div>
+            <div class="full">
                 <label class="required">Name</label>
                 <input class="input" name="name" value="{{ old('name', $client->name) }}" required maxlength="255">
                 @error('name')<div class="field-error">{{ $message }}</div>@enderror
-            </div>
-            <div>
-                <label>Description</label>
-                <input class="input" name="description" value="{{ old('description', $client->description) }}" maxlength="255">
             </div>
 
             <div class="full">

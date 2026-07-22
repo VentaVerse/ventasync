@@ -58,7 +58,6 @@ class ApiClientController extends Controller
     {
         $data = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
-            'description'   => ['nullable', 'string', 'max:255'],
             'scopes'        => ['required', 'array', 'min:1'],
             'no_expiry'     => ['nullable', 'boolean'],
             'expires_at'    => ['nullable', 'date', 'after:today', 'required_without:no_expiry'],
@@ -72,10 +71,9 @@ class ApiClientController extends Controller
         $expiresAt = $this->resolveExpiry($request);
 
         $client = ApiClient::create([
-            'name'        => $data['name'],
-            'description' => $data['description'] ?? null,
-            'active'      => true,
-            'created_by'  => $request->user()->id,
+            'name'       => $data['name'],
+            'active'     => true,
+            'created_by' => $request->user()->id,
         ]);
 
         $plain = $client->createToken($client->name, $abilities, $expiresAt)->plainTextToken;
@@ -106,11 +104,10 @@ class ApiClientController extends Controller
     public function update(Request $request, ApiClient $apiClient)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'scopes'      => ['required', 'array', 'min:1'],
-            'no_expiry'   => ['nullable', 'boolean'],
-            'expires_at'  => ['nullable', 'date', 'after:today', 'required_without:no_expiry'],
+            'name'       => ['required', 'string', 'max:255'],
+            'scopes'     => ['required', 'array', 'min:1'],
+            'no_expiry'  => ['nullable', 'boolean'],
+            'expires_at' => ['nullable', 'date', 'after:today', 'required_without:no_expiry'],
         ]);
 
         $abilities = $this->resolveScopes($request);
@@ -120,10 +117,7 @@ class ApiClientController extends Controller
 
         $expiresAt = $this->resolveExpiry($request);
 
-        $apiClient->update([
-            'name'        => $data['name'],
-            'description' => $data['description'] ?? null,
-        ]);
+        $apiClient->update(['name' => $data['name']]);
 
         // Update the existing token's scopes + expiry in place (token value
         // unchanged). If somehow there is no token, issue one and reveal it.
