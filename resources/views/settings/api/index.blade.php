@@ -25,11 +25,10 @@
                 <tr>
                     <th style="width:60px;">ID</th>
                     <th>Name</th>
-                    <th>Scopes</th>
                     <th style="width:150px;">Expires</th>
                     <th style="width:150px;">Created</th>
                     <th style="width:180px;">Last used</th>
-                    @if($canManage)<th style="width:200px;">Actions</th>@endif
+                    @if($canManage)<th style="width:260px;">Actions</th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -41,20 +40,6 @@
                             @if($row->model->description)
                                 <div class="text-xs text-secondary">{{ $row->model->description }}</div>
                             @endif
-                        </td>
-                        <td>
-                            @php
-                                $byResource = collect($row->scopes)
-                                    ->map(fn ($s) => explode(':', $s, 2))
-                                    ->filter(fn ($p) => count($p) === 2)
-                                    ->groupBy(0)
-                                    ->map(fn ($g) => $g->pluck(1)->map(fn ($a) => strtoupper($a[0]))->unique()->sort()->implode('/'));
-                            @endphp
-                            @forelse($byResource as $resource => $actions)
-                                <span class="badge">{{ ucfirst($resource) }} &middot; {{ $actions }}</span>
-                            @empty
-                                <span class="text-xs text-secondary">—</span>
-                            @endforelse
                         </td>
                         <td class="text-xs">
                             @if($row->expires_at)
@@ -81,6 +66,7 @@
                         </td>
                         @if($canManage)
                         <td>
+                            <a class="btn small secondary" href="{{ route('api_clients.edit', $row->model->id) }}">Edit</a>
                             <form method="POST" action="{{ route('api_clients.rotate', $row->model->id) }}"
                                   data-confirm="Rotate this token? The current token stops working immediately.">
                                 @csrf
@@ -95,7 +81,7 @@
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ $canManage ? 7 : 6 }}" class="text-secondary">No API applications yet.</td></tr>
+                    <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="text-secondary">No API applications yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

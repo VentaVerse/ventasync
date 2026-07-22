@@ -227,6 +227,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['perm:manage_api_clients'])->group(function () {
         Route::get('/settings/api/create', [\App\Http\Controllers\ApiClientController::class, 'create'])->name('api_clients.create');
         Route::post('/settings/api', [\App\Http\Controllers\ApiClientController::class, 'store'])->name('api_clients.store');
+        Route::get('/settings/api/{apiClient}/edit', [\App\Http\Controllers\ApiClientController::class, 'edit'])->whereNumber('apiClient')->name('api_clients.edit');
+        Route::put('/settings/api/{apiClient}', [\App\Http\Controllers\ApiClientController::class, 'update'])->whereNumber('apiClient')->name('api_clients.update');
         Route::post('/settings/api/{apiClient}/rotate', [\App\Http\Controllers\ApiClientController::class, 'rotate'])->whereNumber('apiClient')->name('api_clients.rotate');
         Route::delete('/settings/api/{apiClient}', [\App\Http\Controllers\ApiClientController::class, 'destroy'])->whereNumber('apiClient')->name('api_clients.destroy');
     });
@@ -285,6 +287,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
 });
+
 
 
 require __DIR__.'/auth.php';

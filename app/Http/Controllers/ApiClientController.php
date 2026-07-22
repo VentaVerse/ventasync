@@ -86,6 +86,64 @@ class ApiClientController extends Controller
             ->with('new_token_client', $client->name);
     }
 
+    /**
+     * Edit page: adjust name/description, scopes, and expiry of an existing
+     * application. Editing scopes updates the current token's abilities in
+     * place — the token value does not change.
+     */
+    public function edit(Request $request, ApiClient $apiClient)
+    {
+        $token = $apiClient->tokens()->latest()->first();
+
+        return view('settings.api.edit', [
+            'client'    => $apiClient,
+            'scopes'    => $this->scopeRegistry->all(),
+            'current'   => $token->abilities ?? [],
+            'expiresAt' => $token?->expires_at,
+        ]);
+    }
+
+    public function update(Request $request, ApiClient $apiClient)
+    {
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'scopes'      => ['required', 'array', 'min:1'],
+            'no_expiry'   => ['nullable', 'boolean'],
+            'expires_at'  => ['nullable', 'date', 'after:today', 'required_without:no_expiry'],
+        ]);
+
+        $abilities = $this->resolveScopes($request);
+        if (empty($abilities)) {
+            return back()->withInput()->with('error', 'Select at least one permission.');
+        }
+
+        $expiresAt = $this->resolveExpiry($request);
+
+        $apiClient->update([
+            'name'        => $data['name'],
+            'description' => $data['description'] ?? null,
+        ]);
+
+        // Update the existing token's scopes + expiry in place (token value
+        // unchanged). If somehow there is no token, issue one and reveal it.
+        $token = $apiClient->tokens()->latest()->first();
+        if ($token) {
+            $token->abilities = $abilities;
+            $token->expires_at = $expiresAt;
+            $token->save();
+
+            return redirect()->route('api_clients.index')->with('status', 'API application updated.');
+        }
+
+        $plain = $apiClient->createToken($apiClient->name, $abilities, $expiresAt)->plainTextToken;
+
+        return redirect()->route('api_clients.index')
+            ->with('status', 'API application updated.')
+            ->with('new_token', $plain)
+            ->with('new_token_client', $apiClient->name);
+    }
+
     public function rotate(Request $request, ApiClient $apiClient)
     {
         $current = $apiClient->tokens()->latest()->first();
