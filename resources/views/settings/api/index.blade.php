@@ -23,7 +23,6 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width:60px;">ID</th>
                     <th>Name</th>
                     <th style="width:150px;">Expires</th>
                     <th style="width:150px;">Created</th>
@@ -34,7 +33,6 @@
             <tbody>
                 @forelse($clients as $row)
                     <tr>
-                        <td>{{ $row->model->id }}</td>
                         <td>{{ $row->model->name }}</td>
                         <td class="text-xs">
                             @if($row->expires_at)
@@ -77,7 +75,7 @@
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="text-secondary">No API applications yet.</td></tr>
+                    <tr><td colspan="{{ $canManage ? 5 : 4 }}" class="text-secondary">No API applications yet.</td></tr>
                 @endforelse
             </tbody>
         </table>
