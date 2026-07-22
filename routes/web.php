@@ -225,6 +225,7 @@ Route::middleware(['auth'])->group(function () {
     });
     // ── API Applications — WRITE ──
     Route::middleware(['perm:manage_api_clients'])->group(function () {
+        Route::get('/settings/api/create', [\App\Http\Controllers\ApiClientController::class, 'create'])->name('api_clients.create');
         Route::post('/settings/api', [\App\Http\Controllers\ApiClientController::class, 'store'])->name('api_clients.store');
         Route::post('/settings/api/{apiClient}/rotate', [\App\Http\Controllers\ApiClientController::class, 'rotate'])->whereNumber('apiClient')->name('api_clients.rotate');
         Route::delete('/settings/api/{apiClient}', [\App\Http\Controllers\ApiClientController::class, 'destroy'])->whereNumber('apiClient')->name('api_clients.destroy');

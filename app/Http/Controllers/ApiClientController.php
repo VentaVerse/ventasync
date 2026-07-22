@@ -39,15 +39,18 @@ class ApiClientController extends Controller
                 ];
             });
 
-        $recentLogs = \App\Models\ApiRequestLog::with('client')
-            ->latest('id')
-            ->limit(50)
-            ->get();
-
         return view('settings.api.index', [
-            'clients'    => $clients,
-            'scopes'     => $this->scopeRegistry->all(),
-            'recentLogs' => $recentLogs,
+            'clients' => $clients,
+        ]);
+    }
+
+    /**
+     * Dedicated "Add Application" page: name + scope matrix + expiry.
+     */
+    public function create(Request $request)
+    {
+        return view('settings.api.create', [
+            'scopes' => $this->scopeRegistry->all(),
         ]);
     }
 
