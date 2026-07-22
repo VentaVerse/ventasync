@@ -39,6 +39,16 @@
   of truth) + `GET /api/v1/reports/products` (scope reports:read). Verified
   against sandbox (607 SKUs, matches web-report shape) + scope isolation
   (reports↔products tokens mutually 403). All test clients/tokens/logs purged.
+- API-SPEC.md added at repo root (docs/ is gitignored). Recorded operator
+  decisions: token expiry (date/none), rotation, no rate limiting.
+- Settings → API UI: `view/manage_api_clients` permissions (config +
+  lang + synced), `ApiClientController` (index/store/rotate/destroy),
+  routes under /settings/api, sidebar nav link, `settings/api/index`
+  view (scope R/W matrix, expiry picker, one-time token reveal, rotate/
+  revoke, audit-activity panel). Verified via real UI on sandbox: page
+  renders natively; create issues scoped token; rotate swaps token
+  (88→89); expiry-dated create stored 2027-01-01 23:59:59; revoke deletes
+  client. Temp login route + all test data removed after.
 
 ## Follow-ups (tracked, not forgotten)
 - Migrate web `extensions/reports` ReportController::products() onto

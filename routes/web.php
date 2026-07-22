@@ -219,6 +219,17 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/settings/error-log/test', [\App\Http\Controllers\ErrorLogController::class, 'test'])->name('error_log.test');
     });
 
+    // ── API Applications (Settings → API) — READ ──
+    Route::middleware(['perm:view_api_clients|manage_api_clients'])->group(function () {
+        Route::get('/settings/api', [\App\Http\Controllers\ApiClientController::class, 'index'])->name('api_clients.index');
+    });
+    // ── API Applications — WRITE ──
+    Route::middleware(['perm:manage_api_clients'])->group(function () {
+        Route::post('/settings/api', [\App\Http\Controllers\ApiClientController::class, 'store'])->name('api_clients.store');
+        Route::post('/settings/api/{apiClient}/rotate', [\App\Http\Controllers\ApiClientController::class, 'rotate'])->whereNumber('apiClient')->name('api_clients.rotate');
+        Route::delete('/settings/api/{apiClient}', [\App\Http\Controllers\ApiClientController::class, 'destroy'])->whereNumber('apiClient')->name('api_clients.destroy');
+    });
+
 
     // ── Orders — READ ──
     // Read-only operators can browse the list, view detail pages, and pull

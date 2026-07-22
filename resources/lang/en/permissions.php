@@ -136,6 +136,14 @@ return [
         'label'       => 'Manage Error Log',
         'description' => 'View and clear application error log',
     ],
+    'view_api_clients' => [
+        'label'       => 'View API Applications',
+        'description' => 'Browse API applications and their audit logs (read-only)',
+    ],
+    'manage_api_clients' => [
+        'label'       => 'Manage API Applications',
+        'description' => 'Create, rotate, and revoke API applications and their tokens',
+    ],
 
     // ── Legacy (kept for hasPermission() back-compat) ─────────
     'manage_users_groups' => [

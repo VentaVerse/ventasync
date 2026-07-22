@@ -83,4 +83,7 @@ return [
     'view_error_log'           => ['parent' => 'manage_settings', 'label' => 'View Error Log',           'tiers' => ['view', 'manage']],
     'manage_error_log'         => ['parent' => 'manage_settings', 'label' => 'Manage Error Log',         'tiers' => ['view', 'manage']],
 
+    'view_api_clients'         => ['parent' => 'manage_settings', 'label' => 'View API Applications',     'tiers' => ['view', 'manage']],
+    'manage_api_clients'       => ['parent' => 'manage_settings', 'label' => 'Manage API Applications',   'tiers' => ['view', 'manage']],
+
 ];

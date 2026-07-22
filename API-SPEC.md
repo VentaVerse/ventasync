@@ -138,9 +138,9 @@ Admin-gated page to:
 - [x] `/products` returns real catalog incl. cost/price (verified, ~2081 rows).
 - [x] `/reports/products` matches web-report figures (verified on sandbox).
 - [ ] Orders + inventory read endpoints.
-- [ ] Settings → API UI: create/revoke app + issue token.
-- [ ] Token expiry (date or none) selectable at creation.
-- [ ] Token rotation (revoke + re-issue, same scopes/expiry).
+- [x] Settings → API UI: create/revoke app + issue token (verified via UI).
+- [x] Token expiry (date or none) selectable at creation (verified).
+- [x] Token rotation (revoke + re-issue, same scopes/expiry) (verified).
 - [ ] Seed `ai-agent` read-only application.
 - [ ] Feature tests: auth, scope isolation, expiry, output shape.
 - [ ] Write endpoints scaffolded + locked (scope not grantable to AI in v1).
