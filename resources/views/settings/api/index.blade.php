@@ -27,6 +27,7 @@
                     <th>Name</th>
                     <th>Scopes</th>
                     <th style="width:150px;">Expires</th>
+                    <th style="width:150px;">Created</th>
                     <th style="width:180px;">Last used</th>
                     @if($canManage)<th style="width:200px;">Actions</th>@endif
                 </tr>
@@ -42,8 +43,15 @@
                             @endif
                         </td>
                         <td>
-                            @forelse($row->scopes as $scope)
-                                <span class="badge">{{ $scope }}</span>
+                            @php
+                                $byResource = collect($row->scopes)
+                                    ->map(fn ($s) => explode(':', $s, 2))
+                                    ->filter(fn ($p) => count($p) === 2)
+                                    ->groupBy(0)
+                                    ->map(fn ($g) => $g->pluck(1)->map(fn ($a) => strtoupper($a[0]))->unique()->sort()->implode('/'));
+                            @endphp
+                            @forelse($byResource as $resource => $actions)
+                                <span class="badge">{{ ucfirst($resource) }} &middot; {{ $actions }}</span>
                             @empty
                                 <span class="text-xs text-secondary">—</span>
                             @endforelse
@@ -58,6 +66,10 @@
                             @else
                                 <span class="text-secondary">No expiry</span>
                             @endif
+                        </td>
+                        <td class="text-xs">
+                            {{ $row->model->created_at?->format('Y-m-d') }}
+                            <span class="text-secondary">({{ $row->model->created_at?->diffForHumans() }})</span>
                         </td>
                         <td class="text-xs">
                             @if($row->last_used)
@@ -83,7 +95,7 @@
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="text-secondary">No API applications yet.</td></tr>
+                    <tr><td colspan="{{ $canManage ? 7 : 6 }}" class="text-secondary">No API applications yet.</td></tr>
                 @endforelse
             </tbody>
         </table>
