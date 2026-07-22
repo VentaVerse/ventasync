@@ -86,4 +86,8 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
         Route::get('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
         Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
     });
+
+    Route::middleware('scope:reports:read')->group(function () {
+        Route::get('/reports/products', [\App\Http\Controllers\Api\V1\ReportController::class, 'products']);
+    });
 });

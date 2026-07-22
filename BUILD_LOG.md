@@ -32,3 +32,18 @@
 
 ## Change log
 - Created branch `erp-api` off `main`. Verified sandbox DB is local. (start)
+- Foundation: scopes catalog, `api_clients` + `api_request_logs` tables/models. (commit 73e4e88)
+- Auth chain: `scope` + `api.audit` middleware, `GET /api/v1/products` + `/{id}`.
+  Verified end-to-end (401/403/200 + audit rows) on sandbox. (commit a3a6ebb)
+- Reports: `ProductProfitReportService` (canonical profit query, single source
+  of truth) + `GET /api/v1/reports/products` (scope reports:read). Verified
+  against sandbox (607 SKUs, matches web-report shape) + scope isolation
+  (reports↔products tokens mutually 403). All test clients/tokens/logs purged.
+
+## Follow-ups (tracked, not forgotten)
+- Migrate web `extensions/reports` ReportController::products() onto
+  `ProductProfitReportService` so web + API can never diverge (needs a
+  logged-in web-path verification before switching).
+- Remaining v1: orders + inventory read endpoints; Settings → API management
+  UI (create app → R/W matrix → issue token → revoke); seed `ai-agent`
+  read-only client; feature tests; write-scope scaffolding (locked).
