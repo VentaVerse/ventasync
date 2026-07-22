@@ -141,8 +141,18 @@ class ApiClientController extends Controller
     public function rotate(Request $request, ApiClient $apiClient)
     {
         $current = $apiClient->tokens()->latest()->first();
-        $abilities = $current->abilities ?? ['*'];
-        $expiresAt = $current?->expires_at;
+        if (! $current) {
+            return redirect()->route('api_clients.index')
+                ->with('error', 'No existing token to rotate. Edit the application to set its scopes and issue a token first.');
+        }
+
+        $abilities = $current->abilities ?? [];
+        if (empty($abilities) || in_array('*', $abilities, true)) {
+            return redirect()->route('api_clients.index')
+                ->with('error', 'This application has no explicit scopes. Edit it to assign scopes before rotating.');
+        }
+
+        $expiresAt = $current->expires_at;
 
         // Revoke every existing token, then issue a fresh one with the same
         // scopes + expiry policy. Old token immediately becomes invalid.
