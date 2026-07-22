@@ -90,12 +90,12 @@ requires the listed scope. All responses JSON.
 | GET    | `/products/{id}`         | `products:read` | Single product (404 if missing). |
 | GET    | `/reports/products`      | `reports:read`  | Per-product profitability over a date range: units, revenue, COGS, shipping, fees, net_profit, margin, markup + summary. Query: `date_from`, `date_to`, `search`, `source[]`, `status[]`, `sort`, `dir`, `per_page` (≤200). Backed by `ProductProfitReportService`. |
 
-### Planned (v1 remaining)
-| Method | Path                     | Scope             | Description |
-|--------|--------------------------|-------------------|-------------|
-| GET    | `/orders`                | `orders:read`     | Paginated orders. |
-| GET    | `/orders/{id}`           | `orders:read`     | Order detail + items. |
-| GET    | `/inventory`             | `inventory:read`  | Stock levels. |
+### Implemented (v1) — orders & inventory
+| Method | Path             | Scope            | Description |
+|--------|------------------|------------------|-------------|
+| GET    | `/orders`        | `orders:read`    | Paginated orders: channel, status, customer, total, line/unit counts. Query: `date_from`, `date_to`, `status`, `source`, `search`, `per_page`. |
+| GET    | `/orders/{id}`   | `orders:read`    | Order header + line items (name, qty, price, total, cost). |
+| GET    | `/inventory`     | `inventory:read` | Stock vs. reorder level: quantity, reorder_level, is_low, below_by, cost, price. Query: `low_stock` (≤ reorder_level), `threshold` (≤ N), `search`, `per_page`. NOTE: `low_stock` needs product `reorder_level` set (currently 0 across catalog) — use `threshold` until reorder levels are populated. |
 
 ### Scaffolded but LOCKED (write phase — not granted in v1)
 | Method | Path                       | Scope              | Description |
@@ -137,7 +137,7 @@ Admin-gated page to:
 - [x] Every call recorded in `api_request_logs` (verified).
 - [x] `/products` returns real catalog incl. cost/price (verified, ~2081 rows).
 - [x] `/reports/products` matches web-report figures (verified on sandbox).
-- [ ] Orders + inventory read endpoints.
+- [x] Orders + inventory read endpoints (verified on sandbox).
 - [x] Settings → API UI: create/revoke app + issue token (verified via UI).
 - [x] Token expiry (date or none) selectable at creation (verified).
 - [x] Token rotation (revoke + re-issue, same scopes/expiry) (verified).

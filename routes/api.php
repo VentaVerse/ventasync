@@ -90,4 +90,13 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
     Route::middleware('scope:reports:read')->group(function () {
         Route::get('/reports/products', [\App\Http\Controllers\Api\V1\ReportController::class, 'products']);
     });
+
+    Route::middleware('scope:inventory:read')->group(function () {
+        Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index']);
+    });
+
+    Route::middleware('scope:orders:read')->group(function () {
+        Route::get('/orders', [\App\Http\Controllers\Api\V1\OrderController::class, 'index']);
+        Route::get('/orders/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show'])->whereNumber('id');
+    });
 });
