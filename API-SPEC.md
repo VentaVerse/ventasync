@@ -46,7 +46,16 @@ existing ERP → marketplace push integrations).
   time) and bumps `ApiClient.last_used_at`. Failure to log never breaks a call.
 - **Token storage**: hashed at rest (Sanctum default); plaintext shown once at
   creation.
-- **Transport**: HTTPS only in production. **Rate limited** (see §7).
+- **Token expiry**: optional per token, chosen at creation — an explicit expiry
+  **date**, or **no expiry**. Backed by `personal_access_tokens.expires_at`
+  (already present); Sanctum treats a token as valid iff `expires_at` is null or
+  in the future. Global `sanctum.expiration` stays `null` (per-token control).
+- **Token rotation**: an application's token can be rotated from the UI — the
+  old token is revoked and a new one issued with the **same scopes and same
+  expiry policy**; new plaintext shown once. Any client using the old token
+  immediately gets 401.
+- **Transport**: HTTPS only in production. **No rate limiting** (operator
+  decision, 2026-07-22).
 - Hard rule for this build: **branch `erp-api` only, never `main`, never live,
   never pushed to the git remote.**
 
@@ -103,15 +112,18 @@ requires the listed scope. All responses JSON.
 ## 6. Settings → API (management UI)
 
 Admin-gated page to:
-1. List API Applications (name, scopes, last used, active).
-2. Create an application → name + Read/Write/None matrix → **issue token
-   (shown once)**.
-3. Revoke an application / rotate its token.
-4. View recent `api_request_logs` per application (the audit view).
+1. List API Applications (name, scopes, last used, expiry, active).
+2. Create an application → name + Read/Write/None matrix + **expiry choice
+   (date or "no expiry")** → **issue token (shown once)**.
+3. **Rotate** an application's token (revoke old, issue new with same
+   scopes + expiry; new plaintext shown once).
+4. Revoke / deactivate an application.
+5. View recent `api_request_logs` per application (the audit view).
 
 ## 7. Rate limiting & throttling
-- Reuse the `api` throttle group; external `/v1` group gets a dedicated,
-  tunable limiter (default e.g. 120 req/min per token). To be confirmed.
+- **None.** The external API is not rate limited (operator decision,
+  2026-07-22). The default framework `api` throttle still applies to the
+  legacy mobile routes but is not added to the `/v1` group.
 
 ## 8. Rollout phases
 1. **Read-only (v1, current)** — endpoints above; AI granted read scopes only.
@@ -127,12 +139,16 @@ Admin-gated page to:
 - [x] `/reports/products` matches web-report figures (verified on sandbox).
 - [ ] Orders + inventory read endpoints.
 - [ ] Settings → API UI: create/revoke app + issue token.
+- [ ] Token expiry (date or none) selectable at creation.
+- [ ] Token rotation (revoke + re-issue, same scopes/expiry).
 - [ ] Seed `ai-agent` read-only application.
-- [ ] Feature tests: auth, scope isolation, output shape.
+- [ ] Feature tests: auth, scope isolation, expiry, output shape.
 - [ ] Write endpoints scaffolded + locked (scope not grantable to AI in v1).
 
-## 10. Open questions
-- Final rate-limit numbers per token.
-- Should tokens carry an expiry / rotation policy?
+## 10. Decisions & open questions
+**Decided (2026-07-22):** token expiry = optional (date or none); rotation =
+yes; rate limiting = none.
+
+**Open:**
 - Which write endpoints matter first once we reach phase 2 (price vs stock)?
 - Should the audit log be exportable / retained for N days then pruned?
