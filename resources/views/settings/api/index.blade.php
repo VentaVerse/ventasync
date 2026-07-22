@@ -66,17 +66,19 @@
                         </td>
                         @if($canManage)
                         <td>
-                            <a class="btn small secondary" href="{{ route('api_clients.edit', $row->model->id) }}">Edit</a>
-                            <form method="POST" action="{{ route('api_clients.rotate', $row->model->id) }}"
-                                  data-confirm="Rotate this token? The current token stops working immediately.">
-                                @csrf
-                                <button class="btn small" type="submit">Rotate</button>
-                            </form>
-                            <form method="POST" action="{{ route('api_clients.destroy', $row->model->id) }}"
-                                  data-confirm="Revoke this application and delete its token?">
-                                @csrf @method('DELETE')
-                                <button class="btn danger small" type="submit">Revoke</button>
-                            </form>
+                            <div class="d-flex gap-6 flex-wrap">
+                                <a class="btn small secondary" href="{{ route('api_clients.edit', $row->model->id) }}">Edit</a>
+                                <form method="POST" action="{{ route('api_clients.rotate', $row->model->id) }}"
+                                      data-confirm="Rotate this token? The current token stops working immediately.">
+                                    @csrf
+                                    <button class="btn small" type="submit">Rotate</button>
+                                </form>
+                                <form method="POST" action="{{ route('api_clients.destroy', $row->model->id) }}"
+                                      data-confirm="Revoke this application and delete its token?">
+                                    @csrf @method('DELETE')
+                                    <button class="btn danger small" type="submit">Revoke</button>
+                                </form>
+                            </div>
                         </td>
                         @endif
                     </tr>
