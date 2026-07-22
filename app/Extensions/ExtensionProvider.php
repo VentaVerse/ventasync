@@ -51,6 +51,19 @@ abstract class ExtensionProvider extends ServiceProvider
         if (file_exists($routeFile)) {
             $this->app['router']->middleware('web')->group($routeFile);
         }
+
+        // External API routes. Each extension owns its own scoped endpoints;
+        // they are mounted under /api/v1 with token auth + audit logging, the
+        // same envelope core uses. The extension's routes/api.php declares its
+        // own `scope:{resource}:{action}` middleware per route. This keeps the
+        // API modular — core never references extension resources.
+        $apiRouteFile = $this->basePath . '/routes/api.php';
+        if (file_exists($apiRouteFile)) {
+            $this->app['router']
+                ->prefix('api/v1')
+                ->middleware(['auth:sanctum', 'api.audit'])
+                ->group($apiRouteFile);
+        }
     }
 
     protected function bootViews(): void

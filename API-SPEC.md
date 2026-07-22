@@ -32,6 +32,35 @@ existing ERP → marketplace push integrations).
 - No automatic price writing (that is a later, guardrailed phase).
 - No OAuth authorization-code flow — bearer tokens issued in-app are sufficient.
 
+## 2.5 Modularity (how the API stays decoupled)
+
+The API follows the ERP's extension architecture — it is **not** a monolith in
+core.
+
+- **Core owns only the API kernel:** `ApiClient` + Sanctum tokens, the `scope`
+  + `api.audit` middleware, the Settings → API UI, and the **scope registry**
+  (`App\Services\ApiScopeRegistry`).
+- **Scopes aggregate from core + extensions.** The registry merges
+  `config/api_scopes.php` (core catalog: products, orders, inventory) with each
+  enabled extension's `extension.json` `api_scopes` — mirroring how
+  `PermissionSync` merges permissions. Disable an extension → its scopes vanish
+  from the matrix automatically.
+- **Extensions register their own endpoints.** `ExtensionProvider::bootRoutes()`
+  loads `extensions/{id}/routes/api.php` into `/api/v1` with the same
+  `auth:sanctum` + `api.audit` envelope. Each route declares its own
+  `scope:{resource}:{action}`.
+- **Core never references extension tables.** e.g. the profit report (which
+  reads marketplace-channel tables) lives in the **reports extension**
+  (`extensions/reports/`), not core. Uninstall a channel → nothing in core
+  breaks.
+- **Ownership:** products / orders / inventory = core catalog (OpenCart core
+  tables). reports = reports extension. Future channel-specific endpoints
+  (live marketplace price/stock) = the respective channel extension.
+
+> Pre-existing note: the legacy **mobile** API (`Api/OrderController`,
+> `Api/DashboardController`) still references channel tables directly. That
+> predates this work and is out of scope here; flagged for a separate pass.
+
 ## 3. Access & security model
 
 - **Unit of access = `ApiClient`** (`app/Models/ApiClient.php`), the token owner,

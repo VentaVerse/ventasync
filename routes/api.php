@@ -87,9 +87,8 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function (
         Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
     });
 
-    Route::middleware('scope:reports:read')->group(function () {
-        Route::get('/reports/products', [\App\Http\Controllers\Api\V1\ReportController::class, 'products']);
-    });
+    // NOTE: reports endpoints live in the reports extension
+    // (extensions/reports/routes/api.php) — core no longer owns them.
 
     Route::middleware('scope:inventory:read')->group(function () {
         Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index']);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ApiClient;
+use App\Services\ApiScopeRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -17,6 +18,10 @@ use Illuminate\Support\Carbon;
  */
 class ApiClientController extends Controller
 {
+    public function __construct(private readonly ApiScopeRegistry $scopeRegistry)
+    {
+    }
+
     public function index(Request $request)
     {
         $clients = ApiClient::query()
@@ -41,7 +46,7 @@ class ApiClientController extends Controller
 
         return view('settings.api.index', [
             'clients'    => $clients,
-            'scopes'     => config('api_scopes'),
+            'scopes'     => $this->scopeRegistry->all(),
             'recentLogs' => $recentLogs,
         ]);
     }
@@ -109,7 +114,7 @@ class ApiClientController extends Controller
      */
     private function resolveScopes(Request $request): array
     {
-        $catalog = config('api_scopes', []);
+        $catalog = $this->scopeRegistry->all();
         $posted = (array) $request->input('scopes', []);
         $abilities = [];
 

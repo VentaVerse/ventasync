@@ -50,6 +50,20 @@
   (88→89); expiry-dated create stored 2027-01-01 23:59:59; revoke deletes
   client. Temp login route + all test data removed after.
 
+- Modular refactor (decouple API from core): added `ApiScopeRegistry`
+  (aggregates core config + extension manifest `api_scopes`), added
+  `routes/api.php` loading to `ExtensionProvider::bootRoutes` (mounts under
+  /api/v1 with auth:sanctum + api.audit). Moved the profit report out of
+  core into the reports extension: `extensions/reports/Services/
+  ProductProfitReportService`, `.../Controllers/Api/ReportApiController`,
+  `.../routes/api.php`, `reports:read` scope in extension.json. Removed core
+  `Api/V1/ReportController` + `app/Services/Reports/*` + core reports route.
+  Verified: core has 0 channel-table refs (mine); reports endpoint served via
+  extension loader returns real data; audit + scope middleware apply to
+  extension routes; products/orders/inventory unaffected; registry lists
+  products/orders/inventory/reports. Pre-existing mobile-API channel coupling
+  (Api/OrderController, Api/DashboardController) noted, out of scope.
+
 ## Follow-ups (tracked, not forgotten)
 - Migrate web `extensions/reports` ReportController::products() onto
   `ProductProfitReportService` so web + API can never diverge (needs a

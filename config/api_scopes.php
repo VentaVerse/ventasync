@@ -18,17 +18,17 @@
 
 return [
 
+    // CORE-owned scopes only (catalog resources: products, orders, inventory).
+    // Extensions contribute their own scopes via extension.json "api_scopes";
+    // the two are merged by App\Services\ApiScopeRegistry. Do NOT add
+    // extension-specific resources here — keep core decoupled from modules.
+    //
     // resource key => ['label' => ..., 'actions' => [read|write], 'description' => ...]
+
     'products' => [
         'label'       => 'Products',
         'actions'     => ['read', 'write'],
         'description' => 'Catalog products incl. cost, price and per-channel markup.',
-    ],
-
-    'reports' => [
-        'label'       => 'Sales Reports',
-        'actions'     => ['read'], // reports are inherently read-only
-        'description' => 'Aggregated sales: units, revenue, COGS, fees, net profit, margin.',
     ],
 
     'orders' => [
