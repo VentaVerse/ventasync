@@ -95,7 +95,7 @@
             <div class="toolbar">
                 <input class="input" id="apiTokenValue" type="text" readonly value="{{ session('new_token') }}" onclick="this.select()">
                 <button class="btn" type="button"
-                        onclick="navigator.clipboard.writeText(document.getElementById('apiTokenValue').value); this.textContent='Copied';">Copy</button>
+                        onclick="var el=document.getElementById('apiTokenValue'); el.focus(); el.select(); el.setSelectionRange(0, 99999); var ok=false; try { ok=document.execCommand('copy'); } catch(e){} if(!ok && navigator.clipboard){ navigator.clipboard.writeText(el.value); ok=true; } this.textContent = ok ? 'Copied' : 'Press Ctrl+C';">Copy</button>
             </div>
             <div class="page-header" style="margin-top:1rem;">
                 <button type="button" class="btn secondary"
