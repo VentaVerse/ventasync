@@ -69,3 +69,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/products/{id}/quantity', [ApiProductController::class, 'updateQuantity']);
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| External API (v1) — scoped 3rd-party access
+|--------------------------------------------------------------------------
+|
+| Callers here authenticate as an App\Models\ApiClient (Settings → API),
+| not a human user. Each route requires a Sanctum token ability matching
+| its `scope:` middleware (see config/api_scopes.php). Every request is
+| audit-logged via `api.audit` (App\Http\Middleware\LogApiRequest).
+|
+*/
+Route::prefix('v1')->middleware(['auth:sanctum', 'api.audit'])->group(function () {
+    Route::middleware('scope:products:read')->group(function () {
+        Route::get('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
+        Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
+    });
+});

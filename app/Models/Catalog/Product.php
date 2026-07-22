@@ -20,6 +20,18 @@ class Product extends BaseModel
         return $this->tableName('product');
     }
 
+    public function descriptions()
+    {
+        return $this->hasMany(ProductDescription::class, 'product_id', 'product_id');
+    }
+
+    /** Description row in the store's default language. */
+    public function description()
+    {
+        return $this->hasOne(ProductDescription::class, 'product_id', 'product_id')
+            ->where('language_id', config('catalog.default_language_id'));
+    }
+
     protected static function booted()
     {
         static::creating(function ($model) {
