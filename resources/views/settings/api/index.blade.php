@@ -54,7 +54,6 @@
                         </td>
                         <td class="text-xs">
                             {{ $row->model->created_at?->format('Y-m-d') }}
-                            <span class="text-secondary">({{ $row->model->created_at?->diffForHumans() }})</span>
                         </td>
                         <td class="text-xs">
                             @if($row->last_used)
