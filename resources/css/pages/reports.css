@@ -57,6 +57,175 @@
 .badge-yellow-subtle { background: rgba(234, 179, 8, .15); color: #b45309; }
 .badge-red-subtle { background: rgba(239, 68, 68, .15); color: #dc2626; }
 
+/* ============================================================
+   ADVANCED FILTERS ("More filters" collapsible)
+   ============================================================ */
+.report-more-toggle { align-self: flex-end; }
+
+.report-more-filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+}
+.report-more-filters[hidden] { display: none; }
+
+.report-filter-field { display: flex; flex-direction: column; min-width: 0; }
+.report-filter-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.report-filter-field .input { width: 100%; }
+
+@media (max-width: 1024px) {
+    .report-more-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+    .report-more-filters { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   PRODUCT DRILL-DOWN (expandable order detail per product)
+   ============================================================ */
+.report-drill-col { width: 34px; text-align: center; padding-left: 6px; padding-right: 6px; }
+
+.report-drill-toggle,
+.report-expand-all {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: transform .15s ease, color .15s ease;
+    display: inline-block;
+}
+.report-drill-toggle:hover,
+.report-expand-all:hover { color: var(--accent); }
+.report-drill-toggle.open,
+.report-expand-all.open { transform: rotate(90deg); }
+
+.report-product-row.report-row-open { background: var(--surface-alt); }
+.report-product-row.report-row-open > td { background: inherit; }
+
+.report-drill-row > td {
+    background: var(--surface-alt);
+    padding: 0;
+    border-bottom: 2px solid var(--border);
+}
+
+.report-drill-panel {
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.report-drill-heading {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+.report-drill-heading:first-child { margin-top: 0; }
+
+.report-drill-tip {
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: help;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: .7;
+}
+
+.report-drill-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.report-drill-table thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.report-drill-table tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.report-drill-table tbody tr:last-child td { border-bottom: none; }
+.report-drill-table .text-right { text-align: right; }
+
+.report-drill-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+.report-drill-link:hover { text-decoration: underline; }
+
+.report-drill-loading,
+.report-drill-error {
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.report-drill-error { color: var(--danger); }
+
+/* Empty state — shown before the report is run (deferred load) */
+.report-empty-state {
+    text-align: center;
+    padding: 64px 24px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-alt);
+}
+.report-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 6px;
+}
+.report-empty-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    max-width: 460px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+/* Totals footer row on report tables */
+.report-totals-row td {
+    border-top: 2px solid var(--border);
+    background: var(--surface-alt);
+    padding-top: 12px;
+    padding-bottom: 12px;
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+}
+
+@media (max-width: 768px) {
+    .report-drill-panel { padding: 12px; }
+    .report-drill-table { font-size: 12px; }
+    .report-drill-table thead th,
+    .report-drill-table tbody td { padding: 6px 8px; }
+}
+
 /* Report responsive */
 @media (max-width: 1200px) {
     .report-stat-grid {
