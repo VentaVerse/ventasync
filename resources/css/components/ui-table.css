@@ -54,12 +54,20 @@
    position: relative has to live on the <tr>, not on the anchor: if the
    anchor were the positioned ancestor, inset: 0 on its own ::after would
    only size to the anchor's own text box, covering a few characters
-   instead of the row. Putting it on the row (supported in all evergreen
-   browsers via :has()) makes the row the containing block, so the
-   pseudo-element's inset: 0 spans every cell. The overlay has no z-index
-   of its own (auto), so the menu trigger's explicit z-index: 1 still wins
-   the paint order and stays clickable on top of it. */
-.x-table tbody tr:has(.x-row-link) { position: relative; }
+   instead of the row. Applied unconditionally to every row, not scoped to
+   rows that contain a .x-row-link, because there is no ancestor between
+   the anchor and the initial containing block otherwise: .x-table-wrap,
+   .x-content, .x-main and .x-shell are all position: static. Without a
+   positioned row, a .x-row-link's ::after resolves inset: 0 against the
+   viewport itself, not the row, which does not just make that one row
+   unclickable, it makes the whole page unclickable everywhere that overlay
+   wins the paint order. An unconditional position: relative here produces
+   the identical containing block for rows that need it and is inert for
+   rows that do not, so it is applied to all rows rather than gated behind
+   a selector. The overlay has no z-index of its own (auto), so the menu
+   trigger's explicit z-index: 1 still wins the paint order and stays
+   clickable on top of it. */
+.x-table tbody tr { position: relative; }
 .x-row-link { color: inherit; text-decoration: none; font-weight: 500; }
 .x-row-link::after { content: ''; position: absolute; inset: 0; }
 
