@@ -33,6 +33,7 @@
 @import './components/detail.css';
 @import './components/modals.css';
 @import './components/permission-pill.css';
+@import './components/ui-controls.css';
 
 /* Pages */
 @import './pages/dashboard.css';

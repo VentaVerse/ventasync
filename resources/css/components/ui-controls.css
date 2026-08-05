@@ -1,0 +1,95 @@
+/* Buttons. One height per size. A row never mixes variants, and danger is
+   never a standing fill in a table row. */
+.x-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    height: var(--control-h);
+    padding: 0 var(--space-3);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+.x-btn--sm { height: var(--control-h-sm); padding: 0 var(--space-2); font-size: 12px; }
+
+.x-btn--primary   { background: var(--accent); color: var(--accent-text); }
+.x-btn--primary:hover { background: var(--accent-hover); }
+
+.x-btn--secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.x-btn--secondary:hover { background: var(--surface-hover); }
+
+.x-btn--ghost     { background: transparent; color: var(--text-secondary); }
+.x-btn--ghost:hover { background: var(--surface-hover); color: var(--text); }
+
+.x-btn--danger    { background: transparent; color: var(--danger); border-color: transparent; }
+.x-btn--danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+.x-btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Badges. Dot plus text, never a filled pill. */
+.x-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.x-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.x-badge--neutral  { color: var(--text-muted); }
+.x-badge--success  { color: var(--accent); }
+.x-badge--warning  { color: var(--warning); }
+.x-badge--danger   { color: var(--danger); }
+.x-badge--info     { color: var(--info); }
+
+/* Channel dots. These are the only literal hex values permitted anywhere in
+   this codebase, because they identify external brands rather than theme
+   state. The brief's source hex values fail 4.5:1 on one or both canvases
+   (measured: lazada 4.37 light / 4.35 dark, shopee 3.82 light, venta 3.26
+   light, opencart 4.30 light / 4.41 dark, shopify 3.75 light, pedallion 3.63
+   light, against #FBFBFA light and #0B0B0C dark). Each colour below was
+   adjusted in lightness only, hue and saturation held, to clear the floor on
+   its own canvas. Measured ratios after adjustment:
+   lazada    light #7656F8 = 4.55:1   dark #7E5FF8 = 4.57:1
+   shopee    light #C34F1C = 4.55:1   dark #D8571F = 4.97:1
+   venta     light #268258 = 4.59:1   dark #2E9E6B = 5.83:1
+   opencart  light #3977B2 = 4.55:1   dark #3C7EBC = 4.59:1
+   shopify   light #547E37 = 4.59:1   dark #5E8E3E = 5.07:1
+   pedallion light #9F6727 = 4.56:1   dark #B5762C = 5.24:1
+   tiktok uses var(--text), already verified in Task 1 at 16.97 light /
+   16.68 dark, so it needs no literal hex and no override. */
+.x-badge--lazada    { color: #7656F8; }
+.x-badge--shopee    { color: #C34F1C; }
+.x-badge--tiktok    { color: var(--text); }
+.x-badge--venta     { color: #268258; }
+.x-badge--opencart  { color: #3977B2; }
+.x-badge--shopify   { color: #547E37; }
+.x-badge--pedallion { color: #9F6727; }
+
+/* Only the channels whose light-canvas value fails on the dark canvas are
+   overridden here. Each was re-tuned in lightness only, against #0B0B0C,
+   keeping hue and saturation. Ratios are recorded in the comment above the
+   light-mode block. */
+:root[data-theme="dark"] .x-badge--lazada    { color: #7E5FF8; }
+:root[data-theme="dark"] .x-badge--shopee    { color: #D8571F; }
+:root[data-theme="dark"] .x-badge--venta     { color: #2E9E6B; }
+:root[data-theme="dark"] .x-badge--opencart  { color: #3C7EBC; }
+:root[data-theme="dark"] .x-badge--shopify   { color: #5E8E3E; }
+:root[data-theme="dark"] .x-badge--pedallion { color: #B5762C; }
+
+/* Inputs. Focus is a ring, never a glow. */
+.x-input {
+    height: var(--control-h);
+    width: 100%;
+    padding: 0 var(--space-3);
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 13px;
+    transition: border-color var(--motion-fast);
+}
+.x-input::placeholder { color: var(--text-muted); }
+.x-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-weak); }
