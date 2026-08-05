@@ -1,0 +1,84 @@
+/* Horizontal hairlines only. No vertical rules, no zebra, no card wrapper.
+   Vertical borders on every cell are what makes a table read as a
+   spreadsheet export rather than a product. */
+.x-table-wrap { width: 100%; overflow-x: auto; }
+
+.x-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+.x-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: 28px;
+    padding: 0 var(--space-3);
+    background: var(--canvas);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: left;
+    letter-spacing: .02em;
+    white-space: nowrap;
+}
+
+.x-table tbody tr {
+    height: var(--row-h);
+    border-bottom: 1px solid var(--border);
+    transition: background var(--motion-fast);
+}
+.x-table tbody tr:hover { background: var(--surface-hover); }
+.x-table tbody td { padding: 0 var(--space-3); vertical-align: middle; white-space: nowrap; }
+
+.x-table .x-td-num { text-align: right; }
+.x-table .x-td-actions { width: 40px; text-align: right; }
+
+/* The row is the link. A stretched pseudo-element keeps the whole row
+   clickable without nesting interactive elements inside an anchor. */
+.x-row-link { position: relative; color: inherit; text-decoration: none; font-weight: 500; }
+.x-row-link::after { content: ''; position: absolute; inset: 0; }
+
+/* Overflow menu. Hidden until the row is hovered or the trigger is focused,
+   so keyboard users are never locked out of it. */
+.x-menu { position: relative; display: inline-block; }
+.x-menu__trigger {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px;
+    background: transparent; border: 0; border-radius: var(--radius-sm);
+    color: var(--text-muted); cursor: pointer;
+    opacity: 0; transition: opacity var(--motion-fast), background var(--motion-fast);
+    position: relative; z-index: 1;
+}
+.x-table tbody tr:hover .x-menu__trigger,
+.x-menu__trigger:focus-visible,
+.x-menu__trigger[aria-expanded="true"] { opacity: 1; }
+.x-menu__trigger:hover { background: var(--surface-hover); color: var(--text); }
+
+.x-menu__panel {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
+    min-width: 160px; padding: var(--space-1);
+    background: var(--surface); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-menu);
+}
+.x-menu__item {
+    display: flex; align-items: center; gap: var(--space-2);
+    width: 100%; height: 30px; padding: 0 var(--space-2);
+    background: transparent; border: 0; border-radius: var(--radius-sm);
+    color: var(--text); font: inherit; font-size: 13px; text-align: left;
+    text-decoration: none; cursor: pointer;
+}
+.x-menu__item:hover { background: var(--surface-hover); }
+.x-menu__item--danger { color: var(--danger); }
+.x-menu__sep { height: 1px; margin: var(--space-1) 0; background: var(--border); }
+
+.x-empty { padding: var(--space-8) var(--space-4); text-align: center; }
+.x-empty__title { margin: 0 0 var(--space-1); font-size: 14px; font-weight: 500; color: var(--text); }
+.x-empty__desc { margin: 0; font-size: 13px; color: var(--text-muted); }
+.x-empty__action { margin-top: var(--space-4); }
+
+[x-cloak] { display: none !important; }
+
+@media (max-width: 640px) {
+    .x-table thead { display: none; }
+    .x-table tbody tr { display: grid; grid-template-columns: 1fr auto; height: auto; padding: var(--space-2) 0; }
+    .x-table tbody td { padding: 2px var(--space-3); white-space: normal; }
+}
