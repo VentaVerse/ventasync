@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\OrderStatus;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -71,6 +72,7 @@ class DashboardController extends Controller
                 'o.firstname',
                 'o.lastname',
                 'o.total',
+                'o.foreign_total',
                 'o.currency_code',
                 'o.date_added',
                 'os.name as status_name',
@@ -78,25 +80,29 @@ class DashboardController extends Controller
             ]);
 
         $ocStoreNames = $ocStores->pluck('store_name', 'id')->toArray();
+        $defaultCode = Money::defaultCode();
 
         return response()->json([
             'stats' => [
                 'total_orders'    => $totalOrders,
                 'total_revenue'   => round($totalRevenue, 2),
+                'currency_code'   => $defaultCode,
                 'lazada_pending'  => $lazadaPending,
                 'shopee_pending'  => $shopeePending,
                 'store_pending'   => $storePending,
             ],
             'chart' => $chart,
             'recent_orders' => $recentOrders->map(fn ($o) => [
-                'order_id'           => $o->order_id,
-                'firstname'          => $o->firstname,
-                'lastname'           => $o->lastname,
-                'total'              => (float) $o->total,
-                'currency_code'      => $o->currency_code,
-                'date_added'         => $o->date_added,
-                'status_name'        => $o->status_name ?? '',
-                'marketplace_source' => self::resolveSourceLabel($o->marketplace_source ?? '', $ocStoreNames),
+                'order_id'             => $o->order_id,
+                'firstname'            => $o->firstname,
+                'lastname'             => $o->lastname,
+                'total'                => (float) $o->total,
+                'currency_code'        => $defaultCode,
+                'transaction_currency' => $o->foreign_total !== null ? $o->currency_code : null,
+                'transaction_total'    => $o->foreign_total !== null ? (float) $o->foreign_total : null,
+                'date_added'           => $o->date_added,
+                'status_name'          => $o->status_name ?? '',
+                'marketplace_source'   => self::resolveSourceLabel($o->marketplace_source ?? '', $ocStoreNames),
             ]),
         ]);
     }

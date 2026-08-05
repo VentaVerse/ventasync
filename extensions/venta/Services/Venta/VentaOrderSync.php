@@ -296,6 +296,25 @@ class VentaOrderSync
                 ->where('marketplace_order_id', $ventaOrderId)
                 ->first();
 
+            // Venta is the in-house storefront - no currency code is transacted
+            // in the payload, so it always settles in the ERP's default currency.
+            $currencySvc = app(\App\Services\OrderCurrencyService::class);
+            $currency = $currencySvc->resolve($currencySvc->defaultCode());
+            // Always the default currency today (rate=1, is_default=true), but
+            // kept structurally identical to the other four marketplace syncs
+            // so a future non-default settlement doesn't silently regress into
+            // the same "raw amount in a PHP column" corruption. The re-sync
+            // guard is the same as the other syncs: never clobber an
+            // already-normalized order's frozen rate with today's resolution,
+            // and never apply a frozen rate once the order is no longer
+            // foreign.
+            $rate = $currency['rate'];
+            $isDefault = $currency['is_default'];
+            if ($existing && !$isDefault && $existing->foreign_total !== null) {
+                $rate = (float) $existing->currency_value;
+            }
+            $moneyScale = \App\Services\OrderCurrencyService::MONEY_SCALE;
+
             $orderData = [
                 'invoice_no'             => 0,
                 'invoice_prefix'         => '',
@@ -343,7 +362,8 @@ class VentaOrderSync
                 'shipping_cost'          => (float) ($totals['shipping'] ?? 0),
                 'shipping_code'          => '',
                 'comment'                => $raw['comment'] ?? '',
-                'total'                  => (float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)),
+                'total'                  => \App\Services\OrderCurrencyService::toBase((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $rate),
+                'foreign_total'          => $isDefault ? null : round((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $moneyScale),
                 'extra_cost'             => 0,
                 'order_status_id'        => $coreStatusId,
                 'affiliate_id'           => 0,
@@ -351,9 +371,9 @@ class VentaOrderSync
                 'marketing_id'           => 0,
                 'tracking'               => '',
                 'language_id'            => 1,
-                'currency_id'            => 0,
-                'currency_code'          => 'PHP',
-                'currency_value'         => 1,
+                'currency_id'            => $currency['id'],
+                'currency_code'          => $currency['code'],
+                'currency_value'         => $rate,
                 'ip'                     => '',
                 'forwarded_ip'           => '',
                 'user_agent'             => '',
@@ -399,9 +419,13 @@ class VentaOrderSync
             foreach ($items as $item) {
                 $sku = trim($item['sku'] ?? '');
                 $qty = (int) ($item['quantity'] ?? 1);
+                // Foreign (as-transacted) figures - always PHP for Venta today.
                 $price = (float) ($item['price'] ?? 0);
                 $lineTotal = (float) ($item['total'] ?? ($price * $qty));
                 $subTotal += $lineTotal;
+
+                $priceBase = \App\Services\OrderCurrencyService::toBase($price, $rate);
+                $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 $resolvedProductId = 0;
                 $resolvedOptionValueId = 0;
@@ -484,16 +508,20 @@ class VentaOrderSync
                 }
 
                 $opId = DB::table($pfx . 'order_product')->insertGetId([
-                    'order_id'   => $coreOrderId,
-                    'product_id' => $resolvedProductId,
-                    'name'       => $item['name'] ?? '',
-                    'model'      => $sku,
-                    'quantity'   => $qty,
-                    'price'      => $price,
-                    'total'      => $lineTotal,
-                    'tax'        => 0,
-                    'reward'     => 0,
-                    'cost'       => $productCost,
+                    'order_id'      => $coreOrderId,
+                    'product_id'    => $resolvedProductId,
+                    'name'          => $item['name'] ?? '',
+                    'model'         => $sku,
+                    'quantity'      => $qty,
+                    'price'         => $priceBase,
+                    'foreign_price' => $isDefault ? null : round($price, $moneyScale),
+                    'total'         => $lineTotalBase,
+                    'foreign_total' => $isDefault ? null : round($lineTotal, $moneyScale),
+                    'tax'           => 0,
+                    'reward'        => 0,
+                    // Cost is looked up from the catalog (already PHP), not
+                    // from marketplace data - no conversion needed.
+                    'cost'          => $productCost,
                 ]);
 
                 // Add variant label as order option if present
@@ -511,7 +539,8 @@ class VentaOrderSync
                 }
             }
 
-            // Sync order totals
+            // Sync order totals. order_total has no foreign_* column - it
+            // always holds the default-currency figure, matching order.total.
             DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)->delete();
             $sortOrder = 1;
 
@@ -519,7 +548,7 @@ class VentaOrderSync
                 'order_id'   => $coreOrderId,
                 'code'       => 'sub_total',
                 'title'      => 'Sub-Total',
-                'value'      => $subTotal,
+                'value'      => \App\Services\OrderCurrencyService::toBase($subTotal, $rate),
                 'sort_order' => $sortOrder++,
             ]);
 
@@ -529,7 +558,7 @@ class VentaOrderSync
                     'order_id'   => $coreOrderId,
                     'code'       => 'shipping',
                     'title'      => 'Shipping',
-                    'value'      => $shippingCost,
+                    'value'      => \App\Services\OrderCurrencyService::toBase($shippingCost, $rate),
                     'sort_order' => $sortOrder++,
                 ]);
             }
@@ -538,7 +567,7 @@ class VentaOrderSync
                 'order_id'   => $coreOrderId,
                 'code'       => 'total',
                 'title'      => 'Total',
-                'value'      => (float) ($totals['total'] ?? $subTotal),
+                'value'      => \App\Services\OrderCurrencyService::toBase((float) ($totals['total'] ?? $subTotal), $rate),
                 'sort_order' => $sortOrder,
             ]);
 
@@ -565,7 +594,7 @@ class VentaOrderSync
                 'order_status_id' => [(string) $oldStatusId, (string) $coreStatusId],
             ], source: 'system');
 
-            // Direct FCM dispatch — kept here because this sync uses DB::table()->insertGetId()
+            // Direct FCM dispatch - kept here because this sync uses DB::table()->insertGetId()
             // and DB::table()->update(), which bypass Eloquent observers (App\Observers\OrderObserver).
             // If this sync is ever converted to use Order::create()/$order->save(), remove this block.
             try {

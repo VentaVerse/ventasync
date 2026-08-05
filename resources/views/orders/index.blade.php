@@ -141,11 +141,13 @@
                             {{ $o->marketplace_order_id }}
                         @endif
                     @else
-                        —
+                        -
                     @endif
                 </td>
                 <td>{{ $o->status->name ?? '-' }}</td>
-                <td class="text-right">{{ number_format($o->total, 2) }}</td>
+                <td class="text-right">
+                    <x-money :php="(float) $o->total" :foreign="$o->foreign_total" :foreign-code="$o->currency_code" />
+                </td>
                 <td class="text-nowrap">
                     {{ $o->date_added }}
                     @if($o->latestHistory?->user_name)

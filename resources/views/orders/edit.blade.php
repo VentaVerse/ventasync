@@ -25,6 +25,7 @@
                                 data-code="{{ $cur->code }}"
                                 data-symbol="{{ $cur->symbol }}"
                                 data-rate="{{ $cur->exchange_rate }}"
+                                data-is-default="{{ $cur->is_default ? 1 : 0 }}"
                                 {{ $cur->code === $order->currency_code ? 'selected' : '' }}>
                             {{ $cur->code }} &mdash; {{ $cur->name }}
                         </option>
@@ -32,6 +33,16 @@
                 </select>
                 <input type="hidden" name="currency_code" id="currency-code-hidden" value="{{ $order->currency_code ?? 'PHP' }}">
             </div>
+            <div>
+                <label class="required">Exchange rate</label>
+                <div class="rate-field">
+                    <input class="input" type="number" step="0.00000001" min="0.00000001"
+                           name="currency_rate" id="currency-rate" value="{{ $order->currency_value ?: 1 }}">
+                    <span class="rate-hint" id="rate-hint"></span>
+                </div>
+            </div>
+            <input type="hidden" name="currency_id" id="currency-id-hidden"
+                   value="{{ $order->currency_id ?: 0 }}">
         </div>
 
         {{-- Customer Details --}}
@@ -328,13 +339,17 @@
     // ── Currency management ──────────────────────────────────
     var currencySelect = document.getElementById('currency-select');
     var currencyCodeHidden = document.getElementById('currency-code-hidden');
+    var currencyRate = document.getElementById('currency-rate');
+    var currencyIdHidden = document.getElementById('currency-id-hidden');
+    var rateHint = document.getElementById('rate-hint');
 
     function getSelectedCurrency() {
         var opt = currencySelect.options[currencySelect.selectedIndex];
         return {
+            id: opt.value,
             code: opt.dataset.code,
             symbol: opt.dataset.symbol,
-            rate: parseFloat(opt.dataset.rate) || 1
+            rate: parseFloat(currencyRate.value) || parseFloat(opt.dataset.rate) || 1
         };
     }
 
@@ -344,11 +359,38 @@
         return phpPrice / cur.rate;
     }
 
-    currencySelect.addEventListener('change', function() {
+    function syncRateField(preserveRate) {
         var opt = currencySelect.options[currencySelect.selectedIndex];
+        var isDefault = opt.dataset.isDefault === '1';
+
         currencyCodeHidden.value = opt.dataset.code;
+        currencyIdHidden.value = opt.value;
+        if (isDefault) {
+            // resolve() always forces rate = 1 for the default currency and silently
+            // discards any override - reflect that instead of offering a rate that
+            // would be ignored.
+            currencyRate.value = 1;
+        } else if (!preserveRate) {
+            // Currency was just switched by the operator - seed the field with
+            // today's feed rate rather than whatever was left over.
+            currencyRate.value = parseFloat(opt.dataset.rate) || 1;
+        }
+        currencyRate.readOnly = isDefault;
+        rateHint.textContent = isDefault
+            ? 'Default currency. Rate is always 1'
+            : opt.dataset.code + ' 1 = ' + opt.dataset.symbol + ' ' + currencyRate.value;
+    }
+
+    currencySelect.addEventListener('change', function() {
+        syncRateField(false);
         renderProducts();
     });
+
+    currencyRate.addEventListener('input', renderProducts);
+
+    // Preserve the order's stored currency_value instead of clobbering it with
+    // today's feed rate for the same currency.
+    syncRateField(true);
 
     // ── Payment same as shipping ──────────────────────────────
     var sameCheckbox = document.getElementById('payment-same-as-shipping');
@@ -378,7 +420,15 @@
     var totalHidden = document.getElementById('order-total-hidden');
     var lineItems = []; // each: { product_id, name, model, sku, basePrice (in order currency), baseCost, qty, option_value_id, option_name, option_value }
 
-    // Pre-populate from existing order products
+    // Pre-populate from existing order products. price/cost are ALWAYS
+    // stored in PHP (default currency, per OrderCurrencyService's storage
+    // rule) - basePrice/baseCost hold that raw PHP figure, exactly like a
+    // newly-added-via-modal item. convertPrice() (divides by whatever rate
+    // is currently in the rate field) derives the display/submit value,
+    // which reproduces the order-currency figure on load (the field starts
+    // seeded with the order's own stored rate) and stays correct if the
+    // operator switches currency, because basePrice itself never needs to
+    // change.
     @foreach($products as $p)
     lineItems.push({
         product_id: {{ (int) $p->product_id }},
@@ -390,17 +440,14 @@
         qty: {{ (int) $p->quantity }},
         option_value_id: {{ $p->options->first()->product_option_value_id ?? 'null' }},
         option_name: @json($p->options->first()->name ?? ''),
-        option_value: @json($p->options->first()->value ?? ''),
-        priceIsDisplay: true
+        option_value: @json($p->options->first()->value ?? '')
     });
     @endforeach
 
     function recalcTotal() {
         var total = 0;
         lineItems.forEach(function(item) {
-            // For pre-populated items, price is already in order currency
-            // For newly added items via modal, basePrice is in PHP and needs conversion
-            var price = item.priceIsDisplay ? item.basePrice : convertPrice(item.basePrice);
+            var price = convertPrice(item.basePrice);
             total += price * item.qty;
         });
         var cur = getSelectedCurrency();
@@ -420,8 +467,8 @@
 
         lineItems.forEach(function(item, idx) {
             var tr = document.createElement('tr');
-            var displayPrice = item.priceIsDisplay ? item.basePrice : convertPrice(item.basePrice);
-            var displayCost = item.priceIsDisplay ? item.baseCost : convertPrice(item.baseCost);
+            var displayPrice = convertPrice(item.basePrice);
+            var displayCost = convertPrice(item.baseCost);
 
             // ID
             var tdId = document.createElement('td');
@@ -522,9 +569,10 @@
             idx = parseInt(e.target.dataset.idx);
             var newDisplayPrice = parseFloat(e.target.value) || 0;
             cur = getSelectedCurrency();
-            // Mark as display price since user edited in display currency
-            lineItems[idx].basePrice = newDisplayPrice;
-            lineItems[idx].priceIsDisplay = true;
+            // The operator edited the displayed (order-currency) figure -
+            // convert it back to PHP so basePrice stays rate-independent,
+            // exactly like a newly-added-via-modal item.
+            lineItems[idx].basePrice = newDisplayPrice * cur.rate;
             // Update hidden input
             var row = e.target.closest('tr');
             var hiddenPrice = row.querySelector('input[name="products[' + idx + '][price]"]');
@@ -536,7 +584,7 @@
             idx = parseInt(e.target.dataset.idx);
             lineItems[idx].qty = parseInt(e.target.value) || 1;
             cur = getSelectedCurrency();
-            var displayPrice = lineItems[idx].priceIsDisplay ? lineItems[idx].basePrice : convertPrice(lineItems[idx].basePrice);
+            var displayPrice = convertPrice(lineItems[idx].basePrice);
             var row = e.target.closest('tr');
             var hiddenQty = row.querySelector('input[name="products[' + idx + '][quantity]"]');
             if (hiddenQty) hiddenQty.value = lineItems[idx].qty;
@@ -800,8 +848,7 @@
             qty: qty,
             option_value_id: null,
             option_name: '',
-            option_value: '',
-            priceIsDisplay: false
+            option_value: ''
         };
 
         if (p.options && p.options.length > 0) {
@@ -821,7 +868,7 @@
             item.option_value = opt.value_name;
         }
 
-        // Check if same product + same SKU + same option already exists — increment qty
+        // Check if same product + same SKU + same option already exists - increment qty
         var existingIdx = -1;
         for (var i = 0; i < lineItems.length; i++) {
             var li = lineItems[i];
@@ -838,7 +885,7 @@
         }
         renderProducts();
 
-        // Stay in modal for mass adding — reset detail, show count
+        // Stay in modal for mass adding - reset detail, show count
         modalSessionAdded++;
         modalAddedCount.textContent = modalSessionAdded;
         modalAddedBanner.style.display = '';

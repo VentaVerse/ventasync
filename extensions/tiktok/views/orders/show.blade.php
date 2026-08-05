@@ -35,7 +35,7 @@
     $shippingFee = $payment['shipping_fee'] ?? null;
     $sellerDiscount = $payment['seller_discount'] ?? $payment['seller_discount_total'] ?? null;
     $platformDiscount = $payment['platform_discount'] ?? $payment['platform_discount_total'] ?? null;
-    $currency = $payment['currency'] ?? '₱';
+    $currency = $payment['currency'] ?? \App\Support\Money::defaultSymbol();
 
     $items = $order->products ?? collect();
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   VentaSync — Design System
+   VentaSync - Design System
    Bundled via Laravel Vite
    ============================================================ */
 
@@ -20,6 +20,8 @@
 @import './components/toolbar.css';
 @import './components/forms.css';
 @import './components/order-totals.css';
+@import './components/currency-rate.css';
+@import './components/currency-dual.css';
 @import './components/typeahead.css';
 @import './components/badges.css';
 @import './components/sla-chip.css';

@@ -116,7 +116,7 @@
             <tbody>
                 @foreach($returns as $ret)
                     @php
-                        $cur = $ret->currency ?: '₱';
+                        $cur = $ret->currency ?: \App\Support\Money::defaultSymbol();
                         $items = is_array($ret->items) ? $ret->items : [];
                         $lineCount = max(1, count($items));
 

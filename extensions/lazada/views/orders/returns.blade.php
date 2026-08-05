@@ -126,7 +126,7 @@
             <tbody>
                 @foreach($orders as $order)
                     @php
-                        $cur = $order->currency ?: '₱';
+                        $cur = $order->currency ?: \App\Support\Money::defaultSymbol();
                         $items = is_array($order->items) ? $order->items : [];
                         // Consolidate identical lines — Lazada emits one reverse line per unit.
                         $grouped = [];

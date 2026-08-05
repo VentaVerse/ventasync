@@ -277,7 +277,7 @@
                         $itemCount = count($groupedItems);
 
                         $totalAmount = $raw['total_amount'] ?? $raw['escrow_amount'] ?? null;
-                        $currency = $raw['currency'] ?? '₱';
+                        $currency = $raw['currency'] ?? \App\Support\Money::defaultSymbol();
                         $paymentMethod = $raw['payment_method'] ?? null;
                         $courier = $raw['shipping_carrier'] ?? $raw['checkout_shipping_carrier'] ?? null;
                         if (is_array($courier)) $courier = implode(', ', $courier);

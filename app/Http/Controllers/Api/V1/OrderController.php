@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,7 @@ class OrderController extends Controller
                 'o.order_status_id',
                 'os.name as status',
                 'o.total',
+                'o.foreign_total',
                 'o.currency_code',
                 DB::raw('COALESCE(op.items, 0) as line_items'),
                 DB::raw('COALESCE(op.units, 0) as units'),
@@ -75,7 +77,11 @@ class OrderController extends Controller
             });
         }
 
-        return response()->json($query->orderByDesc('o.date_added')->paginate($perPage));
+        $defaultCode = Money::defaultCode();
+        $paginated = $query->orderByDesc('o.date_added')->paginate($perPage);
+        $paginated->through(fn ($row) => self::applyCurrencyShape($row, $defaultCode));
+
+        return response()->json($paginated);
     }
 
     public function show(Request $request, int $id): JsonResponse
@@ -94,13 +100,15 @@ class OrderController extends Controller
                 DB::raw("TRIM(CONCAT(o.firstname, ' ', o.lastname)) as customer"),
                 'o.email', 'o.telephone', 'o.payment_method',
                 'o.order_status_id', 'os.name as status',
-                'o.total', 'o.currency_code', 'o.date_added'
+                'o.total', 'o.foreign_total', 'o.currency_code', 'o.date_added'
             )
             ->first();
 
         if (! $order) {
             return response()->json(['message' => 'Order not found.'], 404);
         }
+
+        $order = self::applyCurrencyShape($order, Money::defaultCode());
 
         $items = DB::table($pfx . 'order_product')
             ->where('order_id', $id)
@@ -111,5 +119,30 @@ class OrderController extends Controller
             'order' => $order,
             'items' => $items,
         ]);
+    }
+
+    /**
+     * `total` is always the default currency; `currency_code` used to be
+     * echoed straight from the row, which reported the as-transacted
+     * currency next to a figure that is not in that currency. Re-labels
+     * `currency_code` to the default and moves the as-transacted figure
+     * (when one exists) into `transaction_currency` / `transaction_total`.
+     *
+     * `foreign_total` is only non-null once an order has been normalized
+     * to dual-currency storage, so a currency_code that has not (yet) been
+     * paired with a foreign_total is treated the same as a default-currency
+     * order here rather than asserting an unconverted, ambiguous figure is
+     * "the" transaction total.
+     */
+    private static function applyCurrencyShape(object $row, string $defaultCode): object
+    {
+        $foreignTotal = $row->foreign_total;
+
+        $row->transaction_currency = $foreignTotal !== null ? $row->currency_code : null;
+        $row->transaction_total = $foreignTotal !== null ? (float) $foreignTotal : null;
+        $row->currency_code = $defaultCode;
+        unset($row->foreign_total);
+
+        return $row;
     }
 }

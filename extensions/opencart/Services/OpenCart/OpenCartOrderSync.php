@@ -246,6 +246,24 @@ class OpenCartOrderSync
                     ->first();
             }
 
+            // OpenCart sends "foreign per 1 default" (e.g. 0.021 USD per PHP);
+            // this ERP stores the inverse ("default per 1 foreign") everywhere else.
+            $ocRate = (float) ($raw['currency_value'] ?? 1);
+            $ocTotal = (float) ($raw['total'] ?? 0);
+
+            // Currency IDENTITY decides whether this order gets dual storage,
+            // not whether OC's own rate happens to be ~1.0 - a store operator
+            // can misconfigure OC's currency_value as 1 for a genuinely
+            // foreign currency, which would otherwise masquerade as the
+            // default currency (foreign_total left NULL, foreign figures
+            // written into total).
+            $defaultCurrencyCode = app(\App\Services\OrderCurrencyService::class)->defaultCode();
+            $ocCurrencyCode = trim((string) ($raw['currency_code'] ?? $defaultCurrencyCode));
+            if ($ocCurrencyCode === '') {
+                $ocCurrencyCode = $defaultCurrencyCode;
+            }
+            $isDefault = strcasecmp($ocCurrencyCode, $defaultCurrencyCode) === 0;
+
             $orderData = [
                 'invoice_no'             => (int) ($raw['invoice_no'] ?? 0),
                 'invoice_prefix'         => $raw['invoice_prefix'] ?? '',
@@ -293,7 +311,7 @@ class OpenCartOrderSync
                 'shipping_cost'          => (float) ($raw['shipping_cost'] ?? 0),
                 'shipping_code'          => $raw['shipping_code'] ?? '',
                 'comment'                => $raw['comment'] ?? '',
-                'total'                  => (float) ($raw['total'] ?? 0),
+                'total'                  => $ocTotal,
                 'extra_cost'             => (float) ($raw['extra_cost'] ?? 0),
                 'order_status_id'        => $coreStatusId,
                 'affiliate_id'           => (int) ($raw['affiliate_id'] ?? 0),
@@ -302,8 +320,17 @@ class OpenCartOrderSync
                 'tracking'               => $raw['tracking'] ?? '',
                 'language_id'            => (int) ($raw['language_id'] ?? 0),
                 'currency_id'            => (int) ($raw['currency_id'] ?? 0),
-                'currency_code'          => $raw['currency_code'] ?? 'PHP',
-                'currency_value'         => (float) ($raw['currency_value'] ?? 1),
+                'currency_code'          => $raw['currency_code'] ?? $defaultCurrencyCode,
+                // OpenCart sends "foreign per 1 default"; this ERP stores the inverse.
+                'currency_value'         => $ocRate > 0 ? round(1 / $ocRate, \App\Services\OrderCurrencyService::RATE_SCALE) : 1.0,
+                // 'total' above is already default-currency (OC convention); the
+                // as-transacted foreign amount is total * the ORIGINAL (pre-inversion)
+                // rate. Must stay NULL for a default-currency order (or a malformed
+                // non-positive rate) - Tasks 4/5's idempotence guard keys off
+                // foreign_total IS NULL; never write 0.00 where NULL belongs.
+                'foreign_total'          => ($ocRate > 0 && !$isDefault)
+                    ? round($ocTotal * $ocRate, \App\Services\OrderCurrencyService::MONEY_SCALE)
+                    : null,
                 'ip'                     => $raw['ip'] ?? '',
                 'forwarded_ip'           => $raw['forwarded_ip'] ?? '',
                 'user_agent'             => $raw['user_agent'] ?? '',
@@ -344,7 +371,7 @@ class OpenCartOrderSync
                 $created = true;
             }
 
-            // Sync order products — resolve product_id via SKU
+            // Sync order products - resolve product_id via SKU
             if (isset($raw['products']) && is_array($raw['products'])) {
                 DB::table($pfx . 'order_product')
                     ->where('order_id', $coreOrderId)
@@ -493,14 +520,21 @@ class OpenCartOrderSync
             ], source: 'system');
         }
 
-        // Direct FCM dispatch — kept here because this sync uses DB::table()->insertGetId()
+        // Direct FCM dispatch - kept here because this sync uses DB::table()->insertGetId()
         // and DB::table()->update(), which bypass Eloquent observers (App\Observers\OrderObserver).
         // If this sync is ever converted to use Order::create()/$order->save(), remove this block.
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {
             try {
                 $firstProduct = ($raw['products'] ?? [])[0] ?? null;
                 $itemName = $firstProduct ? trim($firstProduct['name'] ?? '') : trim(($raw['firstname'] ?? '') . ' ' . ($raw['lastname'] ?? ''));
-                $total = number_format((float) ($raw['total'] ?? 0), 2) . ' ' . ($raw['currency_code'] ?? 'PHP');
+                // $raw['total'] is stored into order.total verbatim (OC
+                // convention - see the comment above this transaction), which
+                // is always the default currency. Labelling it with
+                // $raw['currency_code'] (the as-transacted code) would print
+                // the wrong currency next to a default-currency figure for
+                // any foreign order, same as the bug this fixes in
+                // App\Observers\OrderObserver.
+                $total = number_format((float) ($raw['total'] ?? 0), 2) . ' ' . \App\Support\Money::defaultCode();
                 (new FcmService())->notifyIfNeeded($coreOrderId, $oldStatusId, $coreStatusId, $itemName, $total, $marketplaceSource);
             } catch (\Throwable $e) {
                 Log::warning('FCM notification failed: ' . $e->getMessage());
@@ -532,7 +566,7 @@ class OpenCartOrderSync
      */
     private function resolveProductBySku(string $pfx, array $p): int
     {
-        // Try by opencart_product_links (most reliable — maps OC product_id → local product_id)
+        // Try by opencart_product_links (most reliable - maps OC product_id → local product_id)
         $ocProductId = (int) ($p['product_id'] ?? 0);
         if ($ocProductId > 0) {
             $link = DB::table('opencart_product_links')

@@ -6,7 +6,7 @@
     // Phase 4.5 (view/manage tier split): operators with only `view_orders`
     // see the show page through the read-tier route gate. Action triggers
     // (Edit, Backfill, Status update, fee CRUD, payment CRUD, toggle
-    // tracking) are hidden for them — the routes still 403 if probed
+    // tracking) are hidden for them - the routes still 403 if probed
     // directly, but the UI surface matches the operator's capability set.
     $canManageOrders = true;
 @endphp
@@ -156,6 +156,38 @@
             </form>
         @endif
     </div>
+    @php
+        // Every money value in this view routes through App\Support\Money /
+        // <x-money> - see the class docblock. `currency_value` is the rate
+        // recorded at order time ("units of PHP per 1 unit of order currency");
+        // a default-currency order carries 1.0 and never shows the banner.
+        $defaultSymbol = \App\Support\Money::defaultSymbol();
+        // A blank currency_code (pre-currency-feature legacy orders) is
+        // default-currency, not "foreign with no name" - without this guard
+        // such an order renders a broken banner ("<strong></strong> order -
+        // 1  = " . $defaultSymbol . "...").
+        $isForeign = (string) $order->currency_code !== ''
+            && strcasecmp((string) $order->currency_code, $defaultCurrency->code ?? 'PHP') !== 0;
+        $orderRate = (float) ($order->currency_value ?: 1);
+        // A foreign order that predates normalization (or was created in the
+        // gap before the normalizer ran) has no foreign_total yet. Detect
+        // that explicitly rather than ever inferring the convention from the
+        // rate's magnitude - fall back to a single, still-labelled PHP
+        // figure and a pending notice instead of a wrong or blank number.
+        $normalized = !$isForeign || $order->foreign_total !== null;
+    @endphp
+    @if($isForeign)
+        <div class="currency-banner {{ $normalized ? '' : 'currency-banner--pending' }}">
+            @if($normalized)
+                <strong>{{ $order->currency_code }}</strong> order.
+                1 {{ $order->currency_code }} = {{ $defaultSymbol }}{{ rtrim(rtrim(number_format($orderRate, 8, '.', ''), '0'), '.') }}
+                <span class="currency-banner__date">Based on {{ \Illuminate\Support\Carbon::parse($order->date_added)->format('Y-m-d') }} currency rate</span>
+            @else
+                <strong>{{ $order->currency_code }}</strong> order. Exchange rate not yet recorded,
+                so the amounts below are shown exactly as they were stored.
+            @endif
+        </div>
+    @endif
     @if($products->count())
     @php
         $totalRevenue = 0;
@@ -221,18 +253,22 @@
                 </td>
                 <td class="text-sm text-secondary">{{ $p->model }}</td>
                 <td class="text-right">{{ $p->quantity }}</td>
-                <td class="text-right">{{ number_format($p->price, 2) }}</td>
-                <td class="text-right font-semibold">{{ number_format($p->total, 2) }}</td>
+                <td class="text-right">
+                    <x-money :php="$p->price" :foreign="($isForeign && $normalized) ? $p->foreign_price : null" :foreign-code="$order->currency_code" />
+                </td>
+                <td class="text-right font-semibold">
+                    <x-money :php="$p->total" :foreign="($isForeign && $normalized) ? $p->foreign_total : null" :foreign-code="$order->currency_code" />
+                </td>
                 <td class="text-right text-secondary">
                     @if($canManageOrders)
-                    <span class="inline-edit-cost" data-op-id="{{ $p->order_product_id }}" data-cost="{{ $unitCost }}" title="Click to edit cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}</span>
+                    <span class="inline-edit-cost" data-op-id="{{ $p->order_product_id }}" data-cost="{{ $unitCost }}" title="Click to edit cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</span>
                     @else
-                    {{ $unitCost > 0 ? number_format($unitCost, 2) : '-' }}
+                    {{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}
                     @endif
                 </td>
-                <td class="text-right text-secondary">{{ $unitCost > 0 ? number_format($cogs, 2) : '-' }}</td>
+                <td class="text-right text-secondary">{{ $unitCost > 0 ? \App\Support\Money::base($cogs) : '-' }}</td>
                 <td class="text-right font-semibold" style="color: {{ $profit >= 0 ? 'var(--success)' : 'var(--danger)' }}">
-                    {{ $unitCost > 0 ? number_format($profit, 2) : '-' }}
+                    {{ $unitCost > 0 ? \App\Support\Money::base($profit) : '-' }}
                 </td>
                 <td class="text-right">
                     @if($unitCost > 0)
@@ -272,6 +308,11 @@
         $hasCostData = $totalCogs > 0;
         $hasDeductions = $shippingCost > 0 || $mktFeeTotal > 0;
         $hasAnyProfit = $hasCostData || $hasDeductions;
+        // COGS is authoritative in PHP (summed from order_product.cost); its
+        // foreign figure is a derived reference via the rate recorded on the order,
+        // not a stored value - drift from a "round" foreign cost is expected
+        // (see Money/OrderCurrencyService docs) and not something to "fix".
+        $totalCogsForeign = ($isForeign && $normalized) ? \App\Services\OrderCurrencyService::toForeign($totalCogs, $orderRate) : null;
     @endphp
     <div class="d-flex justify-end mt-16">
         <table class="order-totals-table">
@@ -279,9 +320,15 @@
             {{-- Standard order totals (Sub-Total, Shipping, etc.) --}}
             @foreach($orderTotals as $ot)
                 @if($ot->code !== 'total')
+                @php
+                    // order_total.value is stored in PHP like every other
+                    // money column here; the foreign figure is derived from
+                    // it the same way Sub-Total is (verified against #44294).
+                    $otForeign = ($isForeign && $normalized) ? \App\Services\OrderCurrencyService::toForeign((float) $ot->value, $orderRate) : null;
+                @endphp
                 <tr>
                     <td class="text-secondary">{{ $ot->title }}</td>
-                    <td class="text-right">{{ number_format($ot->value, 2) }}</td>
+                    <td class="text-right"><x-money :php="$ot->value" :foreign="$otForeign" :foreign-code="$order->currency_code" /></td>
                 </tr>
                 @endif
             @endforeach
@@ -289,7 +336,9 @@
             {{-- Order Total --}}
             <tr class="order-totals-row-total">
                 <td>Total</td>
-                <td class="text-right">{{ number_format($order->total, 2) }}</td>
+                <td class="text-right">
+                    <x-money :php="$order->total" :foreign="($isForeign && $normalized) ? $order->foreign_total : null" :foreign-code="$order->currency_code" />
+                </td>
             </tr>
 
             @if($hasAnyProfit)
@@ -300,7 +349,9 @@
             @if($hasCostData)
             <tr>
                 <td class="text-secondary">COGS</td>
-                <td class="text-right" style="color:var(--danger);">-{{ number_format($totalCogs, 2) }}</td>
+                <td class="text-right" style="color:var(--danger);">
+                    <x-money :php="-$totalCogs" :foreign="$totalCogsForeign !== null ? -$totalCogsForeign : null" :foreign-code="$order->currency_code" />
+                </td>
             </tr>
             @endif
 
@@ -309,9 +360,9 @@
                 <td class="text-secondary">Shipping Cost</td>
                 <td class="text-right">
                     @if($canManageOrders)
-                    <span class="inline-edit-shipping" data-order-id="{{ $order->order_id }}" data-cost="{{ $shippingCost }}" title="Click to edit shipping cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px; {{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . number_format($shippingCost, 2) : '0.00' }}</span>
+                    <span class="inline-edit-shipping" data-order-id="{{ $order->order_id }}" data-cost="{{ $shippingCost }}" title="Click to edit shipping cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px; {{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</span>
                     @else
-                    <span style="{{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . number_format($shippingCost, 2) : '0.00' }}</span>
+                    <span style="{{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</span>
                     @endif
                 </td>
             </tr>
@@ -328,13 +379,13 @@
                 </td>
                 <td class="text-right" style="color:var(--danger);">
                     @if(isset($fee['fee_id']) && $canManageOrders)
-                        <span class="inline-edit-fee-amount" data-fee-id="{{ $fee['fee_id'] }}" data-amount="{{ $fee['amount'] }}" title="Click to edit amount" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">-{{ number_format($fee['amount'], 2) }}</span>
+                        <span class="inline-edit-fee-amount" data-fee-id="{{ $fee['fee_id'] }}" data-amount="{{ $fee['amount'] }}" title="Click to edit amount" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">-{{ \App\Support\Money::base($fee['amount']) }}</span>
                         <form method="POST" action="{{ route('orders.destroy_fee', [$order->order_id, $fee['fee_id']]) }}" style="display:inline; margin-left:4px;" data-confirm="Remove this fee?">
                             @csrf @method('DELETE')
                             <button type="submit" style="background:none; border:none; cursor:pointer; color:var(--danger); font-size:11px; padding:0;" title="Remove fee">&times;</button>
                         </form>
                     @else
-                        -{{ number_format($fee['amount'], 2) }}
+                        -{{ \App\Support\Money::base($fee['amount']) }}
                     @endif
                 </td>
             </tr>
@@ -366,7 +417,7 @@
                     @endif
                 </td>
                 <td class="text-right" style="color: {{ ($hasDeductions ? $netProfit : $grossProfit) >= 0 ? 'var(--success)' : 'var(--danger)' }}">
-                    {{ number_format($hasDeductions ? $netProfit : $grossProfit, 2) }}
+                    {{ \App\Support\Money::base($hasDeductions ? $netProfit : $grossProfit) }}
                 </td>
             </tr>
             @endif
@@ -389,7 +440,7 @@
             @if($balance <= 0 && $orderTotal > 0)
                 <span class="badge badge-green" style="font-size:11px; margin-left:8px;">Paid in Full</span>
             @elseif($totalPaid > 0)
-                <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ number_format($balance, 2) }}</span>
+                <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ \App\Support\Money::base($balance) }}</span>
             @endif
         </h3>
         @if($canManageOrders)
@@ -418,8 +469,8 @@
             <tr>
                 <td>{{ $p->paid_at->format('M d, Y') }}</td>
                 <td>{{ $p->payment_method }}</td>
-                <td class="text-muted">{{ $p->reference_no ?: '—' }}</td>
-                <td class="text-right font-semibold">{{ number_format((float) $p->amount, 2) }}</td>
+                <td class="text-muted">{{ $p->reference_no ?: '-' }}</td>
+                <td class="text-right font-semibold">{{ \App\Support\Money::base((float) $p->amount) }}</td>
                 <td class="text-muted text-sm">{{ $p->notes ?: '' }}</td>
                 <td>
                     @if($canManageOrders)
@@ -435,13 +486,13 @@
             @endforeach
             <tr style="border-top:2px solid var(--border);">
                 <td colspan="3" class="text-right font-semibold">Total Paid</td>
-                <td class="text-right font-semibold">{{ number_format($totalPaid, 2) }}</td>
+                <td class="text-right font-semibold">{{ \App\Support\Money::base($totalPaid) }}</td>
                 <td colspan="2"></td>
             </tr>
             @if($balance > 0)
             <tr>
                 <td colspan="3" class="text-right font-semibold" style="color:var(--warning);">Remaining Balance</td>
-                <td class="text-right font-semibold" style="color:var(--warning);">{{ number_format($balance, 2) }}</td>
+                <td class="text-right font-semibold" style="color:var(--warning);">{{ \App\Support\Money::base($balance) }}</td>
                 <td colspan="2"></td>
             </tr>
             @endif
@@ -492,7 +543,7 @@
     @endif
     @else
     @if($canManageOrders)
-    {{-- Payment tracking disabled — show enable button --}}
+    {{-- Payment tracking disabled - show enable button --}}
     <div class="mt-24 mb-24" style="display:flex; align-items:center; gap:12px;">
         <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
             @csrf
@@ -519,7 +570,7 @@
                 <span class="order-override-title">Sync Override {{ $order->sync_override ? 'ON' : 'OFF' }}</span>
                 <div class="text-xs text-secondary">
                     @if($order->sync_override)
-                        Manually controlled — marketplace syncs will not change this order's status or stock.
+                        Manually controlled - marketplace syncs will not change this order's status or stock.
                     @else
                         The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
                     @endif
@@ -576,6 +627,13 @@
 
 @push('scripts')
 <script>
+// Default-currency symbol, resolved server-side from the `currencies` table
+// (App\Support\Money::defaultSymbol()) - the inline-edit widgets below write
+// their own text between a save and the page reload that follows it, and
+// that transient text must stay labelled just like every Blade-rendered
+// money figure on this page.
+var MONEY_SYMBOL = @json(\App\Support\Money::defaultSymbol());
+
 document.addEventListener('click', function(e) {
     var span = e.target.closest('.inline-edit-cost');
     if (!span || span.querySelector('input')) return;
@@ -598,7 +656,7 @@ document.addEventListener('click', function(e) {
 
     function saveCost() {
         var newCost = parseFloat(input.value) || 0;
-        span.textContent = newCost > 0 ? newCost.toFixed(2) : '-';
+        span.textContent = newCost > 0 ? MONEY_SYMBOL + newCost.toFixed(2) : '-';
         span.dataset.cost = newCost;
 
         fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/update-product-cost', {
@@ -630,7 +688,7 @@ document.addEventListener('click', function(e) {
     input.addEventListener('keydown', function(ev) {
         if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
         if (ev.key === 'Escape') {
-            span.textContent = currentCost > 0 ? currentCost.toFixed(2) : '-';
+            span.textContent = currentCost > 0 ? MONEY_SYMBOL + currentCost.toFixed(2) : '-';
             span.dataset.cost = currentCost;
         }
     });
@@ -659,7 +717,7 @@ document.addEventListener('click', function(e) {
 
     function saveFeeAmount() {
         var newAmount = parseFloat(input.value) || 0;
-        span.textContent = newAmount > 0 ? '-' + newAmount.toFixed(2) : '0.00';
+        span.textContent = newAmount > 0 ? '-' + MONEY_SYMBOL + newAmount.toFixed(2) : MONEY_SYMBOL + '0.00';
         span.dataset.amount = newAmount;
 
         fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
@@ -688,7 +746,7 @@ document.addEventListener('click', function(e) {
     input.addEventListener('keydown', function(ev) {
         if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
         if (ev.key === 'Escape') {
-            span.textContent = currentAmount > 0 ? '-' + currentAmount.toFixed(2) : '0.00';
+            span.textContent = currentAmount > 0 ? '-' + MONEY_SYMBOL + currentAmount.toFixed(2) : MONEY_SYMBOL + '0.00';
             span.dataset.amount = currentAmount;
         }
     });
@@ -769,7 +827,7 @@ document.addEventListener('click', function(e) {
 
     function saveShipping() {
         var newCost = parseFloat(input.value) || 0;
-        span.textContent = newCost > 0 ? '-' + newCost.toFixed(2) : '0.00';
+        span.textContent = newCost > 0 ? '-' + MONEY_SYMBOL + newCost.toFixed(2) : MONEY_SYMBOL + '0.00';
         span.dataset.cost = newCost;
         span.style.color = newCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
 
@@ -801,7 +859,7 @@ document.addEventListener('click', function(e) {
     input.addEventListener('keydown', function(ev) {
         if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
         if (ev.key === 'Escape') {
-            span.textContent = currentCost > 0 ? '-' + currentCost.toFixed(2) : '0.00';
+            span.textContent = currentCost > 0 ? '-' + MONEY_SYMBOL + currentCost.toFixed(2) : MONEY_SYMBOL + '0.00';
             span.dataset.cost = currentCost;
             span.style.color = currentCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
         }

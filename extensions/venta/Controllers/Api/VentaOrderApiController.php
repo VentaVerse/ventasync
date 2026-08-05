@@ -3,6 +3,7 @@
 namespace Extensions\venta\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Money;
 use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaOrderStatusMap;
 use Extensions\venta\Models\VentaSetting;
@@ -100,7 +101,7 @@ class VentaOrderApiController extends Controller
                 'status'          => $order->status ?? '',
                 'buyer_name'      => $order->customer_name ?? '',
                 'total_amount'    => $order->total !== null ? (float) $order->total : null,
-                'currency'        => $raw['currency'] ?? 'PHP',
+                'currency'        => $raw['currency'] ?? Money::defaultCode(),
                 'items_count'     => $order->products()->count(),
                 'product_image'   => $image,
                 'payment_method'  => $order->payment_method,
@@ -162,7 +163,7 @@ class VentaOrderApiController extends Controller
             'status'            => $order->status ?? '',
             'buyer_name'        => $order->customer_name ?? '',
             'total_amount'      => $order->total !== null ? (float) $order->total : null,
-            'currency'          => $raw['currency'] ?? 'PHP',
+            'currency'          => $raw['currency'] ?? Money::defaultCode(),
             'payment_method'    => $order->payment_method ?? '',
             'shipping_provider' => $order->shipping_method ?? '',
             'tracking_number'   => $order->tracking_number ?? '',

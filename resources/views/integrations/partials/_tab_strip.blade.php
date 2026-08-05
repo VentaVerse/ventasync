@@ -71,7 +71,7 @@
                     <div class="ord-tab-lbl">Today</div>
                 </div>
                 <div class="ord-tab-metric">
-                    <div class="ord-tab-num small">₱{{ number_format((float) $__todayRevenue, 0) }}</div>
+                    <div class="ord-tab-num small">{{ \App\Support\Money::defaultSymbol() }}{{ number_format((float) $__todayRevenue, 0) }}</div>
                     <div class="ord-tab-lbl">Revenue</div>
                 </div>
             </div>

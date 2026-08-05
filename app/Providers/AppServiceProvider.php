@@ -6,6 +6,7 @@ use App\Models\Catalog\Order;
 use App\Models\Setting;
 use App\Observers\OrderObserver;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -25,7 +26,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Centralized FCM notification dispatch — fires on any Order create/update.
+        // Refuse to run schema-destroying artisan commands (migrate:fresh,
+        // migrate:refresh, migrate:reset, migrate:rollback, db:wipe) against
+        // any database whose name does not end in `_test`.
+        //
+        // Why this exists: `migrate:fresh` calls `db:wipe`, which drops every
+        // table in whatever DB_DATABASE points at. On 2026-08-05 that wiped the
+        // sandbox (44,172 orders) mid-session - recovered from a dump, but only
+        // because one had been taken. The test suite already guards itself
+        // (tests/bootstrap.php + Tests\TestCase), but that only covers PHPUnit;
+        // a bare `php artisan migrate:fresh` reads .env and bypasses it
+        // entirely. This closes that path for real data while leaving the
+        // `*_test` schemas freely rebuildable.
+        $database = (string) config('database.connections.'.config('database.default').'.database');
+        DB::prohibitDestructiveCommands(! str_ends_with($database, '_test'));
+
+        // Centralized FCM notification dispatch - fires on any Order create/update.
         Order::observe(OrderObserver::class);
 
         // Apply admin Settings to runtime config. Wrapped in try/catch because:
@@ -54,7 +70,7 @@ class AppServiceProvider extends ServiceProvider
                 View::share('appSetting', $setting);
             }
         } catch (\Throwable $e) {
-            // DB unreachable or settings table missing — let the request
+            // DB unreachable or settings table missing - let the request
             // continue and render whatever page is available (login,
             // error page, etc).
         }

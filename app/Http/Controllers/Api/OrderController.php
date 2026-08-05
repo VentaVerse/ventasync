@@ -8,6 +8,7 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
 use App\Services\OrderStockService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +56,9 @@ class OrderController extends Controller
             ? \Extensions\opencart\Models\OpenCartSetting::pluck('store_name', 'id')->toArray()
             : [];
 
-        $orders->getCollection()->transform(function ($order) use ($ocStoreNames) {
+        $defaultCode = Money::defaultCode();
+
+        $orders->getCollection()->transform(function ($order) use ($ocStoreNames, $defaultCode) {
             // Resolve first product image
             $firstProduct = $order->products()->first();
             $productImage = null;
@@ -73,7 +76,9 @@ class OrderController extends Controller
                 'email'                => $order->email,
                 'telephone'            => $order->telephone,
                 'total'                => (float) $order->total,
-                'currency_code'        => $order->currency_code,
+                'currency_code'        => $defaultCode,
+                'transaction_currency' => $order->foreign_total !== null ? $order->currency_code : null,
+                'transaction_total'    => $order->foreign_total !== null ? (float) $order->foreign_total : null,
                 'order_status_id'      => (int) $order->order_status_id,
                 'status_name'          => $order->status->name ?? '',
                 'date_added'           => $order->date_added,
@@ -112,7 +117,9 @@ class OrderController extends Controller
                 'telephone'          => $order->telephone,
                 'comment'            => $order->comment ?? '',
                 'total'              => (float) $order->total,
-                'currency_code'      => $order->currency_code,
+                'currency_code'      => Money::defaultCode(),
+                'transaction_currency' => $order->foreign_total !== null ? $order->currency_code : null,
+                'transaction_total'    => $order->foreign_total !== null ? (float) $order->foreign_total : null,
                 'order_status_id'    => (int) $order->order_status_id,
                 'payment_method'     => $order->payment_method ?? '',
                 'shipping_method'    => $order->shipping_method ?? '',

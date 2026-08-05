@@ -317,7 +317,7 @@
                 </div>
                 <div>
                     <div class="text-xs text-secondary">Refund Amount</div>
-                    <div class="font-bold" style="color:#dc2626;">{{ ($ret->currency ?: '₱') . number_format((float)$ret->refund_amount, 2) }}</div>
+                    <div class="font-bold" style="color:#dc2626;">{{ ($ret->currency ?: \App\Support\Money::defaultSymbol()) . number_format((float)$ret->refund_amount, 2) }}</div>
                 </div>
                 <div>
                     <div class="text-xs text-secondary">Created</div>

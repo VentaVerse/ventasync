@@ -122,8 +122,8 @@ requires the listed scope. All responses JSON.
 ### Implemented (v1) — orders & inventory
 | Method | Path             | Scope            | Description |
 |--------|------------------|------------------|-------------|
-| GET    | `/orders`        | `orders:read`    | Paginated orders: channel, status, customer, total, line/unit counts. Query: `date_from`, `date_to`, `status`, `source`, `search`, `per_page`. |
-| GET    | `/orders/{id}`   | `orders:read`    | Order header + line items (name, qty, price, total, cost). |
+| GET    | `/orders`        | `orders:read`    | Paginated orders: channel, status, customer, total, line/unit counts. Query: `date_from`, `date_to`, `status`, `source`, `search`, `per_page`. `total` is always in the default currency; `currency_code` names that default currency, not the order's transacted currency. When an order was transacted in a foreign currency, `transaction_currency` and `transaction_total` carry the as-transacted code and amount; both are `null` for a default-currency order. |
+| GET    | `/orders/{id}`   | `orders:read`    | Order header + line items (name, qty, price, total, cost). Same `total` / `currency_code` / `transaction_currency` / `transaction_total` currency semantics as `/orders` above. |
 | GET    | `/inventory`     | `inventory:read` | Stock vs. reorder level: quantity, reorder_level, is_low, below_by, cost, price. Query: `low_stock` (≤ reorder_level), `threshold` (≤ N), `search`, `per_page`. NOTE: `low_stock` needs product `reorder_level` set (currently 0 across catalog) — use `threshold` until reorder levels are populated. |
 
 ### Scaffolded but LOCKED (write phase — not granted in v1)

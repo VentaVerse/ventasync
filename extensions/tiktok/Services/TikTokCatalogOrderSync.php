@@ -60,6 +60,14 @@ class TikTokCatalogOrderSync
             $currencyCode = trim((string) ($paymentInfo['currency'] ?? 'PHP'));
             if ($currencyCode === '') $currencyCode = 'PHP';
 
+            $currencySvc = app(\App\Services\OrderCurrencyService::class);
+            try {
+                $currency = $currencySvc->resolve($currencyCode);
+            } catch (\InvalidArgumentException $e) {
+                \Log::warning("Unknown marketplace currency '{$currencyCode}', defaulting.", ['order' => $tiktokOrder->order_id]);
+                $currency = $currencySvc->resolve($currencySvc->defaultCode());
+            }
+
             // --- Shipping method & tracking ---
             $shippingInfo = $raw['shipping_info'] ?? $raw['logistics'] ?? [];
             if (is_array($shippingInfo) && isset($shippingInfo[0]) && is_array($shippingInfo[0])) {
@@ -86,6 +94,20 @@ class TikTokCatalogOrderSync
                 $catalogOrder = Order::where('marketplace_source', 'tiktok')
                     ->where('marketplace_order_id', $tiktokOrderId)
                     ->first();
+            }
+
+            // Re-sync guard: once an order has been normalized (foreign_total
+            // is no longer NULL), its currency_value is a frozen, as-transacted
+            // rate. A later re-sync must not overwrite it with today's feed
+            // rate - that would desynchronize currency_value from the total
+            // and foreign_total that were already stored under the old rate.
+            // The order must also still be foreign today - if a feed ever
+            // re-reports this order as the default currency, the frozen rate
+            // must not be applied to what is now a default-currency amount.
+            $rate = $currency['rate'];
+            $isDefault = $currency['is_default'];
+            if ($catalogOrder && !$isDefault && $catalogOrder->foreign_total !== null) {
+                $rate = (float) $catalogOrder->currency_value;
             }
 
             $orderData = [
@@ -135,6 +157,9 @@ class TikTokCatalogOrderSync
                 'shipping_cost'         => 0,
                 'shipping_code'         => '',
                 'comment'               => '',
+                // Placeholder - overwritten below once the real (foreign)
+                // subtotal is computed from line items, at which point it is
+                // converted to the default currency and foreign_total is set.
                 'total'                 => $apiTotal,
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,
@@ -143,9 +168,9 @@ class TikTokCatalogOrderSync
                 'marketing_id'          => 0,
                 'tracking'              => '',
                 'language_id'           => 1,
-                'currency_id'           => 0,
-                'currency_code'         => $currencyCode,
-                'currency_value'        => 1,
+                'currency_id'           => $currency['id'],
+                'currency_code'         => $currency['code'],
+                'currency_value'        => $rate,
                 'ip'                    => '',
                 'forwarded_ip'          => '',
                 'user_agent'            => '',
@@ -159,7 +184,7 @@ class TikTokCatalogOrderSync
 
             if ($catalogOrder) {
                 $oldStatusId = (int) $catalogOrder->order_status_id;
-                // Sync Override: operator has manually finalised this order —
+                // Sync Override: operator has manually finalised this order -
                 // preserve its status (no-op the status-change block below, so
                 // no stock moves). See order.sync_override.
                 if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
@@ -213,10 +238,17 @@ class TikTokCatalogOrderSync
             $pfx = (string) config('catalog.prefix');
 
             foreach ($grouped as $item) {
+                // Foreign (as-transacted, marketplace-currency) figures.
                 $price = $item['price'];
                 $qty = $item['quantity'];
                 $lineTotal = $price * $qty;
                 $subTotal += $lineTotal;
+
+                // Storage rule: price/total are ALWAYS the default currency;
+                // foreign_price/foreign_total hold the raw marketplace amount
+                // and must stay NULL (never 0.00) for a default-currency order.
+                $priceBase = \App\Services\OrderCurrencyService::toBase($price, $rate);
+                $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 // Resolve catalog product_id via SKU
                 $resolvedProductId = 0;
@@ -279,18 +311,22 @@ class TikTokCatalogOrderSync
                 }
 
                 $op = OrderProduct::create([
-                    'order_id'   => $catalogOrder->order_id,
-                    'product_id' => $resolvedProductId,
-                    'name'       => $item['name'],
-                    'model'      => $sellerSku,
-                    'quantity'   => $qty,
-                    'price'      => $price,
-                    'total'      => $lineTotal,
-                    'tax'        => 0,
-                    'reward'     => 0,
-                    'base_price' => $price,
-                    'cost'       => $productCost,
-                    'supplier_id' => 0,
+                    'order_id'      => $catalogOrder->order_id,
+                    'product_id'    => $resolvedProductId,
+                    'name'          => $item['name'],
+                    'model'         => $sellerSku,
+                    'quantity'      => $qty,
+                    'price'         => $priceBase,
+                    'foreign_price' => $isDefault ? null : round($price, \App\Services\OrderCurrencyService::MONEY_SCALE),
+                    'total'         => $lineTotalBase,
+                    'foreign_total' => $isDefault ? null : round($lineTotal, \App\Services\OrderCurrencyService::MONEY_SCALE),
+                    'tax'           => 0,
+                    'reward'        => 0,
+                    'base_price'    => $priceBase,
+                    // Cost is looked up from the catalog (already PHP), not
+                    // from marketplace data - no conversion needed.
+                    'cost'          => $productCost,
+                    'supplier_id'   => 0,
                 ]);
 
                 // Sync variation as order option
@@ -308,11 +344,17 @@ class TikTokCatalogOrderSync
             }
 
             // --- Compute correct revenue total ---
-            // Revenue = item selling prices (shipping is not revenue)
+            // Revenue = item selling prices (shipping is not revenue).
+            // Foreign (as-transacted) figure.
             $total = $subTotal;
-            $catalogOrder->update(['total' => $total]);
+            $catalogOrder->update([
+                'total'         => \App\Services\OrderCurrencyService::toBase($total, $rate),
+                'foreign_total' => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
+            ]);
 
             // --- Sync order totals ---
+            // order_total has no foreign_* column - it always holds the
+            // default-currency figure, matching order.total.
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
             $sortOrder = 1;
@@ -320,7 +362,7 @@ class TikTokCatalogOrderSync
                 'order_id'   => $catalogOrder->order_id,
                 'code'       => 'sub_total',
                 'title'      => 'Sub-Total',
-                'value'      => $subTotal,
+                'value'      => \App\Services\OrderCurrencyService::toBase($subTotal, $rate),
                 'sort_order' => $sortOrder++,
             ]);
 
@@ -329,7 +371,7 @@ class TikTokCatalogOrderSync
                     'order_id'   => $catalogOrder->order_id,
                     'code'       => 'shipping',
                     'title'      => 'Shipping',
-                    'value'      => $shippingTotal,
+                    'value'      => \App\Services\OrderCurrencyService::toBase($shippingTotal, $rate),
                     'sort_order' => $sortOrder++,
                 ]);
             }
@@ -338,7 +380,7 @@ class TikTokCatalogOrderSync
                 'order_id'   => $catalogOrder->order_id,
                 'code'       => 'total',
                 'title'      => 'Total',
-                'value'      => $total,
+                'value'      => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'sort_order' => $sortOrder,
             ]);
 

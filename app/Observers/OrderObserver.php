@@ -52,7 +52,13 @@ class OrderObserver
                 ? trim($firstProduct->name ?? '')
                 : trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
 
-            $total = number_format((float) $order->total, 2) . ' ' . ($order->currency_code ?: 'PHP');
+            // $order->total is always the default currency (see the currency
+            // standardisation this branch landed) - labelling it with
+            // $order->currency_code would print the as-transacted code next
+            // to a figure that is not in that currency for any foreign
+            // order. The default currency is what belongs here, resolved
+            // from the currencies table rather than assumed.
+            $total = number_format((float) $order->total, 2) . ' ' . \App\Support\Money::defaultCode();
 
             (new FcmService())->notifyIfNeeded(
                 (int) $order->order_id,

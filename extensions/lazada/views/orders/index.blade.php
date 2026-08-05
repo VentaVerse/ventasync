@@ -335,7 +335,7 @@
 
                             // Amount & payment method
                             $totalAmount = $raw['price'] ?? $raw['total_amount'] ?? $raw['total_price'] ?? $raw['order_amount'] ?? $raw['amount'] ?? null;
-                            $currency = $raw['currency'] ?? '₱';
+                            $currency = $raw['currency'] ?? \App\Support\Money::defaultSymbol();
 
                             $paymentMethod = $raw['payment_method'] ?? $raw['payment_method_type'] ?? $raw['paymentMethod'] ?? $raw['payment_method_name'] ?? null;
                             if (is_array($paymentMethod)) $paymentMethod = implode(', ', $paymentMethod);
@@ -481,7 +481,7 @@
                             <td style="vertical-align:top;">
                                 @php
                                     $unitPrice = $it['item_price'] ?? $it['paid_price'] ?? null;
-                                    $unitCurrency = ($it['raw']['currency'] ?? null) ?: ($raw['currency'] ?? '₱');
+                                    $unitCurrency = ($it['raw']['currency'] ?? null) ?: ($raw['currency'] ?? \App\Support\Money::defaultSymbol());
                                 @endphp
                                 <div class="font-bold">
                                     @if($unitPrice !== null && $unitPrice !== '')

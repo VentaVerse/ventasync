@@ -2,6 +2,11 @@
 @section('breadcrumb', 'Dashboard')
 
 @section('content')
+@php
+    // Resolved once per render, not hardcoded, so a future re-basing of the
+    // default currency does not require touching every figure on this page.
+    $currencySymbol = \App\Support\Money::defaultSymbol();
+@endphp
 <div class="page-header">
     <h2>{{ $greeting }}, {{ auth()->user()->name ?? 'there' }}</h2>
 </div>
@@ -33,12 +38,12 @@
         @php
             $todayRevDelta = $yesterdayRevenue > 0 ? round(($todayRevenue - $yesterdayRevenue) / $yesterdayRevenue * 100) : ($todayRevenue > 0 ? 100 : 0);
         @endphp
-        <span class="dash-snap-value">{{ number_format($todayOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">&#8369;{{ number_format($todayRevenue, 0) }}</span></span>
+        <span class="dash-snap-value">{{ number_format($todayOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">{{ $currencySymbol }}{{ number_format($todayRevenue, 0) }}</span></span>
         <span class="dash-snap-compare">
             @if($todayRevDelta != 0)
                 <span class="dash-snap-arrow {{ $todayRevDelta > 0 ? 'is-up' : 'is-down' }}">{{ $todayRevDelta > 0 ? '↑' : '↓' }} {{ abs($todayRevDelta) }}%</span>
             @endif
-            vs {{ number_format($yesterdayOrders) }} orders / &#8369;{{ number_format($yesterdayRevenue, 0) }} yesterday
+            vs {{ number_format($yesterdayOrders) }} orders / {{ $currencySymbol }}{{ number_format($yesterdayRevenue, 0) }} yesterday
         </span>
     </a>
     <a href="{{ route('orders.index') }}" class="dash-snap-item">
@@ -46,12 +51,12 @@
         @php
             $weekRevDelta = $lastWeekRevenue > 0 ? round(($weekRevenue - $lastWeekRevenue) / $lastWeekRevenue * 100) : ($weekRevenue > 0 ? 100 : 0);
         @endphp
-        <span class="dash-snap-value">{{ number_format($weekOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">&#8369;{{ number_format($weekRevenue, 0) }}</span></span>
+        <span class="dash-snap-value">{{ number_format($weekOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">{{ $currencySymbol }}{{ number_format($weekRevenue, 0) }}</span></span>
         <span class="dash-snap-compare">
             @if($weekRevDelta != 0)
                 <span class="dash-snap-arrow {{ $weekRevDelta > 0 ? 'is-up' : 'is-down' }}">{{ $weekRevDelta > 0 ? '↑' : '↓' }} {{ abs($weekRevDelta) }}%</span>
             @endif
-            vs {{ number_format($lastWeekOrders) }} orders / &#8369;{{ number_format($lastWeekRevenue, 0) }} last week
+            vs {{ number_format($lastWeekOrders) }} orders / {{ $currencySymbol }}{{ number_format($lastWeekRevenue, 0) }} last week
         </span>
     </a>
     <a href="{{ route('orders.index') }}" class="dash-snap-item">
@@ -59,18 +64,18 @@
         @php
             $monthRevDelta = $lastMonthRevenue > 0 ? round(($monthRevenue - $lastMonthRevenue) / $lastMonthRevenue * 100) : ($monthRevenue > 0 ? 100 : 0);
         @endphp
-        <span class="dash-snap-value">{{ number_format($monthOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">&#8369;{{ number_format($monthRevenue, 0) }}</span></span>
+        <span class="dash-snap-value">{{ number_format($monthOrders) }}<span class="dash-snap-unit">orders</span><span class="dash-snap-sep-dot">/</span><span class="dash-snap-rev">{{ $currencySymbol }}{{ number_format($monthRevenue, 0) }}</span></span>
         <span class="dash-snap-compare">
             @if($monthRevDelta != 0)
                 <span class="dash-snap-arrow {{ $monthRevDelta > 0 ? 'is-up' : 'is-down' }}">{{ $monthRevDelta > 0 ? '↑' : '↓' }} {{ abs($monthRevDelta) }}%</span>
             @endif
-            vs {{ number_format($lastMonthOrders) }} orders / &#8369;{{ number_format($lastMonthRevenue, 0) }} last month
+            vs {{ number_format($lastMonthOrders) }} orders / {{ $currencySymbol }}{{ number_format($lastMonthRevenue, 0) }} last month
         </span>
     </a>
     <a href="{{ route('orders.index') }}" class="dash-snap-item">
         <span class="dash-snap-label">All-time</span>
         <span class="dash-snap-value">{{ number_format($totalOrders) }}<span class="dash-snap-unit">orders</span></span>
-        <span class="dash-snap-sub"><b>&#8369;{{ number_format($totalRevenue, 0) }}</b> gross</span>
+        <span class="dash-snap-sub"><b>{{ $currencySymbol }}{{ number_format($totalRevenue, 0) }}</b> gross</span>
     </a>
     <a href="{{ $pendingLink }}" class="dash-snap-item">
         <span class="dash-snap-label">Pending</span>
@@ -96,10 +101,10 @@
     </a>
     <a href="{{ route('ext.purchasing.purchase_orders.index', ['status' => 'received']) }}" class="dash-snap-item">
         <span class="dash-snap-label">PO Spend (MTD)</span>
-        <span class="dash-snap-value" style="font-size:16px;">&#8369;{{ number_format($monthlyPoSpend, 0) }}</span>
+        <span class="dash-snap-value" style="font-size:16px;">{{ $currencySymbol }}{{ number_format($monthlyPoSpend, 0) }}</span>
     </a>
     {{-- Inventory figures come from core queries; only the drill-down page
-         belongs to the reports extension. Guard the link per-extension —
+         belongs to the reports extension. Guard the link per-extension -
          this block's outer @if only proves purchasing is enabled. --}}
     @if(Route::has('ext.reports.inventory'))
     <a href="{{ route('ext.reports.inventory') }}" class="dash-snap-item">
@@ -107,7 +112,7 @@
     <div class="dash-snap-item">
     @endif
         <span class="dash-snap-label">Inventory Value</span>
-        <span class="dash-snap-value" style="font-size:16px;">&#8369;{{ number_format($inventoryAtCost ?? 0, 0) }}<span class="dash-snap-sep-dot">/</span>&#8369;{{ number_format($inventoryAtSale ?? 0, 0) }}</span>
+        <span class="dash-snap-value" style="font-size:16px;">{{ $currencySymbol }}{{ number_format($inventoryAtCost ?? 0, 0) }}<span class="dash-snap-sep-dot">/</span>{{ $currencySymbol }}{{ number_format($inventoryAtSale ?? 0, 0) }}</span>
         <span class="dash-snap-compare">cost / sale · {{ $inventoryMargin ?? 0 }}% margin</span>
     @if(Route::has('ext.reports.inventory'))
     </a>
@@ -334,7 +339,9 @@
                                     </a>
                                 </td>
                                 <td>{{ trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')) ?: '-' }}</td>
-                                <td class="font-bold">&#8369;{{ number_format((float)$o->total, 2) }}</td>
+                                <td class="font-bold">
+                                    <x-money :php="(float) $o->total" :foreign="$o->foreign_total" :foreign-code="$o->currency_code" />
+                                </td>
                                 <td>
                                     @if($o->status_name)
                                         <span class="badge badge-blue">{{ $o->status_name }}</span>
@@ -374,6 +381,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var labels = @json($chartLabels);
     var revenue = @json($chartRevenue);
     var orders = @json($chartOrders);
+    // Resolved server-side from the currencies table, not hardcoded - see
+    // $currencySymbol above.
+    var currencySymbol = @json($currencySymbol);
 
     // Detect dark mode
     var cs = getComputedStyle(document.documentElement);
@@ -450,7 +460,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     callbacks: {
                         label: function(ctx) {
                             if (ctx.dataset.label === 'Revenue') {
-                                return 'Revenue: \u20B1' + Number(ctx.parsed.y).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                                return 'Revenue: ' + currencySymbol + Number(ctx.parsed.y).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
                             }
                             return 'Orders: ' + ctx.parsed.y;
                         }
@@ -476,9 +486,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         color: textColor,
                         font: { size: 11 },
                         callback: function(v) {
-                            if (v >= 1000000) return '\u20B1' + (v/1000000).toFixed(1) + 'M';
-                            if (v >= 1000) return '\u20B1' + (v/1000).toFixed(0) + 'K';
-                            return '\u20B1' + v;
+                            if (v >= 1000000) return currencySymbol + (v/1000000).toFixed(1) + 'M';
+                            if (v >= 1000) return currencySymbol + (v/1000).toFixed(0) + 'K';
+                            return currencySymbol + v;
                         }
                     },
                     title: {
@@ -561,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 var s = slices[tooltip.dataPoints[0].dataIndex];
                                 var total = data.reduce(function(a,b){return a+b;}, 0);
                                 var pct = total > 0 ? Math.round(s.orders / total * 100) : 0;
-                                tooltipEl.innerHTML = '<strong>' + s.label + '</strong><br>' + s.orders + ' orders (' + pct + '%) — \u20B1' + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                                tooltipEl.innerHTML = '<strong>' + s.label + '</strong><br>' + s.orders + ' orders (' + pct + '%) - ' + currencySymbol + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
                                 var canvasRect = context.chart.canvas.getBoundingClientRect();
                                 tooltipEl.style.opacity = '1';
                                 tooltipEl.style.left = (canvasRect.left + tooltip.caretX + 10) + 'px';
@@ -586,7 +596,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 html += '<span class="pie-legend-value">';
                 html += '<span class="font-bold">' + s.orders + '</span>';
                 html += '<span class="text-secondary text-xs"> (' + pct + '%)</span>';
-                html += '<br><span class="text-xs text-secondary">\u20B1' + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
+                html += '<br><span class="text-xs text-secondary">' + currencySymbol + Number(s.revenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
                 html += '</span>';
                 html += '</div>';
             });
@@ -596,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 html += '<span class="pie-legend-label">Total</span>';
                 html += '<span class="pie-legend-value">';
                 html += '<span class="font-bold">' + totalOrders + '</span>';
-                html += '<br><span class="text-xs" style="color:#16a34a; font-weight:600;">\u20B1' + Number(totalRevenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
+                html += '<br><span class="text-xs" style="color:#16a34a; font-weight:600;">' + currencySymbol + Number(totalRevenue).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
                 html += '</span>';
                 html += '</div>';
             }
@@ -615,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial load
     loadPieData('30d');
 
-    // Unified range toggle — drives BOTH charts
+    // Unified range toggle - drives BOTH charts
     document.querySelectorAll('#chartRangeToggle .chart-range-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var range = this.dataset.range;

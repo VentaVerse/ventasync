@@ -4,7 +4,7 @@
 @php
     use Illuminate\Support\Str;
 
-    $cur = $return->currency ?: '₱';
+    $cur = $return->currency ?: \App\Support\Money::defaultSymbol();
     $fmtMoney = fn($v) => $cur . number_format((float) $v, 2);
     $fmtTs = function ($ts) {
         if (!$ts) return '—';

@@ -24,13 +24,24 @@
                                 data-code="{{ $cur->code }}"
                                 data-symbol="{{ $cur->symbol }}"
                                 data-rate="{{ $cur->exchange_rate }}"
-                                {{ $cur->is_default ? 'selected' : '' }}>
+                                data-is-default="{{ $cur->is_default ? 1 : 0 }}"
+                                {{ old('currency_code', $currencies->firstWhere('is_default', 1)->code ?? 'PHP') === $cur->code ? 'selected' : '' }}>
                             {{ $cur->code }} &mdash; {{ $cur->name }}
                         </option>
                     @endforeach
                 </select>
-                <input type="hidden" name="currency_code" id="currency-code-hidden" value="{{ $currencies->firstWhere('is_default', 1)->code ?? 'PHP' }}">
+                <input type="hidden" name="currency_code" id="currency-code-hidden" value="{{ old('currency_code', $currencies->firstWhere('is_default', 1)->code ?? 'PHP') }}">
             </div>
+            <div>
+                <label class="required">Exchange rate</label>
+                <div class="rate-field">
+                    <input class="input" type="number" step="0.00000001" min="0.00000001"
+                           name="currency_rate" id="currency-rate" value="{{ old('currency_rate', 1) }}">
+                    <span class="rate-hint" id="rate-hint"></span>
+                </div>
+            </div>
+            <input type="hidden" name="currency_id" id="currency-id-hidden"
+                   value="{{ $currencies->firstWhere('is_default', 1)->id ?? 0 }}">
         </div>
 
         {{-- Customer Details --}}
@@ -270,13 +281,17 @@
     // ── Currency management ──────────────────────────────────
     var currencySelect = document.getElementById('currency-select');
     var currencyCodeHidden = document.getElementById('currency-code-hidden');
+    var currencyRate = document.getElementById('currency-rate');
+    var currencyIdHidden = document.getElementById('currency-id-hidden');
+    var rateHint = document.getElementById('rate-hint');
 
     function getSelectedCurrency() {
         var opt = currencySelect.options[currencySelect.selectedIndex];
         return {
+            id: opt.value,
             code: opt.dataset.code,
             symbol: opt.dataset.symbol,
-            rate: parseFloat(opt.dataset.rate) || 1
+            rate: parseFloat(currencyRate.value) || parseFloat(opt.dataset.rate) || 1
         };
     }
 
@@ -288,11 +303,38 @@
         return phpPrice / cur.rate;
     }
 
-    currencySelect.addEventListener('change', function() {
+    function syncRateField(preserveRate) {
         var opt = currencySelect.options[currencySelect.selectedIndex];
+        var isDefault = opt.dataset.isDefault === '1';
+
         currencyCodeHidden.value = opt.dataset.code;
+        currencyIdHidden.value = opt.value;
+        if (isDefault) {
+            // resolve() always forces rate = 1 for the default currency and silently
+            // discards any override - reflect that instead of offering a rate that
+            // would be ignored.
+            currencyRate.value = 1;
+        } else if (!preserveRate) {
+            // Currency was just switched by the operator - seed the field with
+            // today's feed rate rather than whatever was left over.
+            currencyRate.value = parseFloat(opt.dataset.rate) || 1;
+        }
+        currencyRate.readOnly = isDefault;
+        rateHint.textContent = isDefault
+            ? 'Default currency. Rate is always 1'
+            : opt.dataset.code + ' 1 = ' + opt.dataset.symbol + ' ' + currencyRate.value;
+    }
+
+    currencySelect.addEventListener('change', function() {
+        syncRateField(false);
         renderProducts();
     });
+
+    currencyRate.addEventListener('input', renderProducts);
+
+    // Preserve the value already rendered into the field (the stored/feed rate)
+    // instead of clobbering it with the currently selected option's feed rate.
+    syncRateField(true);
 
     // ── Payment same as shipping ──────────────────────────────
     var sameCheckbox = document.getElementById('payment-same-as-shipping');
@@ -320,16 +362,29 @@
     var noProductsRow = document.getElementById('no-products-row');
     var totalDisplay = document.getElementById('order-total-display');
     var totalHidden = document.getElementById('order-total-hidden');
-    // Restore line items from old() on validation failure
+    // Restore line items from old() on validation failure. old('products')[i]
+    // [price]/[cost] are order-currency figures (the hidden inputs are
+    // written from displayPrice/displayCost, i.e. already divided by the
+    // rate that was in effect at submit time) - NOT PHP. basePrice/baseCost
+    // in this JS state must always be PHP (see convertPrice() below, called
+    // unconditionally), so they are multiplied back up by that same old
+    // rate here. Skipping this multiply was the double-divide bug: a USD
+    // line submitted as $100 would re-render as $100 / rate (~$1.77) instead
+    // of $100, and if saved unchanged would store PHP100 instead of the
+    // original PHP5,650.
     @php
-        $oldProducts = collect(old('products', []))->values()->map(function ($p) {
+        $oldRate = (float) old('currency_rate', 1);
+        if ($oldRate <= 0) {
+            $oldRate = 1;
+        }
+        $oldProducts = collect(old('products', []))->values()->map(function ($p) use ($oldRate) {
             return [
                 'product_id'      => (int) ($p['product_id'] ?? 0),
                 'name'            => $p['name'] ?? '',
                 'model'           => $p['model'] ?? '',
                 'sku'             => $p['model'] ?? '',
-                'basePrice'       => (float) ($p['price'] ?? 0),
-                'baseCost'        => (float) ($p['cost'] ?? 0),
+                'basePrice'       => (float) ($p['price'] ?? 0) * $oldRate,
+                'baseCost'        => (float) ($p['cost'] ?? 0) * $oldRate,
                 'qty'             => (int) ($p['quantity'] ?? 1),
                 'option_value_id' => $p['option_value_id'] ?? null,
                 'option_name'     => $p['option_name'] ?? '',
@@ -764,7 +819,7 @@
             item.option_value = opt.value_name;
         }
 
-        // Check if same product + same SKU + same option already exists — increment qty
+        // Check if same product + same SKU + same option already exists - increment qty
         var existingIdx = -1;
         for (var i = 0; i < lineItems.length; i++) {
             var li = lineItems[i];
@@ -781,7 +836,7 @@
         }
         renderProducts();
 
-        // Stay in modal for mass adding — reset detail, show count
+        // Stay in modal for mass adding - reset detail, show count
         modalSessionAdded++;
         modalAddedCount.textContent = modalSessionAdded;
         modalAddedBanner.style.display = '';

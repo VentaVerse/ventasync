@@ -10,10 +10,12 @@ use App\Models\Catalog\Product;
 use App\Integrations\IntegrationRegistry;
 use App\Models\OrderPayment;
 use App\Services\ActivityLogger;
+use App\Services\OrderCurrencyService;
 use App\Services\OrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
@@ -68,7 +70,7 @@ class OrderController extends Controller
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
         // Source options (filter dropdown) and value→option map (source column
-        // badge lookup) come from the integration registry — every installed
+        // badge lookup) come from the integration registry - every installed
         // marketplace extension contributes via MarketplaceSourceOptionsProvider.
         // Core has no knowledge of which marketplaces exist.
         $sourceOptions = app(\App\Integrations\IntegrationRegistry::class)
@@ -101,10 +103,27 @@ class OrderController extends Controller
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
             'comment'          => 'nullable|string',
-            'currency_code'    => 'nullable|string|max:3',
+            'currency_code'    => ['nullable', 'string', 'max:3', Rule::exists('currencies', 'code')],
+            'currency_rate'    => 'nullable|numeric|gt:0',
         ]);
 
         $now = now();
+
+        $currencySvc = app(OrderCurrencyService::class);
+        $currency = $currencySvc->resolve(
+            $request->currency_code ?? $currencySvc->defaultCode(),
+            $request->filled('currency_rate') ? (float) $request->currency_rate : null
+        );
+        $rate = $currency['rate'];
+        // Currency IDENTITY decides the dual-storage branch, not whether the
+        // resolved rate happens to equal 1 (an operator can legitimately type
+        // "1" as the rate for a genuinely foreign currency - see resolve()).
+        $isDefault = $currency['is_default'];
+
+        // Provisional total from the raw request field, converted like any
+        // other order-currency amount. Overwritten below once line items are
+        // known - this only matters when the order carries no products.
+        $rawTotal = (float) ($request->total ?? 0);
 
         $order = Order::create([
             'invoice_no'           => 0,
@@ -153,7 +172,8 @@ class OrderController extends Controller
             'shipping_cost'        => 0,
             'shipping_code'        => '',
             'comment'              => $request->comment ?? '',
-            'total'                => $request->total ?? 0,
+            'total'                => OrderCurrencyService::toBase($rawTotal, $rate),
+            'foreign_total'        => $isDefault ? null : round($rawTotal, 4),
             'extra_cost'           => 0,
             'order_status_id'      => $request->order_status_id,
             'affiliate_id'         => 0,
@@ -161,9 +181,9 @@ class OrderController extends Controller
             'marketing_id'         => 0,
             'tracking'             => '',
             'language_id'          => 1,
-            'currency_id'          => 0,
-            'currency_code'        => $request->currency_code ?? 'PHP',
-            'currency_value'       => 1,
+            'currency_id'          => $currency['id'],
+            'currency_code'        => $currency['code'],
+            'currency_value'       => $currency['rate'],
             'ip'                   => $request->ip() ?? '',
             'forwarded_ip'         => '',
             'user_agent'           => '',
@@ -194,24 +214,42 @@ class OrderController extends Controller
         if (!empty($products)) {
             $pfx = (string) config('catalog.prefix');
             $orderTotal = 0;
+            $orderForeignTotal = 0;
 
             foreach ($products as $p) {
                 $qty = (int) ($p['quantity'] ?? 1);
-                $price = (float) ($p['price'] ?? 0);
-                $lineTotal = $price * $qty;
+                $foreignPrice = (float) ($p['price'] ?? 0);
+                $foreignTotal = $foreignPrice * $qty;
+                $foreignCost = (float) ($p['cost'] ?? 0);
+
+                $price = OrderCurrencyService::toBase($foreignPrice, $rate);
+                $lineTotal = OrderCurrencyService::toBase($foreignTotal, $rate);
+                // Cost arrives in order currency too (the create/edit forms
+                // convert it client-side alongside price) - it must go
+                // through the same conversion, or a foreign order ends up
+                // with a PHP price/total but a foreign-currency cost, which
+                // corrupts COGS/profitability reporting. There is no
+                // foreign_cost column by design: cost is internal-only and
+                // never shown on a customer document, so the foreign figure
+                // is derivable on demand as cost ÷ currency_value.
+                $cost = OrderCurrencyService::toBase($foreignCost, $rate);
+
                 $orderTotal += $lineTotal;
+                $orderForeignTotal += $foreignTotal;
 
                 $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
-                    'order_id'   => $order->order_id,
-                    'product_id' => (int) ($p['product_id'] ?? 0),
-                    'name'       => $p['name'] ?? '',
-                    'model'      => $p['model'] ?? '',
-                    'quantity'   => $qty,
-                    'price'      => $price,
-                    'total'      => $lineTotal,
-                    'tax'        => 0,
-                    'reward'     => 0,
-                    'cost'       => (float) ($p['cost'] ?? 0),
+                    'order_id'      => $order->order_id,
+                    'product_id'    => (int) ($p['product_id'] ?? 0),
+                    'name'          => $p['name'] ?? '',
+                    'model'         => $p['model'] ?? '',
+                    'quantity'      => $qty,
+                    'price'         => $price,
+                    'foreign_price' => $isDefault ? null : round($foreignPrice, 4),
+                    'total'         => $lineTotal,
+                    'foreign_total' => $isDefault ? null : round($foreignTotal, 4),
+                    'tax'           => 0,
+                    'reward'        => 0,
+                    'cost'          => $cost,
                 ]);
 
                 // Save option value if selected
@@ -234,7 +272,10 @@ class OrderController extends Controller
             }
 
             // Update order total from line items
-            $order->update(['total' => $orderTotal]);
+            $order->update([
+                'total'         => $orderTotal,
+                'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
+            ]);
 
             // Create order totals
             DB::table($pfx . 'order_total')->insert([
@@ -400,7 +441,12 @@ class OrderController extends Controller
         $payments = OrderPayment::where('order_id', (int) $id)->orderBy('paid_at')->get();
         $totalPaid = $payments->sum('amount');
 
-        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees', 'payments', 'totalPaid'));
+        // Every money figure on this page renders through App\Support\Money
+        // / <x-money>, which needs the default currency's symbol resolved
+        // from the `currencies` table rather than hardcoded.
+        $defaultCurrency = \App\Models\Currency::where('is_default', 1)->first();
+
+        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees', 'payments', 'totalPaid', 'defaultCurrency'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -449,7 +495,7 @@ class OrderController extends Controller
 
     /**
      * Toggle the per-order sync Override. When ON, marketplace syncs will not
-     * change this order's status or move its stock — the operator controls it
+     * change this order's status or move its stock - the operator controls it
      * manually (e.g. after verifying a return). Direct assignment (not mass
      * assignment) so it works regardless of the model's fillable list.
      */
@@ -471,8 +517,8 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $id)->with(
             'status',
             $new === 1
-                ? 'Sync Override ON — this order is now manually controlled; marketplace syncs won\'t change its status or stock.'
-                : 'Sync Override OFF — the marketplace sync will manage this order again.'
+                ? 'Sync Override ON - this order is now manually controlled; marketplace syncs won\'t change its status or stock.'
+                : 'Sync Override OFF - the marketplace sync will manage this order again.'
         );
     }
 
@@ -486,6 +532,19 @@ class OrderController extends Controller
             ->get();
         $products = $order->products()->with('options')->get();
         $orderTotals = $order->totals()->orderBy('sort_order')->get();
+
+        // `price`/`cost` are stored in the default (PHP) currency (see the
+        // storage rule in OrderCurrencyService) and are handed to the view
+        // AS-IS - no pre-conversion. The edit page's own convertPrice() JS
+        // divides by whatever rate is currently in the rate field (seeded
+        // with the order's stored rate on load), which reproduces the
+        // order-currency figure on load and the CORRECT figure after the
+        // operator switches currency, since the PHP source value never
+        // changes. Pre-converting here (the previous approach) froze the
+        // displayed figure to the rate at load time, so switching currency
+        // without touching line items silently multiplied/divided the order
+        // by the new rate on save - see the currency-switch regression test
+        // in OrderControllerCurrencyTest.
 
         return view('orders.edit', compact('order', 'statuses', 'currencies', 'history', 'products', 'orderTotals'));
     }
@@ -502,12 +561,31 @@ class OrderController extends Controller
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
             'comment'          => 'nullable|string',
-            'currency_code'    => 'nullable|string|max:3',
+            'currency_code'    => ['nullable', 'string', 'max:3', Rule::exists('currencies', 'code')],
+            'currency_rate'    => 'nullable|numeric|gt:0',
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
         $oldStatusId = $order->order_status_id;
         $original = $order->getAttributes();
+
+        $currencySvc = app(OrderCurrencyService::class);
+        $currency = $currencySvc->resolve(
+            $request->currency_code ?? $order->currency_code,
+            $request->filled('currency_rate') ? (float) $request->currency_rate : null
+        );
+        $rate = $currency['rate'];
+        // Currency IDENTITY decides the dual-storage branch, not whether the
+        // resolved rate happens to equal 1 (see the matching comment in
+        // store() and resolve()'s own docblock).
+        $isDefault = $currency['is_default'];
+
+        // Provisional total from the raw request field, converted like any
+        // other order-currency amount. Overwritten below once line items are
+        // known - this only matters when the order carries no products, and
+        // keeps the order-level total/foreign_total from ever going stale
+        // relative to the just-resolved currency/rate.
+        $rawTotal = (float) ($request->total ?? 0);
 
         $order->update([
             'firstname'          => $request->firstname,
@@ -535,86 +613,122 @@ class OrderController extends Controller
             'shipping_zone'      => $request->shipping_zone ?? '',
             'shipping_method'    => $request->shipping_method ?? '',
             'comment'            => $request->comment ?? '',
-            'total'              => $request->total ?? 0,
+            'total'              => OrderCurrencyService::toBase($rawTotal, $rate),
+            'foreign_total'      => $isDefault ? null : round($rawTotal, 4),
             'order_status_id'    => $request->order_status_id,
             'tracking_number'    => $request->tracking_number ?? '',
-            'currency_code'      => $request->currency_code ?? $order->currency_code,
+            'currency_id'        => $currency['id'],
+            'currency_code'      => $currency['code'],
+            'currency_value'     => $currency['rate'],
             'date_modified'      => now(),
         ]);
 
-        // Rebuild order products from submitted data
-        $products = $request->input('products', []);
-        $pfx = (string) config('catalog.prefix');
+        // Rebuild order products from submitted data - but only when line
+        // items were actually resubmitted. Guard on the `products` KEY being
+        // present (Request::has), not on the array being non-empty
+        // (Request::filled / !empty): the edit form always renders one
+        // hidden products[idx][...] block per line item currently on the
+        // order, so an absent key unambiguously means "the operator didn't
+        // touch line items" (e.g. only status/customer/shipping fields were
+        // changed) and the existing order_product/order_option rows must
+        // survive untouched. Deleting unconditionally here previously wiped
+        // every line item on any update that omitted `products` - a
+        // pre-existing bug that round-1's own new test made trivially
+        // reachable (an update payload with no products key is now a
+        // deliberately-tested, blessed shape). An explicitly submitted empty
+        // array is treated as "remove every line" and still clears them,
+        // as before.
+        if ($request->has('products')) {
+            $products = $request->input('products', []);
+            $pfx = (string) config('catalog.prefix');
 
-        // Delete existing order products and their options
-        $existingProductIds = DB::table($pfx . 'order_product')
-            ->where('order_id', $order->order_id)
-            ->pluck('order_product_id')
-            ->toArray();
+            // Delete existing order products and their options
+            $existingProductIds = DB::table($pfx . 'order_product')
+                ->where('order_id', $order->order_id)
+                ->pluck('order_product_id')
+                ->toArray();
 
-        if (!empty($existingProductIds)) {
-            DB::table($pfx . 'order_option')
-                ->whereIn('order_product_id', $existingProductIds)
+            if (!empty($existingProductIds)) {
+                DB::table($pfx . 'order_option')
+                    ->whereIn('order_product_id', $existingProductIds)
+                    ->delete();
+            }
+            DB::table($pfx . 'order_product')
+                ->where('order_id', $order->order_id)
                 ->delete();
-        }
-        DB::table($pfx . 'order_product')
-            ->where('order_id', $order->order_id)
-            ->delete();
 
-        // Recreate from submitted data
-        $orderTotal = 0;
-        if (!empty($products)) {
-            foreach ($products as $p) {
-                $qty = (int) ($p['quantity'] ?? 1);
-                $price = (float) ($p['price'] ?? 0);
-                $lineTotal = $price * $qty;
-                $orderTotal += $lineTotal;
+            // Recreate from submitted data
+            $orderTotal = 0;
+            $orderForeignTotal = 0;
+            if (!empty($products)) {
+                foreach ($products as $p) {
+                    $qty = (int) ($p['quantity'] ?? 1);
+                    $foreignPrice = (float) ($p['price'] ?? 0);
+                    $foreignTotal = $foreignPrice * $qty;
+                    $foreignCost = (float) ($p['cost'] ?? 0);
 
-                $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
-                    'order_id'   => $order->order_id,
-                    'product_id' => (int) ($p['product_id'] ?? 0),
-                    'name'       => $p['name'] ?? '',
-                    'model'      => $p['model'] ?? '',
-                    'quantity'   => $qty,
-                    'price'      => $price,
-                    'total'      => $lineTotal,
-                    'tax'        => 0,
-                    'reward'     => 0,
-                    'cost'       => (float) ($p['cost'] ?? 0),
+                    $price = OrderCurrencyService::toBase($foreignPrice, $rate);
+                    $lineTotal = OrderCurrencyService::toBase($foreignTotal, $rate);
+                    // See the matching comment in store(): cost arrives in order
+                    // currency from the edit form's client-side conversion and
+                    // must be converted here too, or a foreign order ends up
+                    // with mixed-currency price/cost on the same row.
+                    $cost = OrderCurrencyService::toBase($foreignCost, $rate);
+
+                    $orderTotal += $lineTotal;
+                    $orderForeignTotal += $foreignTotal;
+
+                    $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                        'order_id'      => $order->order_id,
+                        'product_id'    => (int) ($p['product_id'] ?? 0),
+                        'name'          => $p['name'] ?? '',
+                        'model'         => $p['model'] ?? '',
+                        'quantity'      => $qty,
+                        'price'         => $price,
+                        'foreign_price' => $isDefault ? null : round($foreignPrice, 4),
+                        'total'         => $lineTotal,
+                        'foreign_total' => $isDefault ? null : round($foreignTotal, 4),
+                        'tax'           => 0,
+                        'reward'        => 0,
+                        'cost'          => $cost,
+                    ]);
+
+                    // Create order option if present
+                    if (!empty($p['option_value_id'])) {
+                        DB::table($pfx . 'order_option')->insert([
+                            'order_id'                  => $order->order_id,
+                            'order_product_id'          => $orderProductId,
+                            'product_option_id'         => 0,
+                            'product_option_value_id'   => (int) $p['option_value_id'],
+                            'name'                      => $p['option_name'] ?? '',
+                            'value'                     => $p['option_value'] ?? '',
+                            'type'                      => 'select',
+                        ]);
+                    }
+                }
+
+                // Update order total and totals table
+                $order->update([
+                    'total'         => $orderTotal,
+                    'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                // Create order option if present
-                if (!empty($p['option_value_id'])) {
-                    DB::table($pfx . 'order_option')->insert([
-                        'order_id'                  => $order->order_id,
-                        'order_product_id'          => $orderProductId,
-                        'product_option_id'         => 0,
-                        'product_option_value_id'   => (int) $p['option_value_id'],
-                        'name'                      => $p['option_name'] ?? '',
-                        'value'                     => $p['option_value'] ?? '',
-                        'type'                      => 'select',
-                    ]);
-                }
+                DB::table($pfx . 'order_total')->where('order_id', $order->order_id)->delete();
+                DB::table($pfx . 'order_total')->insert([
+                    'order_id'   => $order->order_id,
+                    'code'       => 'sub_total',
+                    'title'      => 'Sub-Total',
+                    'value'      => $orderTotal,
+                    'sort_order' => 1,
+                ]);
+                DB::table($pfx . 'order_total')->insert([
+                    'order_id'   => $order->order_id,
+                    'code'       => 'total',
+                    'title'      => 'Total',
+                    'value'      => $orderTotal,
+                    'sort_order' => 9,
+                ]);
             }
-
-            // Update order total and totals table
-            $order->update(['total' => $orderTotal]);
-
-            DB::table($pfx . 'order_total')->where('order_id', $order->order_id)->delete();
-            DB::table($pfx . 'order_total')->insert([
-                'order_id'   => $order->order_id,
-                'code'       => 'sub_total',
-                'title'      => 'Sub-Total',
-                'value'      => $orderTotal,
-                'sort_order' => 1,
-            ]);
-            DB::table($pfx . 'order_total')->insert([
-                'order_id'   => $order->order_id,
-                'code'       => 'total',
-                'title'      => 'Total',
-                'value'      => $orderTotal,
-                'sort_order' => 9,
-            ]);
         }
 
         // Always log history entry on update
@@ -1065,7 +1179,7 @@ class OrderController extends Controller
         ]);
 
         ActivityLogger::log('created', 'Order Payment', $order->order_id,
-            '#' . $order->order_id . ' — ' . number_format((float) $request->amount, 2) . ' via ' . $request->payment_method);
+            '#' . $order->order_id . ' - ' . number_format((float) $request->amount, 2) . ' via ' . $request->payment_method);
 
         return redirect()->route('orders.show', $order->order_id)->with('status', 'Payment recorded.');
     }
@@ -1079,7 +1193,7 @@ class OrderController extends Controller
         $payment->delete();
 
         ActivityLogger::log('deleted', 'Order Payment', $order->order_id,
-            '#' . $order->order_id . ' — ' . number_format((float) $amount, 2) . ' removed');
+            '#' . $order->order_id . ' - ' . number_format((float) $amount, 2) . ' removed');
 
         return redirect()->route('orders.show', $order->order_id)->with('status', 'Payment deleted.');
     }
@@ -1099,7 +1213,7 @@ class OrderController extends Controller
 
         $action = $newState ? 'enabled' : 'disabled';
         ActivityLogger::log('updated', 'Order', $order->order_id,
-            '#' . $order->order_id . ' — payment tracking ' . $action);
+            '#' . $order->order_id . ' - payment tracking ' . $action);
 
         return redirect()->route('orders.show', $order->order_id)
             ->with('status', 'Payment tracking ' . $action . '.');

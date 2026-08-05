@@ -67,7 +67,7 @@
                             </div>
                             <div class="ord-prod-stats">
                                 <div class="ord-prod-qty">{{ $tp['qtySold'] }}</div>
-                                <div class="ord-prod-rev">₱{{ number_format($tp['revenue'], 0) }}</div>
+                                <div class="ord-prod-rev">{{ \App\Support\Money::defaultSymbol() }}{{ number_format($tp['revenue'], 0) }}</div>
                             </div>
                         </li>
                     @endforeach
@@ -103,7 +103,7 @@
                                 </div>
                                 <div class="ord-feed-stats">
                                     @if($o->total > 0)
-                                        <div class="ord-feed-total">₱{{ number_format($o->total, 0) }}</div>
+                                        <div class="ord-feed-total">{{ \App\Support\Money::defaultSymbol() }}{{ number_format($o->total, 0) }}</div>
                                     @endif
                                     <div class="ord-feed-age">
                                         {{ $o->orderedAt ? \Illuminate\Support\Carbon::instance($o->orderedAt)->diffForHumans() : '' }}

@@ -243,7 +243,7 @@
 
                             $payment = $raw['payment'] ?? [];
                             $totalAmount = $payment['total_amount'] ?? $payment['product_total_amount'] ?? null;
-                            $currency = $payment['currency'] ?? '₱';
+                            $currency = $payment['currency'] ?? \App\Support\Money::defaultSymbol();
 
                             // Shipping info
                             $shipping = $raw['shipping_provider'] ?? '';

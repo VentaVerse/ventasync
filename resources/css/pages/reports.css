@@ -2,7 +2,14 @@
    REPORTS (shared across orders, products, payouts)
    ============================================================ */
 
-/* Stat card grid — responsive auto-fit */
+/* Currency basis line shown above the summary cards once a report has run. */
+.report-basis {
+    margin: 0 0 1rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+/* Stat card grid - responsive auto-fit */
 .report-stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -186,7 +193,7 @@
 }
 .report-drill-error { color: var(--danger); }
 
-/* Empty state — shown before the report is run (deferred load) */
+/* Empty state - shown before the report is run (deferred load) */
 .report-empty-state {
     text-align: center;
     padding: 64px 24px;

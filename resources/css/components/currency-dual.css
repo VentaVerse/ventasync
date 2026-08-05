@@ -1,0 +1,66 @@
+/* ============================================================
+   DUAL-CURRENCY MONEY DISPLAY (order detail page)
+   PHP is always the primary, emphasised figure; the as-transacted
+   foreign figure - when there is one - sits beneath it as a secondary,
+   quieter line. See App\Support\Money and <x-money>.
+   ============================================================ */
+.money-primary {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.money-secondary {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+/* Foreign order whose exchange rate has not been recorded yet - the primary
+   figure above is unlabelled and ambiguous (could be read as either
+   currency), so this marker makes that explicit instead of silently
+   rendering identically to a genuine PHP order. Same warning tone as
+   .currency-banner--pending. */
+.money-pending {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--warning);
+}
+
+/* Exchange-rate banner shown above the line-items table on a foreign-currency order. */
+.currency-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.65rem 0.9rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    font-size: 0.88rem;
+}
+
+/* Deploy-window tolerance: a foreign order whose exchange rate has not yet
+   been recorded (foreign_total IS NULL) gets a warning tone instead of the
+   normal accent, and no rate figure - see OrderController@show. */
+.currency-banner--pending {
+    border-left-color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.currency-banner__date {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+    .currency-banner {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}

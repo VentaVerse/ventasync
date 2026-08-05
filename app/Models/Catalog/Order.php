@@ -54,6 +54,7 @@ class Order extends BaseModel
         'shipping_code',
         'comment',
         'total',
+        'foreign_total',
         'extra_cost',
         'order_status_id',
         'affiliate_id',

@@ -74,7 +74,7 @@ class DashboardController extends Controller
             })
             ->orderByDesc('o.date_added')
             ->limit(10)
-            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.marketplace_source']);
+            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.foreign_total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.marketplace_source']);
 
         // --- Marketplace + back-office widgets via the registry ---
         // Each extension that implements DashboardContributor returns the
@@ -111,7 +111,7 @@ class DashboardController extends Controller
         }
 
         // Marketplace source labels for the recent-orders source column.
-        // Same registry-driven map used by the Orders index — core has no
+        // Same registry-driven map used by the Orders index - core has no
         // marketplace-specific knowledge.
         $sourceLabelsMap = [];
         foreach ($registry->availableMarketplaceSourceOptions() as $opt) {
@@ -193,7 +193,7 @@ class DashboardController extends Controller
             ->groupBy('marketplace_source')
             ->get();
 
-        // Source options come from the integration registry — each marketplace
+        // Source options come from the integration registry - each marketplace
         // extension declares its own label + chart color via
         // MarketplaceSourceOptionsProvider::availableSourceOptions(). Core has
         // zero marketplace-specific knowledge here.
