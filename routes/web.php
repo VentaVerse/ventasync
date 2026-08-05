@@ -177,7 +177,14 @@ Route::middleware(['auth'])->group(function () {
     // ── Website Settings + Currencies + Extensions + Error Log ─────────
     // Settings + Currencies — READ
     Route::middleware(['perm:view_website_settings|manage_website_settings'])->group(function () {
-        Route::get('/settings', [SettingController::class, 'edit'])->name('settings.edit');
+        Route::get('/settings', [\App\Http\Controllers\SettingsHubController::class, 'index'])->name('settings.hub');
+        Route::get('/settings/website', [SettingController::class, 'edit'])->name('settings.website');
+        // Laravel's RouteCollection keys routes by method+URI, so a second
+        // GET route on the exact same URI would silently evict this name
+        // the moment routes compile (verified: only the last-registered
+        // name survives past the first request). Give the alias its own
+        // URI, same controller action, so both names stay resolvable.
+        Route::get('/settings/edit', [SettingController::class, 'edit'])->name('settings.edit');
         Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
         Route::get('/api/currencies', [CurrencyController::class, 'lookup'])->name('api.currencies');
         // Extensions browse — list of installed extensions (read).

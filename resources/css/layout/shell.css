@@ -45,6 +45,9 @@
 
 .x-content { flex: 1; padding: var(--space-5); }
 
+.x-page-title { margin: 0 0 var(--space-1); font-size: 20px; line-height: 28px; font-weight: 600; color: var(--text); }
+.x-page-sub { margin: 0 0 var(--space-5); font-size: 13px; color: var(--text-muted); }
+
 @media (max-width: 768px) {
     .x-shell { flex-direction: column; }
     .x-sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
