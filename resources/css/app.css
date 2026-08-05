@@ -7,6 +7,8 @@
 @import './base/variables.css';
 @import './base/reset.css';
 @import './base/animations.css';
+@import './base/tokens.css';
+@import './base/theme.css';
 
 /* Layout */
 @import './layout/sidebar.css';

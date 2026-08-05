@@ -1,12 +1,20 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-iFNmyovV.css",
+    "file": "assets/app-BntgpfCR.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
     "names": [
       "app.css"
     ]
+  },
+  "resources/fonts/Geist.woff2": {
+    "file": "assets/Geist-DPGgOCY9.woff2",
+    "src": "resources/fonts/Geist.woff2"
+  },
+  "resources/fonts/JetBrainsMono.woff2": {
+    "file": "assets/JetBrainsMono-CA-Os4ii.woff2",
+    "src": "resources/fonts/JetBrainsMono.woff2"
   },
   "resources/js/app.js": {
     "file": "assets/app-CdtmIZz4.js",

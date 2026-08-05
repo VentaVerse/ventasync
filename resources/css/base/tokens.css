@@ -1,0 +1,90 @@
+/*
+ * Design tokens. Light and dark are peers: every token is defined twice.
+ * Component CSS must never use a raw hex value. If a component needs a colour
+ * that no token provides, extend this file rather than bypassing it.
+ * Contrast ratios in comments are measured against the theme's own canvas.
+ */
+
+@font-face {
+    font-family: "Geist";
+    src: url("../../fonts/Geist.woff2") format("woff2-variations");
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("../../fonts/JetBrainsMono.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+
+:root {
+    --canvas:          #FBFBFA;
+    --surface:         #FFFFFF;
+    --surface-sunken:  #F5F5F3;
+    --surface-hover:   #F2F2EF;
+    --border:          #E7E5E1;
+    --border-strong:   #D3D0CB;
+    --text:            #1A1917;   /* 16.97:1 */
+    --text-secondary:  #6B6862;   /*  5.36:1 */
+    --text-muted:      #767168;   /*  4.68:1 */
+
+    --accent:          #0A7A54;   /*  5.17:1 */
+    --accent-hover:    #096647;
+    --accent-weak:     rgba(10,122,84,.08);
+    --accent-text:     #FFFFFF;   /*  5.35:1 on accent */
+
+    --danger:          #B4342A;   /*  5.85:1 */
+    --warning:         #9A6B00;   /*  4.53:1 */
+    --info:            #2A5FA8;
+
+    --font-ui:   "Geist", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+    --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-8: 48px;
+
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+
+    --shadow-menu:  0 4px 12px rgba(0,0,0,.10), 0 0 0 1px var(--border);
+    --shadow-modal: 0 16px 48px rgba(0,0,0,.18), 0 0 0 1px var(--border);
+
+    --motion-fast: 120ms cubic-bezier(.2,0,.38,.9);
+    --motion-base: 200ms cubic-bezier(.2,0,.38,.9);
+
+    --row-h: 32px;
+    --control-h: 32px;
+    --control-h-sm: 28px;
+    --sidebar-w-new: 216px;
+}
+
+:root[data-theme="dark"] {
+    --canvas:          #0B0B0C;
+    --surface:         #131315;
+    --surface-sunken:  #0F0F11;
+    --surface-hover:   #1A1A1D;
+    --border:          #232326;
+    --border-strong:   #34343A;
+    --text:            #ECECEE;   /* 16.68:1 */
+    --text-secondary:  #9A9AA2;   /*  7.04:1 */
+    --text-muted:      #7C7C86;   /*  4.76:1 */
+
+    --accent:          #3FBF8F;   /*  8.49:1 */
+    --accent-hover:    #55CB9F;
+    --accent-weak:     rgba(63,191,143,.12);
+    --accent-text:     #06231A;   /*  7.17:1 on accent */
+
+    --danger:          #E5675C;   /*  6.02:1 */
+    --warning:         #E0A73B;
+    --info:            #6C9BE0;
+
+    --shadow-menu:  0 4px 12px rgba(0,0,0,.40), 0 0 0 1px var(--border);
+    --shadow-modal: 0 16px 48px rgba(0,0,0,.55), 0 0 0 1px var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root { --motion-fast: 1ms; --motion-base: 1ms; }
+}
