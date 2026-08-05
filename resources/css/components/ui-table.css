@@ -1,7 +1,24 @@
 /* Horizontal hairlines only. No vertical rules, no zebra, no card wrapper.
    Vertical borders on every cell are what makes a table read as a
    spreadsheet export rather than a product. */
-.x-table-wrap { width: 100%; overflow-x: auto; }
+
+/* No overflow set on the wrapper on purpose. overflow-x: auto here would
+   force the browser to also compute overflow-y: auto (you cannot set only
+   one axis to a non-visible value), which makes this element the nearest
+   ancestor with a scrolling mechanism for the thead's position: sticky.
+   But the wrapper has no bounded height, so it never actually scrolls
+   internally, meaning position: sticky has nothing to stick against and
+   the header just scrolls away with the page. Leaving overflow visible lets
+   the sticky header resolve against the real scrolling ancestor, the page
+   itself, so it stays at top: 0 through a normal page scroll, which is the
+   behaviour a 44,000 row list needs. The tradeoff is that a table with more
+   columns than fit the viewport is no longer horizontally scroll-contained
+   above 640px; below 640px the responsive rule further down restacks each
+   row into a single column instead, so no horizontal scrolling is needed
+   there either. A page that genuinely needs both a contained horizontal
+   scrollbar and a sticky header should give this wrapper its own bounded
+   max-height so it becomes a real internal scroll container instead. */
+.x-table-wrap { width: 100%; }
 
 .x-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
@@ -33,8 +50,17 @@
 .x-table .x-td-actions { width: 40px; text-align: right; }
 
 /* The row is the link. A stretched pseudo-element keeps the whole row
-   clickable without nesting interactive elements inside an anchor. */
-.x-row-link { position: relative; color: inherit; text-decoration: none; font-weight: 500; }
+   clickable without nesting interactive elements inside an anchor.
+   position: relative has to live on the <tr>, not on the anchor: if the
+   anchor were the positioned ancestor, inset: 0 on its own ::after would
+   only size to the anchor's own text box, covering a few characters
+   instead of the row. Putting it on the row (supported in all evergreen
+   browsers via :has()) makes the row the containing block, so the
+   pseudo-element's inset: 0 spans every cell. The overlay has no z-index
+   of its own (auto), so the menu trigger's explicit z-index: 1 still wins
+   the paint order and stays clickable on top of it. */
+.x-table tbody tr:has(.x-row-link) { position: relative; }
+.x-row-link { color: inherit; text-decoration: none; font-weight: 500; }
 .x-row-link::after { content: ''; position: absolute; inset: 0; }
 
 /* Overflow menu. Hidden until the row is hovered or the trigger is focused,
@@ -79,6 +105,21 @@
 
 @media (max-width: 640px) {
     .x-table thead { display: none; }
-    .x-table tbody tr { display: grid; grid-template-columns: 1fr auto; height: auto; padding: var(--space-2) 0; }
+    .x-table tbody tr { display: grid; grid-template-columns: 1fr auto; height: auto; padding: var(--space-2) 0; row-gap: 2px; }
     .x-table tbody td { padding: 2px var(--space-3); white-space: normal; }
+
+    /* The stacked layout drops the column headers, visually and from the
+       accessibility tree. Consumers that put data-label="Column name" on a
+       <td> get that label back as generated content in front of the value,
+       so a restacked row still identifies each field instead of showing
+       four anonymous stacked values. This is additive: a <td> without
+       data-label just renders its value with no label, same as before. */
+    .x-table tbody td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-muted);
+        letter-spacing: .02em;
+    }
 }
