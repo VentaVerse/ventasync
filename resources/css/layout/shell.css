@@ -1,0 +1,53 @@
+.x-shell { display: flex; min-height: 100vh; }
+
+.x-sidebar {
+    width: var(--sidebar-w-new); flex: none;
+    display: flex; flex-direction: column; gap: var(--space-5);
+    padding: var(--space-4) var(--space-3);
+    background: var(--surface-sunken);
+    border-right: 1px solid var(--border);
+}
+.x-sidebar__brand { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2); }
+.x-sidebar__mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); flex: none; }
+.x-sidebar__name { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.x-nav { display: flex; flex-direction: column; gap: 2px; }
+.x-nav__item {
+    display: flex; align-items: center; gap: var(--space-2);
+    height: 30px; padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary); font-size: 13px; text-decoration: none;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+.x-nav__item:hover { background: var(--surface-hover); color: var(--text); }
+.x-nav__item.is-active { background: var(--accent-weak); color: var(--accent); font-weight: 500; }
+
+.x-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.x-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 44px; flex: none;
+    padding: 0 var(--space-5);
+    border-bottom: 1px solid var(--border);
+}
+.x-topbar__crumb { font-size: 12px; color: var(--text-muted); }
+
+.x-theme { display: inline-flex; gap: 2px; padding: 2px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
+.x-theme__btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 22px;
+    background: transparent; border: 0; border-radius: 3px;
+    color: var(--text-muted); cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+.x-theme__btn:hover { color: var(--text); }
+.x-theme__btn.is-on { background: var(--surface); color: var(--text); }
+
+.x-content { flex: 1; padding: var(--space-5); }
+
+@media (max-width: 768px) {
+    .x-shell { flex-direction: column; }
+    .x-sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
+    .x-nav { flex-direction: row; overflow-x: auto; }
+    .x-content { padding: var(--space-4); }
+}

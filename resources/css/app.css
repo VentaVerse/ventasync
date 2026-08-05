@@ -13,6 +13,7 @@
 /* Layout */
 @import './layout/sidebar.css';
 @import './layout/content.css';
+@import './layout/shell.css';
 
 /* Components */
 @import './components/alerts.css';
