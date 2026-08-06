@@ -27,6 +27,14 @@
     transition: opacity var(--transition-fast);
 }
 .alert .alert-close:hover { opacity: 1; }
+/* The leading status icon and the validation-error list inside an alert.
+   layouts/app.blade.php carries these as inline style attributes; it is a
+   protected file and cannot be edited, so partials/legacy-page-contract.blade.php
+   reproduces the same markup using these classes instead of copying the
+   inline CSS, which this project does not allow in Blade. Same values, so the
+   two render identically. */
+.alert__icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.alert__list { margin: 0; padding-left: 18px; }
 .alert.success {
     background: #ecfdf5;
     color: #065f46;

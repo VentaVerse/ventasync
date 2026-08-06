@@ -10,8 +10,13 @@
 
     <div class="x-cnav__head">
         <span class="x-cnav__name">{{ $channelCard->name }}</span>
+        {{-- "Not tracked" is a statement about instrumentation, not a
+             verdict on the connection: this channel exposes no token state
+             and no last-sync figure, so there is nothing to call healthy or
+             unhealthy. Claiming "Needs attention" here contradicted the
+             status board, which calls the same channel Connected. --}}
         <span class="x-cnav__state x-cnav__state--{{ $channelState }}">
-            {{ ['connected' => 'Connected', 'attention' => 'Needs attention', 'setup' => 'Not connected'][$channelState] }}
+            {{ ['connected' => 'Connected', 'attention' => 'Needs attention', 'setup' => 'Not connected', 'untracked' => 'Not tracked'][$channelState] ?? 'Not tracked' }}
         </span>
     </div>
 

@@ -45,6 +45,61 @@ class ChannelWorkspace
     }
 
     /**
+     * The card for a channel whose page the ROUTE has already authorised.
+     *
+     * Same lookup as card(), minus the card-level permission gate. The
+     * workspace entry point (/integrations/{channel}) keeps card(), because
+     * there "may this user open this channel" is exactly the question being
+     * asked and there is no other gate. The layout composer must not ask it a
+     * second time: a user holding only view_shopee_orders reaches
+     * /shopee/orders through perm:view_shopee_orders|manage_shopee_orders,
+     * and the Shopee card declares view_shopee, which this user does not hold
+     * because this app removed parent/child permission cascades. Re-gating
+     * there 404s a page the route authorised, which is what it did before
+     * this fix.
+     *
+     * The sidebar this feeds is still filtered per item by groups() ->
+     * allows(), so a narrow user gets a correspondingly narrow sidebar rather
+     * than links they cannot follow.
+     */
+    public function cardForAuthorisedPage(string $channel, ?User $user): ?IntegrationCard
+    {
+        foreach ($this->registry->cardsForAuthorisedRequest($user) as $card) {
+            if ($card->id === $channel) {
+                return $card;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether this channel has been converted to a workspace.
+     *
+     * The honest signal is the card declaring at least one MenuItem with a
+     * non-null group, because grouping the menu is precisely the conversion
+     * work. Only Shopee qualifies today.
+     *
+     * groups() is not that signal and must not be used as one: it buckets an
+     * ungrouped item into 'Channel' rather than dropping it, so it is
+     * non-empty for every channel with any parameterless menu item. Reading
+     * it that way linked Lazada, TikTok, Shopify, OpenCart and Pedallion into
+     * half-built workspaces, and cost OpenCart and Shopify their per-store
+     * destinations entirely, since those live on store cards and a workspace
+     * sidebar built from the top card never shows them.
+     */
+    public function hasWorkspace(IntegrationCard $card): bool
+    {
+        foreach ($card->menu as $item) {
+            if ($item->group !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Mirrors IntegrationController@index's $deriveState closure exactly:
      * setup when the token is missing or expired, attention when it expires
      * within 7 days or the last sync is older than 24 hours, connected
@@ -59,6 +114,22 @@ class ChannelWorkspace
         $now = Carbon::now();
         $staleAfter = $now->copy()->subHours(24);
         $expiringWithin = $now->copy()->addDays(7);
+
+        // Nothing measurable for this channel: no token state and no last
+        // sync. Every test below would then be answering a question the data
+        // cannot answer - in particular `! $lastSyncAt` is true when the
+        // figure is simply not tracked, which reported "Needs attention" for
+        // a healthy OpenCart store that the status board on the same screen
+        // called "Connected". Say what is true instead: not tracked. This is
+        // the same reading the Overview's health strip already gives these
+        // channels, so the two now agree.
+        //
+        // Shopee, Lazada and TikTok never reach this: tokenFigures() returns
+        // a real boolean hasToken for them even when their settings row is
+        // missing, so Shopee's behaviour is unchanged.
+        if ($figures['hasToken'] === null && $figures['lastSyncAt'] === null) {
+            return 'untracked';
+        }
 
         if ($figures['hasToken'] === false) {
             return 'setup';
@@ -153,10 +224,16 @@ class ChannelWorkspace
      * OAuth start routes here is a follow-up alongside grouping their menus
      * (see ChannelWorkspace::groups() and Task 6 of this plan).
      *
-     * @param array<int, array{label: string, items: array<int, array{label: string, route: string, url: string}>}> $groups
+     * Reads the card's own menu rather than a prebuilt $groups array. The
+     * bucketing groups() does is irrelevant to finding one destination, and
+     * taking $groups meant the Overview page had to build them a second time
+     * purely to call this - a result the layout composer then overwrote with
+     * its own identical copy. allows() below is the same gate groups() applies
+     * per item, so this cannot offer a link the sidebar would have hidden.
+     *
      * @return array{label: string, url: string}|null
      */
-    public function action(IntegrationCard $card, string $state, array $groups): ?array
+    public function action(IntegrationCard $card, string $state, ?User $user): ?array
     {
         if ($state === 'setup') {
             if ($card->id === 'shopee' && Route::has('ext.shopee.authorize')) {
@@ -166,11 +243,9 @@ class ChannelWorkspace
             return null;
         }
 
-        foreach ($groups as $group) {
-            foreach ($group['items'] as $item) {
-                if ($item['label'] === 'Orders') {
-                    return ['label' => 'View orders', 'url' => $item['url']];
-                }
+        foreach ($card->menu as $item) {
+            if ($item->label === 'Orders' && $this->allows($item, $user)) {
+                return ['label' => 'View orders', 'url' => route($item->routeName, $item->routeParams)];
             }
         }
 

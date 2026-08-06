@@ -19,13 +19,14 @@ class ChannelWorkspaceController extends Controller
             abort(404);
         }
 
-        $groups = $workspace->groups($card, $user);
         $state = $workspace->state($card);
 
+        // channelCard, channelGroups and channelState are deliberately absent
+        // here: the layouts.channel view composer supplies all three to every
+        // page in this layout, including this one, and passing them from here
+        // as well only computed the same values a second time for the
+        // composer to overwrite.
         return view('integrations.workspace', [
-            'channelCard' => $card,
-            'channelGroups' => $groups,
-            'channelState' => $state,
             'channelHealth' => $workspace->health($card),
             // Spec 3.4: the Overview answers "what is waiting for me", not
             // just "is the connection alive". These read the same closures
@@ -33,10 +34,10 @@ class ChannelWorkspaceController extends Controller
             'channelWaiting' => $workspace->waiting($card, $user),
             // Per spec 3.4, the Overview also carries the channel's most
             // needed action: Connect when it needs setup, otherwise the same
-            // secondary action the status board already offers for it. Built
-            // from $groups/$state already resolved above rather than a
-            // second pass over the registry.
-            'channelAction' => $workspace->action($card, $state, $groups),
+            // secondary action the status board already offers for it. Reads
+            // the card's own menu, so no grouped sidebar has to be built here
+            // just to answer it.
+            'channelAction' => $workspace->action($card, $state, $user),
         ]);
     }
 }

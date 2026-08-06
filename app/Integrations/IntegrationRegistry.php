@@ -64,6 +64,46 @@ class IntegrationRegistry
     }
 
     /**
+     * Cards whose channel passes the enabled + license gates, WITHOUT the
+     * card-level permission gate.
+     *
+     * visibleCards() answers "may this user be shown this channel", which is
+     * the right question on the status board and in the channel picker. It is
+     * the wrong question when a route has already authorised the request: a
+     * user holding only view_shopee_orders is explicitly allowed through
+     * perm:view_shopee_orders|manage_shopee_orders on /shopee/orders, yet the
+     * Shopee card itself declares view_shopee, and this app removed
+     * parent/child permission cascades, so the card gate would deny a page
+     * the route just granted. Callers that already hold an authorisation
+     * decision use this and let the route stay the authority.
+     *
+     * Nothing here is a permission bypass: the enable and license gates still
+     * apply, and every menu item this card yields is still filtered
+     * individually by ChannelWorkspace::allows().
+     *
+     * @return IntegrationCard[]
+     */
+    public function cardsForAuthorisedRequest(?User $user): array
+    {
+        $cards = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$this->passesGates($id, $user)) {
+                continue;
+            }
+
+            foreach ($provider->integrationCards() as $card) {
+                if (!$card instanceof IntegrationCard) {
+                    continue;
+                }
+                $cards[] = $card;
+            }
+        }
+
+        return $this->sortByDisplayOrder($cards);
+    }
+
+    /**
      * Stable display order across the Integrations hub, the contextual
      * sidebar, and the unified Orders tabs. Cards whose base id is not in
      * the list are appended at the end in their natural (registration)

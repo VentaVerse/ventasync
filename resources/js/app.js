@@ -5,6 +5,7 @@ import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
 import './orders-filter';
+import './legacy-flash';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';

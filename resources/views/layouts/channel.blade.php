@@ -4,8 +4,32 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Xenon')</title>
+    @php
+        // Same fallbacks layouts/app.blade.php uses, reading the $appSetting
+        // AppServiceProvider already shares with every view rather than
+        // issuing a second query for the same row.
+        $__companyName = $appSetting->company_name ?? 'VentaSync';
+        $__faviconUrl = ($appSetting->favicon_path ?? null)
+            ? asset('storage/' . $appSetting->favicon_path)
+            : asset('images/brand/ventasync-icon.png');
+    @endphp
+    {{-- The company name belongs in every title: this layout hosts pages that
+         used to live in layouts/app.blade.php, where the tab read as the
+         company's own product. The page's own leaf leads, because that is what
+         distinguishes one open tab from another. --}}
+    <title>@yield('title', 'Xenon') - {{ $__companyName }}</title>
+    <link rel="icon" type="image/png" href="{{ $__faviconUrl }}">
+    <link rel="shortcut icon" href="{{ $__faviconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">
     @include('partials.theme-boot')
+    {{-- Inter, for the .x-legacy content boundary only. base/reset.css and the
+         .x-legacy rule both ask for 'Inter', and layouts/app.blade.php is
+         where the seven pages hosted here used to get it. Without this they
+         fall back to system-ui and their type metrics shift. The workspace
+         chrome around them still uses Geist, which tokens.css self-hosts. --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
@@ -99,7 +123,16 @@
                 @endauth
             </div>
         </header>
-        <main class="x-content @yield('content-class', 'x-legacy')">@yield('content')</main>
+        {{-- The views hosted here were written against layouts/app.blade.php
+             and depend on the flash, validation-error and integration-banner
+             regions it renders around @yield('content'), plus the
+             #js-flash-container that showFlashError()/showFlashSuccess()
+             write into. Reproducing that contract is what makes this a
+             layout those views can actually live in. --}}
+        <main class="x-content @yield('content-class', 'x-legacy')">
+            @include('partials.legacy-page-contract')
+            @yield('content')
+        </main>
     </div>
 </div>
 @include('partials.confirm-modal')

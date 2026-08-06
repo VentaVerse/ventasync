@@ -48,27 +48,51 @@ class AppServiceProvider extends ServiceProvider
         // are needed. View::share() would leak them onto every page in the
         // app, and adding them to seven controller methods by hand is the
         // kind of duplication that drifts.
-        View::composer('layouts.channel', function ($view) {
-            $workspace = app(ChannelWorkspace::class);
-            $user = request()->user();
+        // Bound to the layout AND to the workspace Overview view. With
+        // @extends the child renders its sections first, so a composer on the
+        // layout alone leaves $channelCard null inside the child's own
+        // content (the Overview reads the tagline and the state there). The
+        // request-attributes memo keeps it one computation per request even
+        // though the composer now fires for two views; request attributes
+        // rather than a static so nothing leaks across tests sharing a
+        // process.
+        View::composer(['layouts.channel', 'integrations.workspace'], function ($view) {
+            $payload = request()->attributes->get('channel-workspace.compose');
 
-            // ext.shopee.orders.index -> shopee
-            $name = (string) (request()->route()?->getName() ?? '');
-            $channel = str_starts_with($name, 'ext.')
-                ? explode('.', $name)[1] ?? ''
-                : (string) request()->route('channel');
+            if ($payload === null) {
+                $workspace = app(ChannelWorkspace::class);
+                $user = request()->user();
 
-            $card = $workspace->card($channel, $user);
+                // ext.shopee.orders.index -> shopee
+                $name = (string) (request()->route()?->getName() ?? '');
+                $channel = str_starts_with($name, 'ext.')
+                    ? explode('.', $name)[1] ?? ''
+                    : (string) request()->route('channel');
 
-            if (! $card) {
-                abort(404);
+                // Deliberately the ungated lookup. Every page reaching this
+                // composer has already cleared its own route's perm: middleware,
+                // and the card's permission is a different, broader question -
+                // re-asking it here 404s users the route just let through (a
+                // view_shopee_orders-only operator on /shopee/orders, for
+                // instance). ChannelWorkspaceController::show keeps the gated
+                // card() for /integrations/{channel}, where the card permission
+                // IS the right question, and it runs before this composer.
+                $card = $workspace->cardForAuthorisedPage($channel, $user);
+
+                if (! $card) {
+                    abort(404);
+                }
+
+                $payload = [
+                    'channelCard' => $card,
+                    'channelGroups' => $workspace->groups($card, $user),
+                    'channelState' => $workspace->state($card),
+                ];
+
+                request()->attributes->set('channel-workspace.compose', $payload);
             }
 
-            $view->with([
-                'channelCard' => $card,
-                'channelGroups' => $workspace->groups($card, $user),
-                'channelState' => $workspace->state($card),
-            ]);
+            $view->with($payload);
         });
 
         // Centralized FCM notification dispatch - fires on any Order create/update.

@@ -58,6 +58,18 @@
 .x-cnav__state--attention { color: var(--warning); }
 .x-cnav__state--setup     { color: var(--danger); }
 
+/* Not tracked is an absence of measurement, not a status, so it drops the
+   colour coding the other three carry and takes the same muted italic
+   treatment .is-untracked uses in the health and waiting strips further down
+   this file. --text-muted is the lowest-contrast token that still clears
+   4.5:1 in both themes (4.58:1 light, 4.56:1 dark, worst case, per
+   base/tokens.css). No raw hex, and deliberately not var(--success), which is
+   undeclared on .x-app and falls through to a legacy value at about 2.03:1. */
+.x-cnav__state--untracked {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .x-cnav__group {
     display: flex;
     flex-direction: column;
@@ -150,6 +162,14 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     line-height: 1.6;
+
+    /* theme.css sets text-rendering: optimizeLegibility on .x-app, and it
+       inherits straight into legacy content. base/reset.css never set it, so
+       these pages were built and shipped against the CSS initial value.
+       optimizeLegibility turns on ligatures and kerning, which shifts glyph
+       widths and can retrack a whole table row. Restore the default the same
+       way the properties above restore theirs. */
+    text-rendering: auto;
 }
 
 @media (max-width: 900px) {

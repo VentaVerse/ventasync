@@ -75,12 +75,14 @@ class IntegrationController extends Controller
             $baseId = $card->id;
             $entries = [];
 
-            // Only channels the workspace actually groups get a workspace
-            // link. Task 1 grouped Shopee's menu alone; the other channels
-            // still have ungrouped menus and get their own round later, so
-            // groups() returns empty for them and their card keeps its
-            // existing destination.
-            $hasWorkspace = $workspace->groups($card, $user) !== [];
+            // Only channels that have actually been converted get a workspace
+            // link: a card qualifies when it declares at least one menu item
+            // with a group, which is exactly what the conversion does. Today
+            // that is Shopee alone. Every other channel keeps its existing
+            // destination, which matters most for OpenCart and Shopify, whose
+            // real destinations live on their per-store cards and would be
+            // unreachable from a workspace built off the top card.
+            $hasWorkspace = $workspace->hasWorkspace($card);
 
             if (in_array($baseId, ['shopee', 'lazada', 'tiktok'], true)) {
                 // Single-store OAuth marketplaces: live/sandbox creds live in
