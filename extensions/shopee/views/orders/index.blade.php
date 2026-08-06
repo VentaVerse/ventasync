@@ -8,7 +8,10 @@
     $canManageShopeeOrders = true;
 @endphp
 <div class="marketplace-shopee">
-@include('integrations.partials._tab_strip', ['activeTabId' => 'shopee'])
+{{-- No cross-marketplace tab strip here. Inside a seller center you see
+     only that marketplace; hopping channels is what the main nav's Channels
+     group and the unified Orders page are for. Per the owner: "If I were to see
+     the seller center of a marketplace, I will only see that marketplace." --}}
 <div class="page-header">
     <h2>Shopee Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
 </div>

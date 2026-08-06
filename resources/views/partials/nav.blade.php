@@ -4,13 +4,13 @@
 <nav class="x-nav" data-nav>
     @foreach($navGroups as $entry)
         @if(isset($entry['route']))
-            <a class="x-nav__item {{ request()->routeIs($entry['route']) ? 'is-active' : '' }}"
-               href="{{ route($entry['route']) }}">
+            <a class="x-nav__item {{ \App\Support\Navigation::isActive($entry) ? 'is-active' : '' }}"
+               href="{{ route($entry['route'], $entry['params'] ?? []) }}">
                 <x-ui.icon :name="$entry['icon']" /> {{ $entry['label'] }}
             </a>
         @else
             @php
-                $groupActive = collect($entry['items'])->contains(fn ($i) => request()->routeIs($i['route']));
+                $groupActive = collect($entry['items'])->contains(fn ($i) => \App\Support\Navigation::isActive($i));
                 $key = \Illuminate\Support\Str::slug($entry['label']);
             @endphp
             <div class="x-nav__group" data-nav-group="{{ $key }}" @if($groupActive) data-nav-open @endif>
@@ -21,8 +21,8 @@
                 </button>
                 <div class="x-nav__children">
                     @foreach($entry['items'] as $item)
-                        <a class="x-nav__child {{ request()->routeIs($item['route']) ? 'is-active' : '' }}"
-                           href="{{ route($item['route']) }}">{{ $item['label'] }}</a>
+                        <a class="x-nav__child {{ \App\Support\Navigation::isActive($item) ? 'is-active' : '' }}"
+                           href="{{ route($item['route'], $item['params'] ?? []) }}">{{ $item['label'] }}</a>
                     @endforeach
                 </div>
             </div>

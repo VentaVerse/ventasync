@@ -2,12 +2,12 @@
     // Find the current route in the nav tree so the trail matches the sidebar.
     $trail = [];
     foreach (\App\Support\Navigation::definition() as $entry) {
-        if (isset($entry['route']) && request()->routeIs($entry['route'])) {
+        if (isset($entry['route']) && \App\Support\Navigation::isActive($entry)) {
             $trail = [$entry['label']];
             break;
         }
         foreach ($entry['items'] ?? [] as $item) {
-            if (request()->routeIs($item['route'])) {
+            if (\App\Support\Navigation::isActive($item)) {
                 $trail = [$entry['label'], $item['label']];
                 break 2;
             }

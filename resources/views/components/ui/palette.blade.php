@@ -8,7 +8,7 @@
         foreach ($entry['items'] ?? [$entry] as $item) {
             $entries[] = [
                 'label' => ($entry['label'] !== $item['label'] ? $entry['label'].' / ' : '').$item['label'],
-                'url'   => route($item['route']),
+                'url'   => route($item['route'], $item['params'] ?? []),
                 'hay'   => strtolower($entry['label'].' '.$item['label'].' '.implode(' ', $item['keywords'] ?? [])),
             ];
         }

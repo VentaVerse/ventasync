@@ -25,14 +25,17 @@ class Navigation
             ['label' => 'Dashboard', 'icon' => 'monitor', 'route' => 'dashboard',
              'keywords' => ['home', 'overview', 'summary']],
 
+            // Order Statuses is configuration, not a daily operation, so it
+            // lives as a card in the Settings hub (SettingsHubController)
+            // rather than here. Per the owner: the nav shows operations.
             ['label' => 'Sales', 'icon' => 'receipt', 'items' => [
                 ['label' => 'Orders', 'route' => 'orders.index',
                  'keywords' => ['sale', 'customer', 'invoice', 'marketplace']],
-                ['label' => 'Order Payments', 'route' => 'orders.payments_report',
+                ['label' => 'Payments', 'route' => 'orders.payments_report',
                  'keywords' => ['paid', 'settlement', 'remittance']],
-                ['label' => 'Order Statuses', 'route' => 'order_statuses.index',
-                 'keywords' => ['workflow', 'pending', 'shipped']],
             ]],
+
+            ['label' => 'Channels', 'icon' => 'plug', 'items' => self::channelEntries()],
 
             ['label' => 'Catalogue', 'icon' => 'package', 'items' => [
                 ['label' => 'Products', 'route' => 'products.index',
@@ -79,12 +82,100 @@ class Navigation
             ['label' => 'Petty Cash', 'icon' => 'wallet', 'route' => 'ext.pettycash.index',
              'keywords' => ['expense', 'cash', 'reimbursement', 'float']],
 
-            ['label' => 'Integrations', 'icon' => 'plug', 'route' => 'integrations.index',
-             'keywords' => ['shopee', 'lazada', 'tiktok', 'venta', 'opencart', 'channel', 'sync', 'api']],
-
             ['label' => 'Settings', 'icon' => 'shield', 'route' => 'settings.hub',
-             'keywords' => ['config', 'currency', 'user', 'permission', 'extension']],
+             'keywords' => ['config', 'currency', 'user', 'permission', 'extension', 'order status']],
         ];
+    }
+
+    /**
+     * The Channels group: one entry per marketplace the current user can see,
+     * derived from the IntegrationRegistry so this list and the /integrations
+     * board can never disagree about what exists.
+     *
+     * A converted channel (one whose card declares grouped menu items, see
+     * ChannelWorkspace::hasWorkspace()) links to its seller center Overview.
+     * An unconverted one links straight to its orders page, the old nav
+     * behaviour, and upgrades automatically when its menu gets grouped.
+     * Multi-store channels get one entry per store because their routes are
+     * store-scoped; there is no storeless page to land on.
+     *
+     * visibleCards() has already applied the card permission, and allows()
+     * still checks each destination route's own perm: middleware, so both
+     * gates hold here exactly as they do in the workspace sidebar.
+     */
+    protected static function channelEntries(): array
+    {
+        $items = [
+            ['label' => 'All channels', 'route' => 'integrations.index',
+             'keywords' => ['integrations', 'status', 'connection', 'sync', 'marketplace', 'board']],
+        ];
+
+        try {
+            $registry = app(\App\Integrations\IntegrationRegistry::class);
+            $workspace = app(ChannelWorkspace::class);
+            $user = auth()->user();
+
+            foreach ($registry->visibleCards($user) as $card) {
+                if ($workspace->hasWorkspace($card)) {
+                    $items[] = ['label' => $card->name, 'route' => 'integrations.workspace',
+                                'params' => ['channel' => $card->id],
+                                'keywords' => [$card->id, 'seller center', 'orders', 'listings']];
+                    continue;
+                }
+
+                if ($card->stores !== []) {
+                    foreach ($card->stores as $store) {
+                        foreach ($store->menu as $menuItem) {
+                            if ($menuItem->label === 'Orders') {
+                                $items[] = ['label' => $card->name.' '.$store->label,
+                                            'route' => $menuItem->routeName,
+                                            'params' => $menuItem->routeParams,
+                                            'keywords' => [$card->id, 'orders', 'store']];
+                                break;
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                foreach ($card->menu as $menuItem) {
+                    if ($menuItem->label === 'Orders') {
+                        $items[] = ['label' => $card->name, 'route' => $menuItem->routeName,
+                                    'params' => $menuItem->routeParams,
+                                    'keywords' => [$card->id, 'orders', 'fulfilment']];
+                        break;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // A failed registry (missing table mid-migration, disabled
+            // extension throwing in boot) must not take down every page that
+            // renders the nav. The group degrades to "All channels" alone.
+        }
+
+        return $items;
+    }
+
+    /**
+     * Param-aware active check. request()->routeIs() alone cannot tell two
+     * entries on the same route apart: every seller center is
+     * integrations.workspace and every Venta store is ext.venta.orders.index,
+     * so without comparing the bound parameters, opening one store would
+     * highlight them all.
+     */
+    public static function isActive(array $item): bool
+    {
+        if (!request()->routeIs($item['route'])) {
+            return false;
+        }
+
+        foreach ($item['params'] ?? [] as $key => $value) {
+            if ((string) request()->route($key) !== (string) $value) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -112,20 +203,25 @@ class Navigation
      * Same any-match parsing EnsurePermission uses. Never can(): this app
      * registers no Gates or Policies, so can() is always false.
      */
-    public static function allows(string $routeName): bool
+    public static function allows(string $routeName, array $params = []): bool
     {
         if (!Route::has($routeName)) {
             return false;
         }
 
-        // A nav entry links to a fixed URL with no route-model context, so a
-        // route that needs a URI parameter (e.g. products/{id}/vendors)
-        // cannot be a valid destination here. route() would throw
-        // UrlGenerationException at render time otherwise, taking down every
-        // page that includes the sidebar rather than just hiding one link.
+        // Every REQUIRED URI parameter must be supplied by the entry, or
+        // route() throws UrlGenerationException at render time, taking down
+        // every page that includes the sidebar rather than just hiding one
+        // link. {store} is required; {store?} is not. Channel entries carry
+        // their params ({channel}, {store}) in the definition, so a
+        // parameterised route is fine as long as the entry covers it.
         $route = Route::getRoutes()->getByName($routeName);
-        if ($route && $route->parameterNames() !== []) {
-            return false;
+        preg_match_all('/\{([^}?]+)\}/', $route->uri(), $matches);
+
+        foreach ($matches[1] as $parameter) {
+            if (!array_key_exists($parameter, $params)) {
+                return false;
+            }
         }
 
         $user = auth()->user();
@@ -159,7 +255,7 @@ class Navigation
 
         foreach (self::definition() as $entry) {
             if (isset($entry['route'])) {
-                if (self::allows($entry['route'])) {
+                if (self::allows($entry['route'], $entry['params'] ?? [])) {
                     $out[] = $entry;
                 }
                 continue;
@@ -167,7 +263,7 @@ class Navigation
 
             $items = array_values(array_filter(
                 $entry['items'],
-                fn (array $i) => self::allows($i['route'])
+                fn (array $i) => self::allows($i['route'], $i['params'] ?? [])
             ));
 
             if ($items !== []) {
