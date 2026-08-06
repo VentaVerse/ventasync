@@ -215,7 +215,7 @@ class IntegrationController extends Controller
     }
 
     /**
-     * Dedicated sub-page for one module — lists all configured stores
+     * Dedicated sub-page for one module, lists all configured stores
      * with breathing room. Only useful for multi-store modules; for
      * single-store modules it just shows the same card content.
      */
@@ -255,7 +255,7 @@ class IntegrationController extends Controller
         $user = $request->user();
         $tabs = $registry->visibleOrderTabs($user);
 
-        // Empty state — no fulfillable surfaces visible to this user
+        // Empty state, no fulfillable surfaces visible to this user
         if (empty($tabs)) {
             return view('integrations.orders', [
                 'hasMarketplaces' => false,
