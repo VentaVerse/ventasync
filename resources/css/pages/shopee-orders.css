@@ -320,11 +320,12 @@
    --surface-alt fallback is replaced with a real token. */
 #shopee-orders-page .order-img-wrap,
 #shopee-returns-page .order-img-wrap {
-    /* 64px, not 40: the packer verifies the physical item against this
-       image, so it is an operational control, not decoration. Per the owner:
-       "That is an important factor to avoid packing an incorrect item." */
-    width: 64px;
-    height: 64px;
+    /* 96px: the packer verifies the physical item against this image, so
+       it is an operational control, not decoration. Per the owner, twice: "That
+       is an important factor to avoid packing an incorrect item", then
+       "make the photo bigger a lot more". */
+    width: 96px;
+    height: 96px;
     min-height: 0;
     align-self: flex-start;
     flex: none;
@@ -364,8 +365,11 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    margin-top: 3px;
-    font-size: 11px;
+    margin-top: 4px;
+    /* 13px, up from 11: the packer picks by SKU and variation, so these are
+       identification data, not fine print. Per the owner: "The SKU and the
+       variation is important too". */
+    font-size: 13px;
     color: var(--text-muted);
 }
 
@@ -382,12 +386,14 @@
 }
 
 .sp-item__qty {
-    flex: none;
-    align-self: flex-start;
+    /* Inline after the name, not on the row's far edge: what and how many
+       read as one fact. Weighted and sized to be unmissable, a wrong count
+       is the second way to mispack after a wrong item. */
+    margin-left: var(--space-2);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 700;
     color: var(--text-secondary);
 }
 

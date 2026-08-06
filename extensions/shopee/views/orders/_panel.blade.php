@@ -366,7 +366,15 @@
                                 @endif
                             </div>
                             <div class="sp-item__body">
-                                <span class="sp-item__name">{{ $it['name'] !== '' ? $it['name'] : 'Unnamed product' }}</span>
+                                {{-- Quantity rides directly after the name
+                                     rather than on the row's far edge, per
+                                     the owner: the packer reads "what and how
+                                     many" as one fact, and a &times;2 a
+                                     column-width away from its name is how
+                                     one unit ships when two were bought. --}}
+                                <span class="sp-item__name">{{ $it['name'] !== '' ? $it['name'] : 'Unnamed product' }}
+                                    <span class="sp-item__qty">&times;{{ $it['quantity'] }}</span>
+                                </span>
                                 <div class="sp-item__meta">
                                     @if(trim((string) $it['sku']) !== '')
                                         <span class="sp-item__sku">{{ $it['sku'] }}</span>
@@ -376,7 +384,6 @@
                                     @endif
                                 </div>
                             </div>
-                            <span class="sp-item__qty">&times;{{ $it['quantity'] }}</span>
                         </div>
                     @empty
                         <span class="sp-empty-mark">No items recorded</span>
@@ -439,7 +446,10 @@
                     @endif
 
                     @if($isToHandover || $isShipped)
-                        <button type="button" class="btnShopeeTracking x-btn x-btn--ghost x-btn--sm"
+                        {{-- Secondary, not ghost: The owner wants every action
+                             bordered so the column reads as buttons, not a
+                             mix of buttons and links. --}}
+                        <button type="button" class="btnShopeeTracking x-btn x-btn--secondary x-btn--sm"
                                 data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">Tracking</button>
                     @endif
 

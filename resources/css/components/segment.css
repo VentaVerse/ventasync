@@ -50,11 +50,14 @@
     align-items: center;
     gap: var(--space-2);
     flex: none;
-    height: 26px;
-    padding: 0 10px;
+    /* Sized for a working surface, per the owner: "Make the tabs bigger".
+       These are the primary mode switch on the fulfilment pages and get
+       clicked all day, so they earn control-scale hit targets. */
+    height: 36px;
+    padding: 0 14px;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -80,7 +83,7 @@
 .x-segment__count {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-muted);
 }
 
@@ -105,9 +108,9 @@
 }
 
 .x-segment--sub .x-segment__item {
-    height: 24px;
-    padding: 0 var(--space-2);
-    font-size: 12px;
+    height: 32px;
+    padding: 0 var(--space-3);
+    font-size: 13px;
 }
 
 .x-segment--sub .x-segment__item.is-active {
