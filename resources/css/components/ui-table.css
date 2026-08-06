@@ -20,7 +20,16 @@
    max-height so it becomes a real internal scroll container instead. */
 .x-table-wrap { width: 100%; }
 
-.x-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* table-layout: fixed makes the table's rendered width exactly equal to
+   its container's width, always, regardless of cell content - the browser
+   can no longer grow the table past .x-table-wrap the way it did under the
+   default "auto" algorithm (that growth, driven by the unconstrained
+   Customer column, was the real source of the 768px page-level horizontal
+   scroll; .x-table-wrap itself was never the problem). Column widths are
+   then taken from the header row's width classes below; the one column
+   with no declared width (Customer) receives whatever is left over. This
+   keeps the sticky-header wrapper above completely untouched. */
+.x-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 
 .x-table thead th {
     position: sticky;
@@ -36,6 +45,8 @@
     text-align: left;
     letter-spacing: .02em;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .x-table tbody tr {
@@ -47,7 +58,11 @@
 .x-table tbody td { padding: 0 var(--space-3); vertical-align: middle; white-space: nowrap; }
 
 .x-table .x-td-num { text-align: right; }
-.x-table .x-td-actions { width: 40px; text-align: right; }
+/* Exactly wide enough for the 24px overflow trigger plus a tighter, own
+   padding - the shared td padding (space-3, 12px a side) was sized for text
+   content and left this column wider than an icon-only control needs,
+   which is the "dead gutter" on the right of the table. */
+.x-table .x-td-actions { width: 40px; padding-left: var(--space-2); padding-right: var(--space-2); text-align: right; }
 
 /* The row is the link. A stretched pseudo-element keeps the whole row
    clickable without nesting interactive elements inside an anchor.
@@ -138,22 +153,49 @@
     .x-menu__trigger { opacity: 1; }
 }
 
+/* Between the mobile restack (640px) and comfortable desktop width, the six
+   fixed-width columns alone leave very little of the row for Customer,
+   the one column carrying genuinely variable-length text. Channel is
+   already restated by the row's marketplace colour and by the source
+   filter above the table, so it is the one column this range can afford
+   to drop in order to give Customer a readable width instead of a
+   two-character ellipsis. */
+@media (min-width: 641px) and (max-width: 900px) {
+    .x-table .x-col-chan,
+    .x-table td[data-label="Channel"] {
+        display: none;
+    }
+}
+
 /* Orders list (Task 7) */
 .x-list-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .x-filters { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
 .x-filters__search { max-width: 280px; }
 .x-filters__select { width: auto; min-width: 150px; }
 
+/* Widths are sized to the widest real value in each column (measured with
+   canvas.measureText against the live badge/mono fonts), plus a small
+   margin, not guessed - a table-layout: fixed column that's narrower than
+   its content clips instead of pushing the table wider, so these have to
+   be right. Order/Channel/Status/Total/Date are all bounded, known-shape
+   values; Customer is the one genuinely variable-length field and is
+   deliberately left without a width below so it receives the remainder of
+   the row instead of taking space this column needs. */
 .x-col-id    { width: 84px; }
-.x-col-chan  { width: 110px; }
-.x-col-stat  { width: 120px; }
+.x-col-chan  { width: 112px; }  /* longest channel label "OpenCart" measures ~89px with its dot */
+.x-col-stat  { width: 156px; }  /* longest status "To Confirm Receive" measures ~141px with its dot */
 /* Mono, tabular figures on the Total column so peso and dollar amounts line
    up on the decimal down the whole column - <x-money>'s spans already carry
    font-variant-numeric: tabular-nums, this supplies the monospace face. */
 .x-col-total { width: 140px; font-family: var(--font-mono); }
-.x-col-date  { width: 140px; }
+.x-col-date  { width: 150px; }
 
-.x-cell-strong { font-weight: 500; color: var(--text); }
+.x-cell-strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    color: var(--text);
+}
 .x-cell-muted  { color: var(--text-muted); }
 .x-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

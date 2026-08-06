@@ -21,19 +21,25 @@
 
 <form method="GET" action="{{ route('orders.index') }}" class="x-filters" id="orders-filter">
     <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search name, email, order ID" class="x-filters__search" />
-    <select name="status" class="x-input x-filters__select" onchange="this.form.submit()">
-        <option value="0">All statuses</option>
-        @foreach($statuses as $s)
-            <option value="{{ $s->order_status_id }}" @selected($statusId == $s->order_status_id)>{{ $s->name }}</option>
-        @endforeach
-    </select>
-    <select name="source" class="x-input x-filters__select" onchange="this.form.submit()">
-        <option value="">All sources</option>
-        <option value="manual" @selected($source === 'manual')>Manual</option>
-        @foreach($sourceOptions as $opt)
-            <option value="{{ $opt['value'] }}" @selected($source === $opt['value'])>{{ $opt['label'] }}</option>
-        @endforeach
-    </select>
+    <div class="x-select-wrap x-filters__select">
+        <select name="status" class="x-input" onchange="this.form.submit()">
+            <option value="0">All statuses</option>
+            @foreach($statuses as $s)
+                <option value="{{ $s->order_status_id }}" @selected($statusId == $s->order_status_id)>{{ $s->name }}</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+    <div class="x-select-wrap x-filters__select">
+        <select name="source" class="x-input" onchange="this.form.submit()">
+            <option value="">All sources</option>
+            <option value="manual" @selected($source === 'manual')>Manual</option>
+            @foreach($sourceOptions as $opt)
+                <option value="{{ $opt['value'] }}" @selected($source === $opt['value'])>{{ $opt['label'] }}</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
 </form>
 
 @if($orders->isEmpty())
@@ -67,8 +73,8 @@
             </td>
             <td class="x-cell-strong" data-label="Customer">{{ trim($o->firstname . ' ' . $o->lastname) ?: 'Guest' }}</td>
             <td data-label="Channel"><x-ui.badge :tone="$chanTone">{{ $chanLabel }}</x-ui.badge></td>
-            <td data-label="Status"><x-ui.badge tone="neutral">{{ $o->status->name ?? '-' }}</x-ui.badge></td>
-            <td class="x-td-num" data-label="Total">
+            <td data-label="Status"><x-ui.badge :tone="\App\Support\OrderStatusTone::for($o->status->name ?? null)">{{ $o->status->name ?? '-' }}</x-ui.badge></td>
+            <td class="x-td-num x-col-total" data-label="Total">
                 <x-money :php="(float) $o->total" :foreign="$o->foreign_total" :foreign-code="$o->currency_code" />
             </td>
             <td class="x-num x-cell-muted" data-label="Date">{{ \Illuminate\Support\Carbon::parse($o->date_added)->format('Y-m-d H:i') }}</td>

@@ -18,6 +18,7 @@
         'search'   => '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
         'chevron-left'  => '<path d="m15 18-6-6 6-6"/>',
         'chevron-right' => '<path d="m9 18 6-6-6-6"/>',
+        'chevron-down'  => '<path d="m6 9 6 6 6-6"/>',
         'square'   => '<rect x="3" y="3" width="18" height="18" rx="2"/>',
     ];
 @endphp

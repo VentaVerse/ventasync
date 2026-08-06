@@ -93,3 +93,25 @@
 }
 .x-input::placeholder { color: var(--text-muted); }
 .x-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-weak); }
+
+/* Select. A <select> keeps its native popup and keyboard behaviour (real
+   element, not a JS widget), but strips the OS-drawn chrome so it reads as
+   a peer of .x-input rather than a borrowed system control. The wrapper
+   positions a decorative chevron over the now-invisible native arrow;
+   pointer-events: none on the icon lets clicks pass through to the select
+   underneath it. */
+.x-select-wrap { position: relative; display: inline-flex; }
+select.x-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: calc(var(--space-3) + var(--space-4));
+    cursor: pointer;
+}
+.x-select-wrap__chevron {
+    position: absolute;
+    top: 50%;
+    right: var(--space-2);
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
