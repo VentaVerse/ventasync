@@ -110,7 +110,20 @@
                 <a class="x-row-link x-num" href="{{ route('orders.show', $o->order_id) }}">{{ $o->order_id }}</a>
             </td>
             <td class="x-cell-strong" data-label="Customer">{{ trim($o->firstname . ' ' . $o->lastname) ?: 'Guest' }}</td>
-            <td data-label="Channel"><x-ui.badge :tone="$chanTone">{{ $chanLabel }}</x-ui.badge></td>
+            {{-- Channel and Status both used dot-plus-text, so a brand hue like
+                 venta green or shopee orange could sit one column away from
+                 the semantically identical success green or warning amber and
+                 read as the same signal. Rather than keep re-tuning hues that
+                 will collide again the next time a brand's real colour lands
+                 near a status band (shopee's orange already borders warning),
+                 Channel drops the dot and lets the brand-tinted text carry
+                 identity on its own. Status keeps the dot, since it is the
+                 field a reader scans a long list for and the dot is what
+                 makes that scan possible from a distance. Presence-of-dot is
+                 now the category signal: dot means "this is a state", no dot
+                 means "this is a place it came from" - true regardless of
+                 which two hues happen to land close together. --}}
+            <td data-label="Channel"><x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge></td>
             <td data-label="Status"><x-ui.badge :tone="\App\Support\OrderStatusTone::for($o->status->name ?? null)">{{ $o->status->name ?? '-' }}</x-ui.badge></td>
             <td class="x-td-num x-col-total" data-label="Total">
                 <x-money :php="(float) $o->total" :foreign="$o->foreign_total" :foreign-code="$o->currency_code" />

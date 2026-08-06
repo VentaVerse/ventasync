@@ -35,4 +35,8 @@
 
 .x-hub__empty { color: var(--text-muted); font-size: 13px; }
 
+/* Second row of a stacked x-kit-row pair (UI Kit's badge tone grid: status
+   tones above, channel tones below) needs a gap from the row above it. */
+.x-kit-row + .x-kit-row { margin-top: var(--space-2); }
+
 @media (max-width: 640px) { .x-hub__grid { grid-template-columns: 1fr; } }
