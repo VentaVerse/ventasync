@@ -84,11 +84,13 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                 // managers are not excluded by tightening this gate.
                 permission: 'view_shopee',
                 menu: [
-                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee'),
-                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee'),
-                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee'),
-                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee'),
-                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders'),
+                    new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders', group: 'Sell'),
+                    new MenuItem('Returns', 'ext.shopee.orders.returns', 'view_shopee_orders', group: 'Sell'),
+                    new MenuItem('Listings', 'ext.shopee.products.index', 'view_shopee', group: 'Catalogue'),
+                    new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee', group: 'Catalogue'),
+                    new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee', group: 'Catalogue'),
+                    new MenuItem('Logistics', 'ext.shopee.logistics.index', 'view_shopee', group: 'Channel'),
+                    new MenuItem('Settings', 'ext.shopee.index', 'view_shopee', group: 'Channel'),
                 ],
             ),
         ];
