@@ -14,6 +14,7 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\ChannelWorkspaceController;
 
 use App\Http\Controllers\CurrencyController;
 
@@ -34,6 +35,12 @@ Route::middleware(['auth'])->group(function () {
     // available marketplace tab; otherwise shows empty state)
     Route::get('/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::get('/integrations/orders', [IntegrationController::class, 'orders'])->name('integrations.orders');
+
+    // Registered after integrations/orders on purpose: integrations/{channel}
+    // is a wildcard and would otherwise capture it.
+    Route::get('/integrations/{channel}', [ChannelWorkspaceController::class, 'show'])
+        ->name('integrations.workspace');
+
     Route::get('/integrations/module/{module}', [IntegrationController::class, 'module'])
         ->where('module', '[A-Za-z0-9_:-]+')
         ->name('integrations.module');

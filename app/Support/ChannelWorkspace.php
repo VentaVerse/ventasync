@@ -6,6 +6,8 @@ use App\Integrations\IntegrationCard;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Models\User;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -39,6 +41,136 @@ class ChannelWorkspace
         }
 
         return null;
+    }
+
+    /**
+     * Mirrors IntegrationController@index's $deriveState closure exactly:
+     * setup when the token is missing or expired, attention when it expires
+     * within 7 days or the last sync is older than 24 hours, connected
+     * otherwise. Two divergent definitions of "connected" in one product is
+     * a defect, so this reads the same thresholds and the same underlying
+     * figures rather than inventing its own.
+     */
+    public function state(IntegrationCard $card): string
+    {
+        $figures = $this->tokenFigures($card->id);
+
+        $now = Carbon::now();
+        $staleAfter = $now->copy()->subHours(24);
+        $expiringWithin = $now->copy()->addDays(7);
+
+        if ($figures['hasToken'] === false) {
+            return 'setup';
+        }
+        if ($figures['tokenExpiresAt'] && $figures['tokenExpiresAt']->isPast()) {
+            return 'setup';
+        }
+
+        $needsAttention = ($figures['tokenExpiresAt'] && $figures['tokenExpiresAt']->lessThanOrEqualTo($expiringWithin))
+            || (! $figures['lastSyncAt'] || $figures['lastSyncAt']->lessThan($staleAfter));
+
+        return $needsAttention ? 'attention' : 'connected';
+    }
+
+    /**
+     * Health rows for the Overview page: Last sync, Token expiry, and API
+     * errors in 24 hours. A null value means the figure genuinely is not
+     * tracked (no token/expiry column for this channel, or api_logging is
+     * switched off on its settings row) - the view renders "Not tracked"
+     * rather than a fabricated zero, since a real zero would read as "no
+     * errors" when it actually means "never measured".
+     *
+     * @return array<int, array{label: string, value: ?string}>
+     */
+    public function health(IntegrationCard $card): array
+    {
+        $figures = $this->tokenFigures($card->id);
+
+        return [
+            ['label' => 'Last sync', 'value' => $figures['lastSyncAt']?->diffForHumans()],
+            ['label' => 'Token expiry', 'value' => $figures['tokenExpiresAt']?->diffForHumans()],
+            ['label' => 'API errors in 24 hours', 'value' => $figures['errors24h'] === null ? null : (string) $figures['errors24h']],
+        ];
+    }
+
+    /**
+     * The workspace's own most-needed action, per spec 3.4: Connect when the
+     * channel needs setup, otherwise the same secondary action the status
+     * board already offers for it (IntegrationController@index's "View
+     * orders" button, sourced from the card's own "Orders" menu item) -
+     * never both, so the page is never asking for two things at once.
+     *
+     * The Connect destination is channel-specific and today only exists for
+     * Shopee (ext.shopee.authorize). That route is deliberately absent from
+     * the sidebar - a nav item that redirects the user off-site to Shopee's
+     * own consent screen is a hostile control there - but is exactly what a
+     * first-time visitor to this page needs. Wiring Lazada/TikTok's own
+     * OAuth start routes here is a follow-up alongside grouping their menus
+     * (see ChannelWorkspace::groups() and Task 6 of this plan).
+     *
+     * @param array<int, array{label: string, items: array<int, array{label: string, route: string, url: string}>}> $groups
+     * @return array{label: string, url: string}|null
+     */
+    public function action(IntegrationCard $card, string $state, array $groups): ?array
+    {
+        if ($state === 'setup') {
+            if ($card->id === 'shopee' && Route::has('ext.shopee.authorize')) {
+                return ['label' => 'Connect', 'url' => route('ext.shopee.authorize')];
+            }
+
+            return null;
+        }
+
+        foreach ($groups as $group) {
+            foreach ($group['items'] as $item) {
+                if ($item['label'] === 'Orders') {
+                    return ['label' => 'View orders', 'url' => $item['url']];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The raw token/sync figures IntegrationController@index reads for the
+     * single-store OAuth marketplaces (Shopee, Lazada, TikTok) - same table
+     * shape, same columns, same sandbox/live selection by `mode`.
+     *
+     * Venta, OpenCart, Shopify and Pedallion are deliberately not handled
+     * here: they are multi-store or API-key integrations with no single
+     * settings row that represents "the card" (IntegrationController computes
+     * their health per STORE for exactly that reason), and none of them has
+     * a token-expiry column at all. Rather than pick an arbitrary row or
+     * invent a column, every figure reads as not tracked for those channels
+     * until they get their own workspace grouping - recorded as a follow-up,
+     * not fixed here, per this task's "no migration" constraint.
+     *
+     * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
+     */
+    private function tokenFigures(string $channelId): array
+    {
+        if (! in_array($channelId, ['shopee', 'lazada', 'tiktok'], true)) {
+            return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
+        }
+
+        $row = DB::table($channelId . '_settings')->first();
+        $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
+
+        $expiresRaw = $row ? ($isSandbox ? $row->sandbox_expires_at : $row->expires_at) : null;
+        $lastSyncRaw = $row?->last_order_sync_at;
+        $loggingOn = (bool) ($row?->api_logging ?? false);
+
+        return [
+            'hasToken' => $row ? ! empty($isSandbox ? $row->sandbox_access_token : $row->access_token) : false,
+            'tokenExpiresAt' => $expiresRaw ? Carbon::parse($expiresRaw) : null,
+            'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
+            // api_logging is off in this sandbox for every channel today, so
+            // this reads null (not tracked), not a fabricated zero.
+            'errors24h' => $loggingOn
+                ? DB::table($channelId . '_api_logs')->where('created_at', '>=', Carbon::now()->subHours(24))->where('ok', 0)->count()
+                : null,
+        ];
     }
 
     /**

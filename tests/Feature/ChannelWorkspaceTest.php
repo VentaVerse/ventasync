@@ -237,4 +237,38 @@ class ChannelWorkspaceTest extends TestCase
 
         $this->assertFalse(app(ChannelWorkspace::class)->allows($item, null));
     }
+
+    public function test_workspace_renders_for_a_permitted_user(): void
+    {
+        $user = $this->shopeeOperator();
+
+        $this->actingAs($user)
+            ->get('/integrations/shopee')
+            ->assertOk()
+            ->assertSee('Shopee')
+            ->assertSee('Overview');
+    }
+
+    public function test_unknown_channel_is_404(): void
+    {
+        $user = $this->shopeeOperator();
+
+        $this->actingAs($user)->get('/integrations/not-a-channel')->assertNotFound();
+    }
+
+    public function test_workspace_requires_authentication(): void
+    {
+        $this->get('/integrations/shopee')->assertRedirect('/login');
+    }
+
+    public function test_the_orders_route_is_not_swallowed_by_the_channel_route(): void
+    {
+        // integrations/{channel} would capture integrations/orders if it were
+        // registered first. This asserts the resolved controller action, not
+        // just a 200, because a 200 from the wrong controller looks identical.
+        $this->assertSame(
+            'App\Http\Controllers\IntegrationController@orders',
+            app('router')->getRoutes()->getByName('integrations.orders')->getActionName()
+        );
+    }
 }
