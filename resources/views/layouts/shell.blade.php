@@ -61,5 +61,6 @@
     </div>
 </div>
 @include('partials.confirm-modal')
+<x-ui.palette />
 </body>
 </html>

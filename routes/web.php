@@ -52,6 +52,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/search', [\App\Http\Controllers\SearchController::class, 'index'])->name('search');
 
+    Route::get('/palette/search', [\App\Http\Controllers\PaletteController::class, 'search'])->name('palette.search');
+
     // ─────────────────────────────────────────────────────────────────────
     //  Phase 4.5 — view/manage tier split for ALL core resources.
     //

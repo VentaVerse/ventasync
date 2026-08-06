@@ -7,6 +7,7 @@ import './confirm-modal';
 import './orders-filter';
 
 import { initNavGroups } from './nav-groups';
+import xenonPalette from './palette';
 
 import Alpine from 'alpinejs';
 
@@ -18,4 +19,5 @@ import Alpine from 'alpinejs';
 initNavGroups();
 
 window.Alpine = Alpine;
+Alpine.data('xenonPalette', xenonPalette);
 Alpine.start();
