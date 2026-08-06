@@ -484,7 +484,9 @@
                         @endif
                         <span class="co-band__label">Order</span>
                         @if($orderId)
-                            <a class="co-sn" href="{{ route('ext.lazada.orders.show', ['orderId' => $orderId]) }}">{{ $orderId }}</a>
+                            {{-- New tab, matching the legacy page: same reasoning as the Shopee
+                                 panel, drop when the detail pages convert (board card #5). --}}
+                            <a class="co-sn" href="{{ route('ext.lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">{{ $orderId }}</a>
                         @else
                             <span class="co-empty-mark">No order number</span>
                         @endif

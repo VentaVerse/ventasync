@@ -339,7 +339,11 @@
                         @endif
                         <span class="co-band__label">Order</span>
                         @if($orderSn)
-                            <a class="co-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">{{ $orderSn }}</a>
+                            {{-- New tab, matching the legacy page: the detail page still renders
+                                 the old layout in the global shell, so opening it in place would
+                                 eject the packer from their filtered list. Drop the target when
+                                 the detail pages convert (board card #5). --}}
+                            <a class="co-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}" target="_blank" rel="noopener">{{ $orderSn }}</a>
                         @else
                             <span class="co-empty-mark">No order number</span>
                         @endif

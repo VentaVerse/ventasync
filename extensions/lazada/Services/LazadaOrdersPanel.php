@@ -57,7 +57,7 @@ class LazadaOrdersPanel
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
-        // Per-marketplace sort persistence — see ShopeeOrderController
+        // Per-marketplace sort persistence, see ShopeeOrderController
         // for the rationale. Session key is namespaced to "lazada".
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';
         $sortKey = strtolower((string)$request->query('sort', ''));
