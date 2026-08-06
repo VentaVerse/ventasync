@@ -1,13 +1,20 @@
 /**
- * Shopee Orders page (extensions/shopee/views/orders/index.blade.php).
+ * Shopee Orders and Shopee Returns pages
+ * (extensions/shopee/views/orders/index.blade.php and
+ * extensions/shopee/views/orders/returns.blade.php).
  *
- * This used to be a ~400 line inline <script> block at the bottom of that
- * Blade file. It is moved here as part of the page's exit from the
+ * This used to be a ~400 line inline <script> block at the bottom of the
+ * Orders Blade file. It is moved here as part of that page's exit from the
  * .x-legacy boundary: a new-UX page owns no inline script, same as it owns
  * no inline style. Bundled into the shared app.js (every layout loads it),
- * guarded on #shopee-orders-page, so it is inert everywhere else - the same
- * convention orders-filter.js and confirm-modal.js already use for their
- * own root elements.
+ * guarded on #shopee-orders-page and, separately, on #shopee-returns-page,
+ * so it is inert everywhere else - the same convention orders-filter.js and
+ * confirm-modal.js already use for their own root elements. Returns never
+ * had an inline script of its own (it had no page-level JS at all before
+ * Task 3); it is guarded here rather than sharing the Orders page's root id
+ * because the two are separate documents with different DOM contents, and
+ * "only bind what a page actually has" is the same rule the individual
+ * init functions already follow element by element.
  *
  * Behaviour is unchanged from the inline version: same endpoints, same POST
  * fields, same success/failure handling, same window.showFlashError /
@@ -48,15 +55,30 @@
  */
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('shopee-orders-page');
-    if (!page) return;
+    var returnsPage = document.getElementById('shopee-returns-page');
 
-    initFetchUpdateOverlay();
-    initShipModal();
-    initTrackingModal();
-    initImagePreview();
+    if (page) {
+        initFetchUpdateOverlay();
+        initShipModal();
+        initTrackingModal();
+        initImagePreview();
+    }
+
+    // Returns (extensions/shopee/views/orders/returns.blade.php) is its own
+    // page, not a section of the orders page, so it gets its own root id
+    // and only wires up what it actually has: the fetch overlay and the
+    // item-thumbnail hover preview. It has no ship modal and no tracking
+    // modal, so initShipModal()/initTrackingModal() are not called here -
+    // both already no-op safely on a page missing their elements, but
+    // calling only what a page uses is what "guarded so it only binds on
+    // the returns page root id" means in practice.
+    if (returnsPage) {
+        initFetchReturnsOverlay();
+        initImagePreview();
+    }
 
     /* ------------------------------------------------------------------
-       Loading overlay on Fetch / Update / Fetch returns.
+       Loading overlay on Fetch / Update (Orders page).
        ------------------------------------------------------------------ */
     function initFetchUpdateOverlay() {
         var overlay = document.getElementById('spLoadingOverlay');
@@ -85,19 +107,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         }
+    }
 
-        // Not present on this page today (Returns is its own page); left in
-        // place, exactly as the inline script guarded it, in case a future
-        // layout change embeds the returns fetch form here too.
+    /* ------------------------------------------------------------------
+       Loading overlay on Fetch returns (Returns page). Same #spLoadingOverlay
+       / #spLoadingTitle contract as the Orders page's own overlay, just a
+       separate copy of the modal markup because the two pages are separate
+       documents.
+       ------------------------------------------------------------------ */
+    function initFetchReturnsOverlay() {
+        var overlay = document.getElementById('spLoadingOverlay');
         var fetchReturnsForm = document.getElementById('formFetchReturns');
-        if (fetchReturnsForm && overlay) {
-            fetchReturnsForm.addEventListener('submit', function () {
-                setTimeout(function () {
-                    overlay.style.display = 'flex';
-                    document.getElementById('spLoadingTitle').textContent = 'Fetching returns…';
-                }, 50);
-            });
-        }
+        if (!fetchReturnsForm || !overlay) return;
+
+        fetchReturnsForm.addEventListener('submit', function () {
+            document.getElementById('spLoadingTitle').textContent = 'Fetching returns…';
+            overlay.style.display = 'flex';
+        });
     }
 
     /* ------------------------------------------------------------------

@@ -1,6 +1,13 @@
-/* Shopee Orders.
-   The first marketplace page rebuilt outside the .x-legacy boundary, so it
-   inherits the token set directly and owns no colour of its own. Three
+/* Shopee Orders and Shopee Returns.
+   The first two marketplace pages rebuilt outside the .x-legacy boundary,
+   so both inherit the token set directly and own no colour of their own.
+   Returns (Task 3) reuses this file rather than starting one of its own:
+   every class below with a bare selector (.sp-items, .sp-total, .sp-status,
+   .sp-actions, the modal/.sp-spinner set, and so on) already applies to
+   both pages unchanged. Only the handful of rules scoped to
+   #shopee-orders-page specifically had to be widened to also match
+   #shopee-returns-page, because an id selector cannot match two different
+   root elements any other way; each of those is marked below. Three
    deliberate decisions run through this file:
 
    1. Colour has one job here: telling an operator which orders need them.
@@ -22,7 +29,8 @@
 /* .x-page-sub carries its own bottom margin for pages that use it as a
    standalone deck. Inside .x-list-head the wrapper already owns the gap, so
    stacking both left a 40px hole between the title and the command bar. */
-#shopee-orders-page .x-list-head .x-page-sub { margin-bottom: 0; }
+#shopee-orders-page .x-list-head .x-page-sub,
+#shopee-returns-page .x-list-head .x-page-sub { margin-bottom: 0; }
 
 /* ------------------------------------------------------------------
    Filter row additions. Two search fields (order number and buyer) are two
@@ -226,7 +234,8 @@
    page its spreadsheet feel. Line items stack inside the Items cell.
    ------------------------------------------------------------------ */
 
-#shopee-orders-page .x-table tbody td {
+#shopee-orders-page .x-table tbody td,
+#shopee-returns-page .x-table tbody td {
     padding-top: var(--space-3);
     padding-bottom: var(--space-3);
     /* Rows here are media rows, not single-line values: the Items cell can
@@ -236,7 +245,8 @@
     white-space: normal;
 }
 
-#shopee-orders-page .x-table tbody tr { height: auto; }
+#shopee-orders-page .x-table tbody tr,
+#shopee-returns-page .x-table tbody tr { height: auto; }
 
 .sp-col-order  { width: 176px; }
 .sp-col-buyer  { width: 148px; }
@@ -257,7 +267,8 @@
     overflow-wrap: anywhere;
 }
 
-#shopee-orders-page .x-table tbody tr:hover .sp-sn { color: var(--accent); }
+#shopee-orders-page .x-table tbody tr:hover .sp-sn,
+#shopee-returns-page .x-table tbody tr:hover .sp-sn { color: var(--accent); }
 
 .sp-date {
     display: block;
@@ -268,8 +279,14 @@
     color: var(--text-muted);
 }
 
+/* display: block rather than inline-block: the Orders page only ever
+   prints one of these per cell, so either value looked identical there,
+   but the Returns cell prints up to two (the Shopee order number and the
+   internal sales order number), and two inline-block links wrap against
+   each other's width instead of each taking its own line. Block guarantees
+   the stack regardless of how many a page prints. */
 .sp-ref {
-    display: inline-block;
+    display: block;
     margin-top: var(--space-1);
     font-family: var(--font-mono);
     font-size: 11px;
@@ -290,7 +307,8 @@
    zoom-preview script matches on both. Only the geometry is restated here,
    for a dense list rather than the old tall row, and the legacy
    --surface-alt fallback is replaced with a real token. */
-#shopee-orders-page .order-img-wrap {
+#shopee-orders-page .order-img-wrap,
+#shopee-returns-page .order-img-wrap {
     width: 40px;
     height: 40px;
     min-height: 0;
@@ -481,7 +499,8 @@
     transform: none;
 }
 
-#shopee-orders-page .x-menu__panel { min-width: 180px; }
+#shopee-orders-page .x-menu__panel,
+#shopee-returns-page .x-menu__panel { min-width: 180px; }
 
 /* ------------------------------------------------------------------
    Modals. The DOM structure and every id stay exactly as
@@ -684,7 +703,8 @@
    everything, so Buyer comes back. */
 @media (min-width: 641px) and (max-width: 900px) {
     .sp-col-buyer { display: none; }
-    #shopee-orders-page .x-table td[data-label="Buyer"] { display: none; }
+    #shopee-orders-page .x-table td[data-label="Buyer"],
+    #shopee-returns-page .x-table td[data-label="Buyer"] { display: none; }
 }
 
 @media (max-width: 640px) {
@@ -693,10 +713,14 @@
        this page takes one column and lets each field own its full width.
        The explicit column widths above are grid item widths once the row
        is a grid, which would overflow the track, so they are released. */
-    #shopee-orders-page .x-table tbody tr { grid-template-columns: 1fr; }
-    #shopee-orders-page .x-table tbody td { width: auto; padding-top: 3px; padding-bottom: 3px; }
-    #shopee-orders-page .x-table tbody td:first-child { padding-top: var(--space-2); }
-    #shopee-orders-page .x-table tbody td:last-child { padding-bottom: var(--space-2); }
+    #shopee-orders-page .x-table tbody tr,
+    #shopee-returns-page .x-table tbody tr { grid-template-columns: 1fr; }
+    #shopee-orders-page .x-table tbody td,
+    #shopee-returns-page .x-table tbody td { width: auto; padding-top: 3px; padding-bottom: 3px; }
+    #shopee-orders-page .x-table tbody td:first-child,
+    #shopee-returns-page .x-table tbody td:first-child { padding-top: var(--space-2); }
+    #shopee-orders-page .x-table tbody td:last-child,
+    #shopee-returns-page .x-table tbody td:last-child { padding-bottom: var(--space-2); }
 
     .sp-total, .sp-total__method { text-align: left; }
     .sp-actions { justify-content: flex-start; }
