@@ -1,0 +1,136 @@
+/* Channel workspace chrome. The sidebar replaces the global one while the
+   user is inside a channel, which is what makes this a seller centre rather
+   than a filtered list. */
+
+.x-sidebar--channel {
+    display: flex;
+    flex-direction: column;
+}
+
+.x-cnav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+}
+
+.x-cnav__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: color 120ms ease, background-color 120ms ease;
+}
+
+.x-cnav__back:hover {
+    color: var(--text-primary);
+    background: var(--surface-hover);
+}
+
+.x-cnav__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.x-cnav__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.x-cnav__state {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.x-cnav__state--connected { color: var(--accent); }
+.x-cnav__state--attention { color: var(--warning); }
+.x-cnav__state--setup     { color: var(--danger); }
+
+.x-cnav__group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-top: 12px;
+}
+
+.x-cnav__group-label {
+    padding: 4px 8px;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.x-cnav__item,
+.x-cnav__child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: color 120ms ease, background-color 120ms ease;
+}
+
+.x-cnav__item:hover,
+.x-cnav__child:hover {
+    color: var(--text-primary);
+    background: var(--surface-hover);
+}
+
+.x-cnav__item.is-active,
+.x-cnav__child.is-active {
+    color: var(--accent);
+    background: var(--surface-hover);
+    font-weight: 500;
+}
+
+/* The legacy content boundary.
+   tokens.css declares these twelve names on .x-app (the body) and
+   variables.css declares them on :root (the html element), so inside the
+   body the new values win by inheritance. An existing channel page rendered
+   in here would silently change accent colour and corner radius as a side
+   effect of a navigation change, so this wrapper restores exactly the twelve
+   colliding names to their legacy values and nothing else.
+
+   These are pinned in both themes on purpose: legacy CSS contains no
+   data-theme rule anywhere, so those pages have never had a dark mode.
+   Letting them inherit dark values for these twelve names alone would give a
+   dark surface with light-mode text tokens that were never darkened.
+
+   Deleting this wrapper from a page is how that page gets migrated to the
+   new design, one page at a time, deliberately. */
+.x-legacy {
+    --surface: #ffffff;
+    --surface-hover: #f8fafc;
+    --border: #e2e8f0;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+}
+
+@media (max-width: 900px) {
+    .x-cnav__head { padding: 8px 4px; }
+    .x-cnav__group-label { padding: 4px; }
+}
