@@ -252,7 +252,18 @@
 .sp-col-buyer  { width: 148px; }
 .sp-col-total  { width: 132px; }
 .sp-col-status { width: 158px; }
-.sp-col-act    { width: 160px; }
+.sp-col-act    { width: 236px; }
+
+/* Verification-grade row density. The system default row is built for
+   scanning single-line records; a fulfilment row carries an image the
+   packer has to actually look at, so the cells get real vertical padding
+   and top alignment for multi-item stacks. */
+#shopee-orders-page .x-table tbody td,
+#shopee-returns-page .x-table tbody td {
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
+    vertical-align: top;
+}
 
 /* Order cell: the number is the identity and the date is the context, so
    the number takes the reading weight and the date recedes below it. */
@@ -309,8 +320,11 @@
    --surface-alt fallback is replaced with a real token. */
 #shopee-orders-page .order-img-wrap,
 #shopee-returns-page .order-img-wrap {
-    width: 40px;
-    height: 40px;
+    /* 64px, not 40: the packer verifies the physical item against this
+       image, so it is an operational control, not decoration. Per the owner:
+       "That is an important factor to avoid packing an incorrect item." */
+    width: 64px;
+    height: 64px;
     min-height: 0;
     align-self: flex-start;
     flex: none;
@@ -333,7 +347,7 @@
 .sp-item__body { min-width: 0; flex: 1; }
 
 .sp-item__name {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text);
     /* Two lines then ellipsis. A product title can run to 120 characters on
        Shopee; letting it wrap freely is what made the old rows unscannable,

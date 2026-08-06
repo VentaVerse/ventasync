@@ -422,29 +422,28 @@
             <td class="sp-col-act">
                 @if($orderSn)
                 <div class="sp-actions">
+                    {{-- Every action is a visible button, matching the legacy
+                         page. Per the owner: this is the packing desk's working
+                         surface, and Print waybill exists on most tabs, not
+                         only To Ship; an overflow menu made the column read
+                         as empty on every other tab. "Open order" needed no
+                         control at all: the order number is already the link. --}}
                     @if($isToPack && $canManageShopeeOrders)
-                        {{-- The one action the row's own status is waiting on
-                             gets a control of its own. Everything else lives
-                             behind the overflow menu, so a hundred-row page
-                             carries a handful of controls rather than three
-                             hundred. --}}
                         <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
                                 data-order-sn="{{ $orderSn }}">Arrange shipment</button>
                     @endif
 
-                    <x-invoice-request-modal :invoice="$o->buyer_invoice" :reference="$orderSn" />
+                    @if(!$isToPack && !$isUnpaid)
+                        <a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.shopee.orders.awb', ['orderSn' => $orderSn]) }}"
+                           target="_blank" rel="noopener">Print waybill</a>
+                    @endif
 
-                    <x-ui.menu label="Order {{ $orderSn }} actions">
-                        <a class="x-menu__item" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">Open order</a>
-                        @if(!$isToPack && !$isUnpaid)
-                            <a class="x-menu__item" href="{{ route('ext.shopee.orders.awb', ['orderSn' => $orderSn]) }}"
-                               target="_blank" rel="noopener">Print waybill</a>
-                        @endif
-                        @if($isToHandover || $isShipped)
-                            <button type="button" class="btnShopeeTracking x-menu__item"
-                                    data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">Tracking</button>
-                        @endif
-                    </x-ui.menu>
+                    @if($isToHandover || $isShipped)
+                        <button type="button" class="btnShopeeTracking x-btn x-btn--ghost x-btn--sm"
+                                data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">Tracking</button>
+                    @endif
+
+                    <x-invoice-request-modal :invoice="$o->buyer_invoice" :reference="$orderSn" />
                 </div>
                 @endif
             </td>
