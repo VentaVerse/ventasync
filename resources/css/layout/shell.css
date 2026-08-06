@@ -46,6 +46,10 @@
 }
 .x-topbar__crumb { font-size: 12px; color: var(--text-muted); }
 
+.x-crumb { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-muted); }
+.x-crumb__sep { color: var(--text-muted); opacity: .6; }
+.x-crumb__part--current { color: var(--text-secondary); }
+
 .x-theme { display: inline-flex; gap: 2px; padding: 2px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
 .x-theme__btn {
     display: inline-flex; align-items: center; justify-content: center;

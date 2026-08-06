@@ -1,6 +1,5 @@
 @extends('layouts.shell')
 @section('title', 'Orders')
-@section('breadcrumb', 'Sales / Orders')
 
 @section('content')
 @php

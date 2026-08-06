@@ -50,7 +50,7 @@
 
     <div class="x-main">
         <header class="x-topbar">
-            <div class="x-topbar__crumb">@yield('breadcrumb')</div>
+            <div class="x-topbar__crumb">@include('partials.breadcrumb')</div>
             <div class="x-theme" x-data="{ mode: (window.xenonTheme && window.xenonTheme.get()) || 'light' }">
                 <button type="button" class="x-theme__btn" :class="mode === 'light' && 'is-on'" @click="mode='light'; window.xenonTheme.set('light')" aria-label="Light theme"><x-ui.icon name="sun" size="14" /></button>
                 <button type="button" class="x-theme__btn" :class="mode === 'dark' && 'is-on'" @click="mode='dark'; window.xenonTheme.set('dark')" aria-label="Dark theme"><x-ui.icon name="moon" size="14" /></button>

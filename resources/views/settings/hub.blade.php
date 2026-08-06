@@ -1,6 +1,5 @@
 @extends('layouts.shell')
 @section('title', 'Settings')
-@section('breadcrumb', 'Settings')
 
 @section('content')
     <h1 class="x-page-title">Settings</h1>
