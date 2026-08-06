@@ -18,7 +18,8 @@
 <div class="x-palette" x-data="xenonPalette(@js($entries))" x-show="open" x-cloak
      @keydown.escape.window="close()"
      @keydown.window.prevent.cmd.k="toggle()"
-     @keydown.window.prevent.ctrl.k="toggle()">
+     @keydown.window.prevent.ctrl.k="toggle()"
+     @xenon-open-palette.window="openPalette()">
     <div class="x-palette__scrim" @click="close()"></div>
     <div class="x-palette__panel" role="dialog" aria-modal="true" aria-label="Command palette">
         <div class="x-palette__search">

@@ -52,7 +52,63 @@
     padding: 0 var(--space-5);
     border-bottom: 1px solid var(--border);
 }
-.x-topbar__crumb { font-size: 12px; color: var(--text-muted); }
+.x-topbar__crumb { font-size: 12px; color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.x-topbar__right { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+
+/* Command palette affordance. Same 26-32px control height and muted-icon
+   language as .x-theme__btn to its right, so the two read as one control
+   cluster rather than two unrelated widgets bolted together. */
+.x-search-trigger {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    height: 28px; padding: 0 var(--space-2) 0 var(--space-2);
+    background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--radius-sm);
+    color: var(--text-muted); cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+}
+.x-search-trigger:hover { background: var(--surface-hover); color: var(--text); }
+.x-search-trigger:focus-visible { border-color: var(--accent); outline: none; }
+.x-search-trigger__label { font-size: 12px; }
+/* Solid text-muted on surface-sunken/surface-hover, same token already
+   proven at 4.58:1 worst case in the I3 matrix (base/tokens.css) - no new
+   pair to measure here, this reuses that exact combination. */
+.x-search-trigger__hint {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 15px; height: 15px; padding: 0 3px;
+    border-radius: 3px; border: 1px solid var(--border-strong);
+    font-family: var(--font-mono); font-size: 10px; line-height: 1;
+    color: var(--text-muted);
+}
+
+/* Account control. .x-account modifies the shared <x-ui.menu> root (see
+   components/ui/menu.blade.php) so the avatar+name trigger and the
+   Logout-carrying panel sit on the same open/Escape/outside-click/focus-
+   return plumbing every other x-menu instance already gets, without
+   changing that component's default kebab-icon behaviour for its other
+   two callers (order row actions, ui-kit-v2). */
+.x-account .x-menu__trigger--custom {
+    width: auto; height: 30px; padding: 0 var(--space-2) 0 4px; gap: var(--space-2);
+    color: var(--text); opacity: 1;
+}
+.x-account .x-menu__trigger--custom:hover,
+.x-account .x-menu__trigger--custom[aria-expanded="true"] { background: var(--surface-hover); }
+.x-account__avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; flex: none;
+    border-radius: 999px; background: var(--accent); color: var(--accent-text);
+    font-size: 11px; font-weight: 600;
+}
+.x-account__name {
+    max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 13px; font-weight: 500;
+}
+.x-account .x-menu__panel { min-width: 200px; }
+.x-account__card { padding: var(--space-2) var(--space-2) var(--space-1); }
+.x-account__card-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.x-account__card-email {
+    margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; color: var(--text-muted);
+}
 
 .x-crumb { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-muted); }
 /* Solid token, not opacity: opacity blends the glyph toward whatever is
@@ -87,6 +143,20 @@
     .x-sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
     .x-nav { flex-direction: row; overflow-x: auto; }
     .x-content { padding: var(--space-4); }
+
+    /* The topbar row (crumb + search + theme + account) does not get any
+       extra height at this breakpoint, so the account control has to stay
+       reachable inside the same 44px row rather than wrapping under it -
+       wrapping would clip under a fixed-height header. Drop the search
+       trigger's visible label and the account name text, keeping both
+       controls as icon-sized tap targets; the crumb's own overflow:hidden
+       (see .x-topbar__crumb above) absorbs whatever width is left. */
+    .x-topbar { padding: 0 var(--space-3); }
+    .x-topbar__right { gap: var(--space-1); }
+    .x-search-trigger__label { display: none; }
+    .x-search-trigger { padding: 0 var(--space-1); gap: var(--space-1); }
+    .x-account__name { display: none; }
+    .x-account .x-menu__trigger--custom { padding: 0 4px; gap: var(--space-1); }
 }
 
 .x-nav__group { display: flex; flex-direction: column; }
