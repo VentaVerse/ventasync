@@ -132,14 +132,23 @@
  *   warning     #E0A73B    9.14    8.62    8.90    8.07
  *   info        #6C9BE0    6.94    6.54    6.75    6.12
  *
- * .x-nav__item.is-active (layout/shell.css) puts accent TEXT on an
- * accent-weak TINT over --surface-sunken, not on a solid token, so it
- * needed its own composite check rather than a straight token-vs-token
+ * .x-nav__item.is-active AND .x-nav__child.is-active (both layout/shell.css)
+ * put accent TEXT on an accent-weak TINT over --surface-sunken, not on a
+ * solid token - both share the identical declaration
+ * (background: var(--accent-weak); color: var(--accent);), so they are one
+ * composite check, not two, and neither is a straight token-vs-token
  * lookup: light accent-weak at its original alpha .08 composited to
  * #E2EBE6 over sunken, contrast 4.40 against #0A7A54 text - failed.
  * Dropped light --accent-weak to alpha .05 (composited #E9EFEB, 4.59:1)
  * with hue/colour unchanged; dark --accent-weak already cleared this
  * check at 6.94:1 with its original alpha .12, left untouched.
+ *
+ * Do not report either of these against the plain "accent" row of the
+ * matrix above (4.90 light / 8.26 dark, the sunken column) - a report on
+ * this branch already did exactly that for .x-nav__child.is-active and
+ * had to be corrected (see task-2-report.md, Task 2 review). The matrix
+ * above only ever measured solid tokens; a composited rule needs its own
+ * line, which is why it lives down here instead.
  *
  * Channel dot colours live in components/ui-controls.css, not here, but
  * were re-tuned in this same pass against the same worst-case background

@@ -47,7 +47,13 @@
 .x-topbar__crumb { font-size: 12px; color: var(--text-muted); }
 
 .x-crumb { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-muted); }
-.x-crumb__sep { color: var(--text-muted); opacity: .6; }
+/* Solid token, not opacity: opacity blends the glyph toward whatever is
+   behind it, and the top bar has no background of its own, so that is
+   --canvas. --text-muted at 60% opacity over --canvas measured ~2.34:1
+   light and ~2.53:1 dark, both well under the 4.5:1 floor. --text-muted
+   used solid already clears it (4.96 light, 5.17 dark per the I3 matrix in
+   base/tokens.css), so dropping the opacity is the entire fix. */
+.x-crumb__sep { color: var(--text-muted); }
 .x-crumb__part--current { color: var(--text-secondary); }
 
 .x-theme { display: inline-flex; gap: 2px; padding: 2px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
@@ -92,6 +98,38 @@
 
 .x-nav__children { display: none; flex-direction: column; gap: 1px; padding: 2px 0 var(--space-2) 26px; }
 .x-nav__group.is-open .x-nav__children { display: flex; }
+
+/* Pre-paint open state, so a group does not flash collapsed and then snap
+   open once nav-groups.js (a deferred module script) gets around to adding
+   .is-open. Two sources, matching the two cases nav-groups.js restores:
+   1. [data-nav-open] is rendered by Blade directly on the group for the
+      current route (partials/nav.blade.php) - plain server HTML, needs no
+      JS and cannot flash.
+   2. html[data-nav-restore~=...] is set by partials/nav-boot.blade.php, a
+      synchronous inline <script> in <head> (see that file), for a
+      DIFFERENT group the user previously left open in localStorage. Keys
+      are hand-enumerated because Navigation.php's groups are developer
+      authored, not data driven - same reasoning as the per-channel classes
+      in components/ui-controls.css. Add a line here if a group is added
+      there. Both rules just reach the same display/transform the .is-open
+      class below already produces, so there is nothing to reconcile once
+      the module script catches up. */
+.x-nav__group[data-nav-open] .x-nav__children,
+html[data-nav-restore~="sales"] [data-nav-group="sales"] .x-nav__children,
+html[data-nav-restore~="catalogue"] [data-nav-group="catalogue"] .x-nav__children,
+html[data-nav-restore~="purchasing"] [data-nav-group="purchasing"] .x-nav__children,
+html[data-nav-restore~="warehousing"] [data-nav-group="warehousing"] .x-nav__children,
+html[data-nav-restore~="reports"] [data-nav-group="reports"] .x-nav__children {
+    display: flex;
+}
+.x-nav__group[data-nav-open] .x-nav__group-chevron,
+html[data-nav-restore~="sales"] [data-nav-group="sales"] .x-nav__group-chevron,
+html[data-nav-restore~="catalogue"] [data-nav-group="catalogue"] .x-nav__group-chevron,
+html[data-nav-restore~="purchasing"] [data-nav-group="purchasing"] .x-nav__group-chevron,
+html[data-nav-restore~="warehousing"] [data-nav-group="warehousing"] .x-nav__group-chevron,
+html[data-nav-restore~="reports"] [data-nav-group="reports"] .x-nav__group-chevron {
+    transform: rotate(90deg);
+}
 
 .x-nav__child {
     display: block; height: 26px; line-height: 26px; padding: 0 var(--space-2);

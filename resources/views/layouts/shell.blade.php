@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Xenon')</title>
     @include('partials.theme-boot')
+    @include('partials.nav-boot')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="x-app">

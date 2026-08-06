@@ -11,11 +11,14 @@ import xenonPalette from './palette';
 
 import Alpine from 'alpinejs';
 
-// Runs immediately (not on DOMContentLoaded): app.js is a module script,
-// deferred like the rest of the document, so by the time it executes the
-// nav markup already exists and no paint has happened yet. Reading the
-// stored open/closed state here, before Alpine or anything else, is what
-// keeps groups from visibly flashing open on load.
+// app.js is a module script, deferred like the rest of the document, so it
+// runs after HTML parsing completes - after first paint, not before. It
+// cannot be what prevents the open/closed flash on load; that is now
+// handled pre-paint by partials/nav-boot.blade.php (a synchronous inline
+// script in <head>, same pattern as theme-boot.blade.php) together with the
+// matching rules in layout/shell.css. What initNavGroups() still owns: it
+// applies the .is-open class so state stays correct for the click handler
+// below, and it is where localStorage gets written back on toggle.
 initNavGroups();
 
 window.Alpine = Alpine;
