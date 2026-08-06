@@ -930,3 +930,26 @@
     color: var(--muted, #94a3b8);
     margin-top: 2px;
 }
+
+/* ============================================================
+   Integrations status board (/integrations) — one card per
+   channel, one card per store for multi-store channels. Uses the
+   shell design tokens (base/tokens.css), not the legacy --ink/
+   --muted variables the rest of this file predates.
+   ============================================================ */
+
+.x-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3); }
+
+.x-board__card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.x-board__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.x-board__name { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.x-board__store { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+
+.x-board__health { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; }
+.x-board__health > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.x-board__health dt { font-size: 12px; color: var(--text-muted); }
+.x-board__health dd { margin: 0; font-size: 12px; color: var(--text-secondary); }
+
+.x-board__foot { display: flex; gap: var(--space-2); }
+
+@media (max-width: 640px) { .x-board { grid-template-columns: 1fr; } }
