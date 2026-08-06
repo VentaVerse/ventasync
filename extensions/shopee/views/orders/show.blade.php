@@ -65,7 +65,7 @@
             // Phase 4 — Shopee order detail: refresh-from-Shopee and Arrange
             // Shipment are write-tier actions (refresh re-pulls from the API
             // and persists, ship triggers a marketplace state change).
-            $canManageShopeeOrders = true;
+            $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
         @endphp
         <a href="{{ route('ext.shopee.orders.index') }}" class="btn secondary">← Back to Orders</a>
         @if($canManageShopeeOrders)

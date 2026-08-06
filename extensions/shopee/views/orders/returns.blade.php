@@ -9,10 +9,10 @@
 @section('content')
 @php
     // Phase 4 - Returns is visible to view_shopee_orders holders; Fetch
-    // Returns requires manage_shopee_orders. Same stub Task 1-2 left on the
-    // Orders page (route middleware is the real gate; this local flag
-    // mirrors it until that phase lands).
-    $canManageShopeeOrders = true;
+    // Fetch Returns renders only for the manage tier. The route middleware
+    // (perm:manage_shopee_orders on the POST) is the real gate; this flag
+    // only stops the page offering a button that would 403.
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
@@ -168,7 +168,9 @@
         if ($hasSearch) {
             $rtEmptyDesc = 'Nothing matches that return or order number. Clear the search to see the full list.';
         } elseif ($active_tab !== 'ALL') {
-            $rtEmptyDesc = 'There are no ' . strtolower($tabs[$active_tab] ?? $active_tab) . ' returns right now.';
+            // Keep the tab's own capitalisation, same fix as the orders
+            // page: lowercasing produced unreadable copy.
+            $rtEmptyDesc = 'No returns in ' . ($tabs[$active_tab] ?? $active_tab) . ' right now.';
         } else {
             $rtEmptyDesc = 'Nothing has been synced yet. Click Fetch returns to pull data from Shopee.';
         }

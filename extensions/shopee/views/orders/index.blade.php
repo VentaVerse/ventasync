@@ -12,9 +12,11 @@
 
 @section('content')
 @php
-    // Phase 4 - Shopee Orders is visible to view_shopee_orders holders; the
-    // Fetch/Update/Ship/Reset actions require manage_shopee_orders.
-    $canManageShopeeOrders = true;
+    // The page is visible to view_shopee_orders holders; Fetch, Update,
+    // Ship and Reset render only for the manage tier. The route middleware
+    // (perm:manage_shopee_orders on every write POST) is the real gate; this
+    // flag only stops the page offering buttons that would 403.
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
@@ -241,7 +243,9 @@
         if ($hasSearch) {
             $spEmptyDesc = 'Nothing matches that order number or buyer. Clear the search to see the full list.';
         } elseif ($active_tab !== 'ALL') {
-            $spEmptyDesc = 'There are no ' . strtolower((string) ($tabs[$active_tab] ?? $active_tab)) . ' orders right now.';
+            // Keep the tab's own capitalisation: lowercasing it produced
+            // "no to ship orders", which reads broken.
+            $spEmptyDesc = 'No orders in ' . ($tabs[$active_tab] ?? $active_tab) . ' right now.';
         } else {
             $spEmptyDesc = 'Nothing has been synced yet. Pick a date range above and fetch orders from Shopee.';
         }
