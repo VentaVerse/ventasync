@@ -252,24 +252,20 @@
    Shipping | Status | Actions, with the order facts in a band above each
    order's item rows.
 
-   Products is capped, not flexible: when it absorbed the spare table width,
-   the Qty column started wherever the screen ended the cell, putting the
-   multiplier half a screen away from short product names. Capping it keeps
-   Qty hugging the product text; the spare width moves to the Actions
-   column at the table's far edge, whose buttons anchor right, which is
-   where slack belongs. */
-.sp-col-products { width: 400px; }
-.sp-col-qty    { width: 56px; }
-.sp-col-price  { width: 116px; }
-.sp-col-total  { width: 132px; }
-.sp-col-ship   { width: 148px; }
-.sp-col-status { width: 158px; }
-/* No width: Actions absorbs the remaining table width. */
-
-
-@media (max-width: 1100px) {
-    .sp-col-products { width: 320px; }
-}
+   Widths are percentages summing to 100 so the table's spare width spreads
+   across every column proportionally instead of pooling anywhere. Two
+   earlier cuts each left one hole: Products absorbing the slack pushed Qty
+   half a screen from short names, and Actions absorbing it opened a dead
+   zone between Status and the buttons. Shared, the slack reads as
+   breathing room. At the 1400px content cap Products lands near 430px, so
+   Qty still hugs the product text. */
+.sp-col-products { width: 31%; }
+.sp-col-qty    { width: 5%; }
+.sp-col-price  { width: 9%; }
+.sp-col-total  { width: 10%; }
+.sp-col-ship   { width: 12%; }
+.sp-col-status { width: 13%; }
+.sp-col-act    { width: 20%; }
 
 /* Verification-grade row density. The system default row is built for
    scanning single-line records; a fulfilment row carries an image the
@@ -546,7 +542,12 @@
 .sp-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    /* Buttons anchor toward the status they act on, not the table edge:
+       right-anchored, their column's slack pooled exactly between Status
+       and the first button, the gap the owner flagged. Left-anchored, the
+       slack sits past the buttons at the table edge, where it reads as
+       margin. */
+    justify-content: flex-start;
     gap: var(--space-1);
 }
 

@@ -452,7 +452,7 @@
 
             <td class="sp-col-ship" rowspan="{{ $lineCount }}" data-label="Shipping">
                 @if($courier)
-                    <span class="sp-courier">{{ $courier }}</span>
+                    <span class="sp-carrier">{{ $courier }}</span>
                     @if($trackingNo)
                         <span class="sp-ship__no">{{ $trackingNo }}</span>
                     @endif
