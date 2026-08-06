@@ -1,5 +1,5 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Integrations / Shopee / Return or Refund')
+@section('breadcrumb', 'Return or Refund')
 
 @section('content')
 @php

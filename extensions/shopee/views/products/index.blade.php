@@ -1,5 +1,5 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Integrations / Shopee / Products')
+@section('breadcrumb', 'Listings')
 
 @section('title', 'Shopee Products')
 

@@ -350,4 +350,31 @@ class ChannelWorkspaceTest extends TestCase
         $response->assertSee('data-nav', false);
         $response->assertDontSee('x-cnav', false);
     }
+
+    /**
+     * The layout owns the "Integrations / Shopee" trail, so each view supplies
+     * only its leaf. When the views carried the full trail themselves the
+     * topbar read "Integrations / Shopee / Integrations / Shopee / Orders" on
+     * every one of the seven pages.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('shopeePageProvider')]
+    public function test_the_breadcrumb_trail_is_not_duplicated(string $path): void
+    {
+        $html = $this->actingAs($this->shopeeOperator())->get($path)->getContent();
+
+        $crumb = preg_match('/<div class="x-topbar__crumb">(.*?)<\/div>/s', $html, $m)
+            ? strip_tags($m[1])
+            : $this->fail('No breadcrumb rendered on '.$path);
+
+        $this->assertSame(
+            1,
+            substr_count($crumb, 'Integrations'),
+            'Breadcrumb repeats the trail on '.$path.': '.preg_replace('/\s+/', ' ', trim($crumb))
+        );
+        $this->assertSame(
+            1,
+            substr_count($crumb, 'Shopee'),
+            'Breadcrumb repeats the channel on '.$path.': '.preg_replace('/\s+/', ' ', trim($crumb))
+        );
+    }
 }

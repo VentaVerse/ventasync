@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 class IntegrationController extends Controller
 {
     /**
-     * Integrations status board — one card per channel, one card per store
+     * Integrations status board. One card per channel, one card per store
      * for the multi-store channels (Venta, OpenCart, Shopify), answering
      * "is everything healthy, and where do I need to go" without a trip
      * through each channel's own settings page.
@@ -102,7 +102,7 @@ class IntegrationController extends Controller
                 // Multi-store (Venta/OpenCart/Shopify) or single-store
                 // (Pedallion) API-key integrations: no token expiry column
                 // exists on any of these tables, so tokenExpiry always
-                // reads "not tracked" here — that is a real schema gap, not
+                // reads "not tracked" here, which is a real schema gap, not
                 // an oversight, and is recorded as a follow-up.
                 $tokenColumn = match ($baseId) {
                     'venta' => 'api_token',
@@ -128,7 +128,7 @@ class IntegrationController extends Controller
                             ? DB::table('shopify_api_logs')->where('shopify_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('ok', 0)->count()
                             : null;
                     } elseif ($row && $baseId === 'opencart') {
-                        // opencart_sync_log has no logging on/off switch — it
+                        // opencart_sync_log has no logging on/off switch, so it
                         // is always written by every sync run, so a zero
                         // here is a real "no failures", not an absent metric.
                         $errors24h = DB::table('opencart_sync_log')->where('opencart_setting_id', $row->id)->where('created_at', '>=', $staleAfter)->where('status', 'failed')->count();
@@ -153,7 +153,7 @@ class IntegrationController extends Controller
                     ];
                 }
             } else {
-                // Unrecognized future channel — degrade to "nothing tracked"
+                // Unrecognized future channel, so degrade to "nothing tracked"
                 // rather than guessing at a schema nobody has inspected yet.
                 $entries[] = [
                     'key' => $baseId,

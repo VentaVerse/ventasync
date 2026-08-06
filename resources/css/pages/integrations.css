@@ -932,7 +932,7 @@
 }
 
 /* ============================================================
-   Integrations status board (/integrations) — one card per
+   Integrations status board (/integrations). One card per
    channel, one card per store for multi-store channels. Uses the
    shell design tokens (base/tokens.css), not the legacy --ink/
    --muted variables the rest of this file predates.

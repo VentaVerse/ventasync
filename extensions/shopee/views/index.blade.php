@@ -1,5 +1,5 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Integrations / Shopee')
+@section('breadcrumb', 'Settings')
 
 @section('content')
 <div class="page-header">
