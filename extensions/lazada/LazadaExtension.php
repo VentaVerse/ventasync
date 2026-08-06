@@ -85,10 +85,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
                 // managers are not excluded by tightening this gate.
                 permission: 'view_lazada',
                 menu: [
-                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada'),
-                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada'),
-                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada'),
-                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada_orders', null, ['tab' => 'TO_SHIP']),
+                    new MenuItem('Orders', 'ext.lazada.orders.index', 'view_lazada_orders', null, ['tab' => 'TO_SHIP'], 'Sell'),
+                    new MenuItem('Returns', 'ext.lazada.orders.returns', 'view_lazada_orders', group: 'Sell'),
+                    new MenuItem('Listings', 'ext.lazada.products.index', 'view_lazada', group: 'Catalogue'),
+                    new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada', group: 'Catalogue'),
+                    new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada', group: 'Catalogue'),
+                    new MenuItem('Brands', 'ext.lazada.brands.index', 'view_lazada', group: 'Catalogue'),
+                    new MenuItem('Settings', 'ext.lazada.index', 'view_lazada', group: 'Channel'),
                 ],
             ),
         ];

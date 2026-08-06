@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / Lazada / Orders')
+@extends('layouts.channel')
+@section('breadcrumb', 'Orders')
 
 @section('content')
 @php
