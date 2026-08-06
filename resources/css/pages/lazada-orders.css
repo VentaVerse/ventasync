@@ -1,0 +1,184 @@
+/* Lazada Orders and Lazada Returns.
+   -------------------------------------------------------------------
+   The shared anatomy these pages are drawn on lives in
+   components/channel-orders.css under the `co-` prefix: the command bar,
+   the order band, the item rows, the money and status cells, the actions
+   cell, the modal shell and the mobile restack are the same picture Shopee
+   draws, so they are the same rules rather than a copy of them.
+
+   What is here is Lazada's own, and takes an `lz-` prefix so it can never
+   collide with another channel's page file: this channel's column widths,
+   its picking-document links, and the tracking timeline its module builds.
+
+   Nothing here carries a colour of its own. Lazada's blue lived on the old
+   .marketplace-lazada wrapper, where it repainted --accent for every control
+   on the page; channel identity is carried by the sidebar and the
+   breadcrumb, which already say Lazada, and the accent is spent on the one
+   thing that needs a human.
+   ------------------------------------------------------------------- */
+
+/* The legacy column format: Products | Qty | Price | Amount | Shipping |
+   Status | Actions, with the order facts banded above each order's item
+   rows.
+
+   Percentages, summing to 100, so the table's spare width spreads across
+   every column proportionally instead of pooling in one of them. Shopee's
+   cut is the starting point; Actions takes 26% here against Shopee's 20%
+   because Lazada's To Arrange step offers three controls where Shopee's
+   busiest status offers two, and Products, Price and Shipping each give up
+   a point or two to pay for it. At the 1400px content cap Products still
+   lands near 400px, which is enough for two lines of a long marketplace
+   title, so Qty keeps hugging the product text. */
+.lz-col-products { width: 29%; }
+.lz-col-qty      { width: 5%; }
+.lz-col-price    { width: 8%; }
+.lz-col-total    { width: 9%; }
+.lz-col-ship     { width: 11%; }
+.lz-col-status   { width: 12%; }
+.lz-col-act      { width: 26%; }
+
+/* Returns has its own shape: no unit price, a per-line refund, an
+   order-level total, and the reverse parcel's tracking where Orders carries
+   the forward carrier. */
+.lz-col-rproducts { width: 30%; }
+.lz-col-rqty      { width: 6%; }
+.lz-col-refund    { width: 11%; }
+.lz-col-rtotal    { width: 11%; }
+.lz-col-rtrack    { width: 14%; }
+.lz-col-rstatus   { width: 14%; }
+.lz-col-ract      { width: 14%; }
+
+/* ------------------------------------------------------------------
+   Picking documents. These are printing, not fulfilment: the packer
+   reaches for them constantly but they change nothing, so they read as a
+   row of links under the buttons rather than as three more controls of the
+   same weight. The pipe separators the old row used are gone; the space
+   between them does that job without drawing anything.
+   ------------------------------------------------------------------ */
+
+.lz-docs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.lz-docs__label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    color: var(--text-muted);
+}
+
+.lz-doc {
+    /* The whole row carries a stretched link overlay (.x-row-link::after in
+       components/ui-table.css), so anything clickable inside it has to be
+       lifted above that overlay or the row swallows the click. */
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--motion-fast);
+}
+
+.lz-doc:hover {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------
+   Tracking timeline. The old modal put Lazada's trace in a bordered table
+   inside a modal inside a page that already has a table, which read as a
+   spreadsheet nested in a spreadsheet. Events are a sequence, so they are
+   drawn as one: a rule down the left, the timestamp in mono above the
+   status, and the courier's own description under it when there is one.
+   ------------------------------------------------------------------ */
+
+.lz-trace {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-height: 52vh;
+    overflow-y: auto;
+}
+
+.lz-trace__event {
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--border-strong);
+}
+
+/* The most recent event is the answer to the question the operator opened
+   this modal with, so it is the one the rule marks. */
+.lz-trace__event:first-child { border-left-color: var(--accent); }
+
+.lz-trace__time {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.lz-trace__status {
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.lz-trace__detail {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------------
+   Returns: the reverse parcel's tracking code and the reason a buyer gave.
+   ------------------------------------------------------------------ */
+
+.lz-track {
+    display: block;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.lz-reason {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------ */
+
+/* Between the mobile restack and a comfortable desktop width the fixed
+   columns leave almost nothing for Products, the one column carrying
+   genuinely variable-length text. Shipping is the field this range can
+   afford to drop: courier and tracking both repeat on the order detail and
+   in the Tracking modal, which stays. Below the restack breakpoint the row
+   is a single stacked column with room for everything, so Shipping comes
+   back. */
+@media (min-width: 641px) and (max-width: 900px) {
+    .lz-col-ship { display: none; }
+    #lazada-orders-page .x-table td[data-label="Shipping"] { display: none; }
+}
+
+/* Once the row restacks there are no columns left to align on, so a
+   right-aligned figure just floats away from its own label. The shared
+   rules already do this for the order total; the per-line figures need it
+   too, or one money value in the stack sits left and the next sits right.
+   Scoped to this channel's pages rather than added to the shared file
+   because Shopee's finished pages carry the same gap, and moving their
+   pixels is not this task's to do; unifying it belongs to the review round
+   that can verify both channels at once. */
+@media (max-width: 640px) {
+    #lazada-orders-page .x-table tbody td.x-td-num,
+    #lazada-returns-page .x-table tbody td.x-td-num { text-align: left; }
+}

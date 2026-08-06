@@ -102,10 +102,10 @@
 @endif
 
 @if($last_result)
-    <div class="sp-notice {{ $last_result['ok'] ? 'sp-notice--ok' : 'sp-notice--fail' }}">
-        <span class="sp-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
+    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
+        <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
         @if(!empty($last_result['message']))
-            <span class="sp-notice__body">{{ $last_result['message'] }}</span>
+            <span class="co-notice__body">{{ $last_result['message'] }}</span>
         @endif
     </div>
 @endif
@@ -162,11 +162,11 @@
     </div>
 
     @if(!empty($pending_courier_counts))
-        <div class="sp-couriers">
-            <span class="sp-couriers__label">Parcels waiting for handover</span>
+        <div class="co-couriers">
+            <span class="co-couriers__label">Parcels waiting for handover</span>
             @foreach($pending_courier_counts as $courier => $count)
-                <span class="sp-courier">
-                    <span class="sp-courier__count">{{ number_format($count) }}</span>
+                <span class="co-courier">
+                    <span class="co-courier__count">{{ number_format($count) }}</span>
                     {{ $courier }}
                 </span>
             @endforeach
@@ -327,57 +327,57 @@
             $tone = \App\Support\ChannelStatusTone::toneFor('shopee.orders', $statusStr);
             $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.orders', $statusStr);
         @endphp
-        <tr class="sp-band">
+        <tr class="co-band">
             <td colspan="7">
-                <div class="sp-band__row">
-                    <div class="sp-band__left">
-                        <span class="sp-band__label">Buyer</span>
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
                         @if($buyer !== '')
-                            <span class="sp-band__value">{{ $buyer }}</span>
+                            <span class="co-band__value">{{ $buyer }}</span>
                         @else
-                            <span class="sp-empty-mark">Not recorded</span>
+                            <span class="co-empty-mark">Not recorded</span>
                         @endif
-                        <span class="sp-band__label">Order</span>
+                        <span class="co-band__label">Order</span>
                         @if($orderSn)
-                            <a class="sp-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">{{ $orderSn }}</a>
+                            <a class="co-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">{{ $orderSn }}</a>
                         @else
-                            <span class="sp-empty-mark">No order number</span>
+                            <span class="co-empty-mark">No order number</span>
                         @endif
                         @if($itemCount > 0)
-                            <span class="sp-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
+                            <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
                         @if($o->catalog_order_id)
-                            <a class="sp-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
                         @endif
                     </div>
-                    <div class="sp-band__right">
+                    <div class="co-band__right">
                         @if($created)
-                            <span class="sp-band__label">Created</span>
-                            <span class="sp-band__value sp-band__value--mono">{{ $created }}</span>
+                            <span class="co-band__label">Created</span>
+                            <span class="co-band__value co-band__value--mono">{{ $created }}</span>
                         @endif
                     </div>
                 </div>
             </td>
         </tr>
         @foreach($displayItems as $idx => $it)
-        <tr class="sp-itemrow {{ $idx === $lineCount - 1 ? 'sp-itemrow--last' : '' }}">
+        <tr class="co-itemrow {{ $idx === $lineCount - 1 ? 'co-itemrow--last' : '' }}">
             <td class="sp-col-products" data-label="Products">
-                <div class="sp-item">
+                <div class="co-item">
                     <div class="order-img-wrap">
                         @if(!empty($it['image']))
                             <img class="order-img" src="{{ $it['image'] }}" alt="">
                         @else
-                            <span class="sp-item__none">No image</span>
+                            <span class="co-item__none">No image</span>
                         @endif
                     </div>
-                    <div class="sp-item__body">
-                        <span class="sp-item__name">{{ ($it['name'] ?? '') !== '' ? $it['name'] : 'Unnamed product' }}</span>
-                        <div class="sp-item__meta">
+                    <div class="co-item__body">
+                        <span class="co-item__name">{{ ($it['name'] ?? '') !== '' ? $it['name'] : 'Unnamed product' }}</span>
+                        <div class="co-item__meta">
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
-                                <span class="sp-item__sku">{{ $it['sku'] }}</span>
+                                <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
                             @if(trim((string) ($it['variation'] ?? '')) !== '')
-                                <span class="sp-item__var">{{ $it['variation'] }}</span>
+                                <span class="co-item__var">{{ $it['variation'] }}</span>
                             @endif
                         </div>
                     </div>
@@ -385,25 +385,25 @@
             </td>
 
             <td class="sp-col-qty" data-label="Qty">
-                <span class="sp-qty">&times;{{ max(1, (int) ($it['quantity'] ?? 1)) }}</span>
+                <span class="co-qty">&times;{{ max(1, (int) ($it['quantity'] ?? 1)) }}</span>
             </td>
 
             <td class="sp-col-price x-td-num" data-label="Price">
                 @php $unitPrice = $it['price'] ?? null; @endphp
                 @if($unitPrice !== null && $unitPrice !== '' && is_numeric($unitPrice))
-                    <span class="sp-price">{{ $currencyCode !== ''
+                    <span class="co-price">{{ $currencyCode !== ''
                         ? \App\Support\Money::foreign((float) $unitPrice, $currencyCode)
                         : \App\Support\Money::base((float) $unitPrice) }}</span>
                 @elseif($unitPrice !== null && $unitPrice !== '')
-                    <span class="sp-price">{{ $unitPrice }}</span>
+                    <span class="co-price">{{ $unitPrice }}</span>
                 @else
-                    <span class="sp-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">&mdash;</span>
                 @endif
             </td>
 
             @if($idx === 0)
             <td class="sp-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
-                <span class="sp-total">
+                <span class="co-total">
                     @if($totalAmount !== null && $totalAmount !== '' && is_numeric($totalAmount))
                         {{ $currencyCode !== ''
                             ? \App\Support\Money::foreign((float) $totalAmount, $currencyCode)
@@ -411,27 +411,27 @@
                     @elseif($totalAmount !== null && $totalAmount !== '')
                         {{ $totalAmount }}
                     @else
-                        <span class="sp-empty-mark">Not recorded</span>
+                        <span class="co-empty-mark">Not recorded</span>
                     @endif
                 </span>
                 @if($paymentMethod)
-                    <span class="sp-total__method">{{ $paymentMethod }}</span>
+                    <span class="co-total__method">{{ $paymentMethod }}</span>
                 @endif
             </td>
 
             <td class="sp-col-ship" rowspan="{{ $lineCount }}" data-label="Shipping">
                 @if($courier)
-                    <span class="sp-carrier">{{ $courier }}</span>
+                    <span class="co-carrier">{{ $courier }}</span>
                     @if($trackingNo)
-                        <span class="sp-ship__no">{{ $trackingNo }}</span>
+                        <span class="co-ship__no">{{ $trackingNo }}</span>
                     @endif
                 @else
-                    <span class="sp-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">&mdash;</span>
                 @endif
             </td>
 
             <td class="sp-col-status" rowspan="{{ $lineCount }}" data-label="Status">
-                <div class="sp-status">
+                <div class="co-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
                     <x-sla-chip :deadline="$shipBy" />
                 </div>
@@ -439,7 +439,7 @@
 
             <td class="sp-col-act" rowspan="{{ $lineCount }}">
                 @if($orderSn)
-                <div class="sp-actions">
+                <div class="co-actions">
                     {{-- Every action is a visible button, matching the legacy
                          page. Per the owner: this is the packing desk's working
                          surface, and Print waybill exists on most tabs, not
@@ -493,17 +493,17 @@
      toggle the module uses for every step transition), not an inline style,
      so the initial state and every later state share one mechanism. --}}
 <div id="spShipModal" class="modal-backdrop">
-    <div class="modal sp-modal">
-        <div class="modal-header sp-modal__head">
-            <h3 class="sp-modal__title">Arrange shipment</h3>
-            <button type="button" id="btnCloseShip" class="modal-close sp-modal__close" aria-label="Close">&times;</button>
+    <div class="modal co-modal">
+        <div class="modal-header co-modal__head">
+            <h3 class="co-modal__title">Arrange shipment</h3>
+            <button type="button" id="btnCloseShip" class="modal-close co-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div class="sp-modal__meta">Order <strong id="spShipOrderSn"></strong></div>
+        <div class="co-modal__meta">Order <strong id="spShipOrderSn"></strong></div>
 
         {{-- Step 1: Choose shipping type --}}
         <div id="shipStep1">
-            <p class="sp-modal__prompt">How will this order be shipped?</p>
-            <div class="sp-modal__choices">
+            <p class="co-modal__prompt">How will this order be shipped?</p>
+            <div class="co-modal__choices">
                 <button type="button" class="btnShipChoice x-btn x-btn--secondary" data-type="dropoff">
                     <x-ui.icon name="map-pin" size="14" />
                     Drop off
@@ -517,12 +517,12 @@
 
         {{-- Step 2: Address/branch selection --}}
         <div id="shipStep2" class="sp-hidden">
-            <div id="shipStep2Loading" class="sp-modal__loading">
-                <span class="sp-spinner" aria-hidden="true"></span>
+            <div id="shipStep2Loading" class="co-modal__loading">
+                <span class="co-spinner" aria-hidden="true"></span>
                 <span>Loading addresses</span>
             </div>
-            <div id="shipStep2Content" class="sp-modal__body sp-hidden"></div>
-            <div class="sp-modal__foot">
+            <div id="shipStep2Content" class="co-modal__body sp-hidden"></div>
+            <div class="co-modal__foot">
                 <button type="button" id="btnShipBack" class="x-btn x-btn--ghost">Back</button>
                 <button type="button" id="btnShipConfirm" class="x-btn x-btn--primary" disabled>Confirm and ship</button>
             </div>
@@ -539,12 +539,12 @@
 
 {{-- Loading overlay --}}
 <div id="spLoadingOverlay" class="modal-backdrop">
-    <div class="modal sp-modal sp-modal--sm">
-        <div class="sp-progress">
-            <span class="sp-spinner sp-spinner--lg" aria-hidden="true"></span>
+    <div class="modal co-modal co-modal--sm">
+        <div class="co-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div id="spLoadingTitle" class="sp-progress__title">Fetching orders</div>
-                <div class="sp-progress__note">Please keep this tab open.</div>
+                <div id="spLoadingTitle" class="co-progress__title">Fetching orders</div>
+                <div class="co-progress__note">Please keep this tab open.</div>
             </div>
         </div>
     </div>
@@ -552,15 +552,15 @@
 
 {{-- Tracking modal --}}
 <div id="spTrackingModal" class="modal-backdrop">
-    <div class="modal sp-modal sp-modal--md">
-        <div class="modal-header sp-modal__head">
-            <h3 class="sp-modal__title">Tracking</h3>
-            <button type="button" id="btnCloseTracking" class="modal-close sp-modal__close" aria-label="Close">&times;</button>
+    <div class="modal co-modal co-modal--md">
+        <div class="modal-header co-modal__head">
+            <h3 class="co-modal__title">Tracking</h3>
+            <button type="button" id="btnCloseTracking" class="modal-close co-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div id="spTrackingBody" class="sp-modal__body">
+        <div id="spTrackingBody" class="co-modal__body">
             <div class="text-secondary">Loading</div>
         </div>
-        <div class="sp-modal__foot sp-modal__foot--end">
+        <div class="co-modal__foot co-modal__foot--end">
             <button type="button" id="btnTrackingClose2" class="x-btn x-btn--secondary">Close</button>
         </div>
     </div>

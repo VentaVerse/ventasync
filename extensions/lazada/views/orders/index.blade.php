@@ -1,907 +1,775 @@
 @extends('layouts.channel')
 @section('breadcrumb', 'Orders')
 
+{{-- Leaves the .x-legacy content boundary, the same exit Shopee's Orders
+     page took: this page is now built directly on the design tokens and the
+     x-ui components, which is the designed way out of that boundary. The old
+     .marketplace-lazada wrapper went with it, because its only job was to
+     repaint --accent with Lazada's blue, and channel identity belongs in the
+     sidebar and the breadcrumb, not on every control of every row. The
+     cross-marketplace tab strip went too: inside a seller center you see one
+     marketplace. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    // Phase 3 — Lazada Orders is visible to view_lazada_orders holders; the
-    // Fetch/Update/Pack/Ship/Cancel actions require manage_lazada_orders.
-    $canManageLazadaOrders = true;
+    // Orders is visible to view_lazada_orders holders; Fetch, Update, Pack,
+    // Arrange shipment and Recreate package render only for the manage tier.
+    // The route middleware (perm:manage_lazada_orders on every write POST in
+    // extensions/lazada/routes/web.php) is the real gate; this flag only
+    // stops the page offering buttons that would 403.
+    //
+    // The old page hardcoded this to true, which left its own read-only
+    // branch (written right below it, for exactly this permission) dead and
+    // showed a viewer four buttons that all 403 on submit. Reading the
+    // permission is what that branch was written for.
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+
+    $tabs = $tabs ?? [];
+    $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
+    $tab_counts = $tab_counts ?? [];
+    $pending_sub_counts = $pending_sub_counts ?? [];
+    $fd_sub_counts = $fd_sub_counts ?? [];
+    $savedAwbs = $savedAwbs ?? [];
+    $live_statuses = $live_statuses ?? [];
+    $perPage = (int) ($per_page ?? request()->query('per_page', 10));
+    $orderNumberFilter = (string) ($filters['order_number'] ?? '');
+    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
+    $hasSearch = $orderNumberFilter !== '' || $buyerNameFilter !== '';
+    $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
+    $fdSub = $fd_subtab ?? request()->query('fd_sub', 'failed_delivery');
+
+    $pendingNav = [
+        'to_pack' => 'To Pack',
+        'to_arrange' => 'To Arrange Shipment',
+        'to_handover' => 'To Handover',
+    ];
+
+    $fdNav = [
+        'failed_delivery' => 'Failed Delivery',
+        'shipped_back' => 'Shipped Back',
+        'lost_damaged' => 'Lost and Damaged',
+    ];
+
+    // The count in the deck is the count of what is actually listed, so it
+    // names the step being listed. Saying "in To Ship" while standing on To
+    // Arrange Shipment put a 1 next to a tab reading 2, which reads as a bug
+    // rather than as two different questions being answered.
+    $scopeLabel = null;
+    if ($active_tab === 'TO_SHIP') {
+        $scopeLabel = $pendingNav[$pendingSub] ?? ($tabs['TO_SHIP'] ?? null);
+    } elseif ($active_tab === 'FAILED_DELIVERY') {
+        $scopeLabel = $fdNav[$fdSub] ?? ($tabs['FAILED_DELIVERY'] ?? null);
+    } elseif ($active_tab !== 'ALL') {
+        $scopeLabel = $tabs[$active_tab] ?? null;
+    }
+
+    // Self links keep whatever the operator already chose (search, sort, per
+    // page) and replace only the axis being switched. page is always dropped,
+    // because page 4 of To Ship is not page 4 of Shipping; the two sub-tab
+    // params are dropped when the top-level tab changes, because the
+    // controller ignores each of them outside its own tab anyway and carrying
+    // them makes the address bar read as though they still applied.
+    $lzSelfUrl = function (array $params = [], array $except = ['page']) {
+        return route('ext.lazada.orders.index', array_merge(request()->except($except), $params));
+    };
+
+    // Same eight sort values the controller accepts, in the words an
+    // operator uses. "Confirmed: Created At" was Lazada's own column name
+    // leaking into the UI; what it actually orders by is the timestamp
+    // Lazada recorded, so that is what it says.
+    $lzSortLabels = [
+        'created_desc'           => 'Order date, newest first',
+        'created_asc'            => 'Order date, oldest first',
+        'confirmed_created_desc' => 'Lazada create time, newest first',
+        'confirmed_created_asc'  => 'Lazada create time, oldest first',
+        'confirmed_updated_desc' => 'Last update, newest first',
+        'confirmed_updated_asc'  => 'Last update, oldest first',
+        'promised_shipping_asc'  => 'Ship-by time, soonest first',
+        'promised_shipping_desc' => 'Ship-by time, latest first',
+    ];
 @endphp
-<div class="marketplace-lazada">
-@include('integrations.partials._tab_strip', ['activeTabId' => 'lazada'])
-<div class="page-header">
-    <h2>Lazada Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
+
+{{-- The session values and route templates the page module needs ride on the
+     root element as data attributes, escaped by Blade, rather than as a
+     <script> block of interpolated PHP. A new-UX page owns no inline script,
+     the same way it owns no inline style. --}}
+<div id="lazada-orders-page" class="co-page"
+     data-awb-url="{{ session('lazada_awb_url') }}"
+     data-pack-print-order="{{ session('open_pack_print_modal_order_id') }}"
+     data-awb-template="{{ route('ext.lazada.orders.awb', ['orderId' => '__OID__']) }}"
+     data-ship-print-template="{{ route('ext.lazada.orders.ship_print_post', ['orderId' => '__OID__']) }}"
+     data-recreate-template="{{ route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']) }}">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Orders</h1>
+        <p class="x-page-sub">
+            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($scopeLabel) in {{ $scopeLabel }}@endif
+        </p>
+    </div>
 </div>
 
 @if($canManageLazadaOrders)
-<div class="card mb-16">
-<form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="d-flex gap-12 flex-wrap items-center">
+{{-- One command bar, the same grammar as Shopee's: every child of the row
+     ends in a box exactly --control-h tall and the row is bottom aligned, so
+     the date inputs, the checkbox and the two buttons share a baseline and a
+     top edge. The three stacked cards this replaces each set their own
+     control heights, which is what left the buttons off the baseline of
+     their own date inputs. --}}
+<div class="x-cmdbar">
+    <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="x-cmdbar__row">
         @csrf
-        <div>
-            <label class="text-xs text-secondary">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from', request('date_from')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="lzDateFrom">From</label>
+            <x-ui.input type="date" id="lzDateFrom" name="date_from" class="x-cmdbar__date"
+                        value="{{ old('date_from', request('date_from')) }}" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="lzDateTo">To</label>
+            <x-ui.input type="date" id="lzDateTo" name="date_to" class="x-cmdbar__date"
+                        value="{{ old('date_to', request('date_to')) }}" />
         </div>
-        <div style="align-self:flex-end;">
-            <label class="text-xs text-secondary" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-                <input type="checkbox" name="no_stock" value="1"> Skip stock adjust
-            </label>
-        </div>
-        <div class="d-flex gap-8">
-            <button type="submit" class="btn" id="btnFetchOrders">Fetch Orders</button>
-            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('ext.lazada.orders.update_statuses') }}">Update Orders</button>
-        </div>
-        <div class="text-secondary text-xs" style="flex:1;">
-	        <strong>From/To</strong> required for both Fetch and Update.
+        <label class="x-cmdbar__check">
+            <input type="checkbox" name="no_stock" value="1">
+            <span>Skip stock adjust</span>
+        </label>
+        <div class="x-cmdbar__spacer"></div>
+        <div class="x-cmdbar__actions">
+            <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                         formaction="{{ route('ext.lazada.orders.update_statuses') }}">Update statuses</x-ui.button>
         </div>
     </form>
-</div>
-@else
-<div class="card mb-16" style="background:#fef3c7; border:1px solid #fcd34d; color:#92400e; padding:10px 14px; font-size:13px;">
-    <strong>Read-only view.</strong> Order fetch/sync, pack &amp; print, arrange shipment, and cancel are managed by operators with the <code>manage_lazada_orders</code> permission tier.
+    <p class="x-cmdbar__hint">Both dates are required, for fetching new orders and for updating statuses.</p>
 </div>
 @endif
 
-    @if($last_result)
-        <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
-            <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
-            @if(!empty($last_result['message']))
-                <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
-            @endif
-        </div>
+@if($last_result)
+    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
+        <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
+        @if(!empty($last_result['message']))
+            <span class="co-notice__body">{{ $last_result['message'] }}</span>
+        @endif
+    </div>
 @endif
 
-    @php
-        $tabs = $tabs ?? [];
-        $active_tab = $active_tab ?? 'ALL';
-        $tab_counts = $tab_counts ?? [];
-        $pending_sub_counts = $pending_sub_counts ?? [];
-        $fd_sub_counts = $fd_sub_counts ?? [];
-    @endphp
-
-    <div class="tabs mb-12">
+{{-- Status filters as a segmented control. Seven views over one list, so
+     "pick one" is the right grammar; the old .tabs strip implied seven
+     pages. Counts ride along as muted mono numbers on every tab, not only
+     the three the old strip decorated with a blue pill: a count that appears
+     on some tabs and not others reads as an alert rather than a figure.
+     Returns is a sibling page, so it sits outside the trough as a plain
+     link, the way the channel sidebar already lists it. --}}
+<div class="x-segment-bar">
+    <div class="x-segment" role="tablist" aria-label="Order status">
         @foreach($tabs as $key => $label)
             @php
-                $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
+                $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
-                $qs = array_merge(request()->except('page'), ['tab' => $key]);
-                $showBadge = in_array($key, ['TO_SHIP', 'SHIPPING', 'FAILED_DELIVERY']);
             @endphp
-            <a href="{{ route('ext.lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
+            <a href="{{ $lzSelfUrl(['tab' => $key], ['page', 'pending_sub', 'fd_sub']) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
                 <span>{{ $label }}</span>
-                @if($showBadge && $count !== null && $count > 0)
-                    <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
                 @endif
             </a>
         @endforeach
-        <a href="{{ route('ext.lazada.orders.returns') }}" class="tab">Return/Refund/Cancel</a>
+    </div>
+    <a class="x-segment-bar__aside" href="{{ route('ext.lazada.orders.returns') }}">
+        Returns and refunds
+        <x-ui.icon name="chevron-right" size="12" />
+    </a>
+</div>
+
+@if($active_tab === 'TO_SHIP')
+    {{-- Lazada's To Ship has three working steps where Shopee's has two. The
+         sub row drops the trough so it cannot be mistaken for a peer of the
+         row above it, and the "To Ship workflow / Choose the step you are
+         working on" card that used to frame it is gone: a segmented control
+         under a tab needs no caption explaining that it filters. --}}
+    <div class="x-segment x-segment--sub" aria-label="To Ship step">
+        @foreach($pendingNav as $k => $lbl)
+            @php
+                $isActive = ($pendingSub === $k) || ($pendingSub === '' && $k === 'to_pack');
+                $count = $pending_sub_counts[$k] ?? null;
+            @endphp
+            <a href="{{ $lzSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k]) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $lbl }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
     </div>
 
-    {{-- To Ship workflow: sub steps (To Pack / To Arrange / To Handover) --}}
-    @if(strtoupper((string)($active_tab ?? 'ALL')) === 'TO_SHIP')
+    @if(!empty($to_ship_courier_counts))
+        <div class="co-couriers">
+            <span class="co-couriers__label">Parcels waiting for handover</span>
+            @foreach($to_ship_courier_counts as $courier => $count)
+                <span class="co-courier">
+                    <span class="co-courier__count">{{ number_format($count) }}</span>
+                    {{ $courier }}
+                </span>
+            @endforeach
+        </div>
+    @endif
+@endif
+
+@if($active_tab === 'FAILED_DELIVERY')
+    <div class="x-segment x-segment--sub" aria-label="Delivery failure type">
+        @foreach($fdNav as $k => $lbl)
+            @php
+                $isActive = ($fdSub === $k) || ($fdSub === '' && $k === 'failed_delivery');
+                $count = $fd_sub_counts[$k] ?? null;
+            @endphp
+            <a href="{{ $lzSelfUrl(['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k]) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $lbl }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+@endif
+
+{{-- One filter row. Search, sort and per page were three separate card forms
+     doing one job, one of them a form whose only control was a select. The
+     selects auto-submit through the shared data-autosubmit handler that
+     /sales/orders already uses. --}}
+<form method="GET" action="{{ route('ext.lazada.orders.index') }}" class="x-filters" id="orders-filter">
+    <input type="hidden" name="tab" value="{{ $active_tab }}">
+    @if($active_tab === 'TO_SHIP')
+        <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+    @endif
+    @if($active_tab === 'FAILED_DELIVERY')
+        <input type="hidden" name="fd_sub" value="{{ $fdSub }}">
+    @endif
+
+    <x-ui.input type="search" name="order_number" class="x-filters__search"
+                value="{{ $orderNumberFilter }}" placeholder="Order number" aria-label="Search by order number" />
+    <x-ui.input type="search" name="buyer_name" class="x-filters__search"
+                value="{{ $buyerNameFilter }}" placeholder="Buyer" aria-label="Search by buyer name" />
+
+    <div class="x-select-wrap x-filters__select x-filters__select--wide">
+        <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
+            @foreach($lzSortLabels as $value => $label)
+                <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+            @foreach([10, 20, 50] as $n)
+                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+
+    @if($hasSearch)
+        <a class="x-filters__reset" href="{{ route('ext.lazada.orders.index', ['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
+    @endif
+</form>
+
+@if($orders->count() === 0)
+    @php
+        if ($hasSearch) {
+            $lzEmptyDesc = 'Nothing matches that order number or buyer. Clear the search to see the full list.';
+        } elseif ($active_tab !== 'ALL') {
+            // Keep the tab's own capitalisation: lowercasing it produced
+            // "no to ship orders", which reads broken.
+            $lzEmptyDesc = 'No orders in ' . ($scopeLabel ?? $active_tab) . ' right now.';
+        } else {
+            $lzEmptyDesc = 'Nothing has been synced yet. Pick a date range above and fetch orders from Lazada.';
+        }
+    @endphp
+    <x-ui.empty title="No orders here" :description="$lzEmptyDesc" />
+@else
+<x-ui.table>
+    <x-slot:head>
+        {{-- The legacy column format, the same one Shopee settled on: one row
+             per item so Qty and Price align in their own columns, and the
+             order-level facts (amount, shipping, status, actions) rowspan
+             beside the item rows. The buyer, order number and create time
+             ride in a band above each order, exactly where the legacy page
+             carried them. --}}
+        <tr>
+            <th class="lz-col-products">Products</th>
+            <th class="lz-col-qty">Qty</th>
+            <th class="lz-col-price x-td-num">Price</th>
+            <th class="lz-col-total x-td-num">Amount</th>
+            <th class="lz-col-ship">Shipping</th>
+            <th class="lz-col-status">Status</th>
+            <th class="lz-col-act"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($orders as $o)
         @php
-            $ps = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
-            $pendingNav = [
-                'to_pack' => 'To Pack',
-                'to_arrange' => 'To Arrange Shipment',
-                'to_handover' => 'To Handover',
-            ];
+            $raw = $o->raw ?? [];
+
+            $orderId = $o->order_id ?? ($raw['order_number'] ?? $raw['order_id'] ?? $raw['orderId'] ?? $raw['id'] ?? null);
+
+            $status = $o->status ?? ($raw['statuses'] ?? $raw['status'] ?? null);
+            $liveStatus = $orderId ? ($live_statuses[$orderId] ?? null) : null;
+            if ($liveStatus !== null && $liveStatus !== '') { $status = $liveStatus; }
+            if (is_array($status)) $status = implode(', ', $status);
+            $statusStr = is_string($status) ? $status : '';
+
+            $statusNorm = strtolower(trim($statusStr));
+            $isUnpaid = ($statusNorm === 'unpaid');
+            $isCancelled = in_array($statusNorm, ['canceled', 'cancelled'], true);
+            $isToPack = in_array($statusNorm, ['pending', 'repacked'], true);
+            $isToArrange = ($statusNorm === 'packed');
+            $isToHandover = ($statusNorm === 'ready_to_ship');
+
+            $created = $o->order_created_at
+                ? $o->order_created_at->format('Y-m-d H:i')
+                : ($raw['created_at'] ?? $raw['createdAt'] ?? $raw['created_time'] ?? null);
+
+            $buyer = (string) ($raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '');
+
+            // Products: prefer persisted products; fall back to common raw nodes.
+            $items = [];
+            if (method_exists($o, 'products') && $o->relationLoaded('products')) {
+                $items = $o->products ? $o->products->toArray() : [];
+            }
+            if (empty($items)) {
+                $items = $raw['order_items'] ?? $raw['items'] ?? $raw['orderItems'] ?? [];
+                if (!is_array($items)) $items = [];
+            }
+
+            // Group identical products (same SKU + name + variation) and sum
+            // quantities. Lazada emits one line per unit on some payloads.
+            $grouped = [];
+            foreach ($items as $row) {
+                $rowRaw = $row['raw'] ?? $row;
+
+                $gName = $row['name'] ?? $rowRaw['name'] ?? $rowRaw['item_name'] ?? $rowRaw['product_name'] ?? '';
+                $gSku = $row['sku'] ?? $rowRaw['sku'] ?? $rowRaw['seller_sku'] ?? $rowRaw['SellerSku'] ?? $rowRaw['SellerSKU'] ?? $rowRaw['Sku'] ?? '';
+                $gVariation = (string) ($row['variation'] ?? $rowRaw['variation'] ?? $rowRaw['Variation'] ?? $rowRaw['variant'] ?? '');
+                $gVariationNorm = mb_strtolower(trim($gVariation));
+                if (in_array($gVariationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
+                    $gVariation = '';
+                }
+
+                $gQty = (int) ($row['quantity'] ?? $rowRaw['quantity'] ?? $rowRaw['qty'] ?? 1);
+                if ($gQty < 1) { $gQty = 1; }
+
+                $gImg = $row['image'] ?? $rowRaw['image'] ?? $rowRaw['product_main_image'] ?? $rowRaw['product_image'] ?? '';
+                $gItemPrice = $row['item_price'] ?? $row['paid_price'] ?? $rowRaw['item_price'] ?? $rowRaw['paid_price'] ?? null;
+                $gCurrency = (string) ($rowRaw['currency'] ?? '');
+
+                $key = mb_strtolower(trim((string) $gSku)) . '|' . mb_strtolower(trim((string) $gName)) . '|' . mb_strtolower(trim((string) $gVariation));
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'name' => $gName,
+                        'sku' => $gSku,
+                        'variation' => $gVariation,
+                        'quantity' => $gQty,
+                        'image' => $gImg,
+                        'item_price' => $gItemPrice,
+                        'currency' => $gCurrency,
+                    ];
+                } else {
+                    $grouped[$key]['quantity'] += $gQty;
+                    if (($grouped[$key]['image'] ?? '') === '' && $gImg !== '') {
+                        $grouped[$key]['image'] = $gImg;
+                    }
+                }
+            }
+            $groupedItems = array_values($grouped);
+
+            // Legacy shape: an order with no recorded items still renders one
+            // empty item row under its band, rather than a band with nothing
+            // attached to it.
+            $displayItems = $groupedItems !== [] ? $groupedItems : [[]];
+            $lineCount = count($displayItems);
+            $itemCount = count($groupedItems);
+
+            $totalAmount = $raw['price'] ?? $raw['total_amount'] ?? $raw['total_price'] ?? $raw['order_amount'] ?? $raw['amount'] ?? null;
+
+            // Currency is resolved through App\Support\Money, which reads the
+            // symbol from the currencies table, so no symbol is ever written
+            // into a view. An order carrying a code nobody has configured
+            // locally falls back to "CODE 1,234.00" rather than a wrong glyph.
+            $currencyCode = (string) ($raw['currency'] ?? '');
+
+            $paymentMethod = $raw['payment_method'] ?? $raw['payment_method_type'] ?? $raw['paymentMethod'] ?? $raw['payment_method_name'] ?? null;
+            if (is_array($paymentMethod)) $paymentMethod = implode(', ', $paymentMethod);
+            $paymentMethod = is_string($paymentMethod) ? trim($paymentMethod) : null;
+            $paymentBadge = $paymentMethod;
+            if (!$paymentBadge) {
+                $isCod = $raw['is_cod'] ?? $raw['cod'] ?? $raw['cash_on_delivery'] ?? null;
+                if ($isCod === true || (string) $isCod === '1') {
+                    $paymentBadge = 'COD';
+                }
+            }
+
+            // Shipping / courier / tracking. Check order-level raw, then
+            // _detail, then the first product's raw.
+            $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
+            $firstItemRaw = [];
+            if ($o->products && $o->products->isNotEmpty()) {
+                $fir = $o->products->first()->raw ?? null;
+                if (is_array($fir)) $firstItemRaw = $fir;
+            }
+
+            $pick = function (array $keys) use ($firstItemRaw, $detail, $raw) {
+                foreach ([$firstItemRaw, $detail, $raw] as $src) {
+                    foreach ($keys as $k) {
+                        $v = $src[$k] ?? null;
+                        if (is_array($v)) $v = implode(', ', $v);
+                        if (is_string($v) && trim($v) !== '') return trim($v);
+                    }
+                }
+                return null;
+            };
+
+            $courier = $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']);
+            $deliveryMethod = $pick(['shipping_type', 'delivery_type']);
+            $trackingNo = $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']);
+
+            // Ship-by timestamp, only for awaiting-ship statuses. Lazada
+            // exposes either sla_time_stamp / promised_shipping_time (often
+            // empty) or fulfillment_sla, a string like
+            // "TTS before 2026-05-06 23:59:17 ...".
+            $awaitingShip = in_array($statusNorm, ['pending', 'confirmed', 'ready_to_ship', 'packed'], true);
+            $shipBy = 0;
+            if ($awaitingShip) {
+                $tsRaw = $pick(['sla_time_stamp', 'promised_shipping_time']);
+                if (is_numeric($tsRaw) && (int) $tsRaw > 0) {
+                    $shipBy = (int) $tsRaw;
+                    if ($shipBy > 1000000000000) $shipBy = (int) ($shipBy / 1000); // ms to s
+                } else {
+                    $slaText = $pick(['fulfillment_sla']);
+                    if ($slaText && preg_match('/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $slaText, $m)) {
+                        $parsed = strtotime(str_replace('T', ' ', $m[1]));
+                        if ($parsed) $shipBy = $parsed;
+                    }
+                }
+            }
+
+            $tone = \App\Support\ChannelStatusTone::toneFor('lazada.orders', $statusStr);
+            $statusLabel = \App\Support\ChannelStatusTone::labelFor('lazada.orders', $statusStr);
+
+            $hasAwb = $orderId ? (bool) ($savedAwbs[$orderId] ?? false) : false;
+
+            // Which branches of the action matrix put a Print waybill control
+            // in the button row. The quick-link row below repeats a waybill
+            // link whenever a local PDF exists; where the button is already
+            // there, that second link points at the identical route and is
+            // dropped. No action is lost, only a duplicate of one.
+            $showsAwbButton = $orderId && (
+                ($canManageLazadaOrders && ($isToArrange || $isToHandover))
+                || (!$canManageLazadaOrders && !$isToPack && $hasAwb)
+                || ($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && $hasAwb)
+            );
         @endphp
-        <div class="card mb-12" style="padding:12px 16px;">
-            <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
-                <div class="font-semibold">To Ship workflow</div>
-                <div class="text-xs text-secondary">Choose the step you are working on</div>
-            </div>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-                @foreach($pendingNav as $k => $lbl)
-                    @php
-                        $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                        $qs = array_merge(request()->except('page'), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
-                        $count = $pending_sub_counts[$k] ?? null;
-                    @endphp
-                    <a href="{{ route('ext.lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
-                        <span>{{ $lbl }}</span>
-                        @if($count !== null && $count > 0)
-                            <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
+        <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                        @if($buyer !== '')
+                            <span class="co-band__value">{{ $buyer }}</span>
+                        @else
+                            <span class="co-empty-mark">Not recorded</span>
                         @endif
-                    </a>
-                @endforeach
-            </div>
-
-            @if(!empty($to_ship_courier_counts))
-                <div style="margin-top:10px;">
-                    <div class="text-xs text-secondary" style="margin-bottom:6px;">Courier tally (To Handover only)</div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        @foreach($to_ship_courier_counts as $courier => $count)
-                            <span class="badge badge-gray" style="display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
-                                {{ $courier }}
-                                <span style="margin-left:2px; font-weight:700; font-size:15px; color:#dc2626;">{{ $count }}</span>
-                            </span>
-                        @endforeach
+                        <span class="co-band__label">Order</span>
+                        @if($orderId)
+                            <a class="co-sn" href="{{ route('ext.lazada.orders.show', ['orderId' => $orderId]) }}">{{ $orderId }}</a>
+                        @else
+                            <span class="co-empty-mark">No order number</span>
+                        @endif
+                        @if($itemCount > 0)
+                            <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
+                        @endif
+                        @if($o->catalog_order_id)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                        @endif
+                    </div>
+                    <div class="co-band__right">
+                        @if($created)
+                            <span class="co-band__label">Created</span>
+                            <span class="co-band__value co-band__value--mono">{{ $created }}</span>
+                        @endif
                     </div>
                 </div>
-            @endif
-        </div>
-    @endif
-
-    {{-- Failed Delivery sub-tabs --}}
-    @if(strtoupper((string)($active_tab ?? 'ALL')) === 'FAILED_DELIVERY')
-        @php
-            $fs = $fd_subtab ?? request()->query('fd_sub', 'failed_delivery');
-            $fdNav = [
-                'failed_delivery' => 'Failed Delivery',
-                'shipped_back' => 'Shipped Back',
-                'lost_damaged' => 'Lost & Damaged',
-            ];
-        @endphp
-        <div class="card mb-12" style="padding:12px 16px;">
-            <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
-                <div class="font-semibold">Failed Delivery</div>
-                <div class="text-xs text-secondary">Filter by delivery failure type</div>
-            </div>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-                @foreach($fdNav as $k => $lbl)
-                    @php
-                        $isActive = ($fs === $k) || ($fs === '' && $k === 'failed_delivery');
-                        $qs = array_merge(request()->except('page'), ['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k]);
-                        $count = $fd_sub_counts[$k] ?? null;
-                    @endphp
-                    <a href="{{ route('ext.lazada.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
-                        <span>{{ $lbl }}</span>
-                        @if($count !== null && $count > 0)
-                            <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
+            </td>
+        </tr>
+        @foreach($displayItems as $idx => $it)
+        <tr class="co-itemrow {{ $idx === $lineCount - 1 ? 'co-itemrow--last' : '' }}">
+            <td class="lz-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                        @if(!empty($it['image']))
+                            <img class="order-img" src="{{ $it['image'] }}" alt="">
+                        @else
+                            <span class="co-item__none">No image</span>
                         @endif
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    @endif
+                    </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">{{ ($it['name'] ?? '') !== '' ? $it['name'] : 'Unnamed product' }}</span>
+                        <div class="co-item__meta">
+                            @if(trim((string) ($it['sku'] ?? '')) !== '')
+                                <span class="co-item__sku">{{ $it['sku'] }}</span>
+                            @endif
+                            @if(trim((string) ($it['variation'] ?? '')) !== '')
+                                <span class="co-item__var">{{ $it['variation'] }}</span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </td>
 
-    <div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.lazada.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
-        <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
-        <input type="hidden" name="per_page" value="{{ (int)($per_page ?? request()->query('per_page', 10)) }}">
+            <td class="lz-col-qty" data-label="Qty">
+                <span class="co-qty">&times;{{ max(1, (int) ($it['quantity'] ?? 1)) }}</span>
+            </td>
 
-        <div>
-            <label class="text-xs text-secondary">Order Number</label>
-            <input type="text" name="order_number" value="{{ old('order_number', $filters['order_number'] ?? request()->query('order_number', '')) }}" placeholder="Order ID" class="input" style="min-width:220px;">
-        </div>
+            <td class="lz-col-price x-td-num" data-label="Price">
+                @php
+                    $unitPrice = $it['item_price'] ?? null;
+                    $unitCurrency = ($it['currency'] ?? '') !== '' ? $it['currency'] : $currencyCode;
+                @endphp
+                @if($unitPrice !== null && $unitPrice !== '' && is_numeric($unitPrice))
+                    <span class="co-price">{{ $unitCurrency !== ''
+                        ? \App\Support\Money::foreign((float) $unitPrice, $unitCurrency)
+                        : \App\Support\Money::base((float) $unitPrice) }}</span>
+                @elseif($unitPrice !== null && $unitPrice !== '')
+                    <span class="co-price">{{ $unitPrice }}</span>
+                @else
+                    <span class="co-empty-mark">&mdash;</span>
+                @endif
+            </td>
 
-        <div>
-            <label class="text-xs text-secondary">Buyer Name</label>
-            <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? request()->query('buyer_name', '')) }}" placeholder="Customer" class="input" style="min-width:220px;">
-        </div>
-
-        <div>
-            <label class="text-xs text-secondary">Sort by</label>
-            <select name="sort" class="input" style="width:auto; min-width:240px;">
-                <option value="created_asc" {{ ($sort ?? '') === 'created_asc' ? 'selected' : '' }}>Created Date (Oldest to Newest)</option>
-                <option value="created_desc" {{ ($sort ?? '') === 'created_desc' ? 'selected' : '' }}>Created Date (Newest to Oldest)</option>
-                <option value="confirmed_created_asc" {{ ($sort ?? '') === 'confirmed_created_asc' ? 'selected' : '' }}>Confirmed: Created At (Oldest to Newest)</option>
-                <option value="confirmed_created_desc" {{ ($sort ?? '') === 'confirmed_created_desc' ? 'selected' : '' }}>Confirmed: Created At (Newest to Oldest)</option>
-                <option value="confirmed_updated_asc" {{ ($sort ?? '') === 'confirmed_updated_asc' ? 'selected' : '' }}>Confirmed: Updated At (Oldest to Newest)</option>
-                <option value="confirmed_updated_desc" {{ ($sort ?? '') === 'confirmed_updated_desc' ? 'selected' : '' }}>Confirmed: Updated At (Newest to Oldest)</option>
-                <option value="promised_shipping_asc" {{ ($sort ?? '') === 'promised_shipping_asc' ? 'selected' : '' }}>Confirmed: Promised Shipping (Oldest to Newest)</option>
-                <option value="promised_shipping_desc" {{ ($sort ?? '') === 'promised_shipping_desc' ? 'selected' : '' }}>Confirmed: Promised Shipping (Newest to Oldest)</option>
-            </select>
-        </div>
-
-        <div class="d-flex gap-8">
-            <button type="submit" class="btn">Search</button>
-            <a href="{{ route('ext.lazada.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
-        </div>
-    </form>
-    </div>
-
-    <div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.lazada.orders.index') }}" class="d-flex gap-10 items-center">
-    <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
-    <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? request()->query('order_number', '') }}">
-    <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? request()->query('buyer_name', '') }}">
-    <input type="hidden" name="sort" value="{{ $sort ?? request()->query('sort', '') }}">
-    <div>
-        <label class="text-xs text-secondary">Orders per page</label>
-        <select name="per_page" onchange="this.form.submit()" class="input" style="width:auto;">
-            <option value="10" {{ (int)($per_page ?? 10)===10 ? 'selected' : '' }}>10</option>
-            <option value="20" {{ (int)($per_page ?? 10)===20 ? 'selected' : '' }}>20</option>
-            <option value="50" {{ (int)($per_page ?? 10)===50 ? 'selected' : '' }}>50</option>
-        </select>
-    </div>
-    <noscript><button type="submit" class="btn secondary">Apply</button></noscript>
-</form>
-    </div>
-
-<div class="card">
-    <div class="font-bold" style="margin-bottom:12px;">
-        Orders ({{ method_exists($orders,'total') ? $orders->total() : $orders->count() }})
-    </div>
-
-        @if($orders->count() === 0)
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 24px; text-align:center;">
-                <svg style="width:48px; height:48px; color:var(--text-muted); margin-bottom:16px; opacity:.45;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                <div style="font-weight:600; font-size:15px; color:var(--text-primary); margin-bottom:6px;">No orders found</div>
-                <div class="text-muted" style="font-size:13px; max-width:360px;">
-                    @if(($filters['order_number'] ?? request()->query('order_number', '')) !== '' || ($filters['buyer_name'] ?? request()->query('buyer_name', '')) !== '')
-                        No results match your search filters. Try clearing the filters above.
-                    @elseif(strtoupper($active_tab ?? 'ALL') !== 'ALL')
-                        There are no <strong>{{ $tabs[$active_tab] ?? $active_tab }}</strong> orders right now.
+            @if($idx === 0)
+            <td class="lz-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
+                <span class="co-total">
+                    @if($totalAmount !== null && $totalAmount !== '' && is_numeric($totalAmount))
+                        {{ $currencyCode !== ''
+                            ? \App\Support\Money::foreign((float) $totalAmount, $currencyCode)
+                            : \App\Support\Money::base((float) $totalAmount) }}
+                    @elseif($totalAmount !== null && $totalAmount !== '')
+                        {{ $totalAmount }}
                     @else
-                        No orders have been synced yet. Use <strong>Fetch Orders</strong> above to pull orders from Lazada.
+                        <span class="co-empty-mark">Not recorded</span>
+                    @endif
+                </span>
+                @if($paymentBadge)
+                    <span class="co-total__method">{{ $paymentBadge }}</span>
+                @endif
+            </td>
+
+            <td class="lz-col-ship" rowspan="{{ $lineCount }}" data-label="Shipping">
+                @if($courier)
+                    <span class="co-carrier">{{ $courier }}</span>
+                    @if($trackingNo)
+                        <span class="co-ship__no">{{ $trackingNo }}</span>
+                    @endif
+                    @if($deliveryMethod)
+                        <span class="co-ship__note">{{ $deliveryMethod }}</span>
+                    @endif
+                @else
+                    <span class="co-empty-mark">&mdash;</span>
+                @endif
+            </td>
+
+            <td class="lz-col-status" rowspan="{{ $lineCount }}" data-label="Status">
+                <div class="co-status">
+                    <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+                    <x-sla-chip :deadline="$shipBy" />
+                </div>
+            </td>
+
+            <td class="lz-col-act" rowspan="{{ $lineCount }}">
+                @if(!$orderId)
+                    <span class="co-empty-mark">No order number</span>
+                @elseif($isUnpaid)
+                    {{-- Nothing can be done to an order the buyer has not
+                         paid for, which is why the legacy page printed a dash
+                         here rather than a control. --}}
+                    <span class="co-empty-mark">&mdash;</span>
+                @else
+                <div class="co-actions co-actions--wrap">
+                    {{-- Every action a row's status allows is a visible
+                         button, matching the legacy page: this is the packing
+                         desk's working surface, and an overflow menu made the
+                         column read as empty. Every one of them is a
+                         secondary button, so a screen of forty rows has no
+                         wall of colour in it; the accent that says "your
+                         move" is spent once per row, on the status badge.
+
+                         Pack, arrange and recreate are marketplace writes, so
+                         they render only for the manage tier and keep the
+                         data-confirm they carried before. --}}
+                    @if($canManageLazadaOrders)
+                        @if($isToPack)
+                            <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}"
+                                  data-confirm="Pack this order now? This creates the packages and makes the waybill available.">
+                                @csrf
+                                <x-ui.button type="submit" variant="secondary" size="sm">Pack and print</x-ui.button>
+                            </form>
+                        @endif
+
+                        @if($isToArrange)
+                            <x-ui.button size="sm"
+                                         :href="route('ext.lazada.orders.awb', ['orderId' => $orderId])"
+                                         target="_blank" rel="noopener">Print waybill</x-ui.button>
+
+                            <form method="POST" action="{{ route('ext.lazada.orders.rts', ['orderId' => $orderId]) }}"
+                                  data-confirm="Arrange shipment for this order? Lazada will mark it ready to ship.">
+                                @csrf
+                                <x-ui.button type="submit" variant="secondary" size="sm">Arrange shipment</x-ui.button>
+                            </form>
+
+                            <form method="POST" action="{{ route('ext.lazada.orders.recreate_package', ['orderId' => $orderId]) }}"
+                                  data-confirm="Recreate the package locally? Lazada may still keep the original package. Continue?">
+                                @csrf
+                                <x-ui.button type="submit" variant="secondary" size="sm">Recreate package</x-ui.button>
+                            </form>
+                        @endif
+
+                        @if($isToHandover)
+                            <x-ui.button size="sm"
+                                         :href="route('ext.lazada.orders.awb', ['orderId' => $orderId])"
+                                         target="_blank" rel="noopener">Print waybill</x-ui.button>
+                        @endif
+                    @else
+                        {{-- A viewer gets the waybill shortcut on any
+                             non-pending order that already has one saved:
+                             opening a stored PDF is read-only, which is why
+                             the route sits in the read tier. --}}
+                        @if(!$isToPack && $hasAwb)
+                            <x-ui.button size="sm"
+                                         :href="route('ext.lazada.orders.awb', ['orderId' => $orderId])"
+                                         target="_blank" rel="noopener">Print waybill</x-ui.button>
+                        @endif
+                    @endif
+
+                    {{-- Post-fulfilment: the waybill is offered only when a
+                         local copy exists, because Lazada will not regenerate
+                         one for a shipped order. --}}
+                    @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && $hasAwb)
+                        <x-ui.button size="sm"
+                                     :href="route('ext.lazada.orders.awb', ['orderId' => $orderId])"
+                                     target="_blank" rel="noopener">Print waybill</x-ui.button>
+                    @endif
+
+                    @if(!$isCancelled && !$isToPack)
+                        <x-ui.button size="sm" class="btnLzLogistics"
+                                     data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $orderId]) }}">Tracking</x-ui.button>
                     @endif
                 </div>
-            </div>
-        @endif
 
-        @if($orders->count() > 0)
-            <div class="table-wrap">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th style="min-width:360px;">Products</th>
-                        <th style="width:110px;">Quantity</th>
-                        <th style="width:140px;">Product Price</th>
-                        <th>Amount</th>
-                        <th>Shipping</th>
-                        <th>Status</th>
-                        <th style="width:280px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($orders as $o)
-                        @php
-                            $raw = $o->raw ?? [];
-
-                            $orderId = $o->order_id ?? ($raw['order_number'] ?? $raw['order_id'] ?? $raw['orderId'] ?? $raw['id'] ?? null);
-
-                            $status = $o->status ?? ($raw['statuses'] ?? $raw['status'] ?? null);
-                            $liveStatus = $orderId ? ($live_statuses[$orderId] ?? null) : null;
-                            if ($liveStatus !== null && $liveStatus !== '') { $status = $liveStatus; }
-                            if (is_array($status)) $status = implode(', ', $status);
-                            $statusStr = is_string($status) ? $status : '';
-
-                            $statusNorm = strtolower(trim($statusStr));
-                            $isUnpaid = ($statusNorm === 'unpaid');
-                            $isCancelled = in_array($statusNorm, ['canceled','cancelled'], true);
-                            $isToPack = in_array($statusNorm, ['pending', 'repacked'], true);
-                            $isToArrange = ($statusNorm === 'packed');
-                            $isToHandover = ($statusNorm === 'ready_to_ship');
-                            $canSelect = !($isUnpaid || $isCancelled);
-
-                            $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : ($raw['created_at'] ?? $raw['createdAt'] ?? $raw['created_time'] ?? null);
-
-                            $buyer = (string)($raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '');
-
-                            // Products: prefer persisted products; fall back to common raw nodes.
-                            $items = [];
-                            if (method_exists($o, 'products') && $o->relationLoaded('products')) {
-                                $items = $o->products ? $o->products->toArray() : [];
-                            }
-                            if (empty($items)) {
-                                $items = $raw['order_items'] ?? $raw['items'] ?? $raw['orderItems'] ?? [];
-                                if (!is_array($items)) $items = [];
-                            }
-
-
-                            // Group identical products (same SKU + name + variation) and sum quantities
-                            $grouped = [];
-                            if (is_array($items)) {
-                                foreach ($items as $row) {
-                                    $rowRaw = $row['raw'] ?? $row;
-
-                                    $gName = $row['name'] ?? $rowRaw['name'] ?? $rowRaw['item_name'] ?? $rowRaw['product_name'] ?? '';
-                                    $gSku = $row['sku'] ?? $rowRaw['sku'] ?? $rowRaw['seller_sku'] ?? $rowRaw['SellerSku'] ?? $rowRaw['SellerSKU'] ?? $rowRaw['SellerSku'] ?? $rowRaw['Sku'] ?? '';
-                                    $gVariation = (string)($row['variation'] ?? $rowRaw['variation'] ?? $rowRaw['Variation'] ?? $rowRaw['variant'] ?? '');
-                                    $gVariationNorm = mb_strtolower(trim($gVariation));
-                                    if (in_array($gVariationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
-                                        $gVariation = '';
-                                    }
-
-                                    $gQty = (int)($row['quantity'] ?? $rowRaw['quantity'] ?? $rowRaw['qty'] ?? 1);
-                                    if ($gQty < 1) { $gQty = 1; }
-
-                                    $gImg = $row['image'] ?? $rowRaw['image'] ?? $rowRaw['product_main_image'] ?? $rowRaw['product_image'] ?? '';
-
-                                    $gItemPrice = $row['item_price'] ?? $row['paid_price'] ?? $rowRaw['item_price'] ?? $rowRaw['paid_price'] ?? null;
-
-                                    $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
-                                    if (!isset($grouped[$key])) {
-                                        $grouped[$key] = [
-                                            'raw' => $rowRaw,
-                                            'name' => $gName,
-                                            'sku' => $gSku,
-                                            'variation' => $gVariation,
-                                            'quantity' => $gQty,
-                                            'image' => $gImg,
-                                            'item_price' => $gItemPrice,
-                                        ];
-                                    } else {
-                                        $grouped[$key]['quantity'] += $gQty;
-                                        if (($grouped[$key]['image'] ?? '') === '' && $gImg !== '') {
-                                            $grouped[$key]['image'] = $gImg;
-                                        }
-                                    }
-                                }
-                            }
-                            $groupedItems = array_values($grouped);
-
-                            $itemCount = !empty($groupedItems) ? count($groupedItems) : (is_array($items) ? count($items) : 0);
-                            $totalQty = 0;
-
-                            // Amount & payment method
-                            $totalAmount = $raw['price'] ?? $raw['total_amount'] ?? $raw['total_price'] ?? $raw['order_amount'] ?? $raw['amount'] ?? null;
-                            $currency = $raw['currency'] ?? \App\Support\Money::defaultSymbol();
-
-                            $paymentMethod = $raw['payment_method'] ?? $raw['payment_method_type'] ?? $raw['paymentMethod'] ?? $raw['payment_method_name'] ?? null;
-                            if (is_array($paymentMethod)) $paymentMethod = implode(', ', $paymentMethod);
-                            $paymentMethod = is_string($paymentMethod) ? trim($paymentMethod) : null;
-                            $paymentBadge = $paymentMethod;
-                            if (!$paymentBadge) {
-                                $isCod = $raw['is_cod'] ?? $raw['cod'] ?? $raw['cash_on_delivery'] ?? null;
-                                if ($isCod === true || (string)$isCod === '1') {
-                                    $paymentBadge = 'COD';
-                                }
-                            }
-
-                            // Shipping / courier / tracking
-                            // Check order-level raw, then _detail, then first product's raw
-                            $detail = (isset($raw['_detail']) && is_array($raw['_detail'])) ? $raw['_detail'] : [];
-                            $firstItemRaw = [];
-                            if ($o->products && $o->products->isNotEmpty()) {
-                                $fir = $o->products->first()->raw ?? null;
-                                if (is_array($fir)) $firstItemRaw = $fir;
-                            }
-
-                            // Helper: first non-empty string from multiple keys across sources
-                            $pick = function (array $keys) use ($firstItemRaw, $detail, $raw) {
-                                foreach ([$firstItemRaw, $detail, $raw] as $src) {
-                                    foreach ($keys as $k) {
-                                        $v = $src[$k] ?? null;
-                                        if (is_array($v)) $v = implode(', ', $v);
-                                        if (is_string($v) && trim($v) !== '') return trim($v);
-                                    }
-                                }
-                                return null;
-                            };
-
-                            $courier = $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']);
-                            $deliveryMethod = $pick(['shipping_type', 'delivery_type']);
-                            $trackingNo = $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']);
-
-                            // SLA timestamp — only for awaiting-ship statuses.
-                            // Lazada exposes either sla_time_stamp / promised_shipping_time (often empty)
-                            // or fulfillment_sla (string like "TTS before 2026-05-06 23:59:17 ...").
-                            $awaitingShip = in_array($statusNorm, ['pending', 'confirmed', 'ready_to_ship', 'packed'], true);
-                            $shipBy = 0;
-                            if ($awaitingShip) {
-                                $tsRaw = $pick(['sla_time_stamp', 'promised_shipping_time']);
-                                if (is_numeric($tsRaw) && (int) $tsRaw > 0) {
-                                    $shipBy = (int) $tsRaw;
-                                    if ($shipBy > 1000000000000) $shipBy = (int) ($shipBy / 1000); // ms → s
-                                } else {
-                                    $slaText = $pick(['fulfillment_sla']);
-                                    if ($slaText && preg_match('/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $slaText, $m)) {
-                                        $parsed = strtotime(str_replace('T', ' ', $m[1]));
-                                        if ($parsed) $shipBy = $parsed;
-                                    }
-                                }
-                            }
-                        @endphp
-
-                        @if($orderId)
-                            <tr class="order-header-row">
-                                <td colspan="7" style="padding:10px 12px 6px 12px;">
-                                    <div class="d-flex justify-between items-start gap-12">
-                                    <div class="text-xs text-secondary" style="line-height:1.35;">
-                                        @if($o->catalog_order_id)
-                                            <div style="font-weight:700; margin-bottom:2px;"><a href="{{ url('/sales/orders/'.$o->catalog_order_id) }}" style="color:var(--text-primary); text-decoration:none;">{{ $o->catalog_order_id }}</a></div>
-                                        @endif
-                                        <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
-                                        <span style="margin-left:8px;">Order Number:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $orderId }}</span>
-                                        @if($itemCount > 0)
-                                            <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
-                                        @endif
-                                    </div>
-                                    <div class="text-xs text-secondary text-right" style="line-height:1.35;">
-                                        @if($created)
-                                            <span style="margin-left:8px;">Create Time:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
-                                        @endif
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
+                @if(!$isCancelled && !$isToPack)
+                    {{-- The picking and packing documents. They are printing,
+                         not fulfilment, so they read as a row of links under
+                         the buttons rather than as four more controls of the
+                         same weight. The pipe separators the legacy row used
+                         are gone; spacing separates them. --}}
+                    <div class="lz-docs">
+                        <span class="lz-docs__label">Print</span>
+                        @if($hasAwb && !$showsAwbButton)
+                            <a class="lz-doc" href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Waybill</a>
                         @endif
+                        <a class="lz-doc" href="{{ route('ext.lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Packing list</a>
+                        <a class="lz-doc" href="{{ route('ext.lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" rel="noopener">Pick list</a>
+                    </div>
+                @endif
+                @endif
+            </td>
+            @endif
+        </tr>
+        @endforeach
+    @endforeach
+</x-ui.table>
 
-
-                        @php
-                            $displayItems = !empty($groupedItems) ? $groupedItems : $items;
-                            if (!is_array($displayItems)) { $displayItems = []; }
-                            if (empty($displayItems)) { $displayItems = [ [] ]; }
-                            $lineCount = count($displayItems);
-                        @endphp
-
-                        @foreach($displayItems as $idx => $it)
-                        <tr>
-                            <td style="vertical-align:top;">
-                                @php
-                                    $itRaw = $it['raw'] ?? $it;
-                                    $name = (string)($it['name'] ?? $itRaw['name'] ?? $itRaw['item_name'] ?? $itRaw['product_name'] ?? '');
-                                    $sku = (string)($it['sku'] ?? $itRaw['sku'] ?? $itRaw['seller_sku'] ?? $itRaw['SellerSku'] ?? $itRaw['SellerSKU'] ?? $itRaw['Sku'] ?? '');
-                                    $variation = (string)($it['variation'] ?? $itRaw['variation'] ?? $itRaw['Variation'] ?? $itRaw['variant'] ?? '');
-                                    $variationNorm = mb_strtolower(trim($variation));
-                                    if (in_array($variationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
-                                        $variation = '';
-                                    }
-                                    $img = (string)($it['image'] ?? $itRaw['image'] ?? $itRaw['product_main_image'] ?? $itRaw['product_image'] ?? '');
-                                @endphp
-
-                                <div class="d-flex gap-10">
-                                    <div class="order-img-wrap">
-                                        @if($img)
-                                            <img class="order-img" src="{{ $img }}" alt="" >
-                                        @else
-                                            <span class="text-xs text-muted">No image</span>
-                                        @endif
-                                    </div>
-                                    <div style="min-width:0;">
-                                        <div class="font-semibold" style="word-break:break-word;">
-                                            @if($orderId)
-                                                <a href="{{ route('ext.lazada.orders.show', ['orderId' => $orderId]) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
-                                                    {{ $name !== '' ? $name : '—' }}
-                                                </a>
-                                            @else
-                                                {{ $name !== '' ? $name : '—' }}
-                                            @endif
-                                        </div>
-                                        <div class="text-xs" style="margin-top:3px;">
-                                            <span class="text-secondary">Seller SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
-                                        </div>
-                                        @if($variation !== '')
-                                            <div class="order-option-wrap">
-                                                <span class="order-option-label lazada-label">Option</span>
-                                                <span class="order-option-pill">{{ $variation }}</span>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="vertical-align:top;">
-                                @php
-                                    $itRaw = $it['raw'] ?? $it;
-                                    $qty = (int)($it['quantity'] ?? $itRaw['quantity'] ?? $itRaw['qty'] ?? 1);
-                                    if ($qty < 1) { $qty = 1; }
-                                @endphp
-                                <div class="font-bold">x{{ $qty }}</div>
-                            </td>
-                            <td style="vertical-align:top;">
-                                @php
-                                    $unitPrice = $it['item_price'] ?? $it['paid_price'] ?? null;
-                                    $unitCurrency = ($it['raw']['currency'] ?? null) ?: ($raw['currency'] ?? \App\Support\Money::defaultSymbol());
-                                @endphp
-                                <div class="font-bold">
-                                    @if($unitPrice !== null && $unitPrice !== '')
-                                        {{ is_numeric($unitPrice) ? $unitCurrency . number_format((float)$unitPrice, 2) : $unitPrice }}
-                                    @else
-                                        —
-                                    @endif
-                                </div>
-                            </td>
-
-                            @if($idx === 0)
-                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                <div class="font-bold">
-                                    @if($totalAmount !== null && $totalAmount !== '')
-                                        {{ is_numeric($totalAmount) ? $currency . number_format((float)$totalAmount, 2) : $totalAmount }}
-                                    @else
-                                        —
-                                    @endif
-                                </div>
-                                @if($paymentBadge)
-                                    <div style="margin-top:6px;">
-                                        <span class="badge badge-gray">{{ $paymentBadge }}</span>
-                                    </div>
-                                @endif
-                            </td>
-                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                <div class="font-semibold">{{ $courier ?: '—' }}</div>
-                                @if($deliveryMethod)
-                                    <div class="text-xs text-secondary" style="margin-top:4px;">{{ $deliveryMethod }}</div>
-                                @endif
-                                @if($trackingNo)
-                                    <div class="text-xs text-secondary" style="margin-top:4px;">Tracking: <span style="color:var(--text-primary);">{{ $trackingNo }}</span></div>
-                                @endif
-                            </td>
-                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                <div class="font-bold">{{ $statusStr !== '' ? $statusStr : '—' }}</div>
-                                <x-sla-chip :deadline="$shipBy" />
-                            </td>
-                            <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                @if(!$orderId)
-                                    <span class="text-muted">N/A</span>
-                                @elseif($isUnpaid)
-                                    <span class="text-muted">—</span>
-                                @else
-                                    <div class="d-flex gap-8 flex-wrap items-center">
-                                        {{-- All Pack/Ship/Recreate are write actions; viewers see only
-                                             AWB print links (which open a server-rendered PDF of already-
-                                             fetched shipping data). --}}
-                                        @if($canManageLazadaOrders)
-                                            {{-- TO PACK (pending): only Pack & Print --}}
-                                            @if($isToPack)
-                                                <form method="POST" action="{{ route('ext.lazada.orders.pack_print', ['orderId' => $orderId]) }}" data-confirm="Pack this order now? This will create packages and make AWB available.">
-                                                    @csrf
-                                                    <button type="submit" class="btn small">Pack &amp; Print</button>
-                                                </form>
-                                            @endif
-
-                                            {{-- TO ARRANGE (packed): Print + Arrange Shipment + Recreate Package --}}
-                                            @if($isToArrange)
-                                                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
-
-                                                <form method="POST" action="{{ route('ext.lazada.orders.rts', ['orderId' => $orderId]) }}" data-confirm="Arrange Shipment (Ready To Ship) for this order?">
-                                                    @csrf
-                                                    <button type="submit" class="btn small" style="background:#16a34a; border-color:#16a34a; color:#fff;">Arrange Shipment</button>
-                                                </form>
-
-                                                <form method="POST" action="{{ route('ext.lazada.orders.recreate_package', ['orderId' => $orderId]) }}" data-confirm="Recreate Package (local)? Lazada may still keep the original package. Continue?">
-                                                    @csrf
-                                                    <button type="submit" class="btn small secondary">Recreate Package</button>
-                                                </form>
-                                            @endif
-
-                                            {{-- TO HANDOVER (ready_to_ship): Print only --}}
-                                            @if($isToHandover)
-                                                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
-                                            @endif
-                                        @else
-                                            {{-- Viewers always get the AWB shortcut on any non-pending order
-                                                 — opening a saved PDF is read-only. --}}
-                                            @if(!$isToPack && ($savedAwbs[$orderId] ?? false))
-                                                <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
-                                            @endif
-                                        @endif
-
-                                        {{-- Post-fulfilment: only show AWB if a local copy exists --}}
-                                        @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && ($savedAwbs[$orderId] ?? false))
-                                            <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small secondary">Print AWB</a>
-                                        @endif
-                                    </div>
-
-                                    {{-- Quick-links row --}}
-                                    @if(!$isCancelled)
-                                        @php $hasAwb = ($savedAwbs[$orderId] ?? false); @endphp
-                                        <div class="d-flex gap-10 flex-wrap text-xs" style="margin-top:8px;">
-                                            @if(!$isToPack)
-                                                <span class="text-secondary">Print:</span>
-                                                @if($hasAwb)
-                                                    <a href="{{ route('ext.lazada.orders.awb', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">AWB</a>
-                                                    <span class="text-muted">|</span>
-                                                @endif
-                                                <a href="{{ route('ext.lazada.orders.packing_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Packing List</a>
-                                                <span class="text-muted">|</span>
-                                                <a href="{{ route('ext.lazada.orders.pick_list', ['orderId' => $orderId]) }}" target="_blank" style="color:var(--accent); text-decoration:none;">Pick List</a>
-                                                <span class="text-muted">|</span>
-                                                <button type="button"
-                                                        class="btnLzLogistics"
-                                                        data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $orderId]) }}"
-                                                        style="border:0; padding:0; background:transparent; color:var(--accent); cursor:pointer; font-size:12px;">
-                                                    Logistics Status
-                                                </button>
-                                            @endif
-                                        </div>
-                                    @endif
-                                @endif
-                            </td>
-                            @endif
-                        </tr>
-                        @endforeach
-               @endforeach
-                </tbody>
-            </table>
-            </div>
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($orders->firstItem() ?? 0) }} to {{ number_format($orders->lastItem() ?? 0) }} of {{ number_format($orders->total()) }}</span>
+    <div class="x-pager__nav">
+        @if($orders->previousPageUrl())
+            <x-ui.button size="sm" :href="$orders->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true"><x-ui.icon name="chevron-left" size="14" /> Previous</span>
         @endif
-
-        <div style="padding:12px 0 0;">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
+        @if($orders->nextPageUrl())
+            <x-ui.button size="sm" :href="$orders->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true">Next <x-ui.icon name="chevron-right" size="14" /></span>
+        @endif
     </div>
+</div>
+@endif
 
-
-{{-- Loading overlay for long-running fetch/reset actions --}}
+{{-- Loading overlay. Every id below is queried by
+     resources/js/pages/lazada-orders.js and must not change. --}}
 <div id="lzLoadingOverlay" class="modal-backdrop">
-    <div class="modal" style="max-width:420px;">
-        <div class="d-flex items-center gap-12">
-            <div aria-hidden="true" style="width:18px; height:18px; border:3px solid #cbd5e1; border-top-color:var(--accent); border-radius:50%; animation:lzSpin 0.8s linear infinite;"></div>
+    <div class="modal co-modal co-modal--sm">
+        <div class="co-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div id="lzLoadingTitle" class="font-bold">Fetching orders…</div>
-                <div class="text-xs text-secondary" style="margin-top:2px;">Please keep this tab open. This may take a while depending on Lazada API response.</div>
+                <div id="lzLoadingTitle" class="co-progress__title">Fetching orders</div>
+                <div class="co-progress__note">Please keep this tab open.</div>
             </div>
         </div>
     </div>
 </div>
 
 @if($canManageLazadaOrders)
-{{-- Pack & Print follow-up modal — only meaningful for write-tier operators. --}}
+{{-- Pack and print follow-up, shown after a pack succeeds. Only meaningful
+     for the write tier, because every control in it is a write. --}}
 <div id="lzPackPrintModal" class="modal-backdrop">
-    <div class="modal" style="max-width:520px;">
-        <div class="modal-header">
-            <div>
-                <h3>Pack &amp; Print</h3>
-                <div class="text-xs text-secondary" style="margin-top:2px;">Choose what to do next. If you close this, the order stays in <strong>To Arrange</strong>.</div>
-            </div>
-            <button type="button" id="btnClosePackPrint" class="modal-close">&times;</button>
+    <div class="modal co-modal">
+        <div class="modal-header co-modal__head">
+            <h3 class="co-modal__title">Packed</h3>
+            <button type="button" id="btnClosePackPrint" class="modal-close co-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div class="d-flex gap-10 flex-wrap justify-end mt-16">
-            <form method="POST" id="formRecreatePackage" action="#" style="margin:0;">
+        <div class="co-modal__meta">Order <strong id="lzPackPrintOrder"></strong></div>
+        <p class="co-modal__prompt">Close this and the order waits in To Arrange Shipment.</p>
+        <div class="co-modal__foot co-modal__foot--end">
+            <form method="POST" id="formRecreatePackage" action="#">
                 @csrf
-                <button type="submit" class="btn secondary">Recreate Package</button>
+                <x-ui.button type="submit" variant="secondary">Recreate package</x-ui.button>
             </form>
-
-            <form method="POST" id="formShipPrint" action="#" style="margin:0;">
+            <a href="#" id="linkPrintOnly" class="x-btn x-btn--secondary" target="_blank" rel="noopener">Print only</a>
+            <form method="POST" id="formShipPrint" action="#">
                 @csrf
-                <button type="submit" class="btn" style="background:#16a34a; border-color:#16a34a;">Ship &amp; Print</button>
+                <x-ui.button type="submit" variant="primary">Ship and print</x-ui.button>
             </form>
-
-            <a href="#" id="linkPrintOnly" target="_blank" class="btn secondary">Print Only</a>
         </div>
     </div>
 </div>
 @endif
 
-{{-- Logistics status modal --}}
+{{-- Tracking modal, filled by the page module from the logistics trace
+     endpoint. --}}
 <div id="lzLogisticsModal" class="modal-backdrop">
-    <div class="modal" style="max-width:720px;">
-        <div class="modal-header">
-            <div>
-                <h3>Logistics Status</h3>
-                <div id="lzLogisticsSub" class="text-xs text-secondary" style="margin-top:2px;"></div>
-            </div>
-            <button type="button" id="btnCloseLogistics" class="modal-close">&times;</button>
+    <div class="modal co-modal co-modal--lg">
+        <div class="modal-header co-modal__head">
+            <h3 class="co-modal__title">Tracking</h3>
+            <button type="button" id="btnCloseLogistics" class="modal-close co-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div id="lzLogisticsBody" class="text-xs mt-16">
-            <div class="text-secondary">Loading…</div>
+        <div id="lzLogisticsSub" class="co-modal__meta"></div>
+        <div id="lzLogisticsBody" class="co-modal__body">
+            <div class="text-secondary">Loading</div>
         </div>
-        <div class="d-flex gap-10 justify-end mt-16">
-            <button type="button" id="btnLogisticsClose2" class="btn secondary">Close</button>
+        <div class="co-modal__foot co-modal__foot--end">
+            <button type="button" id="btnLogisticsClose2" class="x-btn x-btn--secondary">Close</button>
         </div>
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var awbUrlToOpen = @json(session('lazada_awb_url'));
-    if (awbUrlToOpen) {
-        try { window.open(String(awbUrlToOpen), '_blank'); } catch (e) {}
-    }
-
-    // Show loading overlay on fetch/update
-    var fetchForm = document.getElementById('formFetchLazadaOrders');
-    var fetchBtn = document.getElementById('btnFetchOrders');
-    var updateBtn = document.getElementById('btnUpdateOrders');
-    var clickedBtn = null;
-
-    if (fetchBtn) fetchBtn.addEventListener('click', function () { clickedBtn = 'fetch'; });
-    if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
-
-    if (fetchForm) {
-        fetchForm.addEventListener('submit', function (e) {
-            // Require From/To dates
-            var dateFrom = fetchForm.querySelector('input[name="date_from"]');
-            var dateTo = fetchForm.querySelector('input[name="date_to"]');
-            if (!dateFrom.value || !dateTo.value) {
-                e.preventDefault();
-                showFlashError('Please provide both From and To dates.');
-                return;
-            }
-            var ov = document.getElementById('lzLoadingOverlay');
-            var tt = document.getElementById('lzLoadingTitle');
-            if (ov) {
-                if (tt) tt.textContent = (clickedBtn === 'update') ? 'Updating orders…' : 'Fetching orders…';
-                ov.classList.add('active');
-            }
-        });
-    }
-
-    // --- Pack & Print follow-up modal ---
-    var openPackPrintOrderId = @json(session('open_pack_print_modal_order_id'));
-    var packPrintModal = document.getElementById('lzPackPrintModal');
-    var closePackPrint = document.getElementById('btnClosePackPrint');
-    var linkPrintOnly = document.getElementById('linkPrintOnly');
-    var formShipPrint = document.getElementById('formShipPrint');
-    var formRecreate = document.getElementById('formRecreatePackage');
-
-    function showPackPrintModal(orderId) {
-        if (!packPrintModal) return;
-        var awbTpl = @json(route('ext.lazada.orders.awb', ['orderId' => '__OID__']));
-        var shipTpl = @json(route('ext.lazada.orders.ship_print_post', ['orderId' => '__OID__']));
-        var recreateTpl = @json(route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']));
-
-        if (linkPrintOnly) linkPrintOnly.href = awbTpl.replace('__OID__', orderId);
-        if (formShipPrint) formShipPrint.action = shipTpl.replace('__OID__', orderId);
-        if (formRecreate) formRecreate.action = recreateTpl.replace('__OID__', orderId);
-
-        packPrintModal.classList.add('active');
-    }
-
-    function hidePackPrintModal() {
-        if (!packPrintModal) return;
-        packPrintModal.classList.remove('active');
-    }
-
-    if (closePackPrint) closePackPrint.addEventListener('click', hidePackPrintModal);
-    if (packPrintModal) {
-        packPrintModal.addEventListener('click', function (e) {
-            if (e.target === packPrintModal) hidePackPrintModal();
-        });
-    }
-    if (openPackPrintOrderId) {
-        showPackPrintModal(String(openPackPrintOrderId));
-    }
-
-    // --- Logistics trace modal ---
-    var logisticsModal = document.getElementById('lzLogisticsModal');
-    var logisticsBody = document.getElementById('lzLogisticsBody');
-    var logisticsSub = document.getElementById('lzLogisticsSub');
-    var closeLogistics = document.getElementById('btnCloseLogistics');
-    var closeLogistics2 = document.getElementById('btnLogisticsClose2');
-
-    function showLogisticsModal() {
-        if (!logisticsModal) return;
-        logisticsModal.classList.add('active');
-    }
-    function hideLogisticsModal() {
-        if (!logisticsModal) return;
-        logisticsModal.classList.remove('active');
-    }
-    if (closeLogistics) closeLogistics.addEventListener('click', hideLogisticsModal);
-    if (closeLogistics2) closeLogistics2.addEventListener('click', hideLogisticsModal);
-    if (logisticsModal) {
-        logisticsModal.addEventListener('click', function (e) {
-            if (e.target === logisticsModal) hideLogisticsModal();
-        });
-    }
-
-    function esc(s) {
-        return String(s || '').replace(/[&<>\"']/g, function (c) {
-            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[c] || c;
-        });
-    }
-
-    function formatEventTime(t) {
-        if (!t) return '';
-        // Unix milliseconds timestamp
-        if (typeof t === 'number' && t > 1000000000000) {
-            var d = new Date(t);
-            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
-                + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
-        }
-        // Unix seconds
-        if (typeof t === 'number' && t > 1000000000) {
-            return formatEventTime(t * 1000);
-        }
-        return String(t);
-    }
-
-    function renderTrace(body) {
-        var data = (body && body.data) ? body.data : body;
-        var traces = [];
-        if (data) {
-            // Try common keys first
-            traces = data.traces || data.trace_list || data.traceList || data.events || [];
-            // Lazada packages structure: data.packages[0].package_trace_list
-            if ((!Array.isArray(traces) || traces.length === 0) && Array.isArray(data.packages)) {
-                for (var pi = 0; pi < data.packages.length; pi++) {
-                    var ptl = data.packages[pi].package_trace_list || data.packages[pi].traceList || [];
-                    if (Array.isArray(ptl) && ptl.length > 0) {
-                        traces = traces.concat(ptl);
-                    }
-                }
-            }
-            // Lazada logistic/order/trace structure: result.module[].package_detail_info_list[].logistic_detail_info_list[]
-            if ((!Array.isArray(traces) || traces.length === 0) && data.result && Array.isArray(data.result.module)) {
-                for (var mi = 0; mi < data.result.module.length; mi++) {
-                    var pkgs = data.result.module[mi].package_detail_info_list || [];
-                    for (var pi = 0; pi < pkgs.length; pi++) {
-                        var events = pkgs[pi].logistic_detail_info_list || [];
-                        if (Array.isArray(events)) {
-                            traces = traces.concat(events);
-                        }
-                    }
-                }
-            }
-        }
-        if (!Array.isArray(traces)) traces = [];
-        if (!logisticsBody) return;
-
-        if (traces.length === 0) {
-            logisticsBody.innerHTML = '<div class="text-secondary">No logistics events returned by Lazada for this order.</div>';
-            return;
-        }
-
-        var html = '<div class="table-wrap">';
-        html += '<table class="table">';
-        html += '<thead><tr>'
-            + '<th style="width:160px;">Time</th>'
-            + '<th>Status</th>'
-            + '<th>Details</th>'
-            + '</tr></thead><tbody>';
-        traces.forEach(function (t) {
-            var time = t.event_time || t.time || t.timestamp || t.update_time || '';
-            var status = t.title || t.status || t.event || t.action || '';
-            var detail = t.description || t.desc || t.detail || t.message || '';
-            html += '<tr>'
-                + '<td>' + esc(formatEventTime(time)) + '</td>'
-                + '<td class="font-bold">' + esc(status) + '</td>'
-                + '<td>' + esc(detail) + '</td>'
-                + '</tr>';
-        });
-        html += '</tbody></table></div>';
-        logisticsBody.innerHTML = html;
-    }
-
-    async function fetchLogistics(url) {
-        if (!logisticsBody) return;
-        logisticsBody.innerHTML = '<div class="text-secondary">Loading…</div>';
-        try {
-            var r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            var j = await r.json();
-            if (!r.ok || !j || j.ok !== true) {
-                var msg = (j && j.body && j.body.message) ? j.body.message : ((j && j.message) ? j.message : 'Failed to fetch logistics trace');
-                throw new Error(msg);
-            }
-            renderTrace(j.body);
-        } catch (e) {
-            logisticsBody.innerHTML = '<div style="color:var(--danger);">' + esc(e && e.message ? e.message : 'Failed to fetch logistics trace') + '</div>';
-        }
-    }
-
-    document.querySelectorAll('.btnLzLogistics').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var url = btn.getAttribute('data-url') || '';
-            if (!url) return;
-            if (logisticsSub) logisticsSub.textContent = '';
-            showLogisticsModal();
-            fetchLogistics(url);
-        });
-    });
-});
-</script>
-<script>
-(function () {
-    var preview = document.createElement('div');
-    preview.className = 'order-img-preview';
-    preview.innerHTML = '<img src="" alt="">';
-    document.body.appendChild(preview);
-    var previewImg = preview.querySelector('img');
-    document.addEventListener('mouseover', function (e) {
-        var wrap = e.target.closest('.order-img-wrap');
-        if (!wrap) return;
-        var img = wrap.querySelector('img.order-img');
-        if (!img || !img.src) return;
-        previewImg.src = img.src;
-        var rect = wrap.getBoundingClientRect();
-        var top = rect.top + rect.height / 2 - 110;
-        var left = rect.right + 12;
-        if (left + 230 > window.innerWidth) left = rect.left - 232;
-        if (top + 220 > window.innerHeight) top = window.innerHeight - 224;
-        if (top < 4) top = 4;
-        preview.style.transformOrigin = (left < rect.left ? 'right' : 'left') + ' center';
-        preview.style.top = top + 'px';
-        preview.style.left = left + 'px';
-        preview.classList.add('visible');
-    }, false);
-
-    document.addEventListener('mouseout', function (e) {
-        var wrap = e.target.closest('.order-img-wrap');
-        if (!wrap) return;
-        var related = e.relatedTarget;
-        if (related && wrap.contains(related)) return;
-        preview.classList.remove('visible');
-    }, false);
-})();
-</script>
-</div>{{-- /.marketplace-lazada --}}
+</div>{{-- /#lazada-orders-page --}}
 @endsection
