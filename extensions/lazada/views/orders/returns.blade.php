@@ -1,269 +1,387 @@
 @extends('layouts.channel')
 @section('breadcrumb', 'Return or Refund')
 
+{{-- Same exit from .x-legacy the Orders page took: rebuilt directly on the
+     token set and the x-ui components, so it drops the legacy content
+     boundary rather than living inside it. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    $canManageLazadaOrders = true;
+    // Returns is visible to view_lazada_orders holders; Fetch returns renders
+    // only for the manage tier. The route middleware
+    // (perm:manage_lazada_orders on the POST) is the real gate; this flag
+    // only stops the page offering a button that would 403. The old page
+    // hardcoded it to true and showed a viewer a button that always failed.
+    $canManageLazadaOrders = auth()->user()?->hasPermission('manage_lazada_orders') ?? false;
+
+    $tabs = $tabs ?? [];
+    $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
+    $tab_counts = $tab_counts ?? [];
+    $erpMap = $erpMap ?? collect();
+    $imgMap = $imgMap ?? collect();
+    $perPage = (int) ($per_page ?? request()->query('per_page', 10));
+    $reverseIdFilter = (string) ($filters['reverse_order_id'] ?? '');
+    $tradeIdFilter = (string) ($filters['trade_order_id'] ?? '');
+    $hasSearch = $reverseIdFilter !== '' || $tradeIdFilter !== '';
 @endphp
-<div class="marketplace-lazada">
-<div class="page-header">
-    <h2>Lazada Return or Refund <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
+
+<div id="lazada-returns-page" class="co-page">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Returns</h1>
+        <p class="x-page-sub">
+            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'return' : 'returns' }}@if($active_tab !== 'ALL' && isset($tabs[$active_tab])) in {{ $tabs[$active_tab] }}@endif
+        </p>
+    </div>
 </div>
 
 @if($canManageLazadaOrders)
-<div class="card mb-16">
-    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" class="d-flex gap-12 flex-wrap items-center">
+{{-- One command bar, the same grammar as the Orders page's fetch bar. The
+     dates are real here, unlike on Shopee's returns page: Lazada's
+     getreverseordersforseller takes create_time_start / create_time_end and
+     LazadaOrderController::fetchReturns() passes them through when they are
+     filled, so the pair is offered and the hint says plainly what leaving
+     them empty does. Promising a filter the fetch does not perform is the
+     mistake Shopee's returns page was built to avoid; so is hiding one it
+     does. --}}
+<div class="x-cmdbar">
+    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formFetchLazadaReturns" class="x-cmdbar__row">
         @csrf
-        <div>
-            <label class="text-xs text-secondary">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from', request('date_from')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="lzReturnFrom">From</label>
+            <x-ui.input type="date" id="lzReturnFrom" name="date_from" class="x-cmdbar__date"
+                        value="{{ old('date_from', request('date_from')) }}" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="lzReturnTo">To</label>
+            <x-ui.input type="date" id="lzReturnTo" name="date_to" class="x-cmdbar__date"
+                        value="{{ old('date_to', request('date_to')) }}" />
         </div>
-        <div style="align-self:flex-end;">
-            <button type="submit" class="btn">Fetch Returns</button>
-        </div>
-        <div class="text-secondary text-xs" style="flex:1;">
-            Leave <strong>From/To</strong> empty to fetch <strong>all available</strong> returns. Use dates for a specific range.
+        <div class="x-cmdbar__spacer"></div>
+        <div class="x-cmdbar__actions">
+            <x-ui.button type="submit" variant="primary" id="btnFetchLazadaReturns">Fetch returns</x-ui.button>
         </div>
     </form>
+    <p class="x-cmdbar__hint">Leave both dates empty to pull every return Lazada has on file. That can take a moment on a large history.</p>
 </div>
 @endif
 
 @if($last_result)
-    <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
-        <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
+    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
+        <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
         @if(!empty($last_result['message']))
-            <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
+            <span class="co-notice__body">{{ $last_result['message'] }}</span>
         @endif
     </div>
 @endif
 
-{{-- Order tabs (mirrors orders page, with Return/Refund/Cancel active) --}}
-<div class="tabs mb-12">
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'ALL']) }}" class="tab">All</a>
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'UNPAID']) }}" class="tab">Unpaid</a>
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'TO_SHIP']) }}" class="tab">To Ship</a>
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'SHIPPING']) }}" class="tab">Shipping</a>
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'DELIVERED']) }}" class="tab">Delivered</a>
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'CANCELLATION']) }}" class="tab">Cancellation</a>
-    <a href="{{ route('ext.lazada.orders.index', ['tab' => 'FAILED_DELIVERY']) }}" class="tab">Failed Delivery</a>
-    <a href="{{ route('ext.lazada.orders.returns') }}" class="tab active">Return/Refund/Cancel</a>
+{{-- The old markup carried two tab rows: one repeating the Orders page's
+     seven status tabs purely as a way back, and one filtering this list. The
+     channel sidebar already lists Orders and Returns as siblings, so the
+     first row's only real job is covered by standing navigation; it survives
+     as a single plain-weight link on the far side of the bar, the same
+     treatment the Orders page uses for the trip here. The second row, the
+     actual filter, becomes the segment. --}}
+<div class="x-segment-bar">
+    <div class="x-segment" role="tablist" aria-label="Return status">
+        @foreach($tabs as $key => $label)
+            @php
+                $isActive = $active_tab === strtoupper((string) $key);
+                $count = $tab_counts[$key] ?? null;
+                $qs = array_merge(request()->except('page'), ['tab' => $key]);
+            @endphp
+            <a href="{{ route('ext.lazada.orders.returns', $qs) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $label }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+    <a class="x-segment-bar__aside" href="{{ route('ext.lazada.orders.index', ['tab' => 'TO_SHIP']) }}">
+        <x-ui.icon name="chevron-left" size="12" />
+        All orders
+    </a>
 </div>
 
-@php
-    $tabs = $tabs ?? [];
-    $active_tab = $active_tab ?? 'ALL';
-    $tab_counts = $tab_counts ?? [];
-    $erpMap = $erpMap ?? collect();
-    $imgMap = $imgMap ?? collect();
-@endphp
-
-{{-- Status tabs --}}
-<div class="tabs mb-12">
-    @foreach($tabs as $key => $label)
-        @php
-            $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
-            $count = $tab_counts[$key] ?? null;
-            $qs = array_merge(request()->query(), ['tab' => $key]);
-            unset($qs['page']);
-        @endphp
-        <a href="{{ route('ext.lazada.orders.returns', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
-            <span>{{ $label }}</span>
-            @if($count !== null && $count > 0)
-                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#0F146D;' : 'background:#0F146D; color:#fff;' }}">{{ $count }}</span>
-            @endif
-        </a>
-    @endforeach
-</div>
-
-<div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.lazada.orders.returns') }}" class="d-flex gap-10 flex-wrap items-center">
-        <input type="hidden" name="per_page" value="{{ (int)($per_page ?? 10) }}">
-        <input type="hidden" name="tab" value="{{ $active_tab }}">
-        <div>
-            <label class="text-xs text-secondary">Reverse Order ID</label>
-            <input type="text" name="reverse_order_id" value="{{ $filters['reverse_order_id'] ?? '' }}" placeholder="Reverse Order ID" class="input" style="min-width:200px;">
-        </div>
-        <div>
-            <label class="text-xs text-secondary">Original Order ID</label>
-            <input type="text" name="trade_order_id" value="{{ $filters['trade_order_id'] ?? '' }}" placeholder="Original Order ID" class="input" style="min-width:200px;">
-        </div>
-        <div style="align-self:flex-end;">
-            <button type="submit" class="btn">Search</button>
-        </div>
-        <div style="align-self:flex-end;">
-            <a href="{{ route('ext.lazada.orders.returns', ['per_page' => (int)($per_page ?? 10), 'tab' => $active_tab]) }}" class="btn secondary">Reset</a>
-        </div>
-    </form>
-</div>
-
-<div class="card">
-    @if($orders->count() === 0)
-        <div style="padding:40px 20px; text-align:center;">
-            <div class="text-secondary">No return/refund orders found.</div>
-            @if(($filters['reverse_order_id'] ?? '') !== '' || ($filters['trade_order_id'] ?? '') !== '')
-                <div class="text-xs text-muted" style="margin-top:8px;">Try adjusting your search filters.</div>
-            @else
-                <div class="text-xs text-muted" style="margin-top:8px;">Click "Fetch Returns" to pull data from Lazada.</div>
-            @endif
-        </div>
-    @else
-        <div class="table-wrap">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th style="min-width:300px;">Returned Products</th>
-                    <th style="width:110px;">Qty Returned</th>
-                    <th style="width:130px;">Refund</th>
-                    <th style="width:150px;">Status</th>
-                    <th style="width:150px;">Return Tracking</th>
-                    <th style="width:130px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($orders as $order)
-                    @php
-                        $cur = $order->currency ?: \App\Support\Money::defaultSymbol();
-                        $items = is_array($order->items) ? $order->items : [];
-                        // Consolidate identical lines — Lazada emits one reverse line per unit.
-                        $grouped = [];
-                        foreach ($items as $__it) {
-                            $key = (($__it['seller_sku_id'] ?? '') . '|' . ($__it['product']['product_sku'] ?? '')) ?: uniqid();
-                            if (!isset($grouped[$key])) { $grouped[$key] = $__it; $grouped[$key]['_qty'] = 0; $grouped[$key]['_refund_sum'] = 0.0; }
-                            $grouped[$key]['_qty']++;
-                            $grouped[$key]['_refund_sum'] += (float) ($__it['refund_amount'] ?? 0);
-                        }
-                        $displayItems = array_values($grouped);
-                        $lineCount = max(1, count($displayItems));
-                        $erpId = $erpMap[$order->trade_order_id] ?? null;
-
-                        // Lazada item-line amounts are in cents (x100).
-                        $buyerId = $items[0]['buyer']['buyer_id'] ?? null;
-                        $firstTracking = $items[0]['tracking_number'] ?? null;
-                        $ofc = $items[0]['ofc_status'] ?? null;
-
-                        $st = strtolower($order->reverse_status ?? '');
-                        $badge = 'ret-badge-slate';
-                        foreach ([
-                            'initiated'=>'ret-badge-blue','in_progress'=>'ret-badge-amber','processing'=>'ret-badge-amber',
-                            'dispute'=>'ret-badge-pink','approved'=>'ret-badge-green','refund'=>'ret-badge-green',
-                            'success'=>'ret-badge-green','reject'=>'ret-badge-red','cancel'=>'ret-badge-red',
-                        ] as $k=>$cls) { if (str_contains($st,$k)) { $badge=$cls; break; } }
-
-                        $orderShowUrl = $order->trade_order_id
-                            ? route('ext.lazada.orders.show', ['orderId' => $order->trade_order_id])
-                            : null;
-                    @endphp
-
-                    {{-- Group header: ERP # / buyer / original order / reverse order --}}
-                    <tr class="order-header-row">
-                        <td colspan="6" style="padding:10px 12px 6px 12px;">
-                            <div class="d-flex justify-between items-start gap-12">
-                                <div class="text-xs text-secondary" style="line-height:1.35;">
-                                    @if($erpId)
-                                        <div style="font-weight:700; margin-bottom:2px;"><a href="{{ url('/sales/orders/'.$erpId) }}" style="color:var(--text-primary); text-decoration:none;">{{ $erpId }}</a></div>
-                                    @endif
-                                    @if($buyerId)<span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">#{{ $buyerId }}</span>@endif
-                                    <span style="margin-left:8px;">Order:</span>
-                                    @if($orderShowUrl)
-                                        <a href="{{ $orderShowUrl }}" class="font-semibold" style="color:var(--accent);">{{ $order->trade_order_id }}</a>
-                                    @else
-                                        <span class="font-semibold" style="color:var(--text-primary);">—</span>
-                                    @endif
-                                    <span style="margin-left:8px;">Reverse Order:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $order->reverse_order_id }}</span>
-                                    @if($order->reverse_type)<span style="margin-left:8px;">Type: {{ $order->reverse_type }}</span>@endif
-                                </div>
-                                <div class="text-xs text-secondary text-right" style="line-height:1.35;">
-                                    @if($order->updated_at)<span>Updated:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $order->updated_at->format('M d, Y H:i') }}</span>@endif
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-
-                    @foreach(($displayItems ?: [[]]) as $idx => $it)
-                        @php
-                            $pSku = (string)($it['product']['product_sku'] ?? '');
-                            $sSku = (string)($it['seller_sku_id'] ?? '');
-                            $qty = (int)($it['_qty'] ?? 1);
-                            $itRefund = isset($it['_refund_sum']) ? ((float)$it['_refund_sum'] / 100) : null;
-                            $itPrice = isset($it['item_unit_price']) ? ((float)$it['item_unit_price'] / 100) : null;
-                            $img = (string)($imgMap[$sSku] ?? ($imgMap[$pSku] ?? ''));
-                        @endphp
-                        <tr>
-                            <td style="vertical-align:top;">
-                                <div class="d-flex gap-10">
-                                    <div class="order-img-wrap">
-                                        @if($img)<img class="order-img" src="{{ $img }}" alt="">@else<span class="text-xs text-muted">No image</span>@endif
-                                    </div>
-                                    <div style="min-width:0;">
-                                        <div class="font-semibold" style="word-break:break-word;">{{ $pSku !== '' ? $pSku : ($sSku !== '' ? $sSku : '—') }}</div>
-                                        @if($sSku !== '')
-                                            <div class="text-xs" style="margin-top:3px;"><span class="text-secondary">Seller SKU:</span> <strong>{{ $sSku }}</strong></div>
-                                        @endif
-                                        @if(!empty($it['reason_text']))
-                                            <div class="text-xs text-muted" style="margin-top:2px;">{{ \Illuminate\Support\Str::limit($it['reason_text'], 48) }}</div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="vertical-align:top;">
-                                <div class="font-bold">x{{ $qty }}</div>
-                            </td>
-                            <td style="vertical-align:top;">
-                                @if($itRefund !== null)
-                                    <strong style="color:var(--danger,#dc2626);">{{ $cur . number_format($itRefund, 2) }}</strong>
-                                    @if($itPrice !== null)<div class="text-xs text-muted">@ {{ $cur . number_format($itPrice, 2) }}</div>@endif
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
-
-                            @if($idx === 0)
-                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                    <span class="ret-badge {{ $badge }}">{{ $order->reverse_status ?? '—' }}</span>
-                                    <div class="text-xs text-muted" style="margin-top:6px;">{{ \Illuminate\Support\Str::limit($order->reason ?? '', 40) }}</div>
-                                </td>
-                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                    @if($firstTracking)
-                                        <div class="font-semibold text-sm" style="word-break:break-all;">{{ $firstTracking }}</div>
-                                    @else
-                                        <span class="text-muted text-xs">—</span>
-                                    @endif
-                                    @if($ofc)<div class="text-xs text-muted" style="margin-top:4px;">{{ str_replace('_',' ',$ofc) }}</div>@endif
-                                </td>
-                                <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                    @if($orderShowUrl)
-                                        <a href="{{ $orderShowUrl }}" class="btn small">View Order</a>
-                                    @endif
-                                    <div class="text-xs text-secondary" style="margin-top:6px;">Total: <strong>{{ $cur . number_format((float)$order->refund_amount, 2) }}</strong></div>
-                                </td>
-                            @endif
-                        </tr>
-                    @endforeach
-                @endforeach
-            </tbody>
-        </table>
-        </div>
-        <div style="padding:12px 0 0;">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
-    @endif
-</div>
-
-{{-- Per-page selector --}}
-<form method="GET" action="{{ route('ext.lazada.orders.returns') }}" id="formPerPage" style="margin-top:12px;">
-    <input type="hidden" name="reverse_order_id" value="{{ $filters['reverse_order_id'] ?? '' }}">
-    <input type="hidden" name="trade_order_id" value="{{ $filters['trade_order_id'] ?? '' }}">
+{{-- One filter row, replacing the old search card and the separate per-page
+     form that sat below the table. --}}
+<form method="GET" action="{{ route('ext.lazada.orders.returns') }}" class="x-filters" id="orders-filter">
     <input type="hidden" name="tab" value="{{ $active_tab }}">
-    <div class="d-flex items-center gap-8">
-        <label class="text-xs text-secondary">Per page:</label>
-        <select name="per_page" class="input" style="width:auto; height:32px; font-size:13px;" onchange="this.form.submit()">
-            @foreach([10,20,50] as $pp)
-                <option value="{{ $pp }}" {{ (int)$per_page === $pp ? 'selected' : '' }}>{{ $pp }}</option>
+
+    <x-ui.input type="search" name="reverse_order_id" class="x-filters__search"
+                value="{{ $reverseIdFilter }}" placeholder="Return number" aria-label="Search by return number" />
+    <x-ui.input type="search" name="trade_order_id" class="x-filters__search"
+                value="{{ $tradeIdFilter }}" placeholder="Order number" aria-label="Search by original order number" />
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">
+            @foreach([10, 20, 50] as $n)
+                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
             @endforeach
         </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
+
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+
+    @if($hasSearch)
+        <a class="x-filters__reset" href="{{ route('ext.lazada.orders.returns', ['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
+    @endif
 </form>
-</div>{{-- /.marketplace-lazada --}}
+
+@if($orders->count() === 0)
+    @php
+        if ($hasSearch) {
+            $lzEmptyDesc = 'Nothing matches that return or order number. Clear the search to see the full list.';
+        } elseif ($active_tab !== 'ALL') {
+            // Keep the tab's own capitalisation: lowercasing produced
+            // unreadable copy on the Orders page and would here too.
+            $lzEmptyDesc = 'No returns in ' . ($tabs[$active_tab] ?? $active_tab) . ' right now.';
+        } else {
+            $lzEmptyDesc = 'Nothing has been synced yet. Use Fetch returns above to pull them from Lazada.';
+        }
+    @endphp
+    <x-ui.empty title="No returns here" :description="$lzEmptyDesc" />
+@else
+<x-ui.table>
+    <x-slot:head>
+        {{-- The Orders page's column format, with this page's own fields
+             poured into it: the per-line refund sits where the unit price
+             sits there, the order's total refund where the order amount
+             sits, and the reverse parcel's tracking where the forward
+             carrier sits. That also gets the money out of the Actions
+             column, where the old markup printed the order total underneath
+             a button. --}}
+        <tr>
+            <th class="lz-col-rproducts">Returned products</th>
+            <th class="lz-col-rqty">Qty</th>
+            <th class="lz-col-refund x-td-num">Refund</th>
+            <th class="lz-col-rtotal x-td-num">Total</th>
+            <th class="lz-col-rtrack">Return tracking</th>
+            <th class="lz-col-rstatus">Status</th>
+            <th class="lz-col-ract"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($orders as $order)
+        @php
+            $currencyCode = (string) ($order->currency ?? '');
+            $items = is_array($order->items) ? $order->items : [];
+
+            // Lazada emits one reverse line per unit, so identical lines are
+            // consolidated and their refunds summed.
+            $grouped = [];
+            foreach ($items as $line) {
+                $key = (($line['seller_sku_id'] ?? '') . '|' . ($line['product']['product_sku'] ?? '')) ?: uniqid();
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = $line;
+                    $grouped[$key]['_qty'] = 0;
+                    $grouped[$key]['_refund_sum'] = 0.0;
+                }
+                $grouped[$key]['_qty']++;
+                $grouped[$key]['_refund_sum'] += (float) ($line['refund_amount'] ?? 0);
+            }
+            $displayItems = array_values($grouped);
+            if ($displayItems === []) { $displayItems = [[]]; }
+            $lineCount = count($displayItems);
+            $itemCount = count(array_values($grouped));
+
+            $erpId = $erpMap[$order->trade_order_id] ?? null;
+            $buyerId = $items[0]['buyer']['buyer_id'] ?? null;
+            $firstTracking = $items[0]['tracking_number'] ?? null;
+            $ofc = $items[0]['ofc_status'] ?? null;
+
+            $statusStr = (string) ($order->reverse_status ?? '');
+            $tone = \App\Support\ChannelStatusTone::toneFor('lazada.returns', $statusStr);
+            $statusLabel = \App\Support\ChannelStatusTone::labelFor('lazada.returns', $statusStr);
+
+            $orderShowUrl = $order->trade_order_id
+                ? route('ext.lazada.orders.show', ['orderId' => $order->trade_order_id])
+                : null;
+
+            $updated = $order->updated_at ? $order->updated_at->format('Y-m-d H:i') : null;
+        @endphp
+        <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                        @if($buyerId)
+                            <span class="co-band__value">#{{ $buyerId }}</span>
+                        @else
+                            <span class="co-empty-mark">Not recorded</span>
+                        @endif
+                        <span class="co-band__label">Return</span>
+                        <span class="co-band__value co-band__value--mono">{{ $order->reverse_order_id }}</span>
+                        <span class="co-band__label">Order</span>
+                        @if($orderShowUrl)
+                            <a class="co-sn" href="{{ $orderShowUrl }}">{{ $order->trade_order_id }}</a>
+                        @else
+                            <span class="co-empty-mark">No order number</span>
+                        @endif
+                        @if($itemCount > 0)
+                            <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
+                        @endif
+                        @if($order->reverse_type)
+                            <span class="co-band__muted">{{ str_replace('_', ' ', $order->reverse_type) }}</span>
+                        @endif
+                        @if($erpId)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$erpId) }}">Sales order {{ $erpId }}</a>
+                        @endif
+                    </div>
+                    <div class="co-band__right">
+                        @if($updated)
+                            <span class="co-band__label">Updated</span>
+                            <span class="co-band__value co-band__value--mono">{{ $updated }}</span>
+                        @endif
+                    </div>
+                </div>
+            </td>
+        </tr>
+        @foreach($displayItems as $idx => $it)
+            @php
+                $pSku = (string) ($it['product']['product_sku'] ?? '');
+                $sSku = (string) ($it['seller_sku_id'] ?? '');
+                $qty = (int) ($it['_qty'] ?? 1);
+                // Lazada's item-line amounts arrive in cents.
+                $itRefund = isset($it['_refund_sum']) ? ((float) $it['_refund_sum'] / 100) : null;
+                $itPrice = isset($it['item_unit_price']) ? ((float) $it['item_unit_price'] / 100) : null;
+                $img = (string) ($imgMap[$sSku] ?? ($imgMap[$pSku] ?? ''));
+                // Lazada records a reason on the reverse order and again on
+                // each of its lines, and for a single-line return they are
+                // usually the same sentence. The Status cell already prints
+                // the order-level one, so the line only speaks when it has
+                // something different to say.
+                $reason = (string) ($it['reason_text'] ?? '');
+                if ($reason !== '' && trim(mb_strtolower($reason)) === trim(mb_strtolower((string) ($order->reason ?? '')))) {
+                    $reason = '';
+                }
+            @endphp
+        <tr class="co-itemrow {{ $idx === $lineCount - 1 ? 'co-itemrow--last' : '' }}">
+            <td class="lz-col-rproducts" data-label="Returned products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                        @if($img)
+                            <img class="order-img" src="{{ $img }}" alt="">
+                        @else
+                            <span class="co-item__none">No image</span>
+                        @endif
+                    </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">{{ $pSku !== '' ? $pSku : ($sSku !== '' ? $sSku : 'Unnamed product') }}</span>
+                        <div class="co-item__meta">
+                            @if($sSku !== '')
+                                <span class="co-item__sku">{{ $sSku }}</span>
+                            @endif
+                        </div>
+                        @if($reason !== '')
+                            <span class="lz-reason">{{ \Illuminate\Support\Str::limit($reason, 60) }}</span>
+                        @endif
+                    </div>
+                </div>
+            </td>
+
+            <td class="lz-col-rqty" data-label="Qty">
+                <span class="co-qty">&times;{{ max(1, $qty) }}</span>
+            </td>
+
+            <td class="lz-col-refund x-td-num" data-label="Refund">
+                @if($itRefund !== null)
+                    <span class="co-price">{{ $currencyCode !== ''
+                        ? \App\Support\Money::foreign($itRefund, $currencyCode)
+                        : \App\Support\Money::base($itRefund) }}</span>
+                    @if($itPrice !== null)
+                        <span class="co-total__method">of {{ $currencyCode !== ''
+                            ? \App\Support\Money::foreign($itPrice, $currencyCode)
+                            : \App\Support\Money::base($itPrice) }}</span>
+                    @endif
+                @else
+                    <span class="co-empty-mark">&mdash;</span>
+                @endif
+            </td>
+
+            @if($idx === 0)
+            <td class="lz-col-rtotal x-td-num" rowspan="{{ $lineCount }}" data-label="Total">
+                <span class="co-total">
+                    @if($order->refund_amount !== null)
+                        {{ $currencyCode !== ''
+                            ? \App\Support\Money::foreign((float) $order->refund_amount, $currencyCode)
+                            : \App\Support\Money::base((float) $order->refund_amount) }}
+                    @else
+                        <span class="co-empty-mark">Not recorded</span>
+                    @endif
+                </span>
+            </td>
+
+            <td class="lz-col-rtrack" rowspan="{{ $lineCount }}" data-label="Return tracking">
+                @if($firstTracking)
+                    <span class="lz-track">{{ $firstTracking }}</span>
+                @else
+                    <span class="co-empty-mark">&mdash;</span>
+                @endif
+                @if($ofc)
+                    <span class="co-ship__note">{{ str_replace('_', ' ', $ofc) }}</span>
+                @endif
+            </td>
+
+            <td class="lz-col-rstatus" rowspan="{{ $lineCount }}" data-label="Status">
+                <div class="co-status">
+                    <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+                    @if($order->reason)
+                        <span class="co-status__note">{{ \Illuminate\Support\Str::limit($order->reason, 40) }}</span>
+                    @endif
+                </div>
+            </td>
+
+            <td class="lz-col-ract" rowspan="{{ $lineCount }}">
+                @if($orderShowUrl)
+                    <div class="co-actions">
+                        <x-ui.button size="sm" :href="$orderShowUrl">Open order</x-ui.button>
+                    </div>
+                @endif
+            </td>
+            @endif
+        </tr>
+        @endforeach
+    @endforeach
+</x-ui.table>
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($orders->firstItem() ?? 0) }} to {{ number_format($orders->lastItem() ?? 0) }} of {{ number_format($orders->total()) }}</span>
+    <div class="x-pager__nav">
+        @if($orders->previousPageUrl())
+            <x-ui.button size="sm" :href="$orders->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true"><x-ui.icon name="chevron-left" size="14" /> Previous</span>
+        @endif
+        @if($orders->nextPageUrl())
+            <x-ui.button size="sm" :href="$orders->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true">Next <x-ui.icon name="chevron-right" size="14" /></span>
+        @endif
+    </div>
+</div>
+@endif
+
+{{-- Loading overlay. Same ids as the Orders page's own copy, which is what
+     resources/js/pages/lazada-orders.js queries; each page carries its own
+     copy because a modal cannot be shared across two separate documents. --}}
+<div id="lzLoadingOverlay" class="modal-backdrop">
+    <div class="modal co-modal co-modal--sm">
+        <div class="co-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+            <div>
+                <div id="lzLoadingTitle" class="co-progress__title">Fetching returns</div>
+                <div class="co-progress__note">Please keep this tab open.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>{{-- /#lazada-returns-page --}}
 @endsection
