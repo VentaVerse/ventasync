@@ -77,7 +77,8 @@ class PaletteSearchTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->getJson('/palette/search?q=a')
             ->assertOk()
-            ->assertJson(['orders' => [], 'products' => []]);
+            ->assertJsonCount(0, 'orders')
+            ->assertJsonCount(0, 'products');
     }
 
     /**
@@ -110,6 +111,7 @@ class PaletteSearchTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->getJson('/palette/search?q=990002')
             ->assertOk()
-            ->assertJson(['orders' => [], 'products' => []]);
+            ->assertJsonCount(0, 'orders')
+            ->assertJsonCount(0, 'products');
     }
 }

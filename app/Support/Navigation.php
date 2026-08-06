@@ -128,16 +128,16 @@ class Navigation
             return false;
         }
 
-        $permission = self::permissionFor($routeName);
-
-        if ($permission === null) {
-            return true;
-        }
-
         $user = auth()->user();
 
         if (!$user) {
             return false;
+        }
+
+        $permission = self::permissionFor($routeName);
+
+        if ($permission === null) {
+            return true;
         }
 
         foreach (explode('|', $permission) as $key) {
