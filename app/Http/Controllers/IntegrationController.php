@@ -276,12 +276,20 @@ class IntegrationController extends Controller
             }
         }
 
+        // When a channel panel is rendering, the Summary section never
+        // appears, so its leaderboard and activity feed would be one
+        // topProductsToday and one recentOrders query per visible tab,
+        // computed and thrown away. A six-channel seller pays that on every
+        // filter click inside the panel. Skip the assembly entirely and hand
+        // the view the empty arrays its Summary branch will not read.
+        $renderingPanel = $selectedTab !== null && $selectedTab->id === 'shopee';
+
         // Combined top-products leaderboard. Each tab returns its own top
         // products (scoped per store for multi-store marketplaces); we merge
         // by SKU, sum qty + revenue, and remember which tabs contributed so
         // the leaderboard row can show small per-tab dots next to the SKU.
         $merged = [];
-        foreach ($tabs as $tab) {
+        foreach ($renderingPanel ? [] : $tabs as $tab) {
             foreach ($tab->topProductsToday(10) as $tp) {
                 $key = $tp->sku;
                 if (!isset($merged[$key])) {
@@ -309,9 +317,9 @@ class IntegrationController extends Controller
         usort($merged, fn ($a, $b) => $b['qtySold'] <=> $a['qtySold']);
         $topProducts = array_slice(array_values($merged), 0, 10);
 
-        // Combined recent activity feed — newest first across all tabs.
+        // Combined recent activity feed, newest first across all tabs.
         $recent = [];
-        foreach ($tabs as $tab) {
+        foreach ($renderingPanel ? [] : $tabs as $tab) {
             foreach ($tab->recentOrders(5) as $ro) {
                 $recent[] = [
                     'order' => $ro,
