@@ -26,6 +26,13 @@
             <h2 class="x-hub__group-title">{{ $groupName }}</h2>
             <div class="x-hub__grid">
                 @foreach($items as $d)
+                    {{-- Minor fix: SettingsHubController::allowed() already guards its
+                         own destinations with Route::has(), but this primitive is also
+                         fed directly by ui-kit-v2.blade.php, which does not go through
+                         that controller. route() throws RouteNotFoundException for an
+                         unregistered name, so the guard belongs here, not just in one
+                         caller. --}}
+                    @continue(!\Route::has($d['route']))
                     <a href="{{ route($d['route']) }}" class="x-hub__card" x-show="hit(@js($hay($d)))">
                         <span class="x-hub__card-icon">
                             <x-ui.icon :name="$d['icon'] ?? 'square'" />

@@ -24,9 +24,27 @@ document.addEventListener('DOMContentLoaded', function () {
     var cancelBtn = document.getElementById('x-confirm-modal-cancel');
     var closeBtn = document.getElementById('x-confirm-modal-close');
     var resolver = null;
+    var lastTrigger = null;
 
     function close(result) {
         backdrop.classList.remove('active');
+        // Return focus to whatever opened the modal (the Delete menu item,
+        // typically) rather than leaving it stranded on the modal's own
+        // now-hidden button - standard modal-dialog focus management. The
+        // trigger itself is frequently a menu item that just got hidden by
+        // the click-outside close a few lines up in confirmModal() (its
+        // parent <x-ui.menu>'s x-show flips to false), and focusing a
+        // display:none element is a silent no-op, so fall back to that
+        // menu's own always-visible "..." trigger button - still a sane,
+        // focusable place to land - before giving up.
+        if (lastTrigger && typeof lastTrigger.focus === 'function') {
+            lastTrigger.focus();
+            if (document.activeElement !== lastTrigger) {
+                var menuTrigger = lastTrigger.closest ? lastTrigger.closest('.x-menu')?.querySelector('.x-menu__trigger') : null;
+                if (menuTrigger) menuTrigger.focus();
+            }
+        }
+        lastTrigger = null;
         if (resolver) {
             resolver(result);
             resolver = null;
@@ -42,10 +60,26 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.key === 'Escape' && backdrop.classList.contains('active')) close(false);
     });
 
-    function confirmModal(message) {
+    function confirmModal(message, trigger) {
+        lastTrigger = trigger || document.activeElement;
         msgEl.textContent = message;
         backdrop.classList.add('active');
         okBtn.focus();
+        // The trigger for a data-confirm item is frequently inside an
+        // open <x-ui.menu> (e.g. the row overflow menu's Delete item).
+        // Alpine's @click.outside on that menu only closes it in response
+        // to an actual click event whose target is outside the menu; the
+        // click that opened this modal had its target INSIDE the menu, so
+        // Alpine correctly ignored it, and nothing else in this flow ever
+        // tells the menu to close. Dispatching one synthetic, undirected
+        // click on <body> gives Alpine's own document-level listener a
+        // click whose target genuinely is outside every open menu, so it
+        // closes normally through its own mechanism instead of this
+        // module reaching into Alpine's internal state. Harmless
+        // elsewhere: every other document click listener in the app
+        // (invoice-copy, permission-pill) already no-ops correctly when
+        // the target doesn't match what it's looking for.
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         return new Promise(function (resolve) { resolver = resolve; });
     }
 
@@ -57,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!msg) return;
         if (form._confirmed) { form._confirmed = false; return; }
         e.preventDefault();
-        confirmModal(msg).then(function (ok) {
+        confirmModal(msg, document.activeElement).then(function (ok) {
             if (ok) {
                 form._confirmed = true;
                 form.requestSubmit ? form.requestSubmit() : form.submit();
@@ -71,8 +105,14 @@ document.addEventListener('DOMContentLoaded', function () {
         var msg = btn.getAttribute('data-confirm');
         var submitId = btn.getAttribute('data-confirm-submit');
         e.preventDefault();
-        e.stopPropagation();
-        confirmModal(msg).then(function (ok) {
+        // No e.stopPropagation() here (C-round finding): this is a
+        // capture-phase listener on document, so calling stopPropagation
+        // would kill the event before it ever reaches the target or
+        // bubbles back up, which silently breaks any OTHER document-level
+        // listener that a later, unrelated data-confirm click should have
+        // reached (Alpine's own click.outside among them). preventDefault
+        // alone is enough to stop the button/link's default action.
+        confirmModal(msg, btn).then(function (ok) {
             if (!ok) return;
             if (submitId) {
                 var f = document.getElementById(submitId);

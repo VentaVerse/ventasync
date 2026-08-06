@@ -2,7 +2,20 @@
  * Design tokens. Light and dark are peers: every token is defined twice.
  * Component CSS must never use a raw hex value. If a component needs a colour
  * that no token provides, extend this file rather than bypassing it.
- * Contrast ratios in comments are measured against the theme's own canvas.
+ * Contrast ratios in comments are the worst case measured against every
+ * background the token can render on (canvas, surface, surface-sunken,
+ * surface-hover), in this theme, not just canvas.
+ *
+ * Scoped to .x-app rather than :root: the old layout (layouts/app.blade.php)
+ * and the new shell (layouts/shell.blade.php) share one CSS bundle, and
+ * :root has equal specificity to base/variables.css's own :root block, so
+ * whichever import ran last would win globally and repaint every legacy
+ * page. .x-app is the class layouts/shell.blade.php puts on <body>; nothing
+ * in the old layout carries it, so these tokens only take effect inside the
+ * new shell's subtree. Dark mode is applied as data-theme="dark" on <html>
+ * by theme-boot, one level above <body>, so the dark block below has to
+ * combine both: an ancestor attribute selector on the root plus the
+ * descendant class on body.
  */
 
 @font-face {
@@ -19,25 +32,25 @@
     font-display: swap;
 }
 
-:root {
+.x-app {
     --canvas:          #FBFBFA;
     --surface:         #FFFFFF;
     --surface-sunken:  #F5F5F3;
     --surface-hover:   #F2F2EF;
     --border:          #E7E5E1;
     --border-strong:   #D3D0CB;
-    --text:            #1A1917;   /* 16.97:1 */
-    --text-secondary:  #6B6862;   /*  5.36:1 */
-    --text-muted:      #767168;   /*  4.68:1 */
+    --text:            #1A1917;   /* worst 15.66:1 (surface-hover) */
+    --text-secondary:  #6B6862;   /* worst  4.95:1 (surface-hover) */
+    --text-muted:      #726D65;   /* worst  4.58:1 (surface-hover) - retuned, see I3 note below */
 
-    --accent:          #0A7A54;   /*  5.17:1 */
+    --accent:          #0A7A54;   /* worst  4.77:1 (surface-hover) */
     --accent-hover:    #096647;
-    --accent-weak:     rgba(10,122,84,.08);
+    --accent-weak:     rgba(10,122,84,.05);
     --accent-text:     #FFFFFF;   /*  5.35:1 on accent */
 
-    --danger:          #B4342A;   /*  5.85:1 */
-    --warning:         #9A6B00;   /*  4.53:1 */
-    --info:            #2A5FA8;
+    --danger:          #B4342A;   /* worst  5.40:1 (surface-hover) */
+    --warning:         #926500;   /* worst  4.58:1 (surface-hover) - retuned, see I3 note below */
+    --info:            #2A5FA8;   /* worst  5.67:1 (surface-hover) */
 
     --font-ui:   "Geist", ui-sans-serif, system-ui, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -61,30 +74,81 @@
     --sidebar-w-new: 216px;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"] .x-app {
     --canvas:          #0B0B0C;
     --surface:         #131315;
     --surface-sunken:  #0F0F11;
     --surface-hover:   #1A1A1D;
     --border:          #232326;
     --border-strong:   #34343A;
-    --text:            #ECECEE;   /* 16.68:1 */
-    --text-secondary:  #9A9AA2;   /*  7.04:1 */
-    --text-muted:      #7C7C86;   /*  4.76:1 */
+    --text:            #ECECEE;   /* worst 14.72:1 (surface-hover) */
+    --text-secondary:  #9A9AA2;   /* worst  6.22:1 (surface-hover) */
+    --text-muted:      #82828B;   /* worst  4.56:1 (surface-hover) - retuned, see I3 note below */
 
-    --accent:          #3FBF8F;   /*  8.49:1 */
+    --accent:          #3FBF8F;   /* worst  7.49:1 (surface-hover) */
     --accent-hover:    #55CB9F;
     --accent-weak:     rgba(63,191,143,.12);
     --accent-text:     #06231A;   /*  7.17:1 on accent */
 
-    --danger:          #E5675C;   /*  6.02:1 */
-    --warning:         #E0A73B;
-    --info:            #6C9BE0;
+    --danger:          #E5675C;   /* worst  5.31:1 (surface-hover) */
+    --warning:         #E0A73B;   /* worst  8.07:1 (surface-hover) */
+    --info:            #6C9BE0;   /* worst  6.12:1 (surface-hover) */
 
     --shadow-menu:  0 4px 12px rgba(0,0,0,.40), 0 0 0 1px var(--border);
     --shadow-modal: 0 16px 48px rgba(0,0,0,.55), 0 0 0 1px var(--border);
 }
 
+/*
+ * I3 contrast audit. Every text/foreground token was originally tuned to
+ * clear 4.5:1 against --canvas only. Text and badges render on all four
+ * backgrounds below (rows are hovered, sidebar/menu panels sit on sunken
+ * or surface), so canvas-only was not sufficient. Recomputed each token
+ * against all four backgrounds in both themes; --surface-hover is provably
+ * the worst case for every one of them (light backgrounds sort
+ * surface > canvas > surface-sunken > surface-hover by luminance, and
+ * every light-theme foreground here is darker than all four, so contrast
+ * rises monotonically with background luminance; dark sorts canvas <
+ * surface-sunken < surface < surface-hover, and every dark-theme
+ * foreground is lighter than all four, so contrast falls monotonically
+ * as background luminance rises - surface-hover is the lightest dark
+ * background). Retuning against surface-hover therefore clears all four
+ * backgrounds at once. Full matrix (contrast ratio, 4 backgrounds each):
+ *
+ * LIGHT                  canvas  surface  sunken  hover
+ *   text        #1A1917   16.97   17.57   16.09   15.66
+ *   text-2nd    #6B6862    5.36    5.55    5.09    4.95
+ *   text-muted  #726D65    4.96    5.13    4.70    4.58  (was #767168: 4.68/4.85/4.44/4.32, failed)
+ *   accent      #0A7A54    5.17    5.35    4.90    4.77
+ *   danger      #B4342A    5.85    6.06    5.55    5.40
+ *   warning     #926500    4.97    5.14    4.71    4.58  (was #9A6B00: 4.53/4.69/4.30/4.18, failed)
+ *   info        #2A5FA8    6.14    6.36    5.83    5.67
+ *
+ * DARK                   canvas  surface  sunken  hover
+ *   text        #ECECEE   16.68   15.73   16.23   14.72
+ *   text-2nd    #9A9AA2    7.04    6.64    6.85    6.22
+ *   text-muted  #82828B    5.17    4.87    5.03    4.56  (was #7C7C86: 4.76/4.49/4.64/4.20, failed)
+ *   accent      #3FBF8F    8.49    8.01    8.26    7.49
+ *   danger      #E5675C    6.02    5.68    5.86    5.31
+ *   warning     #E0A73B    9.14    8.62    8.90    8.07
+ *   info        #6C9BE0    6.94    6.54    6.75    6.12
+ *
+ * .x-nav__item.is-active (layout/shell.css) puts accent TEXT on an
+ * accent-weak TINT over --surface-sunken, not on a solid token, so it
+ * needed its own composite check rather than a straight token-vs-token
+ * lookup: light accent-weak at its original alpha .08 composited to
+ * #E2EBE6 over sunken, contrast 4.40 against #0A7A54 text - failed.
+ * Dropped light --accent-weak to alpha .05 (composited #E9EFEB, 4.59:1)
+ * with hue/colour unchanged; dark --accent-weak already cleared this
+ * check at 6.94:1 with its original alpha .12, left untouched.
+ *
+ * Channel dot colours live in components/ui-controls.css, not here, but
+ * were re-tuned in this same pass against the same worst-case background
+ * (surface-hover, since rows tint to it on hover) - see the comment block
+ * above .x-badge--lazada in that file for the per-channel before/after.
+ */
 @media (prefers-reduced-motion: reduce) {
-    :root { --motion-fast: 1ms; --motion-base: 1ms; }
+    /* --motion-fast/--motion-base are declared on .x-app itself (see above),
+       so overriding them on :root here would be shadowed by that closer
+       declaration on the same element's subtree. Target .x-app directly. */
+    .x-app { --motion-fast: 1ms; --motion-base: 1ms; }
 }

@@ -13,22 +13,55 @@
     <aside class="x-sidebar">
         <div class="x-sidebar__brand">
             <span class="x-sidebar__mark"></span>
-            <span class="x-sidebar__name">{{ $appSetting->company_name ?? 'Xenon' }}</span>
+            <span class="x-sidebar__name" title="{{ $appSetting->company_name ?? 'Xenon' }}">{{ $appSetting->company_name ?? 'Xenon' }}</span>
         </div>
+        @php
+            // I4: each nav item is gated on the same permission its target
+            // route requires (see routes/web.php), so a restricted user
+            // never sees a link that would just bounce them back with a
+            // "You don't have permission" flash. Not auth()->user()->can():
+            // this app registers no Gates or Policies, so can() always
+            // returns false, including for admins. Authorization runs
+            // through User::hasPermission() instead, the same method the
+            // `perm:` route middleware and SettingsHubController::allowed()
+            // delegate to, with the same pipe-delimited any-match parsing
+            // ('view_x|manage_x' - either one held by the user's group
+            // grants the link). $permission === null means "no gate beyond
+            // auth", which is all the dashboard route requires.
+            $navUser = auth()->user();
+            $navAllowed = function (?string $permission) use ($navUser) {
+                if ($permission === null) {
+                    return true;
+                }
+                if (!$navUser) {
+                    return false;
+                }
+                foreach (explode('|', $permission) as $key) {
+                    $key = trim($key);
+                    if ($key !== '' && $navUser->hasPermission($key)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+        @endphp
         <nav class="x-nav">
-            <a class="x-nav__item {{ request()->routeIs('dashboard') ? 'is-active' : '' }}" href="{{ route('dashboard') }}">
-                <x-ui.icon name="monitor" /> Dashboard
-            </a>
-            <a class="x-nav__item {{ request()->routeIs('orders.index') ? 'is-active' : '' }}" href="{{ route('orders.index') }}">
-                <x-ui.icon name="receipt" /> Orders
-            </a>
-            <a class="x-nav__item {{ request()->routeIs('products.index') ? 'is-active' : '' }}" href="{{ route('products.index') }}">
-                <x-ui.icon name="package" /> Products
-            </a>
-            {{-- settings.hub is created by Task 6, which has not landed yet.
-                 Guard with Route::has() so this layout does not throw a
-                 RouteNotFoundException before that task ships. --}}
-            @if (Route::has('settings.hub'))
+            @if ($navAllowed(null))
+                <a class="x-nav__item {{ request()->routeIs('dashboard') ? 'is-active' : '' }}" href="{{ route('dashboard') }}">
+                    <x-ui.icon name="monitor" /> Dashboard
+                </a>
+            @endif
+            @if ($navAllowed('view_orders|manage_orders'))
+                <a class="x-nav__item {{ request()->routeIs('orders.index') ? 'is-active' : '' }}" href="{{ route('orders.index') }}">
+                    <x-ui.icon name="receipt" /> Orders
+                </a>
+            @endif
+            @if ($navAllowed('view_products|manage_products'))
+                <a class="x-nav__item {{ request()->routeIs('products.index') ? 'is-active' : '' }}" href="{{ route('products.index') }}">
+                    <x-ui.icon name="package" /> Products
+                </a>
+            @endif
+            @if ($navAllowed('view_website_settings|manage_website_settings'))
                 <a class="x-nav__item {{ request()->routeIs('settings.hub') ? 'is-active' : '' }}" href="{{ route('settings.hub') }}">
                     <x-ui.icon name="shield" /> Settings
                 </a>

@@ -45,38 +45,52 @@
 
 /* Channel dots. These are the only literal hex values permitted anywhere in
    this codebase, because they identify external brands rather than theme
-   state. The brief's source hex values fail 4.5:1 on one or both canvases
-   (measured: lazada 4.37 light / 4.35 dark, shopee 3.82 light, venta 3.26
-   light, opencart 4.30 light / 4.41 dark, shopify 3.75 light, pedallion 3.63
-   light, against #FBFBFA light and #0B0B0C dark). Each colour below was
-   adjusted in lightness only, hue and saturation held, to clear the floor on
-   its own canvas. Measured ratios after adjustment:
-   lazada    light #7656F8 = 4.55:1   dark #7E5FF8 = 4.57:1
-   shopee    light #C34F1C = 4.55:1   dark #D8571F = 4.97:1
-   venta     light #268258 = 4.59:1   dark #2E9E6B = 5.83:1
-   opencart  light #3977B2 = 4.55:1   dark #3C7EBC = 4.59:1
-   shopify   light #547E37 = 4.59:1   dark #5E8E3E = 5.07:1
-   pedallion light #9F6727 = 4.56:1   dark #B5762C = 5.24:1
-   tiktok uses var(--text), already verified in Task 1 at 16.97 light /
-   16.68 dark, so it needs no literal hex and no override. */
-.x-badge--lazada    { color: #7656F8; }
-.x-badge--shopee    { color: #C34F1C; }
+   state. The first tuning pass (Task 2) only cleared 4.5:1 against
+   --canvas, but a row hovers to --surface-hover and that background is
+   provably the worst case for a colour this dark against these near-white
+   light backgrounds / near-black dark backgrounds (see the I3 comment in
+   base/tokens.css for why surface-hover is always worst). Re-measured
+   against --surface-hover and re-tuned in lightness only, hue and
+   saturation held, wherever that measurement failed. Ratios below are
+   against surface-hover, the binding constraint; all three of the other
+   backgrounds clear by a wider margin for every colour here.
+   lazada    light #6F4DF8 = 4.57:1  (was #7656F8 = 4.20, failed)
+             dark  #886CF9 = 4.60:1  (was #7E5FF8 = 4.03, failed)
+   shopee    light #BA4B1B = 4.56:1  (was #C34F1C = 4.20, failed)
+             dark  #DD5920 = 4.57:1  (was #D8571F = 4.38, failed)
+   venta     light #247C54 = 4.58:1  (was #268258 = 4.24, failed)
+             dark  #2E9E6B = 5.14:1  (unchanged, already cleared)
+   opencart  light #3671AA = 4.57:1  (was #3977B2 = 4.20, failed)
+             dark  #4687C4 = 4.57:1  (was #3C7EBC = 4.05, failed)
+   shopify   light #507835 = 4.59:1  (was #547E37 = 4.24, failed)
+             dark  #5F903F = 4.59:1  (was #5E8E3E = 4.48, failed)
+   pedallion light #986225 = 4.56:1  (was #9F6727 = 4.21, failed)
+             dark  #B5762C = 4.62:1  (unchanged, already cleared)
+   tiktok uses var(--text), already verified in base/tokens.css's own
+   worst-case audit at 15.66 light / 14.72 dark, so it needs no literal
+   hex and no override. */
+.x-badge--lazada    { color: #6F4DF8; }
+.x-badge--shopee    { color: #BA4B1B; }
 .x-badge--tiktok    { color: var(--text); }
-.x-badge--venta     { color: #268258; }
-.x-badge--opencart  { color: #3977B2; }
-.x-badge--shopify   { color: #547E37; }
-.x-badge--pedallion { color: #9F6727; }
+.x-badge--venta     { color: #247C54; }
+.x-badge--opencart  { color: #3671AA; }
+.x-badge--shopify   { color: #507835; }
+.x-badge--pedallion { color: #986225; }
 
-/* Only the channels whose light-canvas value fails on the dark canvas are
-   overridden here. Each was re-tuned in lightness only, against #0B0B0C,
-   keeping hue and saturation. Ratios are recorded in the comment above the
-   light-mode block. */
-:root[data-theme="dark"] .x-badge--lazada    { color: #7E5FF8; }
-:root[data-theme="dark"] .x-badge--shopee    { color: #D8571F; }
-:root[data-theme="dark"] .x-badge--venta     { color: #2E9E6B; }
-:root[data-theme="dark"] .x-badge--opencart  { color: #3C7EBC; }
-:root[data-theme="dark"] .x-badge--shopify   { color: #5E8E3E; }
-:root[data-theme="dark"] .x-badge--pedallion { color: #B5762C; }
+/* Only the channels whose light value fails on dark backgrounds are
+   overridden here. Each was re-tuned in lightness only, against
+   --surface-hover on #0B0B0C (the I3 worst case, same reasoning as the
+   light block above), keeping hue and saturation. Ratios are recorded in
+   the comment above the light-mode block. Selector matches base/tokens.css:
+   data-theme lives on <html>, .x-badge lives inside <body class="x-app">,
+   so the dark override has to name both the root attribute and the .x-app
+   ancestor. */
+:root[data-theme="dark"] .x-app .x-badge--lazada    { color: #886CF9; }
+:root[data-theme="dark"] .x-app .x-badge--shopee    { color: #DD5920; }
+:root[data-theme="dark"] .x-app .x-badge--venta     { color: #2E9E6B; }
+:root[data-theme="dark"] .x-app .x-badge--opencart  { color: #4687C4; }
+:root[data-theme="dark"] .x-app .x-badge--shopify   { color: #5F903F; }
+:root[data-theme="dark"] .x-app .x-badge--pedallion { color: #B5762C; }
 
 /* Inputs. Focus is a ring, never a glow. */
 .x-input {

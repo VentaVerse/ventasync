@@ -4,6 +4,7 @@ import './invoice-copy';
 import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
+import './orders-filter';
 
 import Alpine from 'alpinejs';
 

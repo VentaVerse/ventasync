@@ -7,9 +7,23 @@
     background: var(--surface-sunken);
     border-right: 1px solid var(--border);
 }
-.x-sidebar__brand { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2); }
+.x-sidebar__brand { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2); min-width: 0; }
 .x-sidebar__mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); flex: none; }
-.x-sidebar__name { font-size: 13px; font-weight: 600; color: var(--text); }
+/* Long company names (e.g. "SHA Musical Goods Trading") wrapped to a
+   second line with no width constraint, pushing the nav down. min-width: 0
+   is required on a flex item before overflow/ellipsis has any effect - a
+   flex item's default min-width is auto (its content size), which ignores
+   overflow rules entirely until overridden. Full name is still available
+   via the title attribute on hover. */
+.x-sidebar__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
 
 .x-nav { display: flex; flex-direction: column; gap: 2px; }
 .x-nav__item {

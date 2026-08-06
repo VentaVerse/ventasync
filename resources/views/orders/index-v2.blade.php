@@ -22,7 +22,7 @@
 <form method="GET" action="{{ route('orders.index') }}" class="x-filters" id="orders-filter">
     <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search name, email, order ID" class="x-filters__search" />
     <div class="x-select-wrap x-filters__select">
-        <select name="status" class="x-input" onchange="this.form.submit()">
+        <select name="status" class="x-input" data-autosubmit>
             <option value="0">All statuses</option>
             @foreach($statuses as $s)
                 <option value="{{ $s->order_status_id }}" @selected($statusId == $s->order_status_id)>{{ $s->name }}</option>
@@ -31,7 +31,7 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
     <div class="x-select-wrap x-filters__select">
-        <select name="source" class="x-input" onchange="this.form.submit()">
+        <select name="source" class="x-input" data-autosubmit>
             <option value="">All sources</option>
             <option value="manual" @selected($source === 'manual')>Manual</option>
             @foreach($sourceOptions as $opt)
@@ -40,21 +40,59 @@
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
+    {{-- I5: without these, changing a filter drops whatever column the list
+         was sorted by - the filter form only carries q/status/source, so a
+         submit silently reset sort/dir to the controller's defaults. --}}
+    <input type="hidden" name="sort" value="{{ $sort }}">
+    <input type="hidden" name="dir" value="{{ $dir }}">
 </form>
 
 @if($orders->isEmpty())
     <x-ui.empty title="No orders match those filters"
                 description="Try clearing the search or choosing a different status." />
 @else
+@php
+    // I5: restores the sort links the old list had (order_id, firstname,
+    // total, date_added - the same $sortable set OrderController already
+    // validates against and the same $sort/$dir it already computes and
+    // passes here; the controller is untouched). request()->except keeps
+    // every other query param (q, status, source, page) intact so sorting
+    // never discards an active filter, mirroring orders/index.blade.php's
+    // own sort-link construction.
+    $sortUrl = fn (string $col) => route('orders.index', array_merge(
+        request()->except('sort', 'dir'),
+        ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc']
+    ));
+@endphp
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="x-col-id">Order</th>
-            <th>Customer</th>
+            <th class="x-col-id">
+                <a class="x-th-sort" href="{{ $sortUrl('order_id') }}">
+                    Order
+                    @if($sort === 'order_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
+            <th>
+                <a class="x-th-sort" href="{{ $sortUrl('firstname') }}">
+                    Customer
+                    @if($sort === 'firstname')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
             <th class="x-col-chan">Channel</th>
             <th class="x-col-stat">Status</th>
-            <th class="x-td-num x-col-total">Total</th>
-            <th class="x-col-date">Date</th>
+            <th class="x-td-num x-col-total">
+                <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('total') }}">
+                    Total
+                    @if($sort === 'total')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
+            <th class="x-col-date">
+                <a class="x-th-sort" href="{{ $sortUrl('date_added') }}">
+                    Date
+                    @if($sort === 'date_added')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
             <th class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -78,7 +116,7 @@
                 <x-money :php="(float) $o->total" :foreign="$o->foreign_total" :foreign-code="$o->currency_code" />
             </td>
             <td class="x-num x-cell-muted" data-label="Date">{{ \Illuminate\Support\Carbon::parse($o->date_added)->format('Y-m-d H:i') }}</td>
-            <td class="x-td-actions" data-label="Actions">
+            <td class="x-td-actions">
                 <x-ui.menu label="Order {{ $o->order_id }} actions">
                     <a class="x-menu__item" href="{{ route('orders.show', $o->order_id) }}">View</a>
                     @if($canManageOrders)

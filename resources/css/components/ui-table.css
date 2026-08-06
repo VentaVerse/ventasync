@@ -14,8 +14,10 @@
    behaviour a 44,000 row list needs. The tradeoff is that a table with more
    columns than fit the viewport is no longer horizontally scroll-contained
    above 640px; below 640px the responsive rule further down restacks each
-   row into a single column instead, so no horizontal scrolling is needed
-   there either. A page that genuinely needs both a contained horizontal
+   row onto a two-column grid (label-derived value on the left, the actions
+   trigger on the right - see grid-template-columns: 1fr auto further down)
+   instead, so no horizontal scrolling is needed there either. A page that
+   genuinely needs both a contained horizontal
    scrollbar and a sticky header should give this wrapper its own bounded
    max-height so it becomes a real internal scroll container instead. */
 .x-table-wrap { width: 100%; }
@@ -31,6 +33,24 @@
    keeps the sticky-header wrapper above completely untouched. */
 .x-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 
+/* C2: components/tables.css (the legacy table styling every old page uses)
+   has bare `th, td { border-right: 1px solid var(--border) }` and
+   `th { text-transform: uppercase }` element selectors, and
+   responsive.css has a `table th, table td { font-size: 13px }` rule under
+   its 768px breakpoint. Element selectors match .x-table's own cells too,
+   since a <th>/<td> is still a <th>/<td> regardless of what class its
+   ancestor table carries, and CSS does not let a component "opt out" of a
+   selector it never wrote. The three properties below are set explicitly,
+   scoped to .x-table, specifically to out-specify (border-right,
+   text-transform) or out-explicit (font-size - an explicit same-element
+   declaration always beats an inherited value, no matter the specificity
+   difference) those legacy rules rather than editing tables.css/
+   responsive.css, which stay byte-identical for the old design. Header
+   case is a deliberate choice, not the inherited accident it was before:
+   sentence case (text-transform: none), matching Blade's literal markup
+   ("Order", "Customer") and the restrained, un-shouty tone the rest of
+   this design system already keeps (buttons and badges are not uppercase
+   either) - not the spreadsheet-export uppercase micro-label convention. */
 .x-table thead th {
     position: sticky;
     top: 0;
@@ -39,10 +59,12 @@
     padding: 0 var(--space-3);
     background: var(--canvas);
     border-bottom: 1px solid var(--border);
+    border-right: 0;
     color: var(--text-muted);
     font-size: 11px;
     font-weight: 500;
     text-align: left;
+    text-transform: none;
     letter-spacing: .02em;
     white-space: nowrap;
     overflow: hidden;
@@ -55,7 +77,7 @@
     transition: background var(--motion-fast);
 }
 .x-table tbody tr:hover { background: var(--surface-hover); }
-.x-table tbody td { padding: 0 var(--space-3); vertical-align: middle; white-space: nowrap; }
+.x-table tbody td { padding: 0 var(--space-3); vertical-align: middle; white-space: nowrap; border-right: 0; font-size: 13px; }
 
 .x-table .x-td-num { text-align: right; }
 /* Exactly wide enough for the 24px overflow trigger plus a tighter, own
@@ -167,6 +189,20 @@
     }
 }
 
+/* I5: sortable column headers. The whole header cell stays a <th>; only the
+   label plus its direction indicator sit inside an inline link so the
+   sticky/ellipsis rules already on .x-table thead th keep applying
+   unchanged to the cell itself. */
+.x-th-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: inherit;
+    text-decoration: none;
+}
+.x-th-sort:hover { color: var(--text); }
+.x-th-sort--num { justify-content: flex-end; width: 100%; }
+
 /* Orders list (Task 7) */
 .x-list-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .x-filters { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
@@ -184,10 +220,19 @@
 .x-col-id    { width: 84px; }
 .x-col-chan  { width: 112px; }  /* longest channel label "OpenCart" measures ~89px with its dot */
 .x-col-stat  { width: 156px; }  /* longest status "To Confirm Receive" measures ~141px with its dot */
+.x-col-total { width: 140px; }
 /* Mono, tabular figures on the Total column so peso and dollar amounts line
    up on the decimal down the whole column - <x-money>'s spans already carry
-   font-variant-numeric: tabular-nums, this supplies the monospace face. */
-.x-col-total { width: 140px; font-family: var(--font-mono); }
+   font-variant-numeric: tabular-nums, this supplies the monospace face.
+   Scoped to the td, not the shared .x-col-total class: that class also has
+   to stay on the <th> (it is what gives table-layout: fixed its column
+   width, taken from the first row's cells - dropping it there would let
+   the browser redistribute the column's 140px into the Customer column
+   instead), but the header text "Total" reading in a monospace face was
+   the actual defect, not the class's presence. A plain :4th-of-type()
+   selector would break the moment a column is added or reordered, so this
+   names the column class explicitly instead. */
+.x-table td.x-col-total { font-family: var(--font-mono); }
 .x-col-date  { width: 150px; }
 
 .x-cell-strong {
