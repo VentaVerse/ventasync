@@ -1,0 +1,149 @@
+/* Segmented control.
+   One row of mutually exclusive views over the same list. Every marketplace
+   orders page needs exactly this control (status tabs plus counts), so it is
+   built once here rather than per channel.
+
+   Why a segment and not the old .tabs strip: tabs imply separate pages, and
+   these are seven filters over one page. A segment reads as "pick one",
+   which is what the control actually does. The active item is lifted onto
+   --surface inside a --surface-sunken trough, so the selected state is
+   carried by elevation and a hairline ring, not by a brand colour. That
+   matters because colour on these pages has exactly one job, telling the
+   operator which orders need them, and a coloured tab would compete with
+   the status column for that job.
+
+   The trough scrolls horizontally on its own below the desktop widths so a
+   seven-item control never widens the page. */
+
+.x-segment-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+    min-width: 0;
+}
+
+.x-segment {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+
+    /* Setting one axis to a non-visible value forces the other to auto per
+       the CSS Overflow spec. Declaring it keeps the clipping deliberate:
+       the trough is exactly one item tall and must never grow a second
+       row. */
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.x-segment::-webkit-scrollbar { display: none; }
+
+.x-segment__item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: none;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color var(--motion-fast), background var(--motion-fast);
+}
+
+.x-segment__item:hover { color: var(--text); }
+
+.x-segment__item.is-active {
+    background: var(--surface);
+    color: var(--text);
+    /* A ring plus the faintest possible drop, not a shadow stack. In dark
+       theme the drop is invisible and the lift is carried by the surface
+       step alone, which is the correct behaviour: dark surfaces read
+       elevation as lightness, not as shadow. */
+    box-shadow: 0 0 0 1px var(--border-strong), 0 1px 2px rgba(0, 0, 0, .05);
+}
+
+/* Counts are reference information, not emphasis, so they take the muted
+   token and the mono face every other numeral in this UI uses. Tabular
+   figures stop a count changing from 9 to 10 from nudging the label. */
+.x-segment__count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.x-segment__item.is-active .x-segment__count { color: var(--text-secondary); }
+
+/* The sub level. A second, quieter row that only appears under the one
+   segment that has sub steps (Shopee's To Ship splits into To Pack and To
+   Handover). It drops the trough entirely so it cannot be mistaken for a
+   peer of the row above it, and marks its active item with the same
+   accent-weak tint the shell nav uses for its own active child, which is
+   already measured at 4.59:1 light and 6.94:1 dark against --surface-sunken
+   (see the composited-rule note in base/tokens.css). Here it composites
+   over --canvas, which is lighter than sunken in light theme and darker in
+   dark theme, so both directions clear that measured floor rather than
+   fall below it. */
+.x-segment--sub {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
+}
+
+.x-segment--sub .x-segment__item {
+    height: 24px;
+    padding: 0 var(--space-2);
+    font-size: 12px;
+}
+
+.x-segment--sub .x-segment__item.is-active {
+    background: var(--accent-weak);
+    color: var(--accent);
+    box-shadow: none;
+}
+
+.x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--accent); }
+
+/* A sibling destination that is not one of the segment's own views. It sits
+   on the far side of the bar and takes plain-link weight so it never reads
+   as an eighth filter. */
+.x-segment-bar__aside {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color var(--motion-fast);
+}
+
+.x-segment-bar__aside:hover { color: var(--text); }
+
+@media (max-width: 640px) {
+    /* The aside would otherwise squeeze the trough it sits beside on a
+       phone, where the trough is already the scrolling element. Below the
+       breakpoint the bar stacks and each part gets the full width. */
+    .x-segment-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-2);
+    }
+
+    .x-segment-bar__aside { align-self: flex-start; }
+}

@@ -1,469 +1,486 @@
 @extends('layouts.channel')
 @section('breadcrumb', 'Orders')
 
+{{-- Leaves the .x-legacy content boundary. This page is now built directly
+     on the design tokens and the x-ui components, which is the designed
+     exit path of that boundary: migrate a page by rebuilding it, then drop
+     its wrapper. The old .marketplace-shopee wrapper went with it, because
+     its only job was to repaint --accent with Shopee orange, and channel
+     identity belongs in the sidebar and the breadcrumb, not on every
+     control of every row. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    // Phase 4 — Shopee Orders is visible to view_shopee_orders holders; the
+    // Phase 4 - Shopee Orders is visible to view_shopee_orders holders; the
     // Fetch/Update/Ship/Reset actions require manage_shopee_orders.
     $canManageShopeeOrders = true;
+
+    $tabs = $tabs ?? [];
+    $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
+    $tab_counts = $tab_counts ?? [];
+    $pending_sub_counts = $pending_sub_counts ?? [];
+    $perPage = (int) ($per_page ?? request()->query('per_page', 10));
+    $orderNumberFilter = (string) ($filters['order_number'] ?? '');
+    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
+    $hasSearch = $orderNumberFilter !== '' || $buyerNameFilter !== '';
+    $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
+
+    // Status tone map. Colour has exactly one job on this page: telling the
+    // operator which orders are waiting on them. Accent marks the single
+    // status a human has to act on right now; everything already handled
+    // recedes to neutral; the two failure states take danger; the two
+    // waiting-on-someone-else states take warning and info.
+    //
+    // One deliberate reading of the spec's tone list: COMPLETED is mapped to
+    // neutral rather than the success tone, because x-badge--success and the
+    // accent tone resolve to the same token, which would have made "ready to
+    // ship" and "completed" the identical colour and undone the point of the
+    // map. A finished order is the one state that should recede.
+    //
+    // This array is the pattern to extract into a helper (alongside
+    // App\Support\OrderStatusTone) when the second channel converts.
+    $spStatusTones = [
+        'UNPAID'             => 'warning',
+        'READY_TO_SHIP'      => 'success',
+        'PROCESSED'          => 'info',
+        'SHIPPED'            => 'info',
+        'TO_CONFIRM_RECEIVE' => 'info',
+        'COMPLETED'          => 'neutral',
+        'CANCELLED'          => 'danger',
+        'IN_CANCEL'          => 'danger',
+        'RETRY_SHIP'         => 'warning',
+    ];
+
+    $spStatusLabels = [
+        'UNPAID'             => 'Unpaid',
+        'READY_TO_SHIP'      => 'Ready to ship',
+        'PROCESSED'          => 'To handover',
+        'SHIPPED'            => 'Shipped',
+        'TO_CONFIRM_RECEIVE' => 'Awaiting confirmation',
+        'COMPLETED'          => 'Completed',
+        'CANCELLED'          => 'Cancelled',
+        'IN_CANCEL'          => 'Cancelling',
+        'RETRY_SHIP'         => 'Delivery failed',
+    ];
+
+    $spSortLabels = [
+        'created_desc'          => 'Order date, newest first',
+        'created_asc'           => 'Order date, oldest first',
+        'confirmed_pay_desc'    => 'Payment time, newest first',
+        'confirmed_pay_asc'     => 'Payment time, oldest first',
+        'confirmed_update_desc' => 'Last update, newest first',
+        'confirmed_update_asc'  => 'Last update, oldest first',
+        'confirmed_create_desc' => 'Shopee create time, newest first',
+        'confirmed_create_asc'  => 'Shopee create time, oldest first',
+    ];
 @endphp
-<div class="marketplace-shopee">
-{{-- No cross-marketplace tab strip here. Inside a seller center you see
-     only that marketplace; hopping channels is what the main nav's Channels
-     group and the unified Orders page are for. Per the owner: "If I were to see
-     the seller center of a marketplace, I will only see that marketplace." --}}
-<div class="page-header">
-    <h2>Shopee Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
+
+<div id="shopee-orders-page">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Orders</h1>
+        <p class="x-page-sub">
+            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($active_tab !== 'ALL' && isset($tabs[$active_tab])) in {{ $tabs[$active_tab] }}@endif
+        </p>
+    </div>
 </div>
 
 @if($canManageShopeeOrders)
-<div class="card mb-16">
-    <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="d-flex gap-12 flex-wrap items-center">
+{{-- One command bar. This replaces the three stacked forms whose controls
+     each set their own height and self-alignment, which is what made the
+     Fetch and Update buttons sit off the baseline of their own date
+     inputs. Every child of the row ends in a box exactly --control-h tall
+     and the row is bottom aligned, so the controls share a baseline and,
+     being the same height, a top edge too. --}}
+<div class="x-cmdbar">
+    <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="x-cmdbar__row">
         @csrf
-        <div>
-            <label class="text-xs text-secondary">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from', request('date_from')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="spDateFrom">From</label>
+            <x-ui.input type="date" id="spDateFrom" name="date_from" class="x-cmdbar__date"
+                        value="{{ old('date_from', request('date_from')) }}" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to', request('date_to')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="spDateTo">To</label>
+            <x-ui.input type="date" id="spDateTo" name="date_to" class="x-cmdbar__date"
+                        value="{{ old('date_to', request('date_to')) }}" />
         </div>
-        <div style="align-self:flex-end;">
-            <label class="text-xs text-secondary" style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-                <input type="checkbox" name="no_stock" value="1"> Skip stock adjust
-            </label>
-        </div>
-        <div class="d-flex gap-8">
-            <button type="submit" class="btn" id="btnFetchOrders">Fetch Orders</button>
-            <button type="submit" class="btn secondary" id="btnUpdateOrders" formaction="{{ route('ext.shopee.orders.update_statuses') }}">Update Orders</button>
-        </div>
-        <div class="text-secondary text-xs" style="flex:1;">
-            <strong>From/To</strong> required for both Fetch and Update.
+        <label class="x-cmdbar__check">
+            <input type="checkbox" name="no_stock" value="1">
+            <span>Skip stock adjust</span>
+        </label>
+        <div class="x-cmdbar__spacer"></div>
+        <div class="x-cmdbar__actions">
+            <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                         formaction="{{ route('ext.shopee.orders.update_statuses') }}">Update statuses</x-ui.button>
         </div>
     </form>
+    <p class="x-cmdbar__hint">Both dates are required, for fetching new orders and for updating statuses.</p>
 </div>
 @endif
 
 @if($last_result)
-    <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
-        <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
+    <div class="sp-notice {{ $last_result['ok'] ? 'sp-notice--ok' : 'sp-notice--fail' }}">
+        <span class="sp-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
         @if(!empty($last_result['message']))
-            <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
+            <span class="sp-notice__body">{{ $last_result['message'] }}</span>
         @endif
     </div>
 @endif
 
-@php
-    $tabs = $tabs ?? [];
-    $active_tab = $active_tab ?? 'ALL';
-    $tab_counts = $tab_counts ?? [];
-    $pending_sub_counts = $pending_sub_counts ?? [];
-@endphp
-
-<div class="tabs mb-12">
-    @foreach($tabs as $key => $label)
-        @php
-            $isActive = strtoupper((string)$active_tab) === strtoupper((string)$key);
-            $count = $tab_counts[$key] ?? null;
-            $qs = array_merge(request()->except('page'), ['tab' => $key]);
-            $showBadge = in_array($key, ['PENDING', 'SHIPPING', 'FAILED_DELIVERY']);
-        @endphp
-        <a href="{{ route('ext.shopee.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
-            <span>{{ $label }}</span>
-            @if($showBadge && $count !== null && $count > 0)
-                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#EE4D2D;' : 'background:#EE4D2D; color:#fff;' }}">{{ $count }}</span>
-            @endif
-        </a>
-    @endforeach
-    <a href="{{ route('ext.shopee.orders.returns') }}" class="tab">
-        <span>Return/Refund/Cancel</span>
+{{-- Status filters as a segmented control. Seven views over one list, so
+     "pick one" is the right grammar; the old .tabs strip implied seven
+     pages. Counts ride along as muted mono numbers. Returns is a sibling
+     page rather than an eighth filter, so it sits outside the trough as a
+     plain link (the channel sidebar lists it too). --}}
+<div class="x-segment-bar">
+    <div class="x-segment" role="tablist" aria-label="Order status">
+        @foreach($tabs as $key => $label)
+            @php
+                $isActive = $active_tab === strtoupper((string) $key);
+                $count = $tab_counts[$key] ?? null;
+                $qs = array_merge(request()->except(['page', 'pending_sub']), ['tab' => $key]);
+            @endphp
+            <a href="{{ route('ext.shopee.orders.index', $qs) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $label }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+    <a class="x-segment-bar__aside" href="{{ route('ext.shopee.orders.returns') }}">
+        Returns and refunds
+        <x-ui.icon name="chevron-right" size="12" />
     </a>
 </div>
 
-{{-- Shopee workflow: TO SHIP (PENDING) has 2 sub steps (To Pack / To Handover) --}}
-@if(strtoupper((string)($active_tab ?? 'ALL')) === 'PENDING')
+@if($active_tab === 'PENDING')
     @php
-        $ps = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
-        $pendingNav = [
-            'to_pack' => 'To Pack',
-            'to_handover' => 'To Handover',
-        ];
+        $pendingNav = ['to_pack' => 'To Pack', 'to_handover' => 'To Handover'];
     @endphp
-    <div class="card mb-12" style="padding:12px 16px;">
-        <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
-            <div class="font-semibold">To Ship workflow</div>
-            <div class="text-xs text-secondary">Choose the step you are working on</div>
-        </div>
+    {{-- The one tab with two working steps. The sub row drops the trough so
+         it cannot be mistaken for a peer of the row above it. --}}
+    <div class="x-segment x-segment--sub" aria-label="To Ship step">
+        @foreach($pendingNav as $k => $lbl)
+            @php
+                $isActive = ($pendingSub === $k) || ($pendingSub === '' && $k === 'to_pack');
+                $qs = array_merge(request()->except('page'), ['tab' => 'PENDING', 'pending_sub' => $k]);
+                $count = $pending_sub_counts[$k] ?? null;
+            @endphp
+            <a href="{{ route('ext.shopee.orders.index', $qs) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $lbl }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-            @foreach($pendingNav as $k => $lbl)
-                @php
-                    $isActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                    $qs = array_merge(request()->except('page'), ['tab' => 'PENDING', 'pending_sub' => $k]);
-                    $count = $pending_sub_counts[$k] ?? null;
-                @endphp
-                <a href="{{ route('ext.shopee.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
-                    <span>{{ $lbl }}</span>
-                    @if($count !== null && $count > 0)
-                        <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#EE4D2D;' : 'background:#EE4D2D; color:#fff;' }}">{{ $count }}</span>
-                    @endif
-                </a>
+    @if(!empty($pending_courier_counts))
+        <div class="sp-couriers">
+            <span class="sp-couriers__label">Parcels waiting for handover</span>
+            @foreach($pending_courier_counts as $courier => $count)
+                <span class="sp-courier">
+                    <span class="sp-courier__count">{{ number_format($count) }}</span>
+                    {{ $courier }}
+                </span>
             @endforeach
         </div>
-
-        @if(!empty($pending_courier_counts))
-            <div style="margin-top:10px;">
-                <div class="text-xs text-secondary" style="margin-bottom:6px;">Courier tally (To Handover only)</div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    @foreach($pending_courier_counts as $courier => $count)
-                        <span class="badge badge-gray" style="display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px;">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
-                            {{ $courier }}
-                            <span style="margin-left:2px; font-weight:700; font-size:15px; color:#dc2626;">{{ $count }}</span>
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-    </div>
+    @endif
 @endif
 
-<div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.shopee.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
-        <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
-        <input type="hidden" name="per_page" value="{{ (int)($per_page ?? request()->query('per_page', 10)) }}">
+{{-- One filter row. Search, sort and per page were three separate card
+     forms doing one job. The selects auto-submit through the shared
+     data-autosubmit handler that /sales/orders already uses. --}}
+<form method="GET" action="{{ route('ext.shopee.orders.index') }}" class="x-filters" id="orders-filter">
+    <input type="hidden" name="tab" value="{{ $active_tab }}">
+    @if($active_tab === 'PENDING')
+        <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+    @endif
 
-        <div>
-            <label class="text-xs text-secondary">Order Number</label>
-            <input type="text" name="order_number" value="{{ old('order_number', $filters['order_number'] ?? '') }}" placeholder="Order SN" class="input" style="min-width:220px;">
-        </div>
+    <x-ui.input type="search" name="order_number" class="x-filters__search"
+                value="{{ $orderNumberFilter }}" placeholder="Order number" aria-label="Search by order number" />
+    <x-ui.input type="search" name="buyer_name" class="x-filters__search"
+                value="{{ $buyerNameFilter }}" placeholder="Buyer" aria-label="Search by buyer name" />
 
-        <div>
-            <label class="text-xs text-secondary">Buyer Name</label>
-            <input type="text" name="buyer_name" value="{{ old('buyer_name', $filters['buyer_name'] ?? '') }}" placeholder="Buyer" class="input" style="min-width:220px;">
-        </div>
-
-        <div>
-            <label class="text-xs text-secondary">Sort by</label>
-            <select name="sort" class="input" style="width:auto; min-width:240px;">
-                <option value="created_asc" {{ ($sort ?? '') === 'created_asc' ? 'selected' : '' }}>Created Date (Oldest to Newest)</option>
-                <option value="created_desc" {{ ($sort ?? '') === 'created_desc' ? 'selected' : '' }}>Created Date (Newest to Oldest)</option>
-                <option value="confirmed_pay_asc" {{ ($sort ?? '') === 'confirmed_pay_asc' ? 'selected' : '' }}>Confirmed: Pay Time (Oldest to Newest)</option>
-                <option value="confirmed_pay_desc" {{ ($sort ?? '') === 'confirmed_pay_desc' ? 'selected' : '' }}>Confirmed: Pay Time (Newest to Oldest)</option>
-                <option value="confirmed_update_asc" {{ ($sort ?? '') === 'confirmed_update_asc' ? 'selected' : '' }}>Confirmed: Update Time (Oldest to Newest)</option>
-                <option value="confirmed_update_desc" {{ ($sort ?? '') === 'confirmed_update_desc' ? 'selected' : '' }}>Confirmed: Update Time (Newest to Oldest)</option>
-                <option value="confirmed_create_asc" {{ ($sort ?? '') === 'confirmed_create_asc' ? 'selected' : '' }}>Confirmed: Create Time (Oldest to Newest)</option>
-                <option value="confirmed_create_desc" {{ ($sort ?? '') === 'confirmed_create_desc' ? 'selected' : '' }}>Confirmed: Create Time (Newest to Oldest)</option>
-            </select>
-        </div>
-
-        <div class="d-flex gap-8">
-            <button type="submit" class="btn">Search</button>
-            <a href="{{ route('ext.shopee.orders.index', ['tab' => ($active_tab ?? 'ALL'), 'per_page' => (int)($per_page ?? 10)]) }}" class="btn secondary">Reset</a>
-        </div>
-    </form>
-</div>
-
-<div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.shopee.orders.index') }}" class="d-flex gap-10 items-center">
-        <input type="hidden" name="tab" value="{{ $active_tab ?? request()->query('tab', 'ALL') }}">
-        <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? '' }}">
-        <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? '' }}">
-        <input type="hidden" name="sort" value="{{ $sort ?? request()->query('sort', '') }}">
-        <div>
-            <label class="text-xs text-secondary">Orders per page</label>
-            <select name="per_page" onchange="this.form.submit()" class="input" style="width:auto;">
-                <option value="10" {{ (int)($per_page ?? 10)===10 ? 'selected' : '' }}>10</option>
-                <option value="20" {{ (int)($per_page ?? 10)===20 ? 'selected' : '' }}>20</option>
-                <option value="50" {{ (int)($per_page ?? 10)===50 ? 'selected' : '' }}>50</option>
-            </select>
-        </div>
-        <noscript><button type="submit" class="btn secondary">Apply</button></noscript>
-    </form>
-</div>
-
-<div class="card">
-    <div class="font-bold" style="margin-bottom:12px;">
-        Orders ({{ method_exists($orders,'total') ? $orders->total() : $orders->count() }})
+    <div class="x-select-wrap x-filters__select x-filters__select--wide">
+        <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
+            @foreach($spSortLabels as $value => $label)
+                <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if($orders->count() === 0)
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 24px; text-align:center;">
-            <svg style="width:48px; height:48px; color:var(--text-muted); margin-bottom:16px; opacity:.45;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            <div style="font-weight:600; font-size:15px; color:var(--text-primary); margin-bottom:6px;">No orders found</div>
-            <div class="text-muted" style="font-size:13px; max-width:360px;">
-                @if(($filters['order_number'] ?? '') !== '' || ($filters['buyer_name'] ?? '') !== '')
-                    No results match your search filters. Try clearing the filters above.
-                @elseif(strtoupper($active_tab ?? 'ALL') !== 'ALL')
-                    There are no <strong>{{ $tabs[$active_tab] ?? $active_tab }}</strong> orders right now.
-                @else
-                    No orders have been synced yet. Use <strong>Fetch Orders</strong> above to pull orders from Shopee.
-                @endif
-            </div>
-        </div>
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+            @foreach([10, 20, 50] as $n)
+                <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }} per page</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+
+    @if($hasSearch)
+        <a class="x-filters__reset" href="{{ route('ext.shopee.orders.index', ['tab' => $active_tab, 'per_page' => $perPage]) }}">Reset</a>
     @endif
+</form>
 
-    @if($orders->count() > 0)
-        <div class="table-wrap">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th style="min-width:280px;">Products</th>
-                    <th style="width:110px;">Quantity</th>
-                    <th style="width:140px;">Product Price</th>
-                    <th>Amount</th>
-                    <th>Shipping</th>
-                    <th>Status</th>
-                    <th style="width:280px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($orders as $o)
-                    @php
-                        $raw = $o->raw ?? [];
+@if($orders->count() === 0)
+    @php
+        if ($hasSearch) {
+            $spEmptyDesc = 'Nothing matches that order number or buyer. Clear the search to see the full list.';
+        } elseif ($active_tab !== 'ALL') {
+            $spEmptyDesc = 'There are no ' . strtolower((string) ($tabs[$active_tab] ?? $active_tab)) . ' orders right now.';
+        } else {
+            $spEmptyDesc = 'Nothing has been synced yet. Pick a date range above and fetch orders from Shopee.';
+        }
+    @endphp
+    <x-ui.empty title="No orders here" :description="$spEmptyDesc" />
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="sp-col-order">Order</th>
+            <th>Items</th>
+            <th class="sp-col-buyer">Buyer</th>
+            <th class="sp-col-total x-td-num">Total</th>
+            <th class="sp-col-status">Status</th>
+            <th class="sp-col-act"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
 
-                        $orderSn = $o->order_sn ?? ($raw['order_sn'] ?? '');
-                        $status = $o->status ?? ($raw['order_status'] ?? '');
-                        $statusStr = is_string($status) ? $status : '';
-                        $statusNorm = strtoupper(trim($statusStr));
+    @foreach($orders as $o)
+        @php
+            $raw = $o->raw ?? [];
 
-                        $isUnpaid = ($statusNorm === 'UNPAID');
-                        $isCancelled = in_array($statusNorm, ['CANCELLED', 'IN_CANCEL'], true);
-                        $isToPack = ($statusNorm === 'READY_TO_SHIP');
-                        $isToHandover = ($statusNorm === 'PROCESSED');
-                        $isShipped = ($statusNorm === 'SHIPPED');
-                        $isFailedDelivery = ($statusNorm === 'RETRY_SHIP');
+            $orderSn = $o->order_sn ?? ($raw['order_sn'] ?? '');
+            $status = $o->status ?? ($raw['order_status'] ?? '');
+            $statusStr = is_string($status) ? $status : '';
+            $statusNorm = strtoupper(trim($statusStr));
 
-                        $awaitingShip = in_array($statusNorm, ['UNPAID', 'READY_TO_SHIP', 'PROCESSED'], true);
-                        $shipBy = $awaitingShip ? (int) ($raw['ship_by_date'] ?? 0) : 0;
+            $isUnpaid = ($statusNorm === 'UNPAID');
+            $isToPack = ($statusNorm === 'READY_TO_SHIP');
+            $isToHandover = ($statusNorm === 'PROCESSED');
+            $isShipped = ($statusNorm === 'SHIPPED');
 
-                        $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
-                        $buyer = (string)($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
+            $awaitingShip = in_array($statusNorm, ['UNPAID', 'READY_TO_SHIP', 'PROCESSED'], true);
+            $shipBy = $awaitingShip ? (int) ($raw['ship_by_date'] ?? 0) : 0;
 
-                        $items = [];
-                        if (method_exists($o, 'products') && $o->relationLoaded('products')) {
-                            $items = $o->products ? $o->products->toArray() : [];
-                        }
-                        if (empty($items)) {
-                            $items = $raw['item_list'] ?? [];
-                            if (!is_array($items)) $items = [];
-                        }
+            $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
+            $buyer = (string) ($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
 
-                        // Group identical products
-                        $grouped = [];
-                        foreach ($items as $row) {
-                            $rowRaw = $row['raw'] ?? $row;
-                            $gName = $row['name'] ?? $rowRaw['item_name'] ?? '';
-                            $gSku = $row['sku'] ?? $rowRaw['item_sku'] ?? $rowRaw['model_sku'] ?? '';
-                            $gVariation = $row['variation'] ?? $rowRaw['model_name'] ?? '';
-                            $gQty = max(1, (int)($row['quantity'] ?? $rowRaw['model_quantity_purchased'] ?? $rowRaw['quantity'] ?? 1));
-                            $gImg = $row['image'] ?? $rowRaw['image_info']['image_url'] ?? '';
+            $items = [];
+            if (method_exists($o, 'products') && $o->relationLoaded('products')) {
+                $items = $o->products ? $o->products->toArray() : [];
+            }
+            if (empty($items)) {
+                $items = $raw['item_list'] ?? [];
+                if (!is_array($items)) $items = [];
+            }
 
-                            $gPrice = $row['price'] ?? $rowRaw['model_discounted_price'] ?? $rowRaw['model_original_price'] ?? null;
+            // Group identical products
+            $grouped = [];
+            foreach ($items as $row) {
+                $rowRaw = $row['raw'] ?? $row;
+                $gName = $row['name'] ?? $rowRaw['item_name'] ?? '';
+                $gSku = $row['sku'] ?? $rowRaw['item_sku'] ?? $rowRaw['model_sku'] ?? '';
+                $gVariation = $row['variation'] ?? $rowRaw['model_name'] ?? '';
+                $gQty = max(1, (int)($row['quantity'] ?? $rowRaw['model_quantity_purchased'] ?? $rowRaw['quantity'] ?? 1));
+                $gImg = $row['image'] ?? $rowRaw['image_info']['image_url'] ?? '';
 
-                            $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
-                            if (!isset($grouped[$key])) {
-                                $grouped[$key] = [
-                                    'raw' => $rowRaw,
-                                    'name' => $gName,
-                                    'sku' => $gSku,
-                                    'variation' => $gVariation,
-                                    'quantity' => $gQty,
-                                    'image' => $gImg,
-                                    'price' => $gPrice,
-                                ];
-                            } else {
-                                $grouped[$key]['quantity'] += $gQty;
-                            }
-                        }
-                        $groupedItems = array_values($grouped);
-                        $itemCount = count($groupedItems);
+                $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'name' => $gName,
+                        'sku' => $gSku,
+                        'variation' => $gVariation,
+                        'quantity' => $gQty,
+                        'image' => $gImg,
+                    ];
+                } else {
+                    $grouped[$key]['quantity'] += $gQty;
+                }
+            }
+            $groupedItems = array_values($grouped);
 
-                        $totalAmount = $raw['total_amount'] ?? $raw['escrow_amount'] ?? null;
-                        $currency = $raw['currency'] ?? \App\Support\Money::defaultSymbol();
-                        $paymentMethod = $raw['payment_method'] ?? null;
-                        $courier = $raw['shipping_carrier'] ?? $raw['checkout_shipping_carrier'] ?? null;
-                        if (is_array($courier)) $courier = implode(', ', $courier);
-                        $trackingNo = $raw['tracking_no'] ?? $raw['tracking_number'] ?? null;
-                    @endphp
+            $totalAmount = $raw['total_amount'] ?? $raw['escrow_amount'] ?? null;
+            // Currency is resolved through App\Support\Money, which reads the
+            // symbol from the currencies table, so no symbol is ever written
+            // into a view. An order carrying a code nobody has configured
+            // locally falls back to "CODE 1,234.00" rather than a wrong glyph.
+            $currencyCode = (string) ($raw['currency'] ?? '');
+            $paymentMethod = $raw['payment_method'] ?? null;
+            $courier = $raw['shipping_carrier'] ?? $raw['checkout_shipping_carrier'] ?? null;
+            if (is_array($courier)) $courier = implode(', ', $courier);
+            $trackingNo = $raw['tracking_no'] ?? $raw['tracking_number'] ?? null;
 
-                    @if($orderSn)
-                        <tr class="order-header-row">
-                            <td colspan="7" style="padding:10px 12px 6px 12px;">
-                                <div class="d-flex justify-between items-start gap-12">
-                                    <div class="text-xs text-secondary" style="line-height:1.35;">
-                                        @if($o->catalog_order_id)
-                                            <div style="font-weight:700; margin-bottom:2px;"><a href="{{ url('/sales/orders/'.$o->catalog_order_id) }}" style="color:var(--text-primary); text-decoration:none;">{{ $o->catalog_order_id }}</a></div>
-                                        @endif
-                                        <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
-                                        <span style="margin-left:8px;">Order SN:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $orderSn }}</span>
-                                        @if($itemCount > 0)
-                                            <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
-                                        @endif
-                                    </div>
-                                    <div class="text-xs text-secondary text-right" style="line-height:1.35;">
-                                        @if($created)
-                                            <span style="margin-left:8px;">Create Time:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
-                                        @endif
-                                    </div>
+            $tone = $spStatusTones[$statusNorm] ?? 'neutral';
+            $statusLabel = $spStatusLabels[$statusNorm]
+                ?? ($statusStr !== '' ? ucfirst(strtolower(str_replace('_', ' ', $statusNorm))) : 'Unknown');
+        @endphp
+        <tr>
+            <td class="sp-col-order" data-label="Order">
+                @if($orderSn)
+                    <a class="x-row-link sp-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">{{ $orderSn }}</a>
+                @else
+                    <span class="sp-sn sp-empty-mark">No order number</span>
+                @endif
+                @if($created)<span class="sp-date">{{ $created }}</span>@endif
+                @if($o->catalog_order_id)
+                    <a class="sp-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                @endif
+            </td>
+
+            <td data-label="Items">
+                <div class="sp-items">
+                    @forelse($groupedItems as $it)
+                        <div class="sp-item">
+                            <div class="order-img-wrap">
+                                @if(!empty($it['image']))
+                                    <img class="order-img" src="{{ $it['image'] }}" alt="">
+                                @else
+                                    <span class="sp-item__none">No image</span>
+                                @endif
+                            </div>
+                            <div class="sp-item__body">
+                                <span class="sp-item__name">{{ $it['name'] !== '' ? $it['name'] : 'Unnamed product' }}</span>
+                                <div class="sp-item__meta">
+                                    @if(trim((string) $it['sku']) !== '')
+                                        <span class="sp-item__sku">{{ $it['sku'] }}</span>
+                                    @endif
+                                    @if(trim((string) $it['variation']) !== '')
+                                        <span class="sp-item__var">{{ $it['variation'] }}</span>
+                                    @endif
                                 </div>
-                            </td>
-                        </tr>
+                            </div>
+                            <span class="sp-item__qty">&times;{{ $it['quantity'] }}</span>
+                        </div>
+                    @empty
+                        <span class="sp-empty-mark">No items recorded</span>
+                    @endforelse
+                </div>
+            </td>
+
+            <td class="sp-col-buyer" data-label="Buyer">
+                @if($buyer !== '')
+                    <span class="sp-buyer">{{ $buyer }}</span>
+                @else
+                    <span class="sp-buyer sp-empty-mark">Not recorded</span>
+                @endif
+            </td>
+
+            <td class="sp-col-total" data-label="Total">
+                <span class="sp-total">
+                    @if($totalAmount !== null && $totalAmount !== '' && is_numeric($totalAmount))
+                        {{ $currencyCode !== ''
+                            ? \App\Support\Money::foreign((float) $totalAmount, $currencyCode)
+                            : \App\Support\Money::base((float) $totalAmount) }}
+                    @elseif($totalAmount !== null && $totalAmount !== '')
+                        {{ $totalAmount }}
+                    @else
+                        <span class="sp-empty-mark">Not recorded</span>
+                    @endif
+                </span>
+                @if($paymentMethod)
+                    <span class="sp-total__method">{{ $paymentMethod }}</span>
+                @endif
+            </td>
+
+            <td class="sp-col-status" data-label="Status">
+                <div class="sp-status">
+                    <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+                    <x-sla-chip :deadline="$shipBy" />
+                    @if($courier)
+                        <span class="sp-ship">{{ $courier }}@if($trackingNo) <span class="sp-ship__no">{{ $trackingNo }}</span>@endif</span>
+                    @endif
+                </div>
+            </td>
+
+            <td class="sp-col-act">
+                @if($orderSn)
+                <div class="sp-actions">
+                    @if($isToPack && $canManageShopeeOrders)
+                        {{-- The one action the row's own status is waiting on
+                             gets a control of its own. Everything else lives
+                             behind the overflow menu, so a hundred-row page
+                             carries a handful of controls rather than three
+                             hundred. --}}
+                        <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
+                                data-order-sn="{{ $orderSn }}">Arrange shipment</button>
                     @endif
 
-                    @php
-                        $displayItems = !empty($groupedItems) ? $groupedItems : $items;
-                        if (!is_array($displayItems)) { $displayItems = []; }
-                        if (empty($displayItems)) { $displayItems = [ [] ]; }
-                        $lineCount = count($displayItems);
-                    @endphp
+                    <x-invoice-request-modal :invoice="$o->buyer_invoice" :reference="$orderSn" />
 
-                    @foreach($displayItems as $idx => $it)
-                    <tr>
-                        <td style="vertical-align:top;">
-                            @php
-                                $itRaw = $it['raw'] ?? $it;
-                                $name = (string)($it['name'] ?? $itRaw['item_name'] ?? '');
-                                $sku = (string)($it['sku'] ?? $itRaw['item_sku'] ?? $itRaw['model_sku'] ?? '');
-                                $variation = (string)($it['variation'] ?? $itRaw['model_name'] ?? '');
-                                $img = (string)($it['image'] ?? $itRaw['image_info']['image_url'] ?? '');
-                            @endphp
-
-                            <div class="d-flex gap-10">
-                                <div class="order-img-wrap">
-                                    @if($img)
-                                        <img class="order-img" src="{{ $img }}" alt="" >
-                                    @else
-                                        <span class="text-xs text-muted">No image</span>
-                                    @endif
-                                </div>
-                                <div style="min-width:0;">
-                                    <div class="font-semibold" style="word-break:break-word;">
-                                        @if($orderSn)
-                                            <a href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">
-                                                {{ $name !== '' ? $name : '—' }}
-                                            </a>
-                                        @else
-                                            {{ $name !== '' ? $name : '—' }}
-                                        @endif
-                                    </div>
-                                    <div class="text-xs" style="margin-top:3px;">
-                                        <span class="text-secondary">SKU:</span> <strong>{{ $sku !== '' ? $sku : '—' }}</strong>
-                                    </div>
-                                    @if($variation !== '')
-                                        <div class="order-option-wrap">
-                                            <span class="order-option-label shopee-label">Option</span>
-                                            <span class="order-option-pill">{{ $variation }}</span>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </td>
-                        <td style="vertical-align:top;">
-                            @php
-                                $qty = max(1, (int)($it['quantity'] ?? 1));
-                            @endphp
-                            <div class="font-bold">x{{ $qty }}</div>
-                        </td>
-                        <td style="vertical-align:top;">
-                            @php
-                                $unitPrice = $it['price'] ?? null;
-                            @endphp
-                            <div class="font-bold">
-                                @if($unitPrice !== null && $unitPrice !== '')
-                                    {{ is_numeric($unitPrice) ? $currency . number_format((float)$unitPrice, 2) : $unitPrice }}
-                                @else
-                                    —
-                                @endif
-                            </div>
-                        </td>
-
-                        @if($idx === 0)
-                        <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                            <div class="font-bold">
-                                @if($totalAmount !== null && $totalAmount !== '')
-                                    {{ is_numeric($totalAmount) ? $currency . number_format((float)$totalAmount, 2) : $totalAmount }}
-                                @else
-                                    —
-                                @endif
-                            </div>
-                            @if($paymentMethod)
-                                <div style="margin-top:6px;">
-                                    <span class="badge badge-gray">{{ $paymentMethod }}</span>
-                                </div>
-                            @endif
-                        </td>
-                        <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                            <div class="font-semibold">{{ $courier ?: '—' }}</div>
-                            @if($trackingNo)
-                                <div class="text-xs text-secondary" style="margin-top:4px;">Tracking: <span style="color:var(--text-primary);">{{ $trackingNo }}</span></div>
-                            @endif
-                        </td>
-                        <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                            <div class="font-bold" @if($isFailedDelivery) style="color:#e53e3e;" @endif>{{ $statusStr !== '' ? $statusStr : '—' }}</div>
-                            <x-sla-chip :deadline="$shipBy" />
-                        </td>
-                        <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                            @if(!$orderSn)
-                                <span class="text-muted">N/A</span>
-                            @elseif($isUnpaid)
-                                <span class="text-muted">—</span>
-                            @else
-                                <div class="d-flex gap-8 flex-wrap items-center">
-                                    @if($isToPack)
-                                        <button type="button" class="btn small btnArrangeShipment" data-order-sn="{{ $orderSn }}">Arrange Shipment</button>
-                                    @endif
-
-                                    @if(!$isToPack)
-                                        <a href="{{ route('ext.shopee.orders.awb', ['orderSn' => $orderSn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" class="btn small">Print AWB</a>
-                                    @endif
-
-                                    @if($isToHandover || $isShipped)
-                                        <button type="button"
-                                                class="btnShopeeTracking btn small secondary"
-                                                data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">
-                                            Tracking #
-                                        </button>
-                                    @endif
-
-                                    <x-invoice-request-modal :invoice="$o->buyer_invoice" :reference="$orderSn" />
-                                </div>
-                            @endif
-                        </td>
+                    <x-ui.menu label="Order {{ $orderSn }} actions">
+                        <a class="x-menu__item" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">Open order</a>
+                        @if(!$isToPack && !$isUnpaid)
+                            <a class="x-menu__item" href="{{ route('ext.shopee.orders.awb', ['orderSn' => $orderSn]) }}"
+                               target="_blank" rel="noopener">Print waybill</a>
                         @endif
-                    </tr>
-                    @endforeach
-                @endforeach
-            </tbody>
-        </table>
-        </div>
-    @endif
+                        @if($isToHandover || $isShipped)
+                            <button type="button" class="btnShopeeTracking x-menu__item"
+                                    data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">Tracking</button>
+                        @endif
+                    </x-ui.menu>
+                </div>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
 
-    <div style="padding:12px 0 0;">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($orders->firstItem() ?? 0) }} to {{ number_format($orders->lastItem() ?? 0) }} of {{ number_format($orders->total()) }}</span>
+    <div class="x-pager__nav">
+        @if($orders->previousPageUrl())
+            <x-ui.button size="sm" :href="$orders->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true"><x-ui.icon name="chevron-left" size="14" /> Previous</span>
+        @endif
+        @if($orders->nextPageUrl())
+            <x-ui.button size="sm" :href="$orders->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true">Next <x-ui.icon name="chevron-right" size="14" /></span>
+        @endif
+    </div>
 </div>
+@endif
 
-
-{{-- Ship method modal --}}
+{{-- Ship method modal.
+     Every id below is queried by the page script at the bottom of this file
+     and must not change. Two inline display styles survive on purpose: the
+     script reveals step two with .style.display = '', which falls back to
+     the stylesheet, so #shipStep2 and #shipStep2Content must not be hidden
+     from CSS. They are hidden here for the initial state only. --}}
 <div id="spShipModal" class="modal-backdrop">
-    <div class="modal" style="max-width:520px;">
-        <div class="modal-header">
-            <h3>Arrange Shipment</h3>
-            <button type="button" id="btnCloseShip" class="modal-close">&times;</button>
+    <div class="modal sp-modal">
+        <div class="modal-header sp-modal__head">
+            <h3 class="sp-modal__title">Arrange shipment</h3>
+            <button type="button" id="btnCloseShip" class="modal-close sp-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div style="margin-top:12px;">
-            <div class="text-secondary text-sm">Order: <strong id="spShipOrderSn"></strong></div>
-        </div>
+        <div class="sp-modal__meta">Order <strong id="spShipOrderSn"></strong></div>
 
         {{-- Step 1: Choose shipping type --}}
         <div id="shipStep1">
-            <div class="text-sm" style="margin-top:10px;">How will this order be shipped?</div>
-            <div class="d-flex gap-10" style="margin-top:16px;">
-                <button type="button" class="btn secondary btnShipChoice" data-type="dropoff" style="flex:1;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                    Drop Off
+            <p class="sp-modal__prompt">How will this order be shipped?</p>
+            <div class="sp-modal__choices">
+                <button type="button" class="btnShipChoice x-btn x-btn--secondary" data-type="dropoff">
+                    <x-ui.icon name="map-pin" size="14" />
+                    Drop off
                 </button>
-                <button type="button" class="btn btnShipChoice" data-type="pickup" style="flex:1;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                <button type="button" class="btnShipChoice x-btn x-btn--secondary" data-type="pickup">
+                    <x-ui.icon name="truck" size="14" />
                     Pickup
                 </button>
             </div>
@@ -471,18 +488,18 @@
 
         {{-- Step 2: Address/branch selection --}}
         <div id="shipStep2" style="display:none;">
-            <div id="shipStep2Loading" class="d-flex items-center gap-10" style="margin-top:12px;">
-                <div aria-hidden="true" style="width:16px; height:16px; border:3px solid #cbd5e1; border-top-color:var(--accent); border-radius:50%; animation:spSpin 0.8s linear infinite;"></div>
-                <span class="text-secondary text-sm">Loading addresses…</span>
+            <div id="shipStep2Loading" class="sp-modal__loading">
+                <span class="sp-spinner" aria-hidden="true"></span>
+                <span>Loading addresses</span>
             </div>
-            <div id="shipStep2Content" style="display:none; margin-top:12px;"></div>
-            <div class="d-flex gap-10" style="margin-top:16px;">
-                <button type="button" id="btnShipBack" class="btn secondary" style="flex:0;">← Back</button>
-                <button type="button" id="btnShipConfirm" class="btn" style="flex:1;" disabled>Confirm & Ship</button>
+            <div id="shipStep2Content" class="sp-modal__body" style="display:none;"></div>
+            <div class="sp-modal__foot">
+                <button type="button" id="btnShipBack" class="x-btn x-btn--ghost">Back</button>
+                <button type="button" id="btnShipConfirm" class="x-btn x-btn--primary" disabled>Confirm and ship</button>
             </div>
         </div>
 
-        <form method="POST" id="formShipOrder" style="display:none;">
+        <form method="POST" id="formShipOrder" class="sp-hidden">
             @csrf
             <input type="hidden" name="shipping_type" id="shipTypeInput" value="">
             <input type="hidden" name="address_id" id="shipAddressInput" value="">
@@ -493,12 +510,12 @@
 
 {{-- Loading overlay --}}
 <div id="spLoadingOverlay" class="modal-backdrop">
-    <div class="modal" style="max-width:420px;">
-        <div class="d-flex items-center gap-12">
-            <div aria-hidden="true" style="width:18px; height:18px; border:3px solid #cbd5e1; border-top-color:var(--accent); border-radius:50%; animation:spSpin 0.8s linear infinite;"></div>
+    <div class="modal sp-modal sp-modal--sm">
+        <div class="sp-progress">
+            <span class="sp-spinner sp-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div id="spLoadingTitle" class="font-bold">Fetching orders…</div>
-                <div class="text-xs text-secondary" style="margin-top:2px;">Please keep this tab open.</div>
+                <div id="spLoadingTitle" class="sp-progress__title">Fetching orders</div>
+                <div class="sp-progress__note">Please keep this tab open.</div>
             </div>
         </div>
     </div>
@@ -506,16 +523,16 @@
 
 {{-- Tracking modal --}}
 <div id="spTrackingModal" class="modal-backdrop">
-    <div class="modal" style="max-width:480px;">
-        <div class="modal-header">
-            <h3>Tracking</h3>
-            <button type="button" id="btnCloseTracking" class="modal-close">&times;</button>
+    <div class="modal sp-modal sp-modal--md">
+        <div class="modal-header sp-modal__head">
+            <h3 class="sp-modal__title">Tracking</h3>
+            <button type="button" id="btnCloseTracking" class="modal-close sp-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div id="spTrackingBody" class="mt-12">
-            <div class="text-secondary">Loading…</div>
+        <div id="spTrackingBody" class="sp-modal__body">
+            <div class="text-secondary">Loading</div>
         </div>
-        <div class="d-flex gap-10 justify-end mt-16">
-            <button type="button" id="btnTrackingClose2" class="btn secondary">Close</button>
+        <div class="sp-modal__foot sp-modal__foot--end">
+            <button type="button" id="btnTrackingClose2" class="x-btn x-btn--secondary">Close</button>
         </div>
     </div>
 </div>
@@ -913,5 +930,5 @@ document.addEventListener('DOMContentLoaded', function () {
     }, false);
 })();
 </script>
-</div>{{-- /.marketplace-shopee --}}
+</div>{{-- /#shopee-orders-page --}}
 @endsection

@@ -35,6 +35,7 @@
 @import './components/detail.css';
 @import './components/modals.css';
 @import './components/permission-pill.css';
+@import './components/segment.css';
 @import './components/ui-controls.css';
 @import './components/ui-table.css';
 @import './components/ui-hub.css';
@@ -45,6 +46,7 @@
 @import './pages/marketplace-common.css';
 @import './pages/marketplace-orders.css';
 @import './pages/marketplace-returns.css';
+@import './pages/shopee-orders.css';
 @import './pages/api-explorer.css';
 @import './pages/reports.css';
 @import './pages/opencart.css';
