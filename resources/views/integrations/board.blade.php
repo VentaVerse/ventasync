@@ -19,9 +19,9 @@
             </header>
 
             <dl class="x-board__health">
-                <div><dt>Last sync</dt><dd class="x-num">{{ $c['lastSync'] ?? 'not tracked' }}</dd></div>
-                <div><dt>Token expires</dt><dd class="x-num">{{ $c['tokenExpiry'] ?? 'not tracked' }}</dd></div>
-                <div><dt>Errors, 24h</dt><dd class="x-num">{{ $c['errors24h'] ?? 'not tracked' }}</dd></div>
+                <div><dt>Last sync</dt><dd class="x-num @if(is_null($c['lastSync'])) x-board__health-value--empty @endif">{{ $c['lastSync'] ?? 'not tracked' }}</dd></div>
+                <div><dt>Token expires</dt><dd class="x-num @if(is_null($c['tokenExpiry'])) x-board__health-value--empty @endif">{{ $c['tokenExpiry'] ?? 'not tracked' }}</dd></div>
+                <div><dt>Errors, 24h</dt><dd class="x-num @if(is_null($c['errors24h'])) x-board__health-value--empty @endif">{{ $c['errors24h'] ?? 'not tracked' }}</dd></div>
             </dl>
 
             <footer class="x-board__foot">

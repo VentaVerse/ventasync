@@ -950,6 +950,18 @@
 .x-board__health dt { font-size: 12px; color: var(--text-muted); }
 .x-board__health dd { margin: 0; font-size: 12px; color: var(--text-secondary); }
 
+/* "not tracked" (token expiry with no OAuth on this channel, error counts
+   with api_logging off) must not read as a value at a glance the way a
+   real reading does. Italic plus the dimmer --text-muted token marks it as
+   an absent measurement rather than data - a solid token, not opacity:
+   --text-muted at reduced opacity over a card surface drops well under
+   the 4.5:1 floor (see the --text-muted note in base/tokens.css), while
+   used solid it already clears 4.5:1 in both themes (4.58 light / 4.56
+   dark, worst case surface-hover, per the I3 matrix there). A genuine 0
+   (errors24h logged and clean) is never null, so it always keeps the
+   solid --text-secondary treatment real values get. */
+.x-board__health-value--empty { color: var(--text-muted); font-style: italic; }
+
 .x-board__foot { display: flex; gap: var(--space-2); }
 
 @media (max-width: 640px) { .x-board { grid-template-columns: 1fr; } }

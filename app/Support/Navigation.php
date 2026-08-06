@@ -52,7 +52,7 @@ class Navigation
                  'keywords' => ['supplier', 'seller', 'source']],
             ]],
 
-            ['label' => 'Warehousing', 'icon' => 'package', 'items' => [
+            ['label' => 'Warehousing', 'icon' => 'archive', 'items' => [
                 ['label' => 'Transfers', 'route' => 'ext.warehousing.transfers.index',
                  'keywords' => ['move', 'stock transfer', 'location']],
                 ['label' => 'Inventory', 'route' => 'ext.warehousing.inventory.index',
@@ -76,7 +76,7 @@ class Navigation
                  'keywords' => ['stock value', 'on hand']],
             ]],
 
-            ['label' => 'Petty Cash', 'icon' => 'coins', 'route' => 'ext.pettycash.index',
+            ['label' => 'Petty Cash', 'icon' => 'wallet', 'route' => 'ext.pettycash.index',
              'keywords' => ['expense', 'cash', 'reimbursement', 'float']],
 
             ['label' => 'Integrations', 'icon' => 'plug', 'route' => 'integrations.index',

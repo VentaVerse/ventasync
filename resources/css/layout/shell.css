@@ -9,20 +9,28 @@
 }
 .x-sidebar__brand { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2); min-width: 0; }
 .x-sidebar__mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); flex: none; }
-/* Long company names (e.g. "SHA Musical Goods Trading") wrapped to a
-   second line with no width constraint, pushing the nav down. min-width: 0
-   is required on a flex item before overflow/ellipsis has any effect - a
-   flex item's default min-width is auto (its content size), which ignores
-   overflow rules entirely until overridden. Full name is still available
-   via the title attribute on hover. */
+/* Long company names (e.g. "SHA Musical Goods Trading") get two lines at
+   a tighter line-height instead of a mid-word single-line ellipsis, which
+   at 1440px with no width pressure read as broken rather than deliberate.
+   -webkit-line-clamp caps it at two lines and only ellipsises past that,
+   so a name too long even for two lines still degrades gracefully instead
+   of pushing the nav down. min-width: 0 is required on a flex item before
+   overflow/line-clamp has any effect - a flex item's default min-width is
+   auto (its content size), which ignores overflow rules entirely until
+   overridden. Full name is still available via the title attribute on
+   hover, unaffected by any of this. */
 .x-sidebar__name {
-    font-size: 13px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 12px;
     font-weight: 600;
+    line-height: 1.3;
     color: var(--text);
     min-width: 0;
     overflow: hidden;
-    white-space: nowrap;
     text-overflow: ellipsis;
+    word-break: break-word;
 }
 
 .x-nav { display: flex; flex-direction: column; gap: 2px; }
