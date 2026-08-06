@@ -131,7 +131,12 @@
 .x-theme__btn:hover { color: var(--text); }
 .x-theme__btn.is-on { background: var(--surface); color: var(--text); }
 
-.x-content { flex: 1; padding: var(--space-5); }
+/* The house width rule, decided by the owner 2026-08-07: content is centered
+   and capped at 1400px. Left open since sub-project 1 (/settings capped
+   itself at 1040 while /sales/orders ran full width); wide monitors were
+   stretching working tables into sprawl. Pages that cap themselves
+   narrower, like the settings hub, just sit centered inside this. */
+.x-content { flex: 1; width: 100%; max-width: 1400px; margin-inline: auto; padding: var(--space-5); }
 
 .x-page-title { margin: 0 0 var(--space-1); font-size: 20px; line-height: 28px; font-weight: 600; color: var(--text); }
 .x-page-sub { margin: 0 0 var(--space-5); font-size: 13px; color: var(--text-muted); }

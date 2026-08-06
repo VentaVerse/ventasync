@@ -250,13 +250,26 @@
 
 /* The legacy column format, per the owner: Products | Qty | Price | Amount |
    Shipping | Status | Actions, with the order facts in a band above each
-   order's item rows. Products is the one flexible column. */
+   order's item rows.
+
+   Products is capped, not flexible: when it absorbed the spare table width,
+   the Qty column started wherever the screen ended the cell, putting the
+   multiplier half a screen away from short product names. Capping it keeps
+   Qty hugging the product text; the spare width moves to the Actions
+   column at the table's far edge, whose buttons anchor right, which is
+   where slack belongs. */
+.sp-col-products { width: 400px; }
 .sp-col-qty    { width: 56px; }
 .sp-col-price  { width: 116px; }
 .sp-col-total  { width: 132px; }
 .sp-col-ship   { width: 148px; }
 .sp-col-status { width: 158px; }
-.sp-col-act    { width: 236px; }
+/* No width: Actions absorbs the remaining table width. */
+
+
+@media (max-width: 1100px) {
+    .sp-col-products { width: 320px; }
+}
 
 /* Verification-grade row density. The system default row is built for
    scanning single-line records; a fulfilment row carries an image the
@@ -446,7 +459,10 @@
 /* Rowspanned cells (amount, shipping, status, actions) span the dashed
    dividers by construction, nothing to override. */
 
-.sp-courier { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+/* Shipping column carrier. Named sp-carrier, not sp-courier: that class is
+   the To Ship workflow's courier summary chip (bordered, padded), and the
+   collision was dressing the carrier name in the Shipping cell as a chip. */
+.sp-carrier { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
 
 .sp-empty-mark { color: var(--text-muted); }
 
