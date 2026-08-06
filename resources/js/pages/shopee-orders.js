@@ -1,0 +1,545 @@
+/**
+ * Shopee Orders page (extensions/shopee/views/orders/index.blade.php).
+ *
+ * This used to be a ~400 line inline <script> block at the bottom of that
+ * Blade file. It is moved here as part of the page's exit from the
+ * .x-legacy boundary: a new-UX page owns no inline script, same as it owns
+ * no inline style. Bundled into the shared app.js (every layout loads it),
+ * guarded on #shopee-orders-page, so it is inert everywhere else - the same
+ * convention orders-filter.js and confirm-modal.js already use for their
+ * own root elements.
+ *
+ * Behaviour is unchanged from the inline version: same endpoints, same POST
+ * fields, same success/failure handling, same window.showFlashError /
+ * showFlashSuccess calls (defined by legacy-flash.js, also bundled into
+ * app.js so both are guaranteed present together).
+ *
+ * Two defects fixed while moving, both logged in the Task 2 report:
+ *
+ *   1. The address panel the ship modal built for the pickup/drop-off step
+ *      assembled an HTML string from data returned by Shopee's own API
+ *      (addresses, flags, branch lists) and wrote it straight into the DOM,
+ *      including hardcoded hex colours baked into that string (#16a34a,
+ *      #2563eb, #6b7280). Writing markup built from fetched data straight
+ *      into the DOM is a stored-XSS surface if that API ever returns a
+ *      value containing markup, and the hex values could not be reskinned
+ *      for dark theme. Every one of those strings is now
+ *      createElement/textContent construction, and the colours are CSS
+ *      classes (.sp-ship-addr, .sp-ship-flag--*) built from the token set
+ *      in shopee-orders.css. The tracking modal's event rows and the hover
+ *      image preview also used to build one static <img> tag the same way;
+ *      converted for consistency so no code path in this module writes
+ *      markup into the DOM as a string.
+ *
+ *   2. #shipStep2 and #shipStep2Content carried an inline style="display:
+ *      none" in the Blade markup because the old script revealed them with
+ *      .style.display = '', which falls back to the stylesheet. Both are
+ *      now toggled with the .sp-hidden class (added by Task 1's CSS,
+ *      already used on #formShipOrder), on all four step elements
+ *      (shipStep1, shipStep2, shipStep2Loading, shipStep2Content) so the
+ *      show/hide mechanism is consistent across the whole flow rather than
+ *      three of the four using inline styles and one using a class.
+ *
+ * The C1 lesson (this file's own docblock references it): a failure path
+ * that does not re-enable the button it disabled strands the operator with
+ * no way to retry. Every fetch().catch() and every `!data.ok` branch below
+ * re-enables whatever button it disabled and hides whatever overlay it
+ * showed before returning - checked one at a time against the original.
+ */
+document.addEventListener('DOMContentLoaded', function () {
+    var page = document.getElementById('shopee-orders-page');
+    if (!page) return;
+
+    initFetchUpdateOverlay();
+    initShipModal();
+    initTrackingModal();
+    initImagePreview();
+
+    /* ------------------------------------------------------------------
+       Loading overlay on Fetch / Update / Fetch returns.
+       ------------------------------------------------------------------ */
+    function initFetchUpdateOverlay() {
+        var overlay = document.getElementById('spLoadingOverlay');
+        var fetchForm = document.getElementById('formFetchShopeeOrders');
+
+        var clickedBtn = null;
+        var fetchBtn = document.getElementById('btnFetchOrders');
+        var updateBtn = document.getElementById('btnUpdateOrders');
+
+        if (fetchBtn) fetchBtn.addEventListener('click', function () { clickedBtn = 'fetch'; });
+        if (updateBtn) updateBtn.addEventListener('click', function () { clickedBtn = 'update'; });
+
+        if (fetchForm) {
+            fetchForm.addEventListener('submit', function (e) {
+                // Require From/To dates.
+                var dateFrom = fetchForm.querySelector('input[name="date_from"]');
+                var dateTo = fetchForm.querySelector('input[name="date_to"]');
+                if (!dateFrom.value || !dateTo.value) {
+                    e.preventDefault();
+                    window.showFlashError('Please provide both From and To dates.');
+                    return;
+                }
+                if (overlay) {
+                    document.getElementById('spLoadingTitle').textContent = (clickedBtn === 'update') ? 'Updating orders…' : 'Fetching orders…';
+                    overlay.style.display = 'flex';
+                }
+            });
+        }
+
+        // Not present on this page today (Returns is its own page); left in
+        // place, exactly as the inline script guarded it, in case a future
+        // layout change embeds the returns fetch form here too.
+        var fetchReturnsForm = document.getElementById('formFetchReturns');
+        if (fetchReturnsForm && overlay) {
+            fetchReturnsForm.addEventListener('submit', function () {
+                setTimeout(function () {
+                    overlay.style.display = 'flex';
+                    document.getElementById('spLoadingTitle').textContent = 'Fetching returns…';
+                }, 50);
+            });
+        }
+    }
+
+    /* ------------------------------------------------------------------
+       Ship method modal: choice -> address/branch fetch -> confirm.
+       ------------------------------------------------------------------ */
+    function initShipModal() {
+        var overlay = document.getElementById('spLoadingOverlay');
+        var shipModal = document.getElementById('spShipModal');
+        var shipOrderSnEl = document.getElementById('spShipOrderSn');
+        var shipForm = document.getElementById('formShipOrder');
+        var shipTypeInput = document.getElementById('shipTypeInput');
+        var shipAddressInput = document.getElementById('shipAddressInput');
+        var shipBranchInput = document.getElementById('shipBranchInput');
+        var shipStep1 = document.getElementById('shipStep1');
+        var shipStep2 = document.getElementById('shipStep2');
+        var shipStep2Loading = document.getElementById('shipStep2Loading');
+        var shipStep2Content = document.getElementById('shipStep2Content');
+        var btnShipConfirm = document.getElementById('btnShipConfirm');
+        var btnShipBack = document.getElementById('btnShipBack');
+        if (!shipModal) return;
+
+        var currentShipOrderSn = '';
+        var currentShipType = '';
+
+        function hide(el) { el.classList.add('sp-hidden'); }
+        function show(el) { el.classList.remove('sp-hidden'); }
+
+        function clearContent() {
+            while (shipStep2Content.firstChild) {
+                shipStep2Content.removeChild(shipStep2Content.firstChild);
+            }
+        }
+
+        // Replaces every one-line "write a <div class=...>text</div>
+        // string into the container" call from the inline script: a single
+        // text node wrapped in the same class it used to carry.
+        function setContentMessage(text, className) {
+            clearContent();
+            var div = document.createElement('div');
+            div.className = className;
+            div.textContent = text;
+            shipStep2Content.appendChild(div);
+        }
+
+        function shipResetModal() {
+            show(shipStep1);
+            hide(shipStep2);
+            show(shipStep2Loading);
+            hide(shipStep2Content);
+            clearContent();
+            shipAddressInput.value = '';
+            shipBranchInput.value = '';
+            btnShipConfirm.disabled = true;
+            currentShipType = '';
+        }
+
+        // Pickup: one auto-selected address plus its flags, rendered as
+        // tone-coded chips (Shopee's own address flags -
+        // pickup_address / return_address / anything else).
+        function renderPickupAddress(addresses) {
+            if (addresses.length === 0) {
+                setContentMessage('No pickup addresses available.', 'text-secondary');
+                return;
+            }
+
+            var autoAddr = null;
+            addresses.forEach(function (addr) {
+                if (!autoAddr && (addr.address_flag || []).indexOf('pickup_address') !== -1) {
+                    autoAddr = addr;
+                }
+            });
+            if (!autoAddr) autoAddr = addresses[0];
+
+            shipAddressInput.value = autoAddr.address_id || 0;
+            var addrParts = [autoAddr.address, autoAddr.city, autoAddr.state, autoAddr.district]
+                .filter(function (p) { return p && p !== ''; });
+            var flags = autoAddr.address_flag || [];
+
+            clearContent();
+
+            var label = document.createElement('div');
+            label.className = 'sp-ship-addr-label';
+            label.textContent = 'Pickup address (auto-selected):';
+            shipStep2Content.appendChild(label);
+
+            var box = document.createElement('div');
+            box.className = 'sp-ship-addr';
+
+            var text = document.createElement('div');
+            text.className = 'text-sm';
+            text.textContent = addrParts.join(', ');
+            box.appendChild(text);
+
+            if (flags.length > 0) {
+                var flagsWrap = document.createElement('div');
+                flagsWrap.className = 'sp-ship-addr__flags';
+                flags.forEach(function (f) {
+                    var tone = f === 'pickup_address' ? 'pickup' : (f === 'return_address' ? 'return' : 'other');
+                    var chip = document.createElement('span');
+                    chip.className = 'sp-ship-flag sp-ship-flag--' + tone;
+                    chip.textContent = f.replace(/_/g, ' ');
+                    flagsWrap.appendChild(chip);
+                });
+                box.appendChild(flagsWrap);
+            }
+
+            shipStep2Content.appendChild(box);
+            btnShipConfirm.disabled = false;
+        }
+
+        // Drop-off: a list of branches, first one pre-selected, same as the
+        // original `checked = i === 0`.
+        function renderDropoffBranches(branches) {
+            if (branches.length === 0) {
+                setContentMessage('No drop-off branches available. The order will be shipped without branch selection.', 'text-secondary');
+                btnShipConfirm.disabled = false;
+                return;
+            }
+
+            clearContent();
+
+            var label = document.createElement('div');
+            label.className = 'sp-ship-addr-label';
+            label.textContent = 'Select drop-off branch:';
+            shipStep2Content.appendChild(label);
+
+            branches.forEach(function (branch, i) {
+                var addrParts = [branch.address, branch.city, branch.state, branch.district]
+                    .filter(function (p) { return p && p !== ''; });
+
+                var row = document.createElement('label');
+                row.className = 'sp-ship-branch';
+
+                var body = document.createElement('div');
+                body.className = 'd-flex items-start gap-10';
+
+                var radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'ship_branch';
+                radio.value = branch.branch_id || 0;
+                radio.className = 'sp-ship-branch__radio';
+                if (i === 0) radio.checked = true;
+
+                var textWrap = document.createElement('div');
+                textWrap.className = 'sp-ship-branch__text';
+                var text = document.createElement('div');
+                text.className = 'text-sm';
+                text.textContent = addrParts.join(', ');
+                textWrap.appendChild(text);
+
+                body.appendChild(radio);
+                body.appendChild(textWrap);
+                row.appendChild(body);
+                shipStep2Content.appendChild(row);
+
+                if (i === 0) shipBranchInput.value = branch.branch_id || 0;
+            });
+
+            btnShipConfirm.disabled = false;
+        }
+
+        document.querySelectorAll('.btnArrangeShipment').forEach(function (el) {
+            el.addEventListener('click', function () {
+                currentShipOrderSn = el.getAttribute('data-order-sn');
+                shipOrderSnEl.textContent = currentShipOrderSn;
+                shipForm.action = '/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
+                shipResetModal();
+                shipModal.style.display = 'flex';
+            });
+        });
+
+        document.querySelectorAll('.btnShipChoice').forEach(function (el) {
+            el.addEventListener('click', function () {
+                currentShipType = el.getAttribute('data-type');
+                shipTypeInput.value = currentShipType;
+                hide(shipStep1);
+                show(shipStep2);
+                show(shipStep2Loading);
+                hide(shipStep2Content);
+
+                fetch('/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
+                    headers: { 'Accept': 'application/json' }
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    hide(shipStep2Loading);
+                    show(shipStep2Content);
+
+                    if (!data.ok) {
+                        setContentMessage(data.message || 'Failed to load addresses.', 'alert danger');
+                        return;
+                    }
+
+                    if (currentShipType === 'pickup') {
+                        var addresses = (data.pickup && data.pickup.address_list) ? data.pickup.address_list : [];
+                        renderPickupAddress(addresses);
+                    } else {
+                        var branches = (data.dropoff && data.dropoff.branch_list) ? data.dropoff.branch_list : [];
+                        renderDropoffBranches(branches);
+                    }
+
+                    // Listen for radio changes.
+                    shipStep2Content.querySelectorAll('input[type=radio]').forEach(function (radio) {
+                        radio.addEventListener('change', function () {
+                            if (currentShipType === 'pickup') {
+                                shipAddressInput.value = radio.value;
+                            } else {
+                                shipBranchInput.value = radio.value;
+                            }
+                        });
+                    });
+                })
+                .catch(function () {
+                    hide(shipStep2Loading);
+                    show(shipStep2Content);
+                    setContentMessage('Network error loading addresses.', 'alert danger');
+                });
+            });
+        });
+
+        btnShipBack.addEventListener('click', function () {
+            show(shipStep1);
+            hide(shipStep2);
+        });
+
+        btnShipConfirm.addEventListener('click', function () {
+            btnShipConfirm.disabled = true;
+            shipModal.style.display = 'none';
+
+            if (overlay) {
+                overlay.style.display = 'flex';
+                document.getElementById('spLoadingTitle').textContent = 'Shipping order…';
+            }
+
+            var csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfToken) csrfToken = shipForm.querySelector('input[name="_token"]');
+            var token = csrfToken ? (csrfToken.content || csrfToken.value) : '';
+
+            var formData = new FormData(shipForm);
+
+            fetch(shipForm.action, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
+                body: formData
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.ok) {
+                    if (overlay) overlay.style.display = 'none';
+                    window.showFlashError('Ship failed: ' + (data.message || 'Unknown error'));
+                    btnShipConfirm.disabled = false;
+                    return;
+                }
+
+                // Ship succeeded - now poll for the AWB.
+                if (overlay) {
+                    document.getElementById('spLoadingTitle').textContent = 'Generating AWB…';
+                }
+
+                var awbUrl = '/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/awb';
+                var awbAttempts = 0;
+                var maxAttempts = 20;
+
+                function pollAwb() {
+                    awbAttempts++;
+                    fetch(awbUrl, { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (awbData) {
+                        if (awbData.ok && awbData.ready) {
+                            // AWB ready - open in a new tab and reload the page.
+                            if (overlay) overlay.style.display = 'none';
+                            window.open(awbUrl, '_blank');
+                            location.reload();
+                        } else if (awbAttempts < maxAttempts) {
+                            setTimeout(pollAwb, 3000);
+                        } else {
+                            // Timed out - let the operator know and reload.
+                            if (overlay) overlay.style.display = 'none';
+                            window.showFlashError('Order shipped successfully but AWB is still being generated by Shopee. Use the Print AWB button to try again.');
+                            location.reload();
+                        }
+                    })
+                    .catch(function () {
+                        if (awbAttempts < maxAttempts) {
+                            setTimeout(pollAwb, 3000);
+                        } else {
+                            if (overlay) overlay.style.display = 'none';
+                            window.showFlashError('Order shipped successfully but could not generate AWB. Use the Print AWB button to try again.');
+                            location.reload();
+                        }
+                    });
+                }
+
+                // Start polling after a short initial delay.
+                setTimeout(pollAwb, 2000);
+            })
+            .catch(function () {
+                if (overlay) overlay.style.display = 'none';
+                window.showFlashError('Network error while shipping order.');
+                btnShipConfirm.disabled = false;
+            });
+        });
+
+        var closeShip = function () { shipModal.style.display = 'none'; };
+        var btnCloseShip = document.getElementById('btnCloseShip');
+        if (btnCloseShip) btnCloseShip.addEventListener('click', closeShip);
+        shipModal.addEventListener('click', function (e) { if (e.target === shipModal) closeShip(); });
+    }
+
+    /* ------------------------------------------------------------------
+       Tracking modal.
+       ------------------------------------------------------------------ */
+    function initTrackingModal() {
+        var trackingModal = document.getElementById('spTrackingModal');
+        var trackingBody = document.getElementById('spTrackingBody');
+        if (!trackingModal) return;
+
+        var closeTracking = function () { trackingModal.classList.remove('active'); };
+        var btnCloseTracking = document.getElementById('btnCloseTracking');
+        var btnTrackingClose2 = document.getElementById('btnTrackingClose2');
+        if (btnCloseTracking) btnCloseTracking.addEventListener('click', closeTracking);
+        if (btnTrackingClose2) btnTrackingClose2.addEventListener('click', closeTracking);
+        trackingModal.addEventListener('click', function (e) { if (e.target === trackingModal) closeTracking(); });
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.btnShopeeTracking');
+            if (!btn) return;
+            var url = btn.getAttribute('data-url');
+            if (!url) return;
+            trackingBody.textContent = 'Loading…';
+            trackingModal.classList.add('active');
+
+            fetch(url, { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    trackingBody.textContent = '';
+                    if (!data.ok) {
+                        var err = document.createElement('div');
+                        err.className = 'text-danger';
+                        err.textContent = data.message || 'Error loading tracking info.';
+                        trackingBody.appendChild(err);
+                        return;
+                    }
+
+                    if (data.tracking_number) {
+                        var tnDiv = document.createElement('div');
+                        tnDiv.className = 'mb-8';
+                        var tnLabel = document.createElement('strong');
+                        tnLabel.textContent = 'Tracking: ';
+                        var tnValue = document.createElement('span');
+                        tnValue.textContent = data.tracking_number;
+                        tnDiv.appendChild(tnLabel);
+                        tnDiv.appendChild(tnValue);
+                        trackingBody.appendChild(tnDiv);
+                    }
+                    if (data.shipping_carrier) {
+                        var scDiv = document.createElement('div');
+                        scDiv.className = 'mb-8';
+                        var scLabel = document.createElement('strong');
+                        scLabel.textContent = 'Courier: ';
+                        var scValue = document.createElement('span');
+                        scValue.textContent = data.shipping_carrier;
+                        scDiv.appendChild(scLabel);
+                        scDiv.appendChild(scValue);
+                        trackingBody.appendChild(scDiv);
+                    }
+
+                    var events = data.tracking_info || [];
+                    if (!Array.isArray(events) || events.length === 0) {
+                        if (!data.tracking_number) {
+                            var empty = document.createElement('div');
+                            empty.className = 'text-secondary';
+                            empty.textContent = 'No tracking info available yet.';
+                            trackingBody.appendChild(empty);
+                        }
+                        return;
+                    }
+
+                    events.forEach(function (ev) {
+                        var row = document.createElement('div');
+                        row.className = 'sp-track-event';
+                        var time = document.createElement('div');
+                        time.className = 'text-xs text-secondary';
+                        var ts = ev.update_time || null;
+                        if (ts && typeof ts === 'number') {
+                            var dt = new Date(ts > 1e12 ? ts : ts * 1000);
+                            time.textContent = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0') + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+                        }
+                        var desc = document.createElement('div');
+                        desc.className = 'text-sm';
+                        desc.textContent = ev.description || '';
+                        row.appendChild(time);
+                        row.appendChild(desc);
+                        trackingBody.appendChild(row);
+                    });
+                })
+                .catch(function () {
+                    trackingBody.textContent = '';
+                    var errEl = document.createElement('div');
+                    errEl.className = 'text-danger';
+                    errEl.textContent = 'Failed to load tracking info.';
+                    trackingBody.appendChild(errEl);
+                });
+        });
+    }
+
+    /* ------------------------------------------------------------------
+       Thumbnail hover preview (order-img-wrap / img.order-img).
+       ------------------------------------------------------------------ */
+    function initImagePreview() {
+        var preview = document.createElement('div');
+        preview.className = 'order-img-preview';
+        var previewImg = document.createElement('img');
+        previewImg.src = '';
+        previewImg.alt = '';
+        preview.appendChild(previewImg);
+        document.body.appendChild(preview);
+
+        document.addEventListener('mouseover', function (e) {
+            var wrap = e.target.closest('.order-img-wrap');
+            if (!wrap) return;
+            var img = wrap.querySelector('img.order-img');
+            if (!img || !img.src) return;
+            previewImg.src = img.src;
+            var rect = wrap.getBoundingClientRect();
+            var top = rect.top + rect.height / 2 - 110;
+            var left = rect.right + 12;
+            if (left + 230 > window.innerWidth) left = rect.left - 232;
+            if (top + 220 > window.innerHeight) top = window.innerHeight - 224;
+            if (top < 4) top = 4;
+            preview.style.transformOrigin = (left < rect.left ? 'right' : 'left') + ' center';
+            preview.style.top = top + 'px';
+            preview.style.left = left + 'px';
+            preview.classList.add('visible');
+        }, false);
+
+        document.addEventListener('mouseout', function (e) {
+            var wrap = e.target.closest('.order-img-wrap');
+            if (!wrap) return;
+            var related = e.relatedTarget;
+            if (related && wrap.contains(related)) return;
+            preview.classList.remove('visible');
+        }, false);
+    }
+});

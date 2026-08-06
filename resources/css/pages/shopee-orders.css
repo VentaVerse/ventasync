@@ -484,11 +484,12 @@
 #shopee-orders-page .x-menu__panel { min-width: 180px; }
 
 /* ------------------------------------------------------------------
-   Modals. The DOM structure and every id stay exactly as the page's own
-   script expects them; only the skin is new. Two inline display styles
-   survive on purpose and are marked in the Blade: the script sets
-   .style.display = '' to reveal step two, which falls back to whatever CSS
-   says, so those two elements must not be hidden from CSS.
+   Modals. The DOM structure and every id stay exactly as
+   resources/js/pages/shopee-orders.js expects them; only the skin is new.
+   Step visibility is a single mechanism now: the .sp-hidden class, toggled
+   by the module for every step transition and for the initial state in the
+   Blade markup, rather than three transitions using inline styles and the
+   initial state using a fourth.
    ------------------------------------------------------------------ */
 
 .sp-modal {
@@ -598,6 +599,78 @@
 .sp-progress { display: flex; align-items: center; gap: var(--space-3); }
 .sp-progress__title { font-size: 13px; font-weight: 500; color: var(--text); }
 .sp-progress__note { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------------
+   Ship step two content: the pickup address card and the drop-off branch
+   list, both built by resources/js/pages/shopee-orders.js from the
+   response of GET /shopee/orders/{sn}/shipping-addresses. Replaces markup
+   the old inline script assembled as an HTML string and injected with
+   innerHTML, including three raw hex colours baked straight into that
+   string. The module now builds every node with createElement/textContent
+   and reaches for these classes instead, so the colour comes from the
+   token set and can no longer carry anything the API response contains.
+   ------------------------------------------------------------------ */
+
+.sp-ship-addr-label {
+    margin-bottom: var(--space-2);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* The pickup address is auto-selected on the buyer's behalf, so its card
+   takes the accent tone the rest of the page reserves for the one thing an
+   operator has to act on: this is that thing, just already decided. */
+.sp-ship-addr {
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.sp-ship-addr__flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+}
+
+.sp-ship-flag {
+    display: inline-block;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+}
+
+/* Tone follows Shopee's own address_flag values: pickup_address is the one
+   driving this card (accent), return_address is informational (info), and
+   anything else Shopee ever adds recedes to muted rather than defaulting to
+   an undefined colour. */
+.sp-ship-flag--pickup { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.sp-ship-flag--return { background: color-mix(in srgb, var(--info) 15%, transparent); color: var(--info); }
+.sp-ship-flag--other  { background: color-mix(in srgb, var(--text-muted) 15%, transparent); color: var(--text-muted); }
+
+.sp-ship-branch {
+    display: block;
+    margin-bottom: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--motion-fast);
+}
+
+.sp-ship-branch:hover { border-color: var(--border-strong); }
+
+.sp-ship-branch__radio { margin-top: 3px; accent-color: var(--accent); }
+.sp-ship-branch__text { flex: 1; min-width: 0; }
+
+/* One tracking event in the tracking modal's timeline. */
+.sp-track-event {
+    margin-bottom: var(--space-3);
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--accent);
+}
 
 /* ------------------------------------------------------------------
    Responsive
