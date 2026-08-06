@@ -75,7 +75,7 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             new IntegrationCard(
                 id: $this->id,
                 name: 'Lazada',
-                tagline: 'Lazada marketplace integration — products, orders, returns.',
+                tagline: 'Lazada marketplace integration. Products, orders, returns.',
                 icon: 'lazada',
                 accent: '#0f146d',
                 // Card + menu use the VIEW tier so read-only operators still

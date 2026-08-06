@@ -70,7 +70,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             new IntegrationCard(
                 id: $this->id,
                 name: 'TikTok Shop',
-                tagline: 'TikTok Shop integration — OAuth, product sync, orders.',
+                tagline: 'TikTok Shop integration. OAuth, product sync, orders.',
                 icon: 'video',
                 accent: '#fe2c55',
                 // Card + menu use the VIEW tier so read-only operators still see

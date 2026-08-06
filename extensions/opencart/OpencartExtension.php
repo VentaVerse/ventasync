@@ -82,7 +82,7 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
             new IntegrationCard(
                 id: $this->id,
                 name: 'OpenCart',
-                tagline: 'Multi-store OpenCart — add stores, sync products, push reviews.',
+                tagline: 'Multi-store OpenCart. Add stores, sync products, push reviews.',
                 icon: 'cart',
                 accent: '#1f8fea',
                 // Card uses view tier so read-only operators still see OpenCart

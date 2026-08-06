@@ -18,10 +18,15 @@
     <div class="x-main">
         <header class="x-topbar">
             <div class="x-topbar__crumb">
-                <span class="x-crumb">
+                <span class="x-crumb x-crumb--channel">
                     <span class="x-crumb__part">Integrations</span>
                     <span class="x-crumb__sep">/</span>
-                    <span class="x-crumb__part">{{ $channelCard->name }}</span>
+                    {{-- The channel name is the current segment when the page
+                         supplies no leaf of its own, which is the case on
+                         Overview. Below 768px every segment except the current
+                         one is hidden, so without this the breadcrumb would be
+                         empty on that page. --}}
+                    <span class="x-crumb__part @hasSection('breadcrumb')@else x-crumb__part--current @endif">{{ $channelCard->name }}</span>
                     @hasSection('breadcrumb')
                         <span class="x-crumb__sep">/</span>
                         <span class="x-crumb__part x-crumb__part--current">@yield('breadcrumb')</span>

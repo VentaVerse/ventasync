@@ -157,6 +157,58 @@
     .x-cnav__group-label { padding: 4px; }
 }
 
+@media (max-width: 768px) {
+    /* The sidebar becomes a horizontal strip above the content, matching what
+       .x-nav already does at this width in layout/shell.css. Without this the
+       channel sidebar keeps its full-height column and eats the top third of
+       a phone screen before any content appears. */
+    .x-sidebar--channel { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
+
+    .x-cnav {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-1);
+        overflow-x: auto;
+        /* Setting one overflow axis to a non-visible value forces the other
+           to `auto` per the CSS Overflow spec, which would clip the active
+           item's own styling vertically. Declaring it explicitly keeps that
+           behaviour visible to the next reader instead of surprising them. */
+        overflow-y: hidden;
+    }
+
+    /* The channel name and state already sit in the breadcrumb and on the
+       Overview page at this width, so repeating them here costs a third of
+       the strip and tells the user nothing new. */
+    .x-cnav__head { display: none; }
+
+    .x-cnav__group {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-1);
+        margin-top: 0;
+    }
+
+    /* Group headings are a vertical-list affordance. In a horizontal strip
+       they read as items rather than labels, so the strip becomes a flat
+       scrollable row of destinations. */
+    .x-cnav__group-label { display: none; }
+
+    .x-cnav__back,
+    .x-cnav__item,
+    .x-cnav__child { flex: none; margin-bottom: 0; white-space: nowrap; }
+
+    /* Keep only the current page in the trail. `.x-topbar__crumb` sets
+       text-overflow: ellipsis, but its child `.x-crumb` is an inline-flex
+       container and ellipsis applies to inline text flow only, so the trail
+       asserts its full intrinsic width and overlaps the search control. The
+       global shell never hit this because its trails are one or two segments;
+       a channel trail is three. Dropping the leading segments fixes the
+       overlap and is the better reading on a phone anyway, where "Product
+       Groups" is the useful part and "Integrations / Shopee" is not. */
+    .x-crumb--channel .x-crumb__part:not(.x-crumb__part--current),
+    .x-crumb--channel .x-crumb__sep { display: none; }
+}
+
 /* Overview page: title/tagline on the left, the channel's one most-needed
    action on the right. Wraps to a stacked layout once there is no room for
    both on one line, rather than letting the button push the page wide. */
@@ -181,6 +233,50 @@
 
    var(--success) is never used here: it is undeclared on .x-app and falls
    through to a legacy value with a light-theme contrast of about 2.03:1. */
+/* What is waiting for the operator, sitting above the connection health.
+   The figure leads and the label follows, the reverse of .x-health, because
+   here the number is the message and in the health strip it is the caption. */
+.x-waiting {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3);
+    margin: var(--space-5) 0 0;
+}
+
+.x-waiting__cell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.x-waiting__value {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Not tracked is a statement about instrumentation, not a quantity, so it
+   drops out of the numeric size and weight entirely. Printing a zero here
+   would read as "nothing waiting" when it means "never measured". */
+.x-waiting__value.is-untracked {
+    font-size: 14px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.x-waiting__label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 .x-health {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

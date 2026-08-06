@@ -74,7 +74,7 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             new IntegrationCard(
                 id: $this->id,
                 name: 'Venta',
-                tagline: 'Multi-store ecommerce — add stores, sync orders, push inventory.',
+                tagline: 'Multi-store ecommerce. Add stores, sync orders, push inventory.',
                 icon: 'shop',
                 accent: '#7c3aed',
                 // Card uses view tier so read-only operators still see Venta in

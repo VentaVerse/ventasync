@@ -27,6 +27,10 @@ class ChannelWorkspaceController extends Controller
             'channelGroups' => $groups,
             'channelState' => $state,
             'channelHealth' => $workspace->health($card),
+            // Spec 3.4: the Overview answers "what is waiting for me", not
+            // just "is the connection alive". These read the same closures
+            // the Orders summary page uses, so the two cannot disagree.
+            'channelWaiting' => $workspace->waiting($card, $user),
             // Per spec 3.4, the Overview also carries the channel's most
             // needed action: Connect when it needs setup, otherwise the same
             // secondary action the status board already offers for it. Built

@@ -6,6 +6,7 @@ use App\Integrations\IntegrationCard;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +83,50 @@ class ChannelWorkspace
      *
      * @return array<int, array{label: string, value: ?string}>
      */
+    public function waiting(IntegrationCard $card, ?User $user): array
+    {
+        $tab = null;
+
+        // visibleOrderTabs() already applies the same permission gate the
+        // Orders workspace uses, so a user who cannot see this channel's
+        // orders gets no counts rather than a gap in the gate.
+        foreach ($this->registry->visibleOrderTabs($user) as $candidate) {
+            if ($candidate->id === $card->id) {
+                $tab = $candidate;
+                break;
+            }
+        }
+
+        if (! $tab) {
+            return [];
+        }
+
+        // These closures are the same ones the Orders summary page reads, so
+        // the workspace cannot disagree with it about how many orders are
+        // waiting. A null closure means the channel never implemented that
+        // metric, which is "not tracked" rather than zero.
+        return [
+            [
+                'label' => 'Orders to process',
+                'value' => $tab->unprocessedCounter
+                    ? number_format((int) ($tab->unprocessedCounter)())
+                    : null,
+            ],
+            [
+                'label' => 'Orders today',
+                'value' => $tab->dailyOrdersCounter
+                    ? number_format((int) ($tab->dailyOrdersCounter)())
+                    : null,
+            ],
+            [
+                'label' => 'Revenue today',
+                'value' => $tab->dailyRevenueCounter
+                    ? Money::base((float) ($tab->dailyRevenueCounter)())
+                    : null,
+            ],
+        ];
+    }
+
     public function health(IntegrationCard $card): array
     {
         $figures = $this->tokenFigures($card->id);

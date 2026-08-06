@@ -33,6 +33,23 @@
         @endif
     </div>
 
+    @if($channelWaiting)
+        {{-- What needs doing, before what is merely true about the
+             connection. An operator opening a channel is asking "what is
+             waiting for me", and the health strip below answers a different
+             question. --}}
+        <div class="x-waiting">
+            @foreach($channelWaiting as $row)
+                <div class="x-waiting__cell">
+                    <span class="x-waiting__value {{ $row['value'] === null ? 'is-untracked' : '' }}">
+                        {{ $row['value'] ?? 'Not tracked' }}
+                    </span>
+                    <span class="x-waiting__label">{{ $row['label'] }}</span>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     <div class="x-health">
         @foreach($channelHealth as $row)
             <div class="x-health__cell">

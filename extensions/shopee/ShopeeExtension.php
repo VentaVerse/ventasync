@@ -74,7 +74,7 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
             new IntegrationCard(
                 id: $this->id,
                 name: 'Shopee',
-                tagline: 'Shopee marketplace integration — OAuth, products, orders, returns.',
+                tagline: 'Shopee marketplace integration. OAuth, products, orders, returns.',
                 icon: 'shopee',
                 accent: '#ee4d2d',
                 // Card + menu use the VIEW tier so read-only operators still
