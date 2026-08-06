@@ -70,3 +70,49 @@
     .x-nav { flex-direction: row; overflow-x: auto; }
     .x-content { padding: var(--space-4); }
 }
+
+.x-nav__group { display: flex; flex-direction: column; }
+
+.x-nav__group-toggle {
+    display: flex; align-items: center; gap: var(--space-2);
+    width: 100%; height: 30px; padding: 0 var(--space-2);
+    background: transparent; border: 0; border-radius: var(--radius-sm);
+    color: var(--text-secondary); font: inherit; font-size: 13px; text-align: left;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+.x-nav__group-toggle:hover { background: var(--surface-hover); color: var(--text); }
+.x-nav__group-label { flex: 1; }
+.x-nav__group-chevron { display: inline-flex; transition: transform var(--motion-fast); color: var(--text-muted); }
+.x-nav__group.is-open .x-nav__group-chevron { transform: rotate(90deg); }
+
+.x-nav__children { display: none; flex-direction: column; gap: 1px; padding: 2px 0 var(--space-2) 26px; }
+.x-nav__group.is-open .x-nav__children { display: flex; }
+
+.x-nav__child {
+    display: block; height: 26px; line-height: 26px; padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary); font-size: 12px; text-decoration: none;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+.x-nav__child:hover { background: var(--surface-hover); color: var(--text); }
+.x-nav__child.is-active { background: var(--accent-weak); color: var(--accent); font-weight: 500; }
+
+.x-sidebar { overflow-y: auto; }
+
+/* Below 768px .x-nav switches to a horizontal row (see the existing @media
+   block above). A single non-wrapping scrolling row cannot also hold an
+   open group's children: overflow-x: auto forces overflow-y to auto too
+   (the CSS Overflow spec computes a "visible" axis to "auto" as soon as the
+   other axis is not "visible"), so anything taller than the row, including
+   an absolutely positioned dropdown anchored to it, gets clipped rather
+   than shown. Wrapping instead of scrolling sidesteps that: a group's
+   toggle plus its open children form one flex item, and wrap simply moves
+   whichever later items no longer fit onto the next line. Nothing is
+   clipped and nothing overlaps. */
+@media (max-width: 768px) {
+    .x-nav { flex-wrap: wrap; overflow-x: visible; }
+    .x-nav__group-toggle { width: auto; white-space: nowrap; }
+    .x-nav__children { background: var(--surface-sunken); }
+    .x-nav__child { white-space: nowrap; }
+}

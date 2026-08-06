@@ -50,8 +50,6 @@ class Navigation
                  'keywords' => ['po', 'buy', 'restock', 'inbound']],
                 ['label' => 'Vendors', 'route' => 'ext.purchasing.vendors.index',
                  'keywords' => ['supplier', 'seller', 'source']],
-                ['label' => 'Product Vendors', 'route' => 'ext.purchasing.products.vendors.index',
-                 'keywords' => ['cost', 'supplier price']],
             ]],
 
             ['label' => 'Warehousing', 'icon' => 'package', 'items' => [
@@ -117,6 +115,16 @@ class Navigation
     public static function allows(string $routeName): bool
     {
         if (!Route::has($routeName)) {
+            return false;
+        }
+
+        // A nav entry links to a fixed URL with no route-model context, so a
+        // route that needs a URI parameter (e.g. products/{id}/vendors)
+        // cannot be a valid destination here. route() would throw
+        // UrlGenerationException at render time otherwise, taking down every
+        // page that includes the sidebar rather than just hiding one link.
+        $route = Route::getRoutes()->getByName($routeName);
+        if ($route && $route->parameterNames() !== []) {
             return false;
         }
 

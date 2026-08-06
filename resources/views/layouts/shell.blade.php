@@ -45,28 +45,7 @@
                 return false;
             };
         @endphp
-        <nav class="x-nav">
-            @if ($navAllowed(null))
-                <a class="x-nav__item {{ request()->routeIs('dashboard') ? 'is-active' : '' }}" href="{{ route('dashboard') }}">
-                    <x-ui.icon name="monitor" /> Dashboard
-                </a>
-            @endif
-            @if ($navAllowed('view_orders|manage_orders'))
-                <a class="x-nav__item {{ request()->routeIs('orders.index') ? 'is-active' : '' }}" href="{{ route('orders.index') }}">
-                    <x-ui.icon name="receipt" /> Orders
-                </a>
-            @endif
-            @if ($navAllowed('view_products|manage_products'))
-                <a class="x-nav__item {{ request()->routeIs('products.index') ? 'is-active' : '' }}" href="{{ route('products.index') }}">
-                    <x-ui.icon name="package" /> Products
-                </a>
-            @endif
-            @if ($navAllowed('view_website_settings|manage_website_settings'))
-                <a class="x-nav__item {{ request()->routeIs('settings.hub') ? 'is-active' : '' }}" href="{{ route('settings.hub') }}">
-                    <x-ui.icon name="shield" /> Settings
-                </a>
-            @endif
-        </nav>
+        @include('partials.nav', ['navGroups' => \App\Support\Navigation::groups()])
     </aside>
 
     <div class="x-main">
