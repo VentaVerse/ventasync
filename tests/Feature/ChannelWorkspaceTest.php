@@ -377,4 +377,24 @@ class ChannelWorkspaceTest extends TestCase
             'Breadcrumb repeats the channel on '.$path.': '.preg_replace('/\s+/', ' ', trim($crumb))
         );
     }
+
+    /**
+     * The status board is the front door. Its Shopee card must open the
+     * workspace, not the old module page - Shopee is the only channel
+     * ChannelWorkspace::groups() buckets anything into today.
+     *
+     * Uses shopeeOperator() rather than a seeded admin: ventasync_test has
+     * none, and this user's card-level permission (view_shopee) is exactly
+     * what IntegrationRegistry::visibleCards() requires to show the Shopee
+     * card on the board at all.
+     */
+    public function test_the_board_links_into_the_shopee_workspace(): void
+    {
+        $user = $this->shopeeOperator();
+
+        $this->actingAs($user)
+            ->get('/integrations')
+            ->assertOk()
+            ->assertSee(route('integrations.workspace', ['channel' => 'shopee']), false);
+    }
 }

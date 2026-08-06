@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Integrations\IntegrationRegistry;
+use App\Support\ChannelWorkspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class IntegrationController extends Controller
      * tracked (no column, or logging switched off) the value stays null so
      * the view renders "not tracked" instead of a fabricated zero.
      */
-    public function index(Request $request, IntegrationRegistry $registry)
+    public function index(Request $request, IntegrationRegistry $registry, ChannelWorkspace $workspace)
     {
         $user = $request->user();
         $cards = $registry->visibleCards($user);
@@ -73,6 +74,13 @@ class IntegrationController extends Controller
         foreach ($cards as $card) {
             $baseId = $card->id;
             $entries = [];
+
+            // Only channels the workspace actually groups get a workspace
+            // link. Task 1 grouped Shopee's menu alone; the other channels
+            // still have ungrouped menus and get their own round later, so
+            // groups() returns empty for them and their card keeps its
+            // existing destination.
+            $hasWorkspace = $workspace->groups($card, $user) !== [];
 
             if (in_array($baseId, ['shopee', 'lazada', 'tiktok'], true)) {
                 // Single-store OAuth marketplaces: live/sandbox creds live in
@@ -182,15 +190,19 @@ class IntegrationController extends Controller
                     'lastSync' => $entry['lastSyncAt']?->diffForHumans(),
                     'tokenExpiry' => $entry['tokenExpiresAt']?->diffForHumans(),
                     'errors24h' => $entry['errors24h'],
-                    // Always the module page, never a channel's Settings
-                    // item. Settings is only one entry in that channel's
-                    // full menu (Categories, Product Groups, Logistics,
-                    // Reviews, etc. also live there) - preferring it here
-                    // meant any channel with a Settings item made the rest
-                    // of its own menu unreachable from this board, since
-                    // integrations.module is otherwise never linked once
-                    // the old full-menu card view was replaced by this one.
-                    'enterUrl' => route('integrations.module', ['module' => $baseId]),
+                    // The channel workspace when this channel has one
+                    // (Shopee today), otherwise the module page and never a
+                    // channel's Settings item. Settings is only one entry in
+                    // that channel's full menu (Categories, Product Groups,
+                    // Logistics, Reviews, etc. also live there) - preferring
+                    // it here meant any channel with a Settings item made
+                    // the rest of its own menu unreachable from this board,
+                    // since integrations.module is otherwise never linked
+                    // once the old full-menu card view was replaced by this
+                    // one.
+                    'enterUrl' => $hasWorkspace
+                        ? route('integrations.workspace', ['channel' => $baseId])
+                        : route('integrations.module', ['module' => $baseId]),
                     'actionLabel' => $ordersUrl ? 'View orders' : null,
                     'actionUrl' => $ordersUrl,
                 ];
