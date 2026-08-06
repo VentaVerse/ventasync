@@ -53,7 +53,7 @@
                            :class="idx === routes().length + i && 'is-active'"
                            @mouseenter="idx = routes().length + i">
                             <span class="x-palette__item-title" x-text="'#' + o.id + (o.firstname || o.lastname ? ' — ' + [o.firstname, o.lastname].filter(Boolean).join(' ') : '')"></span>
-                            <span class="x-palette__item-meta" x-text="o.currency_code + ' ' + o.total"></span>
+                            <span class="x-palette__item-meta" x-text="o.total_display"></span>
                         </a>
                     </template>
                 </div>

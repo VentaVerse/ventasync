@@ -182,7 +182,15 @@ class IntegrationController extends Controller
                     'lastSync' => $entry['lastSyncAt']?->diffForHumans(),
                     'tokenExpiry' => $entry['tokenExpiresAt']?->diffForHumans(),
                     'errors24h' => $entry['errors24h'],
-                    'enterUrl' => $menuUrl($entry['menu'], 'Settings') ?? route('integrations.module', ['module' => $baseId]),
+                    // Always the module page, never a channel's Settings
+                    // item. Settings is only one entry in that channel's
+                    // full menu (Categories, Product Groups, Logistics,
+                    // Reviews, etc. also live there) - preferring it here
+                    // meant any channel with a Settings item made the rest
+                    // of its own menu unreachable from this board, since
+                    // integrations.module is otherwise never linked once
+                    // the old full-menu card view was replaced by this one.
+                    'enterUrl' => route('integrations.module', ['module' => $baseId]),
                     'actionLabel' => $ordersUrl ? 'View orders' : null,
                     'actionUrl' => $ordersUrl,
                 ];

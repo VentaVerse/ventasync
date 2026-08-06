@@ -71,7 +71,7 @@ class PaletteController extends Controller
             // closure keeps the OR intact without ever letting an
             // unparenthesised orWhere leak past the name filter.
             $orders = DB::table($pfx.'order')
-                ->select('order_id as id', 'firstname', 'lastname', 'total', 'currency_code')
+                ->select('order_id as id', 'firstname', 'lastname', 'total', 'foreign_total', 'currency_code')
                 ->where(function ($b) use ($q, $like) {
                     if (ctype_digit($q)) {
                         $b->orWhere('order_id', (int) $q);
@@ -88,7 +88,24 @@ class PaletteController extends Controller
             // orders.show takes a required numeric {id}, which is always
             // supplied here, so route() cannot throw the way it would for
             // a fixed nav destination with no model context.
-            $orders->each(fn ($o) => $o->url = route('orders.show', $o->id));
+            //
+            // `total` is always in the default (PHP) currency - see
+            // OrderCurrencyService::toBase() - while `currency_code` names
+            // the currency the customer actually transacted in. Those are
+            // not the same number, so the palette must never concatenate
+            // them client side the way an earlier version did (that read
+            // "USD 308071.4726" for a ₱308,071.47 order). Money::dual()
+            // formats both correctly and matches the orders list's
+            // <x-money> presentation, minus the two-line markup that
+            // component renders, since this is a plain JS string.
+            $orders->each(function ($o) {
+                $o->url = route('orders.show', $o->id);
+                $o->total_display = \App\Support\Money::dual(
+                    (float) $o->total,
+                    $o->foreign_total !== null ? (float) $o->foreign_total : null,
+                    $o->currency_code
+                );
+            });
         }
 
         $products = collect();

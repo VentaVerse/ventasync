@@ -16,36 +16,15 @@
             <span class="x-sidebar__mark"></span>
             <span class="x-sidebar__name" title="{{ $appSetting->company_name ?? 'Xenon' }}">{{ $appSetting->company_name ?? 'Xenon' }}</span>
         </div>
-        @php
-            // I4: each nav item is gated on the same permission its target
-            // route requires (see routes/web.php), so a restricted user
-            // never sees a link that would just bounce them back with a
-            // "You don't have permission" flash. Not auth()->user()->can():
-            // this app registers no Gates or Policies, so can() always
-            // returns false, including for admins. Authorization runs
-            // through User::hasPermission() instead, the same method the
-            // `perm:` route middleware and SettingsHubController::allowed()
-            // delegate to, with the same pipe-delimited any-match parsing
-            // ('view_x|manage_x' - either one held by the user's group
-            // grants the link). $permission === null means "no gate beyond
-            // auth", which is all the dashboard route requires.
-            $navUser = auth()->user();
-            $navAllowed = function (?string $permission) use ($navUser) {
-                if ($permission === null) {
-                    return true;
-                }
-                if (!$navUser) {
-                    return false;
-                }
-                foreach (explode('|', $permission) as $key) {
-                    $key = trim($key);
-                    if ($key !== '' && $navUser->hasPermission($key)) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        @endphp
+        {{-- Each nav item is gated on the same permission its target route
+             requires (see routes/web.php), so a restricted user never sees a
+             link that would just bounce them back with a "You don't have
+             permission" flash. That filtering happens inside
+             Navigation::groups() (via Navigation::allows(), which checks
+             User::hasPermission() - never auth()->user()->can(), since this
+             app registers no Gates or Policies and can() always returns
+             false, including for admins), so every entry it returns is
+             already safe to render here without a second gate. --}}
         @include('partials.nav', ['navGroups' => \App\Support\Navigation::groups()])
     </aside>
 
