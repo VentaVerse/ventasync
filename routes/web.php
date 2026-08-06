@@ -26,6 +26,10 @@ Route::get('/', [\App\Http\Controllers\HomeController::class, 'index'])->name('r
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Reference page for every UI primitive, in both themes. Not a business
+    // route: just gated behind the same auth middleware as the rest of admin.
+    Route::get('/ui-kit-v2', fn () => view('ui-kit-v2'))->name('ui_kit_v2');
+
     // Integrations hub (cards view) and orders entry-point (redirects to first
     // available marketplace tab; otherwise shows empty state)
     Route::get('/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
