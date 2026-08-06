@@ -36,3 +36,8 @@
     transition: color var(--transition-fast);
 }
 .modal-close:hover { color: var(--text-primary); }
+
+/* Confirm dialog: a smaller, fixed-width variant of the base modal - see
+   partials/confirm-modal.blade.php (new shell layout). */
+.modal--sm { max-width: 440px; }
+.x-confirm__message { margin: 0 0 var(--space-5); line-height: 1.5; color: var(--text); }

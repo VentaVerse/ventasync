@@ -48,5 +48,6 @@
         <main class="x-content">@yield('content')</main>
     </div>
 </div>
+@include('partials.confirm-modal')
 </body>
 </html>

@@ -130,4 +130,33 @@
         color: var(--text-muted);
         letter-spacing: .02em;
     }
+
+    /* The trigger's hover/focus reveal has no touch equivalent - a phone
+       has no hover state, so a trigger that only shows on :hover is
+       invisible (though still technically tappable) on every touch
+       device. Below the breakpoint it stays visible unconditionally. */
+    .x-menu__trigger { opacity: 1; }
 }
+
+/* Orders list (Task 7) */
+.x-list-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.x-filters { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
+.x-filters__search { max-width: 280px; }
+.x-filters__select { width: auto; min-width: 150px; }
+
+.x-col-id    { width: 84px; }
+.x-col-chan  { width: 110px; }
+.x-col-stat  { width: 120px; }
+/* Mono, tabular figures on the Total column so peso and dollar amounts line
+   up on the decimal down the whole column - <x-money>'s spans already carry
+   font-variant-numeric: tabular-nums, this supplies the monospace face. */
+.x-col-total { width: 140px; font-family: var(--font-mono); }
+.x-col-date  { width: 140px; }
+
+.x-cell-strong { font-weight: 500; color: var(--text); }
+.x-cell-muted  { color: var(--text-muted); }
+.x-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.x-pager { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-4); }
+.x-pager__count { font-size: 12px; color: var(--text-muted); }
+.x-pager__nav { display: flex; gap: var(--space-2); }

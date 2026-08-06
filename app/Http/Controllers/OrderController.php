@@ -80,7 +80,7 @@ class OrderController extends Controller
             $sourceLabelsMap[$opt['value']] = $opt;
         }
 
-        return view('orders.index', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'sourceOptions', 'sourceLabelsMap'));
+        return view('orders.index-v2', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'sourceOptions', 'sourceLabelsMap'));
     }
 
     public function create()
