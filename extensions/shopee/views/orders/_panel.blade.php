@@ -20,6 +20,81 @@
 
         return $query === [] ? $panelBaseUrl : $panelBaseUrl . '?' . \Illuminate\Support\Arr::query($query);
     };
+
+    // Presentation shaping the panel needs in every context it renders in.
+    // It lived in orders/index.blade.php while the seller center was the
+    // only caller; the fulfilment hub is the second, and a second copy of
+    // the status tone and label maps in another view is exactly how the two
+    // surfaces would start drifting apart. Each line coalesces, so a caller
+    // that already defined the value (index.blade.php still computes
+    // $canManageShopeeOrders itself, because it reads it before this
+    // include) keeps its own.
+    //
+    // The page is visible to view_shopee_orders holders; Fetch, Update,
+    // Ship and Reset render only for the manage tier. The route middleware
+    // (perm:manage_shopee_orders on every write POST) is the real gate; this
+    // flag only stops the panel offering buttons that would 403.
+    $canManageShopeeOrders = $canManageShopeeOrders
+        ?? (auth()->user()?->hasPermission('manage_shopee_orders') ?? false);
+
+    $tabs = $tabs ?? [];
+    $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
+    $tab_counts = $tab_counts ?? [];
+    $pending_sub_counts = $pending_sub_counts ?? [];
+    $perPage = (int) ($per_page ?? request()->query('per_page', 10));
+    $orderNumberFilter = (string) ($filters['order_number'] ?? '');
+    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
+    $hasSearch = $orderNumberFilter !== '' || $buyerNameFilter !== '';
+    $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
+
+    // Status tone map. Colour has exactly one job on this panel: telling the
+    // operator which orders are waiting on them. Accent marks the single
+    // status a human has to act on right now; everything already handled
+    // recedes to neutral; the two failure states take danger; the two
+    // waiting-on-someone-else states take warning and info.
+    //
+    // One deliberate reading of the spec's tone list: COMPLETED is mapped to
+    // neutral rather than the success tone, because x-badge--success and the
+    // accent tone resolve to the same token, which would have made "ready to
+    // ship" and "completed" the identical colour and undone the point of the
+    // map. A finished order is the one state that should recede.
+    //
+    // This array is the pattern to extract into a helper (alongside
+    // App\Support\OrderStatusTone) when the second channel converts.
+    $spStatusTones = $spStatusTones ?? [
+        'UNPAID'             => 'warning',
+        'READY_TO_SHIP'      => 'success',
+        'PROCESSED'          => 'info',
+        'SHIPPED'            => 'info',
+        'TO_CONFIRM_RECEIVE' => 'info',
+        'COMPLETED'          => 'neutral',
+        'CANCELLED'          => 'danger',
+        'IN_CANCEL'          => 'danger',
+        'RETRY_SHIP'         => 'warning',
+    ];
+
+    $spStatusLabels = $spStatusLabels ?? [
+        'UNPAID'             => 'Unpaid',
+        'READY_TO_SHIP'      => 'Ready to ship',
+        'PROCESSED'          => 'To handover',
+        'SHIPPED'            => 'Shipped',
+        'TO_CONFIRM_RECEIVE' => 'Awaiting confirmation',
+        'COMPLETED'          => 'Completed',
+        'CANCELLED'          => 'Cancelled',
+        'IN_CANCEL'          => 'Cancelling',
+        'RETRY_SHIP'         => 'Delivery failed',
+    ];
+
+    $spSortLabels = $spSortLabels ?? [
+        'created_desc'          => 'Order date, newest first',
+        'created_asc'           => 'Order date, oldest first',
+        'confirmed_pay_desc'    => 'Payment time, newest first',
+        'confirmed_pay_asc'     => 'Payment time, oldest first',
+        'confirmed_update_desc' => 'Last update, newest first',
+        'confirmed_update_asc'  => 'Last update, oldest first',
+        'confirmed_create_desc' => 'Shopee create time, newest first',
+        'confirmed_create_asc'  => 'Shopee create time, oldest first',
+    ];
 @endphp
 @if($canManageShopeeOrders)
 {{-- One command bar. This replaces the three stacked forms whose controls

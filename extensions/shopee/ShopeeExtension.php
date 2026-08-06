@@ -172,10 +172,15 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                     if (!Schema::hasTable('shopee_orders')) {
                         return [];
                     }
+                    // `raw` comes along because the buyer's name lives in it
+                    // and nowhere else on this table. Without it every Shopee
+                    // row on the fulfilment feed printed the "Guest" fallback,
+                    // which is not true of a marketplace order: there is a
+                    // buyer, the name was simply never read.
                     $orders = ShopeeOrder::query()
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
-                        ->get(['id', 'order_sn', 'status', 'order_created_at']);
+                        ->get(['id', 'order_sn', 'status', 'order_created_at', 'raw']);
 
                     $totals = DB::table('shopee_order_products')
                         ->whereIn('shopee_order_id', $orders->pluck('id'))
@@ -185,7 +190,21 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
 
                     return $orders->map(fn ($o) => new RecentOrder(
                         reference: (string) $o->order_sn,
-                        customerName: null,
+                        customerName: (function () use ($o) {
+                            $raw = is_array($o->raw) ? $o->raw : [];
+                            // Shopee has shipped both spellings of this field
+                            // over the versions of the order API this
+                            // extension talks to; the orders table's own
+                            // buyer filter searches both for the same reason.
+                            foreach (['buyer_username', 'buyer_user_name'] as $key) {
+                                $name = trim((string) ($raw[$key] ?? ''));
+                                if ($name !== '') {
+                                    return $name;
+                                }
+                            }
+
+                            return null;
+                        })(),
                         total: (float) ($totals[$o->id] ?? 0),
                         statusLabel: (string) $o->status,
                         orderedAt: $o->order_created_at,

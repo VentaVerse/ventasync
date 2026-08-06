@@ -20,62 +20,16 @@
 
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
-    $tab_counts = $tab_counts ?? [];
-    $pending_sub_counts = $pending_sub_counts ?? [];
-    $perPage = (int) ($per_page ?? request()->query('per_page', 10));
-    $orderNumberFilter = (string) ($filters['order_number'] ?? '');
-    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
-    $hasSearch = $orderNumberFilter !== '' || $buyerNameFilter !== '';
-    $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
 
-    // Status tone map. Colour has exactly one job on this page: telling the
-    // operator which orders are waiting on them. Accent marks the single
-    // status a human has to act on right now; everything already handled
-    // recedes to neutral; the two failure states take danger; the two
-    // waiting-on-someone-else states take warning and info.
-    //
-    // One deliberate reading of the spec's tone list: COMPLETED is mapped to
-    // neutral rather than the success tone, because x-badge--success and the
-    // accent tone resolve to the same token, which would have made "ready to
-    // ship" and "completed" the identical colour and undone the point of the
-    // map. A finished order is the one state that should recede.
-    //
-    // This array is the pattern to extract into a helper (alongside
-    // App\Support\OrderStatusTone) when the second channel converts.
-    $spStatusTones = [
-        'UNPAID'             => 'warning',
-        'READY_TO_SHIP'      => 'success',
-        'PROCESSED'          => 'info',
-        'SHIPPED'            => 'info',
-        'TO_CONFIRM_RECEIVE' => 'info',
-        'COMPLETED'          => 'neutral',
-        'CANCELLED'          => 'danger',
-        'IN_CANCEL'          => 'danger',
-        'RETRY_SHIP'         => 'warning',
-    ];
-
-    $spStatusLabels = [
-        'UNPAID'             => 'Unpaid',
-        'READY_TO_SHIP'      => 'Ready to ship',
-        'PROCESSED'          => 'To handover',
-        'SHIPPED'            => 'Shipped',
-        'TO_CONFIRM_RECEIVE' => 'Awaiting confirmation',
-        'COMPLETED'          => 'Completed',
-        'CANCELLED'          => 'Cancelled',
-        'IN_CANCEL'          => 'Cancelling',
-        'RETRY_SHIP'         => 'Delivery failed',
-    ];
-
-    $spSortLabels = [
-        'created_desc'          => 'Order date, newest first',
-        'created_asc'           => 'Order date, oldest first',
-        'confirmed_pay_desc'    => 'Payment time, newest first',
-        'confirmed_pay_asc'     => 'Payment time, oldest first',
-        'confirmed_update_desc' => 'Last update, newest first',
-        'confirmed_update_asc'  => 'Last update, oldest first',
-        'confirmed_create_desc' => 'Shopee create time, newest first',
-        'confirmed_create_asc'  => 'Shopee create time, oldest first',
-    ];
+    // The rest of the panel's presentation shaping (per-page, filter
+    // strings, status tone and label maps, sort labels) moved into
+    // orders/_panel.blade.php when the fulfilment hub became the panel's
+    // second caller, so there is one copy rather than one per page. The
+    // three above stay here because this view reads them itself: the two
+    // below in the subtitle, and $canManageShopeeOrders in the spacing
+    // block further down. Removing assignments from inside a @php block
+    // changes no rendered output, which the byte-for-byte HTML diff of this
+    // page confirmed.
 @endphp
 
 <div id="shopee-orders-page">

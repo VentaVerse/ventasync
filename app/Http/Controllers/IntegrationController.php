@@ -231,6 +231,25 @@ class IntegrationController extends Controller
         return view('integrations.module', compact('card'));
     }
 
+    /**
+     * The Fulfilment surface. Card strip of every fulfillable marketplace on
+     * top, then either the aggregate Summary (the default) or one channel's
+     * own orders panel rendered in place.
+     *
+     * Channel selection is a query param, `?channel={tabId}`, where tabId is
+     * an OrderTab id ("shopee", "venta:2"). A value is valid only if it
+     * matches a tab in visibleOrderTabs(), which has already applied the
+     * enabled gate and the tab's own permission. That membership test IS the
+     * authorisation check: an id this user cannot see is not in the list, so
+     * it cannot be selected. An invalid, empty or unauthorised value falls
+     * back to Summary silently rather than erroring, because a stale bookmark
+     * or a revoked permission should land the operator on a working page.
+     *
+     * Only Shopee renders its orders in place today (spec D4). Every other
+     * channel's card navigates to that channel's own orders page until its
+     * panel is extracted the way Shopee's was, so a valid non-Shopee id
+     * still shows Summary here.
+     */
     public function orders(Request $request, IntegrationRegistry $registry)
     {
         $user = $request->user();
@@ -240,9 +259,21 @@ class IntegrationController extends Controller
         if (empty($tabs)) {
             return view('integrations.orders', [
                 'hasMarketplaces' => false,
+                'orderTabs' => [],
+                'selectedChannel' => null,
+                'selectedChannelLabel' => null,
                 'topProducts' => [],
                 'recentOrders' => [],
             ]);
+        }
+
+        $channel = (string) $request->query('channel', '');
+        $selectedTab = null;
+        foreach ($tabs as $tab) {
+            if ($tab->id === $channel) {
+                $selectedTab = $tab;
+                break;
+            }
         }
 
         // Combined top-products leaderboard. Each tab returns its own top
@@ -295,10 +326,38 @@ class IntegrationController extends Controller
         });
         $recentOrders = array_slice($recent, 0, 15);
 
-        return view('integrations.orders', [
+        $data = [
             'hasMarketplaces' => true,
+            'orderTabs' => $tabs,
+            'selectedChannel' => null,
+            'selectedChannelLabel' => null,
             'topProducts' => $topProducts,
             'recentOrders' => $recentOrders,
-        ]);
+        ];
+
+        // Shopee's orders content is a shared panel (service + partial) used
+        // by both its seller center and this page. The panel builds every one
+        // of its own links from the base URL and hidden params handed in
+        // here, so segment tabs, filters and pagination all stay on
+        // /integrations/orders and keep carrying channel=shopee.
+        //
+        // The class is named rather than imported: it lives in an extension,
+        // and core should not carry a top-level `use` for a folder that can
+        // be absent. Reaching this line means the Shopee tab was visible,
+        // which means the extension is enabled and its provider booted.
+        if ($selectedTab !== null && $selectedTab->id === 'shopee') {
+            $data = array_merge(
+                $data,
+                app(\Extensions\shopee\Services\ShopeeOrdersPanel::class)->build($request),
+                [
+                    'selectedChannel' => 'shopee',
+                    'selectedChannelLabel' => $selectedTab->label,
+                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelHiddenParams' => ['channel' => 'shopee'],
+                ]
+            );
+        }
+
+        return view('integrations.orders', $data);
     }
 }

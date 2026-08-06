@@ -20,10 +20,21 @@ class OrderStatusTone
     /** Terminal, successful outcomes. */
     private const SUCCESS = ['complete', 'completed', 'delivered', 'shipped'];
 
-    /** Still in flight or waiting on someone to act. */
+    /**
+     * Still in flight or waiting on someone to act.
+     *
+     * "ready to ship" and "to handover" are the two Shopee states that mean
+     * the seller has not done their part yet. They were reaching the
+     * fulfilment feed as unrecognised and therefore neutral, which put the
+     * one order needing a human in grey next to a finished order in green -
+     * the exact inversion of what that page is for. Marketplaces whose
+     * statuses are their own constants normalise to these words on the way
+     * in (READY_TO_SHIP becomes "ready to ship").
+     */
     private const WARNING = [
         'pending', 'processing', 'unpaid', 'for verification',
         'to confirm receive', 'return in progress',
+        'ready to ship', 'to handover',
     ];
 
     /** Failed, reversed, or otherwise did not go through. */

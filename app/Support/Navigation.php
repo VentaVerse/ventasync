@@ -35,6 +35,15 @@ class Navigation
                  'keywords' => ['paid', 'settlement', 'remittance']],
             ]],
 
+            // Top level, not inside Sales or Channels, because it is neither:
+            // Sales/Orders is the consolidated ERP record (an information
+            // page) and Channels leads into one marketplace at a time. This
+            // is the daily working surface across all of them, so it sits
+            // between the two at the same level. Named Fulfilment because
+            // "Orders" already means the information page one group above.
+            ['label' => 'Fulfilment', 'icon' => 'globe', 'route' => 'integrations.orders',
+             'keywords' => ['fulfilment', 'fulfillment', 'ship', 'pack', 'marketplace orders']],
+
             ['label' => 'Channels', 'icon' => 'plug', 'items' => self::channelEntries()],
 
             ['label' => 'Catalogue', 'icon' => 'package', 'items' => [
