@@ -20,10 +20,18 @@
         </span>
     </div>
 
-    <a class="x-cnav__item {{ request()->routeIs('integrations.workspace') ? 'is-active' : '' }}"
-       href="{{ route('integrations.workspace', ['channel' => $channelCard->id]) }}">
-        <x-ui.icon name="monitor" size="14" /> Overview
-    </a>
+    {{-- Overview is the one destination gated on the CARD permission rather
+         than a route's own perm: middleware, because /integrations/{channel}
+         re-asks the card question in ChannelWorkspaceController::show. An
+         operator holding only view_shopee_orders reaches /shopee/orders but
+         404s on the workspace entry, so rendering this link for them is a
+         dead end at the top of their own sidebar. --}}
+    @if($channelHasOverview)
+        <a class="x-cnav__item {{ request()->routeIs('integrations.workspace') ? 'is-active' : '' }}"
+           href="{{ route('integrations.workspace', ['channel' => $channelCard->id]) }}">
+            <x-ui.icon name="monitor" size="14" /> Overview
+        </a>
+    @endif
 
     @foreach($channelGroups as $group)
         <div class="x-cnav__group">

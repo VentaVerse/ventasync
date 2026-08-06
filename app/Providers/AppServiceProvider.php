@@ -87,6 +87,12 @@ class AppServiceProvider extends ServiceProvider
                     'channelCard' => $card,
                     'channelGroups' => $workspace->groups($card, $user),
                     'channelState' => $workspace->state($card),
+                    // Whether this user may open /integrations/{channel},
+                    // which ChannelWorkspaceController::show gates on the
+                    // CARD permission via the gated card(). The sidebar's
+                    // Overview link renders only when this is true, so it
+                    // never offers a destination that will 404.
+                    'channelHasOverview' => $workspace->card($channel, $user) !== null,
                 ];
 
                 request()->attributes->set('channel-workspace.compose', $payload);

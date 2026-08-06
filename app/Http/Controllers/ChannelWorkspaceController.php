@@ -15,7 +15,13 @@ class ChannelWorkspaceController extends Controller
         // card() returns null for both an unknown channel and one the user
         // cannot see. Both are a 404 on purpose: a 403 would confirm that a
         // channel the user has no access to exists.
-        if (! $card) {
+        //
+        // hasWorkspace() keeps direct URLs honest with the board: a channel
+        // whose menu has not been converted (no grouped items) has no
+        // workspace to show, and rendering a half-built one to a bookmarked
+        // URL is worse than a 404. The board already refuses to link here
+        // for those channels, by the same test.
+        if (! $card || ! $workspace->hasWorkspace($card)) {
             abort(404);
         }
 
