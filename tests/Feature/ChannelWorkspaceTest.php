@@ -5,11 +5,38 @@ namespace Tests\Feature;
 use App\Extensions\ExtensionManager;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
+use App\Models\Admin\Permission;
+use App\Models\Admin\UserGroup;
+use App\Models\User;
+use App\Support\ChannelWorkspace;
 use Extensions\shopee\ShopeeExtension;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ChannelWorkspaceTest extends TestCase
 {
+    use RefreshDatabase;
+
+    /**
+     * A user holding exactly the two Shopee read permissions and nothing
+     * else. Built here rather than looked up, because `ventasync_test` has
+     * no seeded admin and, more importantly, a test that leans on whatever
+     * permissions some existing account happens to hold is not asserting
+     * anything about the gate it claims to test.
+     */
+    private function shopeeOperator(): User
+    {
+        $group = UserGroup::create(['name' => 'Shopee Operators']);
+
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_shopee', 'view_shopee_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
     /**
      * Establish this test's own precondition instead of inheriting whatever
      * the `extensions` table happens to hold when this method runs. Without
@@ -58,6 +85,21 @@ class ChannelWorkspaceTest extends TestCase
         $manager->enable('shopee');
 
         $this->app->register(ShopeeExtension::class);
+
+        // Registering the provider above loads all 80 Shopee routes into the
+        // RouteCollection, but the collection keeps a SEPARATE name lookup
+        // table that is only rebuilt on demand. Routes added after it was
+        // last built are invisible to getByName(), and therefore to
+        // Route::has(), even though they are in the collection and would
+        // match a real request.
+        //
+        // ChannelWorkspace::allows() calls Route::has(), so without this the
+        // gate rejects every Shopee destination and the positive tests fail
+        // while the negative ones pass for the wrong reason.
+        //
+        // Production never hits this: extensions register during boot, long
+        // before anything looks a route up by name.
+        $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
     private function shopeeCard(): \App\Integrations\IntegrationCard
@@ -110,5 +152,89 @@ class ChannelWorkspaceTest extends TestCase
                 "Menu item {$item->label} has group ".var_export($item->group, true)
             );
         }
+    }
+
+    public function test_groups_are_ordered_and_bucketed(): void
+    {
+        $user = $this->shopeeOperator();
+        $workspace = app(ChannelWorkspace::class);
+        $groups = $workspace->groups($this->shopeeCard(), $user);
+
+        $this->assertSame(
+            ['Sell', 'Catalogue', 'Channel'],
+            array_column($groups, 'label')
+        );
+        $this->assertSame(
+            ['Orders', 'Returns'],
+            array_column($groups[0]['items'], 'label')
+        );
+    }
+
+    public function test_every_destination_is_linkable(): void
+    {
+        $user = $this->shopeeOperator();
+        $groups = app(ChannelWorkspace::class)->groups($this->shopeeCard(), $user);
+
+        $urls = [];
+
+        foreach ($groups as $group) {
+            foreach ($group['items'] as $item) {
+                // route() throwing here is the actual failure mode this guards.
+                $this->assertIsString($item['url']);
+                $this->assertStringStartsWith('http', $item['url']);
+                $urls[] = $item['url'];
+            }
+        }
+
+        // Without this the whole test passes vacuously when groups() returns
+        // nothing at all: the loop body never runs and no assertion executes.
+        // Seven is every Shopee destination, so this also proves the operator
+        // permissions above are sufficient to see all of them.
+        $this->assertCount(7, $urls);
+    }
+
+    public function test_a_route_needing_a_uri_parameter_is_rejected(): void
+    {
+        // ext.shopee.orders.show is shopee/orders/{orderSn}: Route::has() is
+        // true and route() throws without the parameter. It must not be
+        // linkable.
+        //
+        // Every other reason allows() could return false is deliberately
+        // ruled out, so the parameter guard is the only thing that can reject
+        // this. The route belongs to Shopee, which setUp() enables, so it
+        // genuinely exists here. The operator genuinely holds its permission.
+        // Pick a route from a disabled extension instead and this test passes
+        // at the Route::has() check whether or not the guard exists at all,
+        // which is precisely the vacuous assertion this branch has shipped
+        // once before.
+        $item = new MenuItem('Bad', 'ext.shopee.orders.show', 'view_shopee_orders', null, [], 'Channel');
+        $user = $this->shopeeOperator();
+
+        $this->assertFalse(app(ChannelWorkspace::class)->allows($item, $user));
+    }
+
+    public function test_an_item_is_hidden_when_the_registry_permission_is_missing(): void
+    {
+        $item = new MenuItem('Orders', 'ext.shopee.orders.index', 'a_permission_nobody_holds', null, [], 'Sell');
+        $user = $this->shopeeOperator();
+
+        $this->assertFalse(app(ChannelWorkspace::class)->allows($item, $user));
+    }
+
+    public function test_an_item_is_visible_when_both_gates_pass(): void
+    {
+        // The mirror of the test above. Without this one, a totally broken
+        // allows() that returns false unconditionally would still pass.
+        $item = new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders', null, [], 'Sell');
+        $user = $this->shopeeOperator();
+
+        $this->assertTrue(app(ChannelWorkspace::class)->allows($item, $user));
+    }
+
+    public function test_a_guest_gets_nothing(): void
+    {
+        $item = new MenuItem('Orders', 'ext.shopee.orders.index', 'view_shopee_orders', null, [], 'Sell');
+
+        $this->assertFalse(app(ChannelWorkspace::class)->allows($item, null));
     }
 }
