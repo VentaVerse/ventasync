@@ -65,11 +65,14 @@
             $fhCards[] = [
                 'id' => $fhTab->id,
                 'name' => $fhTab->label,
-                // Shopee's orders render in place on this page. Every other
-                // channel still navigates to its own orders page until its
-                // panel is extracted the same way (spec D4).
-                'url' => $fhTab->id === 'shopee'
-                    ? route('integrations.orders', ['channel' => 'shopee'])
+                // Converted channels (today: Shopee, Lazada - the set the
+                // controller built self::ORDER_PANEL_SERVICES from, handed
+                // down as $panelChannels) render their orders in place on
+                // this page. Every other channel still navigates to its own
+                // orders page until its panel is extracted the same way
+                // (spec D4).
+                'url' => in_array($fhTab->id, $panelChannels ?? [], true)
+                    ? route('integrations.orders', ['channel' => $fhTab->id])
                     : route($fhTab->routeName, $fhTab->routeParams),
                 'unprocessed' => $fhUnprocessed,
                 'today' => $fhTabToday,
@@ -172,6 +175,23 @@
             @include('ext-shopee::orders._panel', [
                 'panelBaseUrl' => route('integrations.orders'),
                 'panelHiddenParams' => ['channel' => 'shopee'],
+            ])
+        </div>
+    @elseif($selectedChannel === 'lazada')
+        {{-- Same id and the same page-level data attributes Lazada's own
+             orders/index.blade.php carries, so resources/js/pages/
+             lazada-orders.js (which reads them off the root element, not
+             through the panel service) binds here unchanged whether this
+             renders on the seller center or the hub. --}}
+        <div class="x-fh-panel co-page" id="lazada-orders-page"
+             data-awb-url="{{ session('lazada_awb_url') }}"
+             data-pack-print-order="{{ session('open_pack_print_modal_order_id') }}"
+             data-awb-template="{{ route('ext.lazada.orders.awb', ['orderId' => '__OID__']) }}"
+             data-ship-print-template="{{ route('ext.lazada.orders.ship_print_post', ['orderId' => '__OID__']) }}"
+             data-recreate-template="{{ route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']) }}">
+            @include('ext-lazada::orders._panel', [
+                'panelBaseUrl' => route('integrations.orders'),
+                'panelHiddenParams' => ['channel' => 'lazada'],
             ])
         </div>
     @else

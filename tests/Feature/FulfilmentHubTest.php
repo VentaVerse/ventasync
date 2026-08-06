@@ -267,4 +267,176 @@ class FulfilmentHubTest extends TestCase
         $response->assertSee('No marketplace orders available');
         $response->assertDontSee('id="shopee-orders-page"', false);
     }
+
+    // ------------------------------------------------------------------
+    // Task 3 (round 2): Lazada joins Shopee as a second channel whose
+    // orders render in place on the hub, through IntegrationController@
+    // orders's now-generalised self::ORDER_PANEL_SERVICES map rather than
+    // a shopee-only literal. Own fixtures below register the Lazada
+    // extension explicitly, because setUp() only registers Shopee.
+    // ------------------------------------------------------------------
+
+    private function registerLazada(): void
+    {
+        $manager = $this->app->make(ExtensionManager::class);
+        $manager->install('lazada');
+        $manager->enable('lazada');
+        $this->app->register(LazadaExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
+    }
+
+    /**
+     * Card + orders read tier, the same combo shopeeOperator() holds for
+     * Shopee: view_lazada is the card gate, view_lazada_orders is what
+     * visibleOrderTabs() checks per tab.
+     */
+    private function lazadaOperator(): User
+    {
+        $this->registerLazada();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub Lazada Operators']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_lazada', 'view_lazada_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * manage_lazada_orders implies view_lazada_orders (the same
+     * manage-implies-view cascade shopeeManager() relies on), so this user
+     * sees the Lazada tab AND its command bar.
+     */
+    private function lazadaManager(): User
+    {
+        $this->registerLazada();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub Lazada Managers']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_lazada', 'manage_lazada_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * shopeeOperator() with Lazada also registered (but never granted), so
+     * the Lazada tab genuinely exists in the registry - just not in this
+     * user's own visibleOrderTabs() list. Without registering Lazada here,
+     * 'lazada' would never appear in ANY user's $tabs regardless of the
+     * membership check's correctness, and the reverse-direction mutation
+     * (bypassing the loop for a channel that exists nowhere) would go
+     * unexercised the same way fulfilmentOutsider()'s docblock explains for
+     * the Shopee direction.
+     */
+    private function shopeeOperatorWithLazadaRegistered(): User
+    {
+        $this->registerLazada();
+
+        return $this->shopeeOperator();
+    }
+
+    public function test_default_render_includes_a_lazada_card_that_switches_in_place(): void
+    {
+        $user = $this->lazadaOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders');
+
+        $response->assertOk();
+        // Lazada's hub card stops linking out to /lazada/orders once its
+        // panel is extracted: the card strip switches the panel in place,
+        // exactly like Shopee's card, keyed off the same panelChannels list
+        // rather than a shopee-only literal.
+        $response->assertSee(route('integrations.orders', ['channel' => 'lazada']), false);
+        $response->assertDontSee(route('ext.lazada.orders.index', ['tab' => 'TO_SHIP']), false);
+    }
+
+    public function test_selecting_lazada_switches_the_panel_in_place(): void
+    {
+        $user = $this->lazadaOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=lazada');
+
+        $response->assertOk();
+        $response->assertSee('id="lazada-orders-page"', false);
+        $response->assertDontSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    public function test_lazada_manager_sees_the_command_bar_on_the_hub_panel(): void
+    {
+        $manager = $this->lazadaManager();
+
+        $response = $this->actingAs($manager)->get('/integrations/orders?channel=lazada');
+
+        $response->assertOk();
+        $response->assertSee('id="btnFetchOrders"', false);
+    }
+
+    public function test_lazada_viewer_does_not_see_the_command_bar_on_the_hub_panel(): void
+    {
+        $viewer = $this->lazadaOperator();
+
+        $response = $this->actingAs($viewer)->get('/integrations/orders?channel=lazada');
+
+        $response->assertOk();
+        $response->assertDontSee('id="btnFetchOrders"', false);
+    }
+
+    /**
+     * The reverse of test_unauthorised_channel_falls_back_to_summary: a
+     * user holding only Shopee permissions must not be able to select
+     * Lazada's panel either. Together the two tests prove the membership
+     * gate is genuinely per-channel, not a Shopee-only check that happens
+     * to also block everything else, and that generalising it to
+     * self::ORDER_PANEL_SERVICES did not loosen the Shopee side.
+     */
+    public function test_shopee_only_user_requesting_lazada_falls_back_to_summary(): void
+    {
+        $user = $this->shopeeOperatorWithLazadaRegistered();
+
+        // Guards the premise: if this ever stops holding, the assertion
+        // below would start passing for the wrong reason.
+        $this->assertFalse($user->hasPermission('view_lazada'));
+        $this->assertFalse($user->hasPermission('view_lazada_orders'));
+        $this->assertTrue($user->hasPermission('view_shopee_orders'));
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=lazada');
+
+        $response->assertOk();
+        $response->assertDontSee('id="lazada-orders-page"', false);
+        // Summary, not the empty state: this user does see a tab (Shopee),
+        // so the request must land on the aggregate view.
+        $response->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    public function test_lazada_panel_links_keep_hub_context(): void
+    {
+        $user = $this->lazadaOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=lazada');
+
+        $response->assertOk();
+        // The filter form posts back to the hub's own route, not Lazada's
+        // seller-center route.
+        $response->assertSee(
+            '<form method="GET" action="' . e(route('integrations.orders')) . '" class="x-filters" id="orders-filter">',
+            false
+        );
+        // Every self-link (filter form's hidden input, segment links via
+        // $panelSelfUrl) carries channel=lazada so the context survives a
+        // filter change or a page reload.
+        $response->assertSee('<input type="hidden" name="channel" value="lazada">', false);
+        // Segment links specifically: tab= only ever appears on the status
+        // segment, so a URL carrying both tab= and channel=lazada proves the
+        // SEGMENT keeps context, not only the strip card and the hidden
+        // input above (neither of which can prove the segment on its own).
+        $this->assertMatchesRegularExpression(
+            '/href="[^"]*integrations\/orders\?[^"]*(?:tab=[^"]*channel=lazada|channel=lazada[^"]*tab=)[^"]*"/',
+            $response->getContent()
+        );
+    }
 }

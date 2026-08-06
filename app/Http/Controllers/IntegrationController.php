@@ -11,6 +11,26 @@ use Illuminate\Support\Facades\DB;
 class IntegrationController extends Controller
 {
     /**
+     * Channels whose orders content has been extracted into a shared
+     * service+partial (build(Request): array, plus an ext-{id}::orders._panel
+     * view) and can therefore render in place on this hub, the same way
+     * Shopee's ShopeeOrdersPanel does. Every other channel's card still
+     * navigates to its own seller-center orders page instead. Adding the
+     * next converted channel is exactly one entry here: the class must
+     * expose build(Request $request): array shaped like ShopeeOrdersPanel's
+     * (feeding straight into ext-{id}::orders._panel, which owns
+     * $panelBaseUrl/$panelHiddenParams), and the channel's own
+     * orders.blade.php wrapper is added to resources/views/integrations/
+     * orders.blade.php's per-channel wrapper markup (each channel's page JS
+     * binds to its own root id and, for Lazada, page-level data attributes
+     * that do not flow through the panel service).
+     */
+    private const ORDER_PANEL_SERVICES = [
+        'shopee' => \Extensions\shopee\Services\ShopeeOrdersPanel::class,
+        'lazada' => \Extensions\lazada\Services\LazadaOrdersPanel::class,
+    ];
+
+    /**
      * Integrations status board. One card per channel, one card per store
      * for the multi-store channels (Venta, OpenCart, Shopify), answering
      * "is everything healthy, and where do I need to go" without a trip
@@ -245,10 +265,10 @@ class IntegrationController extends Controller
      * back to Summary silently rather than erroring, because a stale bookmark
      * or a revoked permission should land the operator on a working page.
      *
-     * Only Shopee renders its orders in place today (spec D4). Every other
-     * channel's card navigates to that channel's own orders page until its
-     * panel is extracted the way Shopee's was, so a valid non-Shopee id
-     * still shows Summary here.
+     * Shopee and Lazada render their orders in place today (spec D4, round
+     * 2). Every other channel's card navigates to that channel's own orders
+     * page until its panel is extracted the same way, so a valid id outside
+     * self::ORDER_PANEL_SERVICES still shows Summary here.
      */
     public function orders(Request $request, IntegrationRegistry $registry)
     {
@@ -282,7 +302,7 @@ class IntegrationController extends Controller
         // computed and thrown away. A six-channel seller pays that on every
         // filter click inside the panel. Skip the assembly entirely and hand
         // the view the empty arrays its Summary branch will not read.
-        $renderingPanel = $selectedTab !== null && $selectedTab->id === 'shopee';
+        $renderingPanel = $selectedTab !== null && array_key_exists($selectedTab->id, self::ORDER_PANEL_SERVICES);
 
         // Combined top-products leaderboard. Each tab returns its own top
         // products (scoped per store for multi-store marketplaces); we merge
@@ -341,27 +361,34 @@ class IntegrationController extends Controller
             'selectedChannelLabel' => null,
             'topProducts' => $topProducts,
             'recentOrders' => $recentOrders,
+            // Every tab id in this list gets an in-place link on the card
+            // strip (view keys off membership, not a per-channel literal);
+            // every other tab still links out to its own orders page.
+            'panelChannels' => array_keys(self::ORDER_PANEL_SERVICES),
         ];
 
-        // Shopee's orders content is a shared panel (service + partial) used
-        // by both its seller center and this page. The panel builds every one
-        // of its own links from the base URL and hidden params handed in
-        // here, so segment tabs, filters and pagination all stay on
-        // /integrations/orders and keep carrying channel=shopee.
+        // A converted channel's orders content is a shared panel (service +
+        // partial) used by both its seller center and this page. The panel
+        // builds every one of its own links from the base URL and hidden
+        // params handed in here, so segment tabs, filters and pagination all
+        // stay on /integrations/orders and keep carrying channel={id}.
         //
-        // The class is named rather than imported: it lives in an extension,
-        // and core should not carry a top-level `use` for a folder that can
-        // be absent. Reaching this line means the Shopee tab was visible,
-        // which means the extension is enabled and its provider booted.
-        if ($selectedTab !== null && $selectedTab->id === 'shopee') {
+        // The class is read from the map rather than imported at the top of
+        // this file: it lives in an extension, and core should not carry a
+        // top-level `use` for a folder that can be absent. Reaching this
+        // line means the tab was visible, which means the extension is
+        // enabled and its provider booted.
+        if ($renderingPanel) {
+            $panelClass = self::ORDER_PANEL_SERVICES[$selectedTab->id];
+
             $data = array_merge(
                 $data,
-                app(\Extensions\shopee\Services\ShopeeOrdersPanel::class)->build($request),
+                app($panelClass)->build($request),
                 [
-                    'selectedChannel' => 'shopee',
+                    'selectedChannel' => $selectedTab->id,
                     'selectedChannelLabel' => $selectedTab->label,
                     'panelBaseUrl' => route('integrations.orders'),
-                    'panelHiddenParams' => ['channel' => 'shopee'],
+                    'panelHiddenParams' => ['channel' => $selectedTab->id],
                 ]
             );
         }
