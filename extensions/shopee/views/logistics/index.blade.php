@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.channel')
 @section('breadcrumb', 'Integrations / Shopee / Logistics')
 
 @section('title', 'Shopee Logistics Channels')

@@ -128,6 +128,28 @@
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
+
+    /* The twelve custom properties above stop a *var() lookup* from
+       resolving to the new design system inside legacy content. They do
+       nothing about background/color/font-*: theme.css sets those as plain
+       values on .x-app (the body), and every legacy page inherits them by
+       ordinary CSS cascade the moment its layout puts that class on <body>
+       - which channel.blade.php does, unlike layouts/app.blade.php's bare
+       <body>. Reset.css's own body rule is what legacy pages were actually
+       built against (background: #f1f5f9; color: var(--text-primary), which
+       is a fixed #0f172a with no dark override; Inter 14px/1.6), so that is
+       what is restored here, not var(--canvas)/var(--text)/var(--font-ui) -
+       those move with the theme toggle, and legacy content must not.
+       Undetectable in light theme, where Geist 13px reads close enough to
+       Inter 14px not to notice - the failure this closes is dark theme,
+       where uncorrected .x-app text renders near-white-on-white inside
+       these pages' cards and near-black-on-black outside them, on pages
+       that could not enter dark theme at all before this boundary existed. */
+    background: #f1f5f9;
+    color: #0f172a;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 @media (max-width: 900px) {

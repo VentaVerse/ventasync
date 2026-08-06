@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Catalog\Order;
 use App\Models\Setting;
 use App\Observers\OrderObserver;
+use App\Support\ChannelWorkspace;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -40,6 +41,35 @@ class AppServiceProvider extends ServiceProvider
         // `*_test` schemas freely rebuildable.
         $database = (string) config('database.connections.'.config('database.default').'.database');
         DB::prohibitDestructiveCommands(! str_ends_with($database, '_test'));
+
+        // layouts.channel needs the card, the sidebar groups and the state in
+        // every view that extends it, including the seven existing Shopee
+        // pages. A composer bound to the layout puts them exactly where they
+        // are needed. View::share() would leak them onto every page in the
+        // app, and adding them to seven controller methods by hand is the
+        // kind of duplication that drifts.
+        View::composer('layouts.channel', function ($view) {
+            $workspace = app(ChannelWorkspace::class);
+            $user = request()->user();
+
+            // ext.shopee.orders.index -> shopee
+            $name = (string) (request()->route()?->getName() ?? '');
+            $channel = str_starts_with($name, 'ext.')
+                ? explode('.', $name)[1] ?? ''
+                : (string) request()->route('channel');
+
+            $card = $workspace->card($channel, $user);
+
+            if (! $card) {
+                abort(404);
+            }
+
+            $view->with([
+                'channelCard' => $card,
+                'channelGroups' => $workspace->groups($card, $user),
+                'channelState' => $workspace->state($card),
+            ]);
+        });
 
         // Centralized FCM notification dispatch - fires on any Order create/update.
         Order::observe(OrderObserver::class);

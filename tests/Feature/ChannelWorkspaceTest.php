@@ -271,4 +271,83 @@ class ChannelWorkspaceTest extends TestCase
             app('router')->getRoutes()->getByName('integrations.orders')->getActionName()
         );
     }
+
+    public static function shopeePageProvider(): array
+    {
+        return [
+            'orders' => ['/shopee/orders'],
+            'returns' => ['/shopee/orders/returns'],
+            'listings' => ['/shopee/products'],
+            'product groups' => ['/shopee/product-groups'],
+            'categories' => ['/shopee/categories'],
+            'logistics' => ['/shopee/logistics'],
+            'settings' => ['/shopee'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('shopeePageProvider')]
+    public function test_shopee_pages_render_inside_the_workspace(string $path): void
+    {
+        // shopeeOperator() holds exactly view_shopee and view_shopee_orders,
+        // which is every permission any of these seven routes' perm:
+        // middleware demands (view_shopee|manage_shopee for six of them,
+        // view_shopee_orders|manage_shopee_orders for the orders/returns
+        // pair) - so a real read-only operator, not an admin stand-in, is
+        // enough to prove all seven render inside the workspace.
+        $user = $this->shopeeOperator();
+
+        $response = $this->actingAs($user)->get($path);
+
+        $response->assertOk();
+        // The channel sidebar is present, the global one is not.
+        $response->assertSee('x-cnav', false);
+        $response->assertSee('All channels');
+        $response->assertDontSee('data-nav-group', false);
+    }
+
+    public function test_leaving_the_workspace_restores_the_global_nav(): void
+    {
+        // The brief's literal snippet checks this against /sales/orders.
+        // Two problems with using that route here: it is gated by
+        // perm:view_orders|manage_orders, which shopeeOperator()
+        // deliberately does not hold (hitting it would just prove
+        // EnsurePermission's redirect-on-deny behaviour, not the nav); and
+        // its controller actually renders orders.index-v2 (extends
+        // layouts.shell), not the legacy orders/index.blade.php this task
+        // is required to leave byte-identical (that view still extends
+        // layouts.app, which predates partials/nav.blade.php and its
+        // data-nav-group markup entirely - it would fail this assertion
+        // for a reason that has nothing to do with this task).
+        //
+        // /integrations (IntegrationController@index -> integrations.board,
+        // confirmed @extends('layouts.shell')) needs only 'auth', so any
+        // authenticated user reaches it, and it renders the same global
+        // sidebar as orders.index-v2 - proving the same regression guard
+        // without either problem above.
+        //
+        // Asserting on data-nav-group itself (rather than data-nav, the
+        // wrapping <nav>'s own always-present attribute) does not work for
+        // this particular user: Navigation::definition() is the CORE nav
+        // tree (Sales, Catalogue, Purchasing, Warehousing, Reports...) and
+        // none of its groups grant on view_shopee/view_shopee_orders -
+        // Shopee's own destinations live in the channel workspace sidebar,
+        // never in this tree at all. Navigation::groups() therefore drops
+        // every group for shopeeOperator() and returns only its two flat,
+        // group-less entries (Dashboard, Integrations), so data-nav-group
+        // genuinely does not appear in this response for ANY user whose
+        // permissions look like this one's - asserting it here would not
+        // guard a regression, it would just be wrong. data-nav is the
+        // outer <nav class="x-nav" data-nav> wrapper partials/nav.blade.php
+        // always renders regardless of which entries survive filtering, so
+        // it proves the same thing (the global nav partial rendered, not
+        // the channel one) without depending on which groups this
+        // particular operator can see.
+        $user = $this->shopeeOperator();
+
+        $response = $this->actingAs($user)->get('/integrations');
+
+        $response->assertOk();
+        $response->assertSee('data-nav', false);
+        $response->assertDontSee('x-cnav', false);
+    }
 }
