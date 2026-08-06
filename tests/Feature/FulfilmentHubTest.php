@@ -238,6 +238,33 @@ class FulfilmentHubTest extends TestCase
         // $panelSelfUrl) carries channel=shopee so the context survives a
         // filter change or a page reload.
         $response->assertSee('<input type="hidden" name="channel" value="shopee">', false);
-        $response->assertSee('channel=shopee', false);
+        // Segment links specifically: tab= only ever appears on the status
+        // segment, so a URL carrying both tab= and channel=shopee proves the
+        // SEGMENT keeps context, which the strip card (also channel=shopee)
+        // and the hidden input above cannot prove for it. The final review
+        // flagged the bare channel=shopee assertion as satisfiable by the
+        // card alone.
+        $this->assertMatchesRegularExpression(
+            '/href="[^"]*integrations\/orders\?[^"]*(?:tab=[^"]*channel=shopee|channel=shopee[^"]*tab=)[^"]*"/',
+            $response->getContent()
+        );
+    }
+
+    public function test_a_user_with_no_visible_tabs_gets_the_empty_state(): void
+    {
+        // No Shopee (or any channel) permission at all, so visibleOrderTabs
+        // is empty and the controller's empty($tabs) branch renders. The
+        // final review found this branch had no automated coverage.
+        $group = UserGroup::create(['name' => 'Fulfilment No Tabs']);
+        $group->permissions()->attach(
+            Permission::where('key', 'manage_products')->firstOrFail()->id
+        );
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        $response = $this->actingAs($user)->get('/integrations/orders');
+
+        $response->assertOk();
+        $response->assertSee('No marketplace orders available');
+        $response->assertDontSee('id="shopee-orders-page"', false);
     }
 }
