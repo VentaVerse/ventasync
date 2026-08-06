@@ -143,7 +143,11 @@
             // unreadable copy on the Orders page and would here too.
             $lzEmptyDesc = 'No returns in ' . ($tabs[$active_tab] ?? $active_tab) . ' right now.';
         } else {
-            $lzEmptyDesc = 'Nothing has been synced yet. Use Fetch returns above to pull them from Lazada.';
+            // Same rule as the Orders page: a viewer is not told to press a
+            // button their tier never renders.
+            $lzEmptyDesc = $canManageLazadaOrders
+                ? 'Nothing has been synced yet. Use the button above to pull returns from Lazada.'
+                : 'Nothing has been synced yet. Someone with permission to sync returns needs to pull them from Lazada first.';
         }
     @endphp
     <x-ui.empty title="No returns here" :description="$lzEmptyDesc" />

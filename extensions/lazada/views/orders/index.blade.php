@@ -291,7 +291,13 @@
             // "no to ship orders", which reads broken.
             $lzEmptyDesc = 'No orders in ' . ($scopeLabel ?? $active_tab) . ' right now.';
         } else {
-            $lzEmptyDesc = 'Nothing has been synced yet. Pick a date range above and fetch orders from Lazada.';
+            // The empty state names the way forward the reader actually
+            // has. Telling a read-only operator to use a command bar their
+            // permission tier never renders is an instruction they cannot
+            // follow.
+            $lzEmptyDesc = $canManageLazadaOrders
+                ? 'Nothing has been synced yet. Pick a date range above and fetch orders from Lazada.'
+                : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from Lazada first.';
         }
     @endphp
     <x-ui.empty title="No orders here" :description="$lzEmptyDesc" />

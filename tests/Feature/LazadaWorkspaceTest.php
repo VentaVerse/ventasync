@@ -364,4 +364,271 @@ class LazadaWorkspaceTest extends TestCase
             ->assertSee(route('integrations.workspace', ['channel' => 'lazada']), false);
     }
 
+    // ------------------------------------------------------------------
+    // Task 2: the rebuilt Orders and Returns pages.
+    //
+    // The manage tier is a separate group from lazadaOperator()'s, with its
+    // own unique name, so the two never share a row and a test asserting a
+    // viewer sees nothing cannot pass because a manager permission leaked in
+    // from a shared fixture.
+    // ------------------------------------------------------------------
+
+    private function lazadaOrdersManager(): User
+    {
+        $group = UserGroup::create(['name' => 'Lazada Order Desk Managers']);
+
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_lazada', 'view_lazada_orders', 'manage_lazada_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * One order per branch of the action matrix the rebuilt page gates on.
+     * Returned keyed by status so a test can name the row it cares about.
+     *
+     * @return array<string, \Extensions\lazada\Models\LazadaOrder>
+     */
+    private function seedLazadaOrders(): array
+    {
+        $out = [];
+
+        foreach (['unpaid', 'pending', 'repacked', 'packed', 'ready_to_ship', 'shipped', 'delivered', 'canceled', 'failed_delivery'] as $status) {
+            $out[$status] = \Extensions\lazada\Models\LazadaOrder::create([
+                'region' => 'ph',
+                'order_id' => 'T2-' . strtoupper($status),
+                'status' => $status,
+                'order_created_at' => '2026-08-05 09:15:00',
+                'raw' => [
+                    'order_number' => 'T2-' . strtoupper($status),
+                    'customer_first_name' => 'Fixture Buyer',
+                    'price' => '1234.50',
+                    'currency' => 'PHP',
+                ],
+            ]);
+        }
+
+        return $out;
+    }
+
+    /**
+     * The page is a read surface: holding only view_lazada_orders must open
+     * it, and must offer none of the four controls whose routes demand the
+     * manage tier. The old page hardcoded its own permission flag to true and
+     * showed a viewer every one of them.
+     */
+    public function test_a_viewer_reaches_orders_and_is_offered_no_write_control(): void
+    {
+        $this->seedLazadaOrders();
+
+        $response = $this->actingAs($this->lazadaOrdersOnlyOperator())->get('/lazada/orders?tab=ALL');
+
+        $response->assertOk();
+        $response->assertDontSee('x-cmdbar', false);
+        $response->assertDontSee('Pack and print');
+        $response->assertDontSee('Arrange shipment');
+        $response->assertDontSee('Recreate package');
+        $response->assertDontSee('id="lzPackPrintModal"', false);
+
+        // Read-only affordances stay: the picking documents are
+        // server-rendered from data already fetched, which is why their
+        // routes sit in the read tier.
+        $response->assertSee('Packing list');
+        $response->assertSee('Pick list');
+    }
+
+    public function test_the_manage_tier_is_offered_every_action_its_statuses_allow(): void
+    {
+        $this->seedLazadaOrders();
+
+        $response = $this->actingAs($this->lazadaOrdersManager())->get('/lazada/orders?tab=ALL&per_page=50');
+
+        $response->assertOk();
+        // The command bar, gated on the manage tier.
+        $response->assertSee('formFetchLazadaOrders', false);
+        $response->assertSee('id="btnUpdateOrders"', false);
+        // One control per branch of the matrix, each on its own status.
+        $response->assertSee('Pack and print');
+        $response->assertSee('Arrange shipment');
+        $response->assertSee('Recreate package');
+        $response->assertSee('Print waybill');
+        $response->assertSee('Tracking');
+        // Every mutating action keeps the data-confirm convention; no
+        // native dialog is ever used.
+        $response->assertSee('data-confirm="Arrange shipment for this order?', false);
+        $response->assertDontSee('confirm(', false);
+    }
+
+    /**
+     * The middleware on the write routes is the real gate; the flag on the
+     * page only decides what is offered. Both directions, against the
+     * routes as declared in extensions/lazada/routes/web.php.
+     */
+    public function test_the_write_routes_refuse_a_viewer_and_admit_the_manage_tier(): void
+    {
+        $order = $this->seedLazadaOrders()['packed'];
+
+        $viewer = $this->lazadaOrdersOnlyOperator();
+
+        // App\Http\Middleware\EnsurePermission denies a JSON caller with a
+        // 403 envelope and an HTML caller with a redirect carrying the
+        // denial in session('error'). Both shapes are asserted, because
+        // asserting only the redirect would also pass if the request had
+        // reached the controller and been bounced for some other reason.
+        $this->actingAs($viewer)
+            ->postJson('/lazada/orders/fetch', ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
+            ->assertForbidden()
+            ->assertJsonPath('error', 'permission_denied');
+
+        foreach ([
+            '/lazada/orders/fetch',
+            '/lazada/orders/update-statuses',
+            '/lazada/orders/returns/fetch',
+            '/lazada/orders/' . $order->order_id . '/rts',
+            '/lazada/orders/' . $order->order_id . '/pack-print',
+            '/lazada/orders/' . $order->order_id . '/recreate-package',
+        ] as $writeRoute) {
+            $this->actingAs($viewer)
+                ->post($writeRoute, ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
+                ->assertRedirect()
+                ->assertSessionHas('error', "You don't have permission to do this action.");
+        }
+
+        // The manage tier gets past the gate. With no Lazada credentials
+        // configured the controller turns straight back with its own message
+        // rather than calling the marketplace, so this asserts the gate and
+        // nothing beyond it: the controller's key is present and the
+        // middleware's is not.
+        $this->actingAs($this->lazadaOrdersManager())
+            ->post('/lazada/orders/fetch', ['date_from' => '2026-08-01', 'date_to' => '2026-08-07'])
+            ->assertRedirect()
+            ->assertSessionHas('lazada_orders_last_result')
+            ->assertSessionMissing('error');
+    }
+
+    public function test_a_viewer_reaches_returns_and_is_not_offered_the_fetch(): void
+    {
+        $viewer = $this->lazadaOrdersOnlyOperator();
+
+        $this->actingAs($viewer)->get('/lazada/orders/returns')
+            ->assertOk()
+            ->assertDontSee('formFetchLazadaReturns', false)
+            ->assertDontSee('Fetch returns');
+
+        $this->actingAs($this->lazadaOrdersManager())->get('/lazada/orders/returns')
+            ->assertOk()
+            ->assertSee('formFetchLazadaReturns', false)
+            ->assertSee('Fetch returns');
+    }
+
+    /**
+     * Statuses reach the page as words a packer reads, in the tone
+     * App\Support\ChannelStatusTone assigns: accent only on the steps that
+     * are the operator's own move, danger on the failures, neutral on the
+     * settled.
+     */
+    public function test_lazada_statuses_render_as_plain_language_in_the_right_tone(): void
+    {
+        $this->seedLazadaOrders();
+
+        $html = $this->actingAs($this->lazadaOrdersManager())
+            ->get('/lazada/orders?tab=ALL&per_page=50')
+            ->getContent();
+
+        // No raw marketplace constant reaches the screen.
+        $this->assertStringNotContainsString('>ready_to_ship<', $html);
+        $this->assertStringNotContainsString('>failed_delivery<', $html);
+        $this->assertStringNotContainsString('lost_by_3pl', $html);
+
+        // Pair each badge with its own label rather than asking whether a
+        // tone and a label both appear somewhere on the page: they always
+        // would, because nine badges render, and an assertion that passes
+        // for a page with every tone shuffled is not an assertion.
+        preg_match_all(
+            '/x-badge--([a-z]+)"[^>]*>.*?<span class="x-badge__label">(.*?)<\/span>/s',
+            $html,
+            $badges,
+            PREG_SET_ORDER
+        );
+
+        $toneOf = [];
+        foreach ($badges as $badge) {
+            $toneOf[trim($badge[2])] = $badge[1];
+        }
+
+        // Sorted, because the rows tie on order_created_at and the database
+        // is free to return them in any order; the pairing is what is under
+        // test, not the sequence.
+        ksort($toneOf);
+
+        $expected = [
+            'Unpaid' => 'warning',
+            'To pack' => 'success',
+            'To pack again' => 'success',
+            'To arrange shipment' => 'success',
+            'To hand over' => 'info',
+            'Shipped' => 'info',
+            'Delivered' => 'neutral',
+            'Cancelled' => 'danger',
+            'Delivery failed' => 'danger',
+        ];
+        ksort($expected);
+
+        $this->assertSame($expected, $toneOf);
+    }
+
+    /**
+     * The rebuilt Orders page is the last Lazada surface that carried the
+     * cross-marketplace tab strip; Task 1's own isolation test deliberately
+     * left it out because the strip was still there. It is gone now, so the
+     * rule holds on every Lazada page.
+     */
+    public function test_the_rebuilt_orders_page_shows_no_other_marketplace(): void
+    {
+        $this->seedLazadaOrders();
+
+        $response = $this->actingAs($this->lazadaOperator())->get('/lazada/orders');
+
+        $response->assertOk();
+        $response->assertDontSee('All marketplaces');
+        $response->assertDontSee('ord-tab-head', false);
+        $response->assertDontSee('Shopee');
+        $response->assertDontSee('TikTok');
+    }
+
+    /**
+     * Wire format. Every query param the controller reads has to survive a
+     * round trip through the page's own links, or a filter silently stops
+     * applying when a tab is clicked.
+     */
+    public function test_the_page_links_preserve_every_query_param_the_controller_reads(): void
+    {
+        $this->seedLazadaOrders();
+
+        $html = $this->actingAs($this->lazadaOrdersManager())
+            ->get('/lazada/orders?tab=TO_SHIP&pending_sub=to_arrange&sort=created_asc&per_page=20&buyer_name=Fixture')
+            ->getContent();
+
+        // The sub-step segment keeps the search, the sort and the page size,
+        // whatever order route() happens to emit them in.
+        $this->assertSame(
+            1,
+            preg_match('/href="([^"]*pending_sub=to_handover[^"]*)"/', $html, $m),
+            'The To Handover step link is missing from the sub-segment.'
+        );
+        $handoverLink = html_entity_decode($m[1]);
+        foreach (['tab=TO_SHIP', 'pending_sub=to_handover', 'buyer_name=Fixture', 'sort=created_asc', 'per_page=20'] as $param) {
+            $this->assertStringContainsString($param, $handoverLink, 'Switching step dropped ' . $param);
+        }
+        // page is the one param a step switch must drop: page 4 of To
+        // Arrange is not page 4 of To Handover.
+        $this->assertStringNotContainsString('page=', str_replace('per_page=', '', $handoverLink));
+        // The filter form re-submits the active tab and sub-step so a search
+        // does not silently jump back to All.
+        $this->assertStringContainsString('<input type="hidden" name="tab" value="TO_SHIP">', $html);
+        $this->assertStringContainsString('<input type="hidden" name="pending_sub" value="to_arrange">', $html);
+    }
 }
