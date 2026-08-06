@@ -1,5 +1,7 @@
 {{-- Applies the theme before first paint so there is no flash of the wrong
-     theme. Resolution order: stored choice, then OS, then light. --}}
+     theme. Resolution order: stored choice, then light. Light is the default
+     rather than the OS preference, per the owner. System is still selectable in the
+     toggle, and when chosen it does follow the OS and react to OS changes. --}}
 <script>
 (function () {
     var KEY = 'xenon-theme';
@@ -13,10 +15,10 @@
     }
     var stored = null;
     try { stored = localStorage.getItem(KEY); } catch (e) {}
-    apply(stored || 'system');
+    apply(stored || 'light');
 
     window.xenonTheme = {
-        get: function () { try { return localStorage.getItem(KEY) || 'system'; } catch (e) { return 'system'; } },
+        get: function () { try { return localStorage.getItem(KEY) || 'light'; } catch (e) { return 'light'; } },
         set: function (mode) {
             try { localStorage.setItem(KEY, mode); } catch (e) {}
             apply(mode);
