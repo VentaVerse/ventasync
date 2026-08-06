@@ -248,9 +248,13 @@
 #shopee-orders-page .x-table tbody tr,
 #shopee-returns-page .x-table tbody tr { height: auto; }
 
-.sp-col-order  { width: 176px; }
-.sp-col-buyer  { width: 148px; }
+/* The legacy column format, per the owner: Products | Qty | Price | Amount |
+   Shipping | Status | Actions, with the order facts in a band above each
+   order's item rows. Products is the one flexible column. */
+.sp-col-qty    { width: 56px; }
+.sp-col-price  { width: 116px; }
 .sp-col-total  { width: 132px; }
+.sp-col-ship   { width: 148px; }
 .sp-col-status { width: 158px; }
 .sp-col-act    { width: 236px; }
 
@@ -385,24 +389,64 @@
     color: var(--text-secondary);
 }
 
-.sp-item__qty {
-    /* Inline after the name, not on the row's far edge: what and how many
-       read as one fact. Weighted and sized to be unmissable, a wrong count
-       is the second way to mispack after a wrong item. */
-    margin-left: var(--space-2);
+/* Qty in its own column so every multiplier shares one edge down the page,
+   per the owner: inline after the name, its position depended on the name's
+   length. Bold and full-contrast: a wrong count is the second way to
+   mispack after a wrong item. */
+.sp-qty {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
-    color: var(--text-secondary);
+    color: var(--text);
 }
 
-/* Buyer */
-.sp-buyer {
-    font-size: 13px;
-    color: var(--text);
-    overflow-wrap: anywhere;
+.sp-price { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+
+/* The order band: buyer, order number, item count and create time above
+   each order's item rows, where the legacy page carried them. */
+.sp-band td {
+    background: var(--surface-sunken);
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 0;
 }
+
+.sp-band__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+}
+
+.sp-band__left,
+.sp-band__right {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.sp-band__label { font-size: 12px; color: var(--text-muted); }
+
+.sp-band__value { font-size: 13px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+
+.sp-band__value--mono { font-family: var(--font-mono); font-weight: 500; }
+
+.sp-band__muted { font-size: 12px; color: var(--text-muted); }
+
+/* Item rows inside one order divide with a soft line; the real row border
+   belongs to the order's last row, so orders read as blocks. */
+#shopee-orders-page .x-table tbody tr.sp-itemrow:not(.sp-itemrow--last) td {
+    border-bottom: 1px dashed var(--border);
+}
+
+/* Rowspanned cells (amount, shipping, status, actions) span the dashed
+   dividers by construction, nothing to override. */
+
+.sp-courier { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
 
 .sp-empty-mark { color: var(--text-muted); }
 
@@ -715,16 +759,16 @@
    Responsive
    ------------------------------------------------------------------ */
 
-/* Between the mobile restack and a comfortable desktop width the five fixed
-   columns leave almost nothing for Items, the one column carrying genuinely
-   variable-length text. Buyer is the field this range can afford to drop,
-   because it is also the thing the filter row above searches on. Below the
-   restack breakpoint the row is a single stacked column with room for
-   everything, so Buyer comes back. */
+/* Between the mobile restack and a comfortable desktop width the fixed
+   columns leave almost nothing for Products, the one column carrying
+   genuinely variable-length text. Shipping is the field this range can
+   afford to drop: courier and tracking repeat on the order detail, and the
+   Tracking action stays. Below the restack breakpoint the row is a single
+   stacked column with room for everything, so Shipping comes back. */
 @media (min-width: 641px) and (max-width: 900px) {
-    .sp-col-buyer { display: none; }
-    #shopee-orders-page .x-table td[data-label="Buyer"],
-    #shopee-returns-page .x-table td[data-label="Buyer"] { display: none; }
+    .sp-col-ship { display: none; }
+    #shopee-orders-page .x-table td[data-label="Shipping"],
+    #shopee-returns-page .x-table td[data-label="Shipping"] { display: none; }
 }
 
 @media (max-width: 640px) {

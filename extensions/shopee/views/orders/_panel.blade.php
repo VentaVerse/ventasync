@@ -262,11 +262,18 @@
 @else
 <x-ui.table>
     <x-slot:head>
+        {{-- The legacy column format, copied at the owner's direction: one row
+             per item so Qty and Price align in their own columns, and the
+             order-level facts (amount, shipping, status, actions) rowspan
+             beside the item rows. The buyer, order number and create time
+             ride in a band above each order, exactly where the legacy page
+             carried them. --}}
         <tr>
-            <th class="sp-col-order">Order</th>
-            <th>Items</th>
-            <th class="sp-col-buyer">Buyer</th>
-            <th class="sp-col-total x-td-num">Total</th>
+            <th class="sp-col-products">Products</th>
+            <th class="sp-col-qty">Qty</th>
+            <th class="sp-col-price x-td-num">Price</th>
+            <th class="sp-col-total x-td-num">Amount</th>
+            <th class="sp-col-ship">Shipping</th>
             <th class="sp-col-status">Status</th>
             <th class="sp-col-act"><span class="x-sr">Actions</span></th>
         </tr>
@@ -312,6 +319,8 @@
                 $gImg = $row['image'] ?? $rowRaw['image_info']['image_url'] ?? '';
 
                 $key = mb_strtolower(trim((string)$gSku)) . '|' . mb_strtolower(trim((string)$gName)) . '|' . mb_strtolower(trim((string)$gVariation));
+                $gPrice = $row['price'] ?? $rowRaw['model_discounted_price'] ?? $rowRaw['model_original_price'] ?? null;
+
                 if (!isset($grouped[$key])) {
                     $grouped[$key] = [
                         'name' => $gName,
@@ -319,12 +328,20 @@
                         'variation' => $gVariation,
                         'quantity' => $gQty,
                         'image' => $gImg,
+                        'price' => $gPrice,
                     ];
                 } else {
                     $grouped[$key]['quantity'] += $gQty;
                 }
             }
             $groupedItems = array_values($grouped);
+
+            // Legacy shape: an order with no recorded items still renders one
+            // empty item row under its band, rather than a band with nothing
+            // attached to it.
+            $displayItems = $groupedItems !== [] ? $groupedItems : [[]];
+            $lineCount = count($displayItems);
+            $itemCount = count($groupedItems);
 
             $totalAmount = $raw['total_amount'] ?? $raw['escrow_amount'] ?? null;
             // Currency is resolved through App\Support\Money, which reads the
@@ -341,65 +358,82 @@
             $statusLabel = $spStatusLabels[$statusNorm]
                 ?? ($statusStr !== '' ? ucfirst(strtolower(str_replace('_', ' ', $statusNorm))) : 'Unknown');
         @endphp
-        <tr>
-            <td class="sp-col-order" data-label="Order">
-                @if($orderSn)
-                    <a class="x-row-link sp-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">{{ $orderSn }}</a>
-                @else
-                    <span class="sp-sn sp-empty-mark">No order number</span>
-                @endif
-                @if($created)<span class="sp-date">{{ $created }}</span>@endif
-                @if($o->catalog_order_id)
-                    <a class="sp-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
-                @endif
+        <tr class="sp-band">
+            <td colspan="7">
+                <div class="sp-band__row">
+                    <div class="sp-band__left">
+                        <span class="sp-band__label">Buyer</span>
+                        @if($buyer !== '')
+                            <span class="sp-band__value">{{ $buyer }}</span>
+                        @else
+                            <span class="sp-empty-mark">Not recorded</span>
+                        @endif
+                        <span class="sp-band__label">Order</span>
+                        @if($orderSn)
+                            <a class="sp-sn" href="{{ route('ext.shopee.orders.show', ['orderSn' => $orderSn]) }}">{{ $orderSn }}</a>
+                        @else
+                            <span class="sp-empty-mark">No order number</span>
+                        @endif
+                        @if($itemCount > 0)
+                            <span class="sp-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
+                        @endif
+                        @if($o->catalog_order_id)
+                            <a class="sp-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                        @endif
+                    </div>
+                    <div class="sp-band__right">
+                        @if($created)
+                            <span class="sp-band__label">Created</span>
+                            <span class="sp-band__value sp-band__value--mono">{{ $created }}</span>
+                        @endif
+                    </div>
+                </div>
             </td>
-
-            <td data-label="Items">
-                <div class="sp-items">
-                    @forelse($groupedItems as $it)
-                        <div class="sp-item">
-                            <div class="order-img-wrap">
-                                @if(!empty($it['image']))
-                                    <img class="order-img" src="{{ $it['image'] }}" alt="">
-                                @else
-                                    <span class="sp-item__none">No image</span>
-                                @endif
-                            </div>
-                            <div class="sp-item__body">
-                                {{-- Quantity rides directly after the name
-                                     rather than on the row's far edge, per
-                                     the owner: the packer reads "what and how
-                                     many" as one fact, and a &times;2 a
-                                     column-width away from its name is how
-                                     one unit ships when two were bought. --}}
-                                <span class="sp-item__name">{{ $it['name'] !== '' ? $it['name'] : 'Unnamed product' }}
-                                    <span class="sp-item__qty">&times;{{ $it['quantity'] }}</span>
-                                </span>
-                                <div class="sp-item__meta">
-                                    @if(trim((string) $it['sku']) !== '')
-                                        <span class="sp-item__sku">{{ $it['sku'] }}</span>
-                                    @endif
-                                    @if(trim((string) $it['variation']) !== '')
-                                        <span class="sp-item__var">{{ $it['variation'] }}</span>
-                                    @endif
-                                </div>
-                            </div>
+        </tr>
+        @foreach($displayItems as $idx => $it)
+        <tr class="sp-itemrow {{ $idx === $lineCount - 1 ? 'sp-itemrow--last' : '' }}">
+            <td class="sp-col-products" data-label="Products">
+                <div class="sp-item">
+                    <div class="order-img-wrap">
+                        @if(!empty($it['image']))
+                            <img class="order-img" src="{{ $it['image'] }}" alt="">
+                        @else
+                            <span class="sp-item__none">No image</span>
+                        @endif
+                    </div>
+                    <div class="sp-item__body">
+                        <span class="sp-item__name">{{ ($it['name'] ?? '') !== '' ? $it['name'] : 'Unnamed product' }}</span>
+                        <div class="sp-item__meta">
+                            @if(trim((string) ($it['sku'] ?? '')) !== '')
+                                <span class="sp-item__sku">{{ $it['sku'] }}</span>
+                            @endif
+                            @if(trim((string) ($it['variation'] ?? '')) !== '')
+                                <span class="sp-item__var">{{ $it['variation'] }}</span>
+                            @endif
                         </div>
-                    @empty
-                        <span class="sp-empty-mark">No items recorded</span>
-                    @endforelse
+                    </div>
                 </div>
             </td>
 
-            <td class="sp-col-buyer" data-label="Buyer">
-                @if($buyer !== '')
-                    <span class="sp-buyer">{{ $buyer }}</span>
+            <td class="sp-col-qty" data-label="Qty">
+                <span class="sp-qty">&times;{{ max(1, (int) ($it['quantity'] ?? 1)) }}</span>
+            </td>
+
+            <td class="sp-col-price x-td-num" data-label="Price">
+                @php $unitPrice = $it['price'] ?? null; @endphp
+                @if($unitPrice !== null && $unitPrice !== '' && is_numeric($unitPrice))
+                    <span class="sp-price">{{ $currencyCode !== ''
+                        ? \App\Support\Money::foreign((float) $unitPrice, $currencyCode)
+                        : \App\Support\Money::base((float) $unitPrice) }}</span>
+                @elseif($unitPrice !== null && $unitPrice !== '')
+                    <span class="sp-price">{{ $unitPrice }}</span>
                 @else
-                    <span class="sp-buyer sp-empty-mark">Not recorded</span>
+                    <span class="sp-empty-mark">&mdash;</span>
                 @endif
             </td>
 
-            <td class="sp-col-total" data-label="Total">
+            @if($idx === 0)
+            <td class="sp-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
                 <span class="sp-total">
                     @if($totalAmount !== null && $totalAmount !== '' && is_numeric($totalAmount))
                         {{ $currencyCode !== ''
@@ -416,25 +450,32 @@
                 @endif
             </td>
 
-            <td class="sp-col-status" data-label="Status">
+            <td class="sp-col-ship" rowspan="{{ $lineCount }}" data-label="Shipping">
+                @if($courier)
+                    <span class="sp-courier">{{ $courier }}</span>
+                    @if($trackingNo)
+                        <span class="sp-ship__no">{{ $trackingNo }}</span>
+                    @endif
+                @else
+                    <span class="sp-empty-mark">&mdash;</span>
+                @endif
+            </td>
+
+            <td class="sp-col-status" rowspan="{{ $lineCount }}" data-label="Status">
                 <div class="sp-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
                     <x-sla-chip :deadline="$shipBy" />
-                    @if($courier)
-                        <span class="sp-ship">{{ $courier }}@if($trackingNo) <span class="sp-ship__no">{{ $trackingNo }}</span>@endif</span>
-                    @endif
                 </div>
             </td>
 
-            <td class="sp-col-act">
+            <td class="sp-col-act" rowspan="{{ $lineCount }}">
                 @if($orderSn)
                 <div class="sp-actions">
                     {{-- Every action is a visible button, matching the legacy
                          page. Per the owner: this is the packing desk's working
                          surface, and Print waybill exists on most tabs, not
                          only To Ship; an overflow menu made the column read
-                         as empty on every other tab. "Open order" needed no
-                         control at all: the order number is already the link. --}}
+                         as empty on every other tab. --}}
                     @if($isToPack && $canManageShopeeOrders)
                         <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
                                 data-order-sn="{{ $orderSn }}">Arrange shipment</button>
@@ -446,9 +487,6 @@
                     @endif
 
                     @if($isToHandover || $isShipped)
-                        {{-- Secondary, not ghost: The owner wants every action
-                             bordered so the column reads as buttons, not a
-                             mix of buttons and links. --}}
                         <button type="button" class="btnShopeeTracking x-btn x-btn--secondary x-btn--sm"
                                 data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">Tracking</button>
                     @endif
@@ -457,7 +495,9 @@
                 </div>
                 @endif
             </td>
+            @endif
         </tr>
+        @endforeach
     @endforeach
 </x-ui.table>
 
