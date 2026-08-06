@@ -22,41 +22,13 @@
     $orderSnFilter = (string) ($filters['order_sn'] ?? '');
     $hasSearch = $returnSnFilter !== '' || $orderSnFilter !== '';
 
-    // Return status tone map. Colour keeps the one job it has on the
-    // sibling Orders page: telling the operator what state a return is in,
-    // nothing else. There is no "act now" status here the way Orders has
-    // Ready to ship, because this page has no mutating row action (View
-    // and Print waybill are both read-only), so the accent/success tone is
-    // never spent - warning marks the two states genuinely awaiting an
-    // outcome, info marks the two states out of the seller's hands and
-    // sitting with Shopee's own review, neutral marks a settled amount and
-    // danger marks the two ways a return ends without a payout.
-    //
-    // This array is the pattern to extract into a helper (alongside the
-    // Orders page's own tone map) when the second channel converts.
-    $rtStatusTones = [
-        'REQUESTED'            => 'warning',
-        'PROCESSING'           => 'warning',
-        'ACCEPTED'             => 'neutral',
-        'JUDGING'              => 'info',
-        'SELLER_DISPUTE'       => 'info',
-        'REFUND_PAID'          => 'neutral',
-        'SELLER_COMPENSATION'  => 'neutral',
-        'CLOSED'               => 'danger',
-        'CANCELLED'            => 'danger',
-    ];
-
-    $rtStatusLabels = [
-        'REQUESTED'            => 'Requested',
-        'PROCESSING'           => 'Processing',
-        'ACCEPTED'             => 'Accepted',
-        'JUDGING'              => 'Under review',
-        'SELLER_DISPUTE'       => 'Disputed',
-        'REFUND_PAID'          => 'Refunded',
-        'SELLER_COMPENSATION'  => 'Compensated',
-        'CLOSED'               => 'Closed',
-        'CANCELLED'            => 'Cancelled',
-    ];
+    // The return status tone and label maps that used to sit here now live
+    // in App\Support\ChannelStatusTone under the 'shopee.returns' surface.
+    // The reasoning travelled with them: this page has no mutating row
+    // action, so no status takes the accent tone; warning marks the states
+    // awaiting an outcome, info the states sitting with Shopee's own
+    // review, neutral a settled amount, danger the ways a return ends
+    // without a payout.
 @endphp
 
 <div id="shopee-returns-page">
@@ -205,10 +177,8 @@
             }
 
             $statusStr = (string) ($ret->status ?? '');
-            $statusNorm = strtoupper(trim($statusStr));
-            $tone = $rtStatusTones[$statusNorm] ?? 'neutral';
-            $statusLabel = $rtStatusLabels[$statusNorm]
-                ?? ($statusStr !== '' ? ucfirst(strtolower(str_replace('_', ' ', $statusNorm))) : 'Unknown');
+            $tone = \App\Support\ChannelStatusTone::toneFor('shopee.returns', $statusStr);
+            $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.returns', $statusStr);
 
             $detailUrl = route('ext.shopee.orders.return_detail', ['returnSn' => $ret->return_sn]);
             $rawRet = is_array($ret->raw) ? $ret->raw : [];

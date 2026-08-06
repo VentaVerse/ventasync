@@ -47,44 +47,14 @@
     $hasSearch = $orderNumberFilter !== '' || $buyerNameFilter !== '';
     $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
 
-    // Status tone map. Colour has exactly one job on this panel: telling the
-    // operator which orders are waiting on them. Accent marks the single
-    // status a human has to act on right now; everything already handled
-    // recedes to neutral; the two failure states take danger; the two
-    // waiting-on-someone-else states take warning and info.
-    //
-    // One deliberate reading of the spec's tone list: COMPLETED is mapped to
-    // neutral rather than the success tone, because x-badge--success and the
-    // accent tone resolve to the same token, which would have made "ready to
-    // ship" and "completed" the identical colour and undone the point of the
-    // map. A finished order is the one state that should recede.
-    //
-    // This array is the pattern to extract into a helper (alongside
-    // App\Support\OrderStatusTone) when the second channel converts.
-    $spStatusTones = $spStatusTones ?? [
-        'UNPAID'             => 'warning',
-        'READY_TO_SHIP'      => 'success',
-        'PROCESSED'          => 'info',
-        'SHIPPED'            => 'info',
-        'TO_CONFIRM_RECEIVE' => 'info',
-        'COMPLETED'          => 'neutral',
-        'CANCELLED'          => 'danger',
-        'IN_CANCEL'          => 'danger',
-        'RETRY_SHIP'         => 'warning',
-    ];
-
-    $spStatusLabels = $spStatusLabels ?? [
-        'UNPAID'             => 'Unpaid',
-        'READY_TO_SHIP'      => 'Ready to ship',
-        'PROCESSED'          => 'To handover',
-        'SHIPPED'            => 'Shipped',
-        'TO_CONFIRM_RECEIVE' => 'Awaiting confirmation',
-        'COMPLETED'          => 'Completed',
-        'CANCELLED'          => 'Cancelled',
-        'IN_CANCEL'          => 'Cancelling',
-        'RETRY_SHIP'         => 'Delivery failed',
-    ];
-
+    // The status tone and label maps that used to sit here now live in
+    // App\Support\ChannelStatusTone under the 'shopee.orders' surface, moved
+    // there verbatim when Lazada's conversion would have created the third
+    // and fourth copies of the same idea. The reasoning that produced them
+    // travelled with them and is documented on that class: accent for the
+    // one status that is the operator's move, neutral for settled, danger
+    // for failures, warning and info for the two kinds of waiting. Nothing
+    // about this panel's rendering changed in the move.
     $spSortLabels = $spSortLabels ?? [
         'created_desc'          => 'Order date, newest first',
         'created_asc'           => 'Order date, oldest first',
@@ -354,9 +324,8 @@
             if (is_array($courier)) $courier = implode(', ', $courier);
             $trackingNo = $raw['tracking_no'] ?? $raw['tracking_number'] ?? null;
 
-            $tone = $spStatusTones[$statusNorm] ?? 'neutral';
-            $statusLabel = $spStatusLabels[$statusNorm]
-                ?? ($statusStr !== '' ? ucfirst(strtolower(str_replace('_', ' ', $statusNorm))) : 'Unknown');
+            $tone = \App\Support\ChannelStatusTone::toneFor('shopee.orders', $statusStr);
+            $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.orders', $statusStr);
         @endphp
         <tr class="sp-band">
             <td colspan="7">
