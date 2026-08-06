@@ -31,7 +31,7 @@
     // without a payout.
 @endphp
 
-<div id="shopee-returns-page">
+<div id="shopee-returns-page" class="co-page">
 
 <div class="x-list-head">
     <div>
@@ -63,10 +63,10 @@
 @endif
 
 @if($last_result)
-    <div class="sp-notice {{ $last_result['ok'] ? 'sp-notice--ok' : 'sp-notice--fail' }}">
-        <span class="sp-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
+    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
+        <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
         @if(!empty($last_result['message']))
-            <span class="sp-notice__body">{{ $last_result['message'] }}</span>
+            <span class="co-notice__body">{{ $last_result['message'] }}</span>
         @endif
     </div>
 @endif
@@ -187,18 +187,18 @@
         @endphp
         <tr>
             <td class="sp-col-order" data-label="Return">
-                <a class="x-row-link sp-sn" href="{{ $detailUrl }}">{{ $ret->return_sn }}</a>
-                @if($created)<span class="sp-date">{{ $created }}</span>@endif
+                <a class="x-row-link co-sn" href="{{ $detailUrl }}">{{ $ret->return_sn }}</a>
+                @if($created)<span class="co-date">{{ $created }}</span>@endif
                 @if($ret->order_sn)
-                    <a class="sp-ref" href="{{ route('ext.shopee.orders.show', ['orderSn' => $ret->order_sn]) }}">Order {{ $ret->order_sn }}</a>
+                    <a class="co-ref" href="{{ route('ext.shopee.orders.show', ['orderSn' => $ret->order_sn]) }}">Order {{ $ret->order_sn }}</a>
                 @endif
                 @if($ret->order?->catalog_order_id)
-                    <a class="sp-ref" href="{{ url('/sales/orders/'.$ret->order->catalog_order_id) }}">Sales order {{ $ret->order->catalog_order_id }}</a>
+                    <a class="co-ref" href="{{ url('/sales/orders/'.$ret->order->catalog_order_id) }}">Sales order {{ $ret->order->catalog_order_id }}</a>
                 @endif
             </td>
 
             <td data-label="Items">
-                <div class="sp-items">
+                <div class="co-items">
                     @forelse($items as $it)
                         @php
                             $name = (string) ($it['name'] ?? '');
@@ -209,26 +209,26 @@
                             $key = ((string) ($it['item_id'] ?? '')) . '_' . ((string) ($it['model_id'] ?? ''));
                             $ordered = $orderedMap[$key] ?? null;
                         @endphp
-                        <div class="sp-item">
+                        <div class="co-item">
                             <div class="order-img-wrap">
                                 @if($img)
                                     <img class="order-img" src="{{ $img }}" alt="">
                                 @else
-                                    <span class="sp-item__none">No image</span>
+                                    <span class="co-item__none">No image</span>
                                 @endif
                             </div>
-                            <div class="sp-item__body">
-                                <span class="sp-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
-                                <div class="sp-item__meta">
-                                    @if($sku !== '')<span class="sp-item__sku">{{ $sku }}</span>@endif
-                                    @if($variation !== '')<span class="sp-item__var">{{ $variation }}</span>@endif
+                            <div class="co-item__body">
+                                <span class="co-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
+                                <div class="co-item__meta">
+                                    @if($sku !== '')<span class="co-item__sku">{{ $sku }}</span>@endif
+                                    @if($variation !== '')<span class="co-item__var">{{ $variation }}</span>@endif
                                     @if($ordered !== null)<span>{{ $retQty }} of {{ $ordered }} ordered</span>@endif
                                 </div>
                             </div>
                             <span class="sp-item__qty">&times;{{ $retQty }}</span>
                         </div>
                     @empty
-                        <span class="sp-empty-mark">No items recorded</span>
+                        <span class="co-empty-mark">No items recorded</span>
                     @endforelse
                 </div>
             </td>
@@ -237,24 +237,24 @@
                 @if($buyer !== '')
                     <span class="sp-buyer">{{ $buyer }}</span>
                 @else
-                    <span class="sp-buyer sp-empty-mark">Not recorded</span>
+                    <span class="sp-buyer co-empty-mark">Not recorded</span>
                 @endif
             </td>
 
             <td class="sp-col-total" data-label="Refund">
-                <span class="sp-total">
+                <span class="co-total">
                     @if($ret->refund_amount !== null)
                         {{ $ret->currency
                             ? \App\Support\Money::foreign((float) $ret->refund_amount, $ret->currency)
                             : \App\Support\Money::base((float) $ret->refund_amount) }}
                     @else
-                        <span class="sp-empty-mark">Not recorded</span>
+                        <span class="co-empty-mark">Not recorded</span>
                     @endif
                 </span>
             </td>
 
             <td class="sp-col-status" data-label="Status">
-                <div class="sp-status">
+                <div class="co-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
                     @if($ret->reason)
                         <span class="text-xs text-muted">{{ \Illuminate\Support\Str::limit($ret->reason, 40) }}</span>
@@ -266,7 +266,7 @@
             </td>
 
             <td class="sp-col-act">
-                <div class="sp-actions">
+                <div class="co-actions">
                     <x-ui.menu label="Return {{ $ret->return_sn }} actions">
                         <a class="x-menu__item" href="{{ $detailUrl }}">Open return</a>
                         @if($ret->order_sn)
@@ -303,12 +303,12 @@
      page - see initFetchReturnsOverlay()). Each page carries its own copy
      because a modal cannot be shared across two separate documents. --}}
 <div id="spLoadingOverlay" class="modal-backdrop">
-    <div class="modal sp-modal sp-modal--sm">
-        <div class="sp-progress">
-            <span class="sp-spinner sp-spinner--lg" aria-hidden="true"></span>
+    <div class="modal co-modal co-modal--sm">
+        <div class="co-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
             <div>
-                <div id="spLoadingTitle" class="sp-progress__title">Fetching returns</div>
-                <div class="sp-progress__note">Please keep this tab open.</div>
+                <div id="spLoadingTitle" class="co-progress__title">Fetching returns</div>
+                <div class="co-progress__note">Please keep this tab open.</div>
             </div>
         </div>
     </div>

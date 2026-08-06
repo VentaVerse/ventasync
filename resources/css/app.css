@@ -41,6 +41,10 @@
 @import './components/ui-hub.css';
 @import './components/ui-palette.css';
 
+/* Shared marketplace fulfilment anatomy. Sits after ui-table.css because it
+   refines it, and before the per-channel page files that build on it. */
+@import './components/channel-orders.css';
+
 /* Pages */
 @import './pages/dashboard.css';
 @import './pages/marketplace-common.css';

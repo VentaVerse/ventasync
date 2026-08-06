@@ -1,0 +1,701 @@
+/* Channel order surfaces: the shared anatomy.
+   -------------------------------------------------------------------
+   Every marketplace fulfilment page in this app draws the same picture: a
+   command bar that talks to the marketplace, a segmented status filter, one
+   filter row, and a table where each order is a band of order-level facts
+   above one row per item, with amount, shipping, status and actions
+   rowspanned beside them. Shopee's pages settled that anatomy through an
+   adversarial review and several rounds of packing-desk feedback. Lazada is
+   the second channel to use it and TikTok, Venta and OpenCart are next, so
+   the rules that are genuinely the same picture live here under a `co-`
+   prefix and both channels' page files carry only what is actually their
+   own: column widths, and the controls unique to their workflow.
+
+   The alternative, which the final Shopee review flagged as the collision
+   path, was to keep widening the `sp-` selectors to also match each new
+   channel's page. Three channels in, that leaves every marketplace's
+   appearance depending on a selector named after the first one.
+
+   `.co-page` is the shared hook. Both channels put it on the same element
+   that already carries their page id, so id-scoped rules that could not
+   match two roots become one class rule that matches all of them.
+
+   Three decisions run through this file, carried over from Shopee's:
+
+   1. Colour has one job: telling an operator which orders are waiting on
+      them. No channel identity colour appears anywhere. Accent is spent on
+      the primary action and on the statuses that are the operator's move
+      (see App\Support\ChannelStatusTone); everything else is neutral.
+
+   2. Elevation is flat. One hairline separates the command strip from the
+      canvas and one separates each order from the next. No card stacks:
+      this is a list with a machine control above it, not a dashboard.
+
+   3. Every numeral is mono with tabular figures. Order numbers, dates,
+      totals, quantities, counts. That is what lets a column of money be
+      compared by eye instead of read line by line.
+   ------------------------------------------------------------------- */
+
+/* .x-page-sub carries its own bottom margin for pages that use it as a
+   standalone deck. Inside .x-list-head the wrapper already owns the gap, so
+   stacking both left a 40px hole between the title and the command bar. */
+.co-page .x-list-head .x-page-sub { margin-bottom: 0; }
+
+/* ------------------------------------------------------------------
+   Filter row additions. Two search fields are two separate backend
+   filters, so they cannot collapse into one box, and a form with more than
+   one text field and no submit button does not submit on Enter per the
+   HTML spec. Hence a real Search button. Reset is a link, not a second
+   button: two buttons of different weight side by side is the mixed
+   grammar this design system avoids, and reset is navigation.
+   ------------------------------------------------------------------ */
+
+.x-filters__select--wide   { min-width: 232px; }
+.x-filters__select--narrow { min-width: 132px; }
+
+.x-filters__reset {
+    display: inline-flex;
+    align-items: center;
+    height: var(--control-h);
+    padding: 0 var(--space-2);
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    transition: color var(--motion-fast);
+}
+
+.x-filters__reset:hover { color: var(--text); text-decoration: underline; }
+
+/* A pager end-stop is rendered as a span, not a disabled <a>: an anchor
+   with an empty href still navigates, which reloads the page instead of
+   doing nothing. */
+.x-btn[aria-disabled="true"] { opacity: .5; cursor: default; }
+
+/* ------------------------------------------------------------------
+   Command bar. The named defect on the page this replaced: "buttons that
+   are misaligned like the fetch and update orders". The old markup had
+   three stacked forms whose controls each set their own height and
+   self-alignment.
+
+   The fix is structural, not cosmetic. Every child of the row is a column
+   whose last box is exactly --control-h tall, and the row is bottom
+   aligned. Labels can therefore be any height (or absent, as on the
+   checkbox and the buttons) and the controls still share one baseline, and
+   because every control is the same height they share their top edge too.
+   ------------------------------------------------------------------ */
+
+.x-cmdbar {
+    margin-bottom: var(--space-5);
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.x-cmdbar__row {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.x-cmdbar__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+/* components/forms.css carries a bare `label` element selector
+   (display: block; font-size: 13px; margin-bottom: 6px) that every page in
+   this bundle inherits, and a <label> is still a <label> regardless of the
+   class on it. That 6px bottom margin is exactly what pushed the checkbox
+   6px above the baseline the date inputs and buttons share, which is the
+   defect this whole bar exists to fix. Both label rules below therefore
+   restate margin explicitly rather than editing forms.css, which the old
+   pages are still built against. */
+.x-cmdbar__label {
+    margin-bottom: 0;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    color: var(--text-muted);
+}
+
+/* A date input has to be wide enough for the browser's own dd/mm/yyyy
+   spinner text, which is what forced the old markup into width:auto and
+   started the misalignment. A fixed width keeps it honest and lets the
+   field shrink to the row on a phone. */
+.x-cmdbar__date {
+    width: 168px;
+    max-width: 100%;
+}
+
+/* The checkbox is a control, so it occupies a control-height box like its
+   neighbours instead of sitting on its own text baseline. */
+.x-cmdbar__check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: 0;
+    height: var(--control-h);
+    padding: 0 var(--space-1);
+    color: var(--text-secondary);
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.x-cmdbar__check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.x-cmdbar__check:hover { color: var(--text); }
+
+.x-cmdbar__actions {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-2);
+    height: var(--control-h);
+}
+
+/* Pushes the actions to the far end of the row while there is room for
+   them there, and collapses harmlessly once the row wraps. */
+.x-cmdbar__spacer { flex: 1 1 var(--space-4); min-width: 0; }
+
+.x-cmdbar__hint {
+    margin: var(--space-3) 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   Result notice. The outcome of the last fetch or update, which is the one
+   piece of feedback the command bar owes the operator.
+   ------------------------------------------------------------------ */
+
+.co-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--text-muted);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.co-notice--ok   { border-left-color: var(--accent); }
+.co-notice--fail { border-left-color: var(--danger); }
+
+.co-notice__title { font-weight: 500; color: var(--text); flex: none; }
+.co-notice__body  { min-width: 0; }
+
+/* ------------------------------------------------------------------
+   Courier tally. Only shown on the handover step, where the operator is
+   counting parcels per courier before the pickup arrives, so the figure
+   leads and the courier name follows it.
+   ------------------------------------------------------------------ */
+
+.co-couriers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.co-couriers__label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    color: var(--text-muted);
+}
+
+.co-courier {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: 3px var(--space-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.co-courier__count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   Table. Verification-grade row density: the system default row is built
+   for scanning single-line records, but a fulfilment row carries an image
+   the packer has to actually look at, so the cells get real vertical
+   padding and top alignment for multi-item stacks.
+   ------------------------------------------------------------------ */
+
+.co-page .x-table tbody td {
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
+    /* Rows here are media rows, not single-line values: an order can hold
+       several products. Top alignment keeps every column reading from the
+       same starting line no matter how tall the row grows. */
+    vertical-align: top;
+    white-space: normal;
+}
+
+.co-page .x-table tbody tr { height: auto; }
+
+/* Order number: the identity of the row, so it takes the reading weight
+   and the date under it recedes. */
+.co-sn {
+    display: block;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.co-page .x-table tbody tr:hover .co-sn { color: var(--accent); }
+
+.co-date {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* display: block rather than inline-block: a cell can print more than one
+   of these (the marketplace order number and the internal sales order
+   number), and two inline-block links wrap against each other's width
+   instead of each taking its own line. */
+.co-ref {
+    display: block;
+    margin-top: var(--space-1);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    position: relative;
+    z-index: 1;
+}
+
+.co-ref:hover { color: var(--accent); }
+
+/* Items */
+.co-items { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.co-item { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+
+/* .order-img-wrap and img.order-img are load-bearing class names: the hover
+   zoom-preview script matches on both. Only the geometry is restated here,
+   for a dense list rather than the old tall row, and the legacy
+   --surface-alt fallback is replaced with a real token. */
+.co-page .order-img-wrap {
+    /* 96px: the packer verifies the physical item against this image, so
+       it is an operational control, not decoration. Per the owner, twice: "That
+       is an important factor to avoid packing an incorrect item", then
+       "make the photo bigger a lot more". */
+    width: 96px;
+    height: 96px;
+    min-height: 0;
+    align-self: flex-start;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.co-item__none {
+    font-size: 9px;
+    line-height: 1.1;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.co-item__body { min-width: 0; flex: 1; }
+
+.co-item__name {
+    font-size: 14px;
+    color: var(--text);
+    /* Two lines then ellipsis. A marketplace product title can run to 120
+       characters; letting it wrap freely is what made the old rows
+       unscannable, and truncating to one line loses the part that
+       distinguishes two variants of the same product. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.co-item__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: 4px;
+    /* 13px, up from 11: the packer picks by SKU and variation, so these are
+       identification data, not fine print. Per the owner: "The SKU and the
+       variation is important too". */
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.co-item__sku {
+    font-family: var(--font-mono);
+    overflow-wrap: anywhere;
+}
+
+.co-item__var {
+    padding: 1px var(--space-2);
+    background: var(--surface-sunken);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+}
+
+/* Qty in its own column so every multiplier shares one edge down the page,
+   per the owner: inline after the name, its position depended on the name's
+   length. Bold and full-contrast: a wrong count is the second way to
+   mispack after a wrong item. */
+.co-qty {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.co-price { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+
+/* The order band: buyer, order number, item count and create time above
+   each order's item rows, where the legacy page carried them. */
+.co-band td {
+    background: var(--surface-sunken);
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 0;
+}
+
+.co-band__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+}
+
+.co-band__left,
+.co-band__right {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.co-band__label { font-size: 12px; color: var(--text-muted); }
+
+.co-band__value { font-size: 13px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+
+.co-band__value--mono { font-family: var(--font-mono); font-weight: 500; }
+
+.co-band__muted { font-size: 12px; color: var(--text-muted); }
+
+/* Item rows inside one order divide with a soft line; the real row border
+   belongs to the order's last row, so orders read as blocks. */
+.co-page .x-table tbody tr.co-itemrow:not(.co-itemrow--last) td {
+    border-bottom: 1px dashed var(--border);
+}
+
+/* Rowspanned cells (amount, shipping, status, actions) span the dashed
+   dividers by construction, nothing to override. */
+
+/* Shipping column carrier. Named co-carrier, not co-courier: that class is
+   the handover step's courier summary chip (bordered, padded), and the
+   collision was dressing the carrier name in the Shipping cell as a chip. */
+.co-carrier { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+
+.co-ship__no {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+
+/* A second, quieter line under the carrier for whatever else a channel
+   records about the shipment (Lazada carries a delivery type as well as a
+   tracking code). Shopee prints nothing here. */
+.co-ship__note {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.co-empty-mark { color: var(--text-muted); }
+
+/* Total. Right aligned and mono so the column compares on the decimal.
+   The payment method is context for the figure, so it sits beneath it in
+   the muted tone rather than beside it as a pill. */
+.co-total {
+    display: block;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: right;
+}
+
+.co-total__method {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+/* Status */
+.co-status { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+
+.co-status__note {
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* The SLA chip is a shared component that predates the token set: a filled
+   pill built from fixed light-theme hex values with no dark variant at all,
+   so on these pages it rendered as a bright pill floating on a dark
+   surface. It is reskinned here rather than in its own file, because the
+   old pages still inside .x-legacy are built against the current look and
+   must not move.
+
+   The chip loses its fill entirely. A filled pill next to a dotted badge
+   two columns away puts two different visual grammars on the same reading
+   line for what is, in both cases, a state. Tone alone carries the tier,
+   from the same tokens the badges use, so the deadline and the status read
+   as one system. The pulse animation goes with it: a control that moves
+   forever in a list of forty rows is noise, not signal. */
+.co-page .sla-chip-wrap { margin-top: 0; }
+
+.co-page .sla-chip {
+    padding: 0;
+    background: none;
+    border-color: transparent;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 500;
+    animation: none;
+    color: var(--text-muted);
+}
+
+.co-page .sla-chip__label { opacity: 1; }
+
+.co-page .sla-chip__time {
+    font-family: var(--font-mono);
+    font-weight: 500;
+}
+
+.co-page .sla-chip--ok      { color: var(--text-muted); }
+.co-page .sla-chip--warn    { color: var(--warning); }
+.co-page .sla-chip--crit    { color: var(--danger); }
+.co-page .sla-chip--overdue { color: var(--danger); font-weight: 600; }
+
+/* ------------------------------------------------------------------
+   Actions. Every action a row's own status allows is a visible button, per
+   the owner: this is the packing desk's working surface, and hiding print
+   behind an overflow menu made the column read as empty on most tabs.
+   ------------------------------------------------------------------ */
+
+.co-actions {
+    display: flex;
+    align-items: center;
+    /* Buttons anchor toward the status they act on, not the table edge:
+       right-anchored, their column's slack pooled exactly between Status
+       and the first button, the gap the owner flagged. Left-anchored, the
+       slack sits past the buttons at the table edge, where it reads as
+       margin. */
+    justify-content: flex-start;
+    gap: var(--space-1);
+}
+
+/* A channel whose status carries more than about three controls (Lazada's
+   To Arrange step offers print, arrange and recreate together) opts into
+   wrapping rather than letting the controls shrink below their labels.
+   Shopee never has enough controls in one cell to need it, so it stays a
+   modifier instead of changing the base. */
+.co-actions--wrap { flex-wrap: wrap; }
+
+/* Channels whose row actions are POST forms (Lazada) rather than links and
+   buttons (Shopee) need the form itself to stop adding layout. */
+.co-actions form { margin: 0; }
+
+/* The whole row is a link (see .x-row-link::after in components/ui-table.css,
+   a stretched overlay). Anything inside the row that is itself clickable has
+   to be lifted above that overlay or the row link swallows the click. */
+.co-actions .x-btn,
+.co-actions .x-menu,
+.co-actions .btn-invoice-req { position: relative; z-index: 1; }
+
+.co-page .x-menu__panel { min-width: 180px; }
+
+/* ------------------------------------------------------------------
+   Modals. Both channels' page modules build the same shell: a titled head,
+   a body, a footer of controls, and a spinner while the marketplace is
+   thinking.
+   ------------------------------------------------------------------ */
+
+.co-modal {
+    max-width: 520px;
+    padding: var(--space-5);
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal);
+    font-family: var(--font-ui);
+    color: var(--text);
+}
+
+.co-modal--sm { max-width: 420px; }
+.co-modal--md { max-width: 480px; }
+.co-modal--lg { max-width: 720px; }
+
+.co-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.co-modal__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.co-modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.co-modal__close:hover { background: var(--surface-hover); color: var(--text); }
+
+.co-modal__meta { font-size: 12px; color: var(--text-secondary); }
+
+.co-modal__meta strong {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--text);
+}
+
+.co-modal__prompt { margin: var(--space-4) 0 var(--space-3); font-size: 13px; color: var(--text-secondary); }
+
+.co-modal__choices { display: flex; gap: var(--space-2); }
+.co-modal__choices .x-btn { flex: 1; }
+
+.co-modal__foot { display: flex; gap: var(--space-2); margin-top: var(--space-5); }
+.co-modal__foot--end { justify-content: flex-end; }
+.co-modal__foot .x-btn--primary { flex: 1; }
+
+.co-modal__body { margin-top: var(--space-4); font-size: 13px; }
+
+.co-modal__loading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* Both page modules label a failed lookup .text-danger and a quiet line
+   .text-secondary. No stylesheet in the bundle defines the first, so a
+   failed request rendered in ordinary body text and read as a result
+   rather than an error. */
+.co-page .text-danger    { color: var(--danger); }
+.co-page .text-secondary { color: var(--text-secondary); }
+
+/* The old markup asked for animations named spSpin and lzSpin that were
+   never defined anywhere, so these spinners were static since they
+   shipped. base/animations.css already provides `spin`. */
+.co-spinner {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+
+.co-spinner--lg { width: 18px; height: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .co-spinner { animation-duration: 2.4s; }
+}
+
+.co-progress { display: flex; align-items: center; gap: var(--space-3); }
+.co-progress__title { font-size: 13px; font-weight: 500; color: var(--text); }
+.co-progress__note { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+    /* components/ui-table.css restacks each row onto a two-column grid at
+       this width. Two columns puts Products beside Amount and clips both,
+       so these pages take one column and let each field own its full
+       width. The per-channel column widths are grid item widths once the
+       row is a grid, which would overflow the track, so they are
+       released. */
+    .co-page .x-table tbody tr { grid-template-columns: 1fr; }
+    .co-page .x-table tbody td { width: auto; padding-top: 3px; padding-bottom: 3px; }
+    .co-page .x-table tbody td:first-child { padding-top: var(--space-2); }
+    .co-page .x-table tbody td:last-child  { padding-bottom: var(--space-2); }
+
+    .co-total, .co-total__method { text-align: left; }
+    .co-actions { justify-content: flex-start; }
+
+    .x-cmdbar { padding: var(--space-3); }
+    .x-cmdbar__spacer { display: none; }
+    .x-cmdbar__actions { width: 100%; }
+    .x-cmdbar__actions .x-btn { flex: 1; }
+    .x-cmdbar__field { flex: 1 1 140px; }
+    .x-cmdbar__date { width: 100%; }
+
+    .co-modal { padding: var(--space-4); }
+    .co-modal__choices { flex-direction: column; }
+}

@@ -32,7 +32,7 @@
     // page confirmed.
 @endphp
 
-<div id="shopee-orders-page">
+<div id="shopee-orders-page" class="co-page">
 
 <div class="x-list-head">
     <div>

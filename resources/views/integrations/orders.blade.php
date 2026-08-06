@@ -168,7 +168,7 @@
              reaches the page. All spacing above the panel comes from
              .x-fh-panel's own margin in pages/fulfilment.css instead, which
              is where it belongs. --}}
-        <div class="x-fh-panel" id="shopee-orders-page">
+        <div class="x-fh-panel co-page" id="shopee-orders-page">
             @include('ext-shopee::orders._panel', [
                 'panelBaseUrl' => route('integrations.orders'),
                 'panelHiddenParams' => ['channel' => 'shopee'],
