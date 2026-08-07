@@ -9,6 +9,7 @@ use Extensions\venta\Models\VentaOrderProduct;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
 use Extensions\venta\Services\Venta\VentaOrderSync;
+use Extensions\venta\Services\VentaOrdersPanel;
 use Illuminate\Http\Request;
 
 class VentaOrderController extends Controller
@@ -22,57 +23,18 @@ class VentaOrderController extends Controller
         return redirect()->route('ext.venta.orders.index', $store->id);
     }
 
-    public function index(Request $request, int $store)
+    /**
+     * The store's own orders page. Everything the list is made of now lives
+     * in VentaOrdersPanel, which the fulfilment hub calls with the same
+     * request to render the same partial; this method's remaining job is the
+     * 404 for a store that does not exist, which the hub reaches by a
+     * different route (a channel key that matches no visible tab).
+     */
+    public function index(Request $request, int $store, VentaOrdersPanel $panel)
     {
-        $setting = VentaSetting::findOrFail($store);
+        VentaSetting::findOrFail($store);
 
-        $sortable = ['catalog_order_id', 'venta_order_id', 'venta_order_number', 'customer_name', 'status', 'payment_method', 'total', 'tracking_number', 'order_created_at'];
-        $sort = in_array($request->input('sort'), $sortable) ? $request->input('sort') : 'order_created_at';
-        $dir = $request->input('dir') === 'asc' ? 'asc' : 'desc';
-
-        // Line items are rendered per order now (one table row each, with the
-        // order-level facts rowspanned beside them), so they are loaded with
-        // the page rather than lazily per row.
-        $query = VentaOrder::where('venta_setting_id', $store)
-            ->with('products')
-            ->orderBy($sort, $dir);
-
-        // Same guard the page has always used: filled() is false for both a
-        // missing param and an empty one, so neither narrows the list.
-        $status = $request->filled('status') ? (string) $request->input('status') : '';
-        if ($status !== '') {
-            $query->where('status', $status);
-        }
-
-        $q = $request->filled('q') ? (string) $request->input('q') : '';
-        if ($q !== '') {
-            $query->where(function ($w) use ($q) {
-                $w->where('customer_name', 'like', "%{$q}%")
-                    ->orWhere('venta_order_id', $q)
-                    ->orWhere('venta_order_number', $q)
-                    ->orWhere('tracking_number', 'like', "%{$q}%");
-            });
-        }
-
-        $orders = $query->paginate(50)->withQueryString();
-
-        $statusCounts = VentaOrder::where('venta_setting_id', $store)
-            ->selectRaw('status, COUNT(*) as cnt')
-            ->groupBy('status')
-            ->pluck('cnt', 'status');
-
-        return view('ext-venta::orders.index', [
-            'orders'       => $orders,
-            'statusCounts' => $statusCounts,
-            'sort'         => $sort,
-            'dir'          => $dir,
-            // The store this page belongs to, named rather than passed as a
-            // whole settings row: the page needs its id (for its own links)
-            // and its name (for the title), and nothing else on that model.
-            'storeId'      => $store,
-            'storeLabel'   => (string) $setting->store_name,
-            'filters'      => ['q' => $q, 'status' => $status],
-        ]);
+        return view('ext-venta::orders.index', $panel->build($request, $store));
     }
 
     public function fetch(Request $request, int $store)
