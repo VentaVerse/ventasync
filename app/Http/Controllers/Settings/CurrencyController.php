@@ -24,12 +24,12 @@ class CurrencyController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return view('currencies.index', compact('currencies', 'q'));
+        return view('settings.currencies.index', compact('currencies', 'q'));
     }
 
     public function create()
     {
-        return view('currencies.create');
+        return view('settings.currencies.create');
     }
 
     public function store(Request $request)
@@ -66,7 +66,7 @@ class CurrencyController extends Controller
     public function edit($id)
     {
         $currency = Currency::findOrFail($id);
-        return view('currencies.edit', compact('currency'));
+        return view('settings.currencies.edit', compact('currency'));
     }
 
     public function update(Request $request, $id)

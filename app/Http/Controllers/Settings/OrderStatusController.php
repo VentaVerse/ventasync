@@ -21,12 +21,12 @@ class OrderStatusController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return view('order_statuses.index', compact('statuses', 'q'));
+        return view('settings.order_statuses.index', compact('statuses', 'q'));
     }
 
     public function create()
     {
-        return view('order_statuses.create');
+        return view('settings.order_statuses.create');
     }
 
     public function store(Request $request)
@@ -51,7 +51,7 @@ class OrderStatusController extends Controller
     {
         $orderStatus = OrderStatus::where('order_status_id', (int) $id)->firstOrFail();
 
-        return view('order_statuses.edit', compact('orderStatus'));
+        return view('settings.order_statuses.edit', compact('orderStatus'));
     }
 
     public function update(Request $request, $id)

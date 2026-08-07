@@ -28,7 +28,7 @@
         <h3 class="lic-section-title" style="margin-top:24px; margin-bottom:12px;">Installed Extensions</h3>
         <div class="ext-list">
             @foreach($extensions as $ext)
-                @include('extensions.partials._row', ['ext' => $ext, 'domain' => $domain])
+                @include('settings.extensions.partials._row', ['ext' => $ext, 'domain' => $domain])
             @endforeach
         </div>
     @else

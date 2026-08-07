@@ -17,7 +17,7 @@ class ExtensionController extends Controller
     {
         $extensions = collect($manager->all())->all();
 
-        return view('extensions.index', [
+        return view('settings.extensions.index', [
             'extensions' => $extensions,
             'domain' => request()->getHost(),
         ]);

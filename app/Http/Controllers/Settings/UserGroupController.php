@@ -82,13 +82,13 @@ class UserGroupController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return view('user_groups.index', compact('groups','q'));
+        return view('settings.user_groups.index', compact('groups','q'));
     }
 
     public function create()
     {
         $permissionGroups = $this->getGroupedPermissions();
-        return view('user_groups.create', compact('permissionGroups'));
+        return view('settings.user_groups.create', compact('permissionGroups'));
     }
 
     public function store(Request $request)
@@ -116,7 +116,7 @@ class UserGroupController extends Controller
         $permissionGroups = $this->getGroupedPermissions();
         $selected = $group->permissions()->pluck('permissions.id')->all();
 
-        return view('user_groups.edit', compact('group', 'permissionGroups', 'selected'));
+        return view('settings.user_groups.edit', compact('group', 'permissionGroups', 'selected'));
     }
 
     public function update(Request $request, $id)

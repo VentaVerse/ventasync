@@ -18,7 +18,7 @@
             </div>
 
             <div class="full">
-                @include('user_groups.partials.permissions', [
+                @include('settings.user_groups.partials.permissions', [
                     'permissionGroups' => $permissionGroups,
                     'selected' => old('permissions', []),
                 ])

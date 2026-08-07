@@ -26,13 +26,13 @@ class UserController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return view('users.index', compact('users','q'));
+        return view('settings.users.index', compact('users','q'));
     }
 
     public function create()
     {
         $groups = UserGroup::orderBy('name')->get();
-        return view('users.create', compact('groups'));
+        return view('settings.users.create', compact('groups'));
     }
 
     public function store(Request $request)
@@ -63,7 +63,7 @@ class UserController extends Controller
         $user = User::findOrFail((int)$id);
         $groups = UserGroup::orderBy('name')->get();
 
-        return view('users.edit', compact('user','groups'));
+        return view('settings.users.edit', compact('user','groups'));
     }
 
     public function update(Request $request, $id)

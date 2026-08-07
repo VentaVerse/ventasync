@@ -41,7 +41,7 @@ class ErrorLogController extends Controller
             $lines = $this->tailFile($path, 250);
         }
 
-        return view('error_log.index', [
+        return view('settings.error_log.index', [
             'logExists' => $exists,
             'logPath' => $path,
             'sizeBytes' => $sizeBytes,
