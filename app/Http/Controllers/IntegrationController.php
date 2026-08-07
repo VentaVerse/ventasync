@@ -24,12 +24,80 @@ class IntegrationController extends Controller
      * orders.blade.php's per-channel wrapper markup (each channel's page JS
      * binds to its own root id and, for Lazada, page-level data attributes
      * that do not flow through the panel service).
+     *
+     * Keyed by BASE channel id, not by tab id. A multi-store channel
+     * registers one tab per store with an id of "venta:2", and all of that
+     * channel's stores share one panel class; the store is parsed off the
+     * key and handed to build() as a second argument. See panelFor().
      */
     private const ORDER_PANEL_SERVICES = [
-        'shopee' => \Extensions\shopee\Services\ShopeeOrdersPanel::class,
-        'lazada' => \Extensions\lazada\Services\LazadaOrdersPanel::class,
-        'tiktok' => \Extensions\tiktok\Services\TikTokOrdersPanel::class,
+        'shopee'   => \Extensions\shopee\Services\ShopeeOrdersPanel::class,
+        'lazada'   => \Extensions\lazada\Services\LazadaOrdersPanel::class,
+        'tiktok'   => \Extensions\tiktok\Services\TikTokOrdersPanel::class,
+        'venta'    => \Extensions\venta\Services\VentaOrdersPanel::class,
+        'opencart' => \Extensions\opencart\Services\OpenCartOrdersPanel::class,
     ];
+
+    /**
+     * Which of those channels scope their panel to one store, and therefore
+     * expect build(Request, int $storeId) and a tab id carrying a store
+     * suffix. Declared rather than guessed from the key's shape, so a
+     * single-store channel can never be handed a store and a multi-store one
+     * can never be rendered without one.
+     */
+    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart'];
+
+    /**
+     * The panel class and store id for an order-tab id, or null when that
+     * tab has no panel and therefore still navigates to its own seller
+     * center.
+     *
+     * The tab id is the authority on the store, not the query string. This
+     * is only ever called with an id read back off a tab that
+     * visibleOrderTabs() returned, so by the time a store number reaches
+     * here it has already been through that gate: the registry only builds a
+     * tab for a store that exists and is enabled, and only returns it to a
+     * user holding that channel's orders permission. A hand-typed
+     * channel=venta:999 matches no tab, so it never reaches this method and
+     * falls back to Summary.
+     *
+     * @return array{0: class-string, 1: int|null}|null
+     */
+    private function panelFor(string $tabId): ?array
+    {
+        $base = $tabId;
+        $storeId = null;
+
+        if (str_contains($tabId, ':')) {
+            [$base, $suffix] = explode(':', $tabId, 2);
+            // ctype_digit rather than is_numeric: "2e3" and " 2" are numeric
+            // and are not store ids. A suffix that is not a plain positive
+            // integer means this is not a shape we understand, and guessing
+            // at it would be how one store's panel ends up showing another
+            // store's orders.
+            if ($suffix === '' || !ctype_digit($suffix) || (int) $suffix < 1) {
+                return null;
+            }
+            $storeId = (int) $suffix;
+        }
+
+        $class = self::ORDER_PANEL_SERVICES[$base] ?? null;
+
+        if ($class === null) {
+            return null;
+        }
+
+        // A store suffix on a single-store channel names nothing, and a
+        // multi-store channel with no suffix names no page: both are
+        // malformed rather than defaults, so neither renders a panel.
+        $wantsStore = in_array($base, self::ORDER_PANEL_STORE_SCOPED, true);
+
+        if ($wantsStore !== ($storeId !== null)) {
+            return null;
+        }
+
+        return [$class, $storeId];
+    }
 
     /**
      * Integrations status board. One card per channel, one card per store
@@ -317,7 +385,8 @@ class IntegrationController extends Controller
         // computed and thrown away. A six-channel seller pays that on every
         // filter click inside the panel. Skip the assembly entirely and hand
         // the view the empty arrays its Summary branch will not read.
-        $renderingPanel = $selectedTab !== null && array_key_exists($selectedTab->id, self::ORDER_PANEL_SERVICES);
+        $selectedPanel = $selectedTab !== null ? $this->panelFor($selectedTab->id) : null;
+        $renderingPanel = $selectedPanel !== null;
 
         // Combined top-products leaderboard. Each tab returns its own top
         // products (scoped per store for multi-store marketplaces); we merge
@@ -373,13 +442,23 @@ class IntegrationController extends Controller
             'hasMarketplaces' => true,
             'orderTabs' => $tabs,
             'selectedChannel' => null,
+            'selectedChannelBase' => null,
             'selectedChannelLabel' => null,
             'topProducts' => $topProducts,
             'recentOrders' => $recentOrders,
             // Every tab id in this list gets an in-place link on the card
             // strip (view keys off membership, not a per-channel literal);
             // every other tab still links out to its own orders page.
-            'panelChannels' => array_keys(self::ORDER_PANEL_SERVICES),
+            //
+            // Computed from the visible tabs rather than from the map's own
+            // keys, because a multi-store channel's tab ids carry a store
+            // suffix ("venta:2") and the map is keyed by base id. The strip
+            // only ever iterates these same tabs, so nothing is lost by
+            // narrowing the list to them.
+            'panelChannels' => array_values(array_filter(
+                array_map(fn ($tab) => $tab->id, $tabs),
+                fn (string $id) => $this->panelFor($id) !== null
+            )),
         ];
 
         // A converted channel's orders content is a shared panel (service +
@@ -393,14 +472,30 @@ class IntegrationController extends Controller
         // top-level `use` for a folder that can be absent. Reaching this
         // line means the tab was visible, which means the extension is
         // enabled and its provider booted.
+        //
+        // For a multi-store channel the store number came off the tab's own
+        // id, which is the registry's, not the query string's: a store only
+        // has a tab if it exists, is enabled, and this user holds the
+        // channel's orders permission. Both hidden params and the strip's
+        // own links carry the FULL key ("venta:2"), so every control inside
+        // the panel comes back to this same store rather than to the
+        // channel's first one.
         if ($renderingPanel) {
-            $panelClass = self::ORDER_PANEL_SERVICES[$selectedTab->id];
+            [$panelClass, $panelStoreId] = $selectedPanel;
+
+            $panel = app($panelClass);
 
             $data = array_merge(
                 $data,
-                app($panelClass)->build($request),
+                $panelStoreId === null
+                    ? $panel->build($request)
+                    : $panel->build($request, $panelStoreId),
                 [
                     'selectedChannel' => $selectedTab->id,
+                    // The base id is what the view branches on to pick a
+                    // wrapper, because "venta:2" and "venta:7" are the same
+                    // panel in the same wrapper with a different store.
+                    'selectedChannelBase' => explode(':', $selectedTab->id, 2)[0],
                     'selectedChannelLabel' => $selectedTab->label,
                     'panelBaseUrl' => route('integrations.orders'),
                     'panelHiddenParams' => ['channel' => $selectedTab->id],

@@ -207,6 +207,36 @@
    stripped before it reaches the page. */
 .x-fh-panel { margin-top: var(--space-2); }
 
+/* Which store a multi-store channel's panel is showing.
+
+   Single-store channels never render this: on their surfaces the channel
+   name in the card strip and the breadcrumb is the whole answer. A
+   multi-store channel needs one more word, because "Venta" is not a place
+   and the shop you are standing in decides what a Delete does. It reads as a
+   caption rather than a heading: the strip above it is what changed the
+   store, so this line confirms rather than announces. */
+.x-fh-panel__scope {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.x-fh-panel__scope-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.x-fh-panel__scope-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
 /* ============================================================
    SUMMARY SECTIONS
    ============================================================ */

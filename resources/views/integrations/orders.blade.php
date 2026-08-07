@@ -65,12 +65,15 @@
             $fhCards[] = [
                 'id' => $fhTab->id,
                 'name' => $fhTab->label,
-                // Converted channels (today: Shopee, Lazada - the set the
-                // controller built self::ORDER_PANEL_SERVICES from, handed
-                // down as $panelChannels) render their orders in place on
-                // this page. Every other channel still navigates to its own
-                // orders page until its panel is extracted the same way
-                // (spec D4).
+                // Converted channels render their orders in place on this
+                // page. The controller works out which of the visible tabs
+                // those are and hands the list down as $panelChannels, so
+                // this line needs no per-channel knowledge. For a
+                // multi-store channel the id already carries its store
+                // ("venta:2"), which is what makes each store's card open
+                // that store's own panel here rather than the channel's
+                // first one. Every other channel still navigates to its own
+                // orders page until its panel is extracted the same way.
                 'url' => in_array($fhTab->id, $panelChannels ?? [], true)
                     ? route('integrations.orders', ['channel' => $fhTab->id])
                     : route($fhTab->routeName, $fhTab->routeParams),
@@ -160,7 +163,22 @@
         @endforeach
     </nav>
 
-    @if($selectedChannel === 'shopee')
+    @if($selectedChannel && (session('status') || session('error')))
+        {{-- The outcome of a write performed from inside a panel on THIS
+             page. layouts/channel.blade.php gives the seller centers a flash
+             region through partials/legacy-page-contract; layouts/shell has
+             none, so a fetch run from here used to redirect back with a
+             message nothing rendered. Channels that carry their own result
+             through the panel service (Shopee, Lazada and TikTok all use a
+             *_orders_last_result session key) are unaffected: this reads the
+             plain status/error keys only, so nothing renders twice. --}}
+        <div class="co-notice {{ session('error') ? 'co-notice--fail' : 'co-notice--ok' }}">
+            <span class="co-notice__title">{{ session('error') ? 'Failed' : 'Done' }}</span>
+            <span class="co-notice__body">{{ session('error') ?: session('status') }}</span>
+        </div>
+    @endif
+
+    @if($selectedChannelBase === 'shopee')
         {{-- The id the seller center's own page carries, so
              resources/js/pages/shopee-orders.js binds here unchanged.
 
@@ -177,7 +195,7 @@
                 'panelHiddenParams' => ['channel' => 'shopee'],
             ])
         </div>
-    @elseif($selectedChannel === 'lazada')
+    @elseif($selectedChannelBase === 'lazada')
         {{-- Same id and the same page-level data attributes Lazada's own
              orders/index.blade.php carries, so resources/js/pages/
              lazada-orders.js (which reads them off the root element, not
@@ -194,7 +212,7 @@
                 'panelHiddenParams' => ['channel' => 'lazada'],
             ])
         </div>
-    @elseif($selectedChannel === 'tiktok')
+    @elseif($selectedChannelBase === 'tiktok')
         {{-- Same id and the same data-awb-url TikTok's own
              orders/index.blade.php carries, so resources/js/pages/
              tiktok-orders.js (which reads it off the root element, not
@@ -208,6 +226,43 @@
             @include('ext-tiktok::orders._panel', [
                 'panelBaseUrl' => route('integrations.orders'),
                 'panelHiddenParams' => ['channel' => 'tiktok'],
+            ])
+        </div>
+    @elseif($selectedChannelBase === 'venta')
+        {{-- The id the store's own seller center carries, so
+             resources/js/pages/venta-orders.js (the selection bar) binds
+             here unchanged.
+
+             Multi-store channels are the only ones that name their store
+             above the panel. On the seller center the sidebar head and the
+             breadcrumb say which shop you are in; here the only other place
+             it appears is the card that was clicked, and an operator about
+             to delete orders should not have to work it out from a
+             highlighted card. One line, written once for every multi-store
+             channel rather than copied into each channel's partial. --}}
+        <div class="x-fh-panel co-page" id="venta-orders-page">
+            <div class="x-fh-panel__scope">
+                <span class="x-fh-panel__scope-label">Store</span>
+                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
+            </div>
+            @include('ext-venta::orders._panel', [
+                'panelBaseUrl' => route('integrations.orders'),
+                'panelHiddenParams' => ['channel' => $selectedChannel],
+            ])
+        </div>
+    @elseif($selectedChannelBase === 'opencart')
+        {{-- Same shape as Venta's. This channel carries no page module of
+             its own, but the id is here for the same reason every other
+             panel wrapper has one: it is what the page CSS scopes its two
+             responsive rules to. --}}
+        <div class="x-fh-panel co-page" id="opencart-orders-page">
+            <div class="x-fh-panel__scope">
+                <span class="x-fh-panel__scope-label">Store</span>
+                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
+            </div>
+            @include('ext-opencart::orders._panel', [
+                'panelBaseUrl' => route('integrations.orders'),
+                'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
     @else
