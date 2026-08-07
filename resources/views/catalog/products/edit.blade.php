@@ -55,7 +55,7 @@
                 <div class="hint">Start typing, then click a result. Required before uploading images.</div>
             </div>
 
-            @include('products.partials.image_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
+            @include('catalog.products.partials.image_manager', ['pimToken' => '', 'pimProductId' => (int) $product->product_id])
 
             <h3 class="section-title">General</h3>
 
@@ -227,7 +227,7 @@
 
         {{-- ===== OPTIONS TAB ===== --}}
         <div id="prod-tab-options" class="hidden">
-            @include('products.partials.options_fields')
+            @include('catalog.products.partials.options_fields')
         </div>
 
         <div class="d-flex gap-10 items-center justify-end mt-20">

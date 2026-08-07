@@ -31,7 +31,7 @@
                 @enderror
             </div>
 
-            @include('products.partials.image_manager', ['pimToken' => $pimToken, 'pimProductId' => 0])
+            @include('catalog.products.partials.image_manager', ['pimToken' => $pimToken, 'pimProductId' => 0])
 
             <h3 class="section-title">General</h3>
 
@@ -204,7 +204,7 @@
 
         {{-- ===== OPTIONS TAB ===== --}}
         <div id="prod-tab-options" class="hidden">
-            @include('products.partials.options_fields')
+            @include('catalog.products.partials.options_fields')
         </div>
 
         <div class="mt-16 d-flex gap-10 items-center justify-end">

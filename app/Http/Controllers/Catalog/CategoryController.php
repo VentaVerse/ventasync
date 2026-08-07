@@ -48,13 +48,13 @@ class CategoryController extends Controller
     if (isset($row->parent_name)) $row->parent_name = html_entity_decode($row->parent_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-return view('categories.index', ['categories' => $categories, 'q' => $q]);
+return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]);
     }
 
     public function create()
     {
         $parents = $this->parentOptions();
-        return view('categories.create', compact('parents'));
+        return view('catalog.categories.create', compact('parents'));
     }
 
     public function store(Request $request)
@@ -123,7 +123,7 @@ return view('categories.index', ['categories' => $categories, 'q' => $q]);
 
         $parents = $this->parentOptions((int)$id);
 
-        return view('categories.edit', compact('category','parents'));
+        return view('catalog.categories.edit', compact('category','parents'));
     }
 
     public function update(Request $request, $id)

@@ -35,12 +35,12 @@ private function isWordStartMatch(string $haystack, string $term): bool
     if (isset($row->name)) $row->name = html_entity_decode($row->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-return view('manufacturers.index', compact('manufacturers', 'q'));
+return view('catalog.manufacturers.index', compact('manufacturers', 'q'));
     }
 
     public function create()
     {
-        return view('manufacturers.create');
+        return view('catalog.manufacturers.create');
     }
 
     public function store(Request $request)
@@ -66,7 +66,7 @@ return view('manufacturers.index', compact('manufacturers', 'q'));
 {
     $manufacturer = Manufacturer::where('manufacturer_id', (int) $id)->firstOrFail();
 
-    return view('manufacturers.edit', compact('manufacturer'));
+    return view('catalog.manufacturers.edit', compact('manufacturer'));
 }
 
 

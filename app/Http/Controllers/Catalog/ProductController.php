@@ -352,7 +352,7 @@ if ($q !== '') {
             $row->option_rows = [];
         }
     }
-    return view('products.index', compact('products', 'q', 'sort', 'dir', 'status'));
+    return view('catalog.products.index', compact('products', 'q', 'sort', 'dir', 'status'));
 }
 
 
@@ -368,7 +368,7 @@ $pfx = config('catalog.prefix');
 
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
 
-        return view('products.create', compact('existingOptions', 'existingCombinations', 'currencies'));
+        return view('catalog.products.create', compact('existingOptions', 'existingCombinations', 'currencies'));
     }
 
 
@@ -784,7 +784,7 @@ public function store(Request $request)
             $s->markup = $cost > 0 ? round(($profit / $cost) * 100, 1) : 0;
         }
 
-        return view('products.sales', compact('product', 'sales'));
+        return view('catalog.products.sales', compact('product', 'sales'));
     }
 
     public function stockHistory($id)
@@ -832,7 +832,7 @@ public function store(Request $request)
             ->where('quantity_change', '<', 0)
             ->sum('quantity_change');
 
-        return view('products.stock_history', compact('product', 'history', 'optionValueNames', 'totalAdded', 'totalDeducted'));
+        return view('catalog.products.stock_history', compact('product', 'history', 'optionValueNames', 'totalAdded', 'totalDeducted'));
     }
 
     public function edit($id)
@@ -1020,7 +1020,7 @@ public function store(Request $request)
 
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
 
-        return view('products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'currencies'));
+        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'returnUrl', 'currencies'));
     }
 
     public function update(Request $request, $id)
