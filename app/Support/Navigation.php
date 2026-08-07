@@ -185,25 +185,237 @@ class Navigation
     }
 
     /**
-     * Param-aware active check. request()->routeIs() alone cannot tell two
-     * entries on the same route apart: every seller center is
-     * integrations.workspace and every Venta store is ext.venta.orders.index,
-     * so without comparing the bound parameters, opening one store would
-     * highlight them all.
+     * Active state by LONGEST URL PREFIX (IA migration spec decision 7).
+     *
+     * An entry is active when the current URL sits at or below the entry's own
+     * URL, and no other entry reaches further down the same path. Two things
+     * made this replace the old routeIs() check:
+     *
+     *  1. routeIs() is exact, so it went dark one level deep. Tasks 1-4 made
+     *     /catalog/products/9/edit express its own ancestry; the sidebar
+     *     should read it rather than lose the operator's place on every edit
+     *     screen.
+     *  2. Route NAMES are frozen and deliberately incoherent with the URLs
+     *     (spec decision 1), so a name is no longer evidence of where a page
+     *     sits. /settings/order-statuses is the case that proves it: the name
+     *     is order_statuses.index and the legacy sidebar therefore opened
+     *     SALES on it, while the URL - and the owner's ruling - say Settings.
+     *
+     * Prefix matching is segment-aware, never a bare str_starts_with: without
+     * that, /integrations/shopee would claim /integrations/shopee-legacy, and
+     * /sales/order would claim /sales/order-statuses.
+     *
+     * The parameter comparison the old implementation needed is gone because
+     * the entry's params are already baked into the URL this compares:
+     * every seller center is integrations.workspace, but one is
+     * /integrations/venta/2 and another /integrations/venta/3.
      */
     public static function isActive(array $item): bool
     {
-        if (!request()->routeIs($item['route'])) {
+        $path = self::pathFor($item);
+
+        if ($path === null) {
             return false;
         }
 
-        foreach ($item['params'] ?? [] as $key => $value) {
-            if ((string) request()->route($key) !== (string) $value) {
-                return false;
+        $match = self::matchPath(self::currentPath());
+
+        return $match !== null && $match['path'] === $path;
+    }
+
+    /**
+     * The nav entry whose URL is the longest prefix of $path, with the group
+     * it belongs to (null for a top-level entry that is itself a page).
+     *
+     * Ties are impossible by construction: two entry paths that both cover the
+     * same path and have the same length are the same string, so first-wins
+     * only ever applies to duplicate entries.
+     *
+     * Walks definition() rather than groups() so the answer does not change
+     * with the viewer. A page the current user cannot reach cannot be the page
+     * they are on, and making "which section is this URL in" depend on
+     * permissions would give two operators different trails for the same URL.
+     *
+     * Memoised on the request: the sidebar asks this once per item for the
+     * link and again for its group's open state, and the breadcrumb asks again
+     * on the same render. Request attributes rather than a static, so nothing
+     * leaks between tests sharing a process.
+     *
+     * @return array{group: array|null, item: array, path: string}|null
+     */
+    public static function matchPath(string $path): ?array
+    {
+        $path = self::normalisePath($path);
+        $key = 'navigation.match:'.$path;
+        $request = request();
+
+        if ($request->attributes->has($key)) {
+            return $request->attributes->get($key);
+        }
+
+        $best = null;
+
+        foreach (self::definition() as $entry) {
+            if (isset($entry['route'])) {
+                $best = self::better($best, null, $entry, $path);
+                continue;
+            }
+
+            foreach ($entry['items'] ?? [] as $item) {
+                $best = self::better($best, $entry, $item, $path);
             }
         }
 
-        return true;
+        $request->attributes->set($key, $best);
+
+        return $best;
+    }
+
+    /**
+     * $candidate wins over $best when it covers $path and reaches deeper.
+     *
+     * @param array{group: array|null, item: array, path: string}|null $best
+     * @return array{group: array|null, item: array, path: string}|null
+     */
+    private static function better(?array $best, ?array $group, array $candidate, string $path): ?array
+    {
+        $candidatePath = self::pathFor($candidate);
+
+        if ($candidatePath === null || !self::covers($candidatePath, $path)) {
+            return $best;
+        }
+
+        if ($best !== null && strlen($best['path']) >= strlen($candidatePath)) {
+            return $best;
+        }
+
+        return ['group' => $group, 'item' => $candidate, 'path' => $candidatePath];
+    }
+
+    /**
+     * True when $path is $entryPath or lives beneath it, comparing whole
+     * segments. The root entry (Dashboard, at '/') covers only itself: a
+     * str_starts_with on '/' would otherwise make it the ancestor of the
+     * entire application and win every page that matched nothing else.
+     */
+    public static function covers(string $entryPath, string $path): bool
+    {
+        if ($entryPath === $path) {
+            return true;
+        }
+
+        return $entryPath !== '/' && str_starts_with($path, $entryPath.'/');
+    }
+
+    /**
+     * The URL a nav entry points at, or null when it points nowhere this
+     * install can generate: a group heading (no route), a route belonging to a
+     * disabled extension, or a route whose required parameters the entry does
+     * not supply (allows() rejects that class of entry too - see its comment).
+     *
+     * Absolute, exactly as route() renders it, because this is what ends up in
+     * an href and every other link in the app is generated the same way.
+     */
+    public static function urlFor(array $item): ?string
+    {
+        if (!isset($item['route']) || !Route::has($item['route'])) {
+            return null;
+        }
+
+        try {
+            return route($item['route'], $item['params'] ?? []);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The same destination as a URL PATH, which is what prefix matching
+     * compares: scheme, host and port say nothing about where a page sits in
+     * the information architecture.
+     */
+    public static function pathFor(array $item): ?string
+    {
+        $url = self::urlFor($item);
+
+        return $url === null ? null : self::normalisePath($url);
+    }
+
+    /**
+     * The group whose items all live under a first URL segment, e.g. 'catalog'
+     * -> the Catalogue group. Used for a page one level deeper than anything
+     * the nav lists, so its trail still names the section it stands in.
+     *
+     * Returns null when the group's items disagree about their first segment,
+     * because then the segment is not that group's section at all.
+     *
+     * Only reached when matchPath() found nothing, which is why Channels never
+     * arrives here in practice even though its entries do share /integrations:
+     * its "All channels" entry sits at /integrations itself and therefore
+     * covers every path beneath it, so matchPath always answers first. Channel
+     * pages take a different road again (Breadcrumbs::channelTrail).
+     */
+    public static function groupForSection(string $segment): ?array
+    {
+        foreach (self::definition() as $entry) {
+            if (isset($entry['route']) || ($entry['items'] ?? []) === []) {
+                continue;
+            }
+
+            $shared = null;
+            $agrees = true;
+
+            foreach ($entry['items'] as $item) {
+                $path = self::pathFor($item);
+
+                if ($path === null) {
+                    continue;
+                }
+
+                $first = explode('/', trim($path, '/'))[0] ?? '';
+
+                if ($first === '') {
+                    $agrees = false;
+                    break;
+                }
+
+                if ($shared === null) {
+                    $shared = $first;
+                    continue;
+                }
+
+                if ($shared !== $first) {
+                    $agrees = false;
+                    break;
+                }
+            }
+
+            if ($agrees && $shared === $segment) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    /** The path of the request being served, in the same shape pathFor returns. */
+    public static function currentPath(): string
+    {
+        return self::normalisePath(request()->path());
+    }
+
+    /**
+     * One canonical shape for every path this class compares: a single leading
+     * slash, no trailing slash, and '/' for the root. Accepts a full URL too,
+     * so a caller holding a generated href does not have to parse it first.
+     */
+    public static function normalisePath(string $path): string
+    {
+        if (str_contains($path, '://')) {
+            $path = (string) parse_url($path, PHP_URL_PATH);
+        }
+
+        return '/'.trim($path, '/');
     }
 
     /**
