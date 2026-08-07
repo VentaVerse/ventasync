@@ -435,9 +435,16 @@
    collision was dressing the carrier name in the Shipping cell as a chip. */
 .co-carrier { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
 
+/* A tracking code is one unbroken token 15 to 25 characters long, and the
+   Shipping column is the second narrowest on every one of these pages. Left
+   inline with nothing to break on, it ran straight out of its own cell and
+   collided with the SLA chip two columns over, which is exactly what TikTok's
+   browser walk found. Its own line, breaking anywhere it has to. */
 .co-ship__no {
+    display: block;
     font-family: var(--font-mono);
     color: var(--text-secondary);
+    overflow-wrap: anywhere;
 }
 
 /* A second, quieter line under the carrier for whatever else a channel
