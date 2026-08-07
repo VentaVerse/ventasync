@@ -1,12 +1,23 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / Shopee / Orders / Detail')
+@extends('layouts.channel')
+@section('title', 'Order ' . $order->order_sn)
+@section('breadcrumb', $order->order_sn)
+
+{{-- Leaves the .x-legacy content boundary, the same exit the Orders and
+     Returns pages took: this page is built directly on the design tokens,
+     the x-ui components and the shared `od-` detail anatomy. --}}
+@section('content-class', '')
 
 @section('content')
 @php
+    // Wire-format truth is ShopeeOrderController@show. Every extraction
+    // below is the expression the previous version of this page used, moved
+    // unchanged: Shopee's payload is inconsistent across API versions and
+    // each `??` chain is a fallback someone hit in production.
     $raw = is_array($order->raw ?? null) ? $order->raw : [];
 
     $status = $order->status ?? ($raw['order_status'] ?? '');
     $statusStr = is_string($status) ? $status : '';
+    $statusNorm = strtoupper(trim($statusStr));
 
     $created = $order->order_created_at ? $order->order_created_at->format('Y-m-d H:i') : null;
     $updated = $order->order_updated_at ? $order->order_updated_at->format('Y-m-d H:i') : null;
@@ -23,119 +34,129 @@
     $state = (string)($addr['state'] ?? ($addr['region'] ?? ''));
     $zipcode = (string)($addr['zipcode'] ?? ($addr['zip_code'] ?? ''));
     $country = (string)($addr['country'] ?? '');
+    $addrLine2 = trim(trim($city . ' ' . $state) . ' ' . $zipcode . ' ' . $country);
 
     $courier = (string)($raw['shipping_carrier'] ?? ($raw['checkout_shipping_carrier'] ?? ''));
     $tracking = (string)($raw['tracking_no'] ?? ($raw['tracking_number'] ?? ''));
 
     $items = $order->products ?? collect();
 
-    $statusNorm = strtoupper(trim($statusStr));
     $isToPack = ($statusNorm === 'READY_TO_SHIP');
+    // The waybill and the tracking trace exist once Shopee has a parcel to
+    // talk about. Same four statuses the previous version of this page used.
+    $hasParcel = in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true);
 
-    $safeOrderSn = preg_replace('/[^A-Za-z0-9_-]/', '', $order->order_sn ?? '');
-    $hasAwbFile = $safeOrderSn !== '' && file_exists(storage_path('app/shopee-awb/' . $safeOrderSn . '.pdf'));
+    // Phase 4 - Shopee order detail: refresh-from-Shopee and Arrange
+    // Shipment are write-tier actions (refresh re-pulls from the API and
+    // persists, ship triggers a marketplace state change). The route
+    // middleware is the real gate (perm:manage_shopee_orders on the ship
+    // POST); this flag only stops the page offering what would 403.
+    $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
 
-    $badgeClass = match($statusNorm) {
-        'COMPLETED' => 'badge-green',
-        'CANCELLED' => 'badge-red',
-        'UNPAID' => 'badge-yellow',
-        'SHIPPED', 'TO_CONFIRM_RECEIVE' => 'badge-blue',
-        default => '',
-    };
+    // Tone and label from the same maps the orders list uses, so a status
+    // means the same colour and reads the same words on both surfaces. No
+    // marketplace constant reaches the screen raw.
+    $tone = \App\Support\ChannelStatusTone::toneFor('shopee.orders', $statusStr);
+    $statusLabel = \App\Support\ChannelStatusTone::labelFor('shopee.orders', $statusStr);
+
+    // Currency is resolved through App\Support\Money, which reads the symbol
+    // from the currencies table, so no symbol is written into this view. An
+    // order carrying a code nobody has configured locally falls back to
+    // "CODE 1,234.00" rather than a wrong glyph. Same resolution the orders
+    // list already applies to this order's own amount.
+    $currencyCode = (string) ($raw['currency'] ?? '');
+    $money = fn ($amount) => $currencyCode !== ''
+        ? \App\Support\Money::foreign((float) $amount, $currencyCode)
+        : \App\Support\Money::base((float) $amount);
+
+    $orderTotal = $raw['total_amount'] ?? $raw['escrow_amount'] ?? null;
+    $paymentMethod = (string) ($raw['payment_method'] ?? '');
+
+    $returns = $returns ?? collect();
 @endphp
 
-<div class="page-header">
-    <div>
-        <div class="d-flex gap-10 items-center flex-wrap">
-            <h2 style="margin:0;">Shopee Order</h2>
-            <span class="text-secondary text-xs">Order SN</span>
-            <span class="font-bold">{{ $order->order_sn }}</span>
+<div id="shopee-order-detail-page" class="od-page">
+
+    <a class="od-back" href="{{ route('ext.shopee.orders.index') }}">
+        <x-ui.icon name="chevron-left" size="14" />
+        Orders
+    </a>
+
+    <header class="od-head">
+        <div class="od-head__id">
+            <h1 class="x-page-title od-title">{{ $order->order_sn }}</h1>
             @if($statusStr !== '')
-                <span class="badge {{ $badgeClass }}" style="margin-left:6px;">{{ $statusStr }}</span>
+                <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
             @endif
         </div>
-        <div class="meta-bar" style="margin-top:8px; margin-bottom:0; padding:8px 0; background:transparent; border:none;">
-            @if($created) <div class="meta-item"><span class="meta-label">Create Time:</span> {{ $created }}</div> @endif
-            @if($updated) <div class="meta-item"><span class="meta-label">Update Time:</span> {{ $updated }}</div> @endif
-        </div>
-    </div>
-
-    <div class="page-header-actions">
-        @php
-            // Phase 4 — Shopee order detail: refresh-from-Shopee and Arrange
-            // Shipment are write-tier actions (refresh re-pulls from the API
-            // and persists, ship triggers a marketplace state change).
-            $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee_orders') ?? false;
-        @endphp
-        <a href="{{ route('ext.shopee.orders.index') }}" class="btn secondary">← Back to Orders</a>
         @if($canManageShopeeOrders)
-        <a href="{{ route('ext.shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1]) }}" class="btn secondary">Refresh from Shopee</a>
-        @endif
-        @if($isToPack && $canManageShopeeOrders)
-            <button type="button" id="btnArrangeShipShow" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;">Arrange Shipment</button>
-        @endif
-    </div>
-</div>
-
-@if($api_error)
-    <div class="alert warning">
-        <strong>Note</strong>
-        <div style="margin-top:6px;">Could not refresh from Shopee API — this is normal for older/completed orders. Showing cached data.</div>
-    </div>
-@endif
-
-<div class="detail-grid">
-    <div class="detail-section">
-        <h4>Customer & Shipping</h4>
-        <div class="detail-body">
-            <div><span class="text-secondary">Buyer:</span> <strong>{{ $buyer !== '' ? $buyer : '—' }}</strong></div>
-            <div style="margin-top:8px;"><span class="text-secondary">Receiver:</span> <strong>{{ $receiverName !== '' ? $receiverName : '—' }}</strong></div>
-            <div><span class="text-secondary">Phone:</span> <strong>{{ $phone !== '' ? $phone : '—' }}</strong></div>
-
-            <div style="margin-top:10px;">
-                <div class="text-secondary text-xs font-bold">Address</div>
-                <div style="margin-top:4px;">
-                    {{ $address1 !== '' ? $address1 : '—' }}
-                    @if($city !== '' || $state !== '' || $zipcode !== '' || $country !== '')
-                        <br>{{ trim($city . ' ' . $state) }} {{ $zipcode }} {{ $country }}
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="detail-section">
-        <h4>Logistics</h4>
-        <div class="detail-body">
-            <div><span class="text-secondary">Courier:</span> <strong>{{ $courier !== '' ? $courier : '—' }}</strong></div>
-            <div><span class="text-secondary">Tracking #:</span> <strong>{{ $tracking !== '' ? $tracking : '—' }}</strong></div>
-            @if(in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED']))
-            <div class="d-flex gap-10 flex-wrap mt-12">
-                <a href="{{ route('ext.shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" onclick="window.open(this.href, 'awb', 'width=900,height=700'); return false;" rel="noopener" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;">AWB PDF</a>
-                <button type="button" class="btn" style="background:#EE4D2D; border-color:#EE4D2D; color:#fff;" id="btnLogisticsTrace" data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">Tracking</button>
-            </div>
+        <div class="od-head__actions">
+            <x-ui.button :href="route('ext.shopee.orders.show', ['orderSn' => $order->order_sn, 'refresh' => 1])">Refresh from Shopee</x-ui.button>
+            @if($isToPack)
+                <x-ui.button variant="primary" class="btnArrangeShipment" data-order-sn="{{ $order->order_sn }}">Arrange shipment</x-ui.button>
             @endif
         </div>
-    </div>
-</div>
+        @endif
+    </header>
 
-<div class="card">
-    <h3 class="section-title mt-0">Items</h3>
-    @if($items->count() === 0)
-        <div class="text-secondary">No items synced yet. Items will be fetched on the next order sync.</div>
-    @else
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th style="width:90px;">Image</th>
-                        <th>Product</th>
-                        <th style="width:130px;">SKU</th>
-                        <th style="width:100px;">Qty</th>
-                        <th style="width:120px;">Price</th>
-                    </tr>
-                </thead>
-                <tbody>
+    <div class="od-stamps">
+        @if($created)
+        <span class="od-stamp">
+            <span class="od-stamp__k">Created</span>
+            <span class="od-stamp__v">{{ $created }}</span>
+        </span>
+        @endif
+        @if($updated)
+        <span class="od-stamp">
+            <span class="od-stamp__k">Updated</span>
+            <span class="od-stamp__v">{{ $updated }}</span>
+        </span>
+        @endif
+        @if($order->catalog_order_id)
+        <span class="od-stamp">
+            <span class="od-stamp__k">Sales order</span>
+            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->catalog_order_id) }}">{{ $order->catalog_order_id }}</a>
+        </span>
+        @endif
+    </div>
+
+    @if($api_error)
+        <div class="od-note od-note--warn">
+            <div class="od-note__body">
+                <strong>Could not refresh from Shopee.</strong>
+                This is normal for older or completed orders. The figures below are the last ones synced.
+            </div>
+        </div>
+    @endif
+
+    <div class="od-body">
+        {{-- ============ MAIN COLUMN ============ --}}
+        <div class="od-col od-col--main">
+
+            {{-- Items. Same `co-` item grammar as the fulfilment list (96px
+                 image, two-line name, SKU and variation meta), in the `od-`
+                 item grid so qty and price align down the page. Shopee
+                 stores no line total, so this page's grid is four columns
+                 rather than the core show's five. --}}
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">
+                        Items
+                        @if($items->count())<span class="od-section__count">{{ $items->count() }}</span>@endif
+                    </h2>
+                </div>
+
+                @if($items->count() === 0)
+                    <p class="od-empty">No items synced yet. Items will be fetched on the next order sync.</p>
+                @else
+                <div class="od-items spd-items">
+                    <div class="od-items__head" aria-hidden="true">
+                        <span></span>
+                        <span>Product</span>
+                        <span>Qty</span>
+                        <span>Price</span>
+                    </div>
+
                     @foreach($items as $it)
                         @php
                             $ir = is_array($it->raw ?? null) ? $it->raw : [];
@@ -146,675 +167,514 @@
                             $qty = max(1, (int)($it->quantity ?? 1));
                             $price = (float)($it->price ?? 0);
                         @endphp
-                        <tr>
-                            <td>
+                        <div class="od-item">
+                            <div class="order-img-wrap od-item__media">
                                 @if($img !== '')
-                                    <img src="{{ $img }}" alt="" class="thumb" style="width:64px; height:64px;" onerror="this.style.display='none'">
+                                    <img class="order-img" src="{{ $img }}" alt="" loading="lazy" decoding="async">
                                 @else
-                                    <span class="text-muted">—</span>
+                                    <span class="co-item__none">No image</span>
                                 @endif
-                            </td>
-                            <td>
-                                <div class="font-bold">{{ $name !== '' ? $name : '—' }}</div>
-                                @if($variation !== '')
-                                    <div class="text-secondary text-xs" style="margin-top:4px;">{{ $variation }}</div>
-                                @endif
-                            </td>
-                            <td>{{ $sku !== '' ? $sku : '—' }}</td>
-                            <td>{{ $qty }}</td>
-                            <td>{{ number_format($price, 2) }}</td>
-                        </tr>
+                            </div>
+
+                            <div class="co-item__body od-item__body">
+                                <span class="co-item__name od-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
+                                <div class="co-item__meta">
+                                    @if(trim($sku) !== '')
+                                        <span class="co-item__sku">{{ $sku }}</span>
+                                    @endif
+                                    @if(trim($variation) !== '')
+                                        <span class="co-item__var">{{ $variation }}</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <div class="od-item__figs">
+                                <span class="od-fig od-fig--qty"><span class="od-fig__k">Qty</span>{{ $qty }}</span>
+                                <span class="od-fig od-fig--total">
+                                    <span class="od-fig__k">Price</span>{{ $money($price) }}
+                                </span>
+                            </div>
+                        </div>
                     @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
-</div>
-
-@php
-    $feesRaw = is_array($order->fees ?? null) ? $order->fees : [];
-    // Support both flat format and old nested format (order_income sub-key)
-    $fees = (isset($feesRaw['order_income']) && is_array($feesRaw['order_income']))
-        ? $feesRaw['order_income']
-        : $feesRaw;
-    $hasFees = !empty($fees);
-
-    // Shopee escrow detail fields
-    $oBuyerTotal = (float)($fees['buyer_total_amount'] ?? 0);
-    $oOriginalPrice = (float)($fees['original_price'] ?? 0);
-    $oSellerDiscount = (float)($fees['seller_discount'] ?? 0);
-    $oPlatformDiscount = (float)($fees['shopee_discount'] ?? ($fees['platform_discount'] ?? 0));
-    $oVoucherSeller = (float)($fees['voucher_from_seller'] ?? 0);
-    $oVoucherPlatform = (float)($fees['voucher_from_shopee'] ?? ($fees['voucher_from_platform'] ?? 0));
-    $oCoinOffset = (float)($fees['coins'] ?? ($fees['coin_offset'] ?? 0));
-    $oCommission = (float)($fees['commission_fee'] ?? 0);
-    $oServiceFee = (float)($fees['service_fee'] ?? 0);
-    $oTransactionFee = (float)($fees['seller_transaction_fee'] ?? ($fees['credit_card_transaction_fee'] ?? 0));
-    $oShippingBuyer = (float)($fees['buyer_paid_shipping_fee'] ?? 0);
-    $oShippingDiscount = (float)($fees['shipping_fee_discount_from_3pl'] ?? ($fees['shopee_shipping_rebate'] ?? 0));
-    $oShippingSeller = (float)($fees['seller_shipping_discount'] ?? ($fees['final_shipping_fee'] ?? ($fees['actual_shipping_fee'] ?? 0)));
-    $oEscrow = (float)($fees['escrow_amount'] ?? 0);
-    $oSellerDue = (float)($fees['seller_due'] ?? 0);
-    $oWithholdingTax = (float)($fees['withholding_tax'] ?? 0);
-    $oCrossBorderTax = (float)($fees['cross_border_tax'] ?? 0);
-    $oEscrowTax = (float)($fees['escrow_tax'] ?? 0);
-    $oPaymentPromotion = (float)($fees['payment_promotion'] ?? 0);
-
-    // Compute net if escrow is available
-    $netAmount = $oEscrow ?: $oSellerDue;
-@endphp
-
-@if($hasFees)
-<div class="card mt-16">
-    <h3 class="section-title mt-0">Fees & Revenue Breakdown</h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-        <div>
-            <table class="table" style="width:100%;">
-                <tbody>
-                    @if($oOriginalPrice)
-                    <tr><td class="text-secondary">Original Price</td><td class="text-right font-bold">{{ number_format($oOriginalPrice, 2) }}</td></tr>
-                    @endif
-                    @if($oBuyerTotal)
-                    <tr><td class="text-secondary">Buyer Total</td><td class="text-right font-bold">{{ number_format($oBuyerTotal, 2) }}</td></tr>
-                    @endif
-                    @if($oSellerDiscount)
-                    <tr><td class="text-secondary">Seller Discount</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oSellerDiscount), 2) }}</td></tr>
-                    @endif
-                    @if($oPlatformDiscount)
-                    <tr><td class="text-secondary">Platform Discount</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oPlatformDiscount), 2) }}</td></tr>
-                    @endif
-                    @if($oVoucherSeller)
-                    <tr><td class="text-secondary">Voucher (Seller)</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oVoucherSeller), 2) }}</td></tr>
-                    @endif
-                    @if($oVoucherPlatform)
-                    <tr><td class="text-secondary">Voucher (Platform)</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oVoucherPlatform), 2) }}</td></tr>
-                    @endif
-                    @if($oCoinOffset)
-                    <tr><td class="text-secondary">Coins</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oCoinOffset), 2) }}</td></tr>
-                    @endif
-                    @if($oShippingBuyer)
-                    <tr><td class="text-secondary">Shipping (Buyer Paid)</td><td class="text-right">{{ number_format($oShippingBuyer, 2) }}</td></tr>
-                    @endif
-                </tbody>
-            </table>
-        </div>
-        <div>
-            <table class="table" style="width:100%;">
-                <tbody>
-                    @if($oCommission)
-                    <tr><td class="text-secondary">Commission Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oCommission), 2) }}</td></tr>
-                    @endif
-                    @if($oServiceFee)
-                    <tr><td class="text-secondary">Service Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oServiceFee), 2) }}</td></tr>
-                    @endif
-                    @if($oTransactionFee)
-                    <tr><td class="text-secondary">Transaction Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oTransactionFee), 2) }}</td></tr>
-                    @endif
-                    @if($oWithholdingTax)
-                    <tr><td class="text-secondary">Withholding Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oWithholdingTax), 2) }}</td></tr>
-                    @endif
-                    @if($oCrossBorderTax)
-                    <tr><td class="text-secondary">Cross-border Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oCrossBorderTax), 2) }}</td></tr>
-                    @endif
-                    @if($oEscrowTax)
-                    <tr><td class="text-secondary">Escrow Tax</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oEscrowTax), 2) }}</td></tr>
-                    @endif
-                    @if($oPaymentPromotion)
-                    <tr><td class="text-secondary">Payment Promotion</td><td class="text-right">{{ number_format($oPaymentPromotion, 2) }}</td></tr>
-                    @endif
-                    @if($oShippingDiscount)
-                    <tr><td class="text-secondary">Shipping Rebate (3PL)</td><td class="text-right">{{ number_format($oShippingDiscount, 2) }}</td></tr>
-                    @endif
-                    @if($oShippingSeller)
-                    <tr><td class="text-secondary">Final Shipping Fee</td><td class="text-right" style="color:#dc2626;">-{{ number_format(abs($oShippingSeller), 2) }}</td></tr>
-                    @endif
-                    @if($netAmount)
-                    <tr style="border-top:2px solid var(--border);">
-                        <td class="font-bold">Net to Seller (Escrow)</td>
-                        <td class="text-right font-bold" style="font-size:1.1em; color:#16a34a;">{{ number_format($netAmount, 2) }}</td>
-                    </tr>
-                    @endif
-                </tbody>
-            </table>
-        </div>
-    </div>
-    @if(!$oCommission && !$oServiceFee && !$oTransactionFee)
-        <div class="text-secondary text-xs mt-12" style="padding:0 4px;">Fee details may not be available until the order is completed and settled by Shopee.</div>
-    @endif
-</div>
-@else
-<div class="card mt-16">
-    <h3 class="section-title mt-0">Fees & Revenue Breakdown</h3>
-    <div class="text-secondary">No escrow/fee data available yet — fees are typically fetched automatically after order completion.</div>
-</div>
-@endif
-
-<x-invoice-request-card :invoice="$order->buyer_invoice" />
-
-@php
-    $returns = $returns ?? collect();
-@endphp
-@if($returns->count() > 0)
-<div class="card mt-16">
-    <h3 class="section-title mt-0">Returns / Refunds</h3>
-    @foreach($returns as $ret)
-        <div style="padding:12px; background:var(--surface-alt); border-radius:8px;{{ !$loop->first ? ' margin-top:12px;' : '' }}">
-            <div class="d-flex justify-between items-start gap-12 flex-wrap">
-                <div>
-                    <div class="text-xs text-secondary">Return SN</div>
-                    <div class="font-bold">{{ $ret->return_sn }}</div>
                 </div>
-                <div>
-                    <div class="text-xs text-secondary">Status</div>
-                    <div class="font-bold">{{ $ret->status ?: '—' }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-secondary">Reason</div>
-                    <div class="font-semibold">{{ $ret->reason ?: '—' }}</div>
-                    @if($ret->reason_text)
-                        <div class="text-xs text-secondary" style="margin-top:2px;">{{ $ret->reason_text }}</div>
+                @endif
+            </section>
+
+            {{-- ============ INVOICE REQUEST ============
+                 The same three states and the same five fields the shared
+                 invoice card rendered, poured into this page's own grammar
+                 (that component is built from the legacy .card chrome and raw
+                 hex, which cannot follow this page out of .x-legacy). It sits
+                 in the main column, where the previous version of this page
+                 carried it: an invoice the seller has to issue is a document
+                 about the order, not a reference fact about its delivery.
+                 The copy buttons keep the [data-copy] contract
+                 resources/js/invoice-copy.js binds. --}}
+            @php
+                $inv = is_array($order->buyer_invoice ?? null) ? $order->buyer_invoice : null;
+                $invState = 'unavailable';
+                if (is_array($inv)) {
+                    if (($inv['is_requested'] ?? null) === true)       $invState = 'requested';
+                    elseif (($inv['is_requested'] ?? null) === false)  $invState = 'declined';
+                }
+                $invName    = $inv ? (string) ($inv['name']  ?? '') : '';
+                $invType    = $inv ? (string) ($inv['type']  ?? '') : '';
+                $invTin     = $inv ? (string) ($inv['tin']   ?? '') : '';
+                $invEmail   = $inv ? (string) ($inv['email'] ?? '') : '';
+                $invPhone   = $inv ? (string) ($inv['phone'] ?? '') : '';
+                $invAddress = $inv && is_array($inv['address'] ?? null) ? $inv['address'] : [];
+                $invFull    = (string) ($invAddress['full'] ?? '');
+            @endphp
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">Invoice request</h2>
+                    @if($invState === 'requested')
+                        <x-ui.badge tone="warning">Requested by buyer</x-ui.badge>
                     @endif
                 </div>
-                <div>
-                    <div class="text-xs text-secondary">Refund Amount</div>
-                    <div class="font-bold" style="color:#dc2626;">{{ ($ret->currency ?: \App\Support\Money::defaultSymbol()) . number_format((float)$ret->refund_amount, 2) }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-secondary">Created</div>
-                    <div>{{ $ret->return_created_at ? $ret->return_created_at->format('Y-m-d H:i') : '—' }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-secondary">Updated</div>
-                    <div>{{ $ret->return_updated_at ? $ret->return_updated_at->format('Y-m-d H:i') : '—' }}</div>
-                </div>
-            </div>
 
-            @php $retItems = is_array($ret->items) ? $ret->items : []; @endphp
-            @if(!empty($retItems))
-                <div style="margin-top:12px;">
-                    <div class="text-xs text-secondary font-bold" style="margin-bottom:6px;">Items</div>
-                    <div class="table-wrap">
-                        <table class="table" style="width:100%;">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th style="width:100px;">Qty</th>
-                                    <th style="width:120px;">Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($retItems as $ri)
-                                    @php
-                                        $ri = is_array($ri) ? $ri : [];
-                                        $riName = $ri['name'] ?? ($ri['item_name'] ?? ($ri['model_name'] ?? '—'));
-                                        $riQty = $ri['quantity'] ?? ($ri['amount'] ?? 1);
-                                        $riPrice = $ri['item_price'] ?? ($ri['price'] ?? 0);
-                                    @endphp
-                                    <tr>
-                                        <td>{{ $riName }}</td>
-                                        <td>{{ $riQty }}</td>
-                                        <td>{{ is_numeric($riPrice) ? number_format((float)$riPrice, 2) : $riPrice }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                @if($invState === 'requested')
+                    <div class="spd-invoice">
+                        <div class="od-fact">
+                            <span class="od-fact__k">Buyer</span>
+                            <span class="od-fact__v">{{ $invName !== '' ? $invName : 'Not recorded' }}</span>
+                        </div>
+                        @if($invType !== '')
+                        <div class="od-fact">
+                            <span class="od-fact__k">Type</span>
+                            <span class="od-fact__v">{{ ucfirst($invType) }}</span>
+                        </div>
+                        @endif
+                        <div class="od-fact spd-copyable">
+                            <span class="od-fact__k">TIN</span>
+                            <span class="od-fact__v {{ $invTin !== '' ? 'od-fact__v--mono' : '' }}">{{ $invTin !== '' ? $invTin : 'Not recorded' }}</span>
+                            @if($invTin !== '')
+                                <button type="button" class="spd-copy" data-copy="{{ $invTin }}">Copy</button>
+                            @endif
+                        </div>
+                        <div class="od-fact spd-copyable">
+                            <span class="od-fact__k">Email</span>
+                            <span class="od-fact__v">{{ $invEmail !== '' ? $invEmail : 'Not recorded' }}</span>
+                            @if($invEmail !== '')
+                                <button type="button" class="spd-copy" data-copy="{{ $invEmail }}">Copy</button>
+                            @endif
+                        </div>
+                        <div class="od-fact">
+                            <span class="od-fact__k">Phone</span>
+                            <span class="od-fact__v">{{ $invPhone !== '' ? $invPhone : 'Not recorded' }}</span>
+                        </div>
+                        <div class="od-fact spd-copyable spd-invoice__wide">
+                            <span class="od-fact__k">Address</span>
+                            <span class="od-fact__v">{{ $invFull !== '' ? $invFull : 'Not recorded' }}</span>
+                            @if($invFull !== '')
+                                <button type="button" class="spd-copy" data-copy="{{ $invFull }}">Copy</button>
+                            @endif
+                        </div>
                     </div>
-                </div>
-            @endif
+                @elseif($invState === 'declined')
+                    <p class="od-empty">Buyer did not request an invoice.</p>
+                @else
+                    <p class="od-empty">Invoice information not available from Shopee.</p>
+                @endif
+            </section>
 
-            @php $nego = is_array($ret->negotiation) ? $ret->negotiation : []; @endphp
-            @if(!empty($nego))
-                <div style="margin-top:12px;">
-                    <details>
-                        <summary style="cursor:pointer;" class="text-xs text-secondary font-bold">Negotiation History ({{ count($nego) }})</summary>
-                        <div style="margin-top:8px;">
-                            @foreach($nego as $n)
-                                @php $n = is_array($n) ? $n : []; @endphp
-                                <div style="padding:6px 8px; background:var(--bg); border-radius:4px;{{ !$loop->first ? ' margin-top:6px;' : '' }}">
-                                    <div class="d-flex justify-between items-center">
-                                        <span class="font-semibold text-xs">{{ $n['role'] ?? ($n['offer_by'] ?? 'Unknown') }}</span>
-                                        @if(!empty($n['create_time']))
-                                            <span class="text-xs text-secondary">{{ date('Y-m-d H:i', is_numeric($n['create_time']) ? $n['create_time'] : strtotime($n['create_time'])) }}</span>
-                                        @endif
-                                    </div>
-                                    @if(!empty($n['offer_amount']))
-                                        <div class="text-xs" style="margin-top:4px;">Amount: <strong>{{ number_format((float)$n['offer_amount'], 2) }}</strong></div>
-                                    @endif
-                                    @if(!empty($n['reason']))
-                                        <div class="text-xs text-secondary" style="margin-top:2px;">{{ $n['reason'] }}</div>
-                                    @endif
+            {{-- Returns and refunds. Full-width in the main column rather
+                 than the side, because a return carries its own items and
+                 its own negotiation history: it is a second subject, not a
+                 reference fact about the first one. --}}
+            @if($returns->count() > 0)
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">
+                        Returns and refunds
+                        <span class="od-section__count">{{ $returns->count() }}</span>
+                    </h2>
+                </div>
+
+                @foreach($returns as $ret)
+                <div class="spd-return">
+                    <div class="spd-return__head">
+                        <div class="od-fact">
+                            <span class="od-fact__k">Return SN</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $ret->return_sn }}</span>
+                        </div>
+                        <div class="od-fact">
+                            <span class="od-fact__k">Status</span>
+                            <span class="od-fact__v">
+                                @if($ret->status)
+                                    <x-ui.badge :tone="\App\Support\ChannelStatusTone::toneFor('shopee.returns', $ret->status)">{{ \App\Support\ChannelStatusTone::labelFor('shopee.returns', $ret->status) }}</x-ui.badge>
+                                @else
+                                    <span class="co-empty-mark">Not recorded</span>
+                                @endif
+                            </span>
+                        </div>
+                        <div class="od-fact">
+                            <span class="od-fact__k">Refund amount</span>
+                            <span class="od-fact__v od-fact__v--mono od-neg">
+                                {{ $ret->currency
+                                    ? \App\Support\Money::foreign((float) $ret->refund_amount, (string) $ret->currency)
+                                    : \App\Support\Money::base((float) $ret->refund_amount) }}
+                            </span>
+                        </div>
+                        <div class="od-fact">
+                            <span class="od-fact__k">Created</span>
+                            <span class="od-fact__v {{ $ret->return_created_at ? 'od-fact__v--mono' : '' }}">{{ $ret->return_created_at ? $ret->return_created_at->format('Y-m-d H:i') : 'Not recorded' }}</span>
+                        </div>
+                        <div class="od-fact">
+                            <span class="od-fact__k">Updated</span>
+                            <span class="od-fact__v {{ $ret->return_updated_at ? 'od-fact__v--mono' : '' }}">{{ $ret->return_updated_at ? $ret->return_updated_at->format('Y-m-d H:i') : 'Not recorded' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="od-fact spd-return__reason">
+                        <span class="od-fact__k">Reason</span>
+                        <span class="od-fact__v">{{ $ret->reason ?: 'Not recorded' }}</span>
+                        @if($ret->reason_text)
+                            <span class="spd-return__note">{{ $ret->reason_text }}</span>
+                        @endif
+                    </div>
+
+                    @php $retItems = is_array($ret->items) ? $ret->items : []; @endphp
+                    @if(!empty($retItems))
+                        <div class="spd-lines">
+                            <div class="spd-lines__head" aria-hidden="true">
+                                <span>Item</span>
+                                <span>Qty</span>
+                                <span>Price</span>
+                            </div>
+                            @foreach($retItems as $ri)
+                                @php
+                                    $ri = is_array($ri) ? $ri : [];
+                                    $riName = $ri['name'] ?? ($ri['item_name'] ?? ($ri['model_name'] ?? 'Not recorded'));
+                                    $riQty = $ri['quantity'] ?? ($ri['amount'] ?? 1);
+                                    $riPrice = $ri['item_price'] ?? ($ri['price'] ?? 0);
+                                @endphp
+                                <div class="spd-lines__row">
+                                    <span class="spd-lines__name">{{ $riName }}</span>
+                                    <span class="spd-lines__num">{{ $riQty }}</span>
+                                    <span class="spd-lines__num">{{ is_numeric($riPrice) ? $money($riPrice) : $riPrice }}</span>
                                 </div>
                             @endforeach
                         </div>
-                    </details>
+                    @endif
+
+                    @php $nego = is_array($ret->negotiation) ? $ret->negotiation : []; @endphp
+                    @if(!empty($nego))
+                        <details class="od-disclose spd-return__nego">
+                            <summary>Negotiation history ({{ count($nego) }})</summary>
+                            <div class="od-time">
+                                @foreach($nego as $n)
+                                    @php $n = is_array($n) ? $n : []; @endphp
+                                    <div class="od-time__row">
+                                        <span class="od-time__when">
+                                            @if(!empty($n['create_time']))
+                                                {{ date('Y-m-d H:i', is_numeric($n['create_time']) ? $n['create_time'] : strtotime($n['create_time'])) }}
+                                            @endif
+                                        </span>
+                                        <div class="od-time__what">
+                                            <div class="od-time__status">{{ $n['role'] ?? ($n['offer_by'] ?? 'Unknown') }}</div>
+                                            @if(!empty($n['offer_amount']))
+                                                <div class="od-time__who">Offer {{ $money($n['offer_amount']) }}</div>
+                                            @endif
+                                            @if(!empty($n['reason']))
+                                                <div class="od-time__note">{{ $n['reason'] }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </details>
+                    @endif
                 </div>
+                @endforeach
+            </section>
             @endif
-        </div>
-    @endforeach
-</div>
-@endif
 
-<div class="card mt-16">
-    <h3 class="section-title mt-0">Raw Payload (debug)</h3>
-    <details>
-        <summary style="cursor:pointer;" class="font-bold">Show raw JSON</summary>
-        <pre class="pre" style="margin-top:10px; white-space:pre-wrap; word-break:break-word;">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
-    </details>
-</div>
-
-@if($isToPack)
-{{-- Arrange Shipment modal --}}
-<div id="spShipModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.45); align-items:center; justify-content:center;">
-    <div style="background:var(--bg, #fff); border-radius:12px; padding:24px; max-width:520px; width:95%; max-height:90vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.2);">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0;">Arrange Shipment</h3>
-            <button type="button" id="btnCloseShipShow" style="background:none; border:none; font-size:24px; cursor:pointer; color:inherit;">&times;</button>
-        </div>
-        <div style="margin-top:12px;">
-            <div class="text-secondary text-sm">Order: <strong>{{ $order->order_sn }}</strong></div>
+            {{-- Raw payload. Kept from the previous version of this page:
+                 when Shopee's response and this page disagree, this is what
+                 settles it. It closes the main column rather than running
+                 full width under the body, because the side column on this
+                 page is three cards taller than the item list and a
+                 full-width band below both left it marooned under a screen
+                 of empty canvas. --}}
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">Raw payload</h2>
+                </div>
+                <details class="od-disclose">
+                    <summary>Show the JSON Shopee returned</summary>
+                    <pre class="spd-raw">{{ json_encode($raw, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) }}</pre>
+                </details>
+            </section>
         </div>
 
-        {{-- Step 1: Choose shipping type --}}
-        <div id="shipStep1Show">
-            <div class="text-sm" style="margin-top:10px;">How will this order be shipped?</div>
-            <div style="display:flex; gap:10px; margin-top:16px;">
-                <button type="button" class="btn secondary btnShipChoiceShow" data-type="dropoff" style="flex:1;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                    Drop Off
-                </button>
-                <button type="button" class="btn btnShipChoiceShow" data-type="pickup" style="flex:1;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                    Pickup
-                </button>
-            </div>
-        </div>
+        {{-- ============ SIDE COLUMN ============ --}}
+        <div class="od-col od-col--side">
 
-        {{-- Step 2: Address/branch selection --}}
-        <div id="shipStep2Show" style="display:none;">
-            <div id="shipStep2LoadingShow" style="display:flex; align-items:center; gap:10px; margin-top:12px;">
-                <div style="width:16px; height:16px; border:3px solid #cbd5e1; border-top-color:#EE4D2D; border-radius:50%; animation:spSpinShow 0.8s linear infinite;"></div>
-                <span class="text-secondary text-sm">Loading addresses…</span>
-            </div>
-            <div id="shipStep2ContentShow" style="display:none; margin-top:12px;"></div>
-            <div style="display:flex; gap:10px; margin-top:16px;">
-                <button type="button" id="btnShipBackShow" class="btn secondary" style="flex:0;">&larr; Back</button>
-                <button type="button" id="btnShipConfirmShow" class="btn" style="flex:1; background:#EE4D2D; border-color:#EE4D2D; color:#fff;" disabled>Confirm &amp; Ship</button>
-            </div>
-        </div>
+            {{-- Customer and delivery address --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Customer</h2>
+                </div>
+                <div class="od-card__body">
+                    <div class="od-fact">
+                        <span class="od-fact__k">Buyer</span>
+                        <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
+                    </div>
+                    <div class="od-fact">
+                        <span class="od-fact__k">Delivery address</span>
+                        <div class="od-lines">
+                            @if($receiverName !== '')
+                                <span class="od-lines__name">{{ $receiverName }}</span>
+                            @endif
+                            @if($phone !== '')<span>{{ $phone }}</span>@endif
+                            <span>{{ $address1 !== '' ? $address1 : 'Not recorded' }}</span>
+                            @if($addrLine2 !== '')<span>{{ $addrLine2 }}</span>@endif
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <form method="POST" id="formShipOrderShow" action="{{ route('ext.shopee.orders.ship', ['orderSn' => $order->order_sn]) }}" style="display:none;">
-            @csrf
-            <input type="hidden" name="shipping_type" id="shipTypeInputShow" value="">
-            <input type="hidden" name="address_id" id="shipAddressInputShow" value="">
-            <input type="hidden" name="branch_id" id="shipBranchInputShow" value="">
-        </form>
-    </div>
-</div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var shipModal = document.getElementById('spShipModal');
-    var btnOpen = document.getElementById('btnArrangeShipShow');
-    var btnClose = document.getElementById('btnCloseShipShow');
-    var shipForm = document.getElementById('formShipOrderShow');
-    var shipTypeInput = document.getElementById('shipTypeInputShow');
-    var shipAddressInput = document.getElementById('shipAddressInputShow');
-    var shipBranchInput = document.getElementById('shipBranchInputShow');
-    var shipStep1 = document.getElementById('shipStep1Show');
-    var shipStep2 = document.getElementById('shipStep2Show');
-    var shipStep2Loading = document.getElementById('shipStep2LoadingShow');
-    var shipStep2Content = document.getElementById('shipStep2ContentShow');
-    var btnConfirm = document.getElementById('btnShipConfirmShow');
-    var btnBack = document.getElementById('btnShipBackShow');
-    var currentShipType = '';
-    var isShipping = false;
+            {{-- Payment. Both figures are the ones the fulfilment list already
+                 prints for this same order, from the same payload keys. --}}
+            @if(($orderTotal !== null && $orderTotal !== '') || $paymentMethod !== '')
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Payment</h2>
+                </div>
+                <div class="od-card__body">
+                    @if($orderTotal !== null && $orderTotal !== '')
+                    {{-- "Order total", not "buyer paid": this is Shopee's
+                         total_amount, which an UNPAID order carries before
+                         any money has moved. A label the data does not
+                         support is the one thing this page cannot print. --}}
+                    <div class="od-paid">
+                        <span class="od-paid__k">Order total</span>
+                        <span class="od-paid__v">{{ is_numeric($orderTotal) ? $money($orderTotal) : $orderTotal }}</span>
+                    </div>
+                    @endif
+                    @if($paymentMethod !== '')
+                    <div class="od-fact">
+                        <span class="od-fact__k">Method</span>
+                        <span class="od-fact__v">{{ $paymentMethod }}</span>
+                    </div>
+                    @endif
+                </div>
+            </section>
+            @endif
 
-    if (!btnOpen || !shipModal) return;
+            {{-- Shipping --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Shipping</h2>
+                </div>
+                <div class="od-card__body">
+                    <div class="od-fact">
+                        <span class="od-fact__k">Courier</span>
+                        <span class="od-fact__v">{{ $courier !== '' ? $courier : 'Not recorded' }}</span>
+                    </div>
+                    <div class="od-fact">
+                        <span class="od-fact__k">Tracking number</span>
+                        {{-- Mono is for the identifier, not for the words
+                             that stand in when there is no identifier. --}}
+                        <span class="od-fact__v {{ $tracking !== '' ? 'od-fact__v--mono' : '' }}">{{ $tracking !== '' ? $tracking : 'Not recorded' }}</span>
+                    </div>
+                </div>
+                @if($hasParcel)
+                <div class="od-card__foot spd-parcel">
+                    <a class="x-btn x-btn--secondary x-btn--sm" href="{{ route('ext.shopee.orders.awb', ['orderSn' => $order->order_sn]) }}" target="_blank" rel="noopener">Print waybill</a>
+                    <button type="button" class="btnShopeeTracking x-btn x-btn--secondary x-btn--sm"
+                            data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $order->order_sn]) }}">Tracking</button>
+                </div>
+                @endif
+            </section>
 
-    function resetModal() {
-        shipStep1.style.display = '';
-        shipStep2.style.display = 'none';
-        shipStep2Loading.style.display = 'flex';
-        shipStep2Content.style.display = 'none';
-        shipStep2Content.innerHTML = '';
-        shipAddressInput.value = '';
-        shipBranchInput.value = '';
-        btnConfirm.disabled = true;
-        currentShipType = '';
-    }
+            {{-- ============ ESCROW AND FEES ============
+                 Shopee's settlement, not this system's arithmetic: nothing on
+                 this page is derived from these lines, so they belong in the
+                 side column as an independent block rather than as ledger
+                 lines feeding a profit figure (that is the core Sales show's
+                 shape, and it stays there). Every key, every fallback and
+                 every "print only when non-zero" condition is the one the
+                 previous version of this page used. --}}
+            @php
+                $feesRaw = is_array($order->fees ?? null) ? $order->fees : [];
+                // Support both flat format and old nested format (order_income sub-key)
+                $fees = (isset($feesRaw['order_income']) && is_array($feesRaw['order_income']))
+                    ? $feesRaw['order_income']
+                    : $feesRaw;
+                $hasFees = !empty($fees);
 
-    btnOpen.addEventListener('click', function () {
-        resetModal();
-        shipModal.style.display = 'flex';
-    });
+                // Shopee escrow detail fields
+                $oBuyerTotal = (float)($fees['buyer_total_amount'] ?? 0);
+                $oOriginalPrice = (float)($fees['original_price'] ?? 0);
+                $oSellerDiscount = (float)($fees['seller_discount'] ?? 0);
+                $oPlatformDiscount = (float)($fees['shopee_discount'] ?? ($fees['platform_discount'] ?? 0));
+                $oVoucherSeller = (float)($fees['voucher_from_seller'] ?? 0);
+                $oVoucherPlatform = (float)($fees['voucher_from_shopee'] ?? ($fees['voucher_from_platform'] ?? 0));
+                $oCoinOffset = (float)($fees['coins'] ?? ($fees['coin_offset'] ?? 0));
+                $oCommission = (float)($fees['commission_fee'] ?? 0);
+                $oServiceFee = (float)($fees['service_fee'] ?? 0);
+                $oTransactionFee = (float)($fees['seller_transaction_fee'] ?? ($fees['credit_card_transaction_fee'] ?? 0));
+                $oShippingBuyer = (float)($fees['buyer_paid_shipping_fee'] ?? 0);
+                $oShippingDiscount = (float)($fees['shipping_fee_discount_from_3pl'] ?? ($fees['shopee_shipping_rebate'] ?? 0));
+                $oShippingSeller = (float)($fees['seller_shipping_discount'] ?? ($fees['final_shipping_fee'] ?? ($fees['actual_shipping_fee'] ?? 0)));
+                $oEscrow = (float)($fees['escrow_amount'] ?? 0);
+                $oSellerDue = (float)($fees['seller_due'] ?? 0);
+                $oWithholdingTax = (float)($fees['withholding_tax'] ?? 0);
+                $oCrossBorderTax = (float)($fees['cross_border_tax'] ?? 0);
+                $oEscrowTax = (float)($fees['escrow_tax'] ?? 0);
+                $oPaymentPromotion = (float)($fees['payment_promotion'] ?? 0);
 
-    btnClose.addEventListener('click', function () {
-        if (!isShipping) shipModal.style.display = 'none';
-    });
+                // Compute net if escrow is available
+                $netAmount = $oEscrow ?: $oSellerDue;
 
-    shipModal.addEventListener('click', function (e) {
-        if (e.target === shipModal && !isShipping) shipModal.style.display = 'none';
-    });
+                // The rule dividing the block: above it is what the buyer
+                // paid and what came off that price, below it is what Shopee
+                // keeps. It only earns its place when there is something on
+                // both sides of it, which mirrors the two columns the
+                // previous version of this page split these lines across.
+                $feesPaidSide = $oOriginalPrice || $oBuyerTotal || $oSellerDiscount || $oPlatformDiscount
+                    || $oVoucherSeller || $oVoucherPlatform || $oCoinOffset || $oShippingBuyer;
+                $feesKeptSide = $oCommission || $oServiceFee || $oTransactionFee || $oWithholdingTax
+                    || $oCrossBorderTax || $oEscrowTax || $oPaymentPromotion || $oShippingDiscount
+                    || $oShippingSeller;
+            @endphp
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Escrow and fees</h2>
+                </div>
+                @if($hasFees)
+                <div class="od-card__body spd-fees">
+                    @if($oOriginalPrice)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Original price</span>
+                        <span class="od-ledger__v">{{ $money($oOriginalPrice) }}</span>
+                    </div>
+                    @endif
+                    @if($oBuyerTotal)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Buyer total</span>
+                        <span class="od-ledger__v">{{ $money($oBuyerTotal) }}</span>
+                    </div>
+                    @endif
+                    @if($oSellerDiscount)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Seller discount</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oSellerDiscount)) }}</span>
+                    </div>
+                    @endif
+                    @if($oPlatformDiscount)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Platform discount</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oPlatformDiscount)) }}</span>
+                    </div>
+                    @endif
+                    @if($oVoucherSeller)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Voucher (seller)</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oVoucherSeller)) }}</span>
+                    </div>
+                    @endif
+                    @if($oVoucherPlatform)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Voucher (platform)</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oVoucherPlatform)) }}</span>
+                    </div>
+                    @endif
+                    @if($oCoinOffset)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Coins</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oCoinOffset)) }}</span>
+                    </div>
+                    @endif
+                    @if($oShippingBuyer)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Shipping (buyer paid)</span>
+                        <span class="od-ledger__v">{{ $money($oShippingBuyer) }}</span>
+                    </div>
+                    @endif
 
-    document.querySelectorAll('.btnShipChoiceShow').forEach(function (el) {
-        el.addEventListener('click', function () {
-            currentShipType = el.getAttribute('data-type');
-            shipTypeInput.value = currentShipType;
-            shipStep1.style.display = 'none';
-            shipStep2.style.display = '';
-            shipStep2Loading.style.display = 'flex';
-            shipStep2Content.style.display = 'none';
+                    @if($feesPaidSide && $feesKeptSide)
+                    <hr class="od-ledger__split">
+                    @endif
 
-            fetch('/shopee/orders/' + encodeURIComponent('{{ $order->order_sn }}') + '/shipping-addresses', {
-                headers: { 'Accept': 'application/json' }
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                shipStep2Loading.style.display = 'none';
-                shipStep2Content.style.display = '';
+                    @if($oCommission)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Commission fee</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oCommission)) }}</span>
+                    </div>
+                    @endif
+                    @if($oServiceFee)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Service fee</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oServiceFee)) }}</span>
+                    </div>
+                    @endif
+                    @if($oTransactionFee)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Transaction fee</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oTransactionFee)) }}</span>
+                    </div>
+                    @endif
+                    @if($oWithholdingTax)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Withholding tax</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oWithholdingTax)) }}</span>
+                    </div>
+                    @endif
+                    @if($oCrossBorderTax)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Cross-border tax</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oCrossBorderTax)) }}</span>
+                    </div>
+                    @endif
+                    @if($oEscrowTax)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Escrow tax</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oEscrowTax)) }}</span>
+                    </div>
+                    @endif
+                    @if($oPaymentPromotion)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Payment promotion</span>
+                        <span class="od-ledger__v">{{ $money($oPaymentPromotion) }}</span>
+                    </div>
+                    @endif
+                    @if($oShippingDiscount)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Shipping rebate (3PL)</span>
+                        <span class="od-ledger__v">{{ $money($oShippingDiscount) }}</span>
+                    </div>
+                    @endif
+                    @if($oShippingSeller)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Final shipping fee</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs($oShippingSeller)) }}</span>
+                    </div>
+                    @endif
 
-                if (!data.ok) {
-                    shipStep2Content.innerHTML = '<div class="alert danger">' + (data.message || 'Failed to load addresses.') + '</div>';
-                    return;
-                }
+                    @if($netAmount)
+                    <div class="od-ledger__row od-ledger__row--profit">
+                        <span class="od-ledger__k">Net to seller</span>
+                        <span class="od-ledger__v od-pos">{{ $money($netAmount) }}</span>
+                    </div>
+                    @endif
+                </div>
+                @if(!$oCommission && !$oServiceFee && !$oTransactionFee)
+                <div class="od-card__foot spd-note">Fee details may not be available until the order is completed and settled by Shopee.</div>
+                @endif
+                @else
+                <div class="od-card__body">
+                    <p class="od-empty">No escrow or fee data yet. Fees are usually fetched automatically once Shopee completes the order.</p>
+                </div>
+                @endif
+            </section>
 
-                var html = '';
-                if (currentShipType === 'pickup') {
-                    var addresses = (data.pickup && data.pickup.address_list) ? data.pickup.address_list : [];
-                    if (addresses.length === 0) {
-                        shipStep2Content.innerHTML = '<div class="text-secondary">No pickup addresses available.</div>';
-                        return;
-                    }
-
-                    var autoAddr = null;
-                    addresses.forEach(function (addr) {
-                        if (!autoAddr && (addr.address_flag || []).indexOf('pickup_address') !== -1) {
-                            autoAddr = addr;
-                        }
-                    });
-                    if (!autoAddr) autoAddr = addresses[0];
-
-                    shipAddressInput.value = autoAddr.address_id || 0;
-                    var addrParts = [autoAddr.address, autoAddr.city, autoAddr.state, autoAddr.district].filter(function(p) { return p && p !== ''; });
-                    var flags = (autoAddr.address_flag || []);
-
-                    html += '<div class="text-sm font-bold" style="margin-bottom:8px;">Pickup address (auto-selected):</div>';
-                    html += '<div style="padding:10px 12px; border:2px solid #16a34a; border-radius:8px; background:#16a34a0a;">';
-                    html += '<div class="text-sm">' + addrParts.join(', ') + '</div>';
-                    if (flags.length > 0) {
-                        html += '<div style="margin-top:4px;">';
-                        flags.forEach(function (f) {
-                            var color = f === 'pickup_address' ? '#16a34a' : (f === 'return_address' ? '#2563eb' : '#6b7280');
-                            html += '<span style="display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px; background:' + color + '18; color:' + color + '; margin-right:4px;">' + f.replace(/_/g, ' ') + '</span>';
-                        });
-                        html += '</div>';
-                    }
-                    html += '</div>';
-                } else {
-                    var branches = (data.dropoff && data.dropoff.branch_list) ? data.dropoff.branch_list : [];
-                    if (branches.length === 0) {
-                        shipStep2Content.innerHTML = '<div class="text-secondary">No drop-off branches available. The order will be shipped without branch selection.</div>';
-                        btnConfirm.disabled = false;
-                        return;
-                    }
-                    html += '<div class="text-sm font-bold" style="margin-bottom:8px;">Select drop-off branch:</div>';
-                    branches.forEach(function (branch, i) {
-                        var checked = i === 0 ? ' checked' : '';
-                        var addrParts = [branch.address, branch.city, branch.state, branch.district].filter(function(p) { return p && p !== ''; });
-
-                        html += '<label style="display:block; padding:10px 12px; border:2px solid var(--border, #e2e8f0); border-radius:8px; cursor:pointer; margin-bottom:8px;">';
-                        html += '<div style="display:flex; align-items:flex-start; gap:10px;">';
-                        html += '<input type="radio" name="ship_branch_show" value="' + (branch.branch_id || 0) + '"' + checked + ' style="margin-top:3px;">';
-                        html += '<div style="flex:1;">';
-                        html += '<div class="text-sm">' + addrParts.join(', ') + '</div>';
-                        html += '</div></div></label>';
-
-                        if (i === 0) shipBranchInput.value = branch.branch_id || 0;
-                    });
-                }
-
-                shipStep2Content.innerHTML = html;
-                btnConfirm.disabled = false;
-
-                shipStep2Content.querySelectorAll('input[type=radio]').forEach(function (radio) {
-                    radio.addEventListener('change', function () {
-                        shipBranchInput.value = radio.value;
-                    });
-                });
-            })
-            .catch(function () {
-                shipStep2Loading.style.display = 'none';
-                shipStep2Content.style.display = '';
-                shipStep2Content.innerHTML = '<div class="alert danger">Network error loading addresses.</div>';
-            });
-        });
-    });
-
-    btnBack.addEventListener('click', function () {
-        shipStep1.style.display = '';
-        shipStep2.style.display = 'none';
-    });
-
-    btnConfirm.addEventListener('click', function () {
-        btnConfirm.disabled = true;
-        isShipping = true;
-
-        // Capture form data BEFORE replacing modal content
-        var csrfToken = document.querySelector('meta[name="csrf-token"]');
-        if (!csrfToken) csrfToken = shipForm.querySelector('input[name="_token"]');
-        var token = csrfToken ? (csrfToken.content || csrfToken.value) : '';
-        var formData = new FormData(shipForm);
-        var formAction = shipForm.action;
-        var orderSn = '{{ $order->order_sn }}';
-
-        // Replace modal content with loading spinner
-        var modalInner = shipModal.querySelector('div > div') || shipModal.firstElementChild;
-        modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
-            '<div style="width:48px; height:48px; border:4px solid #cbd5e1; border-top-color:#EE4D2D; border-radius:50%; animation:spSpinShow 0.8s linear infinite; margin:0 auto;"></div>' +
-            '<div id="shipLoadingMsg" class="font-bold" style="margin-top:16px;">Shipping order…</div>' +
-            '<div class="text-xs text-secondary" style="margin-top:4px;">Please keep this tab open.</div>' +
-            '</div>';
-
-        fetch(formAction, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
-            body: formData
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.ok) {
-                modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
-                    '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
-                    '<div class="font-bold" style="color:#dc2626;">Ship failed</div>' +
-                    '<div class="text-sm text-secondary" style="margin-top:8px;">' + (data.message || 'Unknown error') + '</div>' +
-                    '<button type="button" class="btn secondary" style="margin-top:16px;" onclick="location.reload()">Close</button>' +
-                    '</div>';
-                return;
-            }
-
-            // Ship succeeded — poll for AWB
-            var msg = document.getElementById('shipLoadingMsg');
-            if (msg) msg.textContent = 'Generating AWB…';
-
-            var awbUrl = '/shopee/orders/' + encodeURIComponent(orderSn) + '/awb';
-            var awbAttempts = 0;
-            var maxAttempts = 20;
-
-            function pollAwb() {
-                awbAttempts++;
-                fetch(awbUrl, { headers: { 'Accept': 'application/json' } })
-                .then(function (r) { return r.json(); })
-                .then(function (awbData) {
-                    if (awbData.ok && awbData.ready) {
-                        shipModal.style.display = 'none';
-                        window.open(awbUrl, '_blank');
-                        location.reload();
-                    } else if (awbAttempts < maxAttempts) {
-                        setTimeout(pollAwb, 3000);
-                    } else {
-                        modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
-                            '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
-                            '<div class="font-bold">Order shipped successfully</div>' +
-                            '<div class="text-sm text-secondary" style="margin-top:8px;">AWB is still being generated by Shopee. Use the Print AWB button to try again.</div>' +
-                            '<button type="button" class="btn" style="margin-top:16px;" onclick="location.reload()">OK</button>' +
-                            '</div>';
-                    }
-                })
-                .catch(function () {
-                    if (awbAttempts < maxAttempts) {
-                        setTimeout(pollAwb, 3000);
-                    } else {
-                        modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
-                            '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
-                            '<div class="font-bold">Order shipped successfully</div>' +
-                            '<div class="text-sm text-secondary" style="margin-top:8px;">Could not generate AWB. Use the Print AWB button to try again.</div>' +
-                            '<button type="button" class="btn" style="margin-top:16px;" onclick="location.reload()">OK</button>' +
-                            '</div>';
-                    }
-                });
-            }
-
-            setTimeout(pollAwb, 2000);
-        })
-        .catch(function () {
-            modalInner.innerHTML = '<div style="text-align:center; padding:40px 20px;">' +
-                '<div style="font-size:32px; margin-bottom:12px;">&#9888;</div>' +
-                '<div class="font-bold" style="color:#dc2626;">Network error</div>' +
-                '<div class="text-sm text-secondary" style="margin-top:8px;">Failed to connect. Please try again.</div>' +
-                '<button type="button" class="btn secondary" style="margin-top:16px;" onclick="location.reload()">Close</button>' +
-                '</div>';
-        });
-    });
-});
-</script>
-@endif
-
-{{-- Logistics trace modal --}}
-<div id="spLogisticsModal" class="modal-backdrop">
-    <div class="modal" style="max-width:720px;">
-        <div class="modal-header">
-            <h3>Logistics Trace</h3>
-            <button type="button" class="modal-close" onclick="document.getElementById('spLogisticsModal').classList.remove('active')">&times;</button>
-        </div>
-        <div id="spLogisticsBody" class="text-xs mt-16">
-            <div class="text-secondary">Loading…</div>
-        </div>
-        <div class="d-flex gap-10 justify-end mt-16">
-            <button type="button" class="btn secondary" onclick="document.getElementById('spLogisticsModal').classList.remove('active')">Close</button>
         </div>
     </div>
-</div>
 
-<script>
-(function () {
-    var modal = document.getElementById('spLogisticsModal');
-    var body = document.getElementById('spLogisticsBody');
-    var btn = document.getElementById('btnLogisticsTrace');
-    if (!btn || !modal || !body) return;
+</div>{{-- /#shopee-order-detail-page --}}
 
-    modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('active'); });
-
-    function fmtTime(ts) {
-        if (!ts) return '';
-        var d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
-        if (isNaN(d.getTime())) return String(ts);
-        return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
-    }
-
-    function renderTrace(data) {
-        var events = data.tracking_info || [];
-        var status = data.logistics_status || '';
-        var trackNum = data.tracking_number || '';
-        var carrier = data.shipping_carrier || '';
-
-        body.textContent = '';
-
-        if (trackNum) {
-            var tnDiv = document.createElement('div');
-            tnDiv.className = 'mb-8';
-            var tnLabel = document.createElement('strong');
-            tnLabel.textContent = 'Tracking: ';
-            var tnValue = document.createElement('span');
-            tnValue.textContent = trackNum;
-            tnDiv.appendChild(tnLabel);
-            tnDiv.appendChild(tnValue);
-            body.appendChild(tnDiv);
-        }
-        if (carrier) {
-            var scDiv = document.createElement('div');
-            scDiv.className = 'mb-8';
-            var scLabel = document.createElement('strong');
-            scLabel.textContent = 'Courier: ';
-            var scValue = document.createElement('span');
-            scValue.textContent = carrier;
-            scDiv.appendChild(scLabel);
-            scDiv.appendChild(scValue);
-            body.appendChild(scDiv);
-        }
-
-        if (!events.length) {
-            if (!trackNum) {
-                var emptyDiv = document.createElement('div');
-                emptyDiv.className = 'text-secondary';
-                emptyDiv.textContent = 'No tracking events available.';
-                body.appendChild(emptyDiv);
-            }
-            return;
-        }
-
-        events.sort(function (a, b) { return (b.update_time || b.ctime || 0) - (a.update_time || a.ctime || 0); });
-
-        if (status) {
-            var statusDiv = document.createElement('div');
-            statusDiv.className = 'text-xs text-secondary';
-            statusDiv.style.marginBottom = '12px';
-            statusDiv.textContent = 'Logistics status: ' + status;
-            body.appendChild(statusDiv);
-        }
-
-        var wrap = document.createElement('div');
-        wrap.className = 'table-wrap';
-        var table = document.createElement('table');
-        table.className = 'table';
-        var thead = document.createElement('thead');
-        var hr = document.createElement('tr');
-        ['Time', 'Status', 'Description'].forEach(function (h) {
-            var th = document.createElement('th'); th.textContent = h;
-            if (h === 'Time') th.style.width = '160px';
-            hr.appendChild(th);
-        });
-        thead.appendChild(hr);
-        table.appendChild(thead);
-        var tbody = document.createElement('tbody');
-        events.forEach(function (ev) {
-            var tr = document.createElement('tr');
-            var tdTime = document.createElement('td'); tdTime.textContent = fmtTime(ev.update_time || ev.ctime);
-            var tdStatus = document.createElement('td'); tdStatus.className = 'font-bold'; tdStatus.textContent = ev.logistics_status || '';
-            var tdDesc = document.createElement('td'); tdDesc.textContent = ev.description || '';
-            tr.appendChild(tdTime); tr.appendChild(tdStatus); tr.appendChild(tdDesc);
-            tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-        wrap.appendChild(table);
-        body.appendChild(wrap);
-    }
-
-    btn.addEventListener('click', function () {
-        modal.classList.add('active');
-        body.textContent = 'Loading…';
-        fetch(btn.dataset.url, { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
-            .then(function (j) {
-                if (!j || !j.ok) throw new Error(j.message || 'Failed to fetch');
-                renderTrace(j);
-            })
-            .catch(function (e) {
-                body.textContent = '';
-                var err = document.createElement('div');
-                err.style.color = 'var(--danger)';
-                err.textContent = e.message || 'Failed to fetch tracking info';
-                body.appendChild(err);
-            });
-    });
-})();
-</script>
+@include('ext-shopee::orders._modals')
 @endsection

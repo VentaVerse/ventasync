@@ -143,9 +143,220 @@
     border-left: 2px solid var(--accent);
 }
 
+/* ==================================================================
+   Shopee order detail (`spd-`)
+   ------------------------------------------------------------------
+   The page is the shared `od-` detail anatomy poured into the seller
+   center; everything here is genuinely Shopee's and nothing else. Five
+   things this channel has that the anatomy does not: an item line with no
+   line total, an escrow block dense enough to need its own row rhythm, a
+   return with its own items and negotiation history, the raw API payload,
+   and the buyer's invoice request.
+   ================================================================== */
+
+/* Shopee stores a unit price per item and no line total, so this page's
+   item grid is four columns where the core Sales show has five. Stated as
+   an override of the anatomy's own grid rather than a second item
+   component, and restated inside the same container query the anatomy
+   uses, so the narrow-column collapse still wins on a phone or beside a
+   340px side column. */
+.spd-items .od-items__head,
+.spd-items .od-item {
+    grid-template-columns: 96px minmax(0, 1fr) 4rem 8rem;
+}
+
+@container odmain (max-width: 560px) {
+    .spd-items .od-items__head,
+    .spd-items .od-item {
+        grid-template-columns: 72px minmax(0, 1fr);
+    }
+}
+
+/* Escrow rows. Nineteen possible lines in a 340px column: the card body's
+   own --space-3 rhythm is meant for three or four facts and turns this
+   block into a scroll. The rows keep their own vertical padding and the
+   gap goes. */
+.spd-fees { gap: 0; }
+
+/* The settlement note under the escrow block, and any other quiet
+   sentence that belongs to a card rather than to a row. */
+.spd-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Waybill and tracking sit in the shipping card's foot. Two controls of
+   the same weight: neither is more the operator's move than the other,
+   and a solid button here would compete with the one in the page head. */
+.spd-parcel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+/* The buyer's invoice request. Six short facts, so they read as a row of
+   labelled values across the main column rather than a tall stack in a
+   340px card. The address takes the full width because it is the one
+   field that is a sentence. */
+.spd-invoice {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-3) var(--space-5);
+    padding: var(--space-1) 0;
+}
+
+.spd-invoice__wide { grid-column: 1 / -1; }
+
+/* ------------------------------------------------------------------
+   Returns and refunds. A return is a second subject with its own items
+   and its own negotiation history, so it is a bordered block in the main
+   column rather than a fact in the side one.
+   ------------------------------------------------------------------ */
+
+.spd-return {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.spd-return + .spd-return { margin-top: var(--space-3); }
+
+.spd-return__head {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-3) var(--space-4);
+}
+
+.spd-return__reason { padding-top: var(--space-1); border-top: 1px solid var(--border); }
+
+.spd-return__note {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.spd-return__nego { margin-top: var(--space-1); }
+
+/* A return's item lines. Horizontal hairlines only, mono figures right
+   aligned: the same reading rules as every other list of numbers here,
+   at the smaller scale a nested block deserves. */
+.spd-lines { display: flex; flex-direction: column; }
+
+.spd-lines__head,
+.spd-lines__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 3.5rem 7rem;
+    gap: var(--space-3);
+    align-items: baseline;
+}
+
+.spd-lines__head {
+    padding-bottom: var(--space-1);
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: .02em;
+}
+
+.spd-lines__head span:nth-child(n + 2) { text-align: right; }
+
+.spd-lines__row {
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--border);
+}
+
+.spd-lines__name { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+
+.spd-lines__num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   Raw payload. Kept from the previous version of this page: when Shopee's
+   response and this page disagree, this is what settles it. It scrolls in
+   its own box so a 400-line payload cannot push the page sideways.
+   ------------------------------------------------------------------ */
+
+.spd-raw {
+    max-height: 420px;
+    margin: var(--space-3) 0 0;
+    padding: var(--space-3);
+    overflow: auto;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------
+   Invoice request fields with a copy control. The label spans the row,
+   the value and the button share the line beneath it.
+   ------------------------------------------------------------------ */
+
+.spd-copyable {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: var(--space-2);
+}
+
+.spd-copyable .od-fact__k { grid-column: 1 / -1; }
+
+/* Revealed on hover of the row it belongs to, the same discipline the
+   detail anatomy applies to its own secondary controls: six fields should
+   not rest as six standing buttons. Scoped to the row rather than to a
+   container, so it behaves the same whether the invoice block is a section
+   in the main column or a card in the side one. */
+.spd-copy {
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--motion-fast), color var(--motion-fast);
+}
+
+.spd-copyable:hover .spd-copy,
+.spd-copy:focus-visible { opacity: 1; }
+
+.spd-copy:hover { text-decoration: underline; }
+
+.spd-copy.is-copied { opacity: 1; color: var(--text-muted); }
+
 /* ------------------------------------------------------------------
    Responsive
    ------------------------------------------------------------------ */
+
+/* No hover on a touch screen, so the copy controls become permanent
+   rather than tappable-but-invisible. Same handling the detail anatomy
+   gives its own hover-revealed controls at the same breakpoint. */
+@media (max-width: 640px) {
+    .spd-copy { opacity: 1; }
+}
+
+@media (max-width: 560px) {
+    .spd-lines__head { display: none; }
+
+    .spd-lines__row { grid-template-columns: minmax(0, 1fr) auto; }
+
+    .spd-lines__name { grid-column: 1 / -1; }
+}
 
 /* Between the mobile restack and a comfortable desktop width the fixed
    columns leave almost nothing for Products, the one column carrying

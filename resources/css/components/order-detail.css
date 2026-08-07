@@ -165,6 +165,11 @@ a.od-stamp__v:hover { text-decoration: underline; }
 
 .od-note--ok   { border-left-color: var(--accent); }
 .od-note--fail { border-left-color: var(--danger); }
+/* Neither a success nor a failure: a fact about the data on screen the
+   operator should know before reading it (the channel pages use this for
+   "the marketplace refresh did not answer, these figures are the last ones
+   synced"). */
+.od-note--warn { border-left-color: var(--warning); }
 
 .od-note__body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 

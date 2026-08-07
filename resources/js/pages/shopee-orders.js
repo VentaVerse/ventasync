@@ -1,7 +1,8 @@
 /**
- * Shopee Orders and Shopee Returns pages
- * (extensions/shopee/views/orders/index.blade.php and
- * extensions/shopee/views/orders/returns.blade.php).
+ * Shopee Orders, Shopee Returns and Shopee order detail
+ * (extensions/shopee/views/orders/index.blade.php,
+ * extensions/shopee/views/orders/returns.blade.php and
+ * extensions/shopee/views/orders/show.blade.php).
  *
  * This used to be a ~400 line inline <script> block at the bottom of the
  * Orders Blade file. It is moved here as part of that page's exit from the
@@ -56,12 +57,35 @@
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('shopee-orders-page');
     var returnsPage = document.getElementById('shopee-returns-page');
+    var detailPage = document.getElementById('shopee-order-detail-page');
 
     if (page) {
         initFetchUpdateOverlay();
         initShipModal();
         initTrackingModal();
         initImagePreview();
+    }
+
+    // The order detail page (extensions/shopee/views/orders/show.blade.php)
+    // is a third document with a third root id, not a section of the list.
+    // It carries the same ship and tracking modals - one copy of that markup
+    // lives in orders/_modals.blade.php and both pages include it - and its
+    // Arrange shipment button is the same .btnArrangeShipment contract, so
+    // both flows are the module's existing ones rather than a second
+    // implementation. It has no fetch/update command bar, so the overlay
+    // initialiser that binds those two buttons is not called here; the
+    // overlay ELEMENT is still present, and initShipModal() uses it for the
+    // "Shipping order" and "Generating AWB" states exactly as on the list.
+    //
+    // initImagePreview() is deliberately NOT called: the detail page's
+    // thumbnails are already the 96px the preview zooms a list row's up to,
+    // and the shared detail anatomy states that decision in CSS
+    // (.od-page .order-img-wrap { cursor: default }). What it does need is
+    // the broken-image handling the old page had as an inline onerror="".
+    if (detailPage) {
+        initShipModal();
+        initTrackingModal();
+        initBrokenImages(detailPage);
     }
 
     // Returns (extensions/shopee/views/orders/returns.blade.php) is its own
@@ -528,6 +552,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     trackingBody.appendChild(errEl);
                 });
         });
+    }
+
+    /* ------------------------------------------------------------------
+       A thumbnail whose image URL no longer resolves. Shopee's CDN links
+       expire on old orders, and the old detail page handled this with an
+       inline onerror="this.style.display='none'" attribute on every <img>.
+       Capture phase, because `error` does not bubble. Same shape as
+       order-detail.js's own handler.
+       ------------------------------------------------------------------ */
+    function initBrokenImages(root) {
+        root.addEventListener('error', function (e) {
+            var img = e.target;
+            if (!img || img.tagName !== 'IMG' || !img.classList.contains('order-img')) return;
+            img.hidden = true;
+        }, true);
     }
 
     /* ------------------------------------------------------------------
