@@ -70,25 +70,20 @@ class OrderDetailTest extends TestCase
      *
      * `view_orders` is the key `routes/web.php` already names on the
      * orders.show route (`perm:view_orders|manage_orders`) and that
-     * PaletteController already checks, but no migration has ever seeded a
-     * permissions row for it - the Phase 4.5 view/manage split was wired
-     * into the routes and never finished in the permission table. So the
-     * row is created here, exactly as a seeding migration would write it,
-     * rather than the test quietly asserting the manage tier twice.
-     *
-     * Consequence worth knowing while this is true: on a live database no
-     * group can hold view_orders, so every operator who can open this page
-     * today is a manage-tier operator. That does not weaken the assertions
-     * below - they still run against the real middleware and the real
-     * hasPermission() - but it does mean the read-tier branch of the view
-     * is currently unreachable in production.
+     * PaletteController already checks. It is now seeded by
+     * `2026_08_07_190000_seed_view_orders_permission.php`, additive and
+     * granted to nobody, so the row exists on every migrated database but
+     * changes no one's access on its own. This fixture still creates it
+     * directly with `firstOrCreate` rather than depending on that migration
+     * having run, for the same reason every other test file in this suite
+     * builds its own permission groups instead of leaning on migration
+     * state: a test that could pass or fail depending on which migrations
+     * happen to be applied is not asserting anything stable about the gate
+     * it claims to test.
      */
     private function viewer(): User
     {
-        Permission::firstOrCreate(
-            ['key' => 'view_orders'],
-            ['label' => 'Orders (read only)']
-        );
+        Permission::firstOrCreate(['key' => 'view_orders']);
 
         $group = UserGroup::create(['name' => 'Order Viewers']);
         $group->permissions()->attach(
