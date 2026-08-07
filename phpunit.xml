@@ -23,6 +23,13 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- config/cache.php reads CACHE_DRIVER, not CACHE_STORE, so the line
+             above never took effect and every test run shared the FILE cache
+             with every other run and with artisan serve. A cached Lazada API
+             response from one run satisfied Cache::remember in the next and
+             the pull assertion failed with no code change anywhere. Both
+             names set until config/cache.php modernises. -->
+        <env name="CACHE_DRIVER" value="array"/>
         <!--
             Tests run against MySQL, not sqlite: the catalog schema uses a
             MySQL-only FULLTEXT index (create_catalog_schema.php:158) that

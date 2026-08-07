@@ -27,9 +27,25 @@ class ExtensionServiceProvider extends ServiceProvider
         $coreKeys = array_keys((array) config('permissions', []));
         if (!empty($coreKeys)) {
             $coreCacheKey = 'core_perms_synced_' . md5(json_encode($coreKeys));
-            if (!cache()->has($coreCacheKey)) {
-                $manager->syncCorePermissions();
-                cache()->put($coreCacheKey, true, now()->addHours(24));
+            // Same boot resilience AppServiceProvider gives the settings
+            // singleton: on a fresh deploy before migrations, or with the
+            // database absent or down, the sync must not take the whole boot
+            // down with it. This was masked for months by an accident: the
+            // cache always resolved to the FILE driver (config/cache.php reads
+            // CACHE_DRIVER, everything else sets CACHE_STORE), so a warm
+            // synced marker skipped the DB query that would have crashed. The
+            // moment a cold or array cache runs this line honestly, a missing
+            // schema crashed every boot, including the destructive-command
+            // guard test's probe, which boots against a database that does
+            // not exist BY DESIGN.
+            try {
+                if (!cache()->has($coreCacheKey)) {
+                    $manager->syncCorePermissions();
+                    cache()->put($coreCacheKey, true, now()->addHours(24));
+                }
+            } catch (\Throwable) {
+                // Fall through and let the request continue; the sync runs on
+                // the next boot with a working database.
             }
         }
 
@@ -70,11 +86,17 @@ class ExtensionServiceProvider extends ServiceProvider
                 $this->loadTranslationsFrom($langPath);
             }
 
-            // Auto-sync permissions on boot (cached to avoid DB queries every request)
+            // Auto-sync permissions on boot (cached to avoid DB queries every
+            // request). Same try/catch boot resilience as the core sync
+            // above, for the same reason.
             $cacheKey = 'ext_perms_synced_' . $id . '_' . md5(json_encode($manifests[$id]['permissions'] ?? []));
-            if (!cache()->has($cacheKey)) {
-                $manager->syncPermissions($id);
-                cache()->put($cacheKey, true, now()->addHours(24));
+            try {
+                if (!cache()->has($cacheKey)) {
+                    $manager->syncPermissions($id);
+                    cache()->put($cacheKey, true, now()->addHours(24));
+                }
+            } catch (\Throwable) {
+                // Next boot with a working database re-syncs.
             }
         }
 
