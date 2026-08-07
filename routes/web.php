@@ -312,3 +312,8 @@ Route::middleware(['auth'])->group(function () {
 
 
 require __DIR__.'/auth.php';
+
+// IA migration (2026-08-08): temporary 301 shims for URIs that moved under
+// their nav section prefix. See routes/redirects.php for details; loaded
+// last so it never shadows a real route.
+require __DIR__.'/redirects.php';

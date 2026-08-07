@@ -62,17 +62,21 @@ Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])-
 // No write routes exist yet for OpenCart orders.
 
 // ── Reviews — READ ──────────────────────────────────────────────
+// IA migration (2026-08-08, Task 1): reviews sit in the Catalogue nav
+// group, so their URI nests under /catalog/reviews (not /opencart) even
+// though the controller stays in this extension. Route names unchanged;
+// old /reviews/* URIs 301 via routes/redirects.php.
 Route::middleware(['auth', 'perm:view_reviews|manage_reviews'])->group(function () {
-    Route::get('/reviews', [ReviewController::class, 'index'])->name('ext.opencart.reviews.index');
-    Route::get('/reviews/{id}', [ReviewController::class, 'show'])->name('ext.opencart.reviews.show')->whereNumber('id');
+    Route::get('/catalog/reviews', [ReviewController::class, 'index'])->name('ext.opencart.reviews.index');
+    Route::get('/catalog/reviews/{id}', [ReviewController::class, 'show'])->name('ext.opencart.reviews.show')->whereNumber('id');
 });
 
 // ── Reviews — WRITES (push, fetch, delete) ──────────────────────
 Route::middleware(['auth', 'perm:manage_reviews'])->group(function () {
-    Route::post('/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('ext.opencart.reviews.push')->whereNumber('id');
-    Route::post('/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('ext.opencart.reviews.skip')->whereNumber('id');
-    Route::post('/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('ext.opencart.reviews.bulk_push');
-    Route::post('/reviews/fetch', [ReviewController::class, 'fetch'])->name('ext.opencart.reviews.fetch');
-    Route::post('/reviews/push-all', [ReviewController::class, 'pushAll'])->name('ext.opencart.reviews.push_all');
-    Route::post('/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('ext.opencart.reviews.delete_all');
+    Route::post('/catalog/reviews/{id}/push', [ReviewController::class, 'pushToOpenCart'])->name('ext.opencart.reviews.push')->whereNumber('id');
+    Route::post('/catalog/reviews/{id}/skip', [ReviewController::class, 'skip'])->name('ext.opencart.reviews.skip')->whereNumber('id');
+    Route::post('/catalog/reviews/bulk-push', [ReviewController::class, 'bulkPush'])->name('ext.opencart.reviews.bulk_push');
+    Route::post('/catalog/reviews/fetch', [ReviewController::class, 'fetch'])->name('ext.opencart.reviews.fetch');
+    Route::post('/catalog/reviews/push-all', [ReviewController::class, 'pushAll'])->name('ext.opencart.reviews.push_all');
+    Route::post('/catalog/reviews/delete-all', [ReviewController::class, 'deleteAll'])->name('ext.opencart.reviews.delete_all');
 });
