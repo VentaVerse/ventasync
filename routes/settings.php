@@ -1,15 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\UserGroupController;
-use App\Http\Controllers\SettingController;
-use App\Http\Controllers\SettingsHubController;
-use App\Http\Controllers\CurrencyController;
-use App\Http\Controllers\ExtensionController;
-use App\Http\Controllers\ErrorLogController;
-use App\Http\Controllers\ApiClientController;
-use App\Http\Controllers\OrderStatusController;
+use App\Http\Controllers\Settings\UserController;
+use App\Http\Controllers\Settings\UserGroupController;
+use App\Http\Controllers\Settings\SettingController;
+use App\Http\Controllers\Settings\SettingsHubController;
+use App\Http\Controllers\Settings\CurrencyController;
+use App\Http\Controllers\Settings\ExtensionController;
+use App\Http\Controllers\Settings\ErrorLogController;
+use App\Http\Controllers\Settings\ApiClientController;
+use App\Http\Controllers\Settings\OrderStatusController;
 
 // IA migration (2026-08-08, Task 4): Settings section. Required from
 // routes/web.php inside the ['auth'] group. Every route in this file

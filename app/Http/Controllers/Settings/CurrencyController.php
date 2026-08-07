@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings;
 
+use App\Http\Controllers\Controller;
 use App\Models\Currency;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;

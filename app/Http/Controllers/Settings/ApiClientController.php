@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings;
 
+use App\Http\Controllers\Controller;
 use App\Models\ApiClient;
 use App\Services\ApiScopeRegistry;
 use Illuminate\Http\Request;

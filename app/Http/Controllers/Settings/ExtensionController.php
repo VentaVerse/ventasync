@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings;
 
+use App\Http\Controllers\Controller;
 use App\Extensions\ExtensionManager;
 use App\Models\Extension;
 use App\Services\ActivityLogger;
