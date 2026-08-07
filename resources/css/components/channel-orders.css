@@ -671,6 +671,58 @@
 .co-progress__note { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
 
 /* ------------------------------------------------------------------
+   Tracking timeline. Every channel that can be asked "where is this parcel"
+   answers with the same thing: a list of events, newest first, each with a
+   time, a status and sometimes a line of courier prose. The old modals put
+   that in a bordered table inside a modal inside a page that already has a
+   table, which read as a spreadsheet nested in a spreadsheet. Events are a
+   sequence, so they are drawn as one: a rule down the left, the timestamp in
+   mono above the status, and the courier's own description under it.
+
+   Lazada still carries its own `lz-trace` copy of these rules from the round
+   where it was the only channel drawing one. The two are identical; folding
+   that copy into this one is a Lazada edit, so it belongs to the review
+   round that can verify both channels at once rather than to TikTok's task.
+   ------------------------------------------------------------------ */
+
+.co-trace {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-height: 52vh;
+    overflow-y: auto;
+}
+
+.co-trace__event {
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--border-strong);
+}
+
+/* The most recent event is the answer to the question the operator opened
+   this modal with, so it is the one the rule marks. */
+.co-trace__event:first-child { border-left-color: var(--accent); }
+
+.co-trace__time {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.co-trace__status {
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.co-trace__detail {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------------
    Responsive
    ------------------------------------------------------------------ */
 

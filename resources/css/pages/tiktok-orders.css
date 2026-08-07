@@ -1,0 +1,68 @@
+/* TikTok Shop Orders.
+   -------------------------------------------------------------------
+   The shared anatomy this page is drawn on lives in
+   components/channel-orders.css under the `co-` prefix: the command bar, the
+   order band, the item rows, the money and status cells, the actions cell,
+   the modal shell and the mobile restack are the same picture Shopee and
+   Lazada draw, so they are the same rules rather than a copy of them.
+
+   What is here is TikTok's own, and takes a `tt-` prefix so it can never
+   collide with another channel's page file. That is the whole of it: this
+   channel's column widths, and the two viewport ranges where its own column
+   cut needs help. Every control on the page, down to the tracking modal, is
+   already described by shared rules, so there is nothing else to write.
+
+   Nothing here carries a colour of its own. TikTok's pink lived on the old
+   .marketplace-tiktok wrapper, where it repainted --accent for every control
+   on the page; channel identity is carried by the sidebar and the
+   breadcrumb, which already say TikTok Shop, and the accent is spent on the
+   one thing that needs a human.
+   ------------------------------------------------------------------- */
+
+/* The legacy column format: Products | Qty | Price | Amount | Shipping |
+   Status | Actions, with the order facts banded above each order's item
+   rows.
+
+   Percentages, summing to 100, so the table's spare width spreads across
+   every column proportionally instead of pooling in one of them. Lazada's
+   cut is the starting point. Actions takes 25% against Lazada's 26 because
+   TikTok's busiest status (To Handover: print, refresh, tracking) offers
+   three controls with shorter labels than Lazada's To Arrange step, and the
+   point goes to Products, which is the only column here carrying genuinely
+   variable-length text. At the 1400px content cap Products lands near
+   420px, enough for two lines of a long marketplace title, so Qty keeps
+   hugging the product text instead of drifting away from it. */
+.tt-col-products { width: 30%; }
+.tt-col-qty      { width: 5%; }
+.tt-col-price    { width: 8%; }
+.tt-col-total    { width: 9%; }
+.tt-col-ship     { width: 11%; }
+.tt-col-status   { width: 12%; }
+.tt-col-act      { width: 25%; }
+
+/* ------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------ */
+
+/* Between the mobile restack and a comfortable desktop width the fixed
+   columns leave almost nothing for Products. Shipping is the field this
+   range can afford to drop: courier and tracking both repeat on the order
+   detail and in the Tracking modal, which stays. Below the restack
+   breakpoint the row is a single stacked column with room for everything, so
+   Shipping comes back. */
+@media (min-width: 641px) and (max-width: 900px) {
+    .tt-col-ship { display: none; }
+    #tiktok-orders-page .x-table td[data-label="Shipping"] { display: none; }
+}
+
+/* Once the row restacks there are no columns left to align on, so a
+   right-aligned figure just floats away from its own label. The shared rules
+   already do this for the order total; the per-line price needs it too, or
+   one money value in the stack sits left and the next sits right. Scoped to
+   this page rather than added to the shared file for the same reason
+   Lazada's copy is: Shopee's finished pages carry the same gap, and moving
+   their pixels is not this task's to do. Unifying all three belongs to the
+   review round that can verify every channel at once. */
+@media (max-width: 640px) {
+    #tiktok-orders-page .x-table tbody td.x-td-num { text-align: left; }
+}

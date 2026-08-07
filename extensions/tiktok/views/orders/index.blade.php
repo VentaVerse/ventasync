@@ -1,557 +1,559 @@
 @extends('layouts.channel')
-@section('title', 'TikTok Shop Orders')
 @section('breadcrumb', 'Orders')
+
+{{-- Leaves the .x-legacy content boundary, the same exit Shopee's and
+     Lazada's Orders pages took: this page is now built directly on the
+     design tokens and the x-ui components, which is the designed way out of
+     that boundary. The old .marketplace-tiktok wrapper went with it, because
+     its only job was to repaint --accent with TikTok's pink, and channel
+     identity belongs in the sidebar and the breadcrumb, not on every control
+     of every row. The cross-marketplace tab strip went too: inside a seller
+     center you see one marketplace. --}}
+@section('content-class', '')
 
 @section('content')
 @php
-    // Phase 4 — TikTok Orders is visible to view_tiktok_orders holders; the
-    // Fetch/Update/Ship actions require manage_tiktok_orders.
-    $canManageTiktokOrders = true;
+    // Orders is visible to view_tiktok_orders holders; Fetch, Update and
+    // Ship render only for the manage tier. The route middleware
+    // (perm:manage_tiktok_orders on every write POST in
+    // extensions/tiktok/routes/web.php) is the real gate; this flag only
+    // stops the page offering buttons that would 403.
+    //
+    // The old page hardcoded this to true, the same defect Lazada's page
+    // carried, which showed a read-only operator a command bar and a Ship
+    // button that all 403 on submit. Reading the permission is what the
+    // flag was written for.
+    $canManageTiktokOrders = auth()->user()?->hasPermission('manage_tiktok_orders') ?? false;
+
+    $tabs = $tabs ?? [];
+    $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
+    $pendingSub = $pending_sub ?? request()->query('pending_sub', 'to_pack');
+
+    $pendingNav = [
+        'to_pack' => 'To Pack',
+        'to_handover' => 'To Handover',
+    ];
+
+    // The count in the deck is the count of what is actually listed, so it
+    // names the step being listed rather than the tab above it: standing on
+    // To Handover while the deck says "in To Ship" puts one number next to a
+    // different one and reads as a bug.
+    $scopeLabel = null;
+    if ($active_tab === 'TO_SHIP') {
+        $scopeLabel = $pendingNav[$pendingSub] ?? ($tabs['TO_SHIP'] ?? null);
+    } elseif ($active_tab !== 'ALL') {
+        $scopeLabel = $tabs[$active_tab] ?? null;
+    }
 @endphp
-<div class="marketplace-tiktok">
-@include('integrations.partials._tab_strip', ['activeTabId' => 'tiktok'])
-<div class="page-header">
-    <h2>TikTok Shop Orders <span class="text-secondary text-sm">({{ $orders->total() }})</span></h2>
+
+{{-- The one session value the page module needs (a waybill produced by the
+     ship request that just finished) rides on the root element as a data
+     attribute, escaped by Blade, rather than as a <script> block calling
+     window.open with an interpolated URL. A new-UX page owns no inline
+     script, the same way it owns no inline style. --}}
+<div id="tiktok-orders-page" class="co-page"
+     data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Orders</h1>
+        <p class="x-page-sub">
+            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($scopeLabel) in {{ $scopeLabel }}@endif
+        </p>
+    </div>
 </div>
 
-{{-- Fetch / Update --}}
 @if($canManageTiktokOrders)
-<div class="card mb-16">
-    <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" class="d-flex gap-12 flex-wrap items-center">
+{{-- One command bar, the same grammar as Shopee's and Lazada's: every child
+     of the row ends in a box exactly --control-h tall and the row is bottom
+     aligned, so the date inputs and the two buttons share a baseline and a
+     top edge. The three stacked cards this replaces each set their own
+     control heights, which is what left the buttons off the baseline of
+     their own date inputs. --}}
+<div class="x-cmdbar">
+    <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" id="formFetchTiktokOrders" class="x-cmdbar__row">
         @csrf
-        <div>
-            <label class="text-xs text-secondary">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from', now()->subDays(15)->format('Y-m-d')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="ttDateFrom">From</label>
+            <x-ui.input type="date" id="ttDateFrom" name="date_from" class="x-cmdbar__date"
+                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to', now()->format('Y-m-d')) }}" class="input" style="width:auto;">
+        <div class="x-cmdbar__field">
+            <label class="x-cmdbar__label" for="ttDateTo">To</label>
+            <x-ui.input type="date" id="ttDateTo" name="date_to" class="x-cmdbar__date"
+                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
-        <div class="d-flex gap-8">
-            <button type="submit" class="btn">Fetch Orders</button>
-            <button type="submit" class="btn secondary" formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update Orders</button>
-        </div>
-        <div class="text-secondary text-xs" style="flex:1;">
-            <strong>From/To</strong> required for Fetch. Update refreshes all active orders.
+        <div class="x-cmdbar__spacer"></div>
+        <div class="x-cmdbar__actions">
+            <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                         formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update statuses</x-ui.button>
         </div>
     </form>
+    <p class="x-cmdbar__hint">Fetching pulls the orders created between those two dates. Updating statuses refreshes the last 30 days and ignores the dates.</p>
 </div>
 @endif
 
 @if($last_result)
-    <div class="alert {{ $last_result['ok'] ? 'success' : 'danger' }}">
-        <strong>{{ $last_result['ok'] ? 'OK' : 'Error' }}</strong>
+    <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
+        <span class="co-notice__title">{{ $last_result['ok'] ? 'Done' : 'Failed' }}</span>
         @if(!empty($last_result['message']))
-            <div style="margin-top:6px;">{{ $last_result['message'] }}</div>
+            <span class="co-notice__body">{{ $last_result['message'] }}</span>
         @endif
         @if(!empty($last_result['awb_url']))
-            <div style="margin-top:8px;">
-                <a href="{{ $last_result['awb_url'] }}" target="_blank" class="btn small">Print AWB</a>
-            </div>
-            <script>window.open(@json($last_result['awb_url']), '_blank');</script>
+            {{-- The page module opens this waybill once on load. The link is
+                 here as well because a popup blocker, or a second look at the
+                 same notice, should not cost the operator the label they just
+                 created. --}}
+            <x-ui.button size="sm" :href="$last_result['awb_url']" target="_blank" rel="noopener">Print waybill</x-ui.button>
         @endif
     </div>
 @endif
 
-{{-- Tabs --}}
-<div class="tabs mb-12">
-    @foreach($tabs as $key => $label)
-        @php
-            $isActive = $active_tab === $key;
-            $count = $tab_counts[$key] ?? 0;
-            $qs = array_merge(request()->except('page', 'pending_sub'), ['tab' => $key]);
-            $showBadge = in_array($key, ['TO_SHIP', 'IN_TRANSIT']);
-        @endphp
-        <a href="{{ route('ext.tiktok.orders.index', $qs) }}" class="tab {{ $isActive ? 'active' : '' }}">
-            <span>{{ $label }}</span>
-            @if($showBadge && $count > 0)
-                <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isActive ? 'background:#fff; color:#1e1e1e;' : 'background:#1e1e1e; color:#fff;' }}">{{ $count }}</span>
-            @endif
-        </a>
-    @endforeach
+{{-- Status filters as a segmented control. Seven views over one list, so
+     "pick one" is the right grammar; the old .tabs strip implied seven
+     pages. Counts ride along as muted mono numbers on every tab, not only on
+     the two the old strip decorated with a black pill: a count that appears
+     on some tabs and not others reads as an alert rather than a figure. --}}
+<div class="x-segment-bar">
+    <div class="x-segment" role="tablist" aria-label="Order status">
+        @foreach($tabs as $key => $label)
+            @php
+                $isActive = $active_tab === strtoupper((string) $key);
+                $count = $tab_counts[$key] ?? null;
+            @endphp
+            <a href="{{ route('ext.tiktok.orders.index', array_merge(request()->except('page', 'pending_sub'), ['tab' => $key])) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $label }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
 </div>
 
-{{-- To Ship subtabs: To Pack / To Handover --}}
 @if($active_tab === 'TO_SHIP')
-    @php
-        $ps = $pending_sub ?? 'to_pack';
-        $pendingNav = [
-            'to_pack'     => 'To Pack',
-            'to_handover' => 'To Handover',
-        ];
-    @endphp
-    <div class="card mb-12" style="padding:12px 16px;">
-        <div class="d-flex items-center justify-between gap-10" style="margin-bottom:8px;">
-            <div class="font-semibold">To Ship workflow</div>
-            <div class="text-xs text-secondary">Choose the step you are working on</div>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-            @foreach($pendingNav as $k => $lbl)
-                @php
-                    $isSubActive = ($ps === $k) || ($ps === '' && $k === 'to_pack');
-                    $subQs = array_merge(request()->except('page'), ['tab' => 'TO_SHIP', 'pending_sub' => $k]);
-                    $subCount = $tab_counts[$k] ?? 0;
-                @endphp
-                <a href="{{ route('ext.tiktok.orders.index', $subQs) }}" class="tab {{ $isSubActive ? 'active' : '' }}">
-                    <span>{{ $lbl }}</span>
-                    @if($subCount > 0)
-                        <span style="margin-left:6px; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; font-weight:700; font-size:12px; {{ $isSubActive ? 'background:#fff; color:#1e1e1e;' : 'background:#1e1e1e; color:#fff;' }}">{{ $subCount }}</span>
-                    @endif
-                </a>
+    {{-- TikTok's To Ship has two working steps. The sub row drops the trough
+         so it cannot be mistaken for a peer of the row above it, and the "To
+         Ship workflow / Choose the step you are working on" card that used to
+         frame it is gone: a segmented control under a tab needs no caption
+         explaining that it filters. --}}
+    <div class="x-segment x-segment--sub" aria-label="To Ship step">
+        @foreach($pendingNav as $k => $lbl)
+            @php
+                $isActive = ($pendingSub === $k) || ($pendingSub === '' && $k === 'to_pack');
+                $count = $tab_counts[$k] ?? null;
+            @endphp
+            <a href="{{ route('ext.tiktok.orders.index', array_merge(request()->except('page'), ['tab' => 'TO_SHIP', 'pending_sub' => $k])) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               @if($isActive) aria-current="page" @endif>
+                <span>{{ $lbl }}</span>
+                @if($count !== null)
+                    <span class="x-segment__count">{{ number_format($count) }}</span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+
+    @if(!empty($courier_counts))
+        <div class="co-couriers">
+            <span class="co-couriers__label">Parcels waiting for handover</span>
+            @foreach($courier_counts as $cc)
+                <span class="co-courier">
+                    <span class="co-courier__count">{{ number_format($cc['count']) }}</span>
+                    {{ $cc['label'] }}
+                </span>
             @endforeach
         </div>
-
-        @if(!empty($courier_counts))
-            <div style="margin-top:10px;">
-                <div class="text-xs text-secondary" style="margin-bottom:6px;">Courier tally (To Handover only)</div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    @foreach($courier_counts as $cc)
-                        <span class="badge badge-gray" style="display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px;">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
-                            {{ $cc['label'] }}
-                            <span style="margin-left:2px; font-weight:700; font-size:15px; color:#dc2626;">{{ $cc['count'] }}</span>
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-    </div>
+    @endif
 @endif
 
-{{-- Search / Filter --}}
-<div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.tiktok.orders.index') }}" class="d-flex gap-10 flex-wrap items-center">
-        <input type="hidden" name="tab" value="{{ $active_tab }}">
-        <input type="hidden" name="per_page" value="{{ $per_page }}">
-        @if($pending_sub)<input type="hidden" name="pending_sub" value="{{ $pending_sub }}">@endif
+{{-- One filter row. Search, sort and per page were three separate card forms
+     doing one job, one of them a form whose only control was a select. The
+     selects auto-submit through the shared data-autosubmit handler that
+     /sales/orders already uses. --}}
+<form method="GET" action="{{ route('ext.tiktok.orders.index') }}" class="x-filters" id="orders-filter">
+    <input type="hidden" name="tab" value="{{ $active_tab }}">
+    @if($active_tab === 'TO_SHIP')
+        <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
+    @endif
 
-        <div>
-            <label class="text-xs text-secondary">Order Number</label>
-            <input type="text" name="order_number" value="{{ $filters['order_number'] ?? '' }}" placeholder="Order ID" class="input" style="min-width:220px;">
-        </div>
-        <div>
-            <label class="text-xs text-secondary">Buyer Name</label>
-            <input type="text" name="buyer_name" value="{{ $filters['buyer_name'] ?? '' }}" placeholder="Customer" class="input" style="min-width:220px;">
-        </div>
-        <div>
-            <label class="text-xs text-secondary">Sort by</label>
-            <select name="sort" class="input" style="width:auto; min-width:200px;">
-                <option value="created_desc" {{ ($sort ?? '') === 'created_desc' ? 'selected' : '' }}>Newest First</option>
-                <option value="created_asc" {{ ($sort ?? '') === 'created_asc' ? 'selected' : '' }}>Oldest First</option>
-            </select>
-        </div>
-        <div class="d-flex gap-8">
-            <button type="submit" class="btn">Search</button>
-            <a href="{{ route('ext.tiktok.orders.index', ['tab' => $active_tab, 'per_page' => $per_page]) }}" class="btn secondary">Reset</a>
-        </div>
-    </form>
-</div>
+    <x-ui.input type="search" name="order_number" class="x-filters__search"
+                value="{{ $filters['order_number'] ?? '' }}" placeholder="Order number" aria-label="Search by order number" />
+    <x-ui.input type="search" name="buyer_name" class="x-filters__search"
+                value="{{ $filters['buyer_name'] ?? '' }}" placeholder="Buyer" aria-label="Search by buyer name" />
 
-{{-- Per page --}}
-<div class="card mb-12" style="padding:12px 16px;">
-    <form method="GET" action="{{ route('ext.tiktok.orders.index') }}" class="d-flex gap-10 items-center">
-        <input type="hidden" name="tab" value="{{ $active_tab }}">
-        @if($pending_sub)<input type="hidden" name="pending_sub" value="{{ $pending_sub }}">@endif
-        <input type="hidden" name="order_number" value="{{ $filters['order_number'] ?? '' }}">
-        <input type="hidden" name="buyer_name" value="{{ $filters['buyer_name'] ?? '' }}">
-        <input type="hidden" name="sort" value="{{ $sort ?? '' }}">
-        <div>
-            <label class="text-xs text-secondary">Orders per page</label>
-            <select name="per_page" onchange="this.form.submit()" class="input" style="width:auto;">
-                <option value="10" {{ $per_page === 10 ? 'selected' : '' }}>10</option>
-                <option value="20" {{ $per_page === 20 ? 'selected' : '' }}>20</option>
-                <option value="50" {{ $per_page === 50 ? 'selected' : '' }}>50</option>
-            </select>
-        </div>
-    </form>
-</div>
-
-{{-- Orders Table --}}
-<div class="card">
-    <div class="font-bold" style="margin-bottom:12px;">
-        Orders ({{ $orders->total() }})
+    <div class="x-select-wrap x-filters__select x-filters__select--wide">
+        <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">
+            @foreach(['created_desc' => 'Order date, newest first', 'created_asc' => 'Order date, oldest first'] as $value => $label)
+                <option value="{{ $value }}" @selected(($sort ?? '') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if($orders->count() === 0)
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 24px; text-align:center;">
-            <svg style="width:48px; height:48px; color:var(--text-muted); margin-bottom:16px; opacity:.45;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            <div style="font-weight:600; font-size:15px; color:var(--text-primary); margin-bottom:6px;">No orders found</div>
-            <div class="text-muted" style="font-size:13px; max-width:360px;">
-                @if(($filters['order_number'] ?? '') !== '' || ($filters['buyer_name'] ?? '') !== '')
-                    No results match your search filters. Try clearing the filters above.
-                @elseif($active_tab !== 'ALL')
-                    There are no <strong>{{ $tabs[$active_tab] ?? $active_tab }}</strong> orders right now.
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+            @foreach([10, 20, 50] as $n)
+                <option value="{{ $n }}" @selected((int) ($per_page ?? 10) === $n)>{{ $n }} per page</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+
+    @if(($filters['order_number'] ?? '') !== '' || ($filters['buyer_name'] ?? '') !== '')
+        <a class="x-filters__reset" href="{{ route('ext.tiktok.orders.index', ['tab' => $active_tab, 'per_page' => (int) ($per_page ?? 10)]) }}">Reset</a>
+    @endif
+</form>
+
+@if($orders->count() === 0)
+    @php
+        if (($filters['order_number'] ?? '') !== '' || ($filters['buyer_name'] ?? '') !== '') {
+            $ttEmptyDesc = 'Nothing matches that order number or buyer. Clear the search to see the full list.';
+        } elseif ($active_tab !== 'ALL') {
+            // Keep the tab's own capitalisation: lowercasing it produced
+            // "no to ship orders", which reads broken.
+            $ttEmptyDesc = 'No orders in ' . ($scopeLabel ?? $active_tab) . ' right now.';
+        } else {
+            // The empty state names the way forward the reader actually has.
+            // Telling a read-only operator to use a command bar their
+            // permission tier never renders is an instruction they cannot
+            // follow.
+            $ttEmptyDesc = $canManageTiktokOrders
+                ? 'Nothing has been synced yet. Pick a date range above and fetch orders from TikTok Shop.'
+                : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from TikTok Shop first.';
+        }
+    @endphp
+    <x-ui.empty title="No orders here" :description="$ttEmptyDesc" />
+@else
+<x-ui.table>
+    <x-slot:head>
+        {{-- The legacy column format, the same one Shopee and Lazada settled
+             on: one row per item so Qty and Price align in their own columns,
+             and the order-level facts (amount, shipping, status, actions)
+             rowspan beside the item rows. The buyer, order number and create
+             time ride in a band above each order, exactly where the legacy
+             page carried them. --}}
+        <tr>
+            <th class="tt-col-products">Products</th>
+            <th class="tt-col-qty">Qty</th>
+            <th class="tt-col-price x-td-num">Price</th>
+            <th class="tt-col-total x-td-num">Amount</th>
+            <th class="tt-col-ship">Shipping</th>
+            <th class="tt-col-status">Status</th>
+            <th class="tt-col-act"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($orders as $o)
+        @php
+            $raw = is_array($o->raw) ? $o->raw : [];
+            $orderId = (string) ($o->order_id ?? '');
+            $status = (string) ($o->status ?? '');
+
+            $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
+            $buyer = (string) ($o->buyer_name ?? '');
+
+            // Consolidate duplicate line items by SKU + name + variation and
+            // sum their quantities: TikTok emits one line item per unit on
+            // some payloads, which listed the same product five times.
+            $rawItems = $o->products ? $o->products->toArray() : [];
+            $grouped = [];
+            foreach ($rawItems as $ri) {
+                $riName = (string) ($ri['name'] ?? '');
+                $riSku = (string) ($ri['sku'] ?? '');
+                $riVariation = (string) ($ri['variation'] ?? '');
+                $riVarNorm = mb_strtolower(trim($riVariation));
+                if (in_array($riVarNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--', 'default'], true)) {
+                    $riVariation = '';
+                }
+                $riQty = (int) ($ri['quantity'] ?? 1);
+                if ($riQty < 1) { $riQty = 1; }
+
+                $key = mb_strtolower(trim($riSku)) . '|' . mb_strtolower(trim($riName)) . '|' . mb_strtolower(trim($riVariation));
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = $ri;
+                    $grouped[$key]['quantity'] = $riQty;
+                    $grouped[$key]['variation'] = $riVariation;
+                } else {
+                    $grouped[$key]['quantity'] += $riQty;
+                    if (empty($grouped[$key]['image']) && !empty($ri['image'])) {
+                        $grouped[$key]['image'] = $ri['image'];
+                    }
+                }
+            }
+            $groupedItems = array_values($grouped);
+
+            // Legacy shape: an order with no recorded items still renders one
+            // empty item row under its band, rather than a band with nothing
+            // attached to it.
+            $displayItems = $groupedItems !== [] ? $groupedItems : [[]];
+            $lineCount = count($displayItems);
+            $itemCount = count($groupedItems);
+
+            $payment = (isset($raw['payment']) && is_array($raw['payment'])) ? $raw['payment'] : [];
+            $totalAmount = $payment['total_amount'] ?? $payment['product_total_amount'] ?? null;
+
+            // Currency is resolved through App\Support\Money, which reads the
+            // symbol from the currencies table, so no symbol is ever written
+            // into a view. The old page printed TikTok's currency CODE where
+            // a symbol belongs, so a peso order read "PHP1,234.00"; an order
+            // carrying a code nobody has configured locally now falls back to
+            // "CODE 1,234.00" instead.
+            $currencyCode = (string) ($payment['currency'] ?? '');
+
+            // Shipping. Order-level raw first, then the first line item.
+            $courier = (string) ($raw['shipping_provider'] ?? '');
+            $trackingNo = (string) ($raw['tracking_number'] ?? '');
+            if ($courier === '' && !empty($raw['line_items'])) {
+                $firstLi = is_array($raw['line_items'][0] ?? null) ? $raw['line_items'][0] : [];
+                $courier = (string) ($firstLi['shipping_provider_name'] ?? '');
+                if ($trackingNo === '') {
+                    $trackingNo = (string) ($firstLi['tracking_number'] ?? '');
+                }
+            }
+
+            // The action matrix, one flag per branch. Ship is the only
+            // marketplace write on this page, so it is the only branch gated
+            // on the manage tier; the waybill and the tracking lookup sit in
+            // the read tier of extensions/tiktok/routes/web.php and are
+            // offered to a viewer too.
+            $isToPack = ($status === 'AWAITING_SHIPMENT');
+            $isToHandover = ($status === 'AWAITING_COLLECTION');
+            $isShipped = in_array($status, ['IN_TRANSIT', 'DELIVERED', 'COMPLETED'], true);
+            $showsWaybill = $isToHandover || $isShipped;
+            $hasActions = ($isToPack && $canManageTiktokOrders) || $showsWaybill;
+
+            // tts_sla_time is TikTok's ship-by deadline, a Unix timestamp,
+            // and only means anything before the parcel leaves.
+            $awaitingShip = $isToPack || $isToHandover;
+            $shipBy = $awaitingShip ? (int) ($raw['tts_sla_time'] ?? 0) : 0;
+
+            $tone = \App\Support\ChannelStatusTone::toneFor('tiktok.orders', $status);
+            $statusLabel = \App\Support\ChannelStatusTone::labelFor('tiktok.orders', $status);
+        @endphp
+        <tr class="co-band">
+            <td colspan="7">
+                <div class="co-band__row">
+                    <div class="co-band__left">
+                        <span class="co-band__label">Buyer</span>
+                        @if($buyer !== '')
+                            <span class="co-band__value">{{ $buyer }}</span>
+                        @else
+                            <span class="co-empty-mark">Not recorded</span>
+                        @endif
+                        <span class="co-band__label">Order</span>
+                        @if($orderId !== '')
+                            {{-- New tab, matching the legacy page: same reasoning as the Shopee
+                                 and Lazada panels, drop when the detail pages convert (board card #5). --}}
+                            <a class="co-sn" href="{{ route('ext.tiktok.orders.show', $o->id) }}" target="_blank" rel="noopener">{{ $orderId }}</a>
+                        @else
+                            <span class="co-empty-mark">No order number</span>
+                        @endif
+                        @if($itemCount > 0)
+                            <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
+                        @endif
+                        @if($o->catalog_order_id)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                        @endif
+                    </div>
+                    <div class="co-band__right">
+                        @if($created)
+                            <span class="co-band__label">Created</span>
+                            <span class="co-band__value co-band__value--mono">{{ $created }}</span>
+                        @endif
+                    </div>
+                </div>
+            </td>
+        </tr>
+        @foreach($displayItems as $idx => $it)
+        <tr class="co-itemrow {{ $idx === $lineCount - 1 ? 'co-itemrow--last' : '' }}">
+            <td class="tt-col-products" data-label="Products">
+                <div class="co-item">
+                    <div class="order-img-wrap">
+                        @if(!empty($it['image']))
+                            <img class="order-img" src="{{ $it['image'] }}" alt="" loading="lazy">
+                        @else
+                            <span class="co-item__none">No image</span>
+                        @endif
+                    </div>
+                    <div class="co-item__body">
+                        <span class="co-item__name">{{ ($it['name'] ?? '') !== '' ? $it['name'] : 'Unnamed product' }}</span>
+                        <div class="co-item__meta">
+                            @if(trim((string) ($it['sku'] ?? '')) !== '')
+                                <span class="co-item__sku">{{ $it['sku'] }}</span>
+                            @endif
+                            @if(trim((string) ($it['variation'] ?? '')) !== '')
+                                <span class="co-item__var">{{ $it['variation'] }}</span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="tt-col-qty" data-label="Qty">
+                <span class="co-qty">&times;{{ max(1, (int) ($it['quantity'] ?? 1)) }}</span>
+            </td>
+
+            <td class="tt-col-price x-td-num" data-label="Price">
+                @php
+                    // Sale price is what the buyer paid, so it leads. The
+                    // fetch writes 0.0 rather than null when TikTok sends no
+                    // sale price, which made the old ?? chain never reach
+                    // item_price and printed a dash over a real figure.
+                    $salePrice = $it['sale_price'] ?? null;
+                    $unitPrice = (is_numeric($salePrice) && (float) $salePrice > 0)
+                        ? $salePrice
+                        : ($it['item_price'] ?? null);
+                @endphp
+                @if(is_numeric($unitPrice) && (float) $unitPrice > 0)
+                    <span class="co-price">{{ $currencyCode !== ''
+                        ? \App\Support\Money::foreign((float) $unitPrice, $currencyCode)
+                        : \App\Support\Money::base((float) $unitPrice) }}</span>
                 @else
-                    No orders have been synced yet. Use <strong>Fetch Orders</strong> above to pull orders from TikTok Shop.
+                    <span class="co-empty-mark">&mdash;</span>
                 @endif
+            </td>
+
+            @if($idx === 0)
+            <td class="tt-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
+                <span class="co-total">
+                    @if(is_numeric($totalAmount))
+                        {{ $currencyCode !== ''
+                            ? \App\Support\Money::foreign((float) $totalAmount, $currencyCode)
+                            : \App\Support\Money::base((float) $totalAmount) }}
+                    @elseif($totalAmount !== null && $totalAmount !== '')
+                        {{ $totalAmount }}
+                    @else
+                        <span class="co-empty-mark">Not recorded</span>
+                    @endif
+                </span>
+            </td>
+
+            <td class="tt-col-ship" rowspan="{{ $lineCount }}" data-label="Shipping">
+                @if($courier !== '')
+                    <span class="co-carrier">{{ $courier }}</span>
+                    @if($trackingNo !== '')
+                        <span class="co-ship__no">{{ $trackingNo }}</span>
+                    @endif
+                @elseif($trackingNo !== '')
+                    <span class="co-ship__no">{{ $trackingNo }}</span>
+                @else
+                    <span class="co-empty-mark">&mdash;</span>
+                @endif
+            </td>
+
+            <td class="tt-col-status" rowspan="{{ $lineCount }}" data-label="Status">
+                <div class="co-status">
+                    <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+                    <x-sla-chip :deadline="$shipBy" />
+                </div>
+            </td>
+
+            <td class="tt-col-act" rowspan="{{ $lineCount }}">
+                @if(!$hasActions)
+                    {{-- Unpaid and cancelled orders have nothing a seller can
+                         do to them, and an order still waiting to be packed
+                         offers a viewer nothing either, which is why the
+                         legacy page printed a dash here rather than a
+                         control. --}}
+                    <span class="co-empty-mark">&mdash;</span>
+                @else
+                <div class="co-actions co-actions--wrap">
+                    {{-- Every action a row's status allows is a visible
+                         button, matching the legacy page: this is the packing
+                         desk's working surface, and an overflow menu made the
+                         column read as empty. Every one of them is a
+                         secondary button, so a screen of forty rows has no
+                         wall of colour in it; the accent that says "your
+                         move" is spent once per row, on the status badge. --}}
+                    @if($isToPack && $canManageTiktokOrders)
+                        <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" data-confirm="Ship this order?">
+                            @csrf
+                            <x-ui.button type="submit" variant="secondary" size="sm">Ship order</x-ui.button>
+                        </form>
+                    @endif
+
+                    @if($showsWaybill)
+                        <x-ui.button size="sm"
+                                     :href="route('ext.tiktok.orders.awb', $o->id)"
+                                     target="_blank" rel="noopener">Print waybill</x-ui.button>
+
+                        @if($isToHandover)
+                            {{-- The waybill is cached locally after its first
+                                 download. Handover is the step where a label
+                                 gets reprinted, so that is the one step that
+                                 offers a fresh copy from TikTok. The old page
+                                 spent a bare arrow glyph on this, which said
+                                 nothing without hovering it. --}}
+                            <x-ui.button size="sm"
+                                         :href="route('ext.tiktok.orders.awb', [$o->id, 'refresh' => 1])"
+                                         target="_blank" rel="noopener">Refresh waybill</x-ui.button>
+                        @endif
+
+                        <x-ui.button size="sm" class="btnTtTracking"
+                                     data-url="{{ route('ext.tiktok.orders.tracking', $o->id) }}">Tracking</x-ui.button>
+                    @endif
+                </div>
+                @endif
+            </td>
+            @endif
+        </tr>
+        @endforeach
+    @endforeach
+</x-ui.table>
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($orders->firstItem() ?? 0) }} to {{ number_format($orders->lastItem() ?? 0) }} of {{ number_format($orders->total()) }}</span>
+    <div class="x-pager__nav">
+        @if($orders->previousPageUrl())
+            <x-ui.button size="sm" :href="$orders->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true"><x-ui.icon name="chevron-left" size="14" /> Previous</span>
+        @endif
+        @if($orders->nextPageUrl())
+            <x-ui.button size="sm" :href="$orders->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+        @else
+            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true">Next <x-ui.icon name="chevron-right" size="14" /></span>
+        @endif
+    </div>
+</div>
+@endif
+
+{{-- Loading overlay. Every id below is queried by
+     resources/js/pages/tiktok-orders.js and must not change. --}}
+<div id="ttLoadingOverlay" class="modal-backdrop">
+    <div class="modal co-modal co-modal--sm">
+        <div class="co-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+            <div>
+                <div id="ttLoadingTitle" class="co-progress__title">Fetching orders</div>
+                <div class="co-progress__note">Please keep this tab open.</div>
             </div>
         </div>
-    @endif
-
-    @if($orders->count() > 0)
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th style="min-width:280px;">Products</th>
-                        <th style="width:110px;">Quantity</th>
-                        <th style="width:140px;">Product Price</th>
-                        <th>Amount</th>
-                        <th>Shipping</th>
-                        <th>Status</th>
-                        <th style="width:280px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($orders as $o)
-                        @php
-                            $raw = $o->raw ?? [];
-                            $orderId = $o->order_id;
-                            $status = $o->status ?? '';
-                            $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : '';
-                            $buyer = $o->buyer_name ?: '';
-
-                            // Consolidate duplicate line items by SKU + name + variation
-                            $rawItems = $o->products ? $o->products->toArray() : [];
-                            $grouped = [];
-                            foreach ($rawItems as $ri) {
-                                $riName = $ri['name'] ?? '';
-                                $riSku = $ri['sku'] ?? '';
-                                $riVariation = $ri['variation'] ?? '';
-                                $riVarNorm = mb_strtolower(trim($riVariation));
-                                if (in_array($riVarNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--', 'default'], true)) {
-                                    $riVariation = '';
-                                }
-                                $riQty = (int) ($ri['quantity'] ?? 1);
-                                if ($riQty < 1) $riQty = 1;
-                                $key = mb_strtolower(trim($riSku)) . '|' . mb_strtolower(trim($riName)) . '|' . mb_strtolower(trim($riVariation));
-                                if (!isset($grouped[$key])) {
-                                    $grouped[$key] = $ri;
-                                    $grouped[$key]['quantity'] = $riQty;
-                                    $grouped[$key]['variation'] = $riVariation;
-                                } else {
-                                    $grouped[$key]['quantity'] += $riQty;
-                                    if (empty($grouped[$key]['image']) && !empty($ri['image'])) {
-                                        $grouped[$key]['image'] = $ri['image'];
-                                    }
-                                }
-                            }
-                            $items = array_values($grouped);
-                            $itemCount = count($rawItems);
-                            if (empty($items)) { $items = [[]]; }
-                            $lineCount = count($items);
-
-                            $payment = $raw['payment'] ?? [];
-                            $totalAmount = $payment['total_amount'] ?? $payment['product_total_amount'] ?? null;
-                            $currency = $payment['currency'] ?? \App\Support\Money::defaultSymbol();
-
-                            // Shipping info
-                            $shipping = $raw['shipping_provider'] ?? '';
-                            $trackingNo = $raw['tracking_number'] ?? '';
-                            if (!$shipping && !empty($raw['line_items'])) {
-                                $firstLi = $raw['line_items'][0] ?? [];
-                                $shipping = $firstLi['shipping_provider_name'] ?? '';
-                                $trackingNo = $firstLi['tracking_number'] ?? $trackingNo;
-                            }
-
-                            // Status flags
-                            $isToPack = ($status === 'AWAITING_SHIPMENT');
-                            $isToHandover = ($status === 'AWAITING_COLLECTION');
-                            $isShipped = in_array($status, ['IN_TRANSIT', 'DELIVERED', 'COMPLETED']);
-
-                            // SLA: tts_sla_time = ship-by deadline. Only meaningful pre-shipment.
-                            $awaitingShip = in_array($status, ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'], true);
-                            $shipBy = $awaitingShip ? (int) ($raw['tts_sla_time'] ?? 0) : 0;
-
-                            // Status badge color
-                            $badgeClass = match($status) {
-                                'COMPLETED', 'DELIVERED' => 'badge-green',
-                                'CANCELLED' => 'badge-red',
-                                'UNPAID' => 'badge-yellow',
-                                'IN_TRANSIT' => 'badge-blue',
-                                default => '',
-                            };
-                            $statusLabel = str_replace('_', ' ', $status);
-                        @endphp
-
-                        {{-- Order header row --}}
-                        <tr class="order-header-row">
-                            <td colspan="7" style="padding:10px 12px 6px 12px;">
-                                <div class="d-flex justify-between items-start gap-12">
-                                    <div class="text-xs text-secondary" style="line-height:1.35;">
-                                        @if($o->catalog_order_id)
-                                            <div style="font-weight:700; margin-bottom:2px;"><a href="{{ url('/sales/orders/'.$o->catalog_order_id) }}" style="color:var(--text-primary); text-decoration:none;">{{ $o->catalog_order_id }}</a></div>
-                                        @endif
-                                        <span>Buyer:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $buyer !== '' ? $buyer : '—' }}</span>
-                                        <span style="margin-left:8px;">Order:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $orderId }}</span>
-                                        @if($itemCount > 0)
-                                            <span style="margin-left:8px;">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
-                                        @endif
-                                    </div>
-                                    <div class="text-xs text-secondary text-right" style="line-height:1.35;">
-                                        @if($created)
-                                            <span>Created:</span> <span class="font-semibold" style="color:var(--text-primary);">{{ $created }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-
-                        {{-- Product rows --}}
-                        @foreach($items as $idx => $it)
-                            @php
-                                $itRaw = $it['raw'] ?? $it;
-                                $name = $it['name'] ?? '';
-                                $sku = $it['sku'] ?? '';
-                                $variation = $it['variation'] ?? '';
-                                $variationNorm = mb_strtolower(trim($variation));
-                                if (in_array($variationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
-                                    $variation = '';
-                                }
-                                $img = $it['image'] ?? '';
-                                $qty = (int) ($it['quantity'] ?? 1);
-                                $unitPrice = $it['sale_price'] ?? $it['item_price'] ?? null;
-                            @endphp
-                            <tr>
-                                <td style="vertical-align:top;">
-                                    <div class="d-flex gap-10">
-                                        <div class="order-img-wrap">
-                                            @if($img)
-                                                <img class="order-img" src="{{ $img }}" alt="" loading="lazy">
-                                            @else
-                                                <span class="text-xs text-muted">—</span>
-                                            @endif
-                                        </div>
-                                        <div style="min-width:0;">
-                                            <div class="font-semibold" style="word-break:break-word;">
-                                                <a href="{{ route('ext.tiktok.orders.show', $o->id) }}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:underline; text-underline-offset:2px;">{{ $name ?: '—' }}</a>
-                                            </div>
-                                            <div class="text-xs" style="margin-top:3px;">
-                                                <span class="text-secondary">SKU:</span> <strong>{{ $sku ?: '—' }}</strong>
-                                            </div>
-                                            @if($variation !== '')
-                                                <div class="order-option-wrap">
-                                                    <span class="order-option-label tiktok-label">Option</span>
-                                                    <span class="order-option-pill">{{ $variation }}</span>
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </td>
-                                <td style="vertical-align:top;">
-                                    <div class="font-bold">x{{ $qty }}</div>
-                                </td>
-                                <td style="vertical-align:top;">
-                                    <div class="font-bold">
-                                        @if($unitPrice !== null && $unitPrice > 0)
-                                            {{ $currency }}{{ number_format((float)$unitPrice, 2) }}
-                                        @else
-                                            —
-                                        @endif
-                                    </div>
-                                </td>
-                                @if($idx === 0)
-                                    <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                        <div class="font-bold">
-                                            @if($totalAmount !== null)
-                                                {{ $currency }}{{ number_format((float)$totalAmount, 2) }}
-                                            @else
-                                                —
-                                            @endif
-                                        </div>
-                                    </td>
-                                    <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                        @if($shipping)
-                                            <div class="text-sm font-semibold">{{ $shipping }}</div>
-                                        @endif
-                                        @if($trackingNo)
-                                            <div class="text-xs text-secondary" style="margin-top:3px;">{{ $trackingNo }}</div>
-                                        @endif
-                                        @if(!$shipping && !$trackingNo)
-                                            <span class="text-muted">—</span>
-                                        @endif
-                                    </td>
-                                    <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                        <span class="badge {{ $badgeClass }}">{{ $statusLabel }}</span>
-                                        <x-sla-chip :deadline="$shipBy" />
-                                    </td>
-                                    <td rowspan="{{ $lineCount }}" style="vertical-align:top;">
-                                        <div class="d-flex flex-wrap gap-6">
-                                            @if($isToPack && $canManageTiktokOrders)
-                                                <form method="POST" action="{{ route('ext.tiktok.orders.ship', $o->id) }}" data-confirm="Ship this order?">
-                                                    @csrf
-                                                    <button type="submit" class="btn small">Arrange Shipment</button>
-                                                </form>
-                                            @endif
-                                            @if($isToHandover || $isShipped)
-                                                <a href="{{ route('ext.tiktok.orders.awb', $o->id) }}" target="_blank" class="btn small secondary">AWB</a>
-                                                @if($isToHandover)
-                                                    <a href="{{ route('ext.tiktok.orders.awb', [$o->id, 'refresh' => 1]) }}" target="_blank" class="btn small secondary" title="Re-download AWB from TikTok">&#8635;</a>
-                                                @endif
-                                            @endif
-                                            @if($isToHandover || $isShipped)
-                                                <button type="button" class="btn small secondary btnTtTracking"
-                                                        data-url="{{ route('ext.tiktok.orders.tracking', $o->id) }}">Tracking</button>
-                                            @endif
-                                        </div>
-                                    </td>
-                                @endif
-                            </tr>
-                        @endforeach
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        <div class="mt-16">{{ $orders->onEachSide(1)->links('vendor.pagination.simple') }}</div>
-    @endif
+    </div>
 </div>
-{{-- Tracking modal --}}
+
+{{-- Tracking modal, filled by the page module from the tracking endpoint. --}}
 <div id="ttTrackingModal" class="modal-backdrop">
-    <div class="modal" style="max-width:480px;">
-        <div class="modal-header">
-            <h3>Tracking</h3>
-            <button type="button" id="btnCloseTtTracking" class="modal-close">&times;</button>
+    <div class="modal co-modal co-modal--md">
+        <div class="modal-header co-modal__head">
+            <h3 class="co-modal__title">Tracking</h3>
+            <button type="button" id="btnCloseTtTracking" class="modal-close co-modal__close" aria-label="Close">&times;</button>
         </div>
-        <div id="ttTrackingBody" class="mt-12">
-            <div class="text-secondary">Loading...</div>
+        <div id="ttTrackingSub" class="co-modal__meta"></div>
+        <div id="ttTrackingBody" class="co-modal__body">
+            <div class="text-secondary">Loading</div>
+        </div>
+        <div class="co-modal__foot co-modal__foot--end">
+            <button type="button" id="btnCloseTtTracking2" class="x-btn x-btn--secondary">Close</button>
         </div>
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var trackingModal = document.getElementById('ttTrackingModal');
-    var trackingBody = document.getElementById('ttTrackingBody');
-    document.getElementById('btnCloseTtTracking').addEventListener('click', function() {
-        trackingModal.classList.remove('active');
-    });
-    trackingModal.addEventListener('click', function(e) {
-        if (e.target === trackingModal) trackingModal.classList.remove('active');
-    });
-
-    function renderTracking(data) {
-        trackingBody.textContent = '';
-        if (!data.ok) {
-            var err = document.createElement('div');
-            err.className = 'text-danger';
-            var errBody = data.body || {};
-            var errMsg = data.message || errBody.message || '';
-            if (!errMsg && errBody.code) errMsg = 'TikTok API error (code: ' + errBody.code + ')';
-            if (!errMsg) errMsg = 'Error loading tracking info.';
-            err.textContent = errMsg;
-            trackingBody.appendChild(err);
-            console.warn('Tracking API response:', data);
-            return;
-        }
-        var apiBody = data.body || {};
-        var body = apiBody.data || apiBody;
-        var trackNum = data.tracking_number || body.tracking_number || '';
-        var provider = data.shipping_carrier || body.shipping_provider || '';
-        var events = body.tracking || body.tracking_info || body.events || [];
-
-        if (trackNum) {
-            var d = document.createElement('div');
-            d.className = 'mb-8';
-            d.innerHTML = '<strong>Tracking:</strong> ';
-            var s = document.createElement('span');
-            s.textContent = trackNum;
-            d.appendChild(s);
-            trackingBody.appendChild(d);
-        }
-        if (provider) {
-            var d2 = document.createElement('div');
-            d2.className = 'mb-8';
-            d2.innerHTML = '<strong>Courier:</strong> ';
-            var s2 = document.createElement('span');
-            s2.textContent = provider;
-            d2.appendChild(s2);
-            trackingBody.appendChild(d2);
-        }
-        if (Array.isArray(events) && events.length > 0) {
-            var wrap = document.createElement('div');
-            wrap.style.cssText = 'margin-top:12px; border-top:1px solid var(--border); padding-top:12px;';
-            events.forEach(function(ev) {
-                var row = document.createElement('div');
-                row.style.cssText = 'margin-bottom:10px; padding-left:12px; border-left:2px solid var(--accent);';
-                var time = document.createElement('div');
-                time.className = 'text-xs text-secondary';
-                var ts = ev.update_time_millis || ev.update_time || ev.time || null;
-                if (ts && typeof ts === 'number') {
-                    var dt = new Date(ts > 1e12 ? ts : ts * 1000);
-                    time.textContent = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + ' ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
-                } else {
-                    time.textContent = ev.update_time_text || ev.time || '';
-                }
-                var desc = document.createElement('div');
-                desc.className = 'text-sm';
-                desc.textContent = ev.description || ev.message || '';
-                row.appendChild(time);
-                row.appendChild(desc);
-                wrap.appendChild(row);
-            });
-            trackingBody.appendChild(wrap);
-        }
-        if (!trackingBody.children.length) {
-            var empty = document.createElement('div');
-            empty.className = 'text-secondary';
-            empty.textContent = 'No tracking info available yet.';
-            trackingBody.appendChild(empty);
-        }
-    }
-
-    // Use event delegation so it works regardless of when buttons are rendered
-    document.addEventListener('click', function(e) {
-        var btn = e.target.closest('.btnTtTracking');
-        if (!btn) return;
-        var url = btn.dataset.url;
-        if (!url) return;
-        trackingBody.textContent = 'Loading...';
-        trackingModal.classList.add('active');
-        fetch(url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
-            .then(function(r) { return r.json(); })
-            .then(renderTracking)
-            .catch(function(err) {
-                console.error('Tracking fetch error:', err);
-                trackingBody.textContent = '';
-                var errEl = document.createElement('div');
-                errEl.className = 'text-danger';
-                errEl.textContent = 'Failed to load tracking info: ' + (err.message || 'Network error');
-                trackingBody.appendChild(errEl);
-            });
-    });
-});
-
-    // Image zoom on hover (same pattern as Lazada/Shopee)
-    var preview = document.createElement('div');
-    preview.className = 'order-img-preview';
-    var previewImg = document.createElement('img');
-    preview.appendChild(previewImg);
-    document.body.appendChild(preview);
-    document.addEventListener('mouseover', function(e) {
-        var wrap = e.target.closest('.order-img-wrap');
-        if (!wrap) return;
-        var img = wrap.querySelector('img.order-img');
-        if (!img || !img.src) return;
-        previewImg.src = img.src;
-        var rect = wrap.getBoundingClientRect();
-        var top = rect.top + rect.height / 2 - 110;
-        var left = rect.right + 12;
-        if (left + 230 > window.innerWidth) left = rect.left - 232;
-        if (top < 8) top = 8;
-        if (top + 220 > window.innerHeight) top = window.innerHeight - 228;
-        preview.style.top = top + 'px';
-        preview.style.left = left + 'px';
-        preview.classList.add('visible');
-    }, false);
-
-    document.addEventListener('mouseout', function(e) {
-        var wrap = e.target.closest('.order-img-wrap');
-        if (!wrap) return;
-        var related = e.relatedTarget;
-        if (related && wrap.contains(related)) return;
-        preview.classList.remove('visible');
-    }, false);
-</script>
-</div>{{-- /.marketplace-tiktok --}}
+</div>{{-- /#tiktok-orders-page --}}
 @endsection

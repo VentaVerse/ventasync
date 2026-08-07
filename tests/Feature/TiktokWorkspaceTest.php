@@ -8,6 +8,8 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
+use Extensions\tiktok\Models\TikTokOrder;
+use Extensions\tiktok\Models\TikTokOrderProduct;
 use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -291,17 +293,12 @@ class TiktokWorkspaceTest extends TestCase
      * The cross-marketplace tab strip belongs to the unified Orders page.
      * Inside a seller center you see only that marketplace.
      *
-     * Checked here on Product Groups, Categories and Settings, not Orders.
-     * orders/index.blade.php still includes
-     * integrations.partials._tab_strip at this point, the identical
-     * carryover Shopee's and Lazada's own history shows (Shopee: commit
-     * 10458135; Lazada: this same task, one round earlier). Stripping it now
-     * would be a content edit beyond breadcrumb/extends, which this task
-     * does not do, and that removal is Task 2's job. Asserting it away here
-     * would either fail honestly or require silently editing content this
-     * task is not scoped to touch, so this test covers the three
-     * destinations where the rule already holds today and leaves Orders to
-     * Task 2's own regression test once the strip is actually gone.
+     * Checked on Product Groups, Categories and Settings here, and on Orders
+     * in its own test below. Task 1 left Orders carrying the strip because
+     * removing it was a content edit beyond breadcrumb/extends; Task 2
+     * rebuilt the page on the shared anatomy and dropped it, which is what
+     * the Orders test now asserts instead of the temporary exception it
+     * asserted before.
      */
     public function test_the_seller_center_shows_no_other_marketplace(): void
     {
@@ -313,18 +310,21 @@ class TiktokWorkspaceTest extends TestCase
     }
 
     /**
-     * Orders is the one converted page still carrying the legacy strip
-     * (see the docblock above): it must still show "All marketplaces" and
-     * the tab head markup until Task 2 rebuilds it on the shared anatomy.
-     * This is an explicit exception, not an oversight.
+     * Orders was the last TikTok page carrying the cross-marketplace strip.
+     * Task 2's rebuild dropped it, so the rule now holds on all four
+     * destinations rather than three.
      */
-    public function test_the_orders_page_still_carries_the_legacy_strip_until_task_2(): void
+    public function test_the_orders_page_shows_no_other_marketplace(): void
     {
         $response = $this->actingAs($this->tiktokOperator())->get('/tiktok/orders');
 
         $response->assertOk();
-        $response->assertSee('All marketplaces');
-        $response->assertSee('ord-tab-head', false);
+        $response->assertDontSee('All marketplaces');
+        $response->assertDontSee('ord-tab-head', false);
+        // The page it was replaced by, positively identified: without this
+        // the two assertions above would also pass on a page that failed to
+        // render its list at all.
+        $response->assertSee('id="tiktok-orders-page"', false);
     }
 
     public function test_the_channels_group_offers_tiktok_and_lands_on_the_seller_center(): void
@@ -356,5 +356,277 @@ class TiktokWorkspaceTest extends TestCase
             ->get('/integrations')
             ->assertOk()
             ->assertSee(route('integrations.workspace', ['channel' => 'tiktok']), false);
+    }
+
+    // ------------------------------------------------------------------
+    // Task 2: the orders page rebuilt on the shared `co-` anatomy. The
+    // fixtures below seed one order per branch of the action matrix, so a
+    // test that asserts a control renders is asserting it against a row
+    // whose status actually reaches that branch.
+    // ------------------------------------------------------------------
+
+    /**
+     * Manage tier for TikTok orders. manage_tiktok_orders implies
+     * view_tiktok_orders through User::hasPermission()'s manage-implies-view
+     * cascade, so this user reaches the page AND its write controls.
+     */
+    private function tiktokManager(): User
+    {
+        $group = UserGroup::create(['name' => 'TikTok Workspace Managers']);
+
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_tiktok', 'manage_tiktok_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * One order per status the controller groups into a tab, each with a
+     * single line item, so every branch of the action matrix is on screen at
+     * once when the ALL tab renders. Returns the order ids keyed by status.
+     *
+     * @return array<string, int>
+     */
+    private function seedOrderPerStatus(): array
+    {
+        $ids = [];
+
+        foreach ([
+            'UNPAID',
+            'AWAITING_SHIPMENT',
+            'AWAITING_COLLECTION',
+            'IN_TRANSIT',
+            'DELIVERED',
+            'COMPLETED',
+            'CANCELLED',
+        ] as $i => $status) {
+            $order = TikTokOrder::create([
+                'region' => 'PH',
+                'order_id' => '57600000000000' . $i,
+                'status' => $status,
+                'order_created_at' => now()->subDays($i + 1),
+                'buyer_name' => 'Buyer number ' . $i,
+                'raw' => [
+                    'payment' => ['total_amount' => '1250.00', 'currency' => 'PHP'],
+                    'shipping_provider' => 'Flash Express',
+                    'tracking_number' => 'TT' . $i . '99887766',
+                    'tts_sla_time' => now()->addDay()->getTimestamp(),
+                ],
+            ]);
+
+            TikTokOrderProduct::create([
+                'tiktok_order_id' => $order->id,
+                'order_line_item_id' => 'LI' . $i,
+                'sku' => 'SKU-' . $i,
+                'name' => 'Seeded product ' . $i,
+                'variation' => 'Blue, Large',
+                'quantity' => 2,
+                'item_price' => 700.00,
+                'sale_price' => 625.00,
+                'status' => $status,
+                'image' => '',
+            ]);
+
+            $ids[$status] = $order->id;
+        }
+
+        return $ids;
+    }
+
+    public function test_a_manager_sees_the_command_bar_and_the_ship_control(): void
+    {
+        $ids = $this->seedOrderPerStatus();
+
+        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+
+        $response->assertOk();
+        $response->assertSee('id="btnFetchOrders"', false);
+        $response->assertSee('id="btnUpdateOrders"', false);
+
+        // Ship posts to the write route for the one order that is awaiting
+        // shipment, and keeps the confirmation prompt the legacy page used.
+        $response->assertSee(
+            'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
+            false
+        );
+        $response->assertSee('data-confirm="Ship this order?"', false);
+    }
+
+    /**
+     * The mutation this guards: dropping the $canManageTiktokOrders check (or
+     * hardcoding it back to true, which is exactly what the pre-Task-2 page
+     * did) hands a read-only operator a command bar and a Ship button that
+     * both 403 on submit.
+     */
+    public function test_a_viewer_sees_neither_the_command_bar_nor_the_ship_control(): void
+    {
+        $ids = $this->seedOrderPerStatus();
+
+        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/tiktok/orders?tab=ALL');
+
+        $response->assertOk();
+        // Guards the premise: the awaiting-shipment row IS on this page, so
+        // the absence below is the permission gate and not an empty list.
+        $response->assertSee('To pack');
+
+        $response->assertDontSee('id="btnFetchOrders"', false);
+        $response->assertDontSee('id="btnUpdateOrders"', false);
+        $response->assertDontSee(
+            'action="' . e(route('ext.tiktok.orders.ship', $ids['AWAITING_SHIPMENT'])) . '"',
+            false
+        );
+        $response->assertDontSee('data-confirm="Ship this order?"', false);
+    }
+
+    /**
+     * The read tier of extensions/tiktok/routes/web.php covers the waybill
+     * and the tracking lookup, so a viewer keeps both on the statuses that
+     * offer them. A page that hid every action from a viewer would be
+     * consistent but wrong: it would take away two controls the routes
+     * themselves allow.
+     */
+    public function test_a_viewer_keeps_the_waybill_and_tracking_controls(): void
+    {
+        $ids = $this->seedOrderPerStatus();
+
+        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/tiktok/orders?tab=ALL');
+
+        $response->assertOk();
+        $response->assertSee(e(route('ext.tiktok.orders.awb', $ids['AWAITING_COLLECTION'])), false);
+        $response->assertSee(e(route('ext.tiktok.orders.tracking', $ids['IN_TRANSIT'])), false);
+        // Refresh is offered on handover only, where a label gets reprinted.
+        $response->assertSee(e(route('ext.tiktok.orders.awb', [$ids['AWAITING_COLLECTION'], 'refresh' => 1])), false);
+        $response->assertDontSee(e(route('ext.tiktok.orders.awb', [$ids['IN_TRANSIT'], 'refresh' => 1])), false);
+    }
+
+    /**
+     * Unpaid and cancelled orders have nothing a seller can act on, so their
+     * actions cell carries no control at all rather than a disabled one.
+     */
+    public function test_unpaid_and_cancelled_orders_offer_no_actions(): void
+    {
+        $ids = $this->seedOrderPerStatus();
+
+        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+
+        $response->assertOk();
+        foreach (['UNPAID', 'CANCELLED'] as $status) {
+            $response->assertDontSee(e(route('ext.tiktok.orders.awb', $ids[$status])), false);
+            $response->assertDontSee(e(route('ext.tiktok.orders.tracking', $ids[$status])), false);
+            $response->assertDontSee(e(route('ext.tiktok.orders.ship', $ids[$status])), false);
+        }
+    }
+
+    /**
+     * Every status the panel's own tab map groups on has a tone and a label
+     * in App\Support\ChannelStatusTone, and the accent (the success tone,
+     * which is the same token the primary button uses) is spent on exactly
+     * one of them: the only status with a marketplace write behind it.
+     */
+    public function test_every_real_status_pairs_a_tone_with_a_plain_label(): void
+    {
+        $expected = [
+            'UNPAID'              => ['warning', 'Unpaid'],
+            'AWAITING_SHIPMENT'   => ['success', 'To pack'],
+            'AWAITING_COLLECTION' => ['info', 'To hand over'],
+            'IN_TRANSIT'          => ['info', 'Shipped'],
+            'DELIVERED'           => ['neutral', 'Delivered'],
+            'COMPLETED'           => ['neutral', 'Completed'],
+            'CANCELLED'           => ['danger', 'Cancelled'],
+        ];
+
+        foreach ($expected as $status => [$tone, $label]) {
+            $this->assertSame(
+                $tone,
+                \App\Support\ChannelStatusTone::toneFor('tiktok.orders', $status),
+                'Wrong tone for ' . $status
+            );
+            $this->assertSame(
+                $label,
+                \App\Support\ChannelStatusTone::labelFor('tiktok.orders', $status),
+                'Wrong label for ' . $status
+            );
+            // No marketplace constant reaches a screen raw.
+            $this->assertNotSame($status, \App\Support\ChannelStatusTone::labelFor('tiktok.orders', $status));
+        }
+
+        // Read back off the class itself, not off $expected: the loop above
+        // already proved the two agree, so this is the statement that the
+        // accent is spent exactly once across every status this channel has.
+        $accented = [];
+        foreach (array_keys($expected) as $status) {
+            if (\App\Support\ChannelStatusTone::toneFor('tiktok.orders', $status) === 'success') {
+                $accented[] = $status;
+            }
+        }
+        $this->assertSame(['AWAITING_SHIPMENT'], $accented);
+    }
+
+    /**
+     * The rendered page shows those labels, not the raw constants. Asserting
+     * this on the page as well as on the map is what proves the view is
+     * actually going through ChannelStatusTone rather than printing
+     * str_replace('_', ' ', $status) the way the old page did.
+     */
+    public function test_the_status_column_shows_plain_labels(): void
+    {
+        $this->seedOrderPerStatus();
+
+        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+
+        $response->assertOk();
+        $response->assertSee('To pack');
+        $response->assertSee('To hand over');
+        $response->assertDontSee('AWAITING_SHIPMENT');
+        $response->assertDontSee('AWAITING SHIPMENT');
+        $response->assertDontSee('AWAITING_COLLECTION');
+    }
+
+    /**
+     * The To Ship sub-steps filter the list to one status each, which is what
+     * makes the sub-segment worth having: standing on To Pack must not also
+     * list the parcels already waiting for a courier.
+     */
+    public function test_the_to_ship_sub_steps_filter_to_one_status_each(): void
+    {
+        $this->seedOrderPerStatus();
+
+        // Order numbers rather than buyer names: the seeded buyers are
+        // deliberately anonymous so no fixture string can accidentally
+        // satisfy an assertion about a raw status constant elsewhere.
+        $packNumber = '576000000000001';
+        $handoverNumber = '576000000000002';
+
+        $manager = $this->tiktokManager();
+
+        $toPack = $this->actingAs($manager)->get('/tiktok/orders?tab=TO_SHIP&pending_sub=to_pack');
+        $toPack->assertOk();
+        $toPack->assertSee($packNumber);
+        $toPack->assertDontSee($handoverNumber);
+
+        $toHandover = $this->actingAs($manager)->get('/tiktok/orders?tab=TO_SHIP&pending_sub=to_handover');
+        $toHandover->assertOk();
+        $toHandover->assertSee($handoverNumber);
+        $toHandover->assertDontSee($packNumber);
+    }
+
+    /**
+     * The order number opens the detail page in a new tab (the detail pages
+     * have not converted yet, board card #5) and carries rel="noopener".
+     */
+    public function test_the_order_number_opens_in_a_new_tab_safely(): void
+    {
+        $ids = $this->seedOrderPerStatus();
+
+        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+
+        $response->assertOk();
+        $response->assertSee(
+            '<a class="co-sn" href="' . e(route('ext.tiktok.orders.show', $ids['COMPLETED'])) . '" target="_blank" rel="noopener">',
+            false
+        );
     }
 }

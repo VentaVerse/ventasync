@@ -8,6 +8,7 @@ import './orders-filter';
 import './legacy-flash';
 import './pages/shopee-orders';
 import './pages/lazada-orders';
+import './pages/tiktok-orders';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';
