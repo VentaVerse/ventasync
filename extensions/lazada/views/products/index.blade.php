@@ -158,19 +158,27 @@
         </form>
 
         @php
-            $bulkUploadUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_upload')
+            // Guards check the ext.-prefixed name the route() call below
+            // actually generates. They used to check the unprefixed name
+            // (lazada.products.bulk_upload etc.), which stopped existing
+            // when these routes gained their ext. prefix - Route::has()
+            // was therefore always false and every button below silently
+            // fell back to a hardcoded URL that does not match any
+            // registered route. Caught by RouteNameSweepTest's
+            // Route::has() sweep.
+            $bulkUploadUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_upload')
                 ? route('ext.lazada.products.bulk_upload')
                 : url('/lazada/listings/bulk/upload');
-            $bulkSyncQtyUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_quantity')
+            $bulkSyncQtyUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_quantity')
                 ? route('ext.lazada.products.bulk_sync_quantity')
                 : url('/lazada/listings/bulk/sync/quantity');
-            $bulkSyncPriceUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_price')
+            $bulkSyncPriceUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_price')
                 ? route('ext.lazada.products.bulk_sync_price')
                 : url('/lazada/listings/bulk/sync/price');
-            $bulkSyncLazadaIdUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_sync_lazada_id')
+            $bulkSyncLazadaIdUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_lazada_id')
                 ? route('ext.lazada.products.bulk_sync_lazada_id')
                 : url('/lazada/products/bulk/sync/lazada-id');
-            $bulkDeleteUrl = \Illuminate\Support\Facades\Route::has('lazada.products.bulk_delete')
+            $bulkDeleteUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_delete')
                 ? route('ext.lazada.products.bulk_delete')
                 : url('/lazada/products/bulk/delete');
         @endphp
