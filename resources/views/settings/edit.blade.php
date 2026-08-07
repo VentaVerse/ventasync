@@ -5,7 +5,7 @@
 @php
     // Phase 4.5: read-tier (view_website_settings) can browse the settings
     // form but cannot save. All write controls (Save buttons, Test Mail)
-    // are hidden — inputs render but become read-only-ish via the missing
+    // are hidden, inputs render but become read-only-ish via the missing
     // submit. The underlying routes still 403 if probed.
     $canManageSettings = true;
 @endphp
@@ -22,7 +22,7 @@
 {{-- Tabs. IA migration (2026-08-08, Task 3): which one starts active is now
      driven by $activeTab (set from the route, see SettingController::edit),
      not the ?tab= query string. Click-to-switch and its URL sync below are
-     unchanged — this page still shows all four sections at once and toggles
+     unchanged, this page still shows all four sections at once and toggles
      between them client-side. --}}
 <div class="tabs mb-16">
     <button class="tab {{ $activeTab === 'general' ? 'active' : '' }}" data-tab="tab-general">General</button>
@@ -253,7 +253,7 @@
         <div class="hint" style="margin-bottom:12px;">
             One OS-level cron entry drives every scheduled task across this app. Add the line below
             to your server's crontab; per-job cadence is then editable from each integration's
-            <strong>Automations</strong> tab — no need to touch the system crontab again.
+            <strong>Automations</strong> tab, no need to touch the system crontab again.
         </div>
         @php
             $cronLine = '* * * * * /usr/bin/php ' . base_path('artisan') . ' schedule:run >> /dev/null 2>&1';

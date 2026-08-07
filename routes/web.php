@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 
-// Root URL — core dispatcher. Delegates to any registered RootRouteHandler
+// Root URL, core dispatcher. Delegates to any registered RootRouteHandler
 // integration (Shopee claims it when ?code/?shop_id is present for OAuth),
 // otherwise falls through to a redirect to /dashboard.
 Route::get('/', [\App\Http\Controllers\HomeController::class, 'index'])->name('root');
@@ -30,7 +30,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(base_path('routes/integrations.php'));
 
 Route::middleware(['auth'])->group(function () {
-    // Universal admin scheduler — Automations tab on each integration
+    // Universal admin scheduler, Automations tab on each integration
     // settings page POSTs here. The route is shared across integrations
     // because the underlying table is uniform; permission gating happens
     // on the parent integration's settings page.
@@ -48,7 +48,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Phase 4.5 — view/manage tier split for ALL core resources, unchanged by
+//  Phase 4.5, view/manage tier split for ALL core resources, unchanged by
 //  this task: read routes gated by 'view_X|manage_X', write routes gated by
 //  'manage_X'. See each section file's own header for the detail this
 //  comment used to carry when everything lived in one file.
@@ -60,6 +60,9 @@ Route::middleware(['auth'])->group(base_path('routes/sales.php'));
 require __DIR__.'/auth.php';
 
 // IA migration (2026-08-08): temporary 301 shims for URIs that moved under
-// their nav section prefix. See routes/redirects.php for details; loaded
-// last so it never shadows a real route.
+// their nav section prefix. See routes/redirects.php for details. NOTE:
+// this file loads before extension providers boot, so these shims register
+// AHEAD of extension routes; that is why every shim names a moved family
+// explicitly and none may ever be a catch-all (a catch-all here would
+// shadow, for example, Shopee's OAuth callback at /shopee).
 require __DIR__.'/redirects.php';

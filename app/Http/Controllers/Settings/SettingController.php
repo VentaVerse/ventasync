@@ -31,7 +31,7 @@ class SettingController extends Controller
     }
 
     /**
-     * The pre-split settings URI. Kept — not deleted — because
+     * The pre-split settings URI. Kept, not deleted, because
      * layouts/app.blade.php (protected, byte-identical to the session
      * baseline) still calls route('settings.edit') for the sidebar link and
      * the legacy $__bcRoutes breadcrumb table, and route NAMES are frozen
@@ -92,7 +92,7 @@ class SettingController extends Controller
         }
 
         // Favicon: upload replaces. If no new file is sent, the existing
-        // favicon stays untouched (no UI option to revert to default —
+        // favicon stays untouched (no UI option to revert to default -
         // operators can upload again to replace).
         if ($request->hasFile('favicon')) {
             if ($setting->favicon_path) {

@@ -1,21 +1,21 @@
 <?php
 
 // ─────────────────────────────────────────────────────────────────────────
-// TEMPORARY SCAFFOLDING — IA migration (docs/superpowers/plans/2026-08-08-
+// TEMPORARY SCAFFOLDING, IA migration (docs/superpowers/plans/2026-08-08-
 // ia-migration.md). Every entry here 301-redirects an OLD URI (from before
 // a page moved under its navigation section's prefix) to its NEW home.
-// Route NAMES never changed, only URIs — these are pure path shims for
+// Route NAMES never changed, only URIs, these are pure path shims for
 // stale bookmarks, links in old emails/tickets, and anything external that
 // still points at the pre-migration path.
 //
 // GET/HEAD only, by design: a 301 on a POST/PUT/DELETE/PATCH silently drops
 // the request body on redirect-following clients, which would be worse than
-// a clean 404 — old write endpoints simply stop existing with the move. The
+// a clean 404, old write endpoints simply stop existing with the move. The
 // two safety-net sweeps (ViewResolutionSweepTest, RouteNameSweepTest) prove
 // nothing in this codebase still targets an old write URI.
 //
 // Deletable after the next major release once external bookmarks/links have
-// had a full cycle to update — do not add new permanent behaviour here.
+// had a full cycle to update, do not add new permanent behaviour here.
 // ─────────────────────────────────────────────────────────────────────────
 
 use Illuminate\Support\Facades\Route;
@@ -43,7 +43,7 @@ Route::get('/api/vendors', fn () => redirect($withQuery('/purchasing/api/vendors
 
 Route::get('/api/purchase-orders/products', fn () => redirect($withQuery('/purchasing/api/purchase-orders/products'), 301));
 
-// The product-vendor AJAX list endpoint — was flat, now nested under
+// The product-vendor AJAX list endpoint, was flat, now nested under
 // /purchasing/api. The sibling "manage" page route (/purchasing/products/
 // {id}/vendors) never moved, so it needs no redirect.
 Route::get('/products/{id}/vendors', fn (string $id) => redirect($withQuery('/purchasing/api/products/'.$id.'/vendors'), 301))
@@ -148,11 +148,11 @@ Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/inte
 // ─────────────────────────────────────────────────────────────────────────
 //  Task 3: core decisions
 //
-//  Spec decision 2 — /sales/order-statuses is Settings, not Sales.
+//  Spec decision 2, /sales/order-statuses is Settings, not Sales.
 //
 //  The settings ?tab= split (spec decision 4) needs NO entry here: the old
 //  URI, /settings/edit, still exists as a real named route (settings.edit,
-//  frozen because layouts/app.blade.php — protected — still calls it) and
+//  frozen because layouts/app.blade.php, protected, still calls it) and
 //  now redirects from inside SettingController::redirectLegacyEdit() rather
 //  than as a path shim, since the mapping depends on a query value, not
 //  just the path.

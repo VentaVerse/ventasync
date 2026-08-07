@@ -22,7 +22,7 @@ use App\Http\Controllers\Settings\OrderStatusController;
 
 Route::prefix('settings')->group(function () {
     // ── Website Settings + Currencies + Extensions + Error Log ─────────
-    // Settings + Currencies — READ
+    // Settings + Currencies, READ
     Route::middleware(['perm:view_website_settings|manage_website_settings'])->group(function () {
         Route::get('/', [SettingsHubController::class, 'index'])->name('settings.hub');
 
@@ -36,23 +36,23 @@ Route::prefix('settings')->group(function () {
         Route::get('/mail', [SettingController::class, 'edit'])->name('settings.mail')->defaults('tab', 'mail');
         Route::get('/maintenance', [SettingController::class, 'edit'])->name('settings.maintenance')->defaults('tab', 'maintenance');
 
-        // The pre-split URI. Its name stays resolvable — layouts/app.blade.php
+        // The pre-split URI. Its name stays resolvable, layouts/app.blade.php
         // (protected) still calls route('settings.edit') for the sidebar link
-        // and the legacy breadcrumb table — but the URI itself now just 301s
+        // and the legacy breadcrumb table, but the URI itself now just 301s
         // to whichever tab a stale ?tab= link asked for, or the first tab for
         // a bare visit. See SettingController::redirectLegacyEdit().
         Route::get('/edit', [SettingController::class, 'redirectLegacyEdit'])->name('settings.edit');
         Route::get('/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
-        // Extensions browse — list of installed extensions (read).
+        // Extensions browse, list of installed extensions (read).
         Route::get('/extensions', [ExtensionController::class, 'index'])->name('extensions.index');
     });
 
-    // Settings + Currencies + Extensions — WRITE
+    // Settings + Currencies + Extensions, WRITE
     Route::middleware(['perm:manage_website_settings'])->group(function () {
         Route::post('/', [SettingController::class, 'update'])->name('settings.update');
         Route::post('/mail/test', [SettingController::class, 'sendTestMail'])->name('settings.mail.test');
 
-        // Currencies — writes (rate updates, CRUD)
+        // Currencies, writes (rate updates, CRUD)
         Route::get('/currencies/create', [CurrencyController::class, 'create'])->name('currencies.create');
         Route::post('/currencies', [CurrencyController::class, 'store'])->name('currencies.store');
         Route::get('/currencies/{id}/edit', [CurrencyController::class, 'edit'])->name('currencies.edit');
@@ -60,7 +60,7 @@ Route::prefix('settings')->group(function () {
         Route::delete('/currencies/{id}', [CurrencyController::class, 'destroy'])->name('currencies.destroy');
         Route::post('/currencies/update-rates', [CurrencyController::class, 'updateRates'])->name('currencies.update_rates');
 
-        // Extensions — install / toggle / reinstall / uninstall are writes.
+        // Extensions, install / toggle / reinstall / uninstall are writes.
         Route::post('/extensions/install', [ExtensionController::class, 'install'])->name('extensions.install');
         // {extension} (not {id}) because the param is the extension's
         // string slug like "pedallion", not a numeric DB id. The global
@@ -71,7 +71,7 @@ Route::prefix('settings')->group(function () {
         Route::delete('/extensions/{extension}', [ExtensionController::class, 'uninstall'])->name('extensions.uninstall');
     });
 
-    // ── Error Log — READ ──
+    // ── Error Log, READ ──
     // Error Log is its own resource (separate `view_error_log` / `manage_error_log`
     // tiers). Viewing the log is read; clearing/test-firing are writes.
     Route::middleware(['perm:view_error_log|manage_error_log'])->group(function () {
@@ -82,11 +82,11 @@ Route::prefix('settings')->group(function () {
         Route::post('/error-log/test', [ErrorLogController::class, 'test'])->name('error_log.test');
     });
 
-    // ── API Applications (Settings → API) — READ ──
+    // ── API Applications (Settings → API), READ ──
     Route::middleware(['perm:view_api_clients|manage_api_clients'])->group(function () {
         Route::get('/api', [ApiClientController::class, 'index'])->name('api_clients.index');
     });
-    // ── API Applications — WRITE ──
+    // ── API Applications, WRITE ──
     Route::middleware(['perm:manage_api_clients'])->group(function () {
         Route::get('/api/create', [ApiClientController::class, 'create'])->name('api_clients.create');
         Route::post('/api', [ApiClientController::class, 'store'])->name('api_clients.store');
@@ -96,11 +96,11 @@ Route::prefix('settings')->group(function () {
         Route::delete('/api/{apiClient}', [ApiClientController::class, 'destroy'])->whereNumber('apiClient')->name('api_clients.destroy');
     });
 
-    // ── Users — READ ──
+    // ── Users, READ ──
     Route::middleware(['perm:view_users|manage_users'])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
     });
-    // ── Users — WRITE ──
+    // ── Users, WRITE ──
     Route::middleware(['perm:manage_users'])->group(function () {
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
@@ -109,11 +109,11 @@ Route::prefix('settings')->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 
-    // ── User Groups — READ ──
+    // ── User Groups, READ ──
     Route::middleware(['perm:view_user_groups|manage_user_groups'])->group(function () {
         Route::get('/user-groups', [UserGroupController::class, 'index'])->name('user_groups.index');
     });
-    // ── User Groups — WRITE ──
+    // ── User Groups, WRITE ──
     Route::middleware(['perm:manage_user_groups'])->group(function () {
         Route::get('/user-groups/create', [UserGroupController::class, 'create'])->name('user_groups.create');
         Route::post('/user-groups', [UserGroupController::class, 'store'])->name('user_groups.store');
@@ -122,9 +122,9 @@ Route::prefix('settings')->group(function () {
         Route::delete('/user-groups/{id}', [UserGroupController::class, 'destroy'])->name('user_groups.destroy');
     });
 
-    // ── Order Statuses — READ ──
+    // ── Order Statuses, READ ──
     // IA migration (2026-08-08, Task 3), spec decision 2: this is Settings,
-    // not Sales — URI moved under /settings, name untouched (the owner's nav
+    // not Sales, URI moved under /settings, name untouched (the owner's nav
     // ruling already classified it there; SettingsHubController's "Order
     // Statuses" card already points at the name, not the URI, and self-heals).
     // Task 4 completes the move by relocating the physical registration here
@@ -132,7 +132,7 @@ Route::prefix('settings')->group(function () {
     Route::middleware(['perm:view_order_statuses|manage_order_statuses'])->group(function () {
         Route::get('/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');
     });
-    // ── Order Statuses — WRITE ──
+    // ── Order Statuses, WRITE ──
     Route::middleware(['perm:manage_order_statuses'])->group(function () {
         Route::get('/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create');
         Route::post('/order-statuses', [OrderStatusController::class, 'store'])->name('order_statuses.store');
