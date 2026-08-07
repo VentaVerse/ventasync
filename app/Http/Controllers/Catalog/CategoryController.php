@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Catalog;
 
+use App\Http\Controllers\Controller;
 use App\Models\Catalog\Category;
 use App\Models\Catalog\CategoryDescription;
 use App\Services\ActivityLogger;

@@ -1,11 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\ProductImageController;
-use App\Http\Controllers\ProductOptionController;
-use App\Http\Controllers\ManufacturerController;
-use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\Catalog\ProductController;
+use App\Http\Controllers\Catalog\ProductImageController;
+use App\Http\Controllers\Catalog\ProductOptionController;
+use App\Http\Controllers\Catalog\ManufacturerController;
+use App\Http\Controllers\Catalog\CategoryController;
 use App\Http\Controllers\Api\CatalogController as ApiCatalogController;
 
 // IA migration (2026-08-08, Task 4): Catalogue section. Required from

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Catalog;
 
+use App\Http\Controllers\Controller;
 use App\Models\Catalog\Manufacturer;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
