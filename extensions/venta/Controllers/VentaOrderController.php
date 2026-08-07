@@ -30,15 +30,22 @@ class VentaOrderController extends Controller
         $sort = in_array($request->input('sort'), $sortable) ? $request->input('sort') : 'order_created_at';
         $dir = $request->input('dir') === 'asc' ? 'asc' : 'desc';
 
+        // Line items are rendered per order now (one table row each, with the
+        // order-level facts rowspanned beside them), so they are loaded with
+        // the page rather than lazily per row.
         $query = VentaOrder::where('venta_setting_id', $store)
+            ->with('products')
             ->orderBy($sort, $dir);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+        // Same guard the page has always used: filled() is false for both a
+        // missing param and an empty one, so neither narrows the list.
+        $status = $request->filled('status') ? (string) $request->input('status') : '';
+        if ($status !== '') {
+            $query->where('status', $status);
         }
 
-        if ($request->filled('q')) {
-            $q = $request->input('q');
+        $q = $request->filled('q') ? (string) $request->input('q') : '';
+        if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('customer_name', 'like', "%{$q}%")
                     ->orWhere('venta_order_id', $q)
@@ -55,11 +62,16 @@ class VentaOrderController extends Controller
             ->pluck('cnt', 'status');
 
         return view('ext-venta::orders.index', [
-            'setting'      => $setting,
             'orders'       => $orders,
             'statusCounts' => $statusCounts,
             'sort'         => $sort,
             'dir'          => $dir,
+            // The store this page belongs to, named rather than passed as a
+            // whole settings row: the page needs its id (for its own links)
+            // and its name (for the title), and nothing else on that model.
+            'storeId'      => $store,
+            'storeLabel'   => (string) $setting->store_name,
+            'filters'      => ['q' => $q, 'status' => $status],
         ]);
     }
 

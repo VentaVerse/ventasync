@@ -52,21 +52,23 @@ class OpenCartOrderController extends Controller
         $lazadaImages = OrderController::resolveLazadaImages($orders->getCollection());
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
-        $ocStoreNames = OpenCartSetting::pluck('store_name', 'id')->toArray();
-        $storeLabel = ($ocStoreNames[$store] ?? '') ?: ('OpenCart #' . $store);
 
-        return view('ext-opencart::orders.index', compact(
-            'orders',
-            'q',
-            'statusId',
-            'statuses',
-            'productImages',
-            'lazadaImages',
-            'sort',
-            'dir',
-            'ocStoreNames',
-            'store',
-            'storeLabel'
-        ));
+        // The store's own name, read for the one row this page is about
+        // rather than by pulling every store's name into an array to index
+        // one of them. The legacy view used the full map for a Store column
+        // whose value was identical on every row; the column is gone.
+        $storeLabel = (string) (OpenCartSetting::where('id', $store)->value('store_name') ?: ('OpenCart #' . $store));
+
+        return view('ext-opencart::orders.index', [
+            'orders'        => $orders,
+            'statuses'      => $statuses,
+            'productImages' => $productImages,
+            'lazadaImages'  => $lazadaImages,
+            'sort'          => $sort,
+            'dir'           => $dir,
+            'storeId'       => $store,
+            'storeLabel'    => $storeLabel,
+            'filters'       => ['q' => $q, 'status' => $statusId],
+        ]);
     }
 }
