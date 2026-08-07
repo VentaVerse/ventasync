@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / TikTok Shop / Categories')
+@extends('layouts.channel')
+@section('breadcrumb', 'Categories')
 
 @section('title', 'TikTok Shop Categories')
 

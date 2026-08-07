@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / TikTok Shop')
+@extends('layouts.channel')
+@section('breadcrumb', 'Settings')
 
 @section('content')
 <div class="page-header">

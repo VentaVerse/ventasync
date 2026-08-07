@@ -79,10 +79,10 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 // managers continue to see these entries.
                 permission: 'view_tiktok',
                 menu: [
-                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok'),
-                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok'),
-                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok'),
-                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok_orders'),
+                    new MenuItem('Orders', 'ext.tiktok.orders.index', 'view_tiktok_orders', group: 'Sell'),
+                    new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok', group: 'Catalogue'),
+                    new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok', group: 'Catalogue'),
+                    new MenuItem('Settings', 'ext.tiktok.index', 'view_tiktok', group: 'Channel'),
                 ],
             ),
         ];

@@ -1,6 +1,6 @@
-@extends('layouts.app')
+@extends('layouts.channel')
 @section('title', 'TikTok Shop Orders')
-@section('breadcrumb', 'Integrations / TikTok Shop / Orders')
+@section('breadcrumb', 'Orders')
 
 @section('content')
 @php
