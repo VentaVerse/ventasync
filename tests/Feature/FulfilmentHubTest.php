@@ -7,9 +7,15 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\lazada\LazadaExtension;
+use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\opencart\OpencartExtension;
 use Extensions\shopee\ShopeeExtension;
 use Extensions\tiktok\TiktokExtension;
+use Extensions\venta\Models\VentaOrder;
+use Extensions\venta\Models\VentaSetting;
+use Extensions\venta\VentaExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -641,5 +647,619 @@ class FulfilmentHubTest extends TestCase
             '/href="[^"]*integrations\/orders\?(?=[^"]*pending_sub=to_handover)(?=[^"]*channel=tiktok)[^"]*"/',
             $response->getContent()
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Round 2, Task 2: Venta and OpenCart become the fourth and fifth
+    // channels rendering in place, and the first two that do it PER STORE.
+    // Their tab ids carry a store suffix ("venta:2"), so what is being
+    // guarded here is not only "does the panel render" but "does THIS
+    // store's panel render, with only this store's orders in it".
+    //
+    // Own fixtures again, because setUp() only registers Shopee.
+    // ------------------------------------------------------------------
+
+    /**
+     * Both multi-store channels registered, with TWO enabled stores each.
+     *
+     * Two is the whole point: a one-store fixture would let a hub that
+     * ignored the store suffix entirely, and always rendered the channel's
+     * first store, pass every assertion below.
+     */
+    private function registerMultistore(): void
+    {
+        $manager = $this->app->make(ExtensionManager::class);
+
+        foreach (['venta', 'opencart'] as $id) {
+            $manager->install($id);
+            $manager->enable($id);
+        }
+
+        $this->app->register(VentaExtension::class);
+        $this->app->register(OpencartExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
+
+        VentaSetting::updateOrCreate(
+            ['store_name' => 'Gear Depot'],
+            ['base_url' => 'https://one.venta.test', 'api_token' => 'venta-token-one', 'enabled' => true]
+        );
+        VentaSetting::updateOrCreate(
+            ['store_name' => 'Switch Bazaar'],
+            ['base_url' => 'https://two.venta.test', 'api_token' => 'venta-token-two', 'enabled' => true]
+        );
+
+        OpenCartSetting::updateOrCreate(
+            ['store_name' => 'Parts Yard'],
+            ['base_url' => 'https://one.opencart.test', 'api_key' => 'oc-key-one', 'enabled' => true]
+        );
+        OpenCartSetting::updateOrCreate(
+            ['store_name' => 'Cable Loft'],
+            ['base_url' => 'https://two.opencart.test', 'api_key' => 'oc-key-two', 'enabled' => true]
+        );
+    }
+
+    /**
+     * The two seeded store ids for a channel, first and second, read back
+     * off the rows.
+     *
+     * Never hardcoded. InnoDB does not reset AUTO_INCREMENT when
+     * RefreshDatabase rolls a test back, so by the time a later test in the
+     * same run seeds these rows they are ids 15 and 16, not 1 and 2, and a
+     * literal would name nothing. This is the trap that made Task 1's
+     * malformed-key assertions pass without ever reaching a store lookup.
+     */
+    private function storeIds(string $channel): array
+    {
+        $rows = $channel === 'venta'
+            ? [VentaSetting::where('store_name', 'Gear Depot')->firstOrFail()->id,
+               VentaSetting::where('store_name', 'Switch Bazaar')->firstOrFail()->id]
+            : [OpenCartSetting::where('store_name', 'Parts Yard')->firstOrFail()->id,
+               OpenCartSetting::where('store_name', 'Cable Loft')->firstOrFail()->id];
+
+        return array_map('intval', $rows);
+    }
+
+    /** One Venta order in a named store, returned so its id can be asserted on. */
+    private function ventaOrder(int $storeId, string $customer, string $status): VentaOrder
+    {
+        return VentaOrder::create([
+            'venta_setting_id'   => $storeId,
+            'venta_order_id'     => ($storeId * 100000) + random_int(1, 99999),
+            'venta_order_number' => ($storeId * 100000) + random_int(1, 99999),
+            'status'             => $status,
+            'status_id'          => 1,
+            'customer_name'      => $customer,
+            'total'              => 1234.50,
+            'payment_method'     => 'Cash on delivery',
+            'tracking_number'    => 'TRK' . $storeId . random_int(1000, 9999),
+            'order_created_at'   => now()->subDay(),
+        ]);
+    }
+
+    /**
+     * One core catalog order tagged to an OpenCart store. The legacy
+     * OpenCart-derived `order` table has many NOT NULL columns with no
+     * default and MySQL's STRICT_TRANS_TABLES rejects an insert that omits
+     * them; the blanks below exist only to satisfy the schema. Same approach
+     * as SetOrderCurrencyRateTest::makeOrder().
+     */
+    private function opencartOrder(int $storeId, string $firstname, string $marketplaceOrderId): int
+    {
+        $prefix = (string) config('catalog.prefix');
+
+        return (int) DB::table($prefix . 'order')->insertGetId([
+            'firstname' => $firstname, 'lastname' => 'Buyer',
+            'email' => strtolower($firstname) . '@example.test',
+            'marketplace_source' => 'opencart:' . $storeId,
+            'marketplace_order_id' => $marketplaceOrderId,
+            'order_status_id' => 1, 'total' => 999.00,
+            'currency_code' => 'PHP', 'currency_value' => 1,
+            'date_added' => '2026-08-01 00:00:00', 'date_modified' => '2026-08-01 00:00:00',
+            'invoice_prefix' => 'INV-', 'store_name' => '', 'store_url' => '',
+            'telephone' => '', 'fax' => '', 'custom_field' => '',
+            'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '',
+            'payment_address_1' => '', 'payment_address_2' => '', 'payment_city' => '',
+            'payment_postcode' => '', 'payment_country' => '', 'payment_country_id' => 0,
+            'payment_zone' => '', 'payment_zone_id' => 0,
+            'payment_address_format' => '', 'payment_custom_field' => '',
+            'payment_method' => '', 'payment_code' => '',
+            'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '',
+            'shipping_address_1' => '', 'shipping_address_2' => '', 'shipping_city' => '',
+            'shipping_postcode' => '', 'shipping_country' => '', 'shipping_country_id' => 0,
+            'shipping_zone' => '', 'shipping_zone_id' => 0,
+            'shipping_address_format' => '', 'shipping_custom_field' => '',
+            'shipping_method' => '', 'shipping_code' => '',
+            'comment' => '', 'affiliate_id' => 0, 'commission' => 0,
+            'marketing_id' => 0, 'tracking' => '', 'language_id' => 0, 'currency_id' => 0,
+            'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
+            'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
+        ]);
+    }
+
+    /**
+     * Card + orders read tier for a multi-store channel, plus the CORE
+     * orders read tier.
+     *
+     * manage_orders is here because both of these panels link out to sales
+     * orders (Venta's band shows the order the sync created; OpenCart's rows
+     * ARE core orders) and both now gate that link on the permission the
+     * core route actually checks, rather than offering a View that 403s.
+     * Without it the number renders as plain text and an assertion about
+     * which store's orders are listed would be asserting the gate instead.
+     *
+     * manage_orders and not view_orders: /sales/orders/{id} is gated
+     * perm:view_orders|manage_orders, but only manage_orders exists as a row
+     * in the permissions table, so it is the one a real operator can
+     * actually hold. The views read both keys so a seeded view_orders would
+     * work too.
+     */
+    private function multistoreOperator(string $channel): User
+    {
+        $this->registerMultistore();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub ' . $channel . ' Operators']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_' . $channel, 'view_' . $channel . '_orders', 'manage_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /** Manage tier, which is what renders Venta's fetch command bar. */
+    private function ventaManager(): User
+    {
+        $this->registerMultistore();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub Venta Managers']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_venta', 'manage_venta_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * shopeeOperator() with both multi-store channels registered but never
+     * granted, so their tabs genuinely exist in the registry and are simply
+     * absent from this user's own visibleOrderTabs() list. Same rationale as
+     * shopeeOperatorWithLazadaRegistered().
+     */
+    private function shopeeOperatorWithMultistoreRegistered(): User
+    {
+        $this->registerMultistore();
+
+        return $this->shopeeOperator();
+    }
+
+    /**
+     * The panel region of a hub render: everything inside <main> from the
+     * panel's own root id onwards.
+     *
+     * Two things have to be excluded before an isolation claim means
+     * anything on this page, and neither is a defect:
+     *
+     *   - the card strip, which sits above the panel and legitimately lists
+     *     EVERY store, because it is the control that switches between them;
+     *   - the command palette, which carries the app-wide jump list as a
+     *     JSON blob with escaped slashes outside <main> entirely, and which
+     *     would make a whole-document URL assertion pass while testing
+     *     nothing.
+     *
+     * Slicing from the panel id forward drops the first; slicing <main> out
+     * of the document drops the second.
+     */
+    private function hubPanel(string $html, string $pageId): string
+    {
+        $this->assertSame(1, preg_match('/<main class="x-content[^"]*">(.*?)<\/main>/s', $html, $main),
+            'No content region rendered.');
+
+        $at = strpos($main[1], 'id="' . $pageId . '"');
+        $this->assertNotFalse($at, 'No ' . $pageId . ' panel rendered.');
+
+        return substr($main[1], $at);
+    }
+
+    /** The card strip alone, for the mirror of every hubPanel() assertion. */
+    private function hubStrip(string $html): string
+    {
+        $this->assertSame(1, preg_match('/<nav class="x-fh-strip"[^>]*>(.*?)<\/nav>/s', $html, $strip),
+            'No card strip rendered.');
+
+        return $strip[1];
+    }
+
+    public function test_default_render_gives_every_store_its_own_card_that_switches_in_place(): void
+    {
+        $user = $this->multistoreOperator('venta');
+
+        $response = $this->actingAs($user)->get('/integrations/orders');
+
+        $response->assertOk();
+
+        foreach ($this->storeIds('venta') as $storeId) {
+            // The card carries the FULL key, so it opens that store's panel
+            // and not the channel's first store.
+            $response->assertSee(e(route('integrations.orders', ['channel' => 'venta:' . $storeId])), false);
+            // And no longer links out to that store's seller center.
+            $response->assertDontSee(
+                'href="' . e(route('ext.venta.orders.index', ['store' => $storeId])) . '"',
+                false
+            );
+        }
+    }
+
+    public function test_selecting_one_venta_store_switches_that_stores_panel_in_place(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [$first] = $this->storeIds('venta');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $first);
+
+        $response->assertOk();
+        $response->assertSee('id="venta-orders-page"', false);
+        $response->assertDontSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+        // The panel names the store it is showing, so an operator working
+        // two shops is never guessing which one a control acts on.
+        $response->assertSee('<span class="x-fh-panel__scope-value">Gear Depot</span>', false);
+    }
+
+    public function test_selecting_one_opencart_store_switches_that_stores_panel_in_place(): void
+    {
+        $user = $this->multistoreOperator('opencart');
+        [, $second] = $this->storeIds('opencart');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=opencart:' . $second);
+
+        $response->assertOk();
+        $response->assertSee('id="opencart-orders-page"', false);
+        $response->assertDontSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+        $response->assertSee('<span class="x-fh-panel__scope-value">Cable Loft</span>', false);
+    }
+
+    /**
+     * The isolation rule on the hub, Venta: standing in one store, the
+     * other store's orders are not in the panel.
+     *
+     * Both stores are seeded with orders, and the assertion is pinned to the
+     * live order ids read back off the rows rather than to guessed ones.
+     */
+    public function test_a_venta_stores_hub_panel_holds_none_of_the_other_stores_orders(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [$first, $second] = $this->storeIds('venta');
+
+        $mine = $this->ventaOrder($first, 'Depot Buyer', 'Pending');
+        $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Pending');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $first);
+
+        $response->assertOk();
+
+        $panel = $this->hubPanel($response->getContent(), 'venta-orders-page');
+
+        // Guards the premise: this IS the first store's panel, and it is not
+        // empty, so the absence below is scoping and not an empty page.
+        $this->assertStringContainsString('Depot Buyer', $panel);
+        $this->assertStringContainsString((string) $mine->venta_order_number, $panel);
+
+        $this->assertStringNotContainsString('Bazaar Buyer', $panel);
+        $this->assertStringNotContainsString((string) $theirs->venta_order_number, $panel);
+        // And no control in the panel points at the sibling store.
+        $this->assertStringNotContainsString(
+            route('ext.venta.orders.fetch', ['store' => $second]),
+            $panel
+        );
+    }
+
+    /** The same rule for OpenCart, whose rows are core catalog orders. */
+    public function test_an_opencart_stores_hub_panel_holds_none_of_the_other_stores_orders(): void
+    {
+        $user = $this->multistoreOperator('opencart');
+        [$first, $second] = $this->storeIds('opencart');
+
+        $mineId = $this->opencartOrder($first, 'Yardley', 'OC-YARD-1');
+        $theirsId = $this->opencartOrder($second, 'Loftus', 'OC-LOFT-1');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=opencart:' . $first);
+
+        $response->assertOk();
+
+        $panel = $this->hubPanel($response->getContent(), 'opencart-orders-page');
+
+        $this->assertStringContainsString('Yardley', $panel);
+        $this->assertStringContainsString('OC-YARD-1', $panel);
+
+        $this->assertStringNotContainsString('Loftus', $panel);
+        $this->assertStringNotContainsString('OC-LOFT-1', $panel);
+        // Pinned to the live ids, which is what proves the panel filtered on
+        // marketplace_source rather than simply listing fewer rows. Quoted
+        // as a full href, because /sales/orders/1 is a prefix of
+        // /sales/orders/12 and a bare substring test on the sibling's URL
+        // could pass or fail on nothing but which ids the run happened to
+        // allocate.
+        $this->assertStringContainsString('href="' . e(route('orders.show', $mineId)) . '"', $panel);
+        $this->assertStringNotContainsString('href="' . e(route('orders.show', $theirsId)) . '"', $panel);
+    }
+
+    /**
+     * The mirror of the isolation tests: the sibling store IS reachable, from
+     * the card strip, which is the control that switches between them. Without
+     * this, hubPanel()'s exclusion of the strip could be hiding a hub that had
+     * stopped offering the other store at all.
+     */
+    public function test_the_card_strip_still_offers_the_sibling_store(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [$first, $second] = $this->storeIds('venta');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $first);
+
+        $strip = $this->hubStrip($response->getContent());
+
+        $this->assertStringContainsString(
+            e(route('integrations.orders', ['channel' => 'venta:' . $second])),
+            $strip
+        );
+        $this->assertStringContainsString('Switch Bazaar', $strip);
+    }
+
+    /**
+     * Every family of self-link inside the panel carries the FULL store key,
+     * not just the channel. A link that dropped the ":2" would silently move
+     * the operator to the other shop mid-task, which is the worst failure
+     * this page can have.
+     */
+    public function test_venta_panel_links_keep_the_full_store_key(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [, $second] = $this->storeIds('venta');
+
+        $this->ventaOrder($second, 'Bazaar Buyer', 'Pending');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $second);
+
+        $response->assertOk();
+
+        // The filter form posts back to the hub, not to the seller center.
+        $response->assertSee(
+            '<form method="GET" action="' . e(route('integrations.orders')) . '" class="x-filters" id="orders-filter">',
+            false
+        );
+        // The hidden context input carries the full key, which the seller
+        // center (which passes no hidden params) can never prove.
+        $response->assertSee('<input type="hidden" name="channel" value="venta:' . $second . '">', false);
+
+        $panel = $this->hubPanel($response->getContent(), 'venta-orders-page');
+
+        // Segment links: status= only ever appears on the status segment, so
+        // a URL carrying both status= and the full key proves the SEGMENT
+        // keeps context rather than only the strip card and the hidden input.
+        $this->assertMatchesRegularExpression(
+            '/href="[^"]*integrations\/orders\?(?=[^"]*status=)(?=[^"]*channel=venta%3A' . $second . ')[^"]*"/',
+            $panel,
+            'A status segment link dropped the store key.'
+        );
+        // Sort links are a second family, built through the same closure with
+        // its own except-list.
+        $this->assertMatchesRegularExpression(
+            '/href="[^"]*integrations\/orders\?(?=[^"]*sort=total)(?=[^"]*channel=venta%3A' . $second . ')[^"]*"/',
+            $panel,
+            'A column sort link dropped the store key.'
+        );
+    }
+
+    /**
+     * Pagination is the third family, and the one built by Laravel rather
+     * than by the panel, so it is worth its own assertion. Fifty-one orders
+     * because the list pages at fifty.
+     */
+    public function test_venta_pagination_keeps_the_full_store_key(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [$first] = $this->storeIds('venta');
+
+        for ($i = 0; $i < 51; $i++) {
+            $this->ventaOrder($first, 'Depot Buyer ' . $i, 'Pending');
+        }
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $first);
+
+        $response->assertOk();
+
+        $panel = $this->hubPanel($response->getContent(), 'venta-orders-page');
+
+        $this->assertMatchesRegularExpression(
+            '/href="[^"]*integrations\/orders\?(?=[^"]*page=2)(?=[^"]*channel=venta%3A' . $first . ')[^"]*"/',
+            $panel,
+            'The next-page link dropped the store key.'
+        );
+    }
+
+    public function test_venta_manager_sees_the_command_bar_on_the_hub_panel(): void
+    {
+        $manager = $this->ventaManager();
+        [$first] = $this->storeIds('venta');
+
+        $response = $this->actingAs($manager)->get('/integrations/orders?channel=venta:' . $first);
+
+        $response->assertOk();
+        $response->assertSee('id="formFetchVentaOrders"', false);
+        // The fetch posts to THIS store's own route.
+        $response->assertSee(e(route('ext.venta.orders.fetch', ['store' => $first])), false);
+    }
+
+    public function test_venta_viewer_does_not_see_the_command_bar_on_the_hub_panel(): void
+    {
+        $viewer = $this->multistoreOperator('venta');
+        [$first] = $this->storeIds('venta');
+
+        $response = $this->actingAs($viewer)->get('/integrations/orders?channel=venta:' . $first);
+
+        $response->assertOk();
+        $response->assertDontSee('id="formFetchVentaOrders"', false);
+        $response->assertDontSee('id="btnFetchVentaOrders"', false);
+    }
+
+    /**
+     * OpenCart's panel has no command bar for anyone, at any tier, because
+     * the channel declares no order write route for one to submit to. This
+     * is the honest statement of what exists, not an oversight.
+     */
+    public function test_the_opencart_panel_offers_no_command_bar_at_any_tier(): void
+    {
+        $this->registerMultistore();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub OpenCart Managers']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_opencart', 'manage_opencart_orders', 'manage_orders'])
+                ->pluck('id')
+                ->all()
+        );
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        [$first] = $this->storeIds('opencart');
+        $orderId = $this->opencartOrder($first, 'Yardley', 'OC-YARD-1');
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=opencart:' . $first);
+
+        $response->assertOk();
+
+        $panel = $this->hubPanel($response->getContent(), 'opencart-orders-page');
+
+        $this->assertStringNotContainsString('x-cmdbar', $panel);
+
+        // Guards the premise: this user IS the manage tier, so the absence
+        // above is the missing route and not the missing permission. What
+        // the tier does unlock here is the row menu, built from core order
+        // routes because that is where this channel's only writes live.
+        $this->assertStringContainsString('href="' . e(route('orders.edit', $orderId)) . '"', $panel);
+    }
+
+    /**
+     * Unauthorised fallback, direction one: a Shopee-only user cannot select
+     * either multi-store channel's panel, for any store.
+     */
+    public function test_shopee_only_user_requesting_a_venta_store_falls_back_to_summary(): void
+    {
+        $user = $this->shopeeOperatorWithMultistoreRegistered();
+        [$first] = $this->storeIds('venta');
+        [$ocFirst] = $this->storeIds('opencart');
+
+        $this->assertFalse($user->hasPermission('view_venta_orders'));
+        $this->assertFalse($user->hasPermission('view_opencart_orders'));
+        $this->assertTrue($user->hasPermission('view_shopee_orders'));
+
+        $venta = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $first);
+        $venta->assertOk();
+        $venta->assertDontSee('id="venta-orders-page"', false);
+        $venta->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+
+        $opencart = $this->actingAs($user)->get('/integrations/orders?channel=opencart:' . $ocFirst);
+        $opencart->assertOk();
+        $opencart->assertDontSee('id="opencart-orders-page"', false);
+        $opencart->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    /**
+     * Unauthorised fallback, direction two: a Venta-only user cannot select
+     * Shopee's panel, nor OpenCart's. The pair is what proves the gate is
+     * per channel rather than a check that happens to block one direction.
+     */
+    public function test_venta_only_user_requesting_another_channel_falls_back_to_summary(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [$ocFirst] = $this->storeIds('opencart');
+
+        $this->assertFalse($user->hasPermission('view_shopee_orders'));
+        $this->assertFalse($user->hasPermission('view_opencart_orders'));
+        $this->assertTrue($user->hasPermission('view_venta_orders'));
+
+        $shopee = $this->actingAs($user)->get('/integrations/orders?channel=shopee');
+        $shopee->assertOk();
+        $shopee->assertDontSee('id="shopee-orders-page"', false);
+        $shopee->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+
+        $opencart = $this->actingAs($user)->get('/integrations/orders?channel=opencart:' . $ocFirst);
+        $opencart->assertOk();
+        $opencart->assertDontSee('id="opencart-orders-page"', false);
+        $opencart->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    /**
+     * THERE IS NO PER-STORE PERMISSION MODEL IN THIS APP.
+     *
+     * view_venta_orders grants every Venta store, on the hub and everywhere
+     * else: permissions are channel-level, and no store-level gate exists to
+     * assert. This test says so out loud and pins the behaviour, so that if
+     * a per-store model is ever introduced this is the assertion that fails
+     * and forces the decision to be made deliberately rather than
+     * discovered. It is deliberately NOT written as though a store gate
+     * existed and happened to be open.
+     */
+    public function test_one_orders_permission_reaches_every_store_of_that_channel(): void
+    {
+        $user = $this->multistoreOperator('venta');
+        [$first, $second] = $this->storeIds('venta');
+
+        foreach ([[$first, 'Gear Depot'], [$second, 'Switch Bazaar']] as [$storeId, $label]) {
+            $response = $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $storeId);
+
+            $response->assertOk();
+            $response->assertSee('id="venta-orders-page"', false);
+            $response->assertSee('<span class="x-fh-panel__scope-value">' . $label . '</span>', false);
+        }
+    }
+
+    /**
+     * Keys that name no store fall back to Summary rather than resolving to
+     * some other store's panel. Built from the live ids for the same reason
+     * the workspace suite builds its own: a literal goes stale.
+     */
+    public function test_a_channel_key_that_names_no_store_falls_back_to_summary(): void
+    {
+        $this->registerMultistore();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub Multistore Broad']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_venta', 'view_venta_orders', 'view_opencart', 'view_opencart_orders', 'view_shopee', 'view_shopee_orders'])
+                ->pluck('id')
+                ->all()
+        );
+        $user = User::factory()->create(['user_group_id' => $group->id]);
+
+        [$first] = $this->storeIds('venta');
+
+        // Guards the premise: a real key DOES render for this user, so every
+        // fallback below is about the key and not about the permission.
+        $this->actingAs($user)->get('/integrations/orders?channel=venta:' . $first)
+            ->assertSee('id="venta-orders-page"', false);
+
+        $keys = [
+            'a bare multi-store channel' => 'venta',
+            'a bare multi-store channel (opencart)' => 'opencart',
+            'an unknown store' => 'venta:' . ($first + 9000),
+            'an empty store' => 'venta:',
+            'a non numeric store' => 'venta:abc',
+            'a second suffix after a real store' => 'venta:' . $first . ':3',
+            'a real store with trailing text' => 'venta:' . $first . 'x',
+            'store zero' => 'venta:0',
+            'a negative store' => 'venta:-' . $first,
+            // A store suffix on a single-store channel names nothing.
+            'a suffix on a single-store channel' => 'shopee:' . $first,
+        ];
+
+        foreach ($keys as $name => $key) {
+            $response = $this->actingAs($user)->get('/integrations/orders?channel=' . urlencode($key));
+
+            $response->assertOk();
+            $response->assertDontSee('id="venta-orders-page"', false);
+            $response->assertDontSee('id="opencart-orders-page"', false);
+            $response->assertDontSee('id="shopee-orders-page"', false);
+            $response->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+        }
     }
 }

@@ -766,4 +766,299 @@ class MultistoreWorkspaceTest extends TestCase
         // substring test could never fail.
         $response->assertDontSee('href="'.e(route('integrations.workspace', ['channel' => $channel])).'"', false);
     }
+
+    // ------------------------------------------------------------------
+    // Round 2, Task 2: the orders pages, per store, on the seller center.
+    //
+    // The hub side of the same panels is covered in FulfilmentHubTest. What
+    // is specific here is that a store's seller center carries the store in
+    // its URI path rather than in a query param, and that the
+    // cross-marketplace tab strip these two pages used to include is gone.
+    // ------------------------------------------------------------------
+
+    /** Manage tier for a channel's orders, which is what renders its writes. */
+    private function ordersManager(string $channel): User
+    {
+        $group = UserGroup::create(['name' => 'Multistore '.$channel.' Order Managers']);
+
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_'.$channel, 'manage_'.$channel.'_orders', 'manage_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /** One Venta order in a named store. */
+    private function ventaOrder(int $storeId, string $customer, string $status): \Extensions\venta\Models\VentaOrder
+    {
+        return \Extensions\venta\Models\VentaOrder::create([
+            'venta_setting_id'   => $storeId,
+            'venta_order_id'     => ($storeId * 100000) + random_int(1, 99999),
+            'venta_order_number' => ($storeId * 100000) + random_int(1, 99999),
+            'status'             => $status,
+            'status_id'          => 1,
+            'customer_name'      => $customer,
+            'total'              => 1234.50,
+            'payment_method'     => 'Cash on delivery',
+            'order_created_at'   => now()->subDay(),
+        ]);
+    }
+
+    /**
+     * One core catalog order tagged to an OpenCart store. The legacy
+     * OpenCart-derived `order` table has many NOT NULL columns with no
+     * default and MySQL's STRICT_TRANS_TABLES rejects an insert that omits
+     * them; the blanks exist only to satisfy the schema.
+     */
+    private function opencartOrder(int $storeId, string $firstname, string $marketplaceOrderId): int
+    {
+        $prefix = (string) config('catalog.prefix');
+
+        return (int) \Illuminate\Support\Facades\DB::table($prefix.'order')->insertGetId([
+            'firstname' => $firstname, 'lastname' => 'Buyer',
+            'email' => strtolower($firstname).'@example.test',
+            'marketplace_source' => 'opencart:'.$storeId,
+            'marketplace_order_id' => $marketplaceOrderId,
+            'order_status_id' => 1, 'total' => 999.00,
+            'currency_code' => 'PHP', 'currency_value' => 1,
+            'date_added' => '2026-08-01 00:00:00', 'date_modified' => '2026-08-01 00:00:00',
+            'invoice_prefix' => 'INV-', 'store_name' => '', 'store_url' => '',
+            'telephone' => '', 'fax' => '', 'custom_field' => '',
+            'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '',
+            'payment_address_1' => '', 'payment_address_2' => '', 'payment_city' => '',
+            'payment_postcode' => '', 'payment_country' => '', 'payment_country_id' => 0,
+            'payment_zone' => '', 'payment_zone_id' => 0,
+            'payment_address_format' => '', 'payment_custom_field' => '',
+            'payment_method' => '', 'payment_code' => '',
+            'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '',
+            'shipping_address_1' => '', 'shipping_address_2' => '', 'shipping_city' => '',
+            'shipping_postcode' => '', 'shipping_country' => '', 'shipping_country_id' => 0,
+            'shipping_zone' => '', 'shipping_zone_id' => 0,
+            'shipping_address_format' => '', 'shipping_custom_field' => '',
+            'shipping_method' => '', 'shipping_code' => '',
+            'comment' => '', 'affiliate_id' => 0, 'commission' => 0,
+            'marketing_id' => 0, 'tracking' => '', 'language_id' => 0, 'currency_id' => 0,
+            'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
+            'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
+        ]);
+    }
+
+    /**
+     * Both channels' orders pages render through the shared panel partial,
+     * per store, and every control in it points at THAT store.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
+    public function test_the_orders_page_renders_the_shared_panel_per_store(string $channel): void
+    {
+        $user = $this->ordersManager($channel);
+
+        foreach ($this->storeIds($channel) as $storeId) {
+            $response = $this->actingAs($user)->get('/'.$channel.'/'.$storeId.'/orders');
+
+            $response->assertOk();
+            // The panel's own root, which is also what the page CSS and (for
+            // Venta) the page module scope themselves to.
+            $response->assertSee('id="'.$channel.'-orders-page"', false);
+            // The one filter form the panel owns, posting back to this
+            // store's own route rather than to the channel's first store.
+            $response->assertSee(
+                '<form method="GET" action="'.e(route('ext.'.$channel.'.orders.index', ['store' => $storeId])).'" class="x-filters" id="orders-filter">',
+                false
+            );
+            // The seller center passes no hidden context params, so the panel
+            // renders none. This is the mirror of the hub's channel input.
+            $response->assertDontSee('<input type="hidden" name="channel"', false);
+        }
+    }
+
+    /**
+     * The cross-marketplace tab strip is gone from both orders pages.
+     *
+     * It was Task 1's one accepted exception, kept because it was then the
+     * only way to switch stores from inside orders. The workspace sidebar
+     * and the fulfilment hub are that now, so its presence would be a second
+     * navigation system inside a page that already sits in one.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
+    public function test_the_orders_page_no_longer_carries_the_cross_marketplace_strip(string $channel): void
+    {
+        [$first] = $this->storeIds($channel);
+
+        $response = $this->actingAs($this->operator($channel))
+            ->get('/'.$channel.'/'.$first.'/orders');
+
+        $response->assertOk();
+
+        $chrome = $this->visibleChrome($response->getContent());
+
+        // The strip's own root and card classes, read off
+        // integrations/partials/_tab_strip rather than guessed: an assertion
+        // against a class name that partial never emits would pass whether
+        // or not the strip was still included.
+        $this->assertStringNotContainsString('ord-tab-strip', $chrome);
+        $this->assertStringNotContainsString('ord-tab-card', $chrome);
+        // And the strip's Summary card, which is its first entry and the one
+        // link it always carries.
+        $this->assertStringNotContainsString(
+            'href="'.e(route('integrations.orders')).'"',
+            $chrome
+        );
+    }
+
+    /**
+     * Store isolation on the seller center: standing in one Venta store, the
+     * other store's orders are nowhere in the sidebar or the content.
+     *
+     * Asserted against the live order numbers read back off the rows, for
+     * the same reason the key assertions are: AUTO_INCREMENT does not reset
+     * between tests and a literal would name nothing.
+     */
+    public function test_a_venta_stores_orders_page_holds_none_of_the_other_stores_orders(): void
+    {
+        [$first, $second] = $this->storeIds('venta');
+
+        $mine = $this->ventaOrder($first, 'Depot Buyer', 'Pending');
+        $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Pending');
+
+        $response = $this->actingAs($this->ordersManager('venta'))
+            ->get('/venta/'.$first.'/orders');
+
+        $response->assertOk();
+
+        $chrome = $this->visibleChrome($response->getContent());
+
+        // Guards the premise: this page is not simply empty.
+        $this->assertStringContainsString('Depot Buyer', $chrome);
+        $this->assertStringContainsString((string) $mine->venta_order_number, $chrome);
+
+        $this->assertStringNotContainsString('Bazaar Buyer', $chrome);
+        $this->assertStringNotContainsString((string) $theirs->venta_order_number, $chrome);
+        // And no control on the page acts on the sibling store.
+        $this->assertStringNotContainsString(route('ext.venta.orders.fetch', ['store' => $second]), $chrome);
+        $this->assertStringNotContainsString(route('ext.venta.orders.bulk_delete', ['store' => $second]), $chrome);
+    }
+
+    /** The same rule for OpenCart, whose rows are core catalog orders. */
+    public function test_an_opencart_stores_orders_page_holds_none_of_the_other_stores_orders(): void
+    {
+        [$first, $second] = $this->storeIds('opencart');
+
+        $mineId = $this->opencartOrder($first, 'Yardley', 'OC-YARD-1');
+        $theirsId = $this->opencartOrder($second, 'Loftus', 'OC-LOFT-1');
+
+        $response = $this->actingAs($this->ordersManager('opencart'))
+            ->get('/opencart/'.$first.'/orders');
+
+        $response->assertOk();
+
+        $chrome = $this->visibleChrome($response->getContent());
+
+        $this->assertStringContainsString('Yardley', $chrome);
+        $this->assertStringContainsString('OC-YARD-1', $chrome);
+
+        $this->assertStringNotContainsString('Loftus', $chrome);
+        $this->assertStringNotContainsString('OC-LOFT-1', $chrome);
+        // Quoted as a full href: /sales/orders/1 is a prefix of
+        // /sales/orders/12, so a bare substring test on the sibling's URL
+        // could pass or fail on nothing but which ids the run allocated.
+        $this->assertStringContainsString('href="'.e(route('orders.show', $mineId)).'"', $chrome);
+        $this->assertStringNotContainsString('href="'.e(route('orders.show', $theirsId)).'"', $chrome);
+    }
+
+    /**
+     * The write controls a Venta store's orders page offers are the manage
+     * tier's, and they act on THIS store.
+     *
+     * The old page hardcoded its permission flag to true, so a read-only
+     * operator was shown a fetch bar and a row of Delete buttons that all
+     * 403 on submit. Both directions are asserted, because a flag that is
+     * always false would pass the negative half on its own.
+     */
+    public function test_only_the_manage_tier_gets_the_venta_write_controls(): void
+    {
+        [$first] = $this->storeIds('venta');
+        $this->ventaOrder($first, 'Depot Buyer', 'Pending');
+
+        $manager = $this->ordersManager('venta');
+        $viewer = $this->operator('venta');
+
+        $this->assertTrue($manager->hasPermission('manage_venta_orders'));
+        $this->assertFalse($viewer->hasPermission('manage_venta_orders'));
+
+        $managerView = $this->actingAs($manager)->get('/venta/'.$first.'/orders');
+        $managerView->assertOk();
+        $managerView->assertSee('id="formFetchVentaOrders"', false);
+        $managerView->assertSee(e(route('ext.venta.orders.fetch', ['store' => $first])), false);
+        $managerView->assertSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
+        // Destructive actions carry the project's confirm convention rather
+        // than a native dialog.
+        $managerView->assertSee('data-confirm=', false);
+
+        $viewerView = $this->actingAs($viewer)->get('/venta/'.$first.'/orders');
+        $viewerView->assertOk();
+        $viewerView->assertDontSee('id="formFetchVentaOrders"', false);
+        $viewerView->assertDontSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
+    }
+
+    /**
+     * OpenCart's page offers no command bar to anyone: the channel declares
+     * no order write route for one to submit to. Its row actions are core
+     * order routes and follow the core orders permission.
+     */
+    public function test_the_opencart_orders_page_has_no_command_bar_and_core_gated_row_actions(): void
+    {
+        [$first] = $this->storeIds('opencart');
+        $orderId = $this->opencartOrder($first, 'Yardley', 'OC-YARD-1');
+
+        $manager = $this->ordersManager('opencart');
+        $viewer = $this->operator('opencart');
+
+        $managerView = $this->actingAs($manager)->get('/opencart/'.$first.'/orders');
+        $managerView->assertOk();
+        $managerView->assertDontSee('x-cmdbar', false);
+        $managerView->assertSee('href="'.e(route('orders.edit', $orderId)).'"', false);
+        $managerView->assertSee('data-confirm=', false);
+
+        // The read tier gets the list and no writes at all.
+        $viewerView = $this->actingAs($viewer)->get('/opencart/'.$first.'/orders');
+        $viewerView->assertOk();
+        $viewerView->assertDontSee('x-cmdbar', false);
+        $viewerView->assertDontSee('href="'.e(route('orders.edit', $orderId)).'"', false);
+    }
+
+    /**
+     * Segment, sort and filter links on the seller center all carry the
+     * store in the URI path and never the sibling's.
+     */
+    public function test_the_venta_panels_own_links_stay_on_this_store(): void
+    {
+        [$first, $second] = $this->storeIds('venta');
+        $this->ventaOrder($first, 'Depot Buyer', 'Pending');
+
+        $response = $this->actingAs($this->ordersManager('venta'))
+            ->get('/venta/'.$first.'/orders');
+
+        $response->assertOk();
+
+        $chrome = $this->visibleChrome($response->getContent());
+        $own = route('ext.venta.orders.index', ['store' => $first]);
+        $sibling = route('ext.venta.orders.index', ['store' => $second]);
+
+        // A status segment link: status= only ever appears there.
+        $this->assertMatchesRegularExpression(
+            '/href="'.preg_quote(e($own), '/').'\?[^"]*status=/',
+            $chrome,
+            'A status segment link did not stay on this store.'
+        );
+        // A column sort link.
+        $this->assertMatchesRegularExpression(
+            '/href="'.preg_quote(e($own), '/').'\?[^"]*sort=total/',
+            $chrome,
+            'A column sort link did not stay on this store.'
+        );
+
+        $this->assertStringNotContainsString($sibling, $chrome);
+    }
 }
