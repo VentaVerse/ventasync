@@ -280,6 +280,59 @@ class LazadaOrderDetailTest extends TestCase
         $response->assertDontSee('Price breakdown by order item');
     }
 
+    /**
+     * F3: an order whose `fees` payload holds ONLY array-valued data
+     * (`transaction_lines`, `other_fees`) with no scalar figure must not
+     * show "No fee data yet" beside a rendered transaction-lines table -
+     * the exact self-contradiction the review caught. $hasFees is scalar
+     * -only by design, so this fixture must also render with NO
+     * transaction table and no per-item breakdown, matching what the
+     * previous version of this page did (both were nested inside the same
+     * `@if($hasFees)`).
+     */
+    public function test_array_only_fee_data_does_not_contradict_the_empty_state(): void
+    {
+        $order = LazadaOrder::create([
+            'region' => 'ph',
+            'order_id' => 'LZ-ARRAYFEES-01',
+            'status' => 'packed',
+            'raw' => ['order_number' => 'LZ-ARRAYFEES-01', 'address_shipping' => ['first_name' => 'Test']],
+            'fees' => [
+                'transaction_lines' => [
+                    [
+                        'fee_type' => 16,
+                        'fee_name' => 'Commission',
+                        'amount' => -50.00,
+                        'sku' => 'SKU-1',
+                        'order_item_id' => '1',
+                        'transaction_number' => 'TX-1',
+                        'transaction_date' => '2026-08-05',
+                    ],
+                ],
+                'other_fees' => ['misc_fee' => -5.00],
+            ],
+        ]);
+
+        LazadaOrderProduct::create([
+            'lazada_order_id' => $order->id,
+            'order_item_id' => 900001,
+            'sku' => 'SKU-1',
+            'name' => 'Test Product',
+            'quantity' => 1,
+            'item_price' => 500.00,
+            'paid_price' => 480.00,
+            'raw' => ['item_price' => 500.00, 'paid_price' => 480.00],
+        ]);
+
+        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+
+        $response->assertOk();
+        $response->assertSee('No fee data yet.');
+        // Mutually exclusive: the empty state and the table never both show.
+        $response->assertDontSee('Lazada platform fees');
+        $response->assertDontSee('Price breakdown by order item');
+    }
+
     // ------------------------------------------------------------------
     // Tier split, both directions, against the real middleware
     // ------------------------------------------------------------------

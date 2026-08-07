@@ -51,6 +51,16 @@
 
     $items = $order->products ?? collect();
 
+    // Whether the order carries ANY fee data Lazada returned. Gates every
+    // fee-derived block on this page (the per-item price breakdown, the
+    // transaction-lines table, and the side-column ledger below), same as
+    // the previous version of this page, which nested all three under one
+    // `@if`. Scalar-only on purpose: `transaction_lines` and `other_fees`
+    // are themselves array values inside $fees, and array_filter here is
+    // asking "is there a settled ledger figure", not "is the key present".
+    $fees = is_array($order->fees ?? null) ? $order->fees : [];
+    $hasFees = !empty($fees) && !empty(array_filter($fees, fn($v) => !is_array($v) && $v != 0));
+
     // Fallback: get courier and tracking from first item if order-level is empty
     if (($courier === '' || $tracking === '') && $items->count() > 0) {
         foreach ($items as $_it) {
@@ -253,10 +263,10 @@
                                      column a sentence would break the
                                      alignment the column exists for. --}}
                                 <span class="od-fig">
-                                    <span class="od-fig__k">Unit price</span>{!! $ci['unit_price'] > 0 ? e($money($ci['unit_price'])) : '<span class="co-empty-mark">&mdash;</span>' !!}
+                                    <span class="od-fig__k">Unit price</span>@if($ci['unit_price'] > 0){{ $money($ci['unit_price']) }}@else<span class="co-empty-mark">&mdash;</span>@endif
                                 </span>
                                 <span class="od-fig od-fig--total">
-                                    <span class="od-fig__k">Paid</span>{!! $ci['paid_total'] > 0 ? e($money($ci['paid_total'])) : '<span class="co-empty-mark">&mdash;</span>' !!}
+                                    <span class="od-fig__k">Paid</span>@if($ci['paid_total'] > 0){{ $money($ci['paid_total']) }}@else<span class="co-empty-mark">&mdash;</span>@endif
                                 </span>
                             </div>
                         </div>
@@ -313,7 +323,7 @@
                         }
                     }
                 @endphp
-                @if(!empty($itemFees))
+                @if(!empty($itemFees) && $hasFees)
                 {{-- Counted in order items, not in products: the list above
                      consolidates Lazada's one-row-per-unit into one line per
                      product, so a two-unit line is 1 item there and 2 order
@@ -357,10 +367,9 @@
                  main column because it is a second subject with its own rows,
                  not a reference fact about the first one. --}}
             @php
-                $fees = is_array($order->fees ?? null) ? $order->fees : [];
                 $trxLines = $fees['transaction_lines'] ?? [];
             @endphp
-            @if(!empty($trxLines))
+            @if(!empty($trxLines) && $hasFees)
             <section class="od-section">
                 <div class="od-section__head">
                     <h2 class="od-section__title">
@@ -476,8 +485,6 @@
                  own arithmetic: commission, payment fee and shipping service
                  cost are stored negative, so the estimate ADDS them. --}}
             @php
-                $hasFees = !empty($fees) && !empty(array_filter($fees, fn($v) => !is_array($v) && $v != 0));
-
                 $lSubtotal = (float)($fees['subtotal'] ?? 0);
                 $lPaidTotal = (float)($fees['paid_total'] ?? 0);
                 $lShipping = (float)($fees['shipping'] ?? 0);

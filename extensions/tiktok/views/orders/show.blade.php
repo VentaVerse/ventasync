@@ -219,16 +219,64 @@
                                      column a sentence would break the
                                      alignment the column exists for. --}}
                                 <span class="od-fig">
-                                    <span class="od-fig__k">Unit price</span>{!! $ci['item_price'] > 0 ? e($money($ci['item_price'])) : '<span class="co-empty-mark">&mdash;</span>' !!}
+                                    <span class="od-fig__k">Unit price</span>@if($ci['item_price'] > 0){{ $money($ci['item_price']) }}@else<span class="co-empty-mark">&mdash;</span>@endif
                                 </span>
                                 <span class="od-fig od-fig--total">
-                                    <span class="od-fig__k">Sale price</span>{!! $ci['sale_price'] > 0 ? e($money($ci['sale_price'])) : '<span class="co-empty-mark">&mdash;</span>' !!}
+                                    <span class="od-fig__k">Sale price</span>@if($ci['sale_price'] > 0){{ $money($ci['sale_price']) }}@else<span class="co-empty-mark">&mdash;</span>@endif
                                 </span>
                             </div>
                         </div>
                     @endforeach
                 </div>
                 @endif
+            </section>
+
+            {{-- ============ PAYMENT ============
+                 What the buyer was charged, as TikTok reports it on the order
+                 itself. Separate from settlement in the side column, which is
+                 what TikTok pays out, and the two answer different questions.
+                 In the main column rather than beside Customer/Shipping: the
+                 same rebalance Shopee's invoice request took, moving content
+                 into the shorter column rather than the escrow-style block
+                 back (that adjudication stands). Without it TikTok's main
+                 column stopped at 283px against an 1022px side. --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Payment</h2>
+                </div>
+                <div class="od-card__body ttd-fees">
+                    @if($totalAmount)
+                    {{-- "Order total", not "buyer paid": this is TikTok's
+                         total_amount, which an UNPAID order carries before any
+                         money has moved. A label the data does not support is
+                         the one thing this page cannot print. --}}
+                    <div class="od-paid">
+                        <span class="od-paid__k">Order total</span>
+                        <span class="od-paid__v">{{ $money($totalAmount) }}</span>
+                    </div>
+                    @endif
+                    @if($shippingFee)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Shipping fee</span>
+                        <span class="od-ledger__v">{{ $money($shippingFee) }}</span>
+                    </div>
+                    @endif
+                    @if($sellerDiscount)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Seller discount</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs((float) $sellerDiscount)) }}</span>
+                    </div>
+                    @endif
+                    @if($platformDiscount)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Platform discount</span>
+                        <span class="od-ledger__v od-neg">-{{ $money(abs((float) $platformDiscount)) }}</span>
+                    </div>
+                    @endif
+                    @if(!$totalAmount && !$shippingFee && !$sellerDiscount && !$platformDiscount)
+                    <p class="od-empty">No payment figures from TikTok yet.</p>
+                    @endif
+                </div>
             </section>
 
             {{-- Raw payload. Kept from the previous version of this page: when
@@ -300,49 +348,6 @@
                             data-url="{{ route('ext.tiktok.orders.tracking', $order->id) }}">Tracking</button>
                 </div>
                 @endif
-            </section>
-
-            {{-- ============ PAYMENT ============
-                 What the buyer was charged, as TikTok reports it on the order
-                 itself. Separate from settlement below, which is what TikTok
-                 pays out, and the two answer different questions. --}}
-            <section class="od-card">
-                <div class="od-card__head">
-                    <h2 class="od-card__title">Payment</h2>
-                </div>
-                <div class="od-card__body ttd-fees">
-                    @if($totalAmount)
-                    {{-- "Order total", not "buyer paid": this is TikTok's
-                         total_amount, which an UNPAID order carries before any
-                         money has moved. A label the data does not support is
-                         the one thing this page cannot print. --}}
-                    <div class="od-paid">
-                        <span class="od-paid__k">Order total</span>
-                        <span class="od-paid__v">{{ $money($totalAmount) }}</span>
-                    </div>
-                    @endif
-                    @if($shippingFee)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Shipping fee</span>
-                        <span class="od-ledger__v">{{ $money($shippingFee) }}</span>
-                    </div>
-                    @endif
-                    @if($sellerDiscount)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Seller discount</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs((float) $sellerDiscount)) }}</span>
-                    </div>
-                    @endif
-                    @if($platformDiscount)
-                    <div class="od-ledger__row">
-                        <span class="od-ledger__k">Platform discount</span>
-                        <span class="od-ledger__v od-neg">-{{ $money(abs((float) $platformDiscount)) }}</span>
-                    </div>
-                    @endif
-                    @if(!$totalAmount && !$shippingFee && !$sellerDiscount && !$platformDiscount)
-                    <p class="od-empty">No payment figures from TikTok yet.</p>
-                    @endif
-                </div>
             </section>
 
             {{-- ============ FEES AND SETTLEMENT ============
