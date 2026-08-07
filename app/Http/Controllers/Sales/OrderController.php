@@ -81,7 +81,7 @@ class OrderController extends Controller
             $sourceLabelsMap[$opt['value']] = $opt;
         }
 
-        return view('orders.index-v2', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'sourceOptions', 'sourceLabelsMap'));
+        return view('sales.orders.index-v2', compact('orders', 'q', 'statusId', 'statuses', 'source', 'productImages', 'lazadaImages', 'sort', 'dir', 'sourceOptions', 'sourceLabelsMap'));
     }
 
     public function create()
@@ -89,7 +89,7 @@ class OrderController extends Controller
         $statuses = OrderStatus::orderBy('order_status_id')->get();
         $currencies = DB::table('currencies')->where('status', 1)->orderByDesc('is_default')->orderBy('code')->get();
 
-        return view('orders.create', compact('statuses', 'currencies'));
+        return view('sales.orders.create', compact('statuses', 'currencies'));
     }
 
     public function store(Request $request)
@@ -447,7 +447,7 @@ class OrderController extends Controller
         // from the `currencies` table rather than hardcoded.
         $defaultCurrency = \App\Models\Currency::where('is_default', 1)->first();
 
-        return view('orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees', 'payments', 'totalPaid', 'defaultCurrency'));
+        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'lazadaImages', 'marketplaceFees', 'payments', 'totalPaid', 'defaultCurrency'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -547,7 +547,7 @@ class OrderController extends Controller
         // by the new rate on save - see the currency-switch regression test
         // in OrderControllerCurrencyTest.
 
-        return view('orders.edit', compact('order', 'statuses', 'currencies', 'history', 'products', 'orderTotals'));
+        return view('sales.orders.edit', compact('order', 'statuses', 'currencies', 'history', 'products', 'orderTotals'));
     }
 
     public function update(Request $request, $id)
@@ -1265,7 +1265,7 @@ class OrderController extends Controller
             $rows = $rows->filter(fn ($r) => !$r->is_paid);
         }
 
-        return view('orders.payments_report', [
+        return view('sales.orders.payments_report', [
             'rows' => $rows,
             'filter' => $filter,
             'search' => $search,
