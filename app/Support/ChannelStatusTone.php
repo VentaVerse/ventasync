@@ -103,6 +103,28 @@ class ChannelStatusTone
             'SHIPPED_BACK_SUCCESS' => 'neutral',
         ],
 
+        // TikTok orders. Statuses arrive UPPERCASE and the keys below are
+        // exactly the seven strings TikTokOrdersPanel's own $tabStatusMap
+        // groups into tabs, plus nothing invented: anything TikTok adds later
+        // falls through to neutral and prints itself legibly.
+        //
+        // One status takes the accent, AWAITING_SHIPMENT, because it is the
+        // only one with a marketplace write behind it (Ship). Once an order
+        // is AWAITING_COLLECTION the seller has done their part and is
+        // waiting on a courier to arrive, which is the same kind of waiting
+        // as IN_TRANSIT and takes the same tone. That is a narrower spend
+        // than Lazada's three success statuses, and correctly so: Lazada
+        // genuinely has two seller steps before handover, TikTok has one.
+        'tiktok.orders' => [
+            'UNPAID'               => 'warning',
+            'AWAITING_SHIPMENT'    => 'success',
+            'AWAITING_COLLECTION'  => 'info',
+            'IN_TRANSIT'           => 'info',
+            'DELIVERED'            => 'neutral',
+            'COMPLETED'            => 'neutral',
+            'CANCELLED'            => 'danger',
+        ],
+
         // Lazada returns. Keys cover every string
         // LazadaOrderController::returns()'s own $tabStatusMap matches on,
         // including the spaced spellings Lazada sends ("return initiated"),
@@ -182,6 +204,23 @@ class ChannelStatusTone
             'DAMAGED_BY_3PL'       => 'Damaged by courier',
             'SHIPPED_BACK'         => 'On its way back',
             'SHIPPED_BACK_SUCCESS' => 'Returned to you',
+        ],
+
+        // TikTok's own constants are the marketplace's internal vocabulary
+        // ("AWAITING_COLLECTION" is a courier collecting a parcel, not a
+        // buyer collecting an order), so each one is said in the words the
+        // packing desk uses, which are the words on this channel's own
+        // sub-tabs: To Pack, To Handover. "Shipped" rather than "In transit"
+        // so the same physical state reads identically on all three
+        // channels; Shopee's SHIPPED and Lazada's SHIPPED already say it.
+        'tiktok.orders' => [
+            'UNPAID'               => 'Unpaid',
+            'AWAITING_SHIPMENT'    => 'To pack',
+            'AWAITING_COLLECTION'  => 'To hand over',
+            'IN_TRANSIT'           => 'Shipped',
+            'DELIVERED'            => 'Delivered',
+            'COMPLETED'            => 'Completed',
+            'CANCELLED'            => 'Cancelled',
         ],
 
         'lazada.returns' => [
