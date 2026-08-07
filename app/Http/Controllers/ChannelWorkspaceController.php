@@ -10,6 +10,14 @@ class ChannelWorkspaceController extends Controller
     public function show(Request $request, string $channel, ChannelWorkspace $workspace)
     {
         $user = $request->user();
+
+        // The URL says /integrations/venta/2; everything below this line, and
+        // everything downstream of it, speaks the colon key `venta:2`. This is
+        // the only place the two meet on the way in (ChannelWorkspace::
+        // overviewUrl is its counterpart on the way out), so the workspace
+        // resolver, StoreLink ids and OrderTab ids all keep one format.
+        $channel = ChannelWorkspace::keyFromPath($channel);
+
         $card = $workspace->card($channel, $user);
 
         // card() returns null for both an unknown channel and one the user

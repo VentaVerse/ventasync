@@ -81,7 +81,7 @@
     var markupFixed = document.getElementById('markupFixed');
     var markupPercent = document.getElementById('markupPercent');
     var searchUrl = @json(route('ext.shopee.products.search_catalog'));
-    var pushBaseUrl = @json(url('/shopee/products'));
+    var pushBaseUrl = @json(url('/integrations/shopee/products'));
     var debounceTimer = null;
 
     if (!searchInput || !resultsDiv || !hiddenId || !btn) return;

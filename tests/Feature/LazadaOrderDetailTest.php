@@ -178,7 +178,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
 
@@ -201,7 +201,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
 
@@ -268,7 +268,7 @@ class LazadaOrderDetailTest extends TestCase
             'raw' => ['order_number' => 'LZ-EMPTY-000001', 'statuses' => ['pending']],
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
         $response->assertSee('No items synced yet. Items will be fetched on the next order sync.');
@@ -324,7 +324,7 @@ class LazadaOrderDetailTest extends TestCase
             'raw' => ['item_price' => 500.00, 'paid_price' => 480.00],
         ]);
 
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
         $response->assertSee('No fee data yet.');
@@ -342,12 +342,12 @@ class LazadaOrderDetailTest extends TestCase
         $order = $this->order();
         $refreshUrl = route('ext.lazada.orders.show', ['orderId' => $order->order_id, 'refresh' => 1]);
 
-        $asManager = $this->actingAs($this->manager())->get('/lazada/orders/'.$order->order_id);
+        $asManager = $this->actingAs($this->manager())->get('/integrations/lazada/orders/'.$order->order_id);
         $asManager->assertOk();
         $asManager->assertSee($refreshUrl, false);
         $asManager->assertSee('Refresh from Lazada');
 
-        $asViewer = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $asViewer = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
         $asViewer->assertOk();
         $asViewer->assertDontSee($refreshUrl, false);
         $asViewer->assertDontSee('Refresh from Lazada');
@@ -367,7 +367,7 @@ class LazadaOrderDetailTest extends TestCase
         // (a stored PDF and a courier lookup change nothing), so the viewer
         // keeps them. That is the previous page's behaviour too: it offered
         // both to everyone.
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertSee(route('ext.lazada.orders.awb', ['orderId' => $order->order_id]), false);
         $response->assertSee('btnLzLogistics', false);
@@ -379,7 +379,7 @@ class LazadaOrderDetailTest extends TestCase
         $order = $this->order();
 
         $denied = $this->actingAs($this->viewer())
-            ->postJson('/lazada/orders/'.$order->order_id.'/rts');
+            ->postJson('/integrations/lazada/orders/'.$order->order_id.'/rts');
 
         $denied->assertStatus(403);
         $denied->assertJson(['error' => 'permission_denied']);
@@ -395,7 +395,7 @@ class LazadaOrderDetailTest extends TestCase
         // means the gate let this user through, where the read tier above
         // never reached it.
         $allowed = $this->actingAs($this->manager())
-            ->postJson('/lazada/orders/'.$order->order_id.'/rts');
+            ->postJson('/integrations/lazada/orders/'.$order->order_id.'/rts');
 
         $allowed->assertStatus(302);
         $allowed->assertSessionHas('lazada_orders_last_result.ok', false);
@@ -443,7 +443,7 @@ class LazadaOrderDetailTest extends TestCase
         Http::fake();
 
         // No `?refresh` at all: the hole this finding named specifically.
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
         Http::assertNothingSent();
@@ -467,7 +467,7 @@ class LazadaOrderDetailTest extends TestCase
             '*' => Http::response([], 200),
         ]);
 
-        $response = $this->actingAs($this->manager())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->manager())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
         Http::assertSent(fn ($request) => str_contains($request->url(), '/order/get'));
@@ -478,7 +478,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order('delivered', ['order_id' => 'LZ-DETAIL-0002']);
 
-        $response = $this->actingAs($this->manager())->get('/lazada/orders/'.$order->order_id);
+        $response = $this->actingAs($this->manager())->get('/integrations/lazada/orders/'.$order->order_id);
 
         $response->assertOk();
         $response->assertDontSee('confirm(', false);
@@ -494,7 +494,7 @@ class LazadaOrderDetailTest extends TestCase
     {
         $order = $this->order();
 
-        $response = $this->actingAs($this->viewer())->get('/lazada/orders');
+        $response = $this->actingAs($this->viewer())->get('/integrations/lazada/orders');
 
         $response->assertOk();
         // The stopgap is retired: the order number opens the detail page in

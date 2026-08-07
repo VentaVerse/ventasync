@@ -306,7 +306,7 @@ class IntegrationController extends Controller
                     // is store-scoped and a storeless key has nothing to
                     // show.
                     'enterUrl' => ($hasWorkspace && $entry['workspaceKey'] !== null)
-                        ? route('integrations.workspace', ['channel' => $entry['workspaceKey']])
+                        ? \App\Support\ChannelWorkspace::overviewUrl($entry['workspaceKey'])
                         : route('integrations.module', ['module' => $baseId]),
                     'actionLabel' => $ordersUrl ? 'View orders' : null,
                     'actionUrl' => $ordersUrl,

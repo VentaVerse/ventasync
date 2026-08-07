@@ -121,6 +121,43 @@ class ChannelWorkspace
     }
 
     /**
+     * A workspace key in URL form: `venta:2` -> `venta/2`, `shopee` -> `shopee`.
+     *
+     * IA migration (2026-08-08, Task 2), spec decision 3. The colon key is
+     * this application's internal identity for a store workspace - StoreLink
+     * ids, OrderTab ids, the hub's `channel=` parameter and everything
+     * parseKey() reads all speak it, and none of that changes. The URL is the
+     * one place it does not belong: an address bar is a navigation trail, and
+     * `venta:2` reads as a scheme, not as a store inside a channel.
+     *
+     * So the translation lives here, at the single boundary between the two,
+     * rather than as a str_replace scattered over four call sites that would
+     * drift apart the first time one of them was missed.
+     */
+    public static function pathKey(string $key): string
+    {
+        return str_replace(':', '/', $key);
+    }
+
+    /** Inverse of pathKey(): the URL form back to the internal colon key. */
+    public static function keyFromPath(string $path): string
+    {
+        return str_replace('/', ':', $path);
+    }
+
+    /**
+     * The workspace Overview URL for a colon key.
+     *
+     * Every caller that links to a seller center goes through this, so no
+     * caller has to remember that the URL and the key differ. Route NAME is
+     * unchanged (frozen); only the generated path shape moved.
+     */
+    public static function overviewUrl(string $key): string
+    {
+        return route('integrations.workspace', ['channel' => self::pathKey($key)]);
+    }
+
+    /**
      * Split a workspace key into its channel id and its optional store id.
      *
      * Deliberately strict. The store id reaches a database lookup and a

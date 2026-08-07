@@ -134,9 +134,12 @@ class Navigation
                     // OpenCart would otherwise get two identical entries.
                     if ($card->stores !== []) {
                         foreach ($card->stores as $store) {
+                            // The URL carries the store in slash grammar
+                            // (`venta/2`); $store->id stays the colon key
+                            // everywhere else. See ChannelWorkspace::pathKey().
                             $items[] = ['label' => $card->name.' '.$store->label,
                                         'route' => 'integrations.workspace',
-                                        'params' => ['channel' => $store->id],
+                                        'params' => ['channel' => ChannelWorkspace::pathKey($store->id)],
                                         'keywords' => [$card->id, $store->label, 'seller center', 'orders', 'store']];
                         }
                         continue;

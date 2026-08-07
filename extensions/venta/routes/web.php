@@ -12,13 +12,28 @@ use Illuminate\Support\Facades\Route;
 // grants access). Display GETs only.
 // Write routes — gated by 'manage_venta' (or 'manage_venta_orders').
 
-// ── Venta Settings + Catalog — READ ─────────────────────────────
-Route::middleware(['auth', 'perm:view_venta|manage_venta'])->group(function () {
+// IA migration (2026-08-08, Task 2), spec decision 3. Venta is multi-store, so
+// its URIs use SLASH grammar under the workspace root: the store is a path
+// segment directly beneath the channel, and everything for that store hangs
+// off it. /integrations/venta/2/orders reads as "Venta, store 2, orders".
+//
+// Two shapes changed beyond gaining the prefix:
+//   /venta/settings/{store}  ->  /integrations/venta/{store}/settings
+//        the store scopes the page, so it belongs ahead of what it scopes;
+//        the old order put the noun before the thing it belonged to.
+//   /venta                   ->  /integrations/venta/settings
+//        a bare /integrations/venta is the workspace Overview, registered in
+//        routes/web.php ahead of every extension route, so this redirect-to-
+//        first-store fallback needs a segment of its own to stay reachable.
+//
+// Route NAMES are unchanged throughout. Venta has no OAuth surface: it
+// authenticates with a stored API token, so nothing here is exempt.
+Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('integrations')->group(function () {
     // Settings (renders the screen; per-store config is loaded into a form)
-    Route::get('/venta/settings/{store}', [VentaController::class, 'showSettings'])->name('ext.venta.settings.show');
+    Route::get('/venta/{store}/settings', [VentaController::class, 'showSettings'])->name('ext.venta.settings.show');
 
     // Legacy / fallback (redirect to first enabled store) — pure navigation
-    Route::get('/venta', [VentaController::class, 'index'])->name('ext.venta.index');
+    Route::get('/venta/settings', [VentaController::class, 'index'])->name('ext.venta.index');
 
     // Product Groups — read-only list + edit-form RENDER (GETs)
     Route::get('/venta/{store}/product-groups', [VentaProductGroupController::class, 'index'])->name('ext.venta.product-groups.index');
@@ -30,7 +45,7 @@ Route::middleware(['auth', 'perm:view_venta|manage_venta'])->group(function () {
 });
 
 // ── Venta Settings + Catalog — WRITES ───────────────────────────
-Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
+Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(function () {
     // "Add New Store" modal target — creates a row with name + base_url only.
     Route::post('/venta/stores', [VentaController::class, 'createStore'])->name('ext.venta.stores.store');
 
@@ -69,19 +84,19 @@ Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
 });
 
 // ── Venta Orders — READ ─────────────────────────────────────────
-Route::middleware(['auth', 'perm:view_venta_orders|manage_venta_orders'])->group(function () {
+Route::middleware(['auth', 'perm:view_venta_orders|manage_venta_orders'])->prefix('integrations')->group(function () {
     Route::get('/venta/{store}/orders', [VentaOrderController::class, 'index'])->name('ext.venta.orders.index');
 });
 
 // ── Venta Orders — WRITES ───────────────────────────────────────
-Route::middleware(['auth', 'perm:manage_venta_orders'])->group(function () {
+Route::middleware(['auth', 'perm:manage_venta_orders'])->prefix('integrations')->group(function () {
     Route::post('/venta/{store}/orders/fetch', [VentaOrderController::class, 'fetch'])->name('ext.venta.orders.fetch');
     Route::delete('/venta/{store}/orders/{order}', [VentaOrderController::class, 'destroy'])->name('ext.venta.orders.destroy');
     Route::post('/venta/{store}/orders/bulk-delete', [VentaOrderController::class, 'bulkDelete'])->name('ext.venta.orders.bulk_delete');
 });
 
 // Venta Reviews (push marketplace reviews to Venta stores) — write tier
-Route::middleware(['auth', 'perm:manage_venta'])->group(function () {
+Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(function () {
     Route::post('/venta/reviews/{id}/push', [VentaReviewController::class, 'push'])->name('ext.venta.reviews.push')->whereNumber('id');
     Route::post('/venta/reviews/push-all', [VentaReviewController::class, 'pushAll'])->name('ext.venta.reviews.push_all');
 });

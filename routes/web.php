@@ -36,14 +36,29 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::get('/integrations/orders', [IntegrationController::class, 'orders'])->name('integrations.orders');
 
-    // Registered after integrations/orders on purpose: integrations/{channel}
-    // is a wildcard and would otherwise capture it.
-    Route::get('/integrations/{channel}', [ChannelWorkspaceController::class, 'show'])
-        ->name('integrations.workspace');
-
     Route::get('/integrations/module/{module}', [IntegrationController::class, 'module'])
         ->where('module', '[A-Za-z0-9_:-]+')
         ->name('integrations.module');
+
+    // Registered after integrations/orders and integrations/module on purpose:
+    // this is a wildcard and would otherwise capture both.
+    //
+    // IA migration (2026-08-08, Task 2), spec decision 3: a multi-store
+    // channel's workspace is addressed in SLASH grammar, /integrations/venta/2,
+    // while the key that identifies it everywhere inside the application stays
+    // colon-form (`venta:2`, the same string StoreLink and OrderTab ids use).
+    // The optional /{digits} tail is what lets one route serve both shapes;
+    // ChannelWorkspaceController::show translates the path back to a key.
+    //
+    // The digits are load-bearing, not decoration. Every channel page moved
+    // under /integrations/{channel}/… in this task, and this route is
+    // registered BEFORE any of them (core routes load ahead of extension
+    // providers). Requiring the second segment to be numeric is what stops
+    // this wildcard from swallowing /integrations/shopee/orders and turning
+    // every seller center page into a workspace Overview.
+    Route::get('/integrations/{channel}', [ChannelWorkspaceController::class, 'show'])
+        ->where('channel', '[A-Za-z0-9_.-]+(?:/[0-9]+)?')
+        ->name('integrations.workspace');
 
     // Universal admin scheduler — Automations tab on each integration
     // settings page POSTs here. The route is shared across integrations

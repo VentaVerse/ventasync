@@ -201,7 +201,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $user = $this->tiktokOrdersOnlyOperator();
 
-        $response = $this->actingAs($user)->get('/tiktok/orders');
+        $response = $this->actingAs($user)->get('/integrations/tiktok/orders');
 
         $response->assertOk();
         $response->assertSee('x-cnav', false);
@@ -217,7 +217,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $user = $this->tiktokOrdersOnlyOperator();
 
-        $response = $this->actingAs($user)->get('/tiktok/orders');
+        $response = $this->actingAs($user)->get('/integrations/tiktok/orders');
 
         $response->assertOk();
 
@@ -234,10 +234,10 @@ class TiktokWorkspaceTest extends TestCase
     public static function tiktokPageProvider(): array
     {
         return [
-            'orders' => ['/tiktok/orders'],
-            'product groups' => ['/tiktok/product-groups'],
-            'categories' => ['/tiktok/categories'],
-            'settings' => ['/tiktok'],
+            'orders' => ['/integrations/tiktok/orders'],
+            'product groups' => ['/integrations/tiktok/product-groups'],
+            'categories' => ['/integrations/tiktok/categories'],
+            'settings' => ['/integrations/tiktok/settings'],
         ];
     }
 
@@ -302,7 +302,7 @@ class TiktokWorkspaceTest extends TestCase
      */
     public function test_the_seller_center_shows_no_other_marketplace(): void
     {
-        $response = $this->actingAs($this->tiktokOperator())->get('/tiktok/categories');
+        $response = $this->actingAs($this->tiktokOperator())->get('/integrations/tiktok/categories');
 
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
@@ -316,7 +316,7 @@ class TiktokWorkspaceTest extends TestCase
      */
     public function test_the_orders_page_shows_no_other_marketplace(): void
     {
-        $response = $this->actingAs($this->tiktokOperator())->get('/tiktok/orders');
+        $response = $this->actingAs($this->tiktokOperator())->get('/integrations/tiktok/orders');
 
         $response->assertOk();
         $response->assertDontSee('All marketplaces');
@@ -343,7 +343,7 @@ class TiktokWorkspaceTest extends TestCase
         $tiktok = collect($channels['items'])->firstWhere('label', 'TikTok Shop');
         $this->assertSame('integrations.workspace', $tiktok['route']);
         $this->assertSame(
-            route('integrations.workspace', ['channel' => 'tiktok']),
+            ChannelWorkspace::overviewUrl('tiktok'),
             route($tiktok['route'], $tiktok['params'])
         );
     }
@@ -355,7 +355,10 @@ class TiktokWorkspaceTest extends TestCase
         $this->actingAs($user)
             ->get('/integrations')
             ->assertOk()
-            ->assertSee(route('integrations.workspace', ['channel' => 'tiktok']), false);
+            // Quoted href, not a bare URL: /integrations/tiktok is a prefix
+            // of every page beneath it since the IA migration's Task 2, so a
+            // substring test would pass on any of them.
+            ->assertSee('href="'.e(ChannelWorkspace::overviewUrl('tiktok')).'"', false);
     }
 
     // ------------------------------------------------------------------
@@ -440,7 +443,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/integrations/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee('id="btnFetchOrders"', false);
@@ -465,7 +468,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/integrations/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         // Guards the premise: the awaiting-shipment row IS on this page, so
@@ -492,7 +495,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/integrations/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee(e(route('ext.tiktok.orders.awb', $ids['AWAITING_COLLECTION'])), false);
@@ -510,7 +513,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/integrations/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         foreach (['UNPAID', 'CANCELLED'] as $status) {
@@ -575,7 +578,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/integrations/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee('To pack');
@@ -602,12 +605,12 @@ class TiktokWorkspaceTest extends TestCase
 
         $manager = $this->tiktokManager();
 
-        $toPack = $this->actingAs($manager)->get('/tiktok/orders?tab=TO_SHIP&pending_sub=to_pack');
+        $toPack = $this->actingAs($manager)->get('/integrations/tiktok/orders?tab=TO_SHIP&pending_sub=to_pack');
         $toPack->assertOk();
         $toPack->assertSee($packNumber);
         $toPack->assertDontSee($handoverNumber);
 
-        $toHandover = $this->actingAs($manager)->get('/tiktok/orders?tab=TO_SHIP&pending_sub=to_handover');
+        $toHandover = $this->actingAs($manager)->get('/integrations/tiktok/orders?tab=TO_SHIP&pending_sub=to_handover');
         $toHandover->assertOk();
         $toHandover->assertSee($handoverNumber);
         $toHandover->assertDontSee($packNumber);
@@ -625,7 +628,7 @@ class TiktokWorkspaceTest extends TestCase
     {
         $ids = $this->seedOrderPerStatus();
 
-        $response = $this->actingAs($this->tiktokManager())->get('/tiktok/orders?tab=ALL');
+        $response = $this->actingAs($this->tiktokManager())->get('/integrations/tiktok/orders?tab=ALL');
 
         $response->assertOk();
         $response->assertSee(

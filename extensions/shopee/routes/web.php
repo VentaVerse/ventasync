@@ -24,13 +24,48 @@ use Illuminate\Support\Facades\Route;
 // ShopeeExtension::handleRootRoute() RootRouteHandler hook (Shopee requires
 // a domain-level redirect URI). That dispatch is outside this auth-gated
 // block by design.
-Route::middleware(['auth'])->group(function () {
+//
+// ── OAUTH SURFACES: EXEMPT FROM THE /integrations PREFIX ────────────────
+//
+// IA migration (2026-08-08, Task 2). Every other page in this file moved
+// under /integrations/shopee/… so the address bar names the seller center
+// the operator is standing in. These two did not, and must not:
+//
+//   /shopee            ext.shopee.index      ShopeeController::
+//                                            computedRedirectUri() returns
+//                                            route('ext.shopee.index'), and
+//                                            that exact string is registered
+//                                            as the redirect URI in the
+//                                            Shopee Open Platform console.
+//                                            Shopee redirects the merchant's
+//                                            browser here after consent.
+//                                            Moving it breaks live OAuth for
+//                                            every install until each seller
+//                                            re-registers by hand.
+//   /shopee/authorize  ext.shopee.authorize  the consent-flow entry point,
+//                                            exempted with its callback per
+//                                            the migration ledger's
+//                                            pre-dispatch constraint.
+//
+// A 301 does not rescue these: the URL is a value compared byte-for-byte at
+// the marketplace, not a link a browser follows. They keep their URIs
+// permanently, which is the documented exception to the workspace-context
+// rule, not a step still to be done.
+Route::middleware(['auth', 'perm:view_shopee|manage_shopee'])->group(function () {
+    Route::get('/shopee', [ShopeeController::class, 'index'])->name('ext.shopee.index');
+});
+
+Route::middleware(['auth', 'perm:manage_shopee'])->group(function () {
+    Route::get('/shopee/authorize', [ShopeeController::class, 'redirectToShopeeAuth'])->name('ext.shopee.authorize');
+});
+
+// Everything below moves under /integrations. Route NAMES are unchanged; the
+// `/shopee/…` literals inside the group are now the channel segment beneath
+// that prefix, so `/shopee/orders` reads as `/integrations/shopee/orders`.
+Route::middleware(['auth'])->prefix('integrations')->group(function () {
 
     // ── Shopee Settings + Catalog management ────────────────────
     Route::middleware(['perm:view_shopee|manage_shopee'])->group(function () {
-        // Settings page (renders the screen, no writes)
-        Route::get('/shopee', [ShopeeController::class, 'index'])->name('ext.shopee.index');
-
         // Catalog browsing (lists, search)
         Route::get('/shopee/categories', [ShopeeCategoryController::class, 'index'])->name('ext.shopee.categories.index');
         Route::get('/shopee/categories/{id}/attributes', [ShopeeCategoryAttributeController::class, 'show'])->name('ext.shopee.categories.attributes.show');
@@ -53,8 +88,8 @@ Route::middleware(['auth'])->group(function () {
 
     // ── Shopee Settings + Catalog WRITES ────────────────────────
     Route::middleware(['perm:manage_shopee'])->group(function () {
-        // OAuth / token / mode
-        Route::get('/shopee/authorize', [ShopeeController::class, 'redirectToShopeeAuth'])->name('ext.shopee.authorize');
+        // OAuth / token / mode. ext.shopee.authorize is NOT here: it is one of
+        // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/shopee/save', [ShopeeController::class, 'save'])->name('ext.shopee.save');
         Route::post('/shopee/toggle-mode', [ShopeeController::class, 'toggleMode'])->name('ext.shopee.toggle_mode');
         Route::post('/shopee/auth-url', [ShopeeController::class, 'buildAuthUrl'])->name('ext.shopee.auth_url');

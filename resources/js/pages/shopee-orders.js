@@ -309,11 +309,18 @@ document.addEventListener('DOMContentLoaded', function () {
             btnShipConfirm.disabled = false;
         }
 
+        // The three Shopee order URLs below are hardcoded paths, not values
+        // handed down from a route() call, so they do NOT follow the routes
+        // file when it moves. They were updated with it in the IA migration's
+        // Task 2 (2026-08-08) and must be updated with it again next time:
+        // the ship POST in particular cannot be rescued by a 301, which drops
+        // the request body. Worth lifting onto data-attributes when this file
+        // is next touched for its own reasons.
         document.querySelectorAll('.btnArrangeShipment').forEach(function (el) {
             el.addEventListener('click', function () {
                 currentShipOrderSn = el.getAttribute('data-order-sn');
                 shipOrderSnEl.textContent = currentShipOrderSn;
-                shipForm.action = '/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
+                shipForm.action = '/integrations/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/ship';
                 shipResetModal();
                 shipModal.style.display = 'flex';
             });
@@ -328,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 show(shipStep2Loading);
                 hide(shipStep2Content);
 
-                fetch('/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
+                fetch('/integrations/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/shipping-addresses', {
                     headers: { 'Accept': 'application/json' }
                 })
                 .then(function (r) { return r.json(); })
@@ -407,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('spLoadingTitle').textContent = 'Generating AWB…';
                 }
 
-                var awbUrl = '/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/awb';
+                var awbUrl = '/integrations/shopee/orders/' + encodeURIComponent(currentShipOrderSn) + '/awb';
                 var awbAttempts = 0;
                 var maxAttempts = 20;
 

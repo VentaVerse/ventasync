@@ -135,6 +135,22 @@ class MultistoreWorkspaceTest extends TestCase
             : [$this->storeId('opencart', 'Parts Yard'), $this->storeId('opencart', 'Cable Loft')];
     }
 
+    /**
+     * The Overview link as it appears in the markup, href and quotes included.
+     *
+     * A bare URL substring stopped being evidence once the IA migration
+     * (2026-08-08, Task 2) put the store workspace at /integrations/venta/2:
+     * that string is now a PREFIX of /integrations/venta/2/orders, so
+     * "contains the Overview URL" is satisfied by any sidebar link on the
+     * page and "does not contain it" could never be true. Matching the whole
+     * attribute keeps both directions honest, the same way the board
+     * assertion further down already did.
+     */
+    private function overviewHref(string $key): string
+    {
+        return 'href="'.e(ChannelWorkspace::overviewUrl($key)).'"';
+    }
+
     private function card(string $channel): IntegrationCard
     {
         foreach (app(IntegrationRegistry::class)->all() as $provider) {
@@ -407,7 +423,7 @@ class MultistoreWorkspaceTest extends TestCase
         foreach ($card->stores as $store) {
             $storeId = (int) substr($store->id, strpos($store->id, ':') + 1);
 
-            $response = $this->actingAs($user)->get('/integrations/'.$store->id);
+            $response = $this->actingAs($user)->get('/integrations/'.ChannelWorkspace::pathKey($store->id));
 
             $response->assertOk();
             $response->assertSee($store->label);
@@ -432,7 +448,7 @@ class MultistoreWorkspaceTest extends TestCase
         [$firstStore, $secondStore] = $card->stores;
         [$first, $second] = $this->storeIds($channel);
 
-        $response = $this->actingAs($this->operator($channel))->get('/integrations/'.$firstStore->id);
+        $response = $this->actingAs($this->operator($channel))->get('/integrations/'.ChannelWorkspace::pathKey($firstStore->id));
 
         $response->assertOk();
 
@@ -441,7 +457,7 @@ class MultistoreWorkspaceTest extends TestCase
         // Guards the premise: this IS the first store's page.
         $this->assertStringContainsString($firstStore->label, $chrome);
         $this->assertStringContainsString(
-            e(route('integrations.workspace', ['channel' => $channel.':'.$first])),
+            $this->overviewHref($channel.':'.$first),
             $chrome
         );
 
@@ -453,7 +469,7 @@ class MultistoreWorkspaceTest extends TestCase
 
         // And the sibling's Overview is not reachable from here either.
         $this->assertStringNotContainsString(
-            e(route('integrations.workspace', ['channel' => $channel.':'.$second])),
+            $this->overviewHref($channel.':'.$second),
             $chrome
         );
     }
@@ -479,7 +495,7 @@ class MultistoreWorkspaceTest extends TestCase
 
         [$first] = $this->storeIds('opencart');
 
-        $response = $this->actingAs($user)->get('/integrations/opencart:'.$first);
+        $response = $this->actingAs($user)->get('/integrations/opencart/'.$first);
 
         $response->assertOk();
         $response->assertDontSee(e(route('ext.opencart.reviews.index')), false);
@@ -544,13 +560,13 @@ class MultistoreWorkspaceTest extends TestCase
         // a real single-store one, so every 404 below is about the key and
         // not about the user. The Shopee half is what makes the suffix case
         // a statement about the suffix rather than about an absent card.
-        $this->actingAs($user)->get('/integrations/venta:'.$ventaStore)->assertOk();
-        $this->actingAs($user)->get('/integrations/opencart:'.$opencartStore)->assertOk();
+        $this->actingAs($user)->get('/integrations/venta/'.$ventaStore)->assertOk();
+        $this->actingAs($user)->get('/integrations/opencart/'.$opencartStore)->assertOk();
         $this->actingAs($user)->get('/integrations/shopee')->assertOk();
 
         foreach ($this->keysThatMustNotResolve($ventaStore, $opencartStore) as $name => $key) {
             $this->actingAs($user)
-                ->get('/integrations/'.$key)
+                ->get('/integrations/'.ChannelWorkspace::pathKey($key))
                 ->assertNotFound('Expected '.$name.' ('.$key.') to be not found.');
         }
     }
@@ -563,9 +579,9 @@ class MultistoreWorkspaceTest extends TestCase
     private function pagesFor(string $channel, int $storeId): array
     {
         return [
-            'orders' => '/'.$channel.'/'.$storeId.'/orders',
-            'product groups' => '/'.$channel.'/'.$storeId.'/product-groups',
-            'settings' => '/'.$channel.'/settings/'.$storeId,
+            'orders' => '/integrations/'.$channel.'/'.$storeId.'/orders',
+            'product groups' => '/integrations/'.$channel.'/'.$storeId.'/product-groups',
+            'settings' => '/integrations/'.$channel.'/'.$storeId.'/settings',
         ];
     }
 
@@ -638,7 +654,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertTrue($user->hasPermission('view_'.$channel.'_orders'));
         $this->assertFalse($user->hasPermission('view_'.$channel));
 
-        $this->actingAs($user)->get('/integrations/'.$channel.':'.$first)->assertNotFound();
+        $this->actingAs($user)->get('/integrations/'.$channel.'/'.$first)->assertNotFound();
     }
 
     /**
@@ -653,7 +669,7 @@ class MultistoreWorkspaceTest extends TestCase
         [$first] = $this->storeIds($channel);
 
         $response = $this->actingAs($this->ordersOnlyOperator($channel))
-            ->get('/'.$channel.'/'.$first.'/orders');
+            ->get('/integrations/'.$channel.'/'.$first.'/orders');
 
         $response->assertOk();
         $response->assertSee('x-cnav', false);
@@ -668,7 +684,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertStringNotContainsString(route('ext.'.$channel.'.product-groups.index', ['store' => $first]), $chrome);
         $this->assertStringNotContainsString(route('ext.'.$channel.'.settings.show', ['store' => $first]), $chrome);
         $this->assertStringNotContainsString(
-            route('integrations.workspace', ['channel' => $channel.':'.$first]),
+            $this->overviewHref($channel.':'.$first),
             $chrome
         );
     }
@@ -684,19 +700,19 @@ class MultistoreWorkspaceTest extends TestCase
         [$first, $second] = $this->storeIds($channel);
 
         $response = $this->actingAs($this->operator($channel))
-            ->get('/'.$channel.'/'.$first.'/orders');
+            ->get('/integrations/'.$channel.'/'.$first.'/orders');
 
         $response->assertOk();
 
         $chrome = $this->visibleChrome($response->getContent());
 
         $this->assertStringContainsString(
-            route('integrations.workspace', ['channel' => $channel.':'.$first]),
+            $this->overviewHref($channel.':'.$first),
             $chrome
         );
         // And it is THIS store's Overview, not the sibling's.
         $this->assertStringNotContainsString(
-            route('integrations.workspace', ['channel' => $channel.':'.$second]),
+            $this->overviewHref($channel.':'.$second),
             $chrome
         );
     }
@@ -710,11 +726,11 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertFalse($user->hasPermission('view_'.$channel));
         $this->assertFalse($user->hasPermission('view_'.$channel.'_orders'));
 
-        $this->actingAs($user)->get('/integrations/'.$channel.':'.$first)->assertNotFound();
+        $this->actingAs($user)->get('/integrations/'.$channel.'/'.$first)->assertNotFound();
 
         // The orders route's own perm: middleware denies before any view
         // renders, so this is a redirect rather than a 404.
-        $this->actingAs($user)->get('/'.$channel.'/'.$first.'/orders')->assertRedirect();
+        $this->actingAs($user)->get('/integrations/'.$channel.'/'.$first.'/orders')->assertRedirect();
     }
 
     // ------------------------------------------------------------------
@@ -739,7 +755,7 @@ class MultistoreWorkspaceTest extends TestCase
             $this->assertNotNull($entry, 'The nav has no entry for '.$label);
             $this->assertSame('integrations.workspace', $entry['route']);
             $this->assertSame(
-                route('integrations.workspace', ['channel' => $store->id]),
+                ChannelWorkspace::overviewUrl($store->id),
                 route($entry['route'], $entry['params'])
             );
         }
@@ -758,13 +774,13 @@ class MultistoreWorkspaceTest extends TestCase
         $response->assertOk();
 
         foreach ($card->stores as $store) {
-            $response->assertSee(e(route('integrations.workspace', ['channel' => $store->id])), false);
+            $response->assertSee($this->overviewHref($store->id), false);
         }
 
         // And never the storeless key, which 404s. Quoted, because
-        // /integrations/venta is a prefix of /integrations/venta:2 and a bare
+        // /integrations/venta is a prefix of /integrations/venta/2 and a bare
         // substring test could never fail.
-        $response->assertDontSee('href="'.e(route('integrations.workspace', ['channel' => $channel])).'"', false);
+        $response->assertDontSee($this->overviewHref($channel), false);
     }
 
     // ------------------------------------------------------------------
@@ -855,7 +871,7 @@ class MultistoreWorkspaceTest extends TestCase
         $user = $this->ordersManager($channel);
 
         foreach ($this->storeIds($channel) as $storeId) {
-            $response = $this->actingAs($user)->get('/'.$channel.'/'.$storeId.'/orders');
+            $response = $this->actingAs($user)->get('/integrations/'.$channel.'/'.$storeId.'/orders');
 
             $response->assertOk();
             // The panel's own root, which is also what the page CSS and (for
@@ -887,7 +903,7 @@ class MultistoreWorkspaceTest extends TestCase
         [$first] = $this->storeIds($channel);
 
         $response = $this->actingAs($this->operator($channel))
-            ->get('/'.$channel.'/'.$first.'/orders');
+            ->get('/integrations/'.$channel.'/'.$first.'/orders');
 
         $response->assertOk();
 
@@ -923,7 +939,7 @@ class MultistoreWorkspaceTest extends TestCase
         $theirs = $this->ventaOrder($second, 'Bazaar Buyer', 'Pending');
 
         $response = $this->actingAs($this->ordersManager('venta'))
-            ->get('/venta/'.$first.'/orders');
+            ->get('/integrations/venta/'.$first.'/orders');
 
         $response->assertOk();
 
@@ -949,7 +965,7 @@ class MultistoreWorkspaceTest extends TestCase
         $theirsId = $this->opencartOrder($second, 'Loftus', 'OC-LOFT-1');
 
         $response = $this->actingAs($this->ordersManager('opencart'))
-            ->get('/opencart/'.$first.'/orders');
+            ->get('/integrations/opencart/'.$first.'/orders');
 
         $response->assertOk();
 
@@ -987,7 +1003,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertTrue($manager->hasPermission('manage_venta_orders'));
         $this->assertFalse($viewer->hasPermission('manage_venta_orders'));
 
-        $managerView = $this->actingAs($manager)->get('/venta/'.$first.'/orders');
+        $managerView = $this->actingAs($manager)->get('/integrations/venta/'.$first.'/orders');
         $managerView->assertOk();
         $managerView->assertSee('id="formFetchVentaOrders"', false);
         $managerView->assertSee(e(route('ext.venta.orders.fetch', ['store' => $first])), false);
@@ -996,7 +1012,7 @@ class MultistoreWorkspaceTest extends TestCase
         // than a native dialog.
         $managerView->assertSee('data-confirm=', false);
 
-        $viewerView = $this->actingAs($viewer)->get('/venta/'.$first.'/orders');
+        $viewerView = $this->actingAs($viewer)->get('/integrations/venta/'.$first.'/orders');
         $viewerView->assertOk();
         $viewerView->assertDontSee('id="formFetchVentaOrders"', false);
         $viewerView->assertDontSee(e(route('ext.venta.orders.bulk_delete', ['store' => $first])), false);
@@ -1015,14 +1031,14 @@ class MultistoreWorkspaceTest extends TestCase
         $manager = $this->ordersManager('opencart');
         $viewer = $this->operator('opencart');
 
-        $managerView = $this->actingAs($manager)->get('/opencart/'.$first.'/orders');
+        $managerView = $this->actingAs($manager)->get('/integrations/opencart/'.$first.'/orders');
         $managerView->assertOk();
         $managerView->assertDontSee('x-cmdbar', false);
         $managerView->assertSee('href="'.e(route('orders.edit', $orderId)).'"', false);
         $managerView->assertSee('data-confirm=', false);
 
         // The read tier gets the list and no writes at all.
-        $viewerView = $this->actingAs($viewer)->get('/opencart/'.$first.'/orders');
+        $viewerView = $this->actingAs($viewer)->get('/integrations/opencart/'.$first.'/orders');
         $viewerView->assertOk();
         $viewerView->assertDontSee('x-cmdbar', false);
         $viewerView->assertDontSee('href="'.e(route('orders.edit', $orderId)).'"', false);
@@ -1038,7 +1054,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->ventaOrder($first, 'Depot Buyer', 'Pending');
 
         $response = $this->actingAs($this->ordersManager('venta'))
-            ->get('/venta/'.$first.'/orders');
+            ->get('/integrations/venta/'.$first.'/orders');
 
         $response->assertOk();
 

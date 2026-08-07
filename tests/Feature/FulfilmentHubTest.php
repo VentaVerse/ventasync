@@ -212,7 +212,7 @@ class FulfilmentHubTest extends TestCase
     {
         $user = $this->shopeeOperator();
 
-        $response = $this->actingAs($user)->get('/shopee/orders');
+        $response = $this->actingAs($user)->get('/integrations/shopee/orders');
 
         $response->assertOk();
         $response->assertDontSee('x-fh-strip', false);

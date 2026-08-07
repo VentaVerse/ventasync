@@ -9,11 +9,26 @@ use Extensions\lazada\Controllers\LazadaProductGroupController;
 use Extensions\lazada\Controllers\LazadaBrandController;
 use Illuminate\Support\Facades\Route;
 
+// ── OAUTH SURFACES: EXEMPT FROM THE /integrations PREFIX ────────────────
+//
+// IA migration (2026-08-08, Task 2). Every other page in this file moved
+// under /integrations/lazada/…; these two keep their URIs permanently.
+//
 // Lazada OAuth callback — must be publicly accessible so Lazada can redirect
 // back with the `code` query param. Kept outside the auth group so the code
 // isn't lost behind a login redirect. Lives in the extension (not core) so
 // removing the Lazada extension cleanly removes the route too.
+//
+// LazadaController::computedRedirectUri() returns route('lazada.callback'),
+// and that exact string is registered in the Lazada Open Platform console and
+// compared byte-for-byte on every consent round trip. A 301 cannot rescue it:
+// the value is checked, not followed. ext.lazada.authorize is exempted with
+// it per the migration ledger's pre-dispatch constraint.
 Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('lazada.callback');
+
+Route::middleware(['auth', 'perm:manage_lazada'])->group(function () {
+    Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('ext.lazada.authorize');
+});
 
 // ── Tier-aware permission map (Phase 3 of view/manage split) ────────────
 //
@@ -31,12 +46,24 @@ Route::get('/lazada/callback', [LazadaController::class, 'callback'])->name('laz
 //   - products/{id}/payload/build    → ditto, returns the built payload
 //   - search-catalog                 → GET, search index lookup
 // These are classified as READ. Everything else POST/PUT/DELETE is WRITE.
-Route::middleware(['auth'])->group(function () {
+//
+// Everything below moves under /integrations. Route NAMES are unchanged; the
+// `/lazada/…` literals inside the group are now the channel segment beneath
+// that prefix, so `/lazada/orders` reads as `/integrations/lazada/orders`.
+Route::middleware(['auth'])->prefix('integrations')->group(function () {
 
     // ── Lazada Settings + Catalog management ────────────────────
     Route::middleware(['perm:view_lazada|manage_lazada'])->group(function () {
-        // Settings page (renders the screen, no writes)
-        Route::get('/lazada', [LazadaController::class, 'index'])->name('ext.lazada.index');
+        // Settings page (renders the screen, no writes).
+        //
+        // `/lazada/settings`, not a bare `/lazada`: /integrations/lazada is
+        // the workspace Overview, registered in routes/web.php ahead of every
+        // extension route. A bare channel segment here would be dead on
+        // arrival - the Overview would answer it and this page would never be
+        // reachable. Naming the settings page explicitly is also what the
+        // slash grammar asks for, and matches Venta and OpenCart, whose
+        // settings pages have always carried the segment.
+        Route::get('/lazada/settings', [LazadaController::class, 'index'])->name('ext.lazada.index');
 
         // Catalog browsing (lists, search)
         Route::get('/lazada/products', [LazadaProductController::class, 'index'])->name('ext.lazada.products.index');
@@ -64,8 +91,8 @@ Route::middleware(['auth'])->group(function () {
 
     // ── Lazada Settings + Catalog WRITES ────────────────────────
     Route::middleware(['perm:manage_lazada'])->group(function () {
-        // OAuth / token / mode
-        Route::get('/lazada/authorize', [LazadaController::class, 'redirectToAuth'])->name('ext.lazada.authorize');
+        // OAuth / token / mode. ext.lazada.authorize is NOT here: it is one of
+        // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/lazada/save', [LazadaController::class, 'save'])->name('ext.lazada.save');
         Route::post('/lazada/toggle-mode', [LazadaController::class, 'toggleMode'])->name('ext.lazada.toggle_mode');
         Route::post('/lazada/token/create', [LazadaController::class, 'tokenCreate'])->name('ext.lazada.token_create');

@@ -11,10 +11,27 @@ use Illuminate\Support\Facades\Route;
 // Write routes — gated by 'manage_*'. Any mutation, sync, push, or marketplace
 // state change.
 
+// IA migration (2026-08-08, Task 2), spec decision 3. OpenCart is multi-store,
+// so its URIs use SLASH grammar under the workspace root: the store is a path
+// segment directly beneath the channel. /integrations/opencart/2/orders reads
+// as "OpenCart, store 2, orders".
+//
+// Two shapes changed beyond gaining the prefix, matching Venta:
+//   /opencart/settings/{store}  ->  /integrations/opencart/{store}/settings
+//   /opencart                   ->  /integrations/opencart/settings
+//        a bare /integrations/opencart is the workspace Overview, registered
+//        in routes/web.php ahead of every extension route, so this redirect-
+//        to-first-store fallback needs a segment of its own to stay reachable.
+//
+// Route NAMES are unchanged. OpenCart has no OAuth surface (it authenticates
+// with a stored API key), so nothing here is exempt. The Reviews block at the
+// bottom of this file is NOT part of this prefix: Task 1 already placed it
+// under /catalog, where its nav group puts it.
+//
 // ── OpenCart Settings + Catalog — READ ──────────────────────────
-Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->group(function () {
-    Route::get('/opencart/settings/{store}', [OpenCartController::class, 'showSettings'])->name('ext.opencart.settings.show');
-    Route::get('/opencart', [OpenCartController::class, 'index'])->name('ext.opencart.index');
+Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->prefix('integrations')->group(function () {
+    Route::get('/opencart/{store}/settings', [OpenCartController::class, 'showSettings'])->name('ext.opencart.settings.show');
+    Route::get('/opencart/settings', [OpenCartController::class, 'index'])->name('ext.opencart.index');
 
     // Product groups — read-only list + edit-form RENDER
     Route::get('/opencart/{store}/product-groups', [OpenCartProductGroupController::class, 'index'])->name('ext.opencart.product-groups.index');
@@ -24,7 +41,7 @@ Route::middleware(['auth', 'perm:view_opencart|manage_opencart'])->group(functio
 });
 
 // ── OpenCart Settings + Catalog — WRITES ────────────────────────
-Route::middleware(['auth', 'perm:manage_opencart'])->group(function () {
+Route::middleware(['auth', 'perm:manage_opencart'])->prefix('integrations')->group(function () {
     // "Add New Store" modal target — minimal create with name + base_url only.
     Route::post('/opencart/stores', [OpenCartController::class, 'createStore'])->name('ext.opencart.stores.store');
 
@@ -54,7 +71,7 @@ Route::middleware(['auth', 'perm:manage_opencart'])->group(function () {
 });
 
 // ── OpenCart Orders — READ ──────────────────────────────────────
-Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])->group(function () {
+Route::middleware(['auth', 'perm:view_opencart_orders|manage_opencart_orders'])->prefix('integrations')->group(function () {
     Route::get('/opencart/{store}/orders', [\Extensions\opencart\Controllers\OpenCartOrderController::class, 'index'])->name('ext.opencart.orders.index');
 });
 

@@ -84,7 +84,10 @@ class AppServiceProvider extends ServiceProvider
                         $channel .= ':' . $store;
                     }
                 } else {
-                    $channel = (string) request()->route('channel');
+                    // /integrations/venta/2 arrives here as `venta/2`; the key
+                    // every reader below expects is `venta:2`. Same boundary
+                    // translation ChannelWorkspaceController::show applies.
+                    $channel = ChannelWorkspace::keyFromPath((string) request()->route('channel'));
                 }
 
                 // Deliberately the ungated lookup. Every page reaching this

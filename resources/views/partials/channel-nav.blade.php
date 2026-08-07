@@ -41,7 +41,7 @@
          belongs to THIS store ("venta:2"), and the bare card id is a 404. --}}
     @if($channelHasOverview)
         <a class="x-cnav__item {{ request()->routeIs('integrations.workspace') ? 'is-active' : '' }}"
-           href="{{ route('integrations.workspace', ['channel' => $channelKey ?? $channelCard->id]) }}">
+           href="{{ \App\Support\ChannelWorkspace::overviewUrl($channelKey ?? $channelCard->id) }}">
             <x-ui.icon name="monitor" size="14" /> Overview
         </a>
     @endif

@@ -5,8 +5,23 @@ use Extensions\tiktok\Controllers\TikTokOrderController;
 use Extensions\tiktok\Controllers\TikTokProductGroupController;
 use Illuminate\Support\Facades\Route;
 
+// ── OAUTH SURFACES: EXEMPT FROM THE /integrations PREFIX ────────────────
+//
+// IA migration (2026-08-08, Task 2). Every other page in this file moved
+// under /integrations/tiktok/…; these two keep their URIs permanently.
+//
 // TikTok Shop OAuth callback must be publicly accessible.
+// TikTokController::computedRedirectUri() returns route('ext.tiktok.callback'),
+// which is registered in the TikTok Shop developer console and compared
+// byte-for-byte; the settings screen prints it for the operator to paste
+// there. A 301 cannot rescue a value that is checked rather than followed.
+// ext.tiktok.authorize is exempted with it per the migration ledger's
+// pre-dispatch constraint.
 Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('ext.tiktok.callback');
+
+Route::middleware(['auth', 'perm:manage_tiktok'])->group(function () {
+    Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('ext.tiktok.authorize');
+});
 
 // ── Tier-aware permission map (Phase 4 of view/manage split) ────────────
 //
@@ -14,11 +29,18 @@ Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('ext
 // grants access). Display GETs and pure-compute POSTs.
 // Write routes — gated by 'manage_tiktok' (or 'manage_tiktok_orders').
 // Anything that mutates DB or calls TikTok's API.
-Route::middleware(['auth'])->group(function () {
+//
+// Everything below moves under /integrations. Route NAMES are unchanged; the
+// `/tiktok/…` literals inside the group are now the channel segment beneath
+// that prefix, so `/tiktok/orders` reads as `/integrations/tiktok/orders`.
+Route::middleware(['auth'])->prefix('integrations')->group(function () {
 
     // ── TikTok Settings + Catalog management — READ ─────────────
     Route::middleware(['perm:view_tiktok|manage_tiktok'])->group(function () {
-        Route::get('/tiktok', [TikTokController::class, 'index'])->name('ext.tiktok.index');
+        // `/tiktok/settings`, not a bare `/tiktok`: /integrations/tiktok is
+        // the workspace Overview, registered ahead of every extension route,
+        // so a bare channel segment here would never be reached.
+        Route::get('/tiktok/settings', [TikTokController::class, 'index'])->name('ext.tiktok.index');
 
         // Catalog browsing
         Route::get('/tiktok/categories', [TikTokProductGroupController::class, 'indexCategories'])->name('ext.tiktok.categories.index');
@@ -32,8 +54,8 @@ Route::middleware(['auth'])->group(function () {
 
     // ── TikTok Settings + Catalog WRITES ────────────────────────
     Route::middleware(['perm:manage_tiktok'])->group(function () {
-        // OAuth / token / mode
-        Route::get('/tiktok/authorize', [TikTokController::class, 'redirectToAuth'])->name('ext.tiktok.authorize');
+        // OAuth / token / mode. ext.tiktok.authorize is NOT here: it is one of
+        // the two exempt OAuth surfaces registered above, outside this prefix.
         Route::post('/tiktok/save', [TikTokController::class, 'save'])->name('ext.tiktok.save');
         Route::post('/tiktok/toggle-mode', [TikTokController::class, 'toggleMode'])->name('ext.tiktok.toggle_mode');
         Route::post('/tiktok/token/get', [TikTokController::class, 'tokenGet'])->name('ext.tiktok.token_get');
