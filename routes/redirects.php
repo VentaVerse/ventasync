@@ -144,3 +144,19 @@ foreach (['venta', 'opencart'] as $channel) {
 // falls past it to here rather than being answered as an unknown channel.
 Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/integrations/'.str_replace(':', '/', $key)), 301))
     ->where('key', '[A-Za-z0-9_.-]+:[0-9]+');
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Task 3: core decisions
+//
+//  Spec decision 2 — /sales/order-statuses is Settings, not Sales.
+//
+//  The settings ?tab= split (spec decision 4) needs NO entry here: the old
+//  URI, /settings/edit, still exists as a real named route (settings.edit,
+//  frozen because layouts/app.blade.php — protected — still calls it) and
+//  now redirects from inside SettingController::redirectLegacyEdit() rather
+//  than as a path shim, since the mapping depends on a query value, not
+//  just the path.
+// ─────────────────────────────────────────────────────────────────────────
+
+Route::get('/sales/order-statuses/{any?}', fn (?string $any = null) => redirect($withQuery('/settings/order-statuses'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');

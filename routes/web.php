@@ -206,13 +206,23 @@ Route::middleware(['auth'])->group(function () {
     // Settings + Currencies — READ
     Route::middleware(['perm:view_website_settings|manage_website_settings'])->group(function () {
         Route::get('/settings', [\App\Http\Controllers\SettingsHubController::class, 'index'])->name('settings.hub');
-        Route::get('/settings/website', [SettingController::class, 'edit'])->name('settings.website');
-        // Laravel's RouteCollection keys routes by method+URI, so a second
-        // GET route on the exact same URI would silently evict this name
-        // the moment routes compile (verified: only the last-registered
-        // name survives past the first request). Give the alias its own
-        // URI, same controller action, so both names stay resolvable.
-        Route::get('/settings/edit', [SettingController::class, 'edit'])->name('settings.edit');
+
+        // IA migration (2026-08-08, Task 3), spec decision 4: the once-tabbed
+        // settings page splits into one real GET route per tab, all sharing
+        // this controller method and view. The tab is resolved from the
+        // route via ->defaults('tab', …), read with $request->route('tab');
+        // the ?tab= query string is no longer consulted server-side.
+        Route::get('/settings/general', [SettingController::class, 'edit'])->name('settings.general')->defaults('tab', 'general');
+        Route::get('/settings/website', [SettingController::class, 'edit'])->name('settings.website')->defaults('tab', 'website');
+        Route::get('/settings/mail', [SettingController::class, 'edit'])->name('settings.mail')->defaults('tab', 'mail');
+        Route::get('/settings/maintenance', [SettingController::class, 'edit'])->name('settings.maintenance')->defaults('tab', 'maintenance');
+
+        // The pre-split URI. Its name stays resolvable — layouts/app.blade.php
+        // (protected) still calls route('settings.edit') for the sidebar link
+        // and the legacy breadcrumb table — but the URI itself now just 301s
+        // to whichever tab a stale ?tab= link asked for, or the first tab for
+        // a bare visit. See SettingController::redirectLegacyEdit().
+        Route::get('/settings/edit', [SettingController::class, 'redirectLegacyEdit'])->name('settings.edit');
         Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
         Route::get('/api/currencies', [CurrencyController::class, 'lookup'])->name('api.currencies');
         // Extensions browse — list of installed extensions (read).
@@ -308,17 +318,21 @@ Route::middleware(['auth'])->group(function () {
 
 
     // ── Order Statuses — READ ──
+    // IA migration (2026-08-08, Task 3), spec decision 2: this is Settings,
+    // not Sales — URI moved under /settings, name untouched (the owner's nav
+    // ruling already classified it there; SettingsHubController's "Order
+    // Statuses" card already points at the name, not the URI, and self-heals).
     Route::middleware(['perm:view_order_statuses|manage_order_statuses'])->group(function () {
-        Route::get('/sales/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');
+        Route::get('/settings/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');
     });
     // ── Order Statuses — WRITE ──
     Route::middleware(['perm:manage_order_statuses'])->group(function () {
-        Route::get('/sales/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create');
-        Route::post('/sales/order-statuses', [OrderStatusController::class, 'store'])->name('order_statuses.store');
-        Route::post('/sales/order-statuses/bulk', [OrderStatusController::class, 'bulkAction'])->name('order_statuses.bulk');
-        Route::get('/sales/order-statuses/{id}/edit', [OrderStatusController::class, 'edit'])->name('order_statuses.edit');
-        Route::put('/sales/order-statuses/{id}', [OrderStatusController::class, 'update'])->name('order_statuses.update');
-        Route::delete('/sales/order-statuses/{id}', [OrderStatusController::class, 'destroy'])->name('order_statuses.destroy');
+        Route::get('/settings/order-statuses/create', [OrderStatusController::class, 'create'])->name('order_statuses.create');
+        Route::post('/settings/order-statuses', [OrderStatusController::class, 'store'])->name('order_statuses.store');
+        Route::post('/settings/order-statuses/bulk', [OrderStatusController::class, 'bulkAction'])->name('order_statuses.bulk');
+        Route::get('/settings/order-statuses/{id}/edit', [OrderStatusController::class, 'edit'])->name('order_statuses.edit');
+        Route::put('/settings/order-statuses/{id}', [OrderStatusController::class, 'update'])->name('order_statuses.update');
+        Route::delete('/settings/order-statuses/{id}', [OrderStatusController::class, 'destroy'])->name('order_statuses.destroy');
     });
 
 });

@@ -63,10 +63,26 @@ class SettingsHubController extends Controller
     {
         return [
             'Store' => [
-                ['label' => 'Website', 'description' => 'Company name, logo, contact details and mail',
+                // IA migration (2026-08-08, Task 3), spec decision 4: the
+                // once-tabbed settings page split into four real routes,
+                // each its own hub destination, rather than one card that
+                // dumped a visitor onto the first tab.
+                ['label' => 'General', 'description' => 'Company name and address',
+                 'route' => 'settings.general', 'icon' => 'building',
+                 'permission' => 'view_website_settings|manage_website_settings',
+                 'keywords' => ['company', 'name', 'address', 'contact']],
+                ['label' => 'Website Settings', 'description' => 'Branding, timezone and activity log retention',
                  'route' => 'settings.website', 'icon' => 'globe',
                  'permission' => 'view_website_settings|manage_website_settings',
-                 'keywords' => ['brand', 'logo', 'email', 'smtp', 'company', 'timezone']],
+                 'keywords' => ['brand', 'logo', 'favicon', 'timezone', 'retention']],
+                ['label' => 'Mail', 'description' => 'SMTP transport and test delivery',
+                 'route' => 'settings.mail', 'icon' => 'mail',
+                 'permission' => 'view_website_settings|manage_website_settings',
+                 'keywords' => ['email', 'smtp', 'sendmail', 'transport', 'test mail']],
+                ['label' => 'Maintenance', 'description' => 'The cron line every scheduled task runs from',
+                 'route' => 'settings.maintenance', 'icon' => 'clock',
+                 'permission' => 'view_website_settings|manage_website_settings',
+                 'keywords' => ['cron', 'schedule', 'task', 'automation']],
                 ['label' => 'Currencies', 'description' => 'Exchange rates and the default currency',
                  'route' => 'currencies.index', 'icon' => 'coins',
                  'permission' => 'view_website_settings|manage_website_settings',

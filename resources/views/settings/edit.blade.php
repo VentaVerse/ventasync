@@ -19,19 +19,23 @@
 </div>
 @endunless
 
-{{-- Tabs --}}
+{{-- Tabs. IA migration (2026-08-08, Task 3): which one starts active is now
+     driven by $activeTab (set from the route, see SettingController::edit),
+     not the ?tab= query string. Click-to-switch and its URL sync below are
+     unchanged — this page still shows all four sections at once and toggles
+     between them client-side. --}}
 <div class="tabs mb-16">
-    <button class="tab active" data-tab="tab-general">General</button>
-    <button class="tab" data-tab="tab-website">Website Settings</button>
-    <button class="tab" data-tab="tab-mail">Mail</button>
-    <button class="tab" data-tab="tab-maintenance">Maintenance</button>
+    <button class="tab {{ $activeTab === 'general' ? 'active' : '' }}" data-tab="tab-general">General</button>
+    <button class="tab {{ $activeTab === 'website' ? 'active' : '' }}" data-tab="tab-website">Website Settings</button>
+    <button class="tab {{ $activeTab === 'mail' ? 'active' : '' }}" data-tab="tab-mail">Mail</button>
+    <button class="tab {{ $activeTab === 'maintenance' ? 'active' : '' }}" data-tab="tab-maintenance">Maintenance</button>
 </div>
 
 <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data">
     @csrf
 
     {{-- General Tab --}}
-    <div class="" id="tab-general">
+    <div class="{{ $activeTab === 'general' ? '' : 'hidden' }}" id="tab-general">
         <div class="card">
             <h3 class="section-title mt-0">Company Information</h3>
             <div class="form-grid">
@@ -93,7 +97,7 @@
     </div>
 
     {{-- Website Settings Tab --}}
-    <div class="hidden" id="tab-website">
+    <div class="{{ $activeTab === 'website' ? '' : 'hidden' }}" id="tab-website">
         <div class="card">
             <h3 class="section-title mt-0">Email & System</h3>
             <div class="form-grid">
@@ -156,7 +160,7 @@
     </div>
 
     {{-- Mail Tab --}}
-    <div class="hidden" id="tab-mail">
+    <div class="{{ $activeTab === 'mail' ? '' : 'hidden' }}" id="tab-mail">
         <div class="card">
             <h3 class="section-title mt-0">Mail Transport</h3>
             <div class="form-grid">
@@ -243,7 +247,7 @@
 </form>
 
 {{-- Maintenance Tab --}}
-<div class="hidden" id="tab-maintenance">
+<div class="{{ $activeTab === 'maintenance' ? '' : 'hidden' }}" id="tab-maintenance">
     <div class="card">
         <h3 class="section-title mt-0">Scheduled Tasks (Cron)</h3>
         <div class="hint" style="margin-bottom:12px;">

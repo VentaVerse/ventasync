@@ -12,10 +12,44 @@ use Illuminate\Support\Facades\Storage;
 
 class SettingController extends Controller
 {
-    public function edit()
+    /**
+     * IA migration (2026-08-08, Task 3), spec decision 4: this method now
+     * backs four real routes (settings.general/.website/.mail/.maintenance),
+     * one per tab, sharing this action and the one view. The active tab is
+     * resolved from the route (a ->defaults('tab', …) on each registration
+     * in routes/web.php), never from the query string. Falls back to
+     * 'general' so a direct call without a bound route default still
+     * renders something sane.
+     */
+    public function edit(Request $request)
     {
         $setting = Setting::singleton();
-        return view('settings.edit', compact('setting'));
+        $activeTab = $request->route('tab', 'general');
+
+        return view('settings.edit', compact('setting', 'activeTab'));
+    }
+
+    /**
+     * The pre-split settings URI. Kept — not deleted — because
+     * layouts/app.blade.php (protected, byte-identical to the session
+     * baseline) still calls route('settings.edit') for the sidebar link and
+     * the legacy $__bcRoutes breadcrumb table, and route NAMES are frozen
+     * for the duration of this migration. 301s a bare visit to the first
+     * tab, and an old ?tab=… link to that same tab's new route.
+     */
+    public function redirectLegacyEdit(Request $request)
+    {
+        // Literal route() calls per branch on purpose, not a variable name
+        // built up and passed once: RouteNameSweepTest's static half only
+        // verifies clean `route('literal')` call sites, and Task 0's own
+        // motivating incident was a route name assembled dynamically that
+        // nothing had asserted against.
+        return match ($request->query('tab')) {
+            'website' => redirect()->route('settings.website', [], 301),
+            'mail' => redirect()->route('settings.mail', [], 301),
+            'maintenance' => redirect()->route('settings.maintenance', [], 301),
+            default => redirect()->route('settings.general', [], 301),
+        };
     }
 
     public function update(Request $request)
