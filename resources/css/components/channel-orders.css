@@ -433,7 +433,16 @@
 /* Shipping column carrier. Named co-carrier, not co-courier: that class is
    the handover step's courier summary chip (bordered, padded), and the
    collision was dressing the carrier name in the Shipping cell as a chip. */
-.co-carrier { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+.co-carrier {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    /* Same containment its sibling .co-ship__no just got: a carrier name is
+       normally short, but nothing stops a marketplace sending a long one,
+       and the column must hold it rather than push into Status. */
+    overflow-wrap: anywhere;
+}
 
 /* A tracking code is one unbroken token 15 to 25 characters long, and the
    Shipping column is the second narrowest on every one of these pages. Left
