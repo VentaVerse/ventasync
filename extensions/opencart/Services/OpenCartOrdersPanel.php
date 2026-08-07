@@ -2,7 +2,7 @@
 
 namespace Extensions\opencart\Services;
 
-use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Sales\OrderController;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use Extensions\opencart\Models\OpenCartSetting;

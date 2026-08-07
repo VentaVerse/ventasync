@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Sales\OrderController;
 
 // IA migration (2026-08-08, Task 4): Sales section. Required from
 // routes/web.php inside the ['auth'] group. Order Statuses used to sit
