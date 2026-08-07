@@ -20,6 +20,25 @@ use Illuminate\Support\Str;
 class ProductController extends Controller
 {
     /**
+     * Require a site-relative path so `_return` cannot send a user off-site
+     * (open redirect). Only a single leading "/" is accepted; "//evil.example"
+     * and "/\evil.example" are both browser-interpretable as absolute URLs
+     * (protocol-relative) and must be rejected too.
+     */
+    private function isSafeLocalReturnUrl(string $url): bool
+    {
+        if ($url === '' || $url[0] !== '/') {
+            return false;
+        }
+
+        if (str_starts_with($url, '//') || str_starts_with($url, '/\\')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * When options exist, OpenCart typically treats option quantities as the source of truth.
      * We force product.quantity to be the sum of option value quantities.
      */
@@ -1231,7 +1250,7 @@ public function store(Request $request)
         }
 
         $returnUrl = $request->input('_return');
-        if ($returnUrl && str_starts_with($returnUrl, url('/'))) {
+        if (is_string($returnUrl) && $this->isSafeLocalReturnUrl($returnUrl)) {
             return redirect($returnUrl)->with('status', $status);
         }
 

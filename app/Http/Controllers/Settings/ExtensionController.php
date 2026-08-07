@@ -13,6 +13,34 @@ use ZipArchive;
 
 class ExtensionController extends Controller
 {
+    /**
+     * True if a zip entry name could write outside the extraction directory:
+     * a ".." traversal segment, a leading "/" (POSIX absolute path), a
+     * drive-letter absolute path ("C:\..."), or an embedded null byte.
+     */
+    private function isUnsafeZipEntryName(string $name): bool
+    {
+        if ($name === '' || str_contains($name, "\0")) {
+            return true;
+        }
+
+        $normalized = str_replace('\\', '/', $name);
+
+        if (str_contains($normalized, '..')) {
+            return true;
+        }
+
+        if (str_starts_with($normalized, '/')) {
+            return true;
+        }
+
+        if (preg_match('#^[A-Za-z]:[/\\\\]#', $name)) {
+            return true;
+        }
+
+        return false;
+    }
+
     public function index(ExtensionManager $manager)
     {
         $extensions = collect($manager->all())->all();
@@ -68,8 +96,36 @@ class ExtensionController extends Controller
             return back()->with('error', 'Could not open the archive file.');
         }
 
+        // Reject any entry that could escape the extraction directory before
+        // a single byte is written to disk (zip slip / path traversal).
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entryName = $zip->getNameIndex($i);
+            if ($entryName !== false && $this->isUnsafeZipEntryName($entryName)) {
+                $zip->close();
+                File::deleteDirectory($tmpDir);
+                abort(422, 'The archive contains an unsafe file path.');
+            }
+        }
+
         $zip->extractTo($tmpDir);
         $zip->close();
+
+        $realTmpDir = realpath($tmpDir);
+        if ($realTmpDir === false) {
+            File::deleteDirectory($tmpDir);
+            abort(422, 'Could not read the extracted archive.');
+        }
+
+        // Defense in depth: confirm every extracted file actually landed
+        // inside the temp directory, in case the archive escaped it by some
+        // means the entry-name check above did not anticipate.
+        foreach (File::allFiles($tmpDir) as $extractedFile) {
+            $realExtracted = realpath($extractedFile->getPathname());
+            if ($realExtracted === false || !str_starts_with($realExtracted, $realTmpDir . DIRECTORY_SEPARATOR)) {
+                File::deleteDirectory($tmpDir);
+                abort(422, 'The archive contains an unsafe file path.');
+            }
+        }
 
         // Find extension.json — may be at root or one level deep
         $manifestPath = null;
@@ -103,7 +159,18 @@ class ExtensionController extends Controller
         }
 
         $extensionId = $manifest['id'];
+        if (!is_string($extensionId) || !preg_match('/^[a-z0-9_-]+$/', $extensionId)) {
+            File::deleteDirectory($tmpDir);
+            abort(422, 'Invalid extension.json: "id" may only contain lowercase letters, numbers, hyphens, and underscores.');
+        }
+
         $destDir = base_path('extensions/' . $extensionId);
+
+        $extensionsRoot = realpath(base_path('extensions'));
+        if ($extensionsRoot === false || realpath(dirname($destDir)) !== $extensionsRoot) {
+            File::deleteDirectory($tmpDir);
+            abort(422, 'Invalid extension destination.');
+        }
 
         // Copy files to extensions/{id}/
         if (File::isDirectory($destDir)) {
