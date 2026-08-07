@@ -8,8 +8,10 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\tiktok\Models\TikTokOrder;
 use Extensions\tiktok\Models\TikTokOrderProduct;
+use Extensions\tiktok\Models\TikTokSetting;
 use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -327,6 +329,66 @@ class TiktokOrderDetailTest extends TestCase
 
         $allowed->assertStatus(302);
         $allowed->assertSessionHas('tiktok_orders_last_result.ok', false);
+    }
+
+    // ------------------------------------------------------------------
+    // F2: the refresh pull-and-persist path is manage-tier only. The write
+    // branch in TikTokOrderController@show must never run for a view-tier
+    // operator, even with `?refresh=1` on the URL.
+    // ------------------------------------------------------------------
+
+    public function test_view_tier_get_with_refresh_param_pulls_nothing_and_writes_nothing(): void
+    {
+        TikTokSetting::create([
+            'mode' => 'live',
+            'app_key' => 'test-app-key',
+            'app_secret' => 'test-app-secret',
+            'access_token' => 'test-access-token',
+            'shop_cipher' => 'test-shop-cipher',
+        ]);
+        $order = $this->order('AWAITING_COLLECTION');
+        $rawBefore = $order->raw;
+        $statusBefore = $order->status;
+
+        Http::fake();
+
+        $response = $this->actingAs($this->viewer())
+            ->get('/tiktok/orders/'.$order->id.'/show?refresh=1');
+
+        $response->assertOk();
+        Http::assertNothingSent();
+        $fresh = $order->fresh();
+        $this->assertSame($statusBefore, $fresh->status);
+        $this->assertSame($rawBefore, $fresh->raw);
+    }
+
+    public function test_manage_tier_get_with_refresh_param_still_pulls_and_persists(): void
+    {
+        TikTokSetting::create([
+            'mode' => 'live',
+            'app_key' => 'test-app-key',
+            'app_secret' => 'test-app-secret',
+            'access_token' => 'test-access-token',
+            'shop_cipher' => 'test-shop-cipher',
+        ]);
+        $order = $this->order('AWAITING_COLLECTION', ['order_id' => 'TT7788990011299']);
+
+        Http::fake([
+            '*/order/202309/orders*' => Http::response([
+                'data' => ['orders' => [[
+                    'status' => 'AWAITING_SHIPMENT',
+                    'recipient_address' => ['name' => 'Karen Lim'],
+                ]]],
+            ], 200),
+            '*' => Http::response([], 200),
+        ]);
+
+        $response = $this->actingAs($this->manager())
+            ->get('/tiktok/orders/'.$order->id.'/show?refresh=1');
+
+        $response->assertOk();
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/order/202309/orders'));
+        $this->assertSame('AWAITING_SHIPMENT', $order->fresh()->status);
     }
 
     // ------------------------------------------------------------------

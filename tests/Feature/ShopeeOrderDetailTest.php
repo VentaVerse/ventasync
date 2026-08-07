@@ -6,11 +6,14 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
+use Extensions\shopee\Models\ShopeeApiLog;
 use Extensions\shopee\Models\ShopeeOrder;
 use Extensions\shopee\Models\ShopeeOrderProduct;
 use Extensions\shopee\Models\ShopeeReturn;
+use Extensions\shopee\Models\ShopeeSetting;
 use Extensions\shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -363,6 +366,75 @@ class ShopeeOrderDetailTest extends TestCase
 
         $allowed->assertStatus(422);
         $allowed->assertJson(['ok' => false]);
+    }
+
+    // ------------------------------------------------------------------
+    // F2: the refresh pull-and-persist path is manage-tier only. Both
+    // write branches in ShopeeOrderController@show (the order-detail pull
+    // gated on `refresh`, and the escrow/fee pull gated on `empty(fees) ||
+    // refresh`) must never run for a view-tier operator, even though the
+    // route itself is `perm:view_shopee_orders|manage_shopee_orders`.
+    // ------------------------------------------------------------------
+
+    private function configureShopeeCredentials(): ShopeeSetting
+    {
+        return ShopeeSetting::create([
+            'mode' => 'production',
+            'partner_id' => 100001,
+            'partner_key' => 'test-partner-key',
+            'shop_id' => 200002,
+            'access_token' => 'test-access-token',
+            'region' => 'ph',
+        ]);
+    }
+
+    public function test_view_tier_get_with_refresh_param_pulls_nothing_and_writes_nothing(): void
+    {
+        $this->configureShopeeCredentials();
+        $order = $this->order('READY_TO_SHIP');
+        $rawBefore = $order->raw;
+        $apiLogCountBefore = ShopeeApiLog::count();
+        $orderCountBefore = ShopeeOrder::count();
+        $productCountBefore = ShopeeOrderProduct::count();
+
+        Http::fake();
+
+        $response = $this->actingAs($this->viewer())
+            ->get('/shopee/orders/'.$order->order_sn.'?refresh=1');
+
+        $response->assertOk();
+        Http::assertNothingSent();
+        $this->assertSame($apiLogCountBefore, ShopeeApiLog::count());
+        $this->assertSame($orderCountBefore, ShopeeOrder::count());
+        $this->assertSame($productCountBefore, ShopeeOrderProduct::count());
+        $this->assertSame($rawBefore, $order->fresh()->raw);
+    }
+
+    public function test_manage_tier_get_with_refresh_param_still_pulls_and_persists(): void
+    {
+        $this->configureShopeeCredentials();
+        $order = $this->order('READY_TO_SHIP');
+
+        Http::fake([
+            '*get_order_detail*' => Http::response([
+                'response' => [
+                    'order_list' => [[
+                        'order_status' => 'SHIPPED',
+                        'tracking_no' => 'SPXPH9999999',
+                        'item_list' => [],
+                    ]],
+                ],
+            ], 200),
+            '*get_escrow_detail*' => Http::response(['response' => []], 200),
+            '*' => Http::response([], 200),
+        ]);
+
+        $response = $this->actingAs($this->manager())
+            ->get('/shopee/orders/'.$order->order_sn.'?refresh=1');
+
+        $response->assertOk();
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'get_order_detail'));
+        $this->assertSame('SHIPPED', $order->fresh()->status);
     }
 
     // ------------------------------------------------------------------

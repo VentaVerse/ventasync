@@ -169,7 +169,13 @@ class ShopeeOrderController extends Controller
         $refresh = (bool) $request->boolean('refresh');
         $hasCreds = $setting && $auth['complete'];
 
-        if ($hasCreds && $refresh) {
+        // Both pull-and-persist branches below are manage-tier only. A
+        // view-tier operator (view_shopee_orders without manage_shopee_orders)
+        // must always see the page rendered from stored data — never a live
+        // API pull, never a write — regardless of the `refresh` query string.
+        $canManage = (bool) $request->user()?->hasPermission('manage_shopee_orders');
+
+        if ($hasCreds && $canManage && $refresh) {
             try {
                 $res = $client->shopGet(
                     $auth['mode'],
@@ -236,8 +242,10 @@ class ShopeeOrderController extends Controller
             }
         }
 
-        // Fetch escrow detail (fees) if not already stored or on refresh
-        if ($hasCreds && (empty($order->fees) || $refresh)) {
+        // Fetch escrow detail (fees) if not already stored or on refresh.
+        // This branch fires even with no `refresh` param whenever fees are
+        // empty, so it needs the same manage gate as the block above.
+        if ($hasCreds && $canManage && (empty($order->fees) || $refresh)) {
             try {
                 $escrowRes = $client->shopGet(
                     $auth['mode'],

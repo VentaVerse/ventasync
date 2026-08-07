@@ -9,7 +9,9 @@ use App\Models\User;
 use Extensions\lazada\LazadaExtension;
 use Extensions\lazada\Models\LazadaOrder;
 use Extensions\lazada\Models\LazadaOrderProduct;
+use Extensions\lazada\Models\LazadaSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -349,6 +351,75 @@ class LazadaOrderDetailTest extends TestCase
     // ------------------------------------------------------------------
     // Standing constraints this page must not break
     // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // F2: on Lazada the pull-and-persist branches are not solely gated on
+    // `refresh` - a thin stored payload triggers them on a plain GET with
+    // no query string at all. All three write branches in
+    // LazadaOrderController@show must therefore stay off for a view-tier
+    // operator regardless of the query string.
+    // ------------------------------------------------------------------
+
+    private function configureLazadaCredentials(): LazadaSetting
+    {
+        return LazadaSetting::create([
+            'mode' => 'live',
+            'region' => 'ph',
+            'app_key' => 'test-app-key',
+            'app_secret' => 'test-app-secret',
+            'access_token' => 'test-access-token',
+        ]);
+    }
+
+    /** A stored payload thin enough that rawLikelyHasOrderDetail() is false. */
+    private function thinOrder(string $orderId = 'LZ-THIN-0001'): LazadaOrder
+    {
+        return LazadaOrder::create([
+            'region' => 'ph',
+            'order_id' => $orderId,
+            'status' => 'unpaid',
+            'raw' => ['order_number' => $orderId],
+        ]);
+    }
+
+    public function test_view_tier_plain_get_on_a_thin_order_pulls_nothing_and_writes_nothing(): void
+    {
+        $this->configureLazadaCredentials();
+        $order = $this->thinOrder();
+
+        Http::fake();
+
+        // No `?refresh` at all: the hole this finding named specifically.
+        $response = $this->actingAs($this->viewer())->get('/lazada/orders/'.$order->order_id);
+
+        $response->assertOk();
+        Http::assertNothingSent();
+        $fresh = $order->fresh();
+        $this->assertSame(['order_number' => $order->order_id], $fresh->raw);
+        $this->assertSame(0, $fresh->products()->count());
+        $this->assertTrue(empty($fresh->fees));
+    }
+
+    public function test_manage_tier_plain_get_on_a_thin_order_still_pulls_and_persists(): void
+    {
+        $this->configureLazadaCredentials();
+        $order = $this->thinOrder('LZ-THIN-0002');
+
+        Http::fake([
+            '*/order/get*' => Http::response([
+                'data' => ['order' => ['statuses' => ['shipped'], 'address_shipping' => ['first_name' => 'Test']]],
+            ], 200),
+            '*/order/items/get*' => Http::response(['data' => []], 200),
+            '*/finance/transaction/details/get*' => Http::response(['data' => []], 200),
+            '*' => Http::response([], 200),
+        ]);
+
+        $response = $this->actingAs($this->manager())->get('/lazada/orders/'.$order->order_id);
+
+        $response->assertOk();
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/order/get'));
+        $this->assertArrayHasKey('_detail', $order->fresh()->raw);
+    }
 
     public function test_the_page_uses_no_native_dialogs_and_no_inline_handlers(): void
     {

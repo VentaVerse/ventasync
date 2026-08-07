@@ -328,7 +328,16 @@ class LazadaOrderController extends Controller
         $creds = LazadaSetting::activeCredentials($setting);
         $hasCreds = $setting && $setting->region && $creds['app_key'] && $creds['app_secret'] && $creds['access_token'];
 
-        if ($hasCreds && $needsDetail) {
+        // Manage-tier only. Unlike Shopee/TikTok, Lazada's pulls are not
+        // solely gated by `refresh` — a thin stored payload (`$needsDetail`)
+        // or missing products/fees trigger a pull on a plain page load with
+        // no query string at all. Every write branch below must therefore
+        // check this explicitly rather than relying on the param. A
+        // view-tier operator (view_lazada_orders without manage_lazada_orders)
+        // always gets the page rendered from stored data.
+        $canManage = (bool) $request->user()?->hasPermission('manage_lazada_orders');
+
+        if ($hasCreds && $canManage && $needsDetail) {
             try {
                 $cacheKey = 'lazada.order.detail.' . $setting->region . '.' . $orderId;
                 $ttlSeconds = 300;
@@ -379,7 +388,7 @@ class LazadaOrderController extends Controller
         }
 
         // Sync items on demand only (or when missing).
-        if ($hasCreds && ($refresh || !$order->products()->limit(1)->exists())) {
+        if ($hasCreds && $canManage && ($refresh || !$order->products()->limit(1)->exists())) {
             try {
                 $synced = $this->syncOrderProductsFromApi($client, $setting, $order);
                 if ($synced !== null) {
@@ -392,7 +401,7 @@ class LazadaOrderController extends Controller
         }
 
         // Extract fees from order item raw data + order detail
-        if ($hasCreds && (empty($order->fees) || $refresh) && $order->products()->exists()) {
+        if ($hasCreds && $canManage && (empty($order->fees) || $refresh) && $order->products()->exists()) {
             try {
                 $fees = $this->extractLazadaFees($order);
 

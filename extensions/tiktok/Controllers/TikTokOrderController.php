@@ -65,7 +65,13 @@ class TikTokOrderController extends Controller
         $order = TikTokOrder::with('products')->findOrFail($id);
         $apiError = false;
 
-        if ($request->boolean('refresh')) {
+        // Manage-tier only: a view-tier operator (view_tiktok_orders without
+        // manage_tiktok_orders) must never trigger a live API pull + write,
+        // even by adding `?refresh=1` themselves. They still get the page
+        // rendered from stored data.
+        $canManage = (bool) $request->user()?->hasPermission('manage_tiktok_orders');
+
+        if ($request->boolean('refresh') && $canManage) {
             try {
                 $c = $this->creds();
                 $client = new TikTokClient();
