@@ -70,9 +70,15 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 menu: [
                     // Phase 4 — view-tier visibility: read-only operators can
                     // open Settings / Product Groups / Orders for browsing.
-                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart', null, ['store' => $store->id]),
-                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart', null, ['store' => $store->id]),
-                    new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart_orders', null, ['store' => $store->id]),
+                    //
+                    // The trailing group is the workspace conversion signal:
+                    // a store whose menu is grouped gets its own seller
+                    // center at /integrations/opencart:{id}, built from
+                    // exactly this menu, with these ['store' => id] params
+                    // carried through unchanged.
+                    new MenuItem('Settings', 'ext.opencart.settings.show', 'view_opencart', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Product Groups', 'ext.opencart.product-groups.index', 'view_opencart', null, ['store' => $store->id], 'Catalogue'),
+                    new MenuItem('Orders', 'ext.opencart.orders.index', 'view_opencart_orders', null, ['store' => $store->id], 'Sell'),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );

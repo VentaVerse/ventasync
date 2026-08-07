@@ -8,8 +8,19 @@
         All channels
     </a>
 
-    <div class="x-cnav__head">
+    {{-- The modifier, rather than :has(), so the mobile strip can keep the
+         store visible without depending on selector support. --}}
+    <div class="x-cnav__head {{ ($channelStoreLabel ?? null) ? 'x-cnav__head--store' : '' }}">
         <span class="x-cnav__name">{{ $channelCard->name }}</span>
+        {{-- Which store this workspace belongs to. A multi-store channel
+             serves one workspace per store off the same set of routes, so
+             without this the two are indistinguishable at a glance and an
+             operator can push stock to the wrong shop believing they are in
+             the other one. Absent on single-store channels, where the
+             channel name above already answers it. --}}
+        @if($channelStoreLabel ?? null)
+            <span class="x-cnav__store">{{ $channelStoreLabel }}</span>
+        @endif
         {{-- "Not tracked" is a statement about instrumentation, not a
              verdict on the connection: this channel exposes no token state
              and no last-sync figure, so there is nothing to call healthy or
@@ -26,9 +37,11 @@
          operator holding only view_shopee_orders reaches /shopee/orders but
          404s on the workspace entry, so rendering this link for them is a
          dead end at the top of their own sidebar. --}}
+    {{-- $channelKey, not the card id: on a multi-store channel the Overview
+         belongs to THIS store ("venta:2"), and the bare card id is a 404. --}}
     @if($channelHasOverview)
         <a class="x-cnav__item {{ request()->routeIs('integrations.workspace') ? 'is-active' : '' }}"
-           href="{{ route('integrations.workspace', ['channel' => $channelCard->id]) }}">
+           href="{{ route('integrations.workspace', ['channel' => $channelKey ?? $channelCard->id]) }}">
             <x-ui.icon name="monitor" size="14" /> Overview
         </a>
     @endif

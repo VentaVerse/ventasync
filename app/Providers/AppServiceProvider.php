@@ -64,10 +64,28 @@ class AppServiceProvider extends ServiceProvider
                 $user = request()->user();
 
                 // ext.shopee.orders.index -> shopee
-                $name = (string) (request()->route()?->getName() ?? '');
-                $channel = str_starts_with($name, 'ext.')
-                    ? explode('.', $name)[1] ?? ''
-                    : (string) request()->route('channel');
+                //
+                // On a multi-store channel every page is store-scoped, so the
+                // route's own {store} parameter completes the key:
+                // ext.venta.orders.index on /venta/3/orders -> venta:3, the
+                // same format StoreLink and OrderTab ids already use. A
+                // channel with no {store} parameter is unaffected, and a
+                // store suffix on a single-store channel resolves to null
+                // (404) rather than to the channel, so this cannot quietly
+                // widen what a key reaches.
+                $route = request()->route();
+                $name = (string) ($route?->getName() ?? '');
+
+                if (str_starts_with($name, 'ext.')) {
+                    $channel = explode('.', $name)[1] ?? '';
+                    $store = $route?->parameter('store');
+
+                    if ($channel !== '' && is_scalar($store) && (string) $store !== '') {
+                        $channel .= ':' . $store;
+                    }
+                } else {
+                    $channel = (string) request()->route('channel');
+                }
 
                 // Deliberately the ungated lookup. Every page reaching this
                 // composer has already cleared its own route's perm: middleware,
@@ -85,8 +103,16 @@ class AppServiceProvider extends ServiceProvider
 
                 $payload = [
                     'channelCard' => $card,
-                    'channelGroups' => $workspace->groups($card, $user),
-                    'channelState' => $workspace->state($card),
+                    // The full workspace key, so every link the chrome builds
+                    // back to the Overview stays in the store the operator is
+                    // standing in.
+                    'channelKey' => $channel,
+                    // Which store this is, for the sidebar head and the
+                    // breadcrumb. Null on a single-store channel, where the
+                    // channel name already answers the question.
+                    'channelStoreLabel' => $workspace->store($card, $channel)?->label,
+                    'channelGroups' => $workspace->groups($card, $user, $channel),
+                    'channelState' => $workspace->state($card, $channel),
                     // Whether this user may open /integrations/{channel},
                     // which ChannelWorkspaceController::show gates on the
                     // CARD permission via the gated card(). The sidebar's

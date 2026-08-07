@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Integrations\IntegrationCard;
 use App\Integrations\IntegrationRegistry;
 use App\Integrations\MenuItem;
+use App\Integrations\StoreLink;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
@@ -32,16 +33,13 @@ class ChannelWorkspace
      * user cannot see it. visibleCards() already applies the card-level
      * permission gate, so an unauthorised channel is indistinguishable from
      * an unknown one, which is what we want for a 404.
+     *
+     * $channel is a workspace key, which for a multi-store channel carries
+     * the store: `venta:2`. See resolve() for what that accepts.
      */
     public function card(string $channel, ?User $user): ?IntegrationCard
     {
-        foreach ($this->registry->visibleCards($user) as $card) {
-            if ($card->id === $channel) {
-                return $card;
-            }
-        }
-
-        return null;
+        return $this->resolve($this->registry->visibleCards($user), $channel);
     }
 
     /**
@@ -64,13 +62,151 @@ class ChannelWorkspace
      */
     public function cardForAuthorisedPage(string $channel, ?User $user): ?IntegrationCard
     {
-        foreach ($this->registry->cardsForAuthorisedRequest($user) as $card) {
-            if ($card->id === $channel) {
-                return $card;
+        return $this->resolve($this->registry->cardsForAuthorisedRequest($user), $channel);
+    }
+
+    /**
+     * Find the card a workspace key names, or null when the key names
+     * nothing this list holds.
+     *
+     * A key is either a channel id (`shopee`) or a channel id and a store
+     * (`venta:2`), which is the format StoreLink::$id and OrderTab::$id
+     * already use, so the same string identifies a store here, on the
+     * Fulfilment hub and on the status board.
+     *
+     * Everything that does not resolve to a real destination returns null,
+     * and never throws, because every caller turns null into a 404:
+     *  - an unknown channel, or one this list has gated away
+     *  - a bare `venta` on a multi-store channel: every one of its routes is
+     *    store-scoped, so there is no storeless page to land on
+     *  - a store that does not exist on this card (`venta:999`)
+     *  - a store suffix on a single-store channel (`shopee:2`)
+     *  - a malformed key (`venta:`, `venta:abc`, `venta:2:3`, `venta:0`)
+     *
+     * @param IntegrationCard[] $cards
+     */
+    private function resolve(array $cards, string $channel): ?IntegrationCard
+    {
+        $parsed = $this->parseKey($channel);
+
+        if ($parsed === null) {
+            return null;
+        }
+
+        [$channelId, $storeId] = $parsed;
+
+        $card = null;
+
+        foreach ($cards as $candidate) {
+            if ($candidate->id === $channelId) {
+                $card = $candidate;
+                break;
+            }
+        }
+
+        if (! $card) {
+            return null;
+        }
+
+        // No stores on this card: either a single-store channel, or a
+        // multi-store one with nothing configured yet. Either way a store
+        // suffix names something that does not exist. A bare key is fine
+        // here; hasWorkspace() is what then decides whether a storeless
+        // channel has a workspace at all.
+        if ($card->stores === []) {
+            return $storeId === null ? $card : null;
+        }
+
+        return $this->storeOn($card, $storeId) ? $card : null;
+    }
+
+    /**
+     * Split a workspace key into its channel id and its optional store id.
+     *
+     * Deliberately strict. The store id reaches a database lookup and a
+     * route parameter, so anything that is not a positive integer is
+     * rejected here rather than coerced: `venta:abc` would otherwise read as
+     * store 0, and `venta:2:3` as store 2, both of which silently serve a
+     * page for a key the operator did not ask for.
+     *
+     * @return array{0: string, 1: ?int}|null
+     */
+    private function parseKey(string $channel): ?array
+    {
+        if ($channel === '') {
+            return null;
+        }
+
+        if (! str_contains($channel, ':')) {
+            return [$channel, null];
+        }
+
+        $parts = explode(':', $channel);
+
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        [$channelId, $storeId] = $parts;
+
+        if ($channelId === '' || ! ctype_digit($storeId) || (int) $storeId <= 0) {
+            return null;
+        }
+
+        return [$channelId, (int) $storeId];
+    }
+
+    /** The StoreLink this card carries for that numeric store id, if any. */
+    private function storeOn(IntegrationCard $card, ?int $storeId): ?StoreLink
+    {
+        if ($storeId === null) {
+            return null;
+        }
+
+        foreach ($card->stores as $store) {
+            if ($store->id === $card->id . ':' . $storeId) {
+                return $store;
             }
         }
 
         return null;
+    }
+
+    /**
+     * The store a workspace key names on this card, or null when the key is
+     * bare, malformed, or for a different channel. Public because the layout
+     * composer needs the store's label for the sidebar head and breadcrumb:
+     * "which store am I in" is the first question a multi-store workspace
+     * has to answer on screen.
+     */
+    public function store(IntegrationCard $card, ?string $channel): ?StoreLink
+    {
+        if ($channel === null) {
+            return null;
+        }
+
+        $parsed = $this->parseKey($channel);
+
+        if ($parsed === null || $parsed[0] !== $card->id) {
+            return null;
+        }
+
+        return $this->storeOn($card, $parsed[1]);
+    }
+
+    /**
+     * The menu a workspace key's sidebar is built from: the store's own menu
+     * for a store key, the card's menu otherwise.
+     *
+     * A multi-store channel keeps its real destinations on the STORE menus,
+     * each already carrying its ['store' => id] params, so scoping is a
+     * matter of reading the right menu rather than rewriting params.
+     *
+     * @return MenuItem[]
+     */
+    private function menuFor(IntegrationCard $card, ?string $channel): array
+    {
+        return $this->store($card, $channel)?->menu ?? $card->menu;
     }
 
     /**
@@ -90,6 +226,27 @@ class ChannelWorkspace
      */
     public function hasWorkspace(IntegrationCard $card): bool
     {
+        // A multi-store channel keeps its pages on the STORE menus; the top
+        // card carries only whatever is global to the channel (OpenCart's
+        // Reviews, which stays out of every store workspace). Reading the
+        // card menu here would call a converted channel unconverted, and
+        // building a sidebar from it would lose every per-store destination.
+        //
+        // A card with no stores configured is not converted either: there is
+        // nothing to open. The board sends those to the module page, where
+        // the operator can create the first store.
+        if ($card->stores !== []) {
+            foreach ($card->stores as $store) {
+                foreach ($store->menu as $item) {
+                    if ($item->group !== null) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         foreach ($card->menu as $item) {
             if ($item->group !== null) {
                 return true;
@@ -106,10 +263,22 @@ class ChannelWorkspace
      * otherwise. Two divergent definitions of "connected" in one product is
      * a defect, so this reads the same thresholds and the same underlying
      * figures rather than inventing its own.
+     *
+     * $channel scopes the reading to one store on a multi-store channel,
+     * which is the only level those channels track health at: their settings
+     * rows ARE their stores.
      */
-    public function state(IntegrationCard $card): string
+    public function state(IntegrationCard $card, ?string $channel = null): string
     {
-        $figures = $this->tokenFigures($card->id);
+        $store = $this->store($card, $channel);
+
+        // Same first test the board applies to a store row: a store created
+        // but not yet enabled needs setting up, whatever its columns hold.
+        if ($store && $store->status === 'setup_pending') {
+            return 'setup';
+        }
+
+        $figures = $this->tokenFigures($card->id, $this->storeIdOf($store));
 
         $now = Carbon::now();
         $staleAfter = $now->copy()->subHours(24);
@@ -154,15 +323,26 @@ class ChannelWorkspace
      *
      * @return array<int, array{label: string, value: ?string}>
      */
-    public function waiting(IntegrationCard $card, ?User $user): array
+    public function waiting(IntegrationCard $card, ?User $user, ?string $channel = null): array
     {
         $tab = null;
+
+        // A multi-store channel registers one OrderTab per store under the
+        // same `venta:2` id this key uses, and each tab's counters are
+        // already scoped to that store's marketplace_source. Matching on the
+        // store key is therefore the whole of the store scoping here: match
+        // on the card id instead and a two-store seller would read one
+        // store's figures under both stores' names.
+        //
+        // Only ENABLED stores register a tab, so a store that is still being
+        // set up reports nothing waiting rather than a fabricated zero.
+        $wanted = $this->store($card, $channel)?->id ?? $card->id;
 
         // visibleOrderTabs() already applies the same permission gate the
         // Orders workspace uses, so a user who cannot see this channel's
         // orders gets no counts rather than a gap in the gate.
         foreach ($this->registry->visibleOrderTabs($user) as $candidate) {
-            if ($candidate->id === $card->id) {
+            if ($candidate->id === $wanted) {
                 $tab = $candidate;
                 break;
             }
@@ -198,9 +378,9 @@ class ChannelWorkspace
         ];
     }
 
-    public function health(IntegrationCard $card): array
+    public function health(IntegrationCard $card, ?string $channel = null): array
     {
-        $figures = $this->tokenFigures($card->id);
+        $figures = $this->tokenFigures($card->id, $this->storeIdOf($this->store($card, $channel)));
 
         return [
             ['label' => 'Last sync', 'value' => $figures['lastSyncAt']?->diffForHumans()],
@@ -233,7 +413,7 @@ class ChannelWorkspace
      *
      * @return array{label: string, url: string}|null
      */
-    public function action(IntegrationCard $card, string $state, ?User $user): ?array
+    public function action(IntegrationCard $card, string $state, ?User $user, ?string $channel = null): ?array
     {
         if ($state === 'setup') {
             if ($card->id === 'shopee' && Route::has('ext.shopee.authorize')) {
@@ -243,7 +423,9 @@ class ChannelWorkspace
             return null;
         }
 
-        foreach ($card->menu as $item) {
+        // The store's own Orders item on a store key, so "View orders" lands
+        // in the store whose Overview offered it.
+        foreach ($this->menuFor($card, $channel) as $item) {
             if ($item->label === 'Orders' && $this->allows($item, $user)) {
                 return ['label' => 'View orders', 'url' => route($item->routeName, $item->routeParams)];
             }
@@ -257,19 +439,25 @@ class ChannelWorkspace
      * single-store OAuth marketplaces (Shopee, Lazada, TikTok) - same table
      * shape, same columns, same sandbox/live selection by `mode`.
      *
-     * Venta, OpenCart, Shopify and Pedallion are deliberately not handled
-     * here: they are multi-store or API-key integrations with no single
-     * settings row that represents "the card" (IntegrationController computes
-     * their health per STORE for exactly that reason), and none of them has
-     * a token-expiry column at all. Rather than pick an arbitrary row or
-     * invent a column, every figure reads as not tracked for those channels
-     * until they get their own workspace grouping - recorded as a follow-up,
-     * not fixed here, per this task's "no migration" constraint.
+     * Venta and OpenCart are read per STORE, which is the only level they
+     * track anything at: their settings rows ARE their stores, and the same
+     * row is what IntegrationController@index reads for that store's row on
+     * the board. Asked about the card as a whole (no store id) they still
+     * report nothing tracked, because picking one arbitrary row to speak for
+     * a multi-store channel is how the board and this page came to disagree
+     * about a healthy OpenCart store in the first place.
+     *
+     * Shopify and Pedallion stay unhandled until their own conversion, for
+     * the same reason as before: no workspace links to them yet.
      *
      * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
      */
-    private function tokenFigures(string $channelId): array
+    private function tokenFigures(string $channelId, ?int $storeId = null): array
     {
+        if ($storeId !== null) {
+            return $this->storeFigures($channelId, $storeId);
+        }
+
         if (! in_array($channelId, ['shopee', 'lazada', 'tiktok'], true)) {
             return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
         }
@@ -294,13 +482,90 @@ class ChannelWorkspace
     }
 
     /**
+     * One store's figures, read exactly where IntegrationController@index's
+     * multi-store branch reads them so the board and this workspace cannot
+     * disagree about the same store: the store's own settings row, its own
+     * token column, and its own error source.
+     *
+     * Token expiry is genuinely absent from both schemas (neither
+     * venta_settings nor opencart_settings has an expiry column), so it
+     * reads as not tracked rather than as a fabricated date. That is a
+     * recorded schema gap, not an oversight here.
+     *
+     * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
+     */
+    private function storeFigures(string $channelId, int $storeId): array
+    {
+        $tokenColumn = match ($channelId) {
+            'venta' => 'api_token',
+            'opencart' => 'api_key',
+            default => null,
+        };
+
+        if ($tokenColumn === null) {
+            return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
+        }
+
+        $row = DB::table($channelId . '_settings')->where('id', $storeId)->first();
+        $lastSyncRaw = $row?->last_order_sync_at;
+        $since = Carbon::now()->subHours(24);
+
+        // venta_api_logs is written only while that store's api_logging
+        // switch is on, so a zero with it off would read as "no errors" when
+        // it means "never measured". opencart_sync_log has no such switch
+        // and is written by every sync run, so its zero is a real zero.
+        $errors24h = null;
+
+        if ($row && $channelId === 'venta') {
+            $errors24h = ((bool) ($row->api_logging ?? false))
+                ? DB::table('venta_api_logs')
+                    ->where('venta_setting_id', $row->id)
+                    ->where('created_at', '>=', $since)
+                    ->where('ok', 0)
+                    ->count()
+                : null;
+        } elseif ($row && $channelId === 'opencart') {
+            $errors24h = DB::table('opencart_sync_log')
+                ->where('opencart_setting_id', $row->id)
+                ->where('created_at', '>=', $since)
+                ->where('status', 'failed')
+                ->count();
+        }
+
+        return [
+            'hasToken' => $row ? ! empty($row->{$tokenColumn}) : false,
+            'tokenExpiresAt' => null,
+            'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
+            'errors24h' => $errors24h,
+        ];
+    }
+
+    /** The numeric half of a StoreLink id ("venta:2" -> 2). */
+    private function storeIdOf(?StoreLink $store): ?int
+    {
+        if (! $store) {
+            return null;
+        }
+
+        $colon = strpos($store->id, ':');
+
+        if ($colon === false) {
+            return null;
+        }
+
+        $suffix = substr($store->id, $colon + 1);
+
+        return ctype_digit($suffix) ? (int) $suffix : null;
+    }
+
+    /**
      * @return array<int, array{label: string, items: array<int, array{label: string, route: string, url: string}>}>
      */
-    public function groups(IntegrationCard $card, ?User $user): array
+    public function groups(IntegrationCard $card, ?User $user, ?string $channel = null): array
     {
         $buckets = array_fill_keys(self::GROUPS, []);
 
-        foreach ($card->menu as $item) {
+        foreach ($this->menuFor($card, $channel) as $item) {
             if (! $this->allows($item, $user)) {
                 continue;
             }

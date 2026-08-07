@@ -40,18 +40,32 @@
     </aside>
 
     <div class="x-main">
+        @php
+            // Which store, when the channel has them: a multi-store workspace
+            // must say so in the trail, not only in the sidebar, because the
+            // trail is what stays on screen while the page scrolls.
+            $__channelStore = $channelStoreLabel ?? null;
+            // The same test @hasSection makes, read once so the "current"
+            // marker can land on the store segment when a page supplies no
+            // leaf of its own. Reading a section does not consume it, so the
+            // @yield below still prints it.
+            $__channelLeaf = trim($__env->yieldContent('breadcrumb'));
+        @endphp
         <header class="x-topbar">
             <div class="x-topbar__crumb">
                 <span class="x-crumb x-crumb--channel">
                     <span class="x-crumb__part">Integrations</span>
                     <span class="x-crumb__sep">/</span>
-                    {{-- The channel name is the current segment when the page
-                         supplies no leaf of its own, which is the case on
-                         Overview. Below 768px every segment except the current
-                         one is hidden, so without this the breadcrumb would be
-                         empty on that page. --}}
-                    <span class="x-crumb__part @hasSection('breadcrumb')@else x-crumb__part--current @endif">{{ $channelCard->name }}</span>
-                    @hasSection('breadcrumb')
+                    {{-- The last segment is the current one, and below 768px
+                         it is the only one shown, so exactly one of these
+                         three must carry the marker: the leaf when the page
+                         supplies one, else the store, else the channel. --}}
+                    <span class="x-crumb__part @if($__channelLeaf === '' && ! $__channelStore) x-crumb__part--current @endif">{{ $channelCard->name }}</span>
+                    @if($__channelStore)
+                        <span class="x-crumb__sep">/</span>
+                        <span class="x-crumb__part @if($__channelLeaf === '') x-crumb__part--current @endif">{{ $__channelStore }}</span>
+                    @endif
+                    @if($__channelLeaf !== '')
                         <span class="x-crumb__sep">/</span>
                         <span class="x-crumb__part x-crumb__part--current">@yield('breadcrumb')</span>
                     @endif

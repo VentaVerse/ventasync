@@ -1,6 +1,6 @@
-@extends('layouts.app')
+@extends('layouts.channel')
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product Group')
-@section('breadcrumb', 'Integrations / ' . $setting->store_name . ' / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@section('breadcrumb', ($mode === 'create' ? 'Add' : 'Edit') . ' Product Group')
 
 @section('content')
     <div class="page-header">

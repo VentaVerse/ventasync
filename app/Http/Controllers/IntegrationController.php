@@ -117,6 +117,7 @@ class IntegrationController extends Controller
 
                 $entries[] = [
                     'key' => $baseId,
+                    'workspaceKey' => $baseId,
                     'label' => $card->name,
                     'store' => null,
                     'hasToken' => $hasToken,
@@ -173,6 +174,12 @@ class IntegrationController extends Controller
 
                     $entries[] = [
                         'key' => $store->id ?? $baseId,
+                        // The per-store workspace this row opens
+                        // ("venta:2"). Null when the channel has no stores
+                        // configured yet: there is no store workspace to
+                        // open, so that row keeps sending the operator to
+                        // the module page, where a store can be created.
+                        'workspaceKey' => $store->id ?? null,
                         'label' => $card->name,
                         'store' => $store->label ?? null,
                         'hasToken' => $row ? !empty($row->{$tokenColumn}) : false,
@@ -188,6 +195,7 @@ class IntegrationController extends Controller
                 // rather than guessing at a schema nobody has inspected yet.
                 $entries[] = [
                     'key' => $baseId,
+                    'workspaceKey' => $baseId,
                     'label' => $card->name,
                     'store' => null,
                     'hasToken' => null,
@@ -214,8 +222,9 @@ class IntegrationController extends Controller
                     'tokenExpiry' => $entry['tokenExpiresAt']?->diffForHumans(),
                     'errors24h' => $entry['errors24h'],
                     // The channel workspace when this channel has one
-                    // (Shopee today), otherwise the module page and never a
-                    // channel's Settings item. Settings is only one entry in
+                    // (Shopee, Lazada and TikTok, plus every configured
+                    // Venta and OpenCart store), otherwise the module page
+                    // and never a channel's Settings item. Settings is only one entry in
                     // that channel's full menu (Categories, Product Groups,
                     // Logistics, Reviews, etc. also live there) - preferring
                     // it here meant any channel with a Settings item made
@@ -223,8 +232,13 @@ class IntegrationController extends Controller
                     // since integrations.module is otherwise never linked
                     // once the old full-menu card view was replaced by this
                     // one.
-                    'enterUrl' => $hasWorkspace
-                        ? route('integrations.workspace', ['channel' => $baseId])
+                    //
+                    // A multi-store channel's rows each open their OWN store
+                    // workspace ("venta:2"), because every one of its pages
+                    // is store-scoped and a storeless key has nothing to
+                    // show.
+                    'enterUrl' => ($hasWorkspace && $entry['workspaceKey'] !== null)
+                        ? route('integrations.workspace', ['channel' => $entry['workspaceKey']])
                         : route('integrations.module', ['module' => $baseId]),
                     'actionLabel' => $ordersUrl ? 'View orders' : null,
                     'actionUrl' => $ordersUrl,

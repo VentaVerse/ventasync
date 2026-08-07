@@ -1,6 +1,6 @@
-@extends('layouts.app')
+@extends('layouts.channel')
 @section('title', $setting->store_name . ' Product Groups')
-@section('breadcrumb', 'Integrations / ' . $setting->store_name . ' / Product Groups')
+@section('breadcrumb', 'Product Groups')
 
 @section('content')
 @php

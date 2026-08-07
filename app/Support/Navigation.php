@@ -126,6 +126,22 @@ class Navigation
 
             foreach ($registry->visibleCards($user) as $card) {
                 if ($workspace->hasWorkspace($card)) {
+                    // A converted multi-store channel has no storeless page,
+                    // so it offers one seller center per store, keyed the way
+                    // StoreLink ids already are. The card name stays in the
+                    // label because store names repeat across channels: a
+                    // seller running "Shop A" on both Venta and
+                    // OpenCart would otherwise get two identical entries.
+                    if ($card->stores !== []) {
+                        foreach ($card->stores as $store) {
+                            $items[] = ['label' => $card->name.' '.$store->label,
+                                        'route' => 'integrations.workspace',
+                                        'params' => ['channel' => $store->id],
+                                        'keywords' => [$card->id, $store->label, 'seller center', 'orders', 'store']];
+                        }
+                        continue;
+                    }
+
                     $items[] = ['label' => $card->name, 'route' => 'integrations.workspace',
                                 'params' => ['channel' => $card->id],
                                 'keywords' => [$card->id, 'seller center', 'orders', 'listings']];

@@ -16,6 +16,11 @@ class ChannelWorkspaceController extends Controller
         // cannot see. Both are a 404 on purpose: a 403 would confirm that a
         // channel the user has no access to exists.
         //
+        // On a multi-store channel it also returns null for a bare key
+        // (`venta`), an unknown store (`venta:999`) and a malformed one
+        // (`venta:abc`), so those land on the same 404 rather than on a
+        // page built from a store nobody named.
+        //
         // hasWorkspace() keeps direct URLs honest with the board: a channel
         // whose menu has not been converted (no grouped items) has no
         // workspace to show, and rendering a half-built one to a bookmarked
@@ -25,7 +30,7 @@ class ChannelWorkspaceController extends Controller
             abort(404);
         }
 
-        $state = $workspace->state($card);
+        $state = $workspace->state($card, $channel);
 
         // channelCard, channelGroups and channelState are deliberately absent
         // here: the layouts.channel view composer supplies all three to every
@@ -33,17 +38,17 @@ class ChannelWorkspaceController extends Controller
         // as well only computed the same values a second time for the
         // composer to overwrite.
         return view('integrations.workspace', [
-            'channelHealth' => $workspace->health($card),
+            'channelHealth' => $workspace->health($card, $channel),
             // Spec 3.4: the Overview answers "what is waiting for me", not
             // just "is the connection alive". These read the same closures
             // the Orders summary page uses, so the two cannot disagree.
-            'channelWaiting' => $workspace->waiting($card, $user),
+            'channelWaiting' => $workspace->waiting($card, $user, $channel),
             // Per spec 3.4, the Overview also carries the channel's most
             // needed action: Connect when it needs setup, otherwise the same
             // secondary action the status board already offers for it. Reads
             // the card's own menu, so no grouped sidebar has to be built here
             // just to answer it.
-            'channelAction' => $workspace->action($card, $state, $user),
+            'channelAction' => $workspace->action($card, $state, $user, $channel),
         ]);
     }
 }

@@ -1,6 +1,8 @@
 @extends('layouts.channel')
 
-@section('title', $channelCard->name)
+{{-- Both names in the tab title on a multi-store channel: store names repeat
+     across channels, so "Shop A" alone does not identify an open tab. --}}
+@section('title', ($channelStoreLabel ?? null) ? $channelCard->name.' '.$channelStoreLabel : $channelCard->name)
 
 {{-- Opt out of the .x-legacy boundary: this page is built to the current
      design, so it should use the current tokens. Task 3 made the boundary the
@@ -11,7 +13,11 @@
 @section('content')
     <div class="x-overview-head">
         <div>
-            <h1 class="x-page-title">{{ $channelCard->name }}</h1>
+            {{-- The store is what this page is about on a multi-store
+                 channel: its figures, its orders, its settings. The channel
+                 it belongs to is named in the sidebar head and the
+                 breadcrumb, both on screen beside this. --}}
+            <h1 class="x-page-title">{{ $channelStoreLabel ?? $channelCard->name }}</h1>
             <p class="x-page-sub">{{ $channelCard->tagline }}</p>
         </div>
 

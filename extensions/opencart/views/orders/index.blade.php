@@ -1,5 +1,6 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / OpenCart / Orders')
+@extends('layouts.channel')
+@section('title', 'OpenCart Orders')
+@section('breadcrumb', 'Orders')
 
 @section('content')
 @include('integrations.partials._tab_strip', ['activeTabId' => 'opencart:' . $store])

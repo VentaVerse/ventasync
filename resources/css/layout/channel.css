@@ -48,6 +48,16 @@
     letter-spacing: -0.01em;
 }
 
+/* Which store this workspace is, under the channel name. Secondary weight
+   and colour because the pair reads as one identity, channel then store, and
+   two equal-weight lines would compete. --text-secondary clears the contrast
+   floor in both themes. */
+.x-cnav__store {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
 .x-cnav__state {
     font-size: 11px;
     font-weight: 500;
@@ -200,6 +210,30 @@
        Overview page at this width, so repeating them here costs a third of
        the strip and tells the user nothing new. */
     .x-cnav__head { display: none; }
+
+    /* The store is the exception. The trail below keeps only its current
+       segment at this width, so on a multi-store leaf page (Orders, Settings)
+       nothing on a phone screen says WHICH shop is being edited. That is the
+       one question a multi-store workspace exists to answer, so its head
+       survives as a single inline label at the head of the strip. */
+    .x-cnav__head--store {
+        display: flex;
+        flex: none;
+        gap: 0;
+        padding: 0 var(--space-2);
+        margin-bottom: 0;
+        border-bottom: 0;
+        white-space: nowrap;
+    }
+
+    .x-cnav__head--store .x-cnav__name,
+    .x-cnav__head--store .x-cnav__state { display: none; }
+
+    .x-cnav__head--store .x-cnav__store {
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+    }
 
     .x-cnav__group {
         flex-direction: row;

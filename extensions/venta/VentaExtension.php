@@ -62,9 +62,15 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 menu: [
                     // Phase 4 — view-tier visibility: read-only operators can
                     // open Settings / Product Groups / Orders for browsing.
-                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta', null, ['store' => $store->id]),
-                    new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta', null, ['store' => $store->id]),
-                    new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta_orders', null, ['store' => $store->id]),
+                    //
+                    // The trailing group is the workspace conversion signal:
+                    // a store whose menu is grouped gets its own seller
+                    // center at /integrations/venta:{id}, built from exactly
+                    // this menu, with these ['store' => id] params carried
+                    // through unchanged.
+                    new MenuItem('Settings', 'ext.venta.settings.show', 'view_venta', null, ['store' => $store->id], 'Channel'),
+                    new MenuItem('Product Groups', 'ext.venta.product-groups.index', 'view_venta', null, ['store' => $store->id], 'Catalogue'),
+                    new MenuItem('Orders', 'ext.venta.orders.index', 'view_venta_orders', null, ['store' => $store->id], 'Sell'),
                 ],
                 status: $store->enabled ? 'active' : 'setup_pending',
             );
