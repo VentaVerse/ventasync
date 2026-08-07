@@ -45,6 +45,10 @@
    refines it, and before the per-channel page files that build on it. */
 @import './components/channel-orders.css';
 
+/* Shared order-detail anatomy (`od-`). After channel-orders.css because it
+   reuses that file's `co-` item grammar and re-faces a few of its pieces. */
+@import './components/order-detail.css';
+
 /* Pages */
 @import './pages/dashboard.css';
 @import './pages/marketplace-common.css';

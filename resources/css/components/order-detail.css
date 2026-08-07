@@ -1,0 +1,901 @@
+/* Order detail anatomy: the shared `od-` grammar.
+   -------------------------------------------------------------------
+   One picture, poured four times. The core Sales order show is the first
+   and richest consumer; Shopee, Lazada and TikTok follow into the same
+   components inside their seller centers. Everything here is page-shape:
+   heads, sections, the item list, the money ledger, the side cards, the
+   status timeline. Nothing here knows which channel it is rendering.
+
+   Item identity is NOT redefined here. It is the `co-` grammar from
+   components/channel-orders.css (96px image, two-line name, SKU and
+   variation meta, mono qty and price), because an operator who has
+   learned to read an order line on the Shopee fulfilment page should not
+   have to relearn it on a detail page. This file only supplies the
+   columns those pieces sit in.
+
+   Four decisions run through the file:
+
+   1. Colour has one job here: money that is leaving. Deductions (COGS,
+      shipping cost, fees) and any negative figure are --danger; a thin
+      margin is --warning; everything healthy is plain --text. There is no
+      green "good number" spray, because the one number on the page that
+      genuinely answers "what did I make" is the net profit line, and that
+      line gets --accent so it is the only green figure on the screen.
+      Accent otherwise buys exactly two things: the primary action and
+      links.
+
+   2. Elevation is a three-step scale, not a uniform card stack. The main
+      column's sections sit directly on the canvas under a hairline rule.
+      The totals ledger is sunken, because it is a receipt. The side
+      column's blocks are raised surfaces, because they are reference
+      panels you look aside to. That difference is what tells the eye the
+      middle of the page is the subject.
+
+   3. Every numeral is mono with tabular figures: order number, dates,
+      quantities, money, percentages. That is what lets the qty, unit and
+      total columns be compared down the page instead of read line by
+      line.
+
+   4. The item row responds to its own column, not to the viewport. The
+      side column takes 340px out of the content width, so main can be
+      narrow at 1100px and wide at 1440px at the same breakpoint. A
+      container query on the main column is the only thing that gets that
+      right; a viewport media query would either overflow at 1024 or stack
+      needlessly at 1440.
+   ------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------
+   Page frame
+   ------------------------------------------------------------------ */
+
+.od-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* Back to the list. A quiet text link, not a button: the head already
+   carries one solid action and a second control of a different weight
+   beside it is the mixed grammar this system avoids. Navigation reads as
+   navigation. */
+.od-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    align-self: flex-start;
+    margin-bottom: calc(var(--space-4) * -1);
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+    transition: color var(--motion-fast);
+}
+
+.od-back:hover { color: var(--text); }
+
+.od-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-4);
+}
+
+.od-head__id {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+/* The order number is an identifier, so it is set in the mono face like
+   every other identifier in this app, at the page-title size. */
+.od-title {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.od-head__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Order-level stamps and references: created time, marketplace order id,
+   tracking number. One line of quiet facts under the title rather than a
+   row of boxes, because none of them is a number you act on. */
+.od-stamps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+    margin-top: calc(var(--space-3) * -1);
+}
+
+.od-stamp {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.od-stamp__k { color: var(--text-muted); font-size: 12px; }
+
+.od-stamp__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+a.od-stamp__v { color: var(--accent); text-decoration: none; }
+a.od-stamp__v:hover { text-decoration: underline; }
+
+.od-stamp__out { margin-left: 2px; }
+
+/* ------------------------------------------------------------------
+   Flash region. layouts.shell renders no flash area of its own (unlike
+   layouts.app and layouts.channel, which include partials/legacy-page-
+   contract.blade.php), and every mutating action on this page redirects
+   back here with session('status') or session('error'). Without a region
+   to land in, every save on this page would be silent. This is the same
+   contract in the new token set, so it is theme-correct in dark mode -
+   the legacy .alert is a light-only component built from raw hex.
+   ------------------------------------------------------------------ */
+
+.od-flash { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.od-flash:empty { display: none; }
+
+.od-note {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    background: var(--surface);
+    font-size: 13px;
+    color: var(--text);
+}
+
+.od-note--ok   { border-left-color: var(--accent); }
+.od-note--fail { border-left-color: var(--danger); }
+
+.od-note__body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.od-note__list { margin: 0; padding-left: var(--space-4); }
+
+.od-note__close {
+    flex: none;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color var(--motion-fast);
+}
+
+.od-note__close:hover { color: var(--text); }
+
+/* ------------------------------------------------------------------
+   Two-column body. 340px is the side column: wide enough for an address
+   line and a two-up field grid without wrapping mid-word, narrow enough
+   to leave the item list its columns. Stacked below 1000px.
+   ------------------------------------------------------------------ */
+
+.od-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+}
+
+@media (min-width: 1001px) {
+    .od-body { grid-template-columns: minmax(0, 1fr) 340px; }
+}
+
+.od-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
+}
+
+/* See decision 4 in the header: the item row sizes itself against this
+   column's width, not the window's. */
+.od-col--main {
+    container-type: inline-size;
+    container-name: odmain;
+}
+
+/* ------------------------------------------------------------------
+   Section: a title on a hairline, content directly on the canvas. No box.
+   ------------------------------------------------------------------ */
+
+.od-section { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.od-section__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border);
+}
+
+.od-section__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.od-section__count {
+    margin-left: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.od-section__aside { display: flex; align-items: center; gap: var(--space-2); }
+
+.od-empty {
+    padding: var(--space-4) 0;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ------------------------------------------------------------------
+   Items. Grid columns are shared by the column header and every row, so
+   qty, unit price and line total align down the page by construction
+   rather than by matching two sets of widths by hand.
+   ------------------------------------------------------------------ */
+
+.od-items { display: flex; flex-direction: column; }
+
+.od-items__head,
+.od-item {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) 3.5rem 7.5rem 8rem;
+    column-gap: var(--space-4);
+    align-items: start;
+}
+
+.od-items__head {
+    padding-bottom: var(--space-2);
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: .02em;
+}
+
+.od-items__head span:nth-child(n + 3) { text-align: right; }
+
+/* Horizontal hairlines only. A rule per row, none on the last one, and no
+   vertical rules anywhere: a bordered grid reads as a spreadsheet export. */
+.od-item {
+    row-gap: var(--space-3);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border);
+}
+
+.od-item__media { grid-row: 1 / span 2; }
+
+.od-item__body { min-width: 0; }
+
+/* The name carries .co-item__name for the two-line clamp; this only
+   re-colours it, because on this page it is a link to the catalog product
+   where there is one. Deliberately does not set `display`: that would
+   override the clamp's own -webkit-box from the later import position. */
+.od-item__name { color: var(--text); text-decoration: none; }
+
+a.od-item__name:hover { color: var(--accent); }
+
+/* display: contents lets the three figure cells participate in the item's
+   own grid on a wide column, then become a flex row of labelled figures
+   when the container is narrow - one markup shape, two layouts, no
+   duplicated cells. */
+.od-item__figs { display: contents; }
+
+.od-fig {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text);
+}
+
+.od-fig--qty { font-size: 15px; font-weight: 700; }
+
+.od-fig--total { font-weight: 600; }
+
+/* Shown only when the figures wrap out of their columns (narrow container),
+   where a bare number with no column header above it is unreadable. */
+.od-fig__k {
+    display: none;
+    margin-right: var(--space-1);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Per-item economics: unit cost, COGS, profit, margin, markup. Supporting
+   evidence for the line above it, so it starts at the left edge of the
+   name rather than pretending to be another aligned money column. */
+.od-econ {
+    grid-column: 2 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    padding-top: var(--space-1);
+    border-top: 1px dashed var(--border);
+}
+
+.od-econ__cell {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-1);
+}
+
+.od-econ__k { font-size: 11px; color: var(--text-muted); }
+
+.od-econ__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   Money ledger. The receipt: sunken surface, hairline groups, one column
+   of labels and one of right-aligned mono figures.
+   ------------------------------------------------------------------ */
+
+.od-ledger {
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.od-ledger__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding: var(--space-1) 0;
+}
+
+.od-ledger__k { color: var(--text-secondary); font-size: 13px; min-width: 0; }
+
+.od-ledger__v {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text);
+}
+
+/* The order total closes the customer-facing half of the ledger. */
+.od-ledger__row--total {
+    margin-top: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-strong);
+}
+
+.od-ledger__row--total .od-ledger__k { color: var(--text); font-weight: 600; }
+.od-ledger__row--total .od-ledger__v { font-size: 15px; font-weight: 600; }
+
+/* Everything below this line is cost, not revenue. */
+.od-ledger__split {
+    margin: var(--space-3) 0;
+    border: 0;
+    border-top: 1px dashed var(--border-strong);
+}
+
+.od-ledger__row--profit {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-strong);
+}
+
+.od-ledger__row--profit .od-ledger__k { color: var(--text); font-weight: 600; font-size: 13px; }
+.od-ledger__row--profit .od-ledger__v { font-size: 17px; font-weight: 600; }
+
+.od-ledger__margins {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    margin-top: 2px;
+}
+
+.od-ledger__margin {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+/* Add-fee row: three controls on one baseline, right-aligned so the
+   amount box lines up with the figures above it. */
+.od-ledger__form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.od-ledger__form .x-input { height: var(--control-h-sm); font-size: 12px; }
+
+.od-fee-label { width: 8.5rem; }
+.od-fee-amount { width: 6rem; text-align: right; font-family: var(--font-mono); }
+
+/* ------------------------------------------------------------------
+   Click-to-edit figure. A real <button>, not the old <span>: it is a
+   control, so it has to be reachable by keyboard and announce itself as
+   activatable. The dashed underline is the affordance.
+   ------------------------------------------------------------------ */
+
+.od-edit {
+    padding: 0;
+    background: none;
+    border: 0;
+    border-bottom: 1px dashed var(--border-strong);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: border-color var(--motion-fast), color var(--motion-fast);
+}
+
+.od-edit:hover { border-bottom-color: var(--accent); color: var(--accent); }
+
+.od-edit__input {
+    width: 6.5rem;
+    height: var(--control-h-sm);
+    padding: 0 var(--space-2);
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.od-edit__input--text { width: 8.5rem; text-align: left; font-family: var(--font-ui); }
+
+/* Remove-fee control: an icon button that only colours on hover, so a
+   ledger with six fees is not six standing red buttons. */
+.od-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: var(--space-1);
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.od-icon-btn:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+/* Secondary and destructive controls stay out of the resting picture and
+   appear on the row they belong to, the same reveal .x-menu__trigger uses
+   inside a table. .x-menu__trigger's own reveal rule is written against
+   `.x-table tbody tr:hover`, which never matches here, so the menus on
+   this page need their own trigger. */
+.od-ledger__row .od-icon-btn { opacity: 0; transition: opacity var(--motion-fast), background var(--motion-fast), color var(--motion-fast); }
+.od-ledger__row:hover .od-icon-btn,
+.od-ledger__row .od-icon-btn:focus-visible { opacity: 1; }
+
+.od-pay:hover .x-menu__trigger { opacity: 1; }
+
+/* A card header has no row to hover, so its menu is always visible. It is
+   a neutral kebab, not a standing destructive control. */
+.od-card__head .x-menu__trigger { opacity: 1; }
+
+/* ------------------------------------------------------------------
+   Side column cards. Raised surfaces: reference panels, not the subject.
+   Weight varies by content - the payment card carries a state badge and
+   a ledger, the address cards carry text - so they are not a stack of
+   identical boxes.
+   ------------------------------------------------------------------ */
+
+.od-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.od-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.od-card__title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.od-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+}
+
+.od-card__body--tight { gap: var(--space-2); }
+
+/* The card body owns its own rhythm through `gap`; a paragraph's default
+   block margins would add a second, larger one on top of it. */
+.od-card__body p { margin: 0; }
+
+.od-card__foot {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border);
+    background: var(--surface-sunken);
+}
+
+/* A person and their contact details, or an address. Plain stacked lines:
+   an address is read as a block, not as labelled fields. */
+.od-lines { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--text-secondary); }
+
+.od-lines__name { font-weight: 600; color: var(--text); }
+
+.od-lines a { color: var(--accent); text-decoration: none; }
+.od-lines a:hover { text-decoration: underline; }
+
+/* A single labelled fact (payment method, shipping method, courier). */
+.od-fact { display: flex; flex-direction: column; gap: 2px; }
+
+.od-fact__k { font-size: 11px; color: var(--text-muted); }
+
+.od-fact__v { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+
+.od-fact__v--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.od-fact__v a { color: var(--accent); text-decoration: none; }
+.od-fact__v a:hover { text-decoration: underline; }
+
+.od-divider { height: 1px; background: var(--border); border: 0; margin: 0; }
+
+/* ------------------------------------------------------------------
+   Payments ledger inside the side card.
+   ------------------------------------------------------------------ */
+
+.od-paid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.od-paid__k { font-size: 12px; color: var(--text-muted); }
+
+.od-paid__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.od-pay {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    column-gap: var(--space-2);
+    row-gap: 2px;
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--border);
+}
+
+.od-pay__when {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+}
+
+.od-pay__amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    text-align: right;
+}
+
+.od-pay__meta {
+    grid-column: 1 / 3;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* Both the row and the column are stated. A grid item with a definite row
+   and an auto column is placed BEFORE the auto-flowed items (CSS Grid
+   placement, step 3), so leaving the column to auto put the menu in
+   column 1 and pushed the date and amount one column right. */
+.od-pay__act { grid-row: 1 / span 2; grid-column: 3; align-self: center; }
+
+/* ------------------------------------------------------------------
+   Disclosure for a form that is not the point of the card. Native
+   <details>, so it works with no JS at all and is keyboard-operable for
+   free.
+   ------------------------------------------------------------------ */
+
+.od-disclose > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--accent);
+    font-size: 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.od-disclose > summary::-webkit-details-marker { display: none; }
+
+.od-disclose > summary:hover { text-decoration: underline; }
+
+.od-disclose[open] > summary { margin-bottom: var(--space-3); }
+
+/* ------------------------------------------------------------------
+   Forms. Label above control, controls on one baseline in a wrapping
+   grid, so a two-up side-column form and a three-up full-width form are
+   the same markup.
+   ------------------------------------------------------------------ */
+
+.od-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-3);
+    align-items: end;
+}
+
+.od-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+
+.od-field--wide { grid-column: 1 / -1; }
+
+.od-field__k { font-size: 11px; color: var(--text-muted); }
+
+.od-field .x-input,
+.od-field .x-select-wrap { width: 100%; }
+
+/* A button in a field slot sizes to its label. Stretching it to a whole
+   grid column turns "Update status" into a 300px slab of accent, which is
+   the loudest thing on a page whose loudest thing should be the profit. */
+.od-field .x-btn { align-self: flex-start; }
+
+.od-form__actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+
+/* ------------------------------------------------------------------
+   Sync override. A submit button styled as a switch: activating it posts
+   the form and the server flips the state, so the control works with
+   scripting disabled and has no inline handler. role="switch" plus
+   aria-checked is what makes the visual affordance and the semantics
+   agree.
+   ------------------------------------------------------------------ */
+
+.od-override {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.od-switch {
+    flex: none;
+    position: relative;
+    width: 34px;
+    height: 20px;
+    margin-top: 1px;
+    padding: 0;
+    background: var(--surface-hover);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background var(--motion-base), border-color var(--motion-base);
+}
+
+/* The knob is a foreground, not a highlight: an off-state knob in
+   --surface on a --border-strong track measured about 1.4:1 in light and
+   1.5:1 in dark, which is a control whose state you cannot see. Off puts
+   --text-muted on --surface-hover (4.58 light / 4.56 dark, the token
+   matrix's own worst case) and on puts --accent-text on --accent (5.35 /
+   7.17), so both states clear 3:1 as a non-text UI component should. */
+.od-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: transform var(--motion-base), background var(--motion-base);
+}
+
+.od-switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.od-switch[aria-checked="true"]::after { transform: translateX(14px); background: var(--accent-text); }
+
+.od-override__body { min-width: 0; }
+
+.od-override__title { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.od-override__note { margin-top: 2px; font-size: 12px; color: var(--text-secondary); }
+
+/* ------------------------------------------------------------------
+   Status history. A timeline: time on the left in mono so the column
+   scans, the event beside it.
+   ------------------------------------------------------------------ */
+
+.od-time { display: flex; flex-direction: column; }
+
+.od-time__row {
+    display: grid;
+    grid-template-columns: 10.5rem minmax(0, 1fr);
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--border);
+}
+
+.od-time__row:first-child { border-top: 0; }
+
+.od-time__when {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.od-time__what { min-width: 0; }
+
+.od-time__status { font-size: 13px; font-weight: 500; color: var(--text); }
+
+.od-time__who { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+
+.od-time__note {
+    margin-top: var(--space-1);
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------
+   <x-money> on this page. The component is shared with the legacy order
+   pages, so its own file cannot assume the mono face; here every numeral
+   is mono, so the two lines are re-faced rather than re-implemented.
+   ------------------------------------------------------------------ */
+
+.od-page .money-primary {
+    font-family: var(--font-mono);
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+.od-page .money-secondary {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.od-page .money-pending { font-size: 11px; }
+
+/* The exchange-rate note is components/currency-dual.css's .currency-banner,
+   reused rather than reimplemented so the currency project keeps one place
+   to change it. Two things are re-faced for this page: it drops the accent
+   TINT for the same neutral surface .od-note uses (a full-width accent bar
+   was the loudest object on a page whose loudest object should be the
+   profit line), and the rate and date inside it become mono, because every
+   numeral on this page is. */
+.od-page .currency-banner {
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-size: 13px;
+}
+
+.od-page .currency-banner--pending { border-left-color: var(--warning); }
+
+.od-page .currency-banner__date { font-size: 12px; }
+
+.od-rate { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Item identity comes from the `co-` grammar (channel-orders.css). Two
+   pieces need a detail-page value rather than the list-page one: the
+   thumbnail is not hover-zoomed here, and the meta line sits under a name
+   that is a link. */
+.od-page .order-img-wrap { cursor: default; }
+
+/* ------------------------------------------------------------------
+   Narrow main column. Fires on the column's own width, so it is correct
+   whether the column is narrow because the window is 390px or because
+   the side column is taking 340px out of a 1100px window.
+   ------------------------------------------------------------------ */
+
+@container odmain (max-width: 560px) {
+    .od-items__head { display: none; }
+
+    .od-items__head,
+    .od-item { grid-template-columns: 72px minmax(0, 1fr); }
+
+    .od-item__figs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-1) var(--space-4);
+        grid-column: 2;
+    }
+
+    .od-fig { text-align: left; }
+    .od-fig--qty { font-size: 13px; }
+    .od-fig__k { display: block; margin-right: 0; }
+
+    .od-page .order-img-wrap { width: 72px; height: 72px; }
+}
+
+/* Phones. The side column has already stacked under the main one by here;
+   what is left is to stop the ledger and cards from eating their own
+   padding, and to let the timeline's time column sit above its event
+   instead of squeezing the text to nothing. */
+@media (max-width: 640px) {
+    /* No hover on a touch screen, so every reveal above becomes permanent
+       rather than tappable-but-invisible. Mirrors ui-table.css's own
+       handling of the same problem at the same breakpoint. */
+    .od-ledger__row .od-icon-btn { opacity: 1; }
+}
+
+@media (max-width: 560px) {
+    .od-ledger { padding: var(--space-4); }
+
+    .od-time__row { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+
+    .od-ledger__form { justify-content: stretch; }
+    .od-fee-label, .od-fee-amount { flex: 1 1 auto; width: auto; }
+}
+
+/* ------------------------------------------------------------------
+   Money tone. Last in the file on purpose: these are single-class
+   utilities that have to beat the component rule they sit on
+   (.od-econ__v, .od-ledger__margin and .od-paid__v all set their own
+   colour at the same specificity), and "utilities last" is the only way
+   to get that without inflating selectors.
+
+   --accent is spent on exactly one figure: the net profit line, the one
+   number that answers "what did I make on this order". --danger marks
+   money leaving (COGS, shipping cost, fees, any negative figure) and
+   --warning marks a margin thin enough to look at. A healthy per-item
+   margin is plain text, so the page has one green number rather than a
+   field of them.
+   ------------------------------------------------------------------ */
+
+.od-pos  { color: var(--accent); }
+.od-neg  { color: var(--danger); }
+.od-warn { color: var(--warning); }

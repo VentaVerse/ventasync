@@ -306,8 +306,13 @@
 /* .order-img-wrap and img.order-img are load-bearing class names: the hover
    zoom-preview script matches on both. Only the geometry is restated here,
    for a dense list rather than the old tall row, and the legacy
-   --surface-alt fallback is replaced with a real token. */
-.co-page .order-img-wrap {
+   --surface-alt fallback is replaced with a real token.
+   .od-page (the order detail anatomy, components/order-detail.css) shares
+   this box rather than declaring a second 96px thumbnail: the item line is
+   the same grammar on both surfaces, so it is one rule with two roots. The
+   detail page has no hover zoom, so it overrides `cursor` on its own side. */
+.co-page .order-img-wrap,
+.od-page .order-img-wrap {
     /* 96px: the packer verifies the physical item against this image, so
        it is an operational control, not decoration. Per the owner, twice: "That
        is an important factor to avoid packing an incorrect item", then

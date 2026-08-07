@@ -1,870 +1,782 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Sales / Orders / View')
+@extends('layouts.shell')
+@section('title', 'Order ' . $order->order_id)
+@section('breadcrumb', $order->order_id)
 
 @section('content')
 @php
-    // Phase 4.5 (view/manage tier split): operators with only `view_orders`
-    // see the show page through the read-tier route gate. Action triggers
-    // (Edit, Backfill, Status update, fee CRUD, payment CRUD, toggle
-    // tracking) are hidden for them - the routes still 403 if probed
-    // directly, but the UI surface matches the operator's capability set.
-    $canManageOrders = true;
+    // Phase 4.5 (view/manage tier split). This used to be hardcoded `true`
+    // with a comment saying action triggers "are hidden" for read-tier
+    // operators, which they were not: every mutating control rendered for
+    // everyone and only 403'd when submitted. The real gate is the one on
+    // the routes themselves - orders.show is perm:view_orders|manage_orders,
+    // every POST/PUT/DELETE below is perm:manage_orders - so the UI now
+    // asks the same question the middleware asks.
+    $canManageOrders = auth()->user()?->hasPermission('manage_orders') ?? false;
+
+    $registry = app(\App\Integrations\IntegrationRegistry::class);
+
+    // Channel identity, resolved the same way the orders list resolves it
+    // (orders/index-v2.blade.php): brand-tinted text with no dot, because a
+    // dot on this page means "this is a state" and belongs to the status
+    // badge alone.
+    $src = trim((string) $order->marketplace_source);
+    $chanKey = $src === '' ? '' : strtok($src, ':');
+    $chanTone = $src === '' ? 'neutral' : $chanKey;
+    $chanLabel = $src === ''
+        ? 'Manual'
+        : ($registry->resolveMarketplaceSourceLabel($src) ?: ucfirst($chanKey));
+
+    $orderRef = $order->marketplace_order_id
+        ? $registry->resolveOrderRef((string) $order->marketplace_source, (string) $order->marketplace_order_id)
+        : null;
+
+    // Fallback deep links for the two channels that shipped before the
+    // registry's order-ref renderers existed. Unchanged from the previous
+    // version of this page.
+    $refUrl = $orderRef['url'] ?? null;
+    $refText = $orderRef['display'] ?? (string) $order->marketplace_order_id;
+    if (!$orderRef && $order->marketplace_order_id) {
+        if ($order->marketplace_source === 'lazada') {
+            $refUrl = 'https://sellercenter.lazada.com.ph/order/detail?tradeOrderId=' . $order->marketplace_order_id;
+        } elseif ($order->marketplace_source === 'shopee') {
+            $refUrl = 'https://seller.shopee.ph/portal/sale/' . $order->marketplace_order_id;
+        }
+    }
+
+    // Every money value in this view routes through App\Support\Money /
+    // <x-money> - see the class docblock. `currency_value` is the rate
+    // recorded at order time ("units of PHP per 1 unit of order currency");
+    // a default-currency order carries 1.0 and never shows the rate note.
+    $defaultSymbol = \App\Support\Money::defaultSymbol();
+    // A blank currency_code (pre-currency-feature legacy orders) is
+    // default-currency, not "foreign with no name" - without this guard
+    // such an order renders a broken note.
+    $isForeign = (string) $order->currency_code !== ''
+        && strcasecmp((string) $order->currency_code, $defaultCurrency->code ?? 'PHP') !== 0;
+    $orderRate = (float) ($order->currency_value ?: 1);
+    // A foreign order that predates normalization (or was created in the
+    // gap before the normalizer ran) has no foreign_total yet. Detect that
+    // explicitly rather than ever inferring the convention from the rate's
+    // magnitude - fall back to a single, still-labelled default-currency
+    // figure and a pending notice instead of a wrong or blank number.
+    $normalized = !$isForeign || $order->foreign_total !== null;
+    $dual = $isForeign && $normalized;
+
+    $payments = $payments ?? collect();
+    $totalPaid = (float) ($totalPaid ?? 0);
+    $orderTotal = (float) $order->total;
+    $balance = $orderTotal - $totalPaid;
+
+    $mktFeeTotal = (float) ($marketplaceFees['total'] ?? 0);
+    $mktFeeItems = $marketplaceFees['items'] ?? [];
+    $shippingCost = (float) ($order->shipping_cost ?? 0);
+
+    // Margin tone. There is no green "healthy" state on this page: colour
+    // marks money that needs attention, so a good margin is plain text and
+    // only a thin or negative one is tinted. Thresholds are the same 20/10
+    // the previous version of this page used.
+    $marginTone = fn (float $pct) => $pct >= 20 ? '' : ($pct >= 10 ? 'od-warn' : 'od-neg');
 @endphp
-<div class="card">
-    <div class="page-header">
-        <h2>Order #{{ $order->order_id }}</h2>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('orders.index') }}">Back</a>
-            @if($canManageOrders)
-            <a class="btn" href="{{ route('orders.edit', $order->order_id) }}">Edit</a>
-            @endif
-        </div>
+
+<div class="od-page"
+     data-order-detail
+     data-order-id="{{ $order->order_id }}"
+     data-base-url="{{ url('/sales/orders') }}">
+
+    {{-- layouts.shell renders no flash region of its own; every action on
+         this page redirects back here with a session message. --}}
+    <div class="od-flash" id="od-flash" role="status" aria-live="polite">
+        @if(session('status'))
+            <div class="od-note od-note--ok">
+                <div class="od-note__body">{{ session('status') }}</div>
+            </div>
+        @endif
+        @if(session('error'))
+            <div class="od-note od-note--fail">
+                <div class="od-note__body">{{ session('error') }}</div>
+            </div>
+        @endif
+        @if($errors->any())
+            <div class="od-note od-note--fail">
+                <div class="od-note__body">
+                    <ul class="od-note__list">
+                        @foreach($errors->all() as $e)
+                            <li>{{ $e }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        @endif
     </div>
 
-    {{-- Order Meta Bar --}}
-    <div class="meta-bar">
-        <div class="meta-item">
-            <span class="meta-label">Source:</span>
-            @if($order->marketplace_source === 'lazada')
-                <span class="badge badge-indigo">Lazada</span>
-            @elseif($order->marketplace_source === 'shopee')
-                <span class="badge badge-orange">Shopee</span>
-            @elseif($order->marketplace_source === 'tiktok')
-                <span class="badge" style="background:#1e1e1e; color:#fff;">TikTok</span>
-            @elseif(str_starts_with($order->marketplace_source ?? '', 'venta:'))
-                @php
-                    $ventaStoreName = app(\App\Integrations\IntegrationRegistry::class)
-                        ->resolveMarketplaceSourceLabel((string) $order->marketplace_source);
-                @endphp
-                <span class="badge badge-green">{{ $ventaStoreName ?: 'Venta' }}</span>
-            @elseif($order->marketplace_source !== '')
-                <span class="badge badge-dark">{{ ucfirst($order->marketplace_source) }}</span>
-            @else
-                <span class="badge badge-default">Manual</span>
-            @endif
+    <a class="od-back" href="{{ route('orders.index') }}">
+        <x-ui.icon name="chevron-left" size="14" />
+        Orders
+    </a>
+
+    <header class="od-head">
+        <div class="od-head__id">
+            <h1 class="x-page-title od-title">#{{ $order->order_id }}</h1>
+            <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
+            <x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge>
         </div>
-        <div class="meta-item">
-            <span class="meta-label">Status:</span>
-            <span class="badge badge-blue">{{ $order->status->name ?? '-' }}</span>
+        @if($canManageOrders)
+        <div class="od-head__actions">
+            <x-ui.button variant="primary" :href="route('orders.edit', $order->order_id)">Edit order</x-ui.button>
         </div>
-        <div class="meta-item">
-            <span class="meta-label">Date:</span>
-            {{ $order->date_added }}
-        </div>
+        @endif
+    </header>
+
+    <div class="od-stamps">
+        <span class="od-stamp">
+            <span class="od-stamp__k">Created</span>
+            <span class="od-stamp__v">{{ $order->date_added }}</span>
+        </span>
         @if($order->marketplace_order_id)
-        @php
-            $orderRef = app(\App\Integrations\IntegrationRegistry::class)
-                ->resolveOrderRef((string) $order->marketplace_source, (string) $order->marketplace_order_id);
-        @endphp
-        <div class="meta-item">
-            <span class="meta-label">Marketplace ID:</span>
-            @if($orderRef && $orderRef['url'])
-                <a href="{{ $orderRef['url'] }}" target="_blank" rel="noopener" style="color:var(--accent);">
-                    {{ $orderRef['display'] }} &#8599;
-                </a>
-            @elseif($orderRef)
-                {{ $orderRef['display'] }}
-            @elseif($order->marketplace_source === 'lazada')
-                <a href="https://sellercenter.lazada.com.ph/order/detail?tradeOrderId={{ $order->marketplace_order_id }}" target="_blank" rel="noopener" style="color:var(--accent);">
-                    {{ $order->marketplace_order_id }} &#8599;
-                </a>
-            @elseif($order->marketplace_source === 'shopee')
-                <a href="https://seller.shopee.ph/portal/sale/{{ $order->marketplace_order_id }}" target="_blank" rel="noopener" style="color:var(--accent);">
-                    {{ $order->marketplace_order_id }} &#8599;
+        <span class="od-stamp">
+            <span class="od-stamp__k">Marketplace order</span>
+            @if($refUrl)
+                <a class="od-stamp__v" href="{{ $refUrl }}" target="_blank" rel="noopener">
+                    {{ $refText }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
                 </a>
             @else
-                {{ $order->marketplace_order_id }}
+                <span class="od-stamp__v">{{ $refText }}</span>
             @endif
-        </div>
-        @endif
-        @if($order->tracking_number)
-        <div class="meta-item">
-            <span class="meta-label">Tracking:</span>
-            <a href="https://parcelsapp.com/en/tracking/{{ $order->tracking_number }}" target="_blank" rel="noopener" style="color:var(--accent);">
-                {{ $order->tracking_number }} &#8599;
-            </a>
-        </div>
+        </span>
         @endif
     </div>
 
-    {{-- Customer + Addresses --}}
-    <div class="detail-grid">
-        <div class="detail-section">
-            <h4>Customer Details</h4>
-            <div class="detail-body">
-                <strong>{{ $order->firstname }} {{ $order->lastname }}</strong><br>
-                @if($order->email)<span>{{ $order->email }}</span><br>@endif
-                @if($order->telephone)<span>{{ $order->telephone }}</span><br>@endif
-            </div>
-        </div>
-
-        <div class="detail-section">
-            <h4>Payment Address</h4>
-            <div class="detail-body">
-                @if($order->payment_firstname || $order->payment_lastname)
-                    <strong>{{ $order->payment_firstname }} {{ $order->payment_lastname }}</strong><br>
-                @endif
-                @if($order->payment_company)<span>{{ $order->payment_company }}</span><br>@endif
-                @if($order->payment_address_1)<span>{{ $order->payment_address_1 }}</span><br>@endif
-                @if($order->payment_address_2)<span>{{ $order->payment_address_2 }}</span><br>@endif
-                @if($order->payment_city || $order->payment_postcode)
-                    <span>{{ $order->payment_city }} {{ $order->payment_postcode }}</span><br>
-                @endif
-                @if($order->payment_zone)<span>{{ $order->payment_zone }}</span><br>@endif
-                @if($order->payment_country)<span>{{ $order->payment_country }}</span>@endif
-                @if($order->payment_method)
-                    <br><br><span class="meta-label">Payment Method:</span> {{ $order->payment_method }}
-                @endif
-            </div>
-        </div>
-
-        <div class="detail-section">
-            <h4>Shipping Address</h4>
-            <div class="detail-body">
-                @if($order->shipping_firstname || $order->shipping_lastname)
-                    <strong>{{ $order->shipping_firstname }} {{ $order->shipping_lastname }}</strong><br>
-                @endif
-                @if($order->shipping_company)<span>{{ $order->shipping_company }}</span><br>@endif
-                @if($order->shipping_address_1)<span>{{ $order->shipping_address_1 }}</span><br>@endif
-                @if($order->shipping_address_2)<span>{{ $order->shipping_address_2 }}</span><br>@endif
-                @if($order->shipping_city || $order->shipping_postcode)
-                    <span>{{ $order->shipping_city }} {{ $order->shipping_postcode }}</span><br>
-                @endif
-                @if($order->shipping_zone)<span>{{ $order->shipping_zone }}</span><br>@endif
-                @if($order->shipping_country)<span>{{ $order->shipping_country }}</span>@endif
-                @if($order->shipping_method)
-                    <br><br><span class="meta-label">Shipping Method:</span> {{ $order->shipping_method }}
-                @endif
-            </div>
-        </div>
-
-        @if($order->comment)
-        <div class="detail-section">
-            <h4>Order Comment</h4>
-            <div class="detail-body">{{ $order->comment }}</div>
-        </div>
-        @endif
-    </div>
-
-    {{-- Products --}}
-    <div class="d-flex items-center justify-between">
-        <h3 class="section-title" style="margin-bottom:0;">Products</h3>
-        @if($canManageOrders && $products->contains(fn($p) => !$p->cost || (float)$p->cost == 0))
-            <form method="POST" action="{{ route('orders.backfill_costs', $order->order_id) }}" style="margin:0;">
-                @csrf
-                <button type="submit" class="btn small secondary" title="Update products with missing costs from current catalog data">Backfill Missing Costs</button>
-            </form>
-        @endif
-    </div>
-    @php
-        // Every money value in this view routes through App\Support\Money /
-        // <x-money> - see the class docblock. `currency_value` is the rate
-        // recorded at order time ("units of PHP per 1 unit of order currency");
-        // a default-currency order carries 1.0 and never shows the banner.
-        $defaultSymbol = \App\Support\Money::defaultSymbol();
-        // A blank currency_code (pre-currency-feature legacy orders) is
-        // default-currency, not "foreign with no name" - without this guard
-        // such an order renders a broken banner ("<strong></strong> order -
-        // 1  = " . $defaultSymbol . "...").
-        $isForeign = (string) $order->currency_code !== ''
-            && strcasecmp((string) $order->currency_code, $defaultCurrency->code ?? 'PHP') !== 0;
-        $orderRate = (float) ($order->currency_value ?: 1);
-        // A foreign order that predates normalization (or was created in the
-        // gap before the normalizer ran) has no foreign_total yet. Detect
-        // that explicitly rather than ever inferring the convention from the
-        // rate's magnitude - fall back to a single, still-labelled PHP
-        // figure and a pending notice instead of a wrong or blank number.
-        $normalized = !$isForeign || $order->foreign_total !== null;
-    @endphp
     @if($isForeign)
         <div class="currency-banner {{ $normalized ? '' : 'currency-banner--pending' }}">
             @if($normalized)
-                <strong>{{ $order->currency_code }}</strong> order.
-                1 {{ $order->currency_code }} = {{ $defaultSymbol }}{{ rtrim(rtrim(number_format($orderRate, 8, '.', ''), '0'), '.') }}
-                <span class="currency-banner__date">Based on {{ \Illuminate\Support\Carbon::parse($order->date_added)->format('Y-m-d') }} currency rate</span>
+                <span>
+                    <strong>{{ $order->currency_code }}</strong> order.
+                    1 {{ $order->currency_code }} = <span class="od-rate">{{ $defaultSymbol }}{{ rtrim(rtrim(number_format($orderRate, 8, '.', ''), '0'), '.') }}</span>
+                </span>
+                <span class="currency-banner__date">Based on <span class="od-rate">{{ \Illuminate\Support\Carbon::parse($order->date_added)->format('Y-m-d') }}</span> currency rate</span>
             @else
                 <strong>{{ $order->currency_code }}</strong> order. Exchange rate not yet recorded,
                 so the amounts below are shown exactly as they were stored.
             @endif
         </div>
     @endif
-    @if($products->count())
-    @php
-        $totalRevenue = 0;
-        $totalCogs = 0;
-    @endphp
-    <div class="table-wrap">
-    <table>
-        <thead>
-        <tr>
-            <th style="width:60px;">Image</th>
-            <th>Product</th>
-            <th>Model / SKU</th>
-            <th class="text-right">Qty</th>
-            <th class="text-right">Unit Price</th>
-            <th class="text-right">Total</th>
-            <th class="text-right">Unit Cost</th>
-            <th class="text-right">COGS</th>
-            <th class="text-right">Profit</th>
-            <th class="text-right">Profit Margin %</th>
-            <th class="text-right">Profit Markup %</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach($products as $p)
-            @php
-                $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
-                $img = $catalogProduct ? trim((string)($catalogProduct->image ?? '')) : '';
-                $imgSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-                if ($imgSrc === '') {
-                    $lzImg = trim($lazadaImages[$p->order_product_id] ?? '');
-                    if ($lzImg !== '') { $imgSrc = $lzImg; }
-                }
 
-                $unitCost = (float) ($p->cost ?? 0);
-                $cogs = $unitCost * (int) $p->quantity;
-                $lineTotal = (float) $p->total;
-                $profit = $lineTotal - $cogs;
-                $margin = $lineTotal > 0 ? ($profit / $lineTotal * 100) : 0;
-                $markup = $cogs > 0 ? ($profit / $cogs * 100) : 0;
+    <div class="od-body">
+        {{-- ============ MAIN COLUMN ============ --}}
+        <div class="od-col od-col--main">
 
-                $totalRevenue += $lineTotal;
-                $totalCogs += $cogs;
-            @endphp
-            <tr>
-                <td>
-                    @if($imgSrc)
-                        <img src="{{ $imgSrc }}" alt="" class="thumb" loading="lazy" decoding="async" onerror="this.style.display='none';">
-                    @else
-                        <span class="thumb-placeholder" style="width:48px;height:48px;"></span>
-                    @endif
-                </td>
-                <td>
-                    @if($catalogProduct)
-                        <a href="{{ route('products.edit', $catalogProduct->product_id) }}" class="font-semibold" style="color:var(--accent);">{{ $p->name }}</a>
-                    @else
-                        <div class="font-semibold">{{ $p->name }}</div>
-                    @endif
-                    @if($p->options->count())
-                        @foreach($p->options as $opt)
-                            <small class="text-secondary">{{ $opt->name }}: {{ $opt->value }}</small><br>
-                        @endforeach
-                    @endif
-                </td>
-                <td class="text-sm text-secondary">{{ $p->model }}</td>
-                <td class="text-right">{{ $p->quantity }}</td>
-                <td class="text-right">
-                    <x-money :php="$p->price" :foreign="($isForeign && $normalized) ? $p->foreign_price : null" :foreign-code="$order->currency_code" />
-                </td>
-                <td class="text-right font-semibold">
-                    <x-money :php="$p->total" :foreign="($isForeign && $normalized) ? $p->foreign_total : null" :foreign-code="$order->currency_code" />
-                </td>
-                <td class="text-right text-secondary">
-                    @if($canManageOrders)
-                    <span class="inline-edit-cost" data-op-id="{{ $p->order_product_id }}" data-cost="{{ $unitCost }}" title="Click to edit cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</span>
-                    @else
-                    {{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}
-                    @endif
-                </td>
-                <td class="text-right text-secondary">{{ $unitCost > 0 ? \App\Support\Money::base($cogs) : '-' }}</td>
-                <td class="text-right font-semibold" style="color: {{ $profit >= 0 ? 'var(--success)' : 'var(--danger)' }}">
-                    {{ $unitCost > 0 ? \App\Support\Money::base($profit) : '-' }}
-                </td>
-                <td class="text-right">
-                    @if($unitCost > 0)
-                        <span style="color: {{ $margin >= 20 ? 'var(--success)' : ($margin >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($margin, 1) }}%</span>
-                    @else
-                        -
-                    @endif
-                </td>
-                <td class="text-right">
-                    @if($unitCost > 0)
-                        <span style="color: {{ $markup >= 20 ? 'var(--success)' : ($markup >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($markup, 1) }}%</span>
-                    @else
-                        -
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
-    </div>
-    @else
-        <p class="text-muted">No products on this order.</p>
-    @endif
-
-    {{-- Order Totals + Cost & Profit Summary --}}
-    @php
-        $mktFeeTotal = (float) ($marketplaceFees['total'] ?? 0);
-        $mktFeeItems = $marketplaceFees['items'] ?? [];
-        $mktFeeSource = $marketplaceFees['source'] ?? '';
-        $shippingCost = (float) ($order->shipping_cost ?? 0);
-        $grossProfit = $totalRevenue - $totalCogs;
-        $netProfit = $grossProfit - $shippingCost - $mktFeeTotal;
-        $netMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue * 100) : 0;
-        $grossMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue * 100) : 0;
-        $netMarkup = ($totalCogs + $shippingCost + $mktFeeTotal) > 0 ? ($netProfit / ($totalCogs + $shippingCost + $mktFeeTotal) * 100) : 0;
-        $grossMarkup = $totalCogs > 0 ? ($grossProfit / $totalCogs * 100) : 0;
-        $hasCostData = $totalCogs > 0;
-        $hasDeductions = $shippingCost > 0 || $mktFeeTotal > 0;
-        $hasAnyProfit = $hasCostData || $hasDeductions;
-        // COGS is authoritative in PHP (summed from order_product.cost); its
-        // foreign figure is a derived reference via the rate recorded on the order,
-        // not a stored value - drift from a "round" foreign cost is expected
-        // (see Money/OrderCurrencyService docs) and not something to "fix".
-        $totalCogsForeign = ($isForeign && $normalized) ? \App\Services\OrderCurrencyService::toForeign($totalCogs, $orderRate) : null;
-    @endphp
-    <div class="d-flex justify-end mt-16">
-        <table class="order-totals-table">
-            <tbody>
-            {{-- Standard order totals (Sub-Total, Shipping, etc.) --}}
-            @foreach($orderTotals as $ot)
-                @if($ot->code !== 'total')
-                @php
-                    // order_total.value is stored in PHP like every other
-                    // money column here; the foreign figure is derived from
-                    // it the same way Sub-Total is (verified against #44294).
-                    $otForeign = ($isForeign && $normalized) ? \App\Services\OrderCurrencyService::toForeign((float) $ot->value, $orderRate) : null;
-                @endphp
-                <tr>
-                    <td class="text-secondary">{{ $ot->title }}</td>
-                    <td class="text-right"><x-money :php="$ot->value" :foreign="$otForeign" :foreign-code="$order->currency_code" /></td>
-                </tr>
-                @endif
-            @endforeach
-
-            {{-- Order Total --}}
-            <tr class="order-totals-row-total">
-                <td>Total</td>
-                <td class="text-right">
-                    <x-money :php="$order->total" :foreign="($isForeign && $normalized) ? $order->foreign_total : null" :foreign-code="$order->currency_code" />
-                </td>
-            </tr>
-
-            @if($hasAnyProfit)
-            {{-- Separator --}}
-            <tr><td colspan="2" style="padding:0;"><hr style="border:none; border-top:1px dashed var(--border); margin:8px 0;"></td></tr>
-
-            {{-- COGS --}}
-            @if($hasCostData)
-            <tr>
-                <td class="text-secondary">COGS</td>
-                <td class="text-right" style="color:var(--danger);">
-                    <x-money :php="-$totalCogs" :foreign="$totalCogsForeign !== null ? -$totalCogsForeign : null" :foreign-code="$order->currency_code" />
-                </td>
-            </tr>
-            @endif
-
-            {{-- Shipping Cost (inline-editable) --}}
-            <tr>
-                <td class="text-secondary">Shipping Cost</td>
-                <td class="text-right">
-                    @if($canManageOrders)
-                    <span class="inline-edit-shipping" data-order-id="{{ $order->order_id }}" data-cost="{{ $shippingCost }}" title="Click to edit shipping cost" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px; {{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</span>
-                    @else
-                    <span style="{{ $shippingCost > 0 ? 'color:var(--danger);' : 'color:var(--text-muted);' }}">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</span>
-                    @endif
-                </td>
-            </tr>
-
-            {{-- Fees (marketplace + manual) --}}
-            @foreach($mktFeeItems as $fee)
-            <tr>
-                <td class="text-secondary">
-                    @if(isset($fee['fee_id']) && $canManageOrders)
-                        <span class="inline-edit-fee-label" data-fee-id="{{ $fee['fee_id'] }}" data-label="{{ $fee['label'] }}" title="Click to edit label" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">{{ $fee['label'] }}</span>
-                    @else
-                        {{ $fee['label'] }}
-                    @endif
-                </td>
-                <td class="text-right" style="color:var(--danger);">
-                    @if(isset($fee['fee_id']) && $canManageOrders)
-                        <span class="inline-edit-fee-amount" data-fee-id="{{ $fee['fee_id'] }}" data-amount="{{ $fee['amount'] }}" title="Click to edit amount" style="cursor:pointer; border-bottom:1px dashed var(--border); padding-bottom:1px;">-{{ \App\Support\Money::base($fee['amount']) }}</span>
-                        <form method="POST" action="{{ route('orders.destroy_fee', [$order->order_id, $fee['fee_id']]) }}" style="display:inline; margin-left:4px;" data-confirm="Remove this fee?">
-                            @csrf @method('DELETE')
-                            <button type="submit" style="background:none; border:none; cursor:pointer; color:var(--danger); font-size:11px; padding:0;" title="Remove fee">&times;</button>
+            {{-- Items --}}
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">
+                        Items
+                        @if($products->count())<span class="od-section__count">{{ $products->count() }}</span>@endif
+                    </h2>
+                    @if($canManageOrders && $products->contains(fn ($p) => !$p->cost || (float) $p->cost == 0))
+                    <div class="od-section__aside">
+                        <form method="POST" action="{{ route('orders.backfill_costs', $order->order_id) }}">
+                            @csrf
+                            <x-ui.button size="sm" type="submit" title="Update products with missing costs from current catalog data">Backfill missing costs</x-ui.button>
                         </form>
-                    @else
-                        -{{ \App\Support\Money::base($fee['amount']) }}
+                    </div>
                     @endif
-                </td>
-            </tr>
-            @endforeach
+                </div>
 
-            {{-- Add Fee --}}
-            @if($canManageOrders)
-            <tr>
-                <td colspan="2" style="padding:4px 0;">
-                    <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="d-flex gap-6 items-center" style="justify-content:flex-end;">
-                        @csrf
-                        <input type="text" name="label" class="input" placeholder="Fee label" required style="width:120px; font-size:12px; padding:3px 6px;">
-                        <input type="number" name="amount" class="input" placeholder="0.00" step="0.01" min="0.01" required style="width:80px; font-size:12px; padding:3px 6px; text-align:right;">
-                        <button type="submit" class="btn small secondary" style="padding:2px 8px; font-size:11px;">+ Fee</button>
-                    </form>
-                </td>
-            </tr>
-            @endif
+                @if($products->count())
+                @php $totalRevenue = 0; $totalCogs = 0; @endphp
+                <div class="od-items">
+                    <div class="od-items__head" aria-hidden="true">
+                        <span></span>
+                        <span>Product</span>
+                        <span>Qty</span>
+                        <span>Unit price</span>
+                        <span>Line total</span>
+                    </div>
 
-            {{-- Net Profit --}}
-            <tr class="order-totals-row-profit">
-                <td>
-                    {{ $hasDeductions ? 'Net Profit' : 'Gross Profit' }}
+                    @foreach($products as $p)
+                        @php
+                            $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
+                            $img = $catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '';
+                            $imgSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+                            if ($imgSrc === '') {
+                                $lzImg = trim($lazadaImages[$p->order_product_id] ?? '');
+                                if ($lzImg !== '') { $imgSrc = $lzImg; }
+                            }
+
+                            $unitCost = (float) ($p->cost ?? 0);
+                            $cogs = $unitCost * (int) $p->quantity;
+                            $lineTotal = (float) $p->total;
+                            $profit = $lineTotal - $cogs;
+                            $margin = $lineTotal > 0 ? ($profit / $lineTotal * 100) : 0;
+                            $markup = $cogs > 0 ? ($profit / $cogs * 100) : 0;
+
+                            $totalRevenue += $lineTotal;
+                            $totalCogs += $cogs;
+                        @endphp
+                        <div class="od-item">
+                            <div class="order-img-wrap od-item__media">
+                                @if($imgSrc)
+                                    <img class="order-img" src="{{ $imgSrc }}" alt="" loading="lazy" decoding="async">
+                                @else
+                                    <span class="co-item__none">No image</span>
+                                @endif
+                            </div>
+
+                            <div class="co-item__body od-item__body">
+                                @if($catalogProduct)
+                                    <a class="co-item__name od-item__name" href="{{ route('products.edit', $catalogProduct->product_id) }}">{{ $p->name }}</a>
+                                @else
+                                    <span class="co-item__name od-item__name">{{ $p->name }}</span>
+                                @endif
+                                <div class="co-item__meta">
+                                    @if(trim((string) $p->model) !== '')
+                                        <span class="co-item__sku">{{ $p->model }}</span>
+                                    @endif
+                                    @foreach($p->options as $opt)
+                                        <span class="co-item__var">{{ $opt->name }}: {{ $opt->value }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div class="od-item__figs">
+                                <span class="od-fig od-fig--qty"><span class="od-fig__k">Qty</span>{{ $p->quantity }}</span>
+                                <span class="od-fig od-fig--unit">
+                                    <span class="od-fig__k">Unit</span>
+                                    <x-money :php="$p->price" :foreign="$dual ? $p->foreign_price : null" :foreign-code="$order->currency_code" />
+                                </span>
+                                <span class="od-fig od-fig--total">
+                                    <span class="od-fig__k">Total</span>
+                                    <x-money :php="$p->total" :foreign="$dual ? $p->foreign_total : null" :foreign-code="$order->currency_code" />
+                                </span>
+                            </div>
+
+                            <div class="od-econ">
+                                <span class="od-econ__cell">
+                                    <span class="od-econ__k">Unit cost</span>
+                                    @if($canManageOrders)
+                                        <button type="button"
+                                                class="od-econ__v od-edit"
+                                                data-edit="cost"
+                                                data-op-id="{{ $p->order_product_id }}"
+                                                data-cost="{{ $unitCost }}"
+                                                title="Edit unit cost">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</button>
+                                    @else
+                                        <span class="od-econ__v">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</span>
+                                    @endif
+                                </span>
+                                <span class="od-econ__cell">
+                                    <span class="od-econ__k">COGS</span>
+                                    <span class="od-econ__v">{{ $unitCost > 0 ? \App\Support\Money::base($cogs) : '-' }}</span>
+                                </span>
+                                <span class="od-econ__cell">
+                                    <span class="od-econ__k">Profit</span>
+                                    <span class="od-econ__v {{ $unitCost > 0 && $profit < 0 ? 'od-neg' : '' }}">{{ $unitCost > 0 ? \App\Support\Money::base($profit) : '-' }}</span>
+                                </span>
+                                <span class="od-econ__cell">
+                                    <span class="od-econ__k">Margin</span>
+                                    <span class="od-econ__v {{ $unitCost > 0 ? $marginTone($margin) : '' }}">{{ $unitCost > 0 ? number_format($margin, 1) . '%' : '-' }}</span>
+                                </span>
+                                <span class="od-econ__cell">
+                                    <span class="od-econ__k">Markup</span>
+                                    <span class="od-econ__v {{ $unitCost > 0 ? $marginTone($markup) : '' }}">{{ $unitCost > 0 ? number_format($markup, 1) . '%' : '-' }}</span>
+                                </span>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                @else
+                    @php $totalRevenue = 0; $totalCogs = 0; @endphp
+                    <p class="od-empty">No products on this order.</p>
+                @endif
+            </section>
+
+            {{-- Totals and profit --}}
+            @php
+                $grossProfit = $totalRevenue - $totalCogs;
+                $netProfit = $grossProfit - $shippingCost - $mktFeeTotal;
+                $netMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue * 100) : 0;
+                $grossMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue * 100) : 0;
+                $netMarkup = ($totalCogs + $shippingCost + $mktFeeTotal) > 0 ? ($netProfit / ($totalCogs + $shippingCost + $mktFeeTotal) * 100) : 0;
+                $grossMarkup = $totalCogs > 0 ? ($grossProfit / $totalCogs * 100) : 0;
+                $hasCostData = $totalCogs > 0;
+                $hasDeductions = $shippingCost > 0 || $mktFeeTotal > 0;
+                $hasAnyProfit = $hasCostData || $hasDeductions;
+                // COGS is authoritative in the default currency (summed from
+                // order_product.cost); its foreign figure is a derived
+                // reference via the rate recorded on the order, not a stored
+                // value - drift from a "round" foreign cost is expected (see
+                // Money/OrderCurrencyService docs) and not something to fix.
+                $totalCogsForeign = $dual ? \App\Services\OrderCurrencyService::toForeign($totalCogs, $orderRate) : null;
+                $displayProfit = $hasDeductions ? $netProfit : $grossProfit;
+                $displayMargin = $hasDeductions ? $netMargin : $grossMargin;
+                $displayMarkup = $hasDeductions ? $netMarkup : $grossMarkup;
+            @endphp
+            <section class="od-section">
+                <div class="od-section__head">
+                    <h2 class="od-section__title">Totals</h2>
+                </div>
+
+                <div class="od-ledger">
+                    {{-- Standard order totals (Sub-Total, Shipping, etc.) --}}
+                    @foreach($orderTotals as $ot)
+                        @if($ot->code !== 'total')
+                        @php
+                            // order_total.value is stored in the default
+                            // currency like every other money column here; the
+                            // foreign figure is derived from it the same way
+                            // Sub-Total is (verified against #44294).
+                            $otForeign = $dual ? \App\Services\OrderCurrencyService::toForeign((float) $ot->value, $orderRate) : null;
+                        @endphp
+                        <div class="od-ledger__row">
+                            <span class="od-ledger__k">{{ $ot->title }}</span>
+                            <span class="od-ledger__v"><x-money :php="$ot->value" :foreign="$otForeign" :foreign-code="$order->currency_code" /></span>
+                        </div>
+                        @endif
+                    @endforeach
+
+                    <div class="od-ledger__row od-ledger__row--total">
+                        <span class="od-ledger__k">Total</span>
+                        <span class="od-ledger__v">
+                            <x-money :php="$order->total" :foreign="$dual ? $order->foreign_total : null" :foreign-code="$order->currency_code" />
+                        </span>
+                    </div>
+
                     @if($hasAnyProfit)
-                    @php $displayMargin = $hasDeductions ? $netMargin : $grossMargin; $displayMarkup = $hasDeductions ? $netMarkup : $grossMarkup; @endphp
-                    <span class="order-totals-margin" style="color: {{ $displayMargin >= 20 ? 'var(--success)' : ($displayMargin >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($displayMargin, 1) }}%</span>
-                    <span class="text-xs text-secondary" style="margin-left:4px;">Markup:</span>
-                    <span class="order-totals-margin" style="color: {{ $displayMarkup >= 20 ? 'var(--success)' : ($displayMarkup >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ number_format($displayMarkup, 1) }}%</span>
+                    <hr class="od-ledger__split">
+
+                    @if($hasCostData)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">COGS</span>
+                        <span class="od-ledger__v od-neg">
+                            <x-money :php="-$totalCogs" :foreign="$totalCogsForeign !== null ? -$totalCogsForeign : null" :foreign-code="$order->currency_code" />
+                        </span>
+                    </div>
                     @endif
-                </td>
-                <td class="text-right" style="color: {{ ($hasDeductions ? $netProfit : $grossProfit) >= 0 ? 'var(--success)' : 'var(--danger)' }}">
-                    {{ \App\Support\Money::base($hasDeductions ? $netProfit : $grossProfit) }}
-                </td>
-            </tr>
-            @endif
-            </tbody>
-        </table>
-    </div>
 
-    {{-- Payments --}}
-    @php
-        $payments = $payments ?? collect();
-        $totalPaid = (float) ($totalPaid ?? 0);
-        $orderTotal = (float) $order->total;
-        $balance = $orderTotal - $totalPaid;
-    @endphp
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">Shipping cost</span>
+                        <span class="od-ledger__v">
+                            @if($canManageOrders)
+                                <button type="button"
+                                        class="od-edit {{ $shippingCost > 0 ? 'od-neg' : '' }}"
+                                        data-edit="shipping"
+                                        data-cost="{{ $shippingCost }}"
+                                        title="Edit shipping cost">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</button>
+                            @else
+                                <span class="{{ $shippingCost > 0 ? 'od-neg' : '' }}">{{ $shippingCost > 0 ? '-' . \App\Support\Money::base($shippingCost) : \App\Support\Money::base(0) }}</span>
+                            @endif
+                        </span>
+                    </div>
 
-    @if($order->track_payments)
-    <div class="d-flex items-center justify-between mt-24 mb-12" style="padding-bottom:8px; border-bottom:2px solid var(--border);">
-        <h3 style="margin:0; font-size:15px; font-weight:600;">
-            Payments
-            @if($balance <= 0 && $orderTotal > 0)
-                <span class="badge badge-green" style="font-size:11px; margin-left:8px;">Paid in Full</span>
-            @elseif($totalPaid > 0)
-                <span class="badge badge-yellow" style="font-size:11px; margin-left:8px;">Balance: {{ \App\Support\Money::base($balance) }}</span>
-            @endif
-        </h3>
-        @if($canManageOrders)
-        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}" data-confirm="Disable payment tracking for this order?">
-            @csrf
-            <button type="submit" class="btn small secondary">Disable Tracking</button>
-        </form>
-        @endif
-    </div>
+                    @foreach($mktFeeItems as $fee)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">
+                            @if(isset($fee['fee_id']) && $canManageOrders)
+                                <button type="button"
+                                        class="od-edit"
+                                        data-edit="fee-label"
+                                        data-fee-id="{{ $fee['fee_id'] }}"
+                                        data-label="{{ $fee['label'] }}"
+                                        data-amount="{{ $fee['amount'] }}"
+                                        title="Edit fee label">{{ $fee['label'] }}</button>
+                            @else
+                                {{ $fee['label'] }}
+                            @endif
+                        </span>
+                        <span class="od-ledger__v od-neg">
+                            @if(isset($fee['fee_id']) && $canManageOrders)
+                                <button type="button"
+                                        class="od-edit od-neg"
+                                        data-edit="fee-amount"
+                                        data-fee-id="{{ $fee['fee_id'] }}"
+                                        data-amount="{{ $fee['amount'] }}"
+                                        title="Edit fee amount">-{{ \App\Support\Money::base($fee['amount']) }}</button>
+                                <button type="submit"
+                                        form="od-fee-del-{{ $fee['fee_id'] }}"
+                                        class="od-icon-btn"
+                                        title="Remove fee"
+                                        aria-label="Remove fee {{ $fee['label'] }}">
+                                    <x-ui.icon name="trash" size="13" />
+                                </button>
+                            @else
+                                -{{ \App\Support\Money::base($fee['amount']) }}
+                            @endif
+                        </span>
+                    </div>
+                    @endforeach
 
-    @if($payments->count())
-    <div class="table-wrap mb-12">
-        <table class="table" style="width:100%;">
-            <thead>
-            <tr>
-                <th>Date</th>
-                <th>Method</th>
-                <th>Reference</th>
-                <th class="text-right">Amount</th>
-                <th>Notes</th>
-                <th style="width:40px;"></th>
-            </tr>
-            </thead>
-            <tbody>
-            @foreach($payments as $p)
-            <tr>
-                <td>{{ $p->paid_at->format('M d, Y') }}</td>
-                <td>{{ $p->payment_method }}</td>
-                <td class="text-muted">{{ $p->reference_no ?: '-' }}</td>
-                <td class="text-right font-semibold">{{ \App\Support\Money::base((float) $p->amount) }}</td>
-                <td class="text-muted text-sm">{{ $p->notes ?: '' }}</td>
-                <td>
                     @if($canManageOrders)
-                    <form method="POST" action="{{ route('orders.destroy_payment', [$order->order_id, $p->id]) }}" data-confirm="Delete this payment?">
-                        @csrf @method('DELETE')
-                        <button type="submit" class="btn small danger" title="Delete">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
+                    {{-- Delete forms live outside the ledger rows: a <form>
+                         nested in a grid row would become a grid item and
+                         break the two-column alignment, so the buttons above
+                         reference these by id instead. --}}
+                    @foreach($mktFeeItems as $fee)
+                        @if(isset($fee['fee_id']))
+                        <form id="od-fee-del-{{ $fee['fee_id'] }}"
+                              method="POST"
+                              action="{{ route('orders.destroy_fee', [$order->order_id, $fee['fee_id']]) }}"
+                              class="x-sr"
+                              data-confirm="Remove this fee?">
+                            @csrf
+                            @method('DELETE')
+                        </form>
+                        @endif
+                    @endforeach
+
+                    <form method="POST" action="{{ route('orders.store_fee', $order->order_id) }}" class="od-ledger__form">
+                        @csrf
+                        <label class="x-sr" for="od-fee-label">Fee label</label>
+                        <input type="text" id="od-fee-label" name="label" class="x-input od-fee-label" placeholder="Fee label" required>
+                        <label class="x-sr" for="od-fee-amount">Fee amount</label>
+                        <input type="number" id="od-fee-amount" name="amount" class="x-input od-fee-amount" placeholder="0.00" step="0.01" min="0.01" required>
+                        <x-ui.button size="sm" type="submit"><x-ui.icon name="plus" size="12" /> Add fee</x-ui.button>
                     </form>
                     @endif
-                </td>
-            </tr>
-            @endforeach
-            <tr style="border-top:2px solid var(--border);">
-                <td colspan="3" class="text-right font-semibold">Total Paid</td>
-                <td class="text-right font-semibold">{{ \App\Support\Money::base($totalPaid) }}</td>
-                <td colspan="2"></td>
-            </tr>
-            @if($balance > 0)
-            <tr>
-                <td colspan="3" class="text-right font-semibold" style="color:var(--warning);">Remaining Balance</td>
-                <td class="text-right font-semibold" style="color:var(--warning);">{{ \App\Support\Money::base($balance) }}</td>
-                <td colspan="2"></td>
-            </tr>
-            @endif
-            </tbody>
-        </table>
-    </div>
-    @elseif($orderTotal > 0)
-        <p class="text-muted mb-12">No payments recorded.</p>
-    @endif
 
-    {{-- Add Payment Form --}}
-    @if($canManageOrders)
-    <form method="POST" action="{{ route('orders.store_payment', $order->order_id) }}" class="mb-24">
-        @csrf
-        <div class="d-flex gap-12 items-end flex-wrap">
-            <div>
-                <label class="font-semibold">Date</label>
-                <input type="date" name="paid_at" class="input" value="{{ date('Y-m-d') }}" style="min-width:140px;">
-            </div>
-            <div>
-                <label class="font-semibold">Amount</label>
-                <input type="number" name="amount" class="input" step="0.01" min="0.01" placeholder="0.00" style="min-width:120px;" {{ $balance > 0 ? 'value=' . number_format($balance, 2, '.', '') : '' }}>
-            </div>
-            <div>
-                <label class="font-semibold">Method</label>
-                <select name="payment_method" class="input" style="min-width:140px;">
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="GCash">GCash</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Check">Check</option>
-                    <option value="Maya">Maya</option>
-                    <option value="Other">Other</option>
-                </select>
-            </div>
-            <div>
-                <label class="font-semibold">Reference #</label>
-                <input type="text" name="reference_no" class="input" placeholder="Transaction/check #" style="min-width:140px;">
-            </div>
-            <div style="flex:1; min-width:140px;">
-                <label class="font-semibold">Notes</label>
-                <input type="text" name="notes" class="input" placeholder="Optional">
-            </div>
-            <div>
-                <button class="btn" type="submit">Add Payment</button>
-            </div>
+                    <div class="od-ledger__row od-ledger__row--profit">
+                        <span class="od-ledger__k">
+                            {{ $hasDeductions ? 'Net profit' : 'Gross profit' }}
+                            <span class="od-ledger__margins">
+                                <span class="od-ledger__margin {{ $marginTone($displayMargin) }}">{{ number_format($displayMargin, 1) }}% margin</span>
+                                <span class="od-ledger__margin {{ $marginTone($displayMarkup) }}">{{ number_format($displayMarkup, 1) }}% markup</span>
+                            </span>
+                        </span>
+                        <span class="od-ledger__v {{ $displayProfit >= 0 ? 'od-pos' : 'od-neg' }}">{{ \App\Support\Money::base($displayProfit) }}</span>
+                    </div>
+                    @endif
+                </div>
+            </section>
         </div>
-    </form>
-    @endif
-    @else
-    @if($canManageOrders)
-    {{-- Payment tracking disabled - show enable button --}}
-    <div class="mt-24 mb-24" style="display:flex; align-items:center; gap:12px;">
-        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
-            @csrf
-            <button type="submit" class="btn small">Enable Payment Tracking</button>
-        </form>
-        <span class="text-muted text-sm">Track partial payments for this order</span>
+
+        {{-- ============ SIDE COLUMN ============ --}}
+        <div class="od-col od-col--side">
+
+            {{-- Customer --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Customer</h2>
+                </div>
+                <div class="od-card__body od-card__body--tight">
+                    <div class="od-lines">
+                        <span class="od-lines__name">{{ trim($order->firstname . ' ' . $order->lastname) ?: 'Guest' }}</span>
+                        @if($order->email)<span><a href="mailto:{{ $order->email }}">{{ $order->email }}</a></span>@endif
+                        @if($order->telephone)<span>{{ $order->telephone }}</span>@endif
+                    </div>
+                </div>
+            </section>
+
+            {{-- Payment --}}
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Payment</h2>
+                    @if($order->track_payments)
+                        {{-- The badge states the payment state; the amounts
+                             live in the card's own two figure lines below,
+                             so the balance is not printed twice. --}}
+                        @if($balance <= 0 && $orderTotal > 0)
+                            <x-ui.badge tone="success">Paid in full</x-ui.badge>
+                        @elseif($totalPaid > 0)
+                            <x-ui.badge tone="warning">Partly paid</x-ui.badge>
+                        @endif
+                        @if($canManageOrders)
+                        <x-ui.menu label="Payment tracking options">
+                            <button type="submit" form="od-toggle-payments" class="x-menu__item">Turn off payment tracking</button>
+                        </x-ui.menu>
+                        <form id="od-toggle-payments"
+                              method="POST"
+                              action="{{ route('orders.toggle_payments', $order->order_id) }}"
+                              class="x-sr"
+                              data-confirm="Disable payment tracking for this order?">
+                            @csrf
+                        </form>
+                        @endif
+                    @endif
+                </div>
+                <div class="od-card__body">
+                    @if($order->payment_method)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Method</span>
+                        <span class="od-fact__v">{{ $order->payment_method }}</span>
+                    </div>
+                    @endif
+
+                    @php
+                        $hasBilling = $order->payment_firstname || $order->payment_lastname || $order->payment_company
+                            || $order->payment_address_1 || $order->payment_address_2 || $order->payment_city
+                            || $order->payment_postcode || $order->payment_zone || $order->payment_country;
+                    @endphp
+                    @if($hasBilling)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Billing address</span>
+                        <div class="od-lines">
+                            @if($order->payment_firstname || $order->payment_lastname)
+                                <span class="od-lines__name">{{ trim($order->payment_firstname . ' ' . $order->payment_lastname) }}</span>
+                            @endif
+                            @if($order->payment_company)<span>{{ $order->payment_company }}</span>@endif
+                            @if($order->payment_address_1)<span>{{ $order->payment_address_1 }}</span>@endif
+                            @if($order->payment_address_2)<span>{{ $order->payment_address_2 }}</span>@endif
+                            @if($order->payment_city || $order->payment_postcode)
+                                <span>{{ trim($order->payment_city . ' ' . $order->payment_postcode) }}</span>
+                            @endif
+                            @if($order->payment_zone)<span>{{ $order->payment_zone }}</span>@endif
+                            @if($order->payment_country)<span>{{ $order->payment_country }}</span>@endif
+                        </div>
+                    </div>
+                    @endif
+
+                    @if($order->track_payments)
+                        <hr class="od-divider">
+
+                        <div class="od-paid">
+                            <span class="od-paid__k">Total paid</span>
+                            <span class="od-paid__v">{{ \App\Support\Money::base($totalPaid) }}</span>
+                        </div>
+
+                        @if($payments->count())
+                            <div>
+                                @foreach($payments as $pay)
+                                <div class="od-pay">
+                                    <span class="od-pay__when">{{ $pay->paid_at->format('M d, Y') }}</span>
+                                    <span class="od-pay__amount">{{ \App\Support\Money::base((float) $pay->amount) }}</span>
+                                    @if($canManageOrders)
+                                    <span class="od-pay__act">
+                                        <x-ui.menu label="Payment {{ $pay->id }} actions">
+                                            <button type="button"
+                                                    class="x-menu__item x-menu__item--danger"
+                                                    data-confirm="Delete this payment?"
+                                                    data-confirm-submit="od-pay-del-{{ $pay->id }}">Delete payment</button>
+                                            <form id="od-pay-del-{{ $pay->id }}"
+                                                  method="POST"
+                                                  action="{{ route('orders.destroy_payment', [$order->order_id, $pay->id]) }}"
+                                                  class="x-sr">
+                                                @csrf
+                                                @method('DELETE')
+                                            </form>
+                                        </x-ui.menu>
+                                    </span>
+                                    @endif
+                                    <span class="od-pay__meta">
+                                        {{ $pay->payment_method }}@if($pay->reference_no) &middot; {{ $pay->reference_no }}@endif @if($pay->notes) &middot; {{ $pay->notes }}@endif
+                                    </span>
+                                </div>
+                                @endforeach
+                            </div>
+
+                            @if($balance > 0)
+                            <div class="od-paid">
+                                <span class="od-paid__k">Remaining balance</span>
+                                <span class="od-paid__v od-warn">{{ \App\Support\Money::base($balance) }}</span>
+                            </div>
+                            @endif
+                        @elseif($orderTotal > 0)
+                            <p class="od-empty">No payments recorded.</p>
+                        @endif
+
+                        @if($canManageOrders)
+                        <details class="od-disclose">
+                            <summary><x-ui.icon name="plus" size="12" /> Record a payment</summary>
+                            <form method="POST" action="{{ route('orders.store_payment', $order->order_id) }}">
+                                @csrf
+                                <div class="od-fields">
+                                    <div class="od-field">
+                                        <label class="od-field__k" for="od-pay-date">Date</label>
+                                        <input type="date" id="od-pay-date" name="paid_at" class="x-input" value="{{ date('Y-m-d') }}">
+                                    </div>
+                                    <div class="od-field">
+                                        <label class="od-field__k" for="od-pay-amount">Amount</label>
+                                        <input type="number" id="od-pay-amount" name="amount" class="x-input" step="0.01" min="0.01" placeholder="0.00" value="{{ $balance > 0 ? number_format($balance, 2, '.', '') : '' }}">
+                                    </div>
+                                    <div class="od-field">
+                                        <label class="od-field__k" for="od-pay-method">Method</label>
+                                        <div class="x-select-wrap">
+                                            <select id="od-pay-method" name="payment_method" class="x-input">
+                                                <option value="Bank Transfer">Bank Transfer</option>
+                                                <option value="GCash">GCash</option>
+                                                <option value="Cash">Cash</option>
+                                                <option value="Check">Check</option>
+                                                <option value="Maya">Maya</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                                        </div>
+                                    </div>
+                                    <div class="od-field">
+                                        <label class="od-field__k" for="od-pay-ref">Reference #</label>
+                                        <input type="text" id="od-pay-ref" name="reference_no" class="x-input" placeholder="Transaction/check #">
+                                    </div>
+                                    <div class="od-field od-field--wide">
+                                        <label class="od-field__k" for="od-pay-notes">Notes</label>
+                                        <input type="text" id="od-pay-notes" name="notes" class="x-input" placeholder="Optional">
+                                    </div>
+                                </div>
+                                <div class="od-form__actions">
+                                    <x-ui.button variant="primary" size="sm" type="submit">Add payment</x-ui.button>
+                                </div>
+                            </form>
+                        </details>
+                        @endif
+                    @elseif($canManageOrders)
+                        <hr class="od-divider">
+                        <div class="od-fact">
+                            <span class="od-fact__v">Track partial payments for this order</span>
+                        </div>
+                        <form method="POST" action="{{ route('orders.toggle_payments', $order->order_id) }}">
+                            @csrf
+                            <x-ui.button size="sm" type="submit">Enable payment tracking</x-ui.button>
+                        </form>
+                    @endif
+                </div>
+            </section>
+
+            {{-- Shipping --}}
+            @php
+                $hasShipping = $order->shipping_firstname || $order->shipping_lastname || $order->shipping_company
+                    || $order->shipping_address_1 || $order->shipping_address_2 || $order->shipping_city
+                    || $order->shipping_postcode || $order->shipping_zone || $order->shipping_country
+                    || $order->shipping_method || $order->tracking_number;
+            @endphp
+            @if($hasShipping)
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Shipping</h2>
+                </div>
+                <div class="od-card__body">
+                    @if($order->shipping_method)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Method</span>
+                        <span class="od-fact__v">{{ $order->shipping_method }}</span>
+                    </div>
+                    @endif
+                    @if($order->tracking_number)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__v od-fact__v--mono">
+                            <a href="https://parcelsapp.com/en/tracking/{{ $order->tracking_number }}" target="_blank" rel="noopener">
+                                {{ $order->tracking_number }}<x-ui.icon name="external-link" size="11" class="od-stamp__out" />
+                            </a>
+                        </span>
+                    </div>
+                    @endif
+                    @if($order->shipping_firstname || $order->shipping_lastname || $order->shipping_address_1 || $order->shipping_city || $order->shipping_country)
+                    <div class="od-fact">
+                        <span class="od-fact__k">Delivery address</span>
+                        <div class="od-lines">
+                            @if($order->shipping_firstname || $order->shipping_lastname)
+                                <span class="od-lines__name">{{ trim($order->shipping_firstname . ' ' . $order->shipping_lastname) }}</span>
+                            @endif
+                            @if($order->shipping_company)<span>{{ $order->shipping_company }}</span>@endif
+                            @if($order->shipping_address_1)<span>{{ $order->shipping_address_1 }}</span>@endif
+                            @if($order->shipping_address_2)<span>{{ $order->shipping_address_2 }}</span>@endif
+                            @if($order->shipping_city || $order->shipping_postcode)
+                                <span>{{ trim($order->shipping_city . ' ' . $order->shipping_postcode) }}</span>
+                            @endif
+                            @if($order->shipping_zone)<span>{{ $order->shipping_zone }}</span>@endif
+                            @if($order->shipping_country)<span>{{ $order->shipping_country }}</span>@endif
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </section>
+            @endif
+
+            {{-- Order comment --}}
+            @if($order->comment)
+            <section class="od-card">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Order comment</h2>
+                </div>
+                <div class="od-card__body">
+                    <p class="od-fact__v">{{ $order->comment }}</p>
+                </div>
+            </section>
+            @endif
+        </div>
     </div>
-    @endif
-    @endif
 
-    {{-- Status Update --}}
+    {{-- ============ STATUS ============ --}}
     @if($canManageOrders)
-    <h3 class="section-title mt-24">Update Status</h3>
+    <section class="od-section">
+        <div class="od-section__head">
+            <h2 class="od-section__title">Update status</h2>
+        </div>
 
-    {{-- Sync Override: freeze this order's status against the marketplace sync --}}
-    <form method="POST" action="{{ route('orders.toggle_override', $order->order_id) }}" id="overrideForm">
-        @csrf
-        <div class="order-override {{ $order->sync_override ? 'is-on' : '' }}">
-            <label class="toggle-switch" title="Toggle sync override">
-                <input type="checkbox" {{ $order->sync_override ? 'checked' : '' }} onchange="document.getElementById('overrideForm').submit()">
-                <span class="toggle-slider"></span>
-            </label>
-            <div>
-                <span class="order-override-title">Sync Override {{ $order->sync_override ? 'ON' : 'OFF' }}</span>
-                <div class="text-xs text-secondary">
-                    @if($order->sync_override)
-                        Manually controlled - marketplace syncs will not change this order's status or stock.
-                    @else
-                        The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
+        <form method="POST" action="{{ route('orders.toggle_override', $order->order_id) }}">
+            @csrf
+            <div class="od-override">
+                <button type="submit"
+                        class="od-switch"
+                        role="switch"
+                        aria-checked="{{ $order->sync_override ? 'true' : 'false' }}"
+                        aria-label="Sync override">
+                </button>
+                <div class="od-override__body">
+                    <div class="od-override__title">Sync override {{ $order->sync_override ? 'on' : 'off' }}</div>
+                    <div class="od-override__note">
+                        @if($order->sync_override)
+                            Manually controlled. Marketplace syncs will not change this order's status or stock.
+                        @else
+                            The marketplace sync manages this order's status. Turn on before finalizing a return, then set the status.
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
+            @csrf
+            <div class="od-fields">
+                <div class="od-field">
+                    <label class="od-field__k" for="od-status">Order status</label>
+                    <div class="x-select-wrap">
+                        <select id="od-status" class="x-input" name="order_status_id">
+                            @foreach($statuses as $s)
+                                <option value="{{ $s->order_status_id }}" @selected($order->order_status_id == $s->order_status_id)>{{ $s->name }}</option>
+                            @endforeach
+                        </select>
+                        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                    </div>
+                </div>
+                <div class="od-field">
+                    <label class="od-field__k" for="od-status-comment">Comment</label>
+                    <input class="x-input" id="od-status-comment" name="comment" value="" placeholder="Optional note">
+                </div>
+                <div class="od-field">
+                    <x-ui.button variant="primary" type="submit">Update status</x-ui.button>
+                </div>
+            </div>
+        </form>
+    </section>
+    @endif
+
+    {{-- ============ HISTORY ============ --}}
+    <section class="od-section">
+        <div class="od-section__head">
+            <h2 class="od-section__title">
+                Order history
+                @if($history->count())<span class="od-section__count">{{ $history->count() }}</span>@endif
+            </h2>
+        </div>
+
+        @if($history->count())
+        <div class="od-time">
+            @foreach($history as $h)
+            <div class="od-time__row">
+                <span class="od-time__when">{{ $h->date_added }}</span>
+                <div class="od-time__what">
+                    <div class="od-time__status">{{ $h->status->name ?? '-' }}</div>
+                    @if($h->user_name)
+                        <div class="od-time__who">by {{ $h->user_name }}</div>
+                    @endif
+                    @if($h->comment)
+                        <div class="od-time__note">{{ $h->comment }}</div>
                     @endif
                 </div>
             </div>
+            @endforeach
         </div>
-    </form>
-
-    <form method="POST" action="{{ route('orders.update_status', $order->order_id) }}">
-        @csrf
-        <div class="d-flex gap-12 items-center flex-wrap">
-            <div>
-                <label class="font-semibold">Order Status</label>
-                <select class="input" name="order_status_id" style="min-width:200px;">
-                    @foreach($statuses as $s)
-                        <option value="{{ $s->order_status_id }}" {{ $order->order_status_id == $s->order_status_id ? 'selected' : '' }}>{{ $s->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div style="flex:1; min-width:200px;">
-                <label class="font-semibold">Comment</label>
-                <input class="input" name="comment" value="" placeholder="Optional note">
-            </div>
-            <div style="padding-top:22px;">
-                <button class="btn" type="submit">Update Status</button>
-            </div>
-        </div>
-    </form>
-    @endif
-
-    {{-- Order History --}}
-    <h3 class="section-title mt-24">Order History</h3>
-    @if($history->count())
-    <div>
-        @foreach($history as $h)
-        <div class="history-item">
-            <div class="history-date">{{ $h->date_added }}</div>
-            <div>
-                <div class="history-status">{{ $h->status->name ?? '-' }}</div>
-                @if($h->user_name)
-                    <div class="text-xs text-secondary">by {{ $h->user_name }}</div>
-                @endif
-                @if($h->comment)
-                    <div class="history-comment">{{ $h->comment }}</div>
-                @endif
-            </div>
-        </div>
-        @endforeach
-    </div>
-    @else
-        <p class="text-muted">No history records.</p>
-    @endif
+        @else
+            <p class="od-empty">No history records.</p>
+        @endif
+    </section>
 </div>
-
-@push('scripts')
-<script>
-// Default-currency symbol, resolved server-side from the `currencies` table
-// (App\Support\Money::defaultSymbol()) - the inline-edit widgets below write
-// their own text between a save and the page reload that follows it, and
-// that transient text must stay labelled just like every Blade-rendered
-// money figure on this page.
-var MONEY_SYMBOL = @json(\App\Support\Money::defaultSymbol());
-
-document.addEventListener('click', function(e) {
-    var span = e.target.closest('.inline-edit-cost');
-    if (!span || span.querySelector('input')) return;
-
-    var opId = span.dataset.opId;
-    var currentCost = parseFloat(span.dataset.cost) || 0;
-
-    var input = document.createElement('input');
-    input.type = 'number';
-    input.step = '0.01';
-    input.min = '0';
-    input.value = currentCost.toFixed(2);
-    input.className = 'input';
-    input.style.cssText = 'width:90px; text-align:right; font-size:13px; padding:2px 6px;';
-
-    span.textContent = '';
-    span.appendChild(input);
-    input.focus();
-    input.select();
-
-    function saveCost() {
-        var newCost = parseFloat(input.value) || 0;
-        span.textContent = newCost > 0 ? MONEY_SYMBOL + newCost.toFixed(2) : '-';
-        span.dataset.cost = newCost;
-
-        fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/update-product-cost', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ order_product_id: opId, cost: newCost })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.ok) {
-                showFlashSuccess('Cost updated.');
-                // Reload to recalculate profit columns
-                setTimeout(function() { location.reload(); }, 500);
-            } else {
-                showFlashError(data.error || 'Failed to update cost.');
-            }
-        })
-        .catch(function() {
-            showFlashError('Network error updating cost.');
-        });
-    }
-
-    input.addEventListener('blur', saveCost);
-    input.addEventListener('keydown', function(ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-        if (ev.key === 'Escape') {
-            span.textContent = currentCost > 0 ? MONEY_SYMBOL + currentCost.toFixed(2) : '-';
-            span.dataset.cost = currentCost;
-        }
-    });
-});
-
-// Inline edit fee amount
-document.addEventListener('click', function(e) {
-    var span = e.target.closest('.inline-edit-fee-amount');
-    if (!span || span.querySelector('input')) return;
-
-    var feeId = span.dataset.feeId;
-    var currentAmount = parseFloat(span.dataset.amount) || 0;
-
-    var input = document.createElement('input');
-    input.type = 'number';
-    input.step = '0.01';
-    input.min = '0';
-    input.value = currentAmount.toFixed(2);
-    input.className = 'input';
-    input.style.cssText = 'width:80px; text-align:right; font-size:12px; padding:2px 6px;';
-
-    span.textContent = '';
-    span.appendChild(input);
-    input.focus();
-    input.select();
-
-    function saveFeeAmount() {
-        var newAmount = parseFloat(input.value) || 0;
-        span.textContent = newAmount > 0 ? '-' + MONEY_SYMBOL + newAmount.toFixed(2) : MONEY_SYMBOL + '0.00';
-        span.dataset.amount = newAmount;
-
-        fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ amount: newAmount })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.ok) {
-                showFlashSuccess('Fee updated.');
-                setTimeout(function() { location.reload(); }, 500);
-            } else {
-                showFlashError('Failed to update fee.');
-            }
-        })
-        .catch(function() { showFlashError('Network error.'); });
-    }
-
-    input.addEventListener('blur', saveFeeAmount);
-    input.addEventListener('keydown', function(ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-        if (ev.key === 'Escape') {
-            span.textContent = currentAmount > 0 ? '-' + MONEY_SYMBOL + currentAmount.toFixed(2) : MONEY_SYMBOL + '0.00';
-            span.dataset.amount = currentAmount;
-        }
-    });
-});
-
-// Inline edit fee label
-document.addEventListener('click', function(e) {
-    var span = e.target.closest('.inline-edit-fee-label');
-    if (!span || span.querySelector('input')) return;
-
-    var feeId = span.dataset.feeId;
-    var currentLabel = span.dataset.label || '';
-
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentLabel;
-    input.className = 'input';
-    input.style.cssText = 'width:120px; font-size:12px; padding:2px 6px;';
-
-    span.textContent = '';
-    span.appendChild(input);
-    input.focus();
-    input.select();
-
-    function saveFeeLabel() {
-        var newLabel = input.value.trim() || currentLabel;
-        span.textContent = newLabel;
-        span.dataset.label = newLabel;
-
-        fetch(@json(url('/sales/orders')) + '/' + @json($order->order_id) + '/fees/' + feeId, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ label: newLabel, amount: parseFloat(span.closest('tr').querySelector('.inline-edit-fee-amount').dataset.amount) || 0 })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.ok) { showFlashSuccess('Fee label updated.'); }
-            else { showFlashError('Failed to update.'); }
-        })
-        .catch(function() { showFlashError('Network error.'); });
-    }
-
-    input.addEventListener('blur', saveFeeLabel);
-    input.addEventListener('keydown', function(ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-        if (ev.key === 'Escape') {
-            span.textContent = currentLabel;
-            span.dataset.label = currentLabel;
-        }
-    });
-});
-
-// Inline edit shipping cost
-document.addEventListener('click', function(e) {
-    var span = e.target.closest('.inline-edit-shipping');
-    if (!span || span.querySelector('input')) return;
-
-    var orderId = span.dataset.orderId;
-    var currentCost = parseFloat(span.dataset.cost) || 0;
-
-    var input = document.createElement('input');
-    input.type = 'number';
-    input.step = '0.01';
-    input.min = '0';
-    input.value = currentCost.toFixed(2);
-    input.className = 'input';
-    input.style.cssText = 'width:90px; text-align:right; font-size:13px; padding:2px 6px;';
-
-    span.textContent = '';
-    span.appendChild(input);
-    input.focus();
-    input.select();
-
-    function saveShipping() {
-        var newCost = parseFloat(input.value) || 0;
-        span.textContent = newCost > 0 ? '-' + MONEY_SYMBOL + newCost.toFixed(2) : MONEY_SYMBOL + '0.00';
-        span.dataset.cost = newCost;
-        span.style.color = newCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
-
-        fetch(@json(url('/sales/orders')) + '/' + orderId + '/update-shipping-cost', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ shipping_cost: newCost })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.ok) {
-                showFlashSuccess('Shipping cost updated.');
-                setTimeout(function() { location.reload(); }, 500);
-            } else {
-                showFlashError(data.error || 'Failed to update shipping cost.');
-            }
-        })
-        .catch(function() {
-            showFlashError('Network error updating shipping cost.');
-        });
-    }
-
-    input.addEventListener('blur', saveShipping);
-    input.addEventListener('keydown', function(ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-        if (ev.key === 'Escape') {
-            span.textContent = currentCost > 0 ? '-' + MONEY_SYMBOL + currentCost.toFixed(2) : MONEY_SYMBOL + '0.00';
-            span.dataset.cost = currentCost;
-            span.style.color = currentCost > 0 ? 'var(--danger)' : 'var(--text-muted)';
-        }
-    });
-});
-</script>
-@endpush
 @endsection
