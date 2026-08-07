@@ -45,12 +45,32 @@
  */
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('tiktok-orders-page');
-    if (!page) return;
+    var detailPage = document.getElementById('tiktok-order-detail-page');
+    if (!page && !detailPage) return;
 
-    openPendingAwb(page);
-    initFetchUpdateOverlay();
-    initTrackingModal();
-    initImagePreview();
+    if (page) {
+        openPendingAwb(page);
+        initFetchUpdateOverlay();
+        initTrackingModal();
+        initImagePreview();
+    }
+
+    // The order detail page (extensions/tiktok/views/orders/show.blade.php)
+    // is a second document with a second root id, not a section of the list.
+    // It carries the same tracking modal - one copy of that markup lives in
+    // orders/_modals.blade.php and both pages include it - and its Tracking
+    // button is the same .btnTtTracking contract, so the flow is the module's
+    // existing one rather than a second implementation.
+    //
+    // It has no fetch/update command bar and no session waybill to open, so
+    // neither initialiser is called here. initImagePreview() is deliberately
+    // not called either: this page's thumbnails are already the 96px the
+    // list's preview zooms up to, which is what
+    // `.od-page .order-img-wrap { cursor: default }` already states.
+    if (detailPage) {
+        initTrackingModal();
+        initBrokenImages(detailPage);
+    }
 
     /* ------------------------------------------------------------------
        Shared helpers.
@@ -273,6 +293,21 @@ document.addEventListener('DOMContentLoaded', function () {
             showModal(modal);
             loadTracking(url);
         });
+    }
+
+    /* ------------------------------------------------------------------
+       Broken item thumbnails. The previous version of the detail page hid
+       these with an inline onerror="" attribute, which this project does
+       not allow. A capture-phase listener on the page root does the same
+       job (the error event does not bubble, so capture is what reaches it)
+       with no attribute and no inline script.
+       ------------------------------------------------------------------ */
+    function initBrokenImages(root) {
+        root.addEventListener('error', function (e) {
+            var img = e.target;
+            if (!img || img.tagName !== 'IMG' || !img.classList.contains('order-img')) return;
+            img.hidden = true;
+        }, true);
     }
 
     /* ------------------------------------------------------------------

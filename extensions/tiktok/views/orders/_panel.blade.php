@@ -364,9 +364,7 @@
                         @endif
                         <span class="co-band__label">Order</span>
                         @if($orderId !== '')
-                            {{-- New tab, matching the legacy page: same reasoning as the Shopee
-                                 and Lazada panels, drop when the detail pages convert (board card #5). --}}
-                            <a class="co-sn" href="{{ route('ext.tiktok.orders.show', $o->id) }}" target="_blank" rel="noopener">{{ $orderId }}</a>
+                            <a class="co-sn" href="{{ route('ext.tiktok.orders.show', $o->id) }}">{{ $orderId }}</a>
                         @else
                             <span class="co-empty-mark">No order number</span>
                         @endif
@@ -554,19 +552,8 @@
     </div>
 </div>
 
-{{-- Tracking modal, filled by the page module from the tracking endpoint. --}}
-<div id="ttTrackingModal" class="modal-backdrop">
-    <div class="modal co-modal co-modal--md">
-        <div class="modal-header co-modal__head">
-            <h3 class="co-modal__title">Tracking</h3>
-            <button type="button" id="btnCloseTtTracking" class="modal-close co-modal__close" aria-label="Close">&times;</button>
-        </div>
-        <div id="ttTrackingSub" class="co-modal__meta"></div>
-        <div id="ttTrackingBody" class="co-modal__body">
-            <div class="text-secondary">Loading</div>
-        </div>
-        <div class="co-modal__foot co-modal__foot--end">
-            <button type="button" id="btnCloseTtTracking2" class="x-btn x-btn--secondary">Close</button>
-        </div>
-    </div>
-</div>
+{{-- Tracking modal, filled by the page module from the tracking endpoint.
+     One copy of the markup, in orders/_modals.blade.php, included by this
+     panel and by the order detail page: the module reads every id in it, and
+     two copies of a contract read by id is how the two drift. --}}
+@include('ext-tiktok::orders._modals')

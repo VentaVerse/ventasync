@@ -614,10 +614,14 @@ class TiktokWorkspaceTest extends TestCase
     }
 
     /**
-     * The order number opens the detail page in a new tab (the detail pages
-     * have not converted yet, board card #5) and carries rel="noopener".
+     * The order number opens the detail page in place. It used to open a new
+     * tab as a reviewed stopgap, because the detail page was still legacy
+     * chrome and a new tab was the only way to keep the seller center on
+     * screen. That detail page now renders inside this same workspace (board
+     * card #5, Task 3), so the stopgap is retired and the link navigates
+     * here: the channel sidebar and the filtered list both survive.
      */
-    public function test_the_order_number_opens_in_a_new_tab_safely(): void
+    public function test_the_order_number_opens_the_detail_page_in_place(): void
     {
         $ids = $this->seedOrderPerStatus();
 
@@ -625,8 +629,9 @@ class TiktokWorkspaceTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(
-            '<a class="co-sn" href="' . e(route('ext.tiktok.orders.show', $ids['COMPLETED'])) . '" target="_blank" rel="noopener">',
+            '<a class="co-sn" href="' . e(route('ext.tiktok.orders.show', $ids['COMPLETED'])) . '">',
             false
         );
+        $response->assertDontSee('target="_blank" rel="noopener">' . $ids['COMPLETED'], false);
     }
 }

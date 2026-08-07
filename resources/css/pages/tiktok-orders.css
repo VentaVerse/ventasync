@@ -40,6 +40,67 @@
 .tt-col-status   { width: 12%; }
 .tt-col-act      { width: 25%; }
 
+/* ==================================================================
+   TikTok order detail (`ttd-`)
+   ------------------------------------------------------------------
+   The page is the shared `od-` detail anatomy poured into the seller
+   center; everything here is genuinely TikTok's and nothing else, which
+   on this channel is almost nothing. The item grid is not among it:
+   TikTok's five columns (image, product, qty, unit price, sale price)
+   are exactly the anatomy's own five, so this channel uses them rather
+   than restating them.
+   ================================================================== */
+
+/* Two settlement blocks in a 340px column, up to seven lines each: the
+   card body's own --space-3 rhythm is meant for three or four facts and
+   turns these into a scroll. The rows keep their own vertical padding
+   and the gap goes. Same handling Shopee's escrow block takes. */
+.ttd-fees { gap: 0; }
+
+/* The subtotal of everything TikTok deducted, above the settlement it
+   pays out. A hairline rather than the ledger's own --total rule,
+   because the figure below it is the one that closes the block. */
+.ttd-total-fees {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+}
+
+/* The payout date under the settlement block. */
+.ttd-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Waybill and tracking sit in the shipping card's foot. Two controls of
+   the same weight: neither is more the operator's move than the other,
+   and a solid button here would compete with the one in the page head. */
+.ttd-parcel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+/* Raw payload. Kept from the previous version of this page: when
+   TikTok's response and this page disagree, this is what settles it. It
+   scrolls in its own box so a 400-line payload cannot push the page
+   sideways. */
+.ttd-raw {
+    max-height: 420px;
+    margin: var(--space-3) 0 0;
+    padding: var(--space-3);
+    overflow: auto;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------------
    Responsive
    ------------------------------------------------------------------ */
