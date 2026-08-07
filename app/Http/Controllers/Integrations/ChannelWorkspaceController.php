@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Integrations;
 
+use App\Http\Controllers\Controller;
 use App\Support\ChannelWorkspace;
 use Illuminate\Http\Request;
 

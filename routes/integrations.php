@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\IntegrationController;
-use App\Http\Controllers\ChannelWorkspaceController;
+use App\Http\Controllers\Integrations\IntegrationController;
+use App\Http\Controllers\Integrations\ChannelWorkspaceController;
 
 // IA migration (2026-08-08, Task 4): Integrations section. Required from
 // routes/web.php inside the ['auth'] group. Every route here already shared
