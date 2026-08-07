@@ -460,6 +460,18 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ------------------------------------------------------------------
        Tracking modal.
        ------------------------------------------------------------------ */
+
+    // Shopee's tracking events carry a Unix timestamp (seconds or
+    // milliseconds) in `update_time`/`ctime`, or occasionally a string
+    // timestamp. Accept all three; fall back to the raw value as text
+    // rather than rendering a blank cell.
+    function formatTrackTime(ts) {
+        if (!ts) return '';
+        var dt = typeof ts === 'number' ? new Date(ts > 1e12 ? ts : ts * 1000) : new Date(ts);
+        if (isNaN(dt.getTime())) return String(ts);
+        return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0') + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+    }
+
     function initTrackingModal() {
         var trackingModal = document.getElementById('spTrackingModal');
         var trackingBody = document.getElementById('spTrackingBody');
@@ -526,20 +538,34 @@ document.addEventListener('DOMContentLoaded', function () {
                         return;
                     }
 
+                    // Newest first, same as the events Shopee itself returns
+                    // newest-last. Some events carry only `ctime`, never
+                    // `update_time`, so both are checked.
+                    events.sort(function (a, b) {
+                        return (b.update_time || b.ctime || 0) - (a.update_time || a.ctime || 0);
+                    });
+
+                    if (data.logistics_status) {
+                        var statusHeader = document.createElement('div');
+                        statusHeader.className = 'text-xs text-secondary mb-8';
+                        statusHeader.textContent = 'Logistics status: ' + data.logistics_status;
+                        trackingBody.appendChild(statusHeader);
+                    }
+
                     events.forEach(function (ev) {
                         var row = document.createElement('div');
                         row.className = 'sp-track-event';
                         var time = document.createElement('div');
                         time.className = 'text-xs text-secondary';
-                        var ts = ev.update_time || null;
-                        if (ts && typeof ts === 'number') {
-                            var dt = new Date(ts > 1e12 ? ts : ts * 1000);
-                            time.textContent = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0') + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
-                        }
+                        time.textContent = formatTrackTime(ev.update_time || ev.ctime);
+                        var status = document.createElement('div');
+                        status.className = 'text-xs font-bold';
+                        status.textContent = ev.logistics_status || '';
                         var desc = document.createElement('div');
                         desc.className = 'text-sm';
                         desc.textContent = ev.description || '';
                         row.appendChild(time);
+                        if (ev.logistics_status) row.appendChild(status);
                         row.appendChild(desc);
                         trackingBody.appendChild(row);
                     });
