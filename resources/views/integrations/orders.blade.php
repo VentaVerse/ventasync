@@ -194,6 +194,22 @@
                 'panelHiddenParams' => ['channel' => 'lazada'],
             ])
         </div>
+    @elseif($selectedChannel === 'tiktok')
+        {{-- Same id and the same data-awb-url TikTok's own
+             orders/index.blade.php carries, so resources/js/pages/
+             tiktok-orders.js (which reads it off the root element, not
+             through the panel service) binds here unchanged whether this
+             renders on the seller center or the hub. The value comes from
+             the panel service's own last_result, so a ship performed from
+             this page hands its waybill back here rather than only on the
+             seller center. --}}
+        <div class="x-fh-panel co-page" id="tiktok-orders-page"
+             data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
+            @include('ext-tiktok::orders._panel', [
+                'panelBaseUrl' => route('integrations.orders'),
+                'panelHiddenParams' => ['channel' => 'tiktok'],
+            ])
+        </div>
     @else
         <section class="x-fh-sec">
             <header class="x-fh-sec__head">

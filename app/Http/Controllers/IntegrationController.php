@@ -28,6 +28,7 @@ class IntegrationController extends Controller
     private const ORDER_PANEL_SERVICES = [
         'shopee' => \Extensions\shopee\Services\ShopeeOrdersPanel::class,
         'lazada' => \Extensions\lazada\Services\LazadaOrdersPanel::class,
+        'tiktok' => \Extensions\tiktok\Services\TikTokOrdersPanel::class,
     ];
 
     /**

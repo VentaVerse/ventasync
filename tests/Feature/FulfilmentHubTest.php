@@ -8,6 +8,7 @@ use App\Models\Admin\UserGroup;
 use App\Models\User;
 use Extensions\lazada\LazadaExtension;
 use Extensions\shopee\ShopeeExtension;
+use Extensions\tiktok\TiktokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -436,6 +437,208 @@ class FulfilmentHubTest extends TestCase
         // input above (neither of which can prove the segment on its own).
         $this->assertMatchesRegularExpression(
             '/href="[^"]*integrations\/orders\?[^"]*(?:tab=[^"]*channel=lazada|channel=lazada[^"]*tab=)[^"]*"/',
+            $response->getContent()
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Round 2, Task 2: TikTok becomes the third channel rendering in place,
+    // through the same self::ORDER_PANEL_SERVICES map. Own fixtures again,
+    // because setUp() only registers Shopee.
+    // ------------------------------------------------------------------
+
+    private function registerTiktok(): void
+    {
+        $manager = $this->app->make(ExtensionManager::class);
+        $manager->install('tiktok');
+        $manager->enable('tiktok');
+        $this->app->register(TiktokExtension::class);
+        $this->app['router']->getRoutes()->refreshNameLookups();
+    }
+
+    /**
+     * Card + orders read tier: view_tiktok is the card gate,
+     * view_tiktok_orders is what visibleOrderTabs() checks per tab.
+     */
+    private function tiktokOperator(): User
+    {
+        $this->registerTiktok();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub TikTok Operators']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_tiktok', 'view_tiktok_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * manage_tiktok_orders implies view_tiktok_orders through the same
+     * manage-implies-view cascade the other two channels' managers rely on.
+     */
+    private function tiktokManager(): User
+    {
+        $this->registerTiktok();
+
+        $group = UserGroup::create(['name' => 'Fulfilment Hub TikTok Managers']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_tiktok', 'manage_tiktok_orders'])
+                ->pluck('id')
+                ->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /**
+     * shopeeOperator() with TikTok registered but never granted, so the
+     * TikTok tab genuinely exists in the registry and is simply absent from
+     * this user's own visibleOrderTabs() list. Same rationale as
+     * shopeeOperatorWithLazadaRegistered(): without the registration the
+     * membership check would go unexercised.
+     */
+    private function shopeeOperatorWithTiktokRegistered(): User
+    {
+        $this->registerTiktok();
+
+        return $this->shopeeOperator();
+    }
+
+    public function test_default_render_includes_a_tiktok_card_that_switches_in_place(): void
+    {
+        $user = $this->tiktokOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders');
+
+        $response->assertOk();
+        $response->assertSee(route('integrations.orders', ['channel' => 'tiktok']), false);
+        // The card stops linking out to the seller center once the panel is
+        // extracted, keyed off panelChannels rather than a per-channel
+        // literal in the view.
+        $response->assertDontSee('href="' . e(route('ext.tiktok.orders.index')) . '"', false);
+    }
+
+    public function test_selecting_tiktok_switches_the_panel_in_place(): void
+    {
+        $user = $this->tiktokOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=tiktok');
+
+        $response->assertOk();
+        $response->assertSee('id="tiktok-orders-page"', false);
+        $response->assertDontSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    public function test_tiktok_manager_sees_the_command_bar_on_the_hub_panel(): void
+    {
+        $manager = $this->tiktokManager();
+
+        $response = $this->actingAs($manager)->get('/integrations/orders?channel=tiktok');
+
+        $response->assertOk();
+        $response->assertSee('id="btnFetchOrders"', false);
+        $response->assertSee('id="formFetchTiktokOrders"', false);
+    }
+
+    public function test_tiktok_viewer_does_not_see_the_command_bar_on_the_hub_panel(): void
+    {
+        $viewer = $this->tiktokOperator();
+
+        $response = $this->actingAs($viewer)->get('/integrations/orders?channel=tiktok');
+
+        $response->assertOk();
+        $response->assertDontSee('id="btnFetchOrders"', false);
+        $response->assertDontSee('id="formFetchTiktokOrders"', false);
+    }
+
+    /**
+     * Unauthorised fallback, direction one: a user holding only Shopee
+     * permissions cannot select TikTok's panel.
+     */
+    public function test_shopee_only_user_requesting_tiktok_falls_back_to_summary(): void
+    {
+        $user = $this->shopeeOperatorWithTiktokRegistered();
+
+        $this->assertFalse($user->hasPermission('view_tiktok'));
+        $this->assertFalse($user->hasPermission('view_tiktok_orders'));
+        $this->assertTrue($user->hasPermission('view_shopee_orders'));
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=tiktok');
+
+        $response->assertOk();
+        $response->assertDontSee('id="tiktok-orders-page"', false);
+        $response->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    /**
+     * Unauthorised fallback, direction two: a TikTok-only user cannot select
+     * Shopee's panel either. The pair is what proves the gate is genuinely
+     * per-channel rather than a check that happens to block one direction.
+     */
+    public function test_tiktok_only_user_requesting_shopee_falls_back_to_summary(): void
+    {
+        $user = $this->tiktokOperator();
+
+        $this->assertFalse($user->hasPermission('view_shopee'));
+        $this->assertFalse($user->hasPermission('view_shopee_orders'));
+        $this->assertTrue($user->hasPermission('view_tiktok_orders'));
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=shopee');
+
+        $response->assertOk();
+        $response->assertDontSee('id="shopee-orders-page"', false);
+        // Summary, not the empty state: this user does see a tab (TikTok),
+        // so the request must land on the aggregate view.
+        $response->assertSee('<h2 class="x-fh-sec__title">Recent orders</h2>', false);
+    }
+
+    public function test_tiktok_panel_links_keep_hub_context(): void
+    {
+        $user = $this->tiktokOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=tiktok');
+
+        $response->assertOk();
+        // The filter form posts back to the hub's own route, not TikTok's
+        // seller-center route.
+        $response->assertSee(
+            '<form method="GET" action="' . e(route('integrations.orders')) . '" class="x-filters" id="orders-filter">',
+            false
+        );
+        // The hidden context input renders at all, which the seller center
+        // (which passes no hidden params) can never prove for this panel.
+        $response->assertSee('<input type="hidden" name="channel" value="tiktok">', false);
+        // Segment links specifically: tab= only ever appears on the status
+        // segment, so a URL carrying both tab= and channel=tiktok proves the
+        // SEGMENT keeps context, not only the strip card and the hidden
+        // input above.
+        $this->assertMatchesRegularExpression(
+            '/href="[^"]*integrations\/orders\?[^"]*(?:tab=[^"]*channel=tiktok|channel=tiktok[^"]*tab=)[^"]*"/',
+            $response->getContent()
+        );
+    }
+
+    /**
+     * The To Ship sub-steps are a second family of self-links, built through
+     * the same closure but with their own except-list. A sub-step link that
+     * dropped the channel would bounce the operator back to Summary
+     * mid-workflow.
+     */
+    public function test_tiktok_sub_step_links_keep_hub_context(): void
+    {
+        $user = $this->tiktokOperator();
+
+        $response = $this->actingAs($user)->get('/integrations/orders?channel=tiktok&tab=TO_SHIP');
+
+        $response->assertOk();
+        $this->assertMatchesRegularExpression(
+            // Lookaheads rather than a fixed order: Arr::query emits the
+            // request's own params first, so channel= lands ahead of the
+            // pending_sub= this link adds, and asserting one sequence would
+            // be asserting an encoding detail rather than the behaviour.
+            '/href="[^"]*integrations\/orders\?(?=[^"]*pending_sub=to_handover)(?=[^"]*channel=tiktok)[^"]*"/',
             $response->getContent()
         );
     }
