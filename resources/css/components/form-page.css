@@ -653,6 +653,27 @@ textarea.x-input {
    way left to say "look at this one". */
 .fm-neg { color: var(--danger); }
 
+/* A figure that is positive but thin enough to want a second look. Used by
+   the sales-history satellite for margins under 20%. */
+.fm-warn { color: var(--warning); }
+
+/* <x-money> is shared with the legacy order pages, so its own file cannot
+   assume the mono face. Here every numeral is mono, so the two lines are
+   re-faced rather than reimplemented - the same two rules
+   components/order-detail.css writes under .od-page. */
+.fm-page .money-primary {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+.fm-page .money-secondary {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
 /* ------------------------------------------------------------------
    Sticky save bar. Bottom of the viewport while the form is on screen
    (decision 4), a hairline above it so it reads as a floor rather than
@@ -1104,6 +1125,83 @@ textarea.x-input {
     background: var(--surface);
     font-size: 12px;
     color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   Description editor. Summernote is loaded per-page by
+   catalog/products/partials/wysiwyg.blade.php (see that file for why it
+   still exists at all). Out of the box it is a Bootstrap widget: 4px
+   radii, its own greys, its own button chrome, a font stack that is not
+   this app's. These rules do not restyle it so much as put it in the
+   same clothes as every other control on the page - one hairline box,
+   our surfaces, our type. Scoped under .fm-page and always two classes
+   deep so they beat the vendor sheet without !important.
+   ------------------------------------------------------------------ */
+
+.fm-page .note-editor.note-frame {
+    margin: 0;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.fm-page .note-editor .note-toolbar {
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+}
+
+.fm-page .note-editor .note-btn {
+    height: var(--control-h-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.fm-page .note-editor .note-btn:hover,
+.fm-page .note-editor .note-btn.active {
+    background: var(--surface-hover);
+    border-color: transparent;
+    color: var(--text);
+}
+
+.fm-page .note-editor .note-editable {
+    padding: var(--space-3);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.fm-page .note-editor .note-placeholder { color: var(--text-muted); font-size: 13px; }
+
+.fm-page .note-editor .note-statusbar {
+    background: var(--surface-sunken);
+    border-top: 1px solid var(--border);
+}
+
+.fm-page .note-editor .note-dropdown-menu {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-menu);
+    color: var(--text);
+}
+
+/* The codeview textarea is the one place in the editor where the content
+   genuinely is code. */
+.fm-page .note-editor .note-codable {
+    background: var(--surface-sunken);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
 }
 
 /* ------------------------------------------------------------------

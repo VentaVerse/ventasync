@@ -1,114 +1,138 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Catalog / Products / Stock History')
+@extends('layouts.shell')
+@section('title', 'Stock history: ' . $product->name)
+@section('breadcrumb', 'Stock history')
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Stock History: {{ $product->name }}</h2>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ request('back', route('products.index')) }}">Back to Products</a>
-            <a class="btn secondary" href="{{ route('products.edit', $product->product_id) }}">Edit Product</a>
+@php
+    $backUrl = request('back', route('products.index'));
+
+    // Movement type and origin are facts, not health states, so they are badge
+    // dots in neutral except where the row genuinely records stock leaving.
+    $typeTone = fn (string $t) => match ($t) {
+        'deduct'  => 'danger',
+        'restore' => 'success',
+        default   => 'neutral',
+    };
+    $typeLabel = fn (string $t) => match ($t) {
+        'deduct'  => 'Deducted',
+        'restore' => 'Restored',
+        'set'     => 'Set',
+        default   => ucfirst($t),
+    };
+    $sourceLabel = fn (string $s) => match ($s) {
+        'manual'        => 'Manual',
+        'order'         => 'Order',
+        'lazada_sync'   => 'Lazada',
+        'shopee_sync'   => 'Shopee',
+        'opencart_sync' => 'OpenCart',
+        default         => $s,
+    };
+@endphp
+
+<div class="fm-page">
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ $backUrl }}">
+                <x-ui.icon name="chevron-left" size="14" /> Products
+            </a>
+            <h1 class="fm-title">Stock history</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Product</span>
+                    <span class="fm-stamp__v">{{ $product->name }}</span>
+                </span>
+                @if($product->sku)
+                    <span class="fm-stamp">
+                        <span class="fm-stamp__k">SKU</span>
+                        <span class="fm-stamp__v">{{ $product->sku }}</span>
+                    </span>
+                @endif
+            </div>
+        </div>
+        <div class="fm-head__actions">
+            <x-ui.button :href="route('products.edit', $product->product_id)">Edit product</x-ui.button>
         </div>
     </div>
 
-    @if($product->sku)
-        <div class="mb-8 text-secondary text-sm">SKU: {{ $product->sku }}</div>
-    @endif
-
-    <div style="display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
-        <div class="report-stat-card" style="flex:1; min-width:140px;">
-            <div class="report-stat-label">Current Stock</div>
-            <div class="report-stat-value">{{ number_format($product->quantity) }}</div>
+    <div class="fm-stats">
+        <div class="fm-stat">
+            <span class="fm-stat__k">On hand</span>
+            <span class="fm-stat__v">{{ number_format($product->quantity) }}</span>
         </div>
-        <div class="report-stat-card" style="flex:1; min-width:140px;">
-            <div class="report-stat-label">Total Added</div>
-            <div class="report-stat-value" style="color:var(--success);">+{{ number_format($totalAdded) }}</div>
+        <div class="fm-stat">
+            <span class="fm-stat__k">Added, all time</span>
+            <span class="fm-stat__v">+{{ number_format($totalAdded) }}</span>
         </div>
-        <div class="report-stat-card" style="flex:1; min-width:140px;">
-            <div class="report-stat-label">Total Deducted</div>
-            <div class="report-stat-value" style="color:var(--danger);">{{ number_format($totalDeducted) }}</div>
+        <div class="fm-stat">
+            <span class="fm-stat__k">Deducted, all time</span>
+            {{-- Deductions are the only figure here that gets colour: this is
+                 stock leaving. --}}
+            <span class="fm-stat__v fm-neg">{{ number_format($totalDeducted) }}</span>
         </div>
     </div>
 
-    @if($history->isEmpty())
-        <div class="text-secondary text-center py-32">No stock history for this product yet.</div>
-    @else
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Variation</th>
-                    <th class="text-right">Before</th>
-                    <th class="text-right">Change</th>
-                    <th class="text-right">After</th>
-                    <th>Order</th>
-                    <th>Source</th>
-                    <th>Note</th>
-                    <th>By</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach($history as $h)
-                    <tr>
-                        <td class="text-nowrap text-sm text-secondary">{{ \Carbon\Carbon::parse($h->created_at)->format('M d, Y H:i') }}</td>
-                        <td>
-                            @if($h->type === 'deduct')
-                                <span class="badge badge-red">Deduct</span>
-                            @elseif($h->type === 'restore')
-                                <span class="badge badge-green">Restore</span>
-                            @elseif($h->type === 'set')
-                                <span class="badge badge-blue">Set</span>
-                            @else
-                                <span class="badge badge-default">{{ ucfirst($h->type) }}</span>
-                            @endif
-                        </td>
-                        <td class="text-sm">
-                            @if($h->product_option_value_id)
-                                {{ $optionValueNames[$h->product_option_value_id] ?? 'Option #'.$h->product_option_value_id }}
-                            @else
-                                <span class="text-secondary">—</span>
-                            @endif
-                        </td>
-                        <td class="text-right">{{ number_format($h->quantity_before) }}</td>
-                        <td class="text-right font-semibold" style="color: {{ $h->quantity_change >= 0 ? 'var(--success)' : 'var(--danger)' }}">
-                            {{ $h->quantity_change >= 0 ? '+' : '' }}{{ number_format($h->quantity_change) }}
-                        </td>
-                        <td class="text-right font-semibold">{{ number_format($h->quantity_after) }}</td>
-                        <td>
-                            @if($h->order_id)
-                                <a href="{{ route('orders.show', $h->order_id) }}" class="font-semibold" style="color:var(--accent);">#{{ $h->order_id }}</a>
-                            @else
-                                <span class="text-secondary">—</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if($h->source === 'manual')
-                                <span class="badge badge-default">Manual</span>
-                            @elseif($h->source === 'order')
-                                <span class="badge badge-blue">Order</span>
-                            @elseif($h->source === 'lazada_sync')
-                                <span class="badge badge-indigo">Lazada</span>
-                            @elseif($h->source === 'shopee_sync')
-                                <span class="badge badge-orange">Shopee</span>
-                            @elseif($h->source === 'opencart_sync')
-                                <span class="badge badge-dark">OpenCart</span>
-                            @else
-                                <span class="badge badge-default">{{ $h->source }}</span>
-                            @endif
-                        </td>
-                        <td class="text-sm text-secondary">{{ $h->note ?? '' }}</td>
-                        <td class="text-sm text-nowrap">{{ $h->user_name ?? 'System' }}</td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
+@if($history->isEmpty())
+    <x-ui.empty title="No stock movements yet"
+                description="Every change to this product's quantity, from an order, a sync or a manual edit, is recorded here." />
+@else
+    <x-ui.table>
+        <x-slot:head>
+            <tr>
+                <th class="fm-vcol-opt">When</th>
+                <th class="fm-vcol-qty">Type</th>
+                <th class="fm-vcol-name">Variation</th>
+                <th class="x-td-num fm-vcol-qty">Before</th>
+                <th class="x-td-num fm-vcol-qty">Change</th>
+                <th class="x-td-num fm-vcol-qty">After</th>
+                <th class="fm-vcol-qty">Order</th>
+                <th class="fm-vcol-sku">Source</th>
+                <th>Note</th>
+                <th class="fm-vcol-sku">By</th>
+            </tr>
+        </x-slot:head>
 
-        <div class="mt-16">
-            {{ $history->onEachSide(1)->links('vendor.pagination.simple') }}
+        @foreach($history as $h)
+            <tr>
+                <td data-label="When"><span class="x-num">{{ \Carbon\Carbon::parse($h->created_at)->format('Y-m-d H:i') }}</span></td>
+                <td data-label="Type">
+                    <x-ui.badge :tone="$typeTone($h->type)">{{ $typeLabel($h->type) }}</x-ui.badge>
+                </td>
+                <td data-label="Variation">
+                    @if($h->product_option_value_id)
+                        {{ $optionValueNames[$h->product_option_value_id] ?? 'Variation #'.$h->product_option_value_id }}
+                    @else
+                        <span class="fm-hint">Whole product</span>
+                    @endif
+                </td>
+                <td class="x-td-num" data-label="Before"><span class="x-num">{{ number_format($h->quantity_before) }}</span></td>
+                {{-- A negative change is stock leaving, so it carries the one
+                     colour on this page. A negative quantity_after is
+                     legitimate (an oversold variation) and is not flagged. --}}
+                <td class="x-td-num" data-label="Change">
+                    <span class="x-num{{ $h->quantity_change < 0 ? ' fm-neg' : '' }}">{{ $h->quantity_change >= 0 ? '+' : '' }}{{ number_format($h->quantity_change) }}</span>
+                </td>
+                <td class="x-td-num" data-label="After"><span class="x-num">{{ number_format($h->quantity_after) }}</span></td>
+                <td data-label="Order">
+                    @if($h->order_id)
+                        <a class="x-row-link x-num" href="{{ route('orders.show', $h->order_id) }}">{{ $h->order_id }}</a>
+                    @else
+                        <span class="fm-hint">None</span>
+                    @endif
+                </td>
+                <td data-label="Source">{{ $sourceLabel((string) $h->source) }}</td>
+                <td data-label="Note">{{ $h->note ?? '' }}</td>
+                <td data-label="By">{{ $h->user_name ?? 'System' }}</td>
+            </tr>
+        @endforeach
+    </x-ui.table>
+
+    <div class="x-pager">
+        <span class="x-pager__count x-num">{{ number_format($history->firstItem() ?? 0) }} to {{ number_format($history->lastItem() ?? 0) }} of {{ number_format($history->total()) }}</span>
+        <div class="x-pager__nav">
+            <x-ui.button size="sm" :href="$history->previousPageUrl()" :disabled="!$history->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+            <x-ui.button size="sm" :href="$history->nextPageUrl()" :disabled="!$history->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
         </div>
-    @endif
+    </div>
+@endif
 </div>
 @endsection

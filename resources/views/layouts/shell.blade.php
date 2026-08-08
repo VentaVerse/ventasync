@@ -8,6 +8,11 @@
     @include('partials.theme-boot')
     @include('partials.nav-boot')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- Vendor stylesheets a single page needs and the rest of the app does
+         not (the product description editor). Never inline CSS: every rule
+         this project owns lives under resources/css/ and ships through Vite
+         above. --}}
+    @stack('styles')
 </head>
 <body class="x-app">
 <div class="x-shell">

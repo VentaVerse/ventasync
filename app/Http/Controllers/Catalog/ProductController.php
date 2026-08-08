@@ -1235,7 +1235,7 @@ public function store(Request $request)
                     qtyBefore: $oldQty,
                     qtyAfter: $newQty,
                     source: 'manual',
-                    note: "Manual edit — qty $oldQty → $newQty",
+                    note: "Manual edit, qty $oldQty to $newQty",
                 );
             }
         }
@@ -1609,7 +1609,7 @@ public function store(Request $request)
                         qtyBefore: (int) $old->quantity,
                         qtyAfter: $data['quantity'],
                         source: 'manual',
-                        note: "Manual edit (option) — qty {$old->quantity} → {$data['quantity']}",
+                        note: "Manual edit (variation), qty {$old->quantity} to {$data['quantity']}",
                     );
                 }
 
@@ -1984,7 +1984,7 @@ public function store(Request $request)
                             qtyBefore: $oldOvQty,
                             qtyAfter: $newOvQty,
                             source: 'manual',
-                            note: "Manual edit (option) — qty $oldOvQty → $newOvQty",
+                            note: "Manual edit (variation), qty $oldOvQty to $newOvQty",
                         );
                     }
 

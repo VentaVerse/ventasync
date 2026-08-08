@@ -4,75 +4,125 @@
   $pimProductId = (int) ($pimProductId ?? 0);
 @endphp
 
-<h3 class="section-title mt-0">Images</h3>
+{{--
+  Product images.
 
-<div class="pim-wrap">
-  <input type="hidden" name="pim_token" value="{{ $pimToken }}">
-  <input type="hidden" name="images_json" id="pimImagesJson" value="">
+  The wire is unchanged. Two hidden inputs travel with the product form:
 
-  <div class="pim-toolbar">
-    <button class="btn secondary" type="button" id="pimOpenManagerBtn">Image Manager</button>
-    <div class="hint" style="margin-left:auto;">Drag to reorder. First image becomes the main image.</div>
-  </div>
+    pim_token    an upload token, so images attached before the product row
+                 exists can be finalised into its folder by store()
+    images_json  a JSON array of storage paths, IN ORDER. The first path is
+                 the product's main image. update()/store() read it through
+                 imagesFromRequest().
 
-  <div class="pim-grid-wrap">
-    <div class="pim-grid" id="pimGrid"></div>
-    <div class="pim-empty" id="pimEmpty">
-      No images selected. Click&nbsp;<strong>Image Manager</strong>&nbsp;to add images.
+  Everything else is fetch against ProductImageController:
+
+    products.images.browse                 GET  folders + files in a folder
+    products.images.upload_to_catalog      POST a file into the open folder
+    products.images.import_url_to_catalog  POST a remote URL into it
+    products.images.delete                 POST remove a file from the server
+
+  (products.images.upload and products.images.import_url are the older
+  product-scoped pair; nothing calls them from here, and that was already the
+  case before this redesign.)
+
+  The picker dialog and the script are pushed to the layout's scripts stack
+  rather than rendered inline, so they land outside the product <form>.
+  Nested inside it, the dialog's search box would submit the whole product on
+  a stray Enter.
+--}}
+
+<section class="fm-section">
+    <div class="fm-section__head">
+        <h2 class="fm-section__title">Images</h2>
+        <div class="fm-section__aside">
+            <x-ui.button type="button" size="sm" id="pimOpenManagerBtn">
+                <x-ui.icon name="image" size="14" /> Browse library
+            </x-ui.button>
+        </div>
+    </div>
+    <p class="fm-section__note">Drag to reorder. The first image is the one the catalog and the marketplaces show.</p>
+
+    <div class="fm-img">
+        <input type="hidden" name="pim_token" value="{{ $pimToken }}">
+        <input type="hidden" name="images_json" id="pimImagesJson" value="">
+
+        <div class="fm-img__grid" id="pimGrid"></div>
+        <div class="fm-img__empty" id="pimEmpty">No images yet. Browse the library to add some.</div>
+    </div>
+</section>
+
+@push('scripts')
+<div class="modal-backdrop" id="pimServerModal">
+  <div class="fm-pick">
+    <div class="fm-pick__head">
+      <h3 class="fm-pick__title">Image library</h3>
+      <div class="fm-pick__actions">
+        <span class="fm-pick__msg" id="pimModalMsg" role="status" aria-live="polite"></span>
+        <x-ui.button type="button" size="sm" data-close="1">Close</x-ui.button>
+      </div>
+    </div>
+
+    <div class="fm-pick__body" id="pimModalBody">
+      <div class="fm-pick__nav">
+        <x-ui.button type="button" size="sm" id="pimServerUpBtn" disabled>
+          <x-ui.icon name="corner-up-left" size="14" /> Up
+        </x-ui.button>
+        <span class="fm-pick__path" id="pimServerPath">/</span>
+      </div>
+
+      <div class="fm-pick__tools">
+        <input type="file" id="pimServerUploadInput" class="x-sr"
+               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple>
+        <x-ui.button type="button" size="sm" id="pimServerUploadBtn">
+          <x-ui.icon name="upload" size="14" /> Upload files
+        </x-ui.button>
+        <x-ui.button type="button" size="sm" id="pimServerUrlBtn">Add from URL</x-ui.button>
+        <input type="text" id="pimServerSearch" class="x-input fm-pick__search" placeholder="Search this folder">
+        <div class="x-select-wrap">
+          <select id="pimServerSort" class="x-input">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name_asc">Name A to Z</option>
+            <option value="name_desc">Name Z to A</option>
+          </select>
+          <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+        </div>
+      </div>
+
+      {{-- Paste an image address here instead of a browser prompt(). Same
+           endpoint, same payload; this project does not use native dialogs. --}}
+      <div class="fm-pick__tools d-none" id="pimUrlRow">
+        <input type="url" id="pimUrlInput" class="x-input fm-pick__search" placeholder="https://example.com/photo.jpg">
+        <x-ui.button type="button" size="sm" variant="primary" id="pimUrlGo">Add</x-ui.button>
+        <x-ui.button type="button" size="sm" id="pimUrlCancel">Cancel</x-ui.button>
+      </div>
+
+      <div class="fm-pick__label" id="pimServerFoldersTitle">Folders</div>
+      <div class="fm-pick__grid" id="pimServerFolders"></div>
+
+      <div class="fm-pick__label" id="pimServerFilesTitle">Images</div>
+      <div class="fm-pick__grid" id="pimServerGrid"></div>
+      <div class="fm-pick__empty d-none" id="pimServerEmpty">Nothing in this folder.</div>
+
+      <div class="fm-pick__drop" id="pimDropOverlay" aria-hidden="true">Drop files to upload them here</div>
     </div>
   </div>
 </div>
 
-<div class="pim-modal" id="pimServerModal" aria-hidden="true">
-  <div class="pim-modal-backdrop" data-close="1"></div>
-  <div class="pim-modal-card">
-    <div class="pim-modal-header">
-      <div style="font-weight:700;">Image Manager</div>
-      <div class="pim-modal-actions">
-        <span class="pim-modal-msg" id="pimModalMsg" style="display:none;" aria-live="polite"></span>
-        <button class="btn secondary" type="button" data-close="1">Close</button>
-      </div>
-    </div>
-    <div class="pim-modal-body" id="pimModalBody">
-      <div class="hint" style="margin-bottom:10px; opacity:.85;">Navigate to a folder, then upload or drag files here to save into that folder.</div>
+{{-- Cloned per folder tile. A <template> rather than an innerHTML string:
+     this project builds DOM, it does not paste markup. --}}
+<template id="pimFolderIcon">
+  <span class="icon">
+    <x-ui.icon name="folder" size="28" />
+  </span>
+</template>
 
-      <div class="pim-server-nav" id="pimServerNav">
-        <button class="btn secondary" type="button" id="pimServerUpBtn" disabled>Up</button>
-        <div class="pim-server-path" id="pimServerPath">/</div>
-      </div>
-
-      <div class="pim-server-upload" style="display:flex; align-items:center; gap:10px; margin: 0 0 12px; flex-wrap:wrap;">
-        <input type="file" id="pimServerUploadInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple style="display:none;">
-        <button class="btn secondary" type="button" id="pimServerUploadBtn">Upload (Drag/Drop or Browse)</button>
-        <button class="btn secondary" type="button" id="pimServerUrlBtn">Upload from URL</button>
-        <div class="hint" style="margin:0; opacity:.85;">Files land in the folder shown above.</div>
-      </div>
-
-      <div class="pim-server-filter-bar">
-        <input type="text" id="pimServerSearch" class="pim-server-search" placeholder="Search images…">
-        <select id="pimServerSort" class="pim-server-sort">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="name_asc">Name A–Z</option>
-          <option value="name_desc">Name Z–A</option>
-        </select>
-      </div>
-
-      <div class="pim-server-section-title" id="pimServerFoldersTitle">Folders</div>
-      <div class="pim-server-grid" id="pimServerFolders"></div>
-
-      <div class="pim-server-section-title" style="margin-top:14px;" id="pimServerFilesTitle">Images</div>
-      <div class="pim-server-grid" id="pimServerGrid"></div>
-      <div class="pim-server-empty" id="pimServerEmpty">No folders or images found.</div>
-
-      <div class="pim-drop-overlay" id="pimDropOverlay" aria-hidden="true">
-        <div class="pim-drop-overlay-inner">Drop files to upload into this folder</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+{{-- Pinned with subresource integrity, which the pre-redesign copy of this
+     tag did not carry. --}}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
+        integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 (function(){
   const csrf = @json(csrf_token());
@@ -96,6 +146,10 @@
   const serverUploadBtn = document.getElementById('pimServerUploadBtn');
   const serverUploadInput = document.getElementById('pimServerUploadInput');
   const serverUrlBtn = document.getElementById('pimServerUrlBtn');
+  const urlRow = document.getElementById('pimUrlRow');
+  const urlInput = document.getElementById('pimUrlInput');
+  const urlGo = document.getElementById('pimUrlGo');
+  const urlCancel = document.getElementById('pimUrlCancel');
   const dropOverlay = document.getElementById('pimDropOverlay');
 
   let currentServerPath = '';
@@ -118,12 +172,11 @@
   function showToast(msg, kind){
     const modalMsg = document.getElementById('pimModalMsg');
     if (!modalMsg) return;
-    modalMsg.classList.remove('error','info');
-    if (kind) modalMsg.classList.add(kind);
+    modalMsg.classList.remove('error');
+    if (kind === 'error') modalMsg.classList.add('error');
     modalMsg.textContent = msg;
-    modalMsg.style.display = 'inline';
     clearTimeout(window.__pimMsgT);
-    window.__pimMsgT = setTimeout(()=>{ modalMsg.style.display='none'; }, 1600);
+    window.__pimMsgT = setTimeout(()=>{ modalMsg.textContent = ''; }, 2400);
   }
 
   let items = (initialPaths || []).map(p => ({path: p, url: toUrl(p)}));
@@ -133,44 +186,45 @@
   }
 
   function render(){
-    grid.innerHTML = '';
-    if (!items.length) empty.classList.remove('hidden'); else empty.classList.add('hidden');
+    grid.textContent = '';
+    empty.classList.toggle('d-none', items.length > 0);
 
     items.forEach((it, idx) => {
       const div = document.createElement('div');
-      div.className = 'pim-item';
+      div.className = 'fm-img__item';
       div.dataset.path = it.path;
 
+      const wrap = document.createElement('div');
+      wrap.className = 'fm-img__thumb-wrap';
       const img = document.createElement('img');
-      img.className = 'pim-thumb';
+      img.className = 'fm-img__thumb';
       img.src = it.url;
+      img.alt = '';
       img.loading = 'lazy';
+      wrap.appendChild(img);
+      div.appendChild(wrap);
 
-      const badge = document.createElement('div');
-      badge.className = 'pim-badge';
-      badge.textContent = (idx === 0) ? 'Main' : ('#' + (idx+1));
+      const bar = document.createElement('div');
+      bar.className = 'fm-img__bar';
+
+      const pos = document.createElement('span');
+      pos.className = 'fm-img__pos';
+      pos.textContent = (idx === 0) ? 'Main' : String(idx + 1);
+      bar.appendChild(pos);
 
       const remove = document.createElement('button');
       remove.type = 'button';
-      remove.className = 'pim-remove';
-      remove.textContent = '\u00D7';
+      remove.className = 'fm-img__x';
+      remove.setAttribute('aria-label', 'Remove image ' + (idx + 1));
+      remove.textContent = '×';
       remove.addEventListener('click', (e) => {
         e.preventDefault();
         items = items.filter(x => x.path !== it.path);
         render();
-        syncHidden();
       });
+      bar.appendChild(remove);
 
-      const top = document.createElement('div');
-      top.className = 'pim-item-top';
-      top.appendChild(badge);
-      top.appendChild(remove);
-
-      div.appendChild(top);
-      const wrap = document.createElement('div');
-      wrap.className = 'pim-thumb-wrap';
-      wrap.appendChild(img);
-      div.appendChild(wrap);
+      div.appendChild(bar);
       grid.appendChild(div);
     });
 
@@ -178,37 +232,40 @@
   }
 
   function buildFileCard(f) {
-    const card = document.createElement('div');
-    card.className = 'pim-server-item';
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'fm-pick__item';
 
     const thumb = document.createElement('img');
     thumb.src = f.url || '';
+    thumb.alt = '';
     thumb.loading = 'lazy';
     card.appendChild(thumb);
 
-    const label = document.createElement('div');
+    const label = document.createElement('span');
     label.className = 'label';
     label.textContent = f.name || '';
+    label.title = f.name || '';
     card.appendChild(label);
 
     card.addEventListener('click', () => {
       if (!items.some(x => x.path === f.path)) {
         items.push({path: f.path, url: f.url});
         render();
-        showToast('Image Added','info');
+        showToast('Added');
       } else {
-        showToast('Already Added','info');
+        showToast('Already added');
       }
     });
 
     const del = document.createElement('button');
     del.type = 'button';
-    del.className = 'pim-server-delete';
-    del.textContent = '\u00D7';
-    del.title = 'Delete from server';
+    del.className = 'fm-pick__del';
+    del.textContent = '×';
+    del.setAttribute('aria-label', 'Delete ' + (f.name || 'image') + ' from the server');
     del.addEventListener('click', (e) => {
       e.stopPropagation();
-      confirmModal('Delete "' + (f.name||'') + '" from server? This cannot be undone.').then(async function(ok) {
+      window.confirmModal('Delete "' + (f.name||'') + '" from the server? This cannot be undone.').then(async function(ok) {
         if (!ok) return;
         const resp = await fetch(@json(route('products.images.delete')), {
           method: 'POST',
@@ -216,12 +273,12 @@
           body: JSON.stringify({ path: f.path })
         });
         const data = await resp.json().catch(() => ({}));
-        if (!resp.ok || !data.ok) { showToast(data.message || 'Delete failed','error'); return; }
+        if (!resp.ok || !data.ok) { showToast(data.message || 'Could not delete it', 'error'); return; }
         cachedServerFiles = cachedServerFiles.filter(x => x.path !== f.path);
         renderServerFiles();
         items = items.filter(x => x.path !== f.path);
         render();
-        showToast('Deleted','info');
+        showToast('Deleted');
       });
     });
     card.appendChild(del);
@@ -230,17 +287,17 @@
   }
 
   function buildFolderCard(d) {
-    const card = document.createElement('div');
-    card.className = 'pim-server-item';
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'fm-pick__item';
 
-    const icon = document.createElement('div');
-    icon.className = 'icon';
-    icon.textContent = '\u{1F4C1}';
-    card.appendChild(icon);
+    const iconTpl = document.getElementById('pimFolderIcon');
+    if (iconTpl) card.appendChild(iconTpl.content.firstElementChild.cloneNode(true));
 
-    const label = document.createElement('div');
+    const label = document.createElement('span');
     label.className = 'label';
     label.textContent = d.name || '';
+    label.title = d.name || '';
     card.appendChild(label);
 
     card.addEventListener('click', () => {
@@ -251,8 +308,8 @@
   }
 
   function renderServerFiles() {
-    serverGrid.innerHTML = '';
-    serverEmpty.classList.remove('show');
+    serverGrid.textContent = '';
+    serverEmpty.classList.add('d-none');
 
     const q = (serverSearch.value || '').trim().toLowerCase();
     const sort = serverSort.value || 'newest';
@@ -271,7 +328,7 @@
     filtered.forEach(f => serverGrid.appendChild(buildFileCard(f)));
 
     if (!cachedServerFolders.length && !filtered.length) {
-      serverEmpty.classList.add('show');
+      serverEmpty.classList.remove('d-none');
     }
   }
 
@@ -279,9 +336,9 @@
     const mid = getManufacturerId();
     currentServerPath = String(path || '').replace(/\\/g,'/').replace(/^\/+|\/+$/g,'');
 
-    serverGrid.innerHTML = '';
-    serverFolders.innerHTML = '';
-    serverEmpty.classList.remove('show');
+    serverGrid.textContent = '';
+    serverFolders.textContent = '';
+    serverEmpty.classList.add('d-none');
     serverSearch.value = '';
 
     const u = new URL(@json(route('products.images.browse')), window.location.origin);
@@ -315,8 +372,27 @@
 
   async function openServerModal(){
     const mid = getManufacturerId();
-    if (!mid) { showFlashError('Please select a Manufacturer first.'); return; }
-    modal.setAttribute('aria-hidden','false');
+    if (!mid) {
+      // The library is organised by manufacturer folder, so there is no
+      // sensible folder to open yet. Says so where the operator is looking
+      // instead of through window.showFlashError, which needs a
+      // #js-flash-container that layouts.shell does not render.
+      const wrap = document.getElementById('manufacturer_search');
+      if (wrap) {
+        wrap.classList.add('input-error');
+        wrap.focus();
+        wrap.scrollIntoView({behavior:'smooth', block:'center'});
+        const field = wrap.closest('.fm-field');
+        if (field && !field.querySelector('.fm-error--js')) {
+          const err = document.createElement('div');
+          err.className = 'fm-error fm-error--js';
+          err.textContent = 'Choose a manufacturer first. Images are filed under it.';
+          field.appendChild(err);
+        }
+      }
+      return;
+    }
+    modal.classList.add('active');
     await loadServerDir('', true);
   }
 
@@ -330,7 +406,7 @@
   async function uploadToCurrentFolder(file){
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     if (!['jpg','jpeg','png','webp'].includes(ext)) {
-      showToast('Only JPG, PNG, and WebP images are allowed.','error');
+      showToast('Only JPG, PNG and WebP images are allowed.','error');
       return;
     }
 
@@ -351,7 +427,7 @@
     }
 
     attachIfNew(data.path, data.url);
-    showToast('Uploaded & attached','info');
+    showToast('Uploaded and added');
   }
 
   async function importUrlToCurrentFolder(url){
@@ -366,7 +442,7 @@
       return;
     }
     attachIfNew(data.path, data.url);
-    showToast('Imported & attached','info');
+    showToast('Imported and added');
   }
 
   // Buttons
@@ -394,15 +470,25 @@
   }
 
   if (serverUrlBtn) {
-    serverUrlBtn.addEventListener('click', async () => {
-      const url = prompt('Paste image URL (JPG/PNG/WebP):');
+    serverUrlBtn.addEventListener('click', () => {
+      urlRow.classList.remove('d-none');
+      urlInput.value = '';
+      urlInput.focus();
+    });
+    urlCancel.addEventListener('click', () => urlRow.classList.add('d-none'));
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); urlGo.click(); }
+    });
+    urlGo.addEventListener('click', async () => {
+      const url = (urlInput.value || '').trim();
       if (!url) return;
+      urlRow.classList.add('d-none');
       await importUrlToCurrentFolder(url);
       await loadServerDir(currentServerPath || '');
     });
   }
 
-  // Drag & drop into the modal body → upload to current folder
+  // Drag and drop into the dialog body uploads into the open folder
   let dragDepth = 0;
   function hasFiles(e){
     const dt = e.dataTransfer;
@@ -441,7 +527,7 @@
     await loadServerDir(currentServerPath || '');
   });
 
-  // Search & sort
+  // Search and sort
   let searchTimer = null;
   serverSearch.addEventListener('input', () => {
     clearTimeout(searchTimer);
@@ -449,29 +535,35 @@
   });
   serverSort.addEventListener('change', () => renderServerFiles());
 
-  // Sortable
-  new Sortable(grid, {
-    animation: 150,
-    onEnd: function(){
-      const newOrder = [];
-      grid.querySelectorAll('.pim-item').forEach(el => {
-        const p = el.dataset.path;
-        const found = items.find(x => x.path === p);
-        if (found) newOrder.push(found);
-      });
-      items = newOrder;
-      render();
-    }
-  });
+  // Drag to reorder. First tile is the main image, so order is the wire.
+  if (window.Sortable) {
+    new Sortable(grid, {
+      animation: 150,
+      onEnd: function(){
+        const newOrder = [];
+        grid.querySelectorAll('.fm-img__item').forEach(el => {
+          const p = el.dataset.path;
+          const found = items.find(x => x.path === p);
+          if (found) newOrder.push(found);
+        });
+        items = newOrder;
+        render();
+      }
+    });
+  }
 
-  // Modal close
+  // Dialog close
   modal.addEventListener('click', (e) => {
     const t = e.target;
-    if (t && t.getAttribute && t.getAttribute('data-close') === '1') {
-      modal.setAttribute('aria-hidden','true');
+    if (t === modal || (t && t.closest && t.closest('[data-close="1"]'))) {
+      modal.classList.remove('active');
     }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('active')) modal.classList.remove('active');
   });
 
   render();
 })();
 </script>
+@endpush

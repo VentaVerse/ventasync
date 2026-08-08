@@ -1,103 +1,135 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Catalog / Products / Sales History')
+@extends('layouts.shell')
+@section('title', 'Sales history: ' . $product->name)
+@section('breadcrumb', 'Sales history')
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Sales History: {{ $product->name }}</h2>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ request('back', route('products.index')) }}">Back to Products</a>
-            <a class="btn secondary" href="{{ route('products.edit', $product->product_id) }}">Edit Product</a>
+@php
+    $backUrl = request('back', route('products.index'));
+
+    // Margin tone. There is no green "healthy" state: colour marks the figure
+    // that needs looking at, so a good margin is plain text. Same 20/10
+    // thresholds the pre-redesign view used, same rule as the order detail
+    // page (components/order-detail.css, decision 1).
+    $tone = fn ($pct) => $pct >= 20 ? '' : ($pct >= 10 ? ' fm-warn' : ' fm-neg');
+@endphp
+
+<div class="fm-page">
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ $backUrl }}">
+                <x-ui.icon name="chevron-left" size="14" /> Products
+            </a>
+            <h1 class="fm-title">Sales history</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Product</span>
+                    <span class="fm-stamp__v">{{ $product->name }}</span>
+                </span>
+                @if($product->sku)
+                    <span class="fm-stamp">
+                        <span class="fm-stamp__k">SKU</span>
+                        <span class="fm-stamp__v">{{ $product->sku }}</span>
+                    </span>
+                @endif
+            </div>
+        </div>
+        <div class="fm-head__actions">
+            <x-ui.button :href="route('products.edit', $product->product_id)">Edit product</x-ui.button>
         </div>
     </div>
 
-    @if($product->sku)
-        <div class="mb-12 text-secondary text-sm">SKU: {{ $product->sku }}</div>
-    @endif
+@if($sales->isEmpty())
+    <x-ui.empty title="No sales yet"
+                description="Once this product sells, every order line shows up here with its cost and margin." />
+@else
+    @php
+        $totalQty = 0; $totalSales = 0; $totalCost = 0; $totalProfit = 0;
+        foreach ($sales as $s) {
+            $totalQty += (int) $s->quantity;
+            $totalSales += (float) $s->total;
+            $totalCost += $s->line_cost;
+            $totalProfit += $s->profit;
+        }
+    @endphp
 
-    @if($sales->isEmpty())
-        <div class="text-secondary text-center py-32">No sales history for this product.</div>
-    @else
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr>
-                    <th style="width:90px;">Order ID</th>
-                    <th>Date Added</th>
-                    <th>Product</th>
-                    <th class="text-right">Qty</th>
-                    <th class="text-right">Product Sales</th>
-                    <th class="text-right">Product Cost</th>
-                    <th class="text-right">Product Profit</th>
-                    <th class="text-right">Profit Margin %</th>
-                    <th class="text-right">Profit Markup %</th>
-                </tr>
-                </thead>
-                <tbody>
-                @php
-                    $totalQty = 0;
-                    $totalSales = 0;
-                    $totalCost = 0;
-                    $totalProfit = 0;
-                @endphp
-                @foreach($sales as $s)
-                    @php
-                        $totalQty += (int) $s->quantity;
-                        $totalSales += (float) $s->total;
-                        $totalCost += $s->line_cost;
-                        $totalProfit += $s->profit;
-                    @endphp
-                    <tr>
-                        <td>
-                            <a href="{{ route('orders.show', $s->order_id) }}" class="font-semibold" style="color:var(--accent);">{{ $s->order_id }}</a>
-                        </td>
-                        <td class="text-nowrap text-secondary text-sm">{{ \Carbon\Carbon::parse($s->date_added)->format('M d, Y') }}</td>
-                        <td>
-                            <div class="font-semibold">{{ $s->name }}</div>
+    {{-- The page's answer, above the evidence for it. --}}
+    <div class="fm-stats">
+        <div class="fm-stat">
+            <span class="fm-stat__k">Units sold</span>
+            <span class="fm-stat__v">{{ number_format($totalQty) }}</span>
+        </div>
+        <div class="fm-stat">
+            <span class="fm-stat__k">Revenue</span>
+            <span class="fm-stat__v"><x-money :php="(float) $totalSales" /></span>
+        </div>
+        <div class="fm-stat">
+            <span class="fm-stat__k">Cost</span>
+            <span class="fm-stat__v"><x-money :php="(float) $totalCost" /></span>
+        </div>
+        <div class="fm-stat">
+            <span class="fm-stat__k">Profit</span>
+            <span class="fm-stat__v{{ $totalProfit < 0 ? ' fm-neg' : '' }}"><x-money :php="(float) $totalProfit" /></span>
+        </div>
+        <div class="fm-stat">
+            <span class="fm-stat__k">Margin</span>
+            <span class="fm-stat__v">{{ $totalSales > 0 ? round(($totalProfit / $totalSales) * 100, 1) : 0 }}%</span>
+        </div>
+    </div>
+
+    <x-ui.table>
+        <x-slot:head>
+            <tr>
+                <th class="fm-vcol-qty">Order</th>
+                <th class="fm-vcol-sku">Date</th>
+                <th>Product</th>
+                <th class="x-td-num fm-vcol-qty">Qty</th>
+                <th class="x-td-num fm-vcol-price">Sales</th>
+                <th class="x-td-num fm-vcol-cost">Cost</th>
+                <th class="x-td-num fm-vcol-price">Profit</th>
+                <th class="x-td-num fm-vcol-num">Margin</th>
+                <th class="x-td-num fm-vcol-num">Markup</th>
+            </tr>
+        </x-slot:head>
+
+        @foreach($sales as $s)
+            <tr>
+                <td data-label="Order"><a class="x-row-link x-num" href="{{ route('orders.show', $s->order_id) }}">{{ $s->order_id }}</a></td>
+                <td data-label="Date"><span class="x-num">{{ \Carbon\Carbon::parse($s->date_added)->format('Y-m-d') }}</span></td>
+                <td data-label="Product">
+                    <div class="co-item__name">{{ $s->name }}</div>
+                    @if(count($s->options))
+                        <div class="co-item__meta">
                             @foreach($s->options as $opt)
-                                <small class="text-secondary">{{ $opt->name }}: {{ $opt->value }}</small><br>
+                                <span class="co-item__var">{{ $opt->name }}: {{ $opt->value }}</span>
                             @endforeach
-                        </td>
-                        <td class="text-right">{{ $s->quantity }}</td>
-                        <td class="text-right font-semibold">{{ number_format($s->total, 2) }}</td>
-                        <td class="text-right text-secondary">{{ $s->line_cost > 0 ? number_format($s->line_cost, 2) : '-' }}</td>
-                        <td class="text-right font-semibold" style="color: {{ $s->profit >= 0 ? 'var(--success)' : 'var(--danger)' }}">
-                            {{ $s->line_cost > 0 ? number_format($s->profit, 2) : '-' }}
-                        </td>
-                        <td class="text-right">
-                            @if($s->line_cost > 0)
-                                <span style="color: {{ $s->margin >= 20 ? 'var(--success)' : ($s->margin >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ $s->margin }}%</span>
-                            @else
-                                -
-                            @endif
-                        </td>
-                        <td class="text-right">
-                            @if($s->line_cost > 0)
-                                <span style="color: {{ $s->markup >= 20 ? 'var(--success)' : ($s->markup >= 10 ? 'var(--warning, #e6a700)' : 'var(--danger)') }}">{{ $s->markup }}%</span>
-                            @else
-                                -
-                            @endif
-                        </td>
-                    </tr>
-                @endforeach
-                </tbody>
-                <tfoot>
-                    <tr style="font-weight:600;">
-                        <td colspan="3">Total</td>
-                        <td class="text-right">{{ number_format($totalQty) }}</td>
-                        <td class="text-right">{{ number_format($totalSales, 2) }}</td>
-                        <td class="text-right">{{ number_format($totalCost, 2) }}</td>
-                        <td class="text-right" style="color: {{ $totalProfit >= 0 ? 'var(--success)' : 'var(--danger)' }}">{{ number_format($totalProfit, 2) }}</td>
-                        <td class="text-right">{{ $totalSales > 0 ? round(($totalProfit / $totalSales) * 100, 1) : 0 }}%</td>
-                        <td class="text-right">{{ $totalCost > 0 ? round(($totalProfit / $totalCost) * 100, 1) : 0 }}%</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+                        </div>
+                    @endif
+                </td>
+                <td class="x-td-num" data-label="Qty"><span class="x-num">{{ $s->quantity }}</span></td>
+                <td class="x-td-num" data-label="Sales"><span class="x-num"><x-money :php="(float) $s->total" /></span></td>
+                <td class="x-td-num" data-label="Cost">
+                    <span class="x-num">{{ $s->line_cost > 0 ? number_format($s->line_cost, 2) : '-' }}</span>
+                </td>
+                <td class="x-td-num" data-label="Profit">
+                    <span class="x-num{{ $s->profit < 0 ? ' fm-neg' : '' }}">{{ $s->line_cost > 0 ? number_format($s->profit, 2) : '-' }}</span>
+                </td>
+                <td class="x-td-num" data-label="Margin">
+                    <span class="x-num{{ $s->line_cost > 0 ? $tone($s->margin) : '' }}">{{ $s->line_cost > 0 ? $s->margin.'%' : '-' }}</span>
+                </td>
+                <td class="x-td-num" data-label="Markup">
+                    <span class="x-num{{ $s->line_cost > 0 ? $tone($s->markup) : '' }}">{{ $s->line_cost > 0 ? $s->markup.'%' : '-' }}</span>
+                </td>
+            </tr>
+        @endforeach
+    </x-ui.table>
 
-        <div class="mt-16">
-            {{ $sales->onEachSide(1)->links('vendor.pagination.simple') }}
+    <div class="x-pager">
+        <span class="x-pager__count x-num">{{ number_format($sales->firstItem() ?? 0) }} to {{ number_format($sales->lastItem() ?? 0) }} of {{ number_format($sales->total()) }}</span>
+        <div class="x-pager__nav">
+            <x-ui.button size="sm" :href="$sales->previousPageUrl()" :disabled="!$sales->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+            <x-ui.button size="sm" :href="$sales->nextPageUrl()" :disabled="!$sales->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
         </div>
-    @endif
+    </div>
+@endif
 </div>
 @endsection

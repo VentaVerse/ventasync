@@ -1,87 +1,106 @@
 
 {{--
-  Absolute Pricing Options Builder
-  - 1-option: editable rows (name/sku/qty/price/cost per value)
-  - 2-option: combination grid (Option1 x Option2)
-  - Auto-creates global option/value records on save
+  Variations builder (absolute pricing).
+   - one axis:  editable rows, one per value (name / SKU / qty / price / cost)
+   - two axes:  a combination grid, axis 1 x axis 2
+   - global option and option_value records are found-or-created on save
+
+  Wire, unchanged: a hidden `_options_format=absolute` marks the format, and
+  beforeSubmit() generates the hidden inputs the controller reads -
+  `option_name` + `values[i][name|sku|quantity|absolute_price|absolute_cost|
+  option_value_id]` for one axis, `option1_name` + `option2_name` +
+  `option1_values[i]` + `option2_values[i]` + `combinations[i][opt1|opt2|sku|
+  quantity|absolute_price|absolute_cost]` for two. Every id the script binds
+  to is unchanged; only classes moved to the `fm-` set. See
+  ProductController::saveAbsoluteOptions.
+
+  User-facing copy says Variation throughout, per CLAUDE.md. Code identifiers
+  stay `option`.
 --}}
 
-<div id="options-error" class="alert danger d-none" style="margin-bottom:12px;"></div>
-<div id="options-root">
+<div id="options-error" class="fm-vars__errors d-none" role="alert"></div>
+
+<div class="fm-vars" id="options-root">
     <input type="hidden" name="_options_format" value="absolute">
-    {{-- Variation 1 + Variation 2 side by side --}}
-    <div class="opt-row">
+
+    <div class="fm-vars__row">
         {{-- Variation 1 --}}
-        <div id="option1-group" class="d-none opt-col">
-            <div class="card opt-card">
-                <div class="d-flex gap-10 flex-wrap opt-header">
-                    <div style="flex:1; min-width:160px;">
-                        <label class="required">Variation 1 Name</label>
-                        <input class="input" id="opt1-name-input" placeholder="e.g. Cable Length, Color" autocomplete="off">
+        <div id="option1-group" class="d-none fm-vars__col">
+            <div class="fm-vars__card">
+                <div class="fm-vars__head">
+                    <div class="fm-field">
+                        <label class="fm-label" for="opt1-name-input">
+                            Variation 1 <span class="fm-req">Required</span>
+                        </label>
+                        <input class="x-input" id="opt1-name-input" placeholder="Colour, cable length" autocomplete="off">
                     </div>
-                    <div>
-                        <button class="btn danger opt-btn-remove" type="button" id="remove-opt1-btn">Remove</button>
-                    </div>
+                    <x-ui.button type="button" variant="danger" size="sm" id="remove-opt1-btn">Remove</x-ui.button>
                 </div>
 
-                {{-- Variation 1 values (editable list — visible in 2-option mode only) --}}
-                <div class="mt-8 d-none" id="opt1-values-section">
-                    <label>Values</label>
-                    <div id="opt1-value-list"></div>
-                    <div class="d-flex gap-6 mt-4 opt-add-value-wrap">
-                        <input class="input" id="opt1-new-value" placeholder="Value name, Enter to add" autocomplete="off">
-                        <button class="btn secondary opt-btn-sm" type="button" id="opt1-add-value-btn">Add</button>
+                {{-- Values as an editable list. Only shown with two axes; with
+                     one, the values are the rows of the grid below. --}}
+                <div class="d-none" id="opt1-values-section">
+                    <div class="fm-label">Values</div>
+                    <div class="fm-vars__values" id="opt1-value-list"></div>
+                    <div class="fm-vars__add">
+                        <input class="x-input" id="opt1-new-value" placeholder="Value name, Enter to add" autocomplete="off">
+                        <x-ui.button type="button" size="sm" id="opt1-add-value-btn">Add</x-ui.button>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Add Variation 2 button (beside opt1 card) --}}
-        <div id="add-opt2-wrapper" class="d-none opt-add-opt2">
-            <button class="btn secondary opt-btn-sm" type="button" id="add-opt2-btn">+ Add Variation 2</button>
+        <div id="add-opt2-wrapper" class="d-none fm-vars__mid">
+            <x-ui.button type="button" size="sm" id="add-opt2-btn">
+                <x-ui.icon name="plus" size="14" /> Second variation
+            </x-ui.button>
         </div>
 
-        {{-- Variation 2 (2-option mode only) --}}
-        <div id="option2-group" class="d-none opt-col">
-            <div class="card opt-card">
-                <div class="d-flex gap-10 flex-wrap opt-header">
-                    <div style="flex:1; min-width:160px;">
-                        <label class="required">Variation 2 Name</label>
-                        <input class="input" id="opt2-name-input" placeholder="e.g. Size, Plug Type" autocomplete="off">
+        {{-- Variation 2 --}}
+        <div id="option2-group" class="d-none fm-vars__col">
+            <div class="fm-vars__card">
+                <div class="fm-vars__head">
+                    <div class="fm-field">
+                        <label class="fm-label" for="opt2-name-input">
+                            Variation 2 <span class="fm-req">Required</span>
+                        </label>
+                        <input class="x-input" id="opt2-name-input" placeholder="Size, plug type" autocomplete="off">
                     </div>
-                    <div>
-                        <button class="btn danger opt-btn-remove" type="button" id="remove-opt2-btn">Remove</button>
-                    </div>
+                    <x-ui.button type="button" variant="danger" size="sm" id="remove-opt2-btn">Remove</x-ui.button>
                 </div>
 
-                <div class="mt-8">
-                    <label>Values</label>
-                    <div id="opt2-value-list"></div>
-                    <div class="d-flex gap-6 mt-4 opt-add-value-wrap">
-                        <input class="input" id="opt2-new-value" placeholder="Value name, Enter to add" autocomplete="off">
-                        <button class="btn secondary opt-btn-sm" type="button" id="opt2-add-value-btn">Add</button>
+                <div>
+                    <div class="fm-label">Values</div>
+                    <div class="fm-vars__values" id="opt2-value-list"></div>
+                    <div class="fm-vars__add">
+                        <input class="x-input" id="opt2-new-value" placeholder="Value name, Enter to add" autocomplete="off">
+                        <x-ui.button type="button" size="sm" id="opt2-add-value-btn">Add</x-ui.button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Values / Combination table --}}
-    <div id="data-table-wrap" class="d-none mt-12">
-        <div class="opt-table-scroll">
-            <table class="table opt-table" id="data-table">
+    {{-- Values / combination grid --}}
+    <div id="data-table-wrap" class="d-none">
+        <div class="fm-vars__scroll">
+            <table class="fm-vars__table" id="data-table">
                 <thead id="data-thead"></thead>
                 <tbody id="data-tbody"></tbody>
             </table>
         </div>
-        <div class="mt-6">
-            <button class="btn secondary opt-btn-sm" type="button" id="add-row-btn">+ Add Value</button>
+        <div class="fm-vars__add">
+            <x-ui.button type="button" size="sm" id="add-row-btn">
+                <x-ui.icon name="plus" size="14" /> Add value
+            </x-ui.button>
         </div>
     </div>
 </div>
 
-<div id="add-option-wrapper" class="mt-12">
-    <button class="btn secondary" type="button" id="add-option-btn">Add Variation</button>
+<div id="add-option-wrapper">
+    <x-ui.button type="button" id="add-option-btn">
+        <x-ui.icon name="plus" size="14" /> Add a variation
+    </x-ui.button>
 </div>
 
 @push('scripts')
@@ -146,7 +165,7 @@ function createEl(tag, attrs, textContent) {
 }
 
 function createInput(className, type, value, attrs) {
-    const el = createEl('input', Object.assign({ className: 'input ' + className, type: type || 'text' }, attrs || {}));
+    const el = createEl('input', Object.assign({ className: 'x-input ' + className, type: type || 'text' }, attrs || {}));
     el.value = value !== undefined && value !== null ? value : '';
     return el;
 }
@@ -176,12 +195,12 @@ function setMode(newMode) {
     recalcProductQty();
 }
 
-// ---- Value list rendering (2-option mode — editable inputs) ----
+// ---- Value list rendering (two axes: editable inputs) ----
 
 function renderValueList(container, values, onRemove, onRename) {
     clearChildren(container);
     values.forEach((v, i) => {
-        const row = createEl('div', { className: 'd-flex gap-6 items-center mt-4' });
+        const row = createEl('div');
         const input = createInput('js-opt-val-name', 'text', v.name, { placeholder: 'Value name' });
         input.addEventListener('change', () => {
             const newName = input.value.trim();
@@ -190,7 +209,7 @@ function renderValueList(container, values, onRemove, onRename) {
             }
         });
         row.appendChild(input);
-        const removeBtn = createEl('button', { className: 'btn danger opt-btn-row-remove', type: 'button', title: 'Remove' }, '\u00d7');
+        const removeBtn = createEl('button', { className: 'fm-vars__rowx', type: 'button', title: 'Remove', 'aria-label': 'Remove value' }, '\u00d7');
         removeBtn.addEventListener('click', () => onRemove(i));
         row.appendChild(removeBtn);
         container.appendChild(row);
@@ -308,22 +327,22 @@ function calcRowMetrics(row) {
     const profit = price - cost;
     const margin = price > 0 ? (profit / price * 100) : 0;
     const markup = cost > 0 ? (profit / cost * 100) : 0;
-    const cls    = profit >= 0 ? 'opt-metric-positive' : 'opt-metric-negative';
+    const cls    = profit >= 0 ? '' : 'fm-neg';
 
     const profitEl = row.querySelector('.js-profit');
     if (profitEl) {
         profitEl.textContent = profit.toFixed(2);
-        profitEl.className = 'opt-metric js-profit ' + cls;
+        profitEl.className = ('fm-num js-profit ' + cls).trim();
     }
     const marginEl = row.querySelector('.js-margin');
     if (marginEl) {
         marginEl.textContent = margin.toFixed(1) + '%';
-        marginEl.className = 'opt-metric js-margin ' + cls;
+        marginEl.className = ('fm-num js-margin ' + cls).trim();
     }
     const markupEl = row.querySelector('.js-markup');
     if (markupEl) {
         markupEl.textContent = markup.toFixed(1) + '%';
-        markupEl.className = 'opt-metric js-markup ' + cls;
+        markupEl.className = ('fm-num js-markup ' + cls).trim();
     }
 }
 
@@ -343,21 +362,21 @@ function bindRowEvents(tr) {
 function buildHeaderRow(is2) {
     const tr = document.createElement('tr');
     if (is2) {
-        const th1 = createEl('th', { className: 'opt-col-opt' }, $opt1Name.value || 'Variation 1');
-        const th2 = createEl('th', { className: 'opt-col-opt' }, $opt2Name.value || 'Variation 2');
+        const th1 = createEl('th', { className: 'fm-vcol-opt' }, $opt1Name.value || 'Variation 1');
+        const th2 = createEl('th', { className: 'fm-vcol-opt' }, $opt2Name.value || 'Variation 2');
         tr.appendChild(th1);
         tr.appendChild(th2);
     } else {
-        tr.appendChild(createEl('th', { className: 'opt-col-value' }, 'Value'));
+        tr.appendChild(createEl('th', { className: 'fm-vcol-name' }, 'Value'));
     }
-    tr.appendChild(createEl('th', { className: 'opt-col-sku' }, 'SKU'));
-    tr.appendChild(createEl('th', { className: 'opt-col-qty' }, 'Qty'));
-    tr.appendChild(createEl('th', { className: 'opt-col-price' }, 'Price'));
-    tr.appendChild(createEl('th', { className: 'opt-col-cost' }, 'Cost'));
-    tr.appendChild(createEl('th', { className: 'opt-col-profit' }, 'Profit'));
-    tr.appendChild(createEl('th', { className: 'opt-col-margin' }, 'Margin'));
-    tr.appendChild(createEl('th', { className: 'opt-col-markup' }, 'Markup'));
-    tr.appendChild(createEl('th', { className: 'opt-col-actions' }));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-sku' }, 'SKU'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-qty' }, 'Qty'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-price' }, 'Price'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-cost' }, 'Cost'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-num' }, 'Profit'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-num' }, 'Margin'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-num' }, 'Markup'));
+    tr.appendChild(createEl('th', { className: 'fm-vcol-act' }));
     return tr;
 }
 
@@ -365,8 +384,8 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     const tr = document.createElement('tr');
     tr.dataset.comboKey = comboKey(i1, i2);
 
-    const td1 = createEl('td', { className: 'opt-value-label' }, v1Name);
-    const td2 = createEl('td', { className: 'opt-value-label' }, v2Name);
+    const td1 = createEl('td', { className: 'fm-vcol-value' }, v1Name);
+    const td2 = createEl('td', { className: 'fm-vcol-value' }, v2Name);
     tr.appendChild(td1);
     tr.appendChild(td2);
 
@@ -387,15 +406,15 @@ function buildComboRow(i1, i2, v1Name, v2Name, data) {
     tr.appendChild(tdCost);
 
     const tdProfit = document.createElement('td');
-    tdProfit.appendChild(createEl('span', { className: 'opt-metric js-profit' }, '\u2014'));
+    tdProfit.appendChild(createEl('span', { className: 'fm-num js-profit' }, '-'));
     tr.appendChild(tdProfit);
 
     const tdMargin = document.createElement('td');
-    tdMargin.appendChild(createEl('span', { className: 'opt-metric js-margin' }, '\u2014'));
+    tdMargin.appendChild(createEl('span', { className: 'fm-num js-margin' }, '-'));
     tr.appendChild(tdMargin);
 
     const tdMarkup = document.createElement('td');
-    tdMarkup.appendChild(createEl('span', { className: 'opt-metric js-markup' }, '\u2014'));
+    tdMarkup.appendChild(createEl('span', { className: 'fm-num js-markup' }, '-'));
     tr.appendChild(tdMarkup);
 
     tr.appendChild(document.createElement('td'));
@@ -432,19 +451,19 @@ function buildOneOptRow(v, idx) {
     tr.appendChild(tdCost);
 
     const tdProfit = document.createElement('td');
-    tdProfit.appendChild(createEl('span', { className: 'opt-metric js-profit' }, '\u2014'));
+    tdProfit.appendChild(createEl('span', { className: 'fm-num js-profit' }, '-'));
     tr.appendChild(tdProfit);
 
     const tdMargin = document.createElement('td');
-    tdMargin.appendChild(createEl('span', { className: 'opt-metric js-margin' }, '\u2014'));
+    tdMargin.appendChild(createEl('span', { className: 'fm-num js-margin' }, '-'));
     tr.appendChild(tdMargin);
 
     const tdMarkup = document.createElement('td');
-    tdMarkup.appendChild(createEl('span', { className: 'opt-metric js-markup' }, '\u2014'));
+    tdMarkup.appendChild(createEl('span', { className: 'fm-num js-markup' }, '-'));
     tr.appendChild(tdMarkup);
 
     const tdActions = document.createElement('td');
-    const removeBtn = createEl('button', { className: 'btn danger opt-btn-row-remove', type: 'button', title: 'Remove' }, '\u00d7');
+    const removeBtn = createEl('button', { className: 'fm-vars__rowx', type: 'button', title: 'Remove', 'aria-label': 'Remove value' }, '\u00d7');
     removeBtn.addEventListener('click', () => {
         saveTableToState();
         opt1Values.splice(idx, 1);
@@ -510,12 +529,10 @@ function recalcProductQty() {
         });
         qtyInput.readOnly = true;
         qtyInput.value = total;
-        qtyInput.classList.add('opt-qty-readonly');
-        qtyInput.title = 'Auto-calculated from variation quantities';
+        qtyInput.title = 'Worked out from the variation quantities';
         if (hint) hint.classList.remove('d-none');
     } else {
         qtyInput.readOnly = false;
-        qtyInput.classList.remove('opt-qty-readonly');
         qtyInput.title = '';
         if (hint) hint.classList.add('d-none');
     }
@@ -906,7 +923,7 @@ if (EXISTING_OPTION) {
         if (errorSkus.includes(input.value.trim().toLowerCase())) {
             input.classList.add('input-error');
             const errDiv = document.createElement('div');
-            errDiv.className = 'field-error';
+            errDiv.className = 'fm-error';
             errDiv.textContent = 'Duplicate SKU';
             input.parentNode.appendChild(errDiv);
         }
