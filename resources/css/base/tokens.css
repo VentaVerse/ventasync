@@ -72,6 +72,11 @@
     --control-h: 32px;
     --control-h-sm: 28px;
     --sidebar-w-new: 216px;
+
+    /* Chart series. See the CHART PALETTE block below for why these are
+       separate tokens rather than --accent / --info reused. */
+    --chart-money: #0A7A54;
+    --chart-count: #2A5FA8;
 }
 
 :root[data-theme="dark"] .x-app {
@@ -96,7 +101,69 @@
 
     --shadow-menu:  0 4px 12px rgba(0,0,0,.40), 0 0 0 1px var(--border);
     --shadow-modal: 0 16px 48px rgba(0,0,0,.55), 0 0 0 1px var(--border);
+
+    /* Dark steps of the same two hues, selected for the dark surface, not
+       flipped from light. See the CHART PALETTE block below. */
+    --chart-money: #1BA879;
+    --chart-count: #4B78BA;
 }
+
+/*
+ * CHART PALETTE. The only place in this codebase allowed to name a raw hex
+ * for a data mark, and the only two it names.
+ *
+ * WHAT THE TWO SLOTS MEAN. Colour on a chart does exactly one job here: it
+ * says which measure you are looking at. --chart-money is every figure in
+ * currency; --chart-count is every figure that is a number of orders. That
+ * rule holds across every chart on a page, so a reader learns it once. It
+ * is never used for identity (which channel) and never for status: channel
+ * identity comes from the written name, status from the existing
+ * --accent / --warning / --danger tokens plus a label.
+ *
+ * WHY NOT JUST REUSE --accent AND --info. Two reasons, one per theme.
+ *   Light: --accent and --info also carry meaning as UI colours (primary
+ *   action, informational alert). A chart series that shares a hex with an
+ *   alert makes a later change to one silently repaint the other. Separate
+ *   names cost nothing and keep the two free to diverge.
+ *   Dark: the app's dark --accent (#3FBF8F) and --info (#6C9BE0) are tuned
+ *   to be read as TEXT on a near-black ground, which puts them at OKLCH
+ *   L 0.722 and L 0.685. Both sit ABOVE the 0.48-0.67 band a filled mark
+ *   needs in dark mode, so reusing them would ship two marks that glare.
+ *   The dark steps above hold the same hues at L 0.650 and L 0.571.
+ *
+ * VALIDATION. Run against this app's four real surfaces with the data-viz
+ * validator (Machado-Oliveira-Fernandes 2009 CVD simulation at severity
+ * 1.0, OKLab dE x100). All four runs pass every computable check, exit 0:
+ *
+ *   light on --surface #FFFFFF and --canvas #FBFBFA
+ *     lightness band  PASS  both inside L 0.43-0.77
+ *     chroma floor    PASS  both >= 0.10
+ *     CVD separation  PASS  dE 16.5 deutan  (target 8)
+ *     normal vision   PASS  dE 17.8         (floor 15)
+ *     contrast        PASS  both >= 3:1  (5.35 money, 6.36 count on surface)
+ *
+ *   dark on --surface #131315 and --canvas #0B0B0C
+ *     lightness band  PASS  both inside L 0.48-0.67
+ *     chroma floor    PASS  both >= 0.10
+ *     CVD separation  PASS  dE 17.1 deutan, 9.8 tritan
+ *     normal vision   PASS  dE 19.8
+ *     contrast        PASS  both >= 3:1  (6.12 money, 4.15 count on surface)
+ *
+ * Green and blue is the pairing that survives red-green colour blindness:
+ * the blue-yellow axis is the one protanopia and deuteranopia leave intact.
+ * If a third series is ever needed, do not invent a hue. Re-run the
+ * validator on the candidate against all four surfaces above and only add
+ * it if every check still passes; if it cannot, the answer is a second
+ * chart, not a third colour.
+ *
+ * WHAT IS DELIBERATELY ABSENT: the seven marketplace brand colours. They
+ * were measured as a categorical set and fail: Lazada #0f146d is outside
+ * the lightness band and Shopify #95bf47 contrasts 2.08:1 against the
+ * light surface. They survive as BADGE TEXT colours (see
+ * components/ui-controls.css), where each was tuned individually for 4.5:1
+ * as text, which is a different and much easier bar than sitting beside
+ * six siblings as a fill.
+ */
 
 /*
  * I3 contrast audit. Every text/foreground token was originally tuned to

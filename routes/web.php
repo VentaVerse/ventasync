@@ -39,8 +39,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/automations/{id}', [\App\Http\Controllers\AutomationsController::class, 'update'])
         ->whereNumber('id')
         ->name('automations.update');
-    Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart_data');
-    Route::get('/dashboard/platform-data', [DashboardController::class, 'platformData'])->name('dashboard.platform_data');
+    // /dashboard/chart-data and /dashboard/platform-data are gone (Round F,
+    // Task 3). They existed only to re-feed a Chart.js canvas after the
+    // range toggle changed; the dashboard now renders both trend charts and
+    // the channel ranking as server-side SVG, so the range toggle is three
+    // ordinary links to /dashboard?range=... and there is nothing to fetch.
+    // The mobile app's own feed is untouched: routes/api.php still serves
+    // /api/dashboard/chart-data from Api\DashboardController.
 
     Route::get('/search', [\App\Http\Controllers\SearchController::class, 'index'])->name('search');
 

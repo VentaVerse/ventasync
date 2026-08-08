@@ -112,6 +112,37 @@ class Money
     }
 
     /**
+     * Abbreviated default-currency figure for an AXIS TICK and nothing else:
+     * "₱0" / "₱750" / "₱12.5K" / "₱4.2M".
+     *
+     * Exists so a chart's value scale can resolve its symbol here rather
+     * than in a Blade - a view that calls defaultSymbol() and assembles its
+     * own string is how a hardcoded "₱" gets back in, and the view sweep
+     * rejects it for that reason. Never use this for a figure a person acts
+     * on: an abbreviated amount has thrown away the pesos, and every such
+     * figure on a page belongs in base(). Charts abbreviate the scale and
+     * spell the value out in full in the tooltip and the table beside it.
+     */
+    public static function compactAxis(float $amount): string
+    {
+        $sign = $amount < 0 ? '-' : '';
+        $abs = abs($amount);
+        $symbol = self::defaultSymbol();
+
+        $trim = fn (float $v) => rtrim(rtrim(number_format($v, 1), '0'), '.');
+
+        if ($abs >= 1000000) {
+            return $sign . $symbol . $trim($abs / 1000000) . 'M';
+        }
+
+        if ($abs >= 1000) {
+            return $sign . $symbol . $trim($abs / 1000) . 'K';
+        }
+
+        return $sign . $symbol . number_format($abs, 0);
+    }
+
+    /**
      * Format an amount in a named foreign currency: "$1,234.56" when the
      * code is configured, or "XYZ 1,234.56" (space-separated) when it
      * isn't - an unresolved raw code reads better with a separator than
