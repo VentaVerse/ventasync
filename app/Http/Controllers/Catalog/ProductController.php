@@ -11,6 +11,7 @@ use App\Models\Catalog\ProductImage;
 use App\Rules\UniqueSku;
 use App\Services\ActivityLogger;
 use App\Services\StockHistoryLogger;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -684,7 +685,11 @@ public function store(Request $request)
                 'product_id' => (int) $p->product_id,
                 'language_id' => (int) $langId,
                 'name' => (string) $request->name,
-                'description' => (string) ($request->description ?? ''),
+                // Sanitised before persistence: Summernote stores raw HTML
+                // and re-executes it via jQuery .html() on the edit page
+                // (see App\Support\HtmlSanitizer docblock), so hostile
+                // markup must never reach the database in the first place.
+                'description' => HtmlSanitizer::sanitize($request->input('description')),
                 'meta_title' => (string) $request->name,
                 'meta_description' => '',
                 'meta_keyword' => '',
@@ -875,6 +880,12 @@ public function store(Request $request)
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $product->model = html_entity_decode($product->model ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $product->sku = html_entity_decode($product->sku ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Render-boundary guard: rows saved before this sanitiser existed
+        // (or written directly to the DB) may still carry hostile HTML.
+        // Sanitising here neutralises them on display without rewriting
+        // the database. See App\Support\HtmlSanitizer's docblock.
+        $product->description = HtmlSanitizer::sanitize($product->description ?? '');
 
 
         // Load all assigned categories for this product
@@ -1172,7 +1183,9 @@ public function store(Request $request)
                 ],
                 [
                     'name' => (string) $request->name,
-                    'description' => (string) ($request->description ?? ''),
+                    // Sanitised before persistence: see the store() note
+                    // above and App\Support\HtmlSanitizer's docblock.
+                    'description' => HtmlSanitizer::sanitize($request->input('description')),
                     'meta_title' => (string) $request->name,
                     'meta_description' => (string) ($d->meta_description ?? ''),
                     'meta_keyword' => (string) ($d->meta_keyword ?? ''),

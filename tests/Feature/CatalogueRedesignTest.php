@@ -36,12 +36,13 @@ class CatalogueRedesignTest extends TestCase
      * Core permissions (view_products, manage_products, ...) reach the
      * `permissions` table via config/permissions.php + syncCorePermissions(),
      * which nothing runs automatically on a fresh migrate - only extension
-     * permissions auto-sync on boot. Without this, `view_products` simply
-     * does not exist as a row and every "holds view_products" fixture below
-     * would silently attach nothing. Same live gap already tracked for
-     * view_orders; not this task's job to fix, just to work around in the
-     * test the same way ChannelWorkspaceTest works around Shopee's
-     * extension-registration timing.
+     * permissions auto-sync on boot. `view_products` itself is now seeded
+     * deterministically by migration
+     * (2026_08_08_100000_seed_view_products_permission.php, same idiom as
+     * view_orders), so it exists as a row on a fresh migrate regardless of
+     * this call. The other core permissions this test/fixture set touches
+     * (manage_products, etc.) are not individually seeded that way, so this
+     * call stays - removing it would silently attach nothing for those.
      */
     protected function setUp(): void
     {

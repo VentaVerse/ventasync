@@ -9,6 +9,7 @@ use App\Models\Extension;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -23,6 +24,12 @@ use ZipArchive;
  * redirect via `_return` in ProductController::update. This range is
  * deliberate behaviour change, so it carries its own tests rather than
  * riding the migration's behaviour-freeze coverage.
+ *
+ * Fix 4 (added 2026-08-08, catalogue redesign final review, finding I1) is a
+ * separate pre-existing vulnerability found later by the same review
+ * process: stored XSS through the Summernote description editor on both
+ * product and category edit pages. See App\Support\HtmlSanitizer's docblock
+ * for the full allowlist and where it was derived from.
  */
 class SecurityHardeningTest extends TestCase
 {
@@ -302,5 +309,254 @@ class SecurityHardeningTest extends TestCase
         );
 
         $response->assertRedirect('/catalog/products?page=2');
+    }
+
+    // -----------------------------------------------------------------
+    // Fix 4: stored XSS through the Summernote description editor
+    // (Catalog\ProductController + Catalog\CategoryController) -
+    // catalogue redesign final-review.md finding I1.
+    // -----------------------------------------------------------------
+
+    /**
+     * A single payload exercising both halves of the same assertion: real
+     * formatting a legitimate user would produce with the toolbar
+     * (paragraph, bold, a list, a plain https link) immediately followed by
+     * the reviewer's exact reproduction payload - an inline <script>, an
+     * <img onerror=...>, and a javascript: href. One string, so a passing
+     * test proves the sanitiser is selective (strips the hostile half,
+     * keeps the legitimate half) rather than just blunt (empties
+     * everything).
+     */
+    private function xssAndLegitPayload(): string
+    {
+        return '<p>Legit paragraph.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
+            . '<a href="https://example.com/page">Good link</a>'
+            . '<script>alert(2)</script>'
+            . '<img src="javascript:alert(3)" onerror="alert(4)">'
+            . '<a href="javascript:alert(5)">bad link</a>';
+    }
+
+    /**
+     * What App\Support\HtmlSanitizer::sanitize() produces from the payload
+     * above - computed once by hand (not by calling the sanitiser from the
+     * test, which would make the assertion circular) and hard-coded here.
+     * The <script> is removed outright; the <img> keeps its tag but loses
+     * both attributes (neither survives allowlist-checking); the second
+     * <a> keeps its tag and text but loses its javascript: href.
+     */
+    private function expectedSanitizedPayload(): string
+    {
+        return '<p>Legit paragraph.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
+            . '<a href="https://example.com/page">Good link</a><img><a>bad link</a>';
+    }
+
+    /** Purely legitimate markup, no hostile content at all. */
+    private function legitOnlyPayload(): string
+    {
+        return '<p>Legit paragraph.</p><b>Bold text</b><ul><li>One</li><li>Two</li></ul>'
+            . '<a href="https://example.com/page">Good link</a>';
+    }
+
+    private function createCategory(User $user, string $name): int
+    {
+        $response = $this->actingAs($user)->post(route('categories.store'), [
+            'name' => $name,
+            'status' => '1',
+        ]);
+        $response->assertRedirect(route('categories.index'));
+
+        return (int) DB::table(config('catalog.prefix').'category_description')
+            ->where('name', $name)->value('category_id');
+    }
+
+    public function test_product_store_sanitises_description_stripping_script_onerror_and_javascript_href(): void
+    {
+        $user = $this->userWithPermission('manage_products');
+
+        $response = $this->actingAs($user)->post(route('products.store'), [
+            'name' => 'Sec Test XSS Product ' . uniqid(),
+            'model' => 'SEC-XSS-' . uniqid(),
+            'sku' => 'SEC-XSS-SKU-' . uniqid(),
+            'price' => 10,
+            'quantity' => 1,
+            'status' => 1,
+            'description' => $this->xssAndLegitPayload(),
+        ]);
+
+        $response->assertRedirect(route('products.index'));
+
+        $stored = DB::table(config('catalog.prefix').'product_description')
+            ->where('meta_title', 'like', 'Sec Test XSS Product %')
+            ->value('description');
+
+        $this->assertNotNull($stored);
+        $this->assertStringNotContainsString('<script', $stored);
+        $this->assertStringNotContainsString('onerror', $stored);
+        $this->assertStringNotContainsString('javascript:', $stored);
+        $this->assertSame($this->expectedSanitizedPayload(), $stored);
+    }
+
+    public function test_product_update_sanitises_description_stripping_script_onerror_and_javascript_href(): void
+    {
+        $user = $this->userWithPermission('manage_products');
+        $product = $this->testProduct();
+
+        $response = $this->actingAs($user)->put(
+            route('products.update', $product->product_id),
+            array_merge($this->updatePayload($product, '/catalog/products'), [
+                'description' => $this->xssAndLegitPayload(),
+            ])
+        );
+
+        $response->assertRedirect('/catalog/products');
+
+        $langId = (int) config('catalog.default_language_id');
+        $stored = DB::table(config('catalog.prefix').'product_description')
+            ->where('product_id', $product->product_id)
+            ->where('language_id', $langId)
+            ->value('description');
+
+        $this->assertStringNotContainsString('<script', $stored);
+        $this->assertStringNotContainsString('onerror', $stored);
+        $this->assertStringNotContainsString('javascript:', $stored);
+        $this->assertSame($this->expectedSanitizedPayload(), $stored);
+    }
+
+    /**
+     * Legitimate formatting must survive untouched - a sanitiser that
+     * quietly mangles whitespace, attribute quoting, or tag casing on
+     * ordinary content would be its own regression even though it is
+     * "safe". Posted with no hostile markup at all, through the real
+     * update route.
+     */
+    public function test_product_update_preserves_legitimate_formatting_byte_for_byte(): void
+    {
+        $user = $this->userWithPermission('manage_products');
+        $product = $this->testProduct();
+
+        $response = $this->actingAs($user)->put(
+            route('products.update', $product->product_id),
+            array_merge($this->updatePayload($product, '/catalog/products'), [
+                'description' => $this->legitOnlyPayload(),
+            ])
+        );
+
+        $response->assertRedirect('/catalog/products');
+
+        $langId = (int) config('catalog.default_language_id');
+        $stored = DB::table(config('catalog.prefix').'product_description')
+            ->where('product_id', $product->product_id)
+            ->where('language_id', $langId)
+            ->value('description');
+
+        $this->assertSame($this->legitOnlyPayload(), $stored);
+    }
+
+    public function test_category_store_sanitises_description_stripping_script_onerror_and_javascript_href(): void
+    {
+        $user = $this->userWithPermission('manage_categories');
+        $name = 'Sec Test XSS Category ' . uniqid();
+
+        $response = $this->actingAs($user)->post(route('categories.store'), [
+            'name' => $name,
+            'status' => '1',
+            'description' => $this->xssAndLegitPayload(),
+        ]);
+
+        $response->assertRedirect(route('categories.index'));
+
+        $stored = DB::table(config('catalog.prefix').'category_description')
+            ->where('name', $name)->value('description');
+
+        $this->assertNotNull($stored);
+        $this->assertStringNotContainsString('<script', $stored);
+        $this->assertStringNotContainsString('onerror', $stored);
+        $this->assertStringNotContainsString('javascript:', $stored);
+        $this->assertSame($this->expectedSanitizedPayload(), $stored);
+    }
+
+    public function test_category_update_sanitises_description_stripping_script_onerror_and_javascript_href(): void
+    {
+        $user = $this->userWithPermission('manage_categories');
+        $categoryId = $this->createCategory($user, 'Sec Test Category Base ' . uniqid());
+
+        $response = $this->actingAs($user)->put(route('categories.update', $categoryId), [
+            'name' => 'Sec Test Category Updated ' . uniqid(),
+            'status' => '1',
+            'description' => $this->xssAndLegitPayload(),
+        ]);
+
+        $response->assertRedirect(route('categories.index'));
+
+        $langId = (int) config('catalog.default_language_id');
+        $stored = DB::table(config('catalog.prefix').'category_description')
+            ->where('category_id', $categoryId)
+            ->where('language_id', $langId)
+            ->value('description');
+
+        $this->assertStringNotContainsString('<script', $stored);
+        $this->assertStringNotContainsString('onerror', $stored);
+        $this->assertStringNotContainsString('javascript:', $stored);
+        $this->assertSame($this->expectedSanitizedPayload(), $stored);
+    }
+
+    /**
+     * Render-boundary guard: a row planted directly in the database
+     * (simulating data saved before this sanitiser existed) must still come
+     * out clean when the edit page renders it into the Summernote textarea,
+     * without the database row itself being rewritten.
+     */
+    public function test_product_edit_page_neutralises_a_hostile_description_planted_directly_in_the_database(): void
+    {
+        $user = $this->userWithPermission('manage_products');
+        $product = $this->testProduct();
+        $langId = (int) config('catalog.default_language_id');
+        $pfx = config('catalog.prefix');
+
+        DB::table($pfx.'product_description')->insert([
+            'product_id' => $product->product_id,
+            'language_id' => $langId,
+            'name' => 'Sec Render Test Product',
+            'description' => $this->xssAndLegitPayload(),
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
+        ]);
+
+        $html = $this->actingAs($user)->get(route('products.edit', $product->product_id))->getContent();
+
+        $this->assertStringNotContainsString('<script>alert(2)</script>', $html);
+        $this->assertStringNotContainsString('onerror', $html);
+        $this->assertStringNotContainsString('javascript:alert', $html);
+
+        // The row itself is untouched - this is a render-time guard, not a
+        // data migration.
+        $rawStored = DB::table($pfx.'product_description')
+            ->where('product_id', $product->product_id)->where('language_id', $langId)
+            ->value('description');
+        $this->assertSame($this->xssAndLegitPayload(), $rawStored);
+    }
+
+    public function test_category_edit_page_neutralises_a_hostile_description_planted_directly_in_the_database(): void
+    {
+        $user = $this->userWithPermission('manage_categories');
+        $categoryId = $this->createCategory($user, 'Sec Render Test Category ' . uniqid());
+        $langId = (int) config('catalog.default_language_id');
+        $pfx = config('catalog.prefix');
+
+        DB::table($pfx.'category_description')
+            ->where('category_id', $categoryId)->where('language_id', $langId)
+            ->update(['description' => $this->xssAndLegitPayload()]);
+
+        $html = $this->actingAs($user)->get(route('categories.edit', $categoryId))->getContent();
+
+        $this->assertStringNotContainsString('<script>alert(2)</script>', $html);
+        $this->assertStringNotContainsString('onerror', $html);
+        $this->assertStringNotContainsString('javascript:alert', $html);
+
+        // The row itself is untouched - this is a render-time guard, not a
+        // data migration.
+        $rawStored = DB::table($pfx.'category_description')
+            ->where('category_id', $categoryId)->where('language_id', $langId)
+            ->value('description');
+        $this->assertSame($this->xssAndLegitPayload(), $rawStored);
     }
 }
