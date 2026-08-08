@@ -56,6 +56,12 @@
 .cat-col-price { width: 112px; }
 .cat-col-stat  { width: 112px; }
 
+/* Categories/Manufacturers (Round B, Task 3): the one column those two
+   indexes have that Products doesn't. Everything else on this page -
+   .cat-page, .cat-col-check, .cat-check, .cat-bulkbar* - is reused
+   unmodified, which is the point of this task: the anatomy transfers. */
+.cat-col-sort  { width: 88px; }
+
 .cat-thumb {
     /* 96px: the established verification scale carried over from the
        marketplace order rows (components/channel-orders.css), where the
@@ -151,7 +157,12 @@
     /* Same call components/channel-orders.css already made for .co-total on
        its own restacked rows: right-aligned numerals read fine as a table
        column, but stranded alone above a left-aligned label they just look
-       misaligned rather than tabular. */
+       misaligned rather than tabular. cat-col-sort (Task 3: Categories and
+       Manufacturers) is the same shape as cat-col-qty/cat-col-price and
+       needs the identical reset - caught restacking the categories index
+       at 390px, where its value floated right under a left-aligned label
+       while every other stacked row read left. */
     .cat-page .x-table td.cat-col-qty,
-    .cat-page .x-table td.cat-col-price { text-align: left; }
+    .cat-page .x-table td.cat-col-price,
+    .cat-page .x-table td.cat-col-sort { text-align: left; }
 }

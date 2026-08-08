@@ -1,121 +1,123 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Catalog / Manufacturers')
+@extends('layouts.shell')
+@section('title', 'Manufacturers')
 
 @section('content')
 @php
-    $canManageManufacturers = true;
+    // Real, distinct route-middleware tiers here (routes/catalog.php), same
+    // as Categories - unlike the documented view_products gap.
+    $canManageManufacturers = auth()->user()?->hasPermission('manage_manufacturers') ?? false;
+
+    $hasFilters = $q !== '';
 @endphp
-<div class="card">
-    <div class="page-header">
-        <h2>Manufacturers</h2>
-        <div class="page-header-actions">
-            @if($canManageManufacturers)
-            <a class="btn" href="{{ route('manufacturers.create') }}">Add Manufacturer</a>
-            <button class="btn danger" type="submit" form="manufacturer-bulk-form" id="manufacturer-bulk-delete-btn">Delete Selected</button>
-            @endif
-        </div>
-    </div>
 
-    <div class="toolbar">
-        <form method="GET" action="{{ route('manufacturers.index') }}">
-            <div class="ac-wrap" style="position:relative;">
-    <input id="manufacturer-search" class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search manufacturer">
-    <div id="manufacturer-search-dd" class="ac-dd hidden">
-        <ul id="manufacturer-search-list"></ul>
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Manufacturers</h1>
+        <p class="x-page-sub">{{ number_format($manufacturers->total()) }} {{ Str::plural('manufacturer', $manufacturers->total()) }}</p>
     </div>
+    @if($canManageManufacturers)
+    <x-ui.button variant="primary" :href="route('manufacturers.create')">New manufacturer</x-ui.button>
+    @endif
 </div>
-            <button class="btn" type="submit">Search</button>
-        </form>
-    </div>
 
-    <form id="manufacturer-bulk-form" method="POST" action="{{ route('manufacturers.bulk_delete') }}" onsubmit="return window.__confirmManufacturerBulkDelete(event);">
+<form method="GET" action="{{ route('manufacturers.index') }}" class="x-filters" id="manufacturers-filter">
+    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search manufacturers" class="x-filters__search" />
+</form>
+
+<div class="cat-page" x-data="{
+        selected: [],
+        ids: {{ \Illuminate\Support\Js::from($manufacturers->pluck('manufacturer_id')->map(fn ($v) => (string) $v)->values()) }}
+    }">
+
+@if($canManageManufacturers)
+    {{-- ManufacturerController@bulkDestroy is the only bulk endpoint (ids[]
+         only, no action field) - there is no bulk enable/disable, since
+         manufacturers carry no status column. --}}
+    <form id="manufacturer-bulk-form" method="POST" action="{{ route('manufacturers.bulk_delete') }}" x-ref="bulkForm">
         @csrf
     </form>
 
-    <div class="table-wrap">
-    <table>
-        <thead>
+    <div class="cat-bulkbar" x-show="selected.length > 0" x-cloak>
+        <span class="cat-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+        <div class="cat-bulkbar__actions">
+            <x-ui.button type="button" variant="danger" size="sm"
+                    data-confirm="Delete the selected manufacturers? This cannot be undone."
+                    data-confirm-submit="manufacturer-bulk-form">Delete</x-ui.button>
+        </div>
+    </div>
+@endif
+
+@if($manufacturers->isEmpty())
+    <x-ui.empty title="{{ $hasFilters ? 'No manufacturers match that search' : 'No manufacturers yet' }}"
+                description="{{ $hasFilters ? 'Try a different search term.' : 'Add your first manufacturer to start organizing the catalog.' }}">
+        @if($canManageManufacturers && !$hasFilters)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('manufacturers.create')">New manufacturer</x-ui.button>
+        </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
         <tr>
-            <th style="width:36px;">@if($canManageManufacturers)<input type="checkbox" id="manufacturer-select-all" title="Select all">@endif</th>
-            <th style="width:90px;">ID</th>
+            @if($canManageManufacturers)
+            <th class="cat-col-check">
+                <input type="checkbox" class="cat-check"
+                       :checked="ids.length > 0 && selected.length === ids.length"
+                       x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
+                       @change="selected = $event.target.checked ? ids.slice() : []"
+                       aria-label="Select all manufacturers on this page">
+            </th>
+            @endif
+            <th class="cat-col-id">ID</th>
             <th>Name</th>
-            <th style="width:140px;">Sort</th>
-            <th style="width:160px;">Actions</th>
+            <th class="cat-col-sort x-td-num">Sort</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
-        </thead>
-        <tbody>
-        @foreach($manufacturers as $m)
-            <tr>
-                <td>@if($canManageManufacturers)<input type="checkbox" class="manufacturer-row-check" name="ids[]" value="{{ (int)$m->manufacturer_id }}" form="manufacturer-bulk-form">@endif</td>
-                <td>{{ $m->manufacturer_id }}</td>
-                <td>{{ $m->name ?? '' }}</td>
-                <td>{{ (int)$m->sort_order }}</td>
-                <td class="d-flex gap-8 items-center">
-                    @if($canManageManufacturers)
-                    <a class="btn small" href="{{ route('manufacturers.edit', $m->manufacturer_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('manufacturers.destroy', $m->manufacturer_id) }}" data-confirm="Delete this manufacturer?">
+    </x-slot:head>
+
+    @foreach($manufacturers as $m)
+        <tr>
+            @if($canManageManufacturers)
+            <td class="cat-col-check">
+                <input type="checkbox" class="cat-check" name="ids[]" value="{{ (string) $m->manufacturer_id }}" form="manufacturer-bulk-form" x-model="selected">
+            </td>
+            @endif
+            <td class="cat-col-id" data-label="ID"><span class="x-num">{{ $m->manufacturer_id }}</span></td>
+            <td data-label="Name">
+                @if($canManageManufacturers)
+                    <a class="x-row-link" href="{{ route('manufacturers.edit', $m->manufacturer_id) }}">{{ $m->name ?? '-' }}</a>
+                @else
+                    {{ $m->name ?? '-' }}
+                @endif
+            </td>
+            <td class="cat-col-sort x-td-num" data-label="Sort"><span class="x-num">{{ (int) $m->sort_order }}</span></td>
+            <td class="x-td-actions">
+                @if($canManageManufacturers)
+                <x-ui.menu label="Manufacturer {{ $m->manufacturer_id }} actions">
+                    <a class="x-menu__item" href="{{ route('manufacturers.edit', $m->manufacturer_id) }}">Edit</a>
+                    <div class="x-menu__sep"></div>
+                    <button type="button" class="x-menu__item x-menu__item--danger"
+                            data-confirm="Delete {{ $m->name }}? This cannot be undone."
+                            data-confirm-submit="mfg-del-{{ $m->manufacturer_id }}">Delete</button>
+                    <form id="mfg-del-{{ $m->manufacturer_id }}" method="POST" action="{{ route('manufacturers.destroy', $m->manufacturer_id) }}" class="x-sr">
                         @csrf
                         @method('DELETE')
-                        <button class="btn danger small" type="submit">Delete</button>
                     </form>
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($manufacturers->firstItem() ?? 0) }} to {{ number_format($manufacturers->lastItem() ?? 0) }} of {{ number_format($manufacturers->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$manufacturers->previousPageUrl()" :disabled="!$manufacturers->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$manufacturers->nextPageUrl()" :disabled="!$manufacturers->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
     </div>
-
-    <script>
-        (function () {
-            var selectAll = document.getElementById('manufacturer-select-all');
-            var checks = function () { return Array.prototype.slice.call(document.querySelectorAll('.manufacturer-row-check')); };
-
-            function updateSelectAllState() {
-                var boxes = checks();
-                if (!selectAll) return;
-                if (boxes.length === 0) {
-                    selectAll.checked = false;
-                    selectAll.indeterminate = false;
-                    return;
-                }
-                var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
-                selectAll.checked = checkedCount === boxes.length;
-                selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-            }
-
-            if (selectAll) {
-                selectAll.addEventListener('change', function () {
-                    checks().forEach(function (b) { b.checked = selectAll.checked; });
-                    updateSelectAllState();
-                });
-            }
-
-            checks().forEach(function (b) {
-                b.addEventListener('change', updateSelectAllState);
-            });
-
-            window.__confirmManufacturerBulkDelete = function (e) {
-                var form = e.target;
-                if (form._confirmed) { form._confirmed = false; return true; }
-                var selected = checks().filter(function (b) { return b.checked; }).length;
-                if (selected === 0) {
-                    showFlashError('Please select at least one manufacturer.');
-                    return false;
-                }
-                e.preventDefault();
-                confirmModal('Delete selected manufacturers? This cannot be undone.').then(function (ok) {
-                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
-                });
-                return false;
-            };
-
-            updateSelectAllState();
-        })();
-    </script>
-
-    <div class="mt-16">
-        {{ $manufacturers->onEachSide(1)->links('vendor.pagination.simple') }}
-    </div>
+</div>
+@endif
 </div>
 @endsection

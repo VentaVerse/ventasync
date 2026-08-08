@@ -177,6 +177,20 @@ class Breadcrumbs
      * Returned as plain text, never markup: both layouts print it through
      * Blade's {{ }} escaping. Leaves are order numbers and product-group names
      * that came out of a marketplace API, so they are untrusted strings.
+     *
+     * Every page above sets its leaf with the inline `@section('breadcrumb',
+     * $value)` form, and Illuminate\View\Concerns\ManagesLayouts::
+     * startSection() runs e($content) on that value before storing it - it is
+     * not a raw capture the way `@section(...) ... @endsection` would be.
+     * View::yieldContent() therefore hands back text already HTML-escaped
+     * once, and the two layouts' own {{ }} would escape it a second time,
+     * turning "Tools & Equipment" into the literal string "Tools &amp;amp;
+     * Equipment" on screen (caught here, Round B Task 3, on a category named
+     * "Tents & Awnings <b>Sale</b>"; verified the same category/products/edit
+     * shipped from Task 2 double-encodes a product named "Tools & Equipment"
+     * identically). html_entity_decode() undoes exactly that one layer,
+     * restoring the "plain text" contract this docblock already promises, so
+     * the layouts' {{ }} is the only escaping that actually reaches the page.
      */
     protected static function leaf(): ?string
     {
@@ -185,6 +199,7 @@ class Breadcrumbs
         }
 
         $leaf = trim(View::yieldContent('breadcrumb'));
+        $leaf = html_entity_decode($leaf, ENT_QUOTES, 'UTF-8');
 
         return $leaf === '' ? null : $leaf;
     }

@@ -796,4 +796,495 @@ class CatalogueRedesignTest extends TestCase
         // description carrying a closing tag broke straight out of it.
         $response->assertDontSee('</textarea><script>alert(2)</script>', false);
     }
+
+    /**
+     * Products re-verified against the Breadcrumbs::leaf() fix (see the
+     * category equivalent above for the full explanation): this exact page,
+     * shipped in Task 2 with the same inline @section('breadcrumb', $value)
+     * pattern, double-encoded a "&" in its own breadcrumb before the fix.
+     */
+    public function test_a_product_name_with_an_ampersand_is_not_double_escaped_in_the_breadcrumb(): void
+    {
+        $p = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $id = DB::table($p.'product')->insertGetId([
+            'model' => 'MDL-AMP', 'sku' => 'SKU-AMP', 'quantity' => 1, 'price' => 1,
+            'status' => 1, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+        DB::table($p.'product_description')->insert([
+            'product_id' => $id, 'language_id' => $langId,
+            'name' => 'Tools & Equipment', 'description' => '', 'tag' => '',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '',
+        ]);
+
+        $html = $this->actingAs($this->manager())->get(route('products.edit', $id))->getContent();
+
+        $this->assertStringContainsString('Tools &amp; Equipment', $html);
+        $this->assertStringNotContainsString('Tools &amp;amp; Equipment', $html);
+    }
+
+    // =================================================================
+    // Task 3: Categories + Manufacturers, the fm-/list anatomy transfer
+    // proof. Wire truth: Catalog\CategoryController and
+    // Catalog\ManufacturerController (both read above in full). Unlike
+    // Products, view_categories/manage_categories and
+    // view_manufacturers/manage_manufacturers are real, distinct
+    // route-middleware tiers (routes/catalog.php), so gating here is a
+    // genuine two-tier check, not a hardcoded true standing on a documented
+    // permission-sync gap.
+    // =================================================================
+
+    private function categoryViewer(): User
+    {
+        return $this->userWithPermissions(['view_categories']);
+    }
+
+    private function categoryManager(): User
+    {
+        return $this->userWithPermissions(['manage_categories']);
+    }
+
+    private function manufacturerViewer(): User
+    {
+        return $this->userWithPermissions(['view_manufacturers']);
+    }
+
+    private function manufacturerManager(): User
+    {
+        return $this->userWithPermissions(['manage_manufacturers']);
+    }
+
+    /**
+     * A root category with a self-referencing category_path row, so it
+     * appears under its real name (not the "Category #N" fallback) in the
+     * index/parent-picker's path-name subquery - the same row
+     * CategoryController@store's rebuildCategoryPath() would build for a
+     * brand new top-level category. Distinct from seedCategory() above
+     * (Task 2), which nothing that reuses it reads through that subquery.
+     */
+    private function seedRootCategory(string $name, int $sortOrder = 0, int $status = 1): int
+    {
+        $p = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $categoryId = DB::table($p.'category')->insertGetId([
+            'parent_id' => 0, 'top' => 0, 'column' => 1, 'sort_order' => $sortOrder, 'status' => $status,
+            'date_added' => now(), 'date_modified' => now(),
+        ]);
+        DB::table($p.'category_description')->insert([
+            'category_id' => $categoryId, 'language_id' => $langId, 'name' => $name,
+            'description' => '', 'meta_title' => $name, 'meta_description' => '',
+            'meta_keyword' => '', 'seo_keyword' => 'rt-root-'.$categoryId,
+            'seo_h1' => $name, 'seo_h2' => '', 'seo_h3' => '',
+        ]);
+        DB::table($p.'category_path')->insert([
+            'category_id' => $categoryId, 'path_id' => $categoryId, 'level' => 0,
+        ]);
+
+        return $categoryId;
+    }
+
+    private function seedManufacturer(string $name = 'Round Trip Manufacturer', int $sortOrder = 0): int
+    {
+        return (int) DB::table(config('catalog.prefix').'manufacturer')->insertGetId([
+            'name' => $name, 'image' => null, 'sort_order' => $sortOrder,
+        ]);
+    }
+
+    /**
+     * Every field CategoryController@store/@update validate, plus
+     * description (read and saved though it carries no explicit rule),
+     * with values distinct enough a field landing in the wrong column or
+     * the wrong DB row is visible.
+     */
+    private function fullCategoryPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => 'Round Trip Category RT',
+            'parent_id' => '0',
+            'status' => '1',
+            'sort_order' => '7',
+            'description' => '<p>A category description with <strong>markup</strong>.</p>',
+        ], $overrides);
+    }
+
+    private function fullManufacturerPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => 'Round Trip Manufacturer RT',
+            'sort_order' => '9',
+        ], $overrides);
+    }
+
+    // ---- Categories: renders ----------------------------------------------
+
+    public function test_the_categories_index_renders_for_a_view_tier_user(): void
+    {
+        $this->seedRootCategory('Alpha Category');
+        $this->seedRootCategory('Beta Category');
+
+        $response = $this->actingAs($this->categoryViewer())->get(route('categories.index'));
+
+        $response->assertOk();
+        $response->assertSee('Alpha Category');
+        $response->assertSee('Beta Category');
+        $response->assertDontSee('New category');
+    }
+
+    public function test_the_categories_index_renders_for_a_manage_tier_user(): void
+    {
+        $this->seedRootCategory('Alpha Category');
+
+        $response = $this->actingAs($this->categoryManager())->get(route('categories.index'));
+
+        $response->assertOk();
+        $response->assertSee('New category');
+    }
+
+    public function test_the_categories_empty_state_renders_when_a_search_matches_nothing(): void
+    {
+        $this->seedRootCategory('Alpha Category');
+
+        $response = $this->actingAs($this->categoryManager())->get(route('categories.index', ['q' => 'no-such-category-xyz']));
+
+        $response->assertOk();
+        $response->assertSee('No categories match that search');
+    }
+
+    // ---- Categories: gating, both directions -------------------------------
+
+    public function test_category_view_tier_reaches_the_list_but_not_the_write_routes(): void
+    {
+        $viewer = $this->categoryViewer();
+        $categoryId = $this->seedRootCategory('Guarded Category');
+
+        $this->actingAs($viewer)->get(route('categories.index'))->assertOk();
+        $this->actingAs($viewer)->get(route('categories.create'))->assertStatus(302);
+        $this->actingAs($viewer)->get(route('categories.edit', $categoryId))->assertStatus(302);
+
+        $response = $this->actingAs($viewer)->post(route('categories.store'), $this->fullCategoryPayload());
+        $response->assertStatus(302);
+        $this->assertSame(0, DB::table(config('catalog.prefix').'category_description')
+            ->where('name', 'Round Trip Category RT')->count());
+    }
+
+    public function test_category_manage_tier_reaches_both_the_list_and_the_write_routes(): void
+    {
+        $manager = $this->categoryManager();
+        $categoryId = $this->seedRootCategory('Reachable Category');
+
+        $this->actingAs($manager)->get(route('categories.index'))->assertOk();
+        $this->actingAs($manager)->get(route('categories.create'))->assertOk();
+        $this->actingAs($manager)->get(route('categories.edit', $categoryId))->assertOk();
+    }
+
+    // ---- Categories: round trips --------------------------------------------
+
+    public function test_a_category_create_round_trip_lands_every_validated_field(): void
+    {
+        $p = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $response = $this->actingAs($this->categoryManager())->post(
+            route('categories.store'),
+            $this->fullCategoryPayload(['name' => 'Brand New Category RT'])
+        );
+
+        $response->assertRedirect(route('categories.index'));
+
+        $desc = DB::table($p.'category_description')->where('name', 'Brand New Category RT')->first();
+        $this->assertNotNull($desc);
+        $this->assertSame('<p>A category description with <strong>markup</strong>.</p>', $desc->description);
+
+        $row = DB::table($p.'category')->where('category_id', $desc->category_id)->first();
+        $this->assertSame(0, (int) $row->parent_id);
+        $this->assertSame(7, (int) $row->sort_order);
+        $this->assertSame(1, (int) $row->status);
+    }
+
+    public function test_a_full_category_update_lands_every_validated_field_in_the_database(): void
+    {
+        $p = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $parentId = $this->seedRootCategory('Round Trip Parent');
+        $categoryId = $this->seedRootCategory('Round Trip Child');
+
+        $response = $this->actingAs($this->categoryManager())->put(
+            route('categories.update', $categoryId),
+            $this->fullCategoryPayload(['parent_id' => (string) $parentId])
+        );
+
+        $response->assertRedirect(route('categories.index'));
+
+        $row = DB::table($p.'category')->where('category_id', $categoryId)->first();
+        $this->assertSame($parentId, (int) $row->parent_id);
+        $this->assertSame(7, (int) $row->sort_order);
+        $this->assertSame(1, (int) $row->status);
+
+        $desc = DB::table($p.'category_description')
+            ->where('category_id', $categoryId)->where('language_id', $langId)->first();
+        $this->assertSame('Round Trip Category RT', $desc->name);
+        $this->assertSame('<p>A category description with <strong>markup</strong>.</p>', $desc->description);
+    }
+
+    /**
+     * The switch posts a hidden 0 in front of the checkbox, the only shape
+     * `status => required|in:0,1` accepts in both positions. Off has to
+     * reach the database as 0, not as a validation error.
+     */
+    public function test_the_category_status_switch_off_position_disables_the_category(): void
+    {
+        $p = config('catalog.prefix');
+        $categoryId = $this->seedRootCategory('Togglable Category');
+
+        $this->actingAs($this->categoryManager())->put(
+            route('categories.update', $categoryId),
+            $this->fullCategoryPayload(['status' => '0'])
+        )->assertRedirect();
+
+        $this->assertSame(0, (int) DB::table($p.'category')->where('category_id', $categoryId)->value('status'));
+    }
+
+    public function test_category_bulk_disable_round_trip_uses_the_controllers_exact_field_names(): void
+    {
+        $p = config('catalog.prefix');
+        $id1 = $this->seedRootCategory('Bulk Category One');
+        $id2 = $this->seedRootCategory('Bulk Category Two');
+
+        $this->actingAs($this->categoryManager())->post(route('categories.bulk'), [
+            'action' => 'disable',
+            'ids' => [$id1, $id2],
+        ])->assertRedirect(route('categories.index'));
+
+        $this->assertSame(0, (int) DB::table($p.'category')->where('category_id', $id1)->value('status'));
+        $this->assertSame(0, (int) DB::table($p.'category')->where('category_id', $id2)->value('status'));
+    }
+
+    /**
+     * Binds the rendered edit form to the wire the round trip above
+     * exercises, the same mutation-catching shape as products' equivalent
+     * test: read the field names straight out of the rendered page and
+     * check every key the round trip posts is really a control on it.
+     */
+    public function test_the_rendered_category_edit_form_carries_every_field_the_round_trip_posts(): void
+    {
+        $categoryId = $this->seedRootCategory('Bindable Category');
+
+        $html = $this->actingAs($this->categoryManager())
+            ->get(route('categories.edit', $categoryId))
+            ->getContent();
+
+        preg_match_all('/<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"/i', $html, $m);
+        $rendered = array_values(array_unique($m[1]));
+
+        foreach (array_keys($this->fullCategoryPayload()) as $field) {
+            $this->assertContains($field, $rendered, "The category edit form no longer renders a control named {$field}, which the update round trip posts.");
+        }
+
+        $this->assertStringContainsString(
+            '<input type="hidden" name="status" value="0">',
+            $html,
+            'The status switch lost its hidden 0 companion, so switching a category off would fail validation instead of disabling it.'
+        );
+    }
+
+    /**
+     * Regression for a bug this task found in shared code, not forked
+     * around: App\Support\Breadcrumbs::leaf() reads the page's
+     * @section('breadcrumb', ...) back via View::yieldContent(). Every page
+     * sets that section with the inline `@section('name', $value)` form,
+     * which Illuminate's ManagesLayouts::startSection() runs through e()
+     * before storing - so the value View::yieldContent() hands back is
+     * already HTML-escaped once. partials/breadcrumb.blade.php then prints
+     * it through its own {{ }}, a second escape, so a category named
+     * "Tents & Awnings" rendered its breadcrumb crumb as the literal text
+     * "Tents &amp;amp; Awnings" instead of "Tents &amp; Awnings" (which the
+     * browser shows as "Tents & Awnings"). Confirmed the pre-existing
+     * catalog/products/edit.blade.php breadcrumb (Task 2, same inline
+     * @section pattern) double-encoded identically before the fix. Not a
+     * security bug either direction (over-escaping is still escaping) but
+     * a real display defect, fixed once in Breadcrumbs::leaf() via
+     * html_entity_decode() so every page's leaf benefits, not just this one.
+     */
+    public function test_a_category_name_with_an_ampersand_is_not_double_escaped_in_the_breadcrumb(): void
+    {
+        $categoryId = $this->seedRootCategory('Tents & Awnings');
+
+        $html = $this->actingAs($this->categoryManager())
+            ->get(route('categories.edit', $categoryId))
+            ->getContent();
+
+        $this->assertStringContainsString('Tents &amp; Awnings', $html);
+        $this->assertStringNotContainsString('Tents &amp;amp; Awnings', $html);
+    }
+
+    // ---- Categories: XSS ----------------------------------------------------
+
+    public function test_a_category_name_containing_markup_is_escaped(): void
+    {
+        $p = config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $categoryId = DB::table($p.'category')->insertGetId([
+            'parent_id' => 0, 'top' => 0, 'column' => 1, 'sort_order' => 0, 'status' => 1,
+            'date_added' => now(), 'date_modified' => now(),
+        ]);
+        DB::table($p.'category_description')->insert([
+            'category_id' => $categoryId, 'language_id' => $langId,
+            'name' => '<script>alert(1)</script>', 'description' => '',
+            'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '',
+            'seo_keyword' => 'xss-cat-'.$categoryId, 'seo_h1' => '', 'seo_h2' => '', 'seo_h3' => '',
+        ]);
+        DB::table($p.'category_path')->insert([
+            'category_id' => $categoryId, 'path_id' => $categoryId, 'level' => 0,
+        ]);
+
+        $response = $this->actingAs($this->categoryManager())->get(route('categories.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('<script>alert(1)</script>', false);
+        $response->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
+    }
+
+    // ---- Manufacturers: renders ---------------------------------------------
+
+    public function test_the_manufacturers_index_renders_for_a_view_tier_user(): void
+    {
+        $this->seedManufacturer('Alpha Manufacturer');
+        $this->seedManufacturer('Beta Manufacturer');
+
+        $response = $this->actingAs($this->manufacturerViewer())->get(route('manufacturers.index'));
+
+        $response->assertOk();
+        $response->assertSee('Alpha Manufacturer');
+        $response->assertSee('Beta Manufacturer');
+        $response->assertDontSee('New manufacturer');
+    }
+
+    public function test_the_manufacturers_index_renders_for_a_manage_tier_user(): void
+    {
+        $this->seedManufacturer('Alpha Manufacturer');
+
+        $response = $this->actingAs($this->manufacturerManager())->get(route('manufacturers.index'));
+
+        $response->assertOk();
+        $response->assertSee('New manufacturer');
+    }
+
+    public function test_the_manufacturers_empty_state_renders_when_a_search_matches_nothing(): void
+    {
+        $this->seedManufacturer('Alpha Manufacturer');
+
+        $response = $this->actingAs($this->manufacturerManager())->get(route('manufacturers.index', ['q' => 'no-such-manufacturer-xyz']));
+
+        $response->assertOk();
+        $response->assertSee('No manufacturers match that search');
+    }
+
+    // ---- Manufacturers: gating, both directions ------------------------------
+
+    public function test_manufacturer_view_tier_reaches_the_list_but_not_the_write_routes(): void
+    {
+        $viewer = $this->manufacturerViewer();
+        $manufacturerId = $this->seedManufacturer('Guarded Manufacturer');
+
+        $this->actingAs($viewer)->get(route('manufacturers.index'))->assertOk();
+        $this->actingAs($viewer)->get(route('manufacturers.create'))->assertStatus(302);
+        $this->actingAs($viewer)->get(route('manufacturers.edit', $manufacturerId))->assertStatus(302);
+
+        $response = $this->actingAs($viewer)->post(route('manufacturers.store'), $this->fullManufacturerPayload());
+        $response->assertStatus(302);
+        $this->assertSame(0, DB::table(config('catalog.prefix').'manufacturer')
+            ->where('name', 'Round Trip Manufacturer RT')->count());
+    }
+
+    public function test_manufacturer_manage_tier_reaches_both_the_list_and_the_write_routes(): void
+    {
+        $manager = $this->manufacturerManager();
+        $manufacturerId = $this->seedManufacturer('Reachable Manufacturer');
+
+        $this->actingAs($manager)->get(route('manufacturers.index'))->assertOk();
+        $this->actingAs($manager)->get(route('manufacturers.create'))->assertOk();
+        $this->actingAs($manager)->get(route('manufacturers.edit', $manufacturerId))->assertOk();
+    }
+
+    // ---- Manufacturers: round trips -------------------------------------------
+
+    public function test_a_manufacturer_create_round_trip_lands_every_validated_field(): void
+    {
+        $p = config('catalog.prefix');
+
+        $this->actingAs($this->manufacturerManager())->post(
+            route('manufacturers.store'),
+            $this->fullManufacturerPayload(['name' => 'Brand New Manufacturer RT'])
+        )->assertRedirect(route('manufacturers.index'));
+
+        $row = DB::table($p.'manufacturer')->where('name', 'Brand New Manufacturer RT')->first();
+        $this->assertNotNull($row);
+        $this->assertSame(9, (int) $row->sort_order);
+    }
+
+    public function test_a_manufacturer_update_round_trip_lands_every_validated_field(): void
+    {
+        $p = config('catalog.prefix');
+        $manufacturerId = $this->seedManufacturer('Original Manufacturer Name');
+
+        $this->actingAs($this->manufacturerManager())->put(
+            route('manufacturers.update', $manufacturerId),
+            $this->fullManufacturerPayload(['name' => 'Renamed Manufacturer RT', 'sort_order' => '42'])
+        )->assertRedirect(route('manufacturers.index'));
+
+        $row = DB::table($p.'manufacturer')->where('manufacturer_id', $manufacturerId)->first();
+        $this->assertSame('Renamed Manufacturer RT', $row->name);
+        $this->assertSame(42, (int) $row->sort_order);
+    }
+
+    public function test_manufacturer_bulk_delete_round_trip_removes_the_selected_rows_only(): void
+    {
+        $p = config('catalog.prefix');
+        $id1 = $this->seedManufacturer('Bulk Manufacturer One');
+        $id2 = $this->seedManufacturer('Bulk Manufacturer Two');
+
+        $this->actingAs($this->manufacturerManager())->post(route('manufacturers.bulk_delete'), [
+            'ids' => [$id1],
+        ])->assertRedirect(route('manufacturers.index'));
+
+        $this->assertSame(0, DB::table($p.'manufacturer')->where('manufacturer_id', $id1)->count());
+        $this->assertSame(1, DB::table($p.'manufacturer')->where('manufacturer_id', $id2)->count());
+    }
+
+    /**
+     * Binds the rendered edit form to the wire the round trip above
+     * exercises, same shape as the category and product equivalents.
+     */
+    public function test_the_rendered_manufacturer_edit_form_carries_every_field_the_round_trip_posts(): void
+    {
+        $manufacturerId = $this->seedManufacturer('Bindable Manufacturer');
+
+        $html = $this->actingAs($this->manufacturerManager())
+            ->get(route('manufacturers.edit', $manufacturerId))
+            ->getContent();
+
+        preg_match_all('/<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"/i', $html, $m);
+        $rendered = array_values(array_unique($m[1]));
+
+        foreach (array_keys($this->fullManufacturerPayload()) as $field) {
+            $this->assertContains($field, $rendered, "The manufacturer edit form no longer renders a control named {$field}, which the update round trip posts.");
+        }
+    }
+
+    // ---- Manufacturers: XSS ---------------------------------------------------
+
+    public function test_a_manufacturer_name_containing_markup_is_escaped(): void
+    {
+        $manufacturerId = $this->seedManufacturer('<script>alert(1)</script>');
+
+        $response = $this->actingAs($this->manufacturerManager())->get(route('manufacturers.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('<script>alert(1)</script>', false);
+        $response->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
+    }
 }

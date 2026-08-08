@@ -1,136 +1,131 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Catalog / Categories')
+@extends('layouts.shell')
+@section('title', 'Categories')
 
 @section('content')
 @php
-    $canManageCategories = true;
+    // Unlike products (documented gap: view_products never reaches the
+    // permissions table on a fresh install), view_categories and
+    // manage_categories are real, distinct route-middleware tiers here
+    // (routes/catalog.php), so the manage check is a genuine permission
+    // read rather than a hardcoded true.
+    $canManageCategories = auth()->user()?->hasPermission('manage_categories') ?? false;
+
+    $hasFilters = $q !== '';
 @endphp
-<div class="card">
-    <div class="page-header">
-        <h2>Categories</h2>
-        <div class="page-header-actions">
-            @if($canManageCategories)
-            <a class="btn" href="{{ route('categories.create') }}">Add Category</a>
 
-            <select class="input" name="action" form="category-bulk-form" style="width:180px;">
-                <option value="">-- Action --</option>
-                <option value="enable">Enable</option>
-                <option value="disable">Disable</option>
-            </select>
-            <button class="btn" type="submit" form="category-bulk-form" id="category-apply-btn">Apply To Selected</button>
-            @endif
-        </div>
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Categories</h1>
+        <p class="x-page-sub">{{ number_format($categories->total()) }} {{ Str::plural('category', $categories->total()) }}</p>
     </div>
+    @if($canManageCategories)
+    <x-ui.button variant="primary" :href="route('categories.create')">New category</x-ui.button>
+    @endif
+</div>
 
-    <div class="toolbar">
-        <form method="GET" action="{{ route('categories.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search category">
-            <button class="btn" type="submit">Search</button>
-        </form>
-    </div>
+<form method="GET" action="{{ route('categories.index') }}" class="x-filters" id="categories-filter">
+    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search categories" class="x-filters__search" />
+</form>
 
-    <form id="category-bulk-form" method="POST" action="{{ route('categories.bulk') }}" onsubmit="return window.__confirmCategoryBulkAction(event);">
+<div class="cat-page" x-data="{
+        selected: [],
+        ids: {{ \Illuminate\Support\Js::from($categories->pluck('category_id')->map(fn ($v) => (string) $v)->values()) }}
+    }">
+
+@if($canManageCategories)
+    <form id="category-bulk-form" method="POST" action="{{ route('categories.bulk') }}" x-ref="bulkForm">
         @csrf
+        <input type="hidden" name="action" x-ref="bulkAction" value="">
     </form>
 
-    <div class="table-wrap">
-    <table>
-        <thead>
+    {{-- Only enable/disable exist here: CategoryController@bulkAction accepts
+         nothing else. No bulk delete control is invented for this bar. --}}
+    <div class="cat-bulkbar" x-show="selected.length > 0" x-cloak>
+        <span class="cat-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+        <div class="cat-bulkbar__actions">
+            <x-ui.button type="button" size="sm" @click="$refs.bulkAction.value = 'enable'; $refs.bulkForm.requestSubmit()">Enable</x-ui.button>
+            <x-ui.button type="button" size="sm" @click="$refs.bulkAction.value = 'disable'; $refs.bulkForm.requestSubmit()">Disable</x-ui.button>
+        </div>
+    </div>
+@endif
+
+@if($categories->isEmpty())
+    <x-ui.empty title="{{ $hasFilters ? 'No categories match that search' : 'No categories yet' }}"
+                description="{{ $hasFilters ? 'Try a different search term.' : 'Add your first category to start organizing the catalog.' }}">
+        @if($canManageCategories && !$hasFilters)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('categories.create')">New category</x-ui.button>
+        </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
         <tr>
-            <th style="width:36px;">@if($canManageCategories)<input type="checkbox" id="category-select-all" title="Select all">@endif</th>
-            <th style="width:90px;">ID</th>
+            @if($canManageCategories)
+            <th class="cat-col-check">
+                <input type="checkbox" class="cat-check"
+                       :checked="ids.length > 0 && selected.length === ids.length"
+                       x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
+                       @change="selected = $event.target.checked ? ids.slice() : []"
+                       aria-label="Select all categories on this page">
+            </th>
+            @endif
+            <th class="cat-col-id">ID</th>
             <th>Name</th>
-            <th style="width:220px;">Parent</th>
-            <th style="width:140px;">Sort</th>
-            <th style="width:110px;">Status</th>
-            <th style="width:160px;">Actions</th>
+            <th>Parent</th>
+            <th class="cat-col-sort x-td-num">Sort</th>
+            <th class="cat-col-stat">Status</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
-        </thead>
-        <tbody>
-        @foreach($categories as $c)
-            <tr>
-                <td>
-                    @if($canManageCategories)
-                    <input type="checkbox" class="category-row-check" name="ids[]" value="{{ (int)$c->category_id }}" form="category-bulk-form">
-                    @endif
-                </td>
-                <td>{{ $c->category_id }}</td>
-                <td>{{ $c->name ?? '-' }}</td>
-                <td>{{ $c->parent_name ?? '-' }}</td>
-                <td>{{ (int)$c->sort_order }}</td>
-                <td>{{ (int)$c->status === 1 ? 'Enabled' : 'Disabled' }}</td>
-                <td class="d-flex gap-8 items-center">
-                    @if($canManageCategories)
-                    <a class="btn small" href="{{ route('categories.edit', $c->category_id) }}">Edit</a>
-                    <form method="POST" action="{{ route('categories.destroy', $c->category_id) }}" data-confirm="Delete this category?">
+    </x-slot:head>
+
+    @foreach($categories as $c)
+        <tr>
+            @if($canManageCategories)
+            <td class="cat-col-check">
+                <input type="checkbox" class="cat-check" name="ids[]" value="{{ (string) $c->category_id }}" form="category-bulk-form" x-model="selected">
+            </td>
+            @endif
+            <td class="cat-col-id" data-label="ID"><span class="x-num">{{ $c->category_id }}</span></td>
+            <td data-label="Name">
+                @if($canManageCategories)
+                    <a class="x-row-link" href="{{ route('categories.edit', $c->category_id) }}">{{ $c->name ?? '-' }}</a>
+                @else
+                    {{ $c->name ?? '-' }}
+                @endif
+            </td>
+            <td data-label="Parent">{{ $c->parent_name ?? '-' }}</td>
+            <td class="cat-col-sort x-td-num" data-label="Sort"><span class="x-num">{{ (int) $c->sort_order }}</span></td>
+            <td class="cat-col-stat" data-label="Status">
+                <x-ui.badge :tone="(int) $c->status === 1 ? 'success' : 'neutral'">{{ (int) $c->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
+            </td>
+            <td class="x-td-actions">
+                @if($canManageCategories)
+                <x-ui.menu label="Category {{ $c->category_id }} actions">
+                    <a class="x-menu__item" href="{{ route('categories.edit', $c->category_id) }}">Edit</a>
+                    <div class="x-menu__sep"></div>
+                    <button type="button" class="x-menu__item x-menu__item--danger"
+                            data-confirm="Delete {{ $c->name }}? This cannot be undone."
+                            data-confirm-submit="cat-del-{{ $c->category_id }}">Delete</button>
+                    <form id="cat-del-{{ $c->category_id }}" method="POST" action="{{ route('categories.destroy', $c->category_id) }}" class="x-sr">
                         @csrf
                         @method('DELETE')
-                        <button class="btn danger small" type="submit">Delete</button>
                     </form>
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($categories->firstItem() ?? 0) }} to {{ number_format($categories->lastItem() ?? 0) }} of {{ number_format($categories->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$categories->previousPageUrl()" :disabled="!$categories->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$categories->nextPageUrl()" :disabled="!$categories->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
     </div>
-
-    <script>
-        (function () {
-            var selectAll = document.getElementById('category-select-all');
-            var checks = function () { return Array.prototype.slice.call(document.querySelectorAll('.category-row-check')); };
-            var actionSelect = document.querySelector('select[name="action"][form="category-bulk-form"]');
-
-            function updateSelectAllState() {
-                var boxes = checks();
-                if (!selectAll) return;
-                if (boxes.length === 0) {
-                    selectAll.checked = false;
-                    selectAll.indeterminate = false;
-                    return;
-                }
-                var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
-                selectAll.checked = checkedCount === boxes.length;
-                selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-            }
-
-            if (selectAll) {
-                selectAll.addEventListener('change', function () {
-                    checks().forEach(function (b) { b.checked = selectAll.checked; });
-                    updateSelectAllState();
-                });
-            }
-
-            checks().forEach(function (b) {
-                b.addEventListener('change', updateSelectAllState);
-            });
-
-            window.__confirmCategoryBulkAction = function (e) {
-                var form = e.target;
-                if (form._confirmed) { form._confirmed = false; return true; }
-                var selected = checks().filter(function (b) { return b.checked; }).length;
-                if (selected === 0) {
-                    showFlashError('Please select at least one category.');
-                    return false;
-                }
-                var action = actionSelect ? (actionSelect.value || '') : '';
-                if (!action) {
-                    showFlashError('Please choose an action.');
-                    return false;
-                }
-                e.preventDefault();
-                confirmModal('Apply "' + action + '" to selected categories?').then(function (ok) {
-                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
-                });
-                return false;
-            };
-
-            updateSelectAllState();
-        })();
-    </script>
-
-    <div class="mt-16">
-        {{ $categories->onEachSide(1)->links('vendor.pagination.simple') }}
-    </div>
+</div>
+@endif
 </div>
 @endsection

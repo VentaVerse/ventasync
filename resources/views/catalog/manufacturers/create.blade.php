@@ -1,33 +1,66 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Catalog / Manufacturers / Add')
+@extends('layouts.shell')
+@section('title', 'New manufacturer')
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Add Manufacturer</h2>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('manufacturers.index') }}">Back</a>
-            <button class="btn" type="submit" form="manufacturer-form">Save</button>
+<form method="POST" action="{{ route('manufacturers.store') }}" class="fm-page">
+    @csrf
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+    </div>
+
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('manufacturers.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> Manufacturers
+            </a>
+            <h1 class="fm-title">New manufacturer</h1>
         </div>
     </div>
 
-    <form id="manufacturer-form" method="POST" action="{{ route('manufacturers.store') }}">
-        @csrf
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
 
-        <div class="form-grid">
-            <div class="full">
-                <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}">
-            </div>
+            {{-- ---------------------------------------------------------
+                 General
+                 --------------------------------------------------------- --}}
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">General</h2>
+                </div>
 
-            <div>
-                <label>Sort Order</label>
-                <input class="input" name="sort_order" value="{{ old('sort_order', 0) }}">
-            </div>
-
-
+                <div class="fm-fields">
+                    <x-ui.field label="Name" for="manufacturer_name_field" name="name" :required="true" wide>
+                        <x-ui.input id="manufacturer_name_field" name="name" value="{{ old('name') }}" />
+                    </x-ui.field>
+                </div>
+            </section>
         </div>
-        {{-- Save button moved to page header (top-right) --}}
-    </form>
-</div>
+
+        <div class="fm-col fm-col--side">
+
+            {{-- Details --------------------------------------------------- --}}
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Details</h2></div>
+                <div class="fm-card__body">
+                    <x-ui.field label="Sort order" for="sort_order" name="sort_order" hint="Lower numbers show first.">
+                        <x-ui.input id="sort_order" name="sort_order" class="fm-input--num" value="{{ old('sort_order', 0) }}" />
+                    </x-ui.field>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fm-bar">
+        <span class="fm-bar__meta">Nothing is saved until you create the manufacturer.</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('manufacturers.index') }}">Cancel</a>
+            <x-ui.button type="submit" variant="primary">Create manufacturer</x-ui.button>
+        </div>
+    </div>
+</form>
 @endsection
