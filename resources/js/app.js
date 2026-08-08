@@ -21,6 +21,8 @@ import './pages/group-products';
 import './pages/purchasing';
 import './pages/product-vendors';
 import './pages/warehousing';
+import './pages/reports';
+import './pages/reviews';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';

@@ -1,22 +1,651 @@
 /* ============================================================
-   REPORTS (shared across orders, products, payouts)
+   REPORTS
+   ============================================================
+
+   Two things live in this file.
+
+   1. `.report-stat-*` (bottom of the file), the LEGACY stat card grid.
+      Only extensions/shopify/views/orders/index.blade.php still renders
+      it, and that page is still on layouts.app. It stays until that page
+      moves. Nothing new should use it.
+
+   2. `.rp-*`, the report anatomy on layouts.shell (Round D, Task 3).
+
+   -----------------------------------------------------------------
+   What the `rp-` anatomy is for, and the decisions behind it
+   -----------------------------------------------------------------
+
+   A report is a dense table plus the handful of figures that answer the
+   question the table was opened to answer. The old pages gave those
+   figures eight identical bordered cards in a four-up grid, every one the
+   same size and weight, so the page said nothing about which number
+   mattered. `.rp-band` replaces that with ONE lead figure at display size
+   and a quiet strip of supporting facts beside it: the eye is told where
+   to land.
+
+   COLOUR HAS ONE JOB HERE, the same job it has on the order detail page
+   (see the tone block at the end of components/order-detail.css): it
+   marks money that needs attention. --accent is spent on exactly one
+   figure per page, the lead net figure. --danger marks a negative result.
+   --warning marks a margin thin enough to look at (the 20/10 thresholds
+   the order pages already use). Revenue, COGS, shipping and fees are
+   PLAIN TEXT: they are facts, not judgements, and tinting all of them red
+   because "cost is bad" is what left the old pages with no signal at all.
+
+   NUMERALS ARE MONO AND TABULAR everywhere (`x-num`, `.rp-fig`,
+   `.rp-lead__v`), so a column of money aligns on the decimal and can be
+   read down rather than across.
+
+   `rp-neg` / `rp-warn` / `rp-pos` duplicate the three declarations of
+   `od-neg` / `od-warn` / `od-pos` rather than sharing them. That is
+   deliberate: those three utilities sit at the very END of
+   order-detail.css because they have to out-cascade the component rules
+   in that same file at equal specificity ("utilities last", stated in its
+   own comment). Graduating them into a shared file imported earlier in
+   app.css would move them ahead of the rules they exist to beat and
+   silently break the order detail page. Three one-line rules is the
+   cheaper mistake.
    ============================================================ */
 
-/* Currency basis line shown above the summary cards once a report has run. */
-.report-basis {
-    margin: 0 0 1rem;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
+.rp-page { display: block; }
+
+/* ------------------------------------------------------------------
+   The basis line. Every report states what currency its figures are in
+   before it shows any of them, and says so in plain words rather than
+   leaving it to a symbol the reader has to infer.
+   ------------------------------------------------------------------ */
+.rp-basis {
+    margin: 0 0 var(--space-4);
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--text-muted);
+    max-width: 78ch;
 }
 
-/* Stat card grid - responsive auto-fit */
+/* The second sentence, rendered only when the range actually contains an
+   order in another currency. A caveat that is always on screen is noise;
+   one that appears only when it is true is information. */
+.rp-basis__caveat {
+    display: block;
+    margin-top: 2px;
+    color: var(--warning);
+}
+
+/* ------------------------------------------------------------------
+   The figures band. One lead figure, then a hairline-separated strip.
+   ------------------------------------------------------------------ */
+.rp-band {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-5);
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.rp-lead { flex: 0 0 auto; min-width: 200px; }
+.rp-lead__k {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: .02em;
+}
+.rp-lead__v {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 30px;
+    line-height: 36px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: -.01em;
+}
+.rp-lead__v.rp-neg { color: var(--danger); }
+.rp-lead__sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    margin-top: var(--space-1);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* The supporting figures. No card chrome, no boxes: one vertical hairline
+   between each, which is all the separation a row of small figures needs. */
+.rp-facts {
+    flex: 1 1 340px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: var(--space-3) 0;
+    align-content: center;
+}
+.rp-fact {
+    padding: 0 var(--space-4);
+    border-left: 1px solid var(--border);
+    min-width: 0;
+}
+.rp-fact__k {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rp-fact__v {
+    display: block;
+    margin-top: 1px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rp-fact__note { display: block; font-size: 11px; color: var(--text-muted); }
+
+@media (max-width: 720px) {
+    .rp-band { padding: var(--space-4); gap: var(--space-4); }
+    .rp-lead { flex: 1 1 100%; }
+    .rp-lead__v { font-size: 26px; line-height: 32px; }
+    .rp-facts { flex: 1 1 100%; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+    .rp-fact:first-child { border-left: 0; padding-left: 0; }
+}
+
+/* Two columns, never three: a peso figure at 15px mono needs about 130px
+   and anything narrower ellipsises the number, which on a money page is
+   worse than showing fewer of them per row. */
+@media (max-width: 480px) {
+    .rp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rp-fact { padding: 0 var(--space-3); }
+    .rp-fact__v { font-size: 14px; }
+    .rp-fact:nth-child(odd) { border-left: 0; padding-left: 0; }
+}
+
+/* ------------------------------------------------------------------
+   Filters. The shared `.x-filters` row plus a disclosure for the
+   narrowing fields that are not part of the everyday question.
+
+   No `data-autosubmit` anywhere on a report filter, on purpose: these
+   queries scan the whole order book, so nothing runs until the operator
+   asks for it.
+   ------------------------------------------------------------------ */
+.rp-filters { align-items: flex-end; }
+
+/* One bordered control holding both ends of the range and the word
+   between them. Two bare date inputs side by side both read "mm/dd/yyyy"
+   and neither says which end it is. */
+.rp-range {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--control-h);
+    padding: 0 var(--space-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.rp-range__sep { font-size: 12px; color: var(--text-muted); }
+.rp-range input[type="date"] {
+    height: 26px;
+    padding: 0 2px;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+.rp-range input[type="date"]:focus { outline: none; }
+.rp-range:focus-within { border-color: var(--border-strong); }
+/* The native calendar glyph is near-black and vanishes on the dark
+   theme; invert it there and tone it down in both. */
+.rp-range input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: .45;
+    cursor: pointer;
+}
+:root[data-theme="dark"] .rp-range input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: .55;
+}
+
+/* Checkbox groups inside the disclosure. A native <select multiple> is
+   what these replaced: it needs a ctrl-click nobody discovers, it renders
+   as a raw scrolling list box that no amount of CSS makes belong on this
+   filter row, and it gives no hint that more than one value is allowed.
+   Checkboxes say all three things by existing. */
+.rp-more__field--wide { grid-column: span 2; }
+.rp-choices { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+.rp-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.rp-choice:hover { color: var(--text); }
+.rp-choice input { width: 13px; height: 13px; accent-color: var(--accent); cursor: pointer; }
+
+/* A text control, not a button. One solid fill (Run report) and two
+   quiet text links beside it, rather than a solid fill flanked by two
+   outlined buttons of equal size all saying different kinds of thing. */
+.rp-more-toggle {
+    align-self: center;
+    margin-left: var(--space-2);
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.rp-more-toggle:hover { color: var(--text); text-decoration: underline; }
+.rp-more-toggle[aria-expanded="true"] { color: var(--text); }
+
+.rp-more {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-3);
+    width: 100%;
+    margin-top: var(--space-1);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+}
+.rp-more[hidden] { display: none; }
+.rp-more__field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.rp-more__label { font-size: 11px; color: var(--text-muted); }
+.rp-more__field .x-input,
+.rp-more__field .x-select-wrap { width: 100%; }
+
+/* ------------------------------------------------------------------
+   The table.
+
+   `.x-table` is table-layout: fixed and deliberately NOT horizontally
+   scroll-contained (see the comment at the top of ui-table.css). A twelve
+   column profit table is the exact case that file names as the exception:
+   "a page that genuinely needs both a contained horizontal scrollbar and
+   a sticky header should give this wrapper its own bounded max-height".
+   That is what `.rp-scroll` does. table-layout goes back to auto and the
+   table takes its natural width, so nothing clips and the scrollbar
+   belongs to the table rather than to the page.
+   ------------------------------------------------------------------ */
+.rp-scroll {
+    overflow: auto;
+    max-height: calc(100vh - 220px);
+    border-bottom: 1px solid var(--border);
+    overscroll-behavior-x: contain;
+}
+.rp-scroll .x-table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+}
+.rp-scroll .x-table thead th { background: var(--canvas); }
+
+/* Toggling a group open/shut sets the `hidden` attribute on its rows.
+   The mobile restack further down turns every row into a grid, and
+   `display: grid` beats the user-agent's [hidden] rule, so [hidden] has
+   to be re-stated at a specificity that wins in both layouts. This is the
+   same trap the transfers list hit in Task 1. */
+.rp-page .x-table tbody tr[hidden] { display: none; }
+
+/* Figures. Mono, tabular, right-aligned. `.x-td-num` supplies the
+   alignment; this supplies the face, on the cell so the whole column
+   including its dash placeholder lines up. */
+.rp-scroll .x-table td.x-td-num,
+.rp-fig {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+.rp-dash { color: var(--text-muted); }
+
+/* A group header row (month on the orders report, period on fees). The
+   whole first cell is the button, so the hit target is the row's width
+   rather than a 10px glyph. */
+.rp-grp > td {
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+}
+.rp-grp:hover > td { background: var(--surface-hover); }
+.rp-grp__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+}
+.rp-grp__caret {
+    display: inline-flex;
+    color: var(--text-muted);
+    transition: transform var(--motion-fast);
+}
+.rp-grp__btn[aria-expanded="true"] .rp-grp__caret { transform: rotate(90deg); }
+.rp-grp__count { color: var(--text-muted); font-weight: 400; }
+.rp-child > td:first-child { padding-left: var(--space-6); }
+
+/* Totals. Distinct without being loud: a heavier rule above it, the
+   sunken surface, and it stays put at the bottom of the scroll box so a
+   long table never hides the number it adds up to. */
+.rp-total > td {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--surface-sunken);
+    border-top: 1px solid var(--border-strong);
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   The pre-run state. Orders and Products defer their query until the
+   operator submits, so a cold page open shows this rather than an empty
+   table that looks like "no results".
+   ------------------------------------------------------------------ */
+.rp-gate {
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface-sunken);
+}
+.rp-gate__title { margin: 0 0 var(--space-1); font-size: 14px; font-weight: 500; color: var(--text); }
+.rp-gate__text { margin: 0 auto; max-width: 52ch; font-size: 13px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------------
+   Charts, drawn in HTML and CSS rather than a canvas.
+
+   The old pages pulled Chart.js off a CDN and hardcoded rgba() fills that
+   knew nothing about the theme, so the charts stayed light-mode blue on a
+   dark page and the palette competed with the status colours everywhere
+   else. These are plain elements on the design tokens: they follow the
+   theme, need no network request, and are readable by a screen reader
+   because every bar carries its own text.
+
+   `.rp-trend` is one column per period. The column's height is the larger
+   of that period's revenue and its total cost, so the column says "how
+   much money moved". It is split into the cost it took (muted) and what
+   was left (accent). When cost exceeded revenue the top segment is the
+   overshoot, in danger: a loss reads as a column that grew past its own
+   revenue, which is exactly what happened.
+   ------------------------------------------------------------------ */
+.rp-chart {
+    padding: var(--space-4) var(--space-5) var(--space-3);
+    margin-bottom: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+.rp-chart__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-4);
+}
+.rp-chart__title { margin: 0; font-size: 13px; font-weight: 500; color: var(--text); }
+.rp-chart__note { font-size: 11px; color: var(--text-muted); }
+.rp-key { display: flex; gap: var(--space-3); font-size: 11px; color: var(--text-muted); }
+.rp-key__item { display: inline-flex; align-items: center; gap: var(--space-1); }
+.rp-key__swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--text-muted); }
+.rp-key__swatch--cost   { background: var(--border-strong); }
+.rp-key__swatch--profit { background: var(--accent); }
+.rp-key__swatch--loss   { background: var(--danger); }
+
+/* One <svg> per period rather than one for the whole series. That is what
+   lets CSS cap how wide a single column may draw (max-width below): a
+   single stretched SVG scales its bars to whatever the container is, so a
+   three month range drew three 350px slabs. Each column now carries its
+   own 0-100 viewBox, stretched vertically only, so the data still lives
+   in geometry attributes and the layout still belongs to CSS.
+
+   space-between rather than a fixed gap so a sparse series spreads to the
+   same width the tick labels underneath it use, and a dense one (a daily
+   range is sixty columns) still packs tight. */
+.rp-trend {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 3px;
+    height: 168px;
+    border-bottom: 1px solid var(--border);
+}
+.rp-trend__col {
+    display: block;
+    flex: 1 1 0;
+    min-width: 4px;
+    max-width: 44px;
+    height: 100%;
+}
+.rp-trend__cost   { fill: var(--border-strong); }
+.rp-trend__profit { fill: var(--accent); }
+.rp-trend__loss   { fill: var(--danger); }
+.rp-trend__col:hover .rp-trend__cost { fill: var(--text-muted); }
+
+.rp-trend__ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* A ranked horizontal bar list. Used for the products report's two top-10
+   panels. The label sits above its own bar rather than in a fixed-width
+   gutter, so a long product name is never truncated to two characters. */
+.rp-rank { display: flex; flex-direction: column; gap: var(--space-3); }
+.rp-rank__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-3); align-items: baseline; }
+.rp-rank__name {
+    grid-column: 1;
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rp-rank__v {
+    grid-column: 2;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.rp-rank__track {
+    grid-column: 1 / -1;
+    display: block;
+    width: 100%;
+    height: 6px;
+    background: var(--surface-sunken);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.rp-rank__bar { fill: var(--accent); }
+.rp-rank__bar--loss { fill: var(--danger); }
+
+.rp-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-5); }
+.rp-panels .rp-chart { margin-bottom: 0; }
+
+/* ------------------------------------------------------------------
+   Product drill-down (products report). The child row holds a panel with
+   two small tables built by resources/js/pages/reports.js.
+   ------------------------------------------------------------------ */
+.rp-drill-col { width: 34px; padding-left: var(--space-2); padding-right: 0; }
+.rp-drill-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: transform var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
+}
+.rp-drill-toggle:hover { background: var(--surface-hover); color: var(--text); }
+.rp-drill-toggle[aria-expanded="true"] { transform: rotate(90deg); color: var(--text); }
+
+.rp-open > td { background: var(--surface-sunken); }
+.rp-drill-row > td { padding: 0; background: var(--surface-sunken); }
+.rp-drill {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-5) var(--space-5);
+}
+.rp-drill__heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+.rp-drill__heading:first-child { margin-top: 0; }
+.rp-drill__note { font-weight: 400; color: var(--text-muted); cursor: help; }
+
+.rp-sub {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.rp-sub thead th {
+    padding: 6px var(--space-3);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: left;
+    text-transform: none;
+    white-space: nowrap;
+    border-right: 0;
+}
+.rp-sub tbody td {
+    padding: 5px var(--space-3);
+    border-bottom: 1px solid var(--border);
+    border-right: 0;
+    white-space: nowrap;
+}
+.rp-sub tbody tr:last-child td { border-bottom: 0; }
+.rp-sub .rp-num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+.rp-sub__link { color: var(--accent); text-decoration: none; }
+.rp-sub__link:hover { text-decoration: underline; }
+.rp-drill__msg { padding: var(--space-3) 0; font-size: 12px; color: var(--text-muted); }
+.rp-drill__msg--error { color: var(--danger); }
+
+/* ------------------------------------------------------------------
+   Source / status chips inside a table cell.
+   ------------------------------------------------------------------ */
+.rp-idty { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rp-idty__name { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.rp-idty__sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+.rp-link { color: var(--accent); text-decoration: none; font-weight: 500; }
+.rp-link:hover { text-decoration: underline; }
+
+/* ------------------------------------------------------------------
+   Mobile. Below the restack breakpoint the table stops being a table, so
+   the scroll box has nothing to contain and gets out of the way. Two
+   columns of labelled values rather than the shared one, because a
+   twelve-field report row stacked one-per-line is a screen and a half.
+   ------------------------------------------------------------------ */
+@media (max-width: 640px) {
+    .rp-scroll { overflow: visible; max-height: none; border-bottom: 0; }
+    .rp-scroll .x-table { width: 100%; table-layout: fixed; }
+
+    .rp-scroll .x-table tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rp-scroll .x-table tbody td { white-space: normal; overflow-wrap: anywhere; }
+    .rp-scroll .x-table tbody td:first-child { grid-column: 1 / -1; }
+    .rp-scroll .x-table td.x-td-num { text-align: left; }
+
+    /* Only the group's own label cell spans the row. Its figures keep the
+       two-column grid and their data-labels, so a restacked group header
+       reads "Revenue ...", not a stack of six anonymous amounts. */
+    .rp-total > td { position: static; }
+    .rp-grp > td:first-child,
+    .rp-total > td:first-child { grid-column: 1 / -1; }
+    .rp-child > td:first-child { padding-left: var(--space-3); }
+
+    .rp-drill-col { display: none; }
+    .rp-drill { padding: var(--space-3); }
+    .rp-sub { display: block; overflow-x: auto; white-space: nowrap; }
+
+    .rp-more-toggle { margin-left: 0; }
+    .rp-range { width: 100%; justify-content: space-between; }
+    .rp-trend { height: 132px; }
+}
+
+/* Column widths. Sized to the widest real value each column holds, for
+   the same reason ui-table.css sizes the orders list: with the table in a
+   scroll container these keep the variable-width columns (Product,
+   Customer) from being squeezed by fixed-shape ones. */
+.rp-col-img    { width: 44px; padding-right: 0; }
+
+/* Its own thumbnail rather than components/detail.css's `.thumb-sm`: that
+   one is 42px (taller than a 32px report row) and paints itself with
+   --surface-alt, a legacy variable the .x-app token set does not define,
+   so it would render on an undefined background inside the shell. */
+.rp-thumb {
+    display: block;
+    width: 26px;
+    height: 26px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
+}
+.rp-thumb--none { background: var(--surface-sunken); }
+.rp-col-sku    { width: 132px; }
+.rp-col-mkt    { width: 148px; }
+.rp-col-mstat  { width: 146px; }
+.rp-col-period { width: 210px; }
+
+/* Tone. See the header of this file: one job, and only when a figure
+   needs a human to look at it. */
+.rp-pos  { color: var(--accent); }
+.rp-neg  { color: var(--danger); }
+.rp-warn { color: var(--warning); }
+
+/* ============================================================
+   LEGACY stat cards. extensions/shopify/views/orders/index.blade.php
+   only, still on layouts.app. Delete with that page.
+   ============================================================ */
 .report-stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-bottom: 24px;
 }
-
 .report-stat-card {
     background: var(--surface-alt);
     border: 1px solid var(--border);
@@ -40,259 +669,15 @@
     white-space: nowrap;
 }
 
-/* Sortable headers */
-.th-sort { color: inherit; text-decoration: none; }
-.th-sort:hover { color: var(--accent); }
-
-/* Month group headers (orders report) */
-.month-header {
-    background: var(--surface-alt);
-    position: sticky; top: 41px; z-index: 5;
-}
-.month-header:hover { background: var(--surface-hover, var(--surface-alt)); }
-.month-header td { padding-top: 12px; padding-bottom: 12px; background: inherit; }
-.month-toggle {
-    display: inline-block; width: 16px; font-size: 10px;
-    color: var(--text-secondary); transition: transform .15s ease;
-    margin-right: 4px;
-}
-.month-toggle.open { transform: rotate(90deg); }
-.month-row td:first-child { padding-left: 28px; }
-
-/* Payouts badge color variants (subtle) */
-.badge-green-subtle { background: rgba(34, 197, 94, .15); color: #16a34a; }
-.badge-yellow-subtle { background: rgba(234, 179, 8, .15); color: #b45309; }
-.badge-red-subtle { background: rgba(239, 68, 68, .15); color: #dc2626; }
-
-/* ============================================================
-   ADVANCED FILTERS ("More filters" collapsible)
-   ============================================================ */
-.report-more-toggle { align-self: flex-end; }
-
-.report-more-filters {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px dashed var(--border);
-}
-.report-more-filters[hidden] { display: none; }
-
-.report-filter-field { display: flex; flex-direction: column; min-width: 0; }
-.report-filter-label {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-}
-.report-filter-field .input { width: 100%; }
-
 @media (max-width: 1024px) {
-    .report-more-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 560px) {
-    .report-more-filters { grid-template-columns: 1fr; }
-}
-
-/* ============================================================
-   PRODUCT DRILL-DOWN (expandable order detail per product)
-   ============================================================ */
-.report-drill-col { width: 34px; text-align: center; padding-left: 6px; padding-right: 6px; }
-
-.report-drill-toggle,
-.report-expand-all {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1;
-    padding: 4px;
-    border-radius: var(--radius-sm);
-    transition: transform .15s ease, color .15s ease;
-    display: inline-block;
-}
-.report-drill-toggle:hover,
-.report-expand-all:hover { color: var(--accent); }
-.report-drill-toggle.open,
-.report-expand-all.open { transform: rotate(90deg); }
-
-.report-product-row.report-row-open { background: var(--surface-alt); }
-.report-product-row.report-row-open > td { background: inherit; }
-
-.report-drill-row > td {
-    background: var(--surface-alt);
-    padding: 0;
-    border-bottom: 2px solid var(--border);
-}
-
-.report-drill-panel {
-    padding: 16px 20px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.report-drill-heading {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: var(--text-secondary);
-    margin-top: 8px;
-}
-.report-drill-heading:first-child { margin-top: 0; }
-
-.report-drill-tip {
-    margin-left: 6px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    cursor: help;
-    text-transform: none;
-    letter-spacing: 0;
-    opacity: .7;
-}
-
-.report-drill-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    background: var(--surface, #fff);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-.report-drill-table thead th {
-    text-align: left;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    color: var(--text-secondary);
-    padding: 8px 12px;
-    background: var(--surface-alt);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-}
-.report-drill-table tbody td {
-    padding: 7px 12px;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-}
-.report-drill-table tbody tr:last-child td { border-bottom: none; }
-.report-drill-table .text-right { text-align: right; }
-
-.report-drill-link { color: var(--accent); font-weight: 600; text-decoration: none; }
-.report-drill-link:hover { text-decoration: underline; }
-
-.report-drill-loading,
-.report-drill-error {
-    padding: 16px 20px;
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-.report-drill-error { color: var(--danger); }
-
-/* Empty state - shown before the report is run (deferred load) */
-.report-empty-state {
-    text-align: center;
-    padding: 64px 24px;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface-alt);
-}
-.report-empty-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 6px;
-}
-.report-empty-text {
-    font-size: 13px;
-    color: var(--text-secondary);
-    max-width: 460px;
-    margin: 0 auto;
-    line-height: 1.5;
-}
-
-/* Totals footer row on report tables */
-.report-totals-row td {
-    border-top: 2px solid var(--border);
-    background: var(--surface-alt);
-    padding-top: 12px;
-    padding-bottom: 12px;
-    position: sticky;
-    bottom: 0;
-    z-index: 4;
-}
-
-@media (max-width: 768px) {
-    .report-drill-panel { padding: 12px; }
-    .report-drill-table { font-size: 12px; }
-    .report-drill-table thead th,
-    .report-drill-table tbody td { padding: 6px 8px; }
-}
-
-/* Report responsive */
-@media (max-width: 1200px) {
-    .report-stat-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-    .report-stat-value {
-        font-size: 18px;
-    }
-}
-@media (max-width: 1024px) {
-    .report-stat-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-    .report-stat-card {
-        padding: 12px 14px;
-    }
-    .report-stat-value {
-        font-size: 17px;
-    }
-    .report-stat-label {
-        font-size: 11px;
-    }
-    div[style*="grid-template-columns:repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
-    div[style*="grid-template-columns:repeat(6"] { grid-template-columns: repeat(3, 1fr) !important; }
-    div[style*="grid-template-columns:repeat(7"] { grid-template-columns: repeat(4, 1fr) !important; }
-    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+    .report-stat-grid { grid-template-columns: repeat(3, 1fr); }
+    .report-stat-card { padding: 12px 14px; }
+    .report-stat-value { font-size: 17px; }
+    .report-stat-label { font-size: 11px; }
 }
 @media (max-width: 768px) {
-    .report-stat-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-    }
-    .report-stat-card {
-        padding: 10px 12px;
-    }
-    .report-stat-value {
-        font-size: 15px;
-    }
-    .report-stat-label {
-        font-size: 10px;
-        letter-spacing: .3px;
-    }
-    div[style*="grid-template-columns:repeat(6"],
-    div[style*="grid-template-columns:repeat(3"],
-    div[style*="grid-template-columns:repeat(7"],
-    div[style*="grid-template-columns:repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
-}
-@media (max-width: 480px) {
-    .report-stat-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-    }
-    .report-stat-card {
-        padding: 8px 10px;
-    }
-    .report-stat-value {
-        font-size: 14px;
-    }
-    .report-stat-label {
-        font-size: 9px;
-        margin-bottom: 4px;
-    }
+    .report-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .report-stat-card { padding: 10px 12px; }
+    .report-stat-value { font-size: 15px; }
+    .report-stat-label { font-size: 10px; letter-spacing: .3px; }
 }

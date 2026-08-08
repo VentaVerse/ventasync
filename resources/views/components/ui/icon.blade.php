@@ -36,6 +36,12 @@
         'upload'   => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/>',
         'corner-up-left' => '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
         'x'        => '<path d="M18 6 6 18M6 6l12 12"/>',
+        'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+        /* The only closed shape in this set. It renders as an outline like
+           every other icon here (the <svg> carries fill="none"), and a CSS
+           rule outranks that presentation attribute, which is how
+           .rv-star--on fills it without needing a second path. */
+        'star'     => '<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.6 9.8l6.5-.9z"/>',
     ];
 @endphp
 

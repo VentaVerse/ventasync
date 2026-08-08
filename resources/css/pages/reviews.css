@@ -1,44 +1,224 @@
 /* ============================================================
-   REVIEWS PAGE
+   MARKETPLACE REVIEWS (`rv-`)
+   ============================================================
+
+   Two pages: the list of reviews pulled off Shopee and Lazada, and one
+   review's record. Both are on layouts.shell.
+
+   Decisions worth writing down:
+
+   - The platform chip and the sync-status chip are `x-ui.badge`, not
+     bespoke pills. Both vocabularies already exist (ui-controls.css
+     carries --shopee and --lazada; ChannelStatusTone carries the sync
+     states), and a second hand-rolled pill next to them would put three
+     colour systems on one row.
+
+   - The stars are the only place this file spends a colour of its own,
+     and it is --warning rather than a raw amber hex, because a rating is
+     the one figure on the page that is neither money nor a state.
+
+   - Nothing on the list is a standing destructive button. Fetch opens a
+     panel; Delete all is a menu item behind data-confirm; Push Selected
+     appears only once rows are ticked.
+
+   - Review text is customer-controlled and is rendered as TEXT, never
+     markup. `.rv-quote` sets the type; the escaping is Blade's.
    ============================================================ */
 
-/* Star ratings */
-.review-stars { display: inline-flex; gap: 1px; }
-.star-filled { color: #f59e0b; }
-.star-empty { color: #d1d5db; }
+/* ------------------------------------------------------------------
+   Stars
+   ------------------------------------------------------------------ */
+.rv-stars { display: inline-flex; align-items: center; gap: 1px; line-height: 0; }
+.rv-star { color: var(--border-strong); }
+/* The icon component renders fill="none" as a presentation attribute; a
+   CSS declaration outranks it, which is how a filled star is possible
+   without a second icon path. */
+.rv-star svg { fill: none; }
+.rv-star--on { color: var(--warning); }
+.rv-star--on svg { fill: currentColor; }
+.rv-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
 
-/* Platform badges */
-.review-platform {
-    display: inline-block; padding: 2px 8px; border-radius: 99px;
-    font-size: 11px; font-weight: 600; letter-spacing: .02em;
-}
-.review-platform--shopee { background: #fff1f2; color: #e11d48; }
-.review-platform--lazada { background: #eff6ff; color: #1d4ed8; }
+/* ------------------------------------------------------------------
+   List
+   ------------------------------------------------------------------ */
+.rv-col-check { width: 34px; padding-left: var(--space-3); padding-right: 0; }
+.rv-col-date  { width: 104px; }
+.rv-col-plat  { width: 116px; }
+.rv-col-rate  { width: 92px; }
+.rv-col-media { width: 108px; }
+.rv-col-stat  { width: 124px; }
 
-/* Review image thumbnails */
-.review-thumb {
-    width: 64px; height: 64px; object-fit: cover;
-    border-radius: 6px; border: 1px solid var(--border-light);
-    transition: transform var(--transition-fast);
-}
-.review-thumb:hover { transform: scale(1.08); }
+.rv-check { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; position: relative; z-index: 1; }
 
-/* Inline media in table rows */
-.review-media-inline {
-    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+/* The comment column is the one genuinely variable field, so it takes
+   whatever is left and truncates on one line rather than wrapping the
+   row to three. */
+.rv-snippet {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
 }
-.review-thumb-sm {
-    width: 32px; height: 32px; object-fit: cover;
-    border-radius: 4px; border: 1px solid var(--border-light);
+.rv-none { color: var(--text-muted); }
+
+.rv-media { display: inline-flex; align-items: center; gap: var(--space-1); }
+.rv-thumb {
+    width: 24px; height: 24px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
 }
-.review-media-more {
-    font-size: 11px; color: var(--text-muted); font-weight: 600;
-}
-.review-media-badge {
+.rv-media__more { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.rv-media__vid {
     display: inline-flex; align-items: center; gap: 2px;
-    font-size: 11px; color: #6366f1; font-weight: 600;
-    background: #eef2ff; padding: 2px 6px; border-radius: 4px;
+    padding: 1px var(--space-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
 }
 
-/* Review detail page */
-.review-detail { padding: 4px 0; }
+/* The "N are waiting" strip. Says the thing and offers the one action
+   that answers it, instead of a standing button in the header that means
+   nothing when the count is zero. */
+.rv-nudge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* Bulk bar. Hidden until something is ticked, which is the only time a
+   bulk action means anything. */
+.rv-bulk {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-3);
+    background: var(--accent-weak);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--text);
+}
+.rv-bulk[hidden] { display: none; }
+.rv-bulk__count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* The fetch panel. An in-place disclosure rather than a modal: it is a
+   form about the list you are looking at, not a separate errand. */
+.rv-fetch {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+.rv-fetch[hidden] { display: none; }
+.rv-fetch__row { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; }
+.rv-fetch__field { display: flex; flex-direction: column; gap: var(--space-1); }
+.rv-fetch__label { font-size: 11px; color: var(--text-muted); }
+.rv-fetch__note { margin: var(--space-3) 0 0; font-size: 12px; color: var(--text-muted); max-width: 70ch; }
+
+/* Flash region. layouts.shell renders none of its own; these reuse the
+   od- note faces so a message here looks like a message anywhere else. */
+.rv-flash { margin-bottom: var(--space-4); }
+.rv-flash:empty { display: none; }
+
+/* ------------------------------------------------------------------
+   Record page. Builds on the shared `od-` anatomy; only the pieces that
+   anatomy has no equivalent for live here.
+   ------------------------------------------------------------------ */
+.rv-quote {
+    margin: 0;
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface-sunken);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.rv-quote--empty { color: var(--text-muted); font-style: normal; }
+
+.rv-reply {
+    margin: 0;
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface-sunken);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-size: 13px;
+    line-height: 21px;
+    color: var(--text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.rv-reply__when { display: block; margin-top: var(--space-2); font-size: 11px; color: var(--text-muted); }
+
+.rv-gallery { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.rv-gallery__item {
+    display: block;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    transition: border-color var(--motion-fast);
+}
+.rv-gallery__item:hover { border-color: var(--border-strong); }
+.rv-gallery__item img { display: block; width: 96px; height: 96px; object-fit: cover; }
+
+.rv-videos { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.rv-raw {
+    margin: var(--space-2) 0 0;
+    padding: var(--space-3);
+    max-height: 360px;
+    overflow: auto;
+    background: var(--surface-sunken);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 17px;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+    /* The restacked row is a grid cell, not a table cell, so it has no
+       column width to truncate against: `.rv-snippet`'s nowrap and
+       `.x-cell-strong`'s ellipsis both stop constraining anything and the
+       longest comment simply pushed the page wider (measured 587px in a
+       390px frame). Below the breakpoint the comment wraps instead. */
+    .rv-page .x-table tbody td { min-width: 0; overflow-wrap: anywhere; }
+    .rv-snippet { white-space: normal; overflow: visible; text-overflow: clip; }
+
+    /* The tick box and the overflow menu are both meaningless as stacked
+       full-width rows; they sit on the row's own line instead. */
+    .rv-page .x-table tbody tr { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .rv-page .x-table tbody td { grid-column: 2; }
+    .rv-page .x-table tbody td.rv-col-check { grid-column: 1; grid-row: 1; padding-left: 0; }
+    .rv-page .x-table tbody td.x-td-actions { grid-column: 3; grid-row: 1; }
+
+    .rv-fetch__row { flex-direction: column; align-items: stretch; }
+    .rv-gallery__item img { width: 76px; height: 76px; }
+    .rv-quote, .rv-reply { padding: var(--space-3); }
+}

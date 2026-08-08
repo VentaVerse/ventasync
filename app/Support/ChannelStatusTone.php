@@ -225,6 +225,43 @@ class ChannelStatusTone
             'CANCELLED'   => 'danger',
             'VOIDED'      => 'danger',
         ],
+
+        // Marketplace review -> OpenCart (and Venta) push state, from
+        // marketplace_reviews.oc_sync_status / venta_sync_status. Only
+        // `pending` and `error` are ever actionable: ReviewController's push
+        // and skip both refuse anything else outright.
+        //
+        // One accent, on `pending`: a review sitting unpushed is the only
+        // state here with a job waiting for a person. `pushed` recedes to
+        // neutral (done is not an instruction), `skipped` is neutral because
+        // somebody already decided, and `error` is danger because the push
+        // was attempted and failed.
+        'opencart.reviews' => [
+            'PENDING' => 'success',
+            'PUSHED'  => 'neutral',
+            'SKIPPED' => 'neutral',
+            'ERROR'   => 'danger',
+        ],
+
+        // Marketplace payout state on the payouts report. Derived either
+        // from the synced payout_status column or, when that is still null,
+        // from the marketplace order status (ReportController::derivePayoutStatus).
+        //
+        // NO status here takes the accent: the payouts report has no action
+        // on it at all. It is a read-only reconciliation view, so there is
+        // nothing that is "the operator's move" and spending the accent
+        // would be spending it on nothing. Money still owed is warning
+        // (chaseable), money in flight is info (not chaseable), money
+        // settled is neutral, money that will never arrive is danger.
+        'reports.payouts' => [
+            'PAID'       => 'neutral',
+            'RELEASING'  => 'info',
+            'IN_TRANSIT' => 'info',
+            'UNPAID'     => 'warning',
+            'CANCELLED'  => 'danger',
+            'RETURNED'   => 'danger',
+            'UNKNOWN'    => 'neutral',
+        ],
     ];
 
     /**
@@ -344,6 +381,31 @@ class ChannelStatusTone
             'COMPLETED'   => 'Completed',
             'CANCELLED'   => 'Cancelled',
             'VOIDED'      => 'Voided',
+        ],
+
+        // "Pending" on its own does not say pending what. Both review pages
+        // sit under an "OpenCart sync" heading, so the label only has to
+        // name the state, but "Not pushed" says the plain thing where
+        // "Pending" leaves the reader to guess which side is waiting.
+        'opencart.reviews' => [
+            'PENDING' => 'Not pushed',
+            'PUSHED'  => 'Pushed',
+            'SKIPPED' => 'Skipped',
+            'ERROR'   => 'Push failed',
+        ],
+
+        // The report already derives these as display strings; the map
+        // exists so the words and the colour are decided in one place, and
+        // so "In Transit" stops being title-cased differently from every
+        // other status in the app.
+        'reports.payouts' => [
+            'PAID'       => 'Paid',
+            'RELEASING'  => 'Releasing',
+            'IN_TRANSIT' => 'In transit',
+            'UNPAID'     => 'Unpaid',
+            'CANCELLED'  => 'Cancelled',
+            'RETURNED'   => 'Returned',
+            'UNKNOWN'    => 'Unknown',
         ],
     ];
 

@@ -1,267 +1,304 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / Reviews')
+@extends('layouts.shell')
+@section('title', 'Marketplace reviews')
 
 @section('content')
 @php
-    $canManageReviews = true;
+    use App\Support\ChannelStatusTone;
+
+    // Every write on this page sits behind `perm:manage_reviews` (see
+    // extensions/opencart/routes/web.php). The page is behind
+    // `view_reviews|manage_reviews`, so a read-tier operator gets here and
+    // must not be shown a control the middleware would turn away. Replaces
+    // a hardcoded `$canManageReviews = true`.
+    $canManage = auth()->user()?->hasPermission('manage_reviews') ?? false;
+
+    $hasFilters = $q !== '' || $rating > 0 || $syncStatus !== '' || $hasMedia !== '' || $dateFrom !== '' || $dateTo !== '';
+
+    // Only pending and error rows can be pushed: pushToOpenCart() and
+    // bulkPush() both refuse anything else, so nothing else gets a tick box.
+    $pushable = ['pending', 'error'];
 @endphp
 
-{{-- Fetch / Delete bar --}}
-@if($canManageReviews)
-<div class="card mb-16">
-    <form method="POST" action="{{ route('ext.opencart.reviews.fetch') }}" id="formFetchReviews" class="d-flex gap-12 flex-wrap items-center">
-        @csrf
-        <div>
-            <label class="text-xs text-secondary">From</label>
-            <input type="date" name="date_from" value="{{ old('date_from') }}" class="input" style="width:auto;">
-        </div>
-        <div>
-            <label class="text-xs text-secondary">To</label>
-            <input type="date" name="date_to" value="{{ old('date_to') }}" class="input" style="width:auto;">
-        </div>
-        <div>
-            <label class="text-xs text-secondary">Platform</label>
-            <select class="input" name="platform">
-                <option value="all">Shopee + Lazada</option>
-                <option value="shopee">Shopee only</option>
-                <option value="lazada">Lazada only</option>
-            </select>
-        </div>
-        <div class="d-flex gap-8" style="align-self:flex-end;">
-            <button type="submit" class="btn" id="btnFetchReviews">Fetch Reviews</button>
-            <form method="POST" action="{{ route('ext.opencart.reviews.delete_all') }}" style="margin:0; display:inline;" data-confirm="Delete ALL reviews? This cannot be undone.">
-                @csrf
-                <button type="submit" class="btn danger">Delete All</button>
-            </form>
-        </div>
-    </form>
-</div>
-@endif
+<div class="rv-page" data-reviews-page>
 
-@if(session('review_result'))
-    @php $rr = session('review_result'); @endphp
-    <div class="alert {{ ($rr['ok'] ?? false) ? 'success' : 'error' }} mb-16">{{ $rr['message'] ?? '' }}</div>
-@endif
+    <div class="x-list-head">
+        <div>
+            <h1 class="x-page-title">Marketplace reviews</h1>
+            <p class="x-page-sub">
+                {{ number_format($reviews->total()) }} {{ Str::plural('review', $reviews->total()) }} pulled from Shopee and Lazada,
+                averaging {{ number_format($avgRating ?? 0, 1) }} of 5.
+            </p>
+        </div>
 
-<div class="card">
-    <div class="page-header">
-        <h2>Marketplace Reviews</h2>
-        <div class="page-header-actions d-flex gap-8">
-            <span class="text-secondary" style="font-size:13px; line-height:36px;">
-                Avg: <strong>{{ number_format($avgRating ?? 0, 1) }}</strong>/5
-                &middot; {{ $pendingCount }} pending
-            </span>
-            @if($pendingCount > 0 && $canManageReviews)
-                <form method="POST" action="{{ route('ext.opencart.reviews.push_all') }}" style="display:inline;" data-confirm="Push ALL pending/error reviews to OpenCart? This runs in the background.">
-                    @csrf
-                    <button class="btn" type="submit">Push All to OC</button>
-                </form>
-                <form method="POST" action="{{ route('ext.opencart.reviews.bulk_push') }}" id="bulkForm" data-confirm="Push all selected reviews to OpenCart?">
-                    @csrf
-                    <button class="btn secondary" type="submit" id="bulkPushBtn" disabled>Push Selected</button>
-                </form>
-            @endif
+        @if($canManage)
+        <div class="od-head__actions">
+            <x-ui.button variant="primary" type="button" data-fetch-toggle
+                         aria-controls="rv-fetch" aria-expanded="false">Fetch reviews</x-ui.button>
+
+            <x-ui.menu label="Review actions">
+                <button type="button" class="x-menu__item x-menu__item--danger"
+                        data-confirm="Delete every review stored here? This removes all {{ number_format($platformCounts['all'] ?? 0) }} of them from Xenon. Reviews already pushed to OpenCart stay there. This cannot be undone."
+                        data-confirm-submit="rv-delete-all">Delete every review</button>
+            </x-ui.menu>
+        </div>
+        @endif
+    </div>
+
+    @include('ext-opencart::reviews.partials.flash')
+
+    @if($canManage)
+    {{-- An in-place panel rather than a standing bar of controls. Fetching
+         is an errand you run occasionally, not a thing the page is for. --}}
+    <div class="rv-fetch" id="rv-fetch" hidden>
+        <form method="POST" action="{{ route('ext.opencart.reviews.fetch') }}" class="rv-fetch__row">
+            @csrf
+            <div class="rv-fetch__field">
+                <label class="rv-fetch__label" for="rv-from">From</label>
+                <x-ui.input type="date" id="rv-from" name="date_from" value="{{ old('date_from') }}" required />
+            </div>
+            <div class="rv-fetch__field">
+                <label class="rv-fetch__label" for="rv-to">To</label>
+                <x-ui.input type="date" id="rv-to" name="date_to" value="{{ old('date_to') }}" required />
+            </div>
+            <div class="rv-fetch__field">
+                <label class="rv-fetch__label" for="rv-platform">Channel</label>
+                <div class="x-select-wrap">
+                    <select id="rv-platform" name="platform" class="x-input">
+                        <option value="all">Shopee and Lazada</option>
+                        <option value="shopee">Shopee only</option>
+                        <option value="lazada">Lazada only</option>
+                    </select>
+                    <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                </div>
+            </div>
+            <x-ui.button variant="primary" type="submit">Fetch</x-ui.button>
+        </form>
+        <p class="rv-fetch__note">
+            Fetching runs in the background and can take a few minutes.
+            Reload this page afterwards to see what came in.
+        </p>
+    </div>
+    @endif
+
+    {{-- Channel tabs. The counts come from the controller and are not
+         filtered, so they say how many exist, not how many match. --}}
+    <div class="x-segment-bar">
+        <div class="x-segment">
+            @foreach($platforms as $key => $definition)
+                <a class="x-segment__item @if($platform === $key) is-active @endif"
+                   href="{{ route('ext.opencart.reviews.index', array_merge(request()->except('platform', 'page'), ['platform' => $key])) }}">
+                    {{ $definition['label'] }}
+                    @if(($platformCounts[$key] ?? 0) > 0)
+                        <span class="x-segment__count">{{ number_format($platformCounts[$key]) }}</span>
+                    @endif
+                </a>
+            @endforeach
         </div>
     </div>
 
-    {{-- Platform Tabs --}}
-    <div class="tabs mb-16">
-        @foreach($platforms as $key => $plat)
-            <a class="tab {{ $platform === $key ? 'active' : '' }}"
-               href="{{ route('ext.opencart.reviews.index', array_merge(request()->except('platform', 'page'), ['platform' => $key])) }}">
-                {{ $plat['label'] }}
-                @if(isset($platformCounts[$key]) && $platformCounts[$key] > 0)
-                    <span style="font-size:11px; color:var(--text-muted); margin-left:4px;">({{ number_format($platformCounts[$key]) }})</span>
-                @endif
-            </a>
-        @endforeach
-    </div>
-
-    {{-- Filters --}}
-    <form method="GET" action="{{ route('ext.opencart.reviews.index') }}" class="d-flex gap-8 items-end mb-16" style="flex-wrap:wrap;">
+    <form method="GET" action="{{ route('ext.opencart.reviews.index') }}" class="x-filters">
         <input type="hidden" name="platform" value="{{ $platform }}">
-        <div>
-            <label class="text-xs text-secondary">Search</label>
-            <input class="input" name="q" value="{{ $q }}" placeholder="Author, comment, product..." style="width:200px;">
-        </div>
-        <div>
-            <label class="text-xs text-secondary">Rating</label>
-            <select class="input" name="rating" style="width:100px;">
-                <option value="0">All</option>
+
+        <label class="x-sr" for="rv-q">Search</label>
+        <x-ui.input type="search" id="rv-q" name="q" value="{{ $q }}"
+                    placeholder="Author, comment or product" class="x-filters__search" />
+
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <label class="x-sr" for="rv-rating">Rating</label>
+            <select id="rv-rating" name="rating" class="x-input" data-autosubmit>
+                <option value="0">Any rating</option>
                 @for($i = 5; $i >= 1; $i--)
-                    <option value="{{ $i }}" {{ $rating === $i ? 'selected' : '' }}>{{ $i }} Star{{ $i > 1 ? 's' : '' }}</option>
+                    <option value="{{ $i }}" @selected($rating === $i)>{{ $i }} {{ Str::plural('star', $i) }}</option>
                 @endfor
             </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">Sync Status</label>
-            <select class="input" name="sync_status" style="width:130px;">
-                <option value="">All</option>
-                <option value="pending" {{ $syncStatus === 'pending' ? 'selected' : '' }}>Pending</option>
-                <option value="pushed" {{ $syncStatus === 'pushed' ? 'selected' : '' }}>Pushed</option>
-                <option value="skipped" {{ $syncStatus === 'skipped' ? 'selected' : '' }}>Skipped</option>
-                <option value="error" {{ $syncStatus === 'error' ? 'selected' : '' }}>Error</option>
+
+        <div class="x-select-wrap x-filters__select">
+            <label class="x-sr" for="rv-sync">Sync state</label>
+            <select id="rv-sync" name="sync_status" class="x-input" data-autosubmit>
+                <option value="">Any sync state</option>
+                @foreach(['pending', 'pushed', 'skipped', 'error'] as $state)
+                    <option value="{{ $state }}" @selected($syncStatus === $state)>{{ ChannelStatusTone::labelFor('opencart.reviews', $state) }}</option>
+                @endforeach
             </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">Media</label>
-            <select class="input" name="has_media" style="width:120px;">
-                <option value="">All</option>
-                <option value="any" {{ $hasMedia === 'any' ? 'selected' : '' }}>With Media</option>
-                <option value="photos" {{ $hasMedia === 'photos' ? 'selected' : '' }}>Photos</option>
-                <option value="videos" {{ $hasMedia === 'videos' ? 'selected' : '' }}>Videos</option>
+
+        <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+            <label class="x-sr" for="rv-media">Media</label>
+            <select id="rv-media" name="has_media" class="x-input" data-autosubmit>
+                <option value="">With or without media</option>
+                <option value="any" @selected($hasMedia === 'any')>Has media</option>
+                <option value="photos" @selected($hasMedia === 'photos')>Has photos</option>
+                <option value="videos" @selected($hasMedia === 'videos')>Has videos</option>
             </select>
+            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
         </div>
-        <div>
-            <label class="text-xs text-secondary">From</label>
-            <input class="input" type="date" name="date_from" value="{{ $dateFrom }}" style="width:150px;">
+
+        <div class="rp-range">
+            <label class="x-sr" for="rv-date-from">Reviewed from</label>
+            <input id="rv-date-from" type="date" name="date_from" value="{{ $dateFrom }}">
+            <span class="rp-range__sep" aria-hidden="true">to</span>
+            <label class="x-sr" for="rv-date-to">Reviewed to</label>
+            <input id="rv-date-to" type="date" name="date_to" value="{{ $dateTo }}">
         </div>
-        <div>
-            <label class="text-xs text-secondary">To</label>
-            <input class="input" type="date" name="date_to" value="{{ $dateTo }}" style="width:150px;">
-        </div>
-        <button class="btn" type="submit">Filter</button>
-        @if($q || $rating || $syncStatus || $hasMedia || $dateFrom || $dateTo)
-            <a class="btn secondary" href="{{ route('ext.opencart.reviews.index', ['platform' => $platform]) }}">Reset</a>
+
+        <x-ui.button type="submit">Search</x-ui.button>
+
+        @if($hasFilters)
+            <a class="x-filters__reset" href="{{ route('ext.opencart.reviews.index', ['platform' => $platform]) }}">Clear</a>
         @endif
     </form>
 
-    @if($reviews->isEmpty())
-        <div class="text-secondary text-center py-32">No reviews found.</div>
-    @else
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:32px;"><input type="checkbox" id="selectAll"></th>
-                        <th style="width:130px;">Date</th>
-                        <th style="width:80px;">Platform</th>
-                        <th>Product</th>
-                        <th style="width:120px;">Author</th>
-                        <th style="width:90px;">Rating</th>
-                        <th>Comment</th>
-                        <th style="width:120px;">Media</th>
-                        <th style="width:80px;">Status</th>
-                        <th style="width:100px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($reviews as $review)
-                        <tr>
-                            <td>
-                                @if(in_array($review->oc_sync_status, ['pending', 'error']))
-                                    <input type="checkbox" class="review-cb" value="{{ $review->id }}">
-                                @endif
-                            </td>
-                            <td class="text-xs text-secondary">
-                                {{ $review->reviewed_at ? $review->reviewed_at->format('M d, Y') : '—' }}
-                            </td>
-                            <td>
-                                <span class="review-platform review-platform--{{ $review->platform }}">{{ ucfirst($review->platform) }}</span>
-                            </td>
-                            <td class="text-xs">
-                                {{ \Illuminate\Support\Str::limit($review->product_name ?? '(unmapped)', 40) }}
-                            </td>
-                            <td class="text-xs">{{ \Illuminate\Support\Str::limit($review->author ?? '—', 20) }}</td>
-                            <td>
-                                <span class="review-stars">
-                                    @for($i = 1; $i <= 5; $i++)
-                                        <span class="{{ $i <= $review->rating ? 'star-filled' : 'star-empty' }}">&#9733;</span>
-                                    @endfor
-                                </span>
-                            </td>
-                            <td class="text-xs">{{ \Illuminate\Support\Str::limit($review->comment ?? '', 60) }}</td>
-                            <td>
-                                @php
-                                    $imgs = $review->images ?? [];
-                                    $vids = $review->videos ?? [];
-                                @endphp
-                                @if(!empty($imgs) || !empty($vids))
-                                    <div class="review-media-inline">
-                                        @foreach(array_slice($imgs, 0, 3) as $imgUrl)
-                                            <img src="{{ $imgUrl }}" alt="" class="review-thumb-sm" loading="lazy">
-                                        @endforeach
-                                        @if(count($imgs) > 3)
-                                            <span class="review-media-more">+{{ count($imgs) - 3 }}</span>
-                                        @endif
-                                        @if(!empty($vids))
-                                            <span class="review-media-badge" title="{{ count($vids) }} video(s)">&#9654; {{ count($vids) }}</span>
-                                        @endif
-                                    </div>
-                                @else
-                                    <span class="text-secondary text-xs">&mdash;</span>
-                                @endif
-                            </td>
-                            <td>
-                                @php
-                                    $statusColors = [
-                                        'pending' => '#64748b',
-                                        'pushed'  => '#16a34a',
-                                        'skipped' => '#d97706',
-                                        'error'   => '#dc2626',
-                                    ];
-                                    $sc = $statusColors[$review->oc_sync_status] ?? '#64748b';
-                                @endphp
-                                <span style="display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600; background:{{ $sc }}15; color:{{ $sc }};">
-                                    {{ ucfirst($review->oc_sync_status) }}
-                                </span>
-                            </td>
-                            <td class="d-flex gap-4">
-                                <a href="{{ route('ext.opencart.reviews.show', $review->id) }}" class="btn secondary" style="font-size:11px; padding:2px 8px;">View</a>
-                                @if(in_array($review->oc_sync_status, ['pending', 'error']) && $canManageReviews)
-                                    <form method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" style="display:inline;">
-                                        @csrf
-                                        <button class="btn{{ $review->oc_sync_status === 'error' ? ' danger' : '' }}" style="font-size:11px; padding:2px 8px;" type="submit">{{ $review->oc_sync_status === 'error' ? 'Retry' : 'Push' }}</button>
-                                    </form>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        <div class="mt-16">
-            {{ $reviews->onEachSide(1)->links('vendor.pagination.simple') }}
+    @if($canManage && $pendingCount > 0)
+        <div class="rv-nudge">
+            <span>{{ number_format($pendingCount) }} {{ Str::plural('review', $pendingCount) }} {{ $pendingCount === 1 ? 'has' : 'have' }} not been pushed to OpenCart yet.</span>
+            <x-ui.button type="button"
+                         data-confirm="Push every review that is waiting or that failed? This runs in the background against your OpenCart stores."
+                         data-confirm-submit="rv-push-all">Push them all</x-ui.button>
         </div>
     @endif
+
+    @if($reviews->isEmpty())
+        <x-ui.empty title="{{ $hasFilters ? 'No reviews match those filters' : 'No reviews stored yet' }}"
+                    description="{{ $hasFilters ? 'Try a different search, any rating, or a wider date range.' : 'Use Fetch reviews to pull what Shopee and Lazada already hold for your listings.' }}" />
+    @else
+        {{-- The bulk bar exists only once something is ticked. Its submit
+             button and every row checkbox belong to the same form through
+             the form="" attribute, so the browser collects `ids[]` itself
+             and nothing has to be assembled in JavaScript. --}}
+        @if($canManage)
+        <form method="POST" action="{{ route('ext.opencart.reviews.bulk_push') }}" id="rv-bulk-form"
+              data-confirm="Push the selected reviews to OpenCart?">@csrf</form>
+
+        <div class="rv-bulk" data-bulk-bar hidden>
+            <span class="rv-bulk__count" data-bulk-count>0 reviews selected</span>
+            <x-ui.button variant="primary" type="submit" form="rv-bulk-form">Push selected</x-ui.button>
+        </div>
+        @endif
+
+        <x-ui.table>
+            <x-slot:head>
+                <tr>
+                    @if($canManage)
+                        <th class="rv-col-check">
+                            <input type="checkbox" class="rv-check" data-select-all aria-label="Select every pushable review on this page">
+                        </th>
+                    @endif
+                    <th class="rv-col-date">Reviewed</th>
+                    <th class="rv-col-plat">Channel</th>
+                    <th>Product</th>
+                    <th class="rv-col-rate">Rating</th>
+                    <th>Comment</th>
+                    <th class="rv-col-media">Media</th>
+                    <th class="rv-col-stat">OpenCart</th>
+                    <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+                </tr>
+            </x-slot:head>
+
+            @foreach($reviews as $review)
+                @php
+                    $images = $review->images ?? [];
+                    $videos = $review->videos ?? [];
+                    $canPush = in_array($review->oc_sync_status, $pushable, true);
+                @endphp
+                <tr>
+                    @if($canManage)
+                        <td class="rv-col-check">
+                            @if($canPush)
+                                <input type="checkbox" class="rv-check" data-review-check
+                                       name="ids[]" value="{{ $review->id }}" form="rv-bulk-form"
+                                       aria-label="Select review {{ $review->platform_review_id }}">
+                            @endif
+                        </td>
+                    @endif
+
+                    <td class="rv-col-date x-cell-muted x-num" data-label="Reviewed">
+                        {{-- The row itself is the link. No View button: a View
+                             button on every row is fifty controls doing what
+                             clicking the row already does. --}}
+                        <a class="x-row-link" href="{{ route('ext.opencart.reviews.show', $review->id) }}">
+                            {{ $review->reviewed_at ? $review->reviewed_at->format('Y-m-d') : 'Unknown' }}
+                        </a>
+                    </td>
+                    <td class="rv-col-plat" data-label="Channel">
+                        <x-ui.badge :tone="$review->platform">{{ Str::headline($review->platform) }}</x-ui.badge>
+                    </td>
+                    <td class="x-cell-strong" data-label="Product">{{ $review->product_name ?? 'Not matched to a product' }}</td>
+                    <td class="rv-col-rate" data-label="Rating">
+                        @include('ext-opencart::reviews.partials.stars', ['rating' => $review->rating])
+                    </td>
+                    {{-- Customer-written text. Blade escapes it; it is never
+                         rendered as markup anywhere on either page. --}}
+                    <td data-label="Comment">
+                        <span class="rv-snippet">{{ $review->comment ?: 'No comment' }}</span>
+                    </td>
+                    <td class="rv-col-media" data-label="Media">
+                        @if(!empty($images) || !empty($videos))
+                            <span class="rv-media">
+                                @foreach(array_slice($images, 0, 2) as $image)
+                                    <img class="rv-thumb" src="{{ $image }}" alt="" loading="lazy" referrerpolicy="no-referrer">
+                                @endforeach
+                                @if(count($images) > 2)
+                                    <span class="rv-media__more">+{{ count($images) - 2 }}</span>
+                                @endif
+                                @if(!empty($videos))
+                                    <span class="rv-media__vid" title="{{ count($videos) }} {{ Str::plural('video', count($videos)) }}">
+                                        <x-ui.icon name="chevron-right" size="10" />{{ count($videos) }}
+                                    </span>
+                                @endif
+                            </span>
+                        @else
+                            <span class="rv-none">&ndash;</span>
+                        @endif
+                    </td>
+                    <td class="rv-col-stat" data-label="OpenCart">
+                        <x-ui.badge :tone="ChannelStatusTone::toneFor('opencart.reviews', $review->oc_sync_status)">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</x-ui.badge>
+                    </td>
+                    <td class="x-td-actions">
+                        @if($canManage && $canPush)
+                            <x-ui.menu label="Actions for review {{ $review->platform_review_id }}">
+                                <a class="x-menu__item" href="{{ route('ext.opencart.reviews.show', $review->id) }}">Open</a>
+                                <div class="x-menu__sep"></div>
+                                <button type="submit" class="x-menu__item" form="rv-push-{{ $review->id }}">
+                                    {{ $review->oc_sync_status === 'error' ? 'Try the push again' : 'Push to OpenCart' }}
+                                </button>
+                                <button type="submit" class="x-menu__item" form="rv-skip-{{ $review->id }}">Skip this one</button>
+                            </x-ui.menu>
+                        @endif
+                    </td>
+                </tr>
+            @endforeach
+        </x-ui.table>
+
+        <div class="x-pager">
+            <span class="x-pager__count x-num">{{ number_format($reviews->firstItem() ?? 0) }} to {{ number_format($reviews->lastItem() ?? 0) }} of {{ number_format($reviews->total()) }}</span>
+            <div class="x-pager__nav">
+                <x-ui.button size="sm" :href="$reviews->previousPageUrl()" :disabled="!$reviews->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+                <x-ui.button size="sm" :href="$reviews->nextPageUrl()" :disabled="!$reviews->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+            </div>
+        </div>
+
+        {{-- ===== OUT OF BAND FORMS =====
+             A <form> cannot be nested inside the menu panel it is driven
+             from, and a row's form cannot live inside a <tr> (the browser
+             hoists it out of table markup, which is the structural bug Task
+             2 fixed on the petty cash settings page). Each is rendered only
+             for a review whose state the controller accepts. --}}
+        @if($canManage)
+            @foreach($reviews as $review)
+                @if(in_array($review->oc_sync_status, $pushable, true))
+                    <form id="rv-push-{{ $review->id }}" method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
+                    <form id="rv-skip-{{ $review->id }}" method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" class="x-sr">@csrf</form>
+                @endif
+            @endforeach
+        @endif
+    @endif
+
+    @if($canManage)
+        <form id="rv-push-all" method="POST" action="{{ route('ext.opencart.reviews.push_all') }}" class="x-sr">@csrf</form>
+        <form id="rv-delete-all" method="POST" action="{{ route('ext.opencart.reviews.delete_all') }}" class="x-sr">@csrf</form>
+    @endif
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const selectAll = document.getElementById('selectAll');
-    const bulkForm = document.getElementById('bulkForm');
-    const bulkBtn = document.getElementById('bulkPushBtn');
-    const checkboxes = document.querySelectorAll('.review-cb');
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
-            checkboxes.forEach(cb => cb.checked = this.checked);
-            updateBulkBtn();
-        });
-    }
-
-    checkboxes.forEach(cb => cb.addEventListener('change', updateBulkBtn));
-
-    function updateBulkBtn() {
-        if (!bulkBtn) return;
-        const checked = document.querySelectorAll('.review-cb:checked');
-        bulkBtn.disabled = checked.length === 0;
-        bulkBtn.textContent = checked.length > 0 ? 'Push Selected (' + checked.length + ')' : 'Push Selected';
-    }
-
-    if (bulkForm) {
-        bulkForm.addEventListener('submit', function() {
-            const checked = document.querySelectorAll('.review-cb:checked');
-            checked.forEach(cb => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'ids[]';
-                input.value = cb.value;
-                bulkForm.appendChild(input);
-            });
-        });
-    }
-});
-</script>
 @endsection
