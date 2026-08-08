@@ -425,16 +425,6 @@
         "name": "dashboard"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "dashboard/chart-data",
-        "name": "dashboard.chart_data"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "dashboard/platform-data",
-        "name": "dashboard.platform_data"
-    },
-    {
         "method": "POST",
         "uri": "email/verification-notification",
         "name": "verification.send"
