@@ -1,78 +1,464 @@
 /* ============================================================
-   PETTY CASH
+   PETTY CASH (layouts.shell)
+
+   Two pages: the ledger and the settings screen.
+
+   Petty cash is a money ledger before it is anything else, so the
+   whole page is built around one rule: every figure is monospaced
+   with tabular figures and right-aligned, so a column of amounts
+   lines up on the decimal and a wrong order of magnitude is visible
+   without reading a single digit. Every one of those figures comes
+   out of App\Support\Money, never a bare number_format.
+
+   Colour has one job here: the sign of money. A balance that has
+   gone negative is --danger and nothing else on the page is. Credit
+   and expense are told apart by a leading + or - and by where the
+   entry sits, not by two competing hues, because on a page where
+   half the rows are one type and half the other, colouring both
+   leaves the eye nothing to land on.
    ============================================================ */
-.pc-balance-cards {
+
+.pc-flash { display: grid; gap: var(--space-2); }
+.pc-flash:not(:empty) { margin-bottom: var(--space-4); }
+
+/* ------------------------------------------------------------------
+   Balances
+
+   Not a uniform card stack. The viewer's own balance (or, for an
+   admin, the whole float) is the number the page exists to answer,
+   so it spans and outweighs the rest; individual staff balances are
+   a quiet strip beneath it.
+   ------------------------------------------------------------------ */
+.pc-top {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+    gap: var(--space-6);
+    align-items: start;
+    margin-bottom: var(--space-5);
 }
 
-.pc-balance-card {
+.pc-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-5);
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 16px 20px;
-    transition: box-shadow var(--transition-fast);
 }
 
-.pc-balance-card:hover {
-    box-shadow: var(--shadow-md);
-}
-
-.pc-balance-card .pc-name {
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 8px;
-    color: var(--text-primary);
-}
-
-.pc-balance-card .pc-amount {
-    font-size: 22px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.pc-balance-card .pc-amount.positive { color: var(--success); }
-.pc-balance-card .pc-amount.negative { color: var(--danger); }
-
-.pc-balance-card .pc-detail {
+.pc-hero__k {
     font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 6px;
-    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--text-muted);
 }
 
-.pc-filters {
+.pc-hero__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.pc-hero__v.is-neg { color: var(--danger); }
+
+.pc-hero__sub {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Per-person balances.
+
+   Deliberately NOT a second card beside the first. Two boxes of equal
+   chrome would say the float and one person's share matter equally,
+   and with three people on the list the second box is mostly empty
+   air. This is a quiet reference list on the page's own ground: no
+   border, no fill, just the names and their figures. */
+.pc-people {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, max-content));
+    gap: var(--space-4) var(--space-6);
+    align-content: start;
+    padding: var(--space-5) 0 var(--space-5) var(--space-1);
+}
+
+.pc-person {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    margin-bottom: 16px;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
-.pc-filters label {
+.pc-person__who {
     font-size: 12px;
-    font-weight: 600;
-    display: block;
-    margin-bottom: 2px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.pc-filters .input {
+.pc-person__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 16px;
+    color: var(--text);
+}
+
+.pc-person__v.is-neg { color: var(--danger); }
+
+/* ------------------------------------------------------------------
+   The entry editor
+
+   One panel, two modes (new entry, edit an existing one), opened in
+   place above the ledger rather than in an overlay. It replaces a
+   hand-rolled modal: an overlay that dims the ledger is exactly the
+   wrong thing here, because the number you are about to change is
+   the one you were just reading.
+   ------------------------------------------------------------------ */
+.pc-editor {
+    padding: var(--space-5);
+    margin-bottom: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius-md);
+}
+
+.pc-editor__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.pc-editor__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.pc-editor__close {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
     font-size: 13px;
-}
-
-.pc-type-toggle {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.pc-type-toggle label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    color: var(--text-muted);
     cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
+}
+
+.pc-editor__close:hover { color: var(--text); }
+
+/* Cancel is a <button> here, not a link, because it closes a panel
+   rather than navigating. .fm-cancel only styles colour and size, so on
+   a button the UA border and fill survive and it reads as a second
+   outlined button beside the primary, which is the mixed grammar this
+   design system does not use. */
+button.fm-cancel {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* Two full-width textareas at the shared 120px minimum turn a
+   seven-field panel into a wall of empty boxes. Here they are notes on
+   an entry, not the entry, so they state a shorter minimum. */
+.pc-editor textarea.x-input { min-height: 64px; }
+
+.pc-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+}
+
+.pc-field--wide { grid-column: 1 / -1; }
+
+.pc-editor__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    align-items: center;
+    margin-top: var(--space-4);
+}
+
+/* Credit or expense. A segmented pair rather than two radios: there
+   are exactly two, they are mutually exclusive, and which one is
+   chosen changes the rest of the form. */
+.pc-kind { display: inline-flex; padding: 2px; background: var(--surface-sunken); border-radius: var(--radius-md); }
+
+.pc-kind__opt { position: relative; }
+
+.pc-kind__opt input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.pc-kind__face {
+    display: block;
+    padding: 0 var(--space-4);
+    line-height: calc(var(--control-h-sm) - 2px);
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.pc-kind__opt input:checked + .pc-kind__face {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: var(--shadow-menu);
+}
+
+.pc-kind__opt input:focus-visible + .pc-kind__face {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* Date range filter. Two bare date inputs side by side read as raw
+   browser chrome: both show the same placeholder and neither says which
+   end of the range it is. The pair becomes one bordered control with
+   the words inside it. */
+.pc-dates {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--control-h);
+    padding: 0 var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.pc-dates:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-weak);
+}
+
+.pc-dates__k { font-size: 12px; color: var(--text-muted); flex: 0 0 auto; }
+
+.pc-dates__in {
+    height: calc(var(--control-h) - 2px);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+}
+
+.pc-dates__in:focus { outline: none; }
+.pc-dates__in::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
+.pc-dates__in:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+
+/* The native calendar glyph is drawn dark and stays dark on the dark
+   theme, where it all but disappears against the surface. The whole
+   theme is applied as data-theme on <html> (base/tokens.css), so the
+   same selector shape flips it. */
+:root[data-theme="dark"] .pc-dates__in::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+/* ------------------------------------------------------------------
+   The ledger
+   ------------------------------------------------------------------ */
+.pc-col-date    { width: 108px; }
+.pc-col-kind    { width: 96px; }
+.pc-col-who     { width: 150px; }
+.pc-col-cat     { width: 150px; }
+.pc-col-amount  { width: 132px; }
+.pc-col-balance { width: 140px; }
+
+.pc-amt {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+/* The sign is the whole story on an amount column, so it is carried
+   by the figure itself rather than by a second badge. */
+.pc-amt__sign { color: var(--text-muted); }
+
+.pc-bal {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.pc-bal.is-neg { color: var(--danger); }
+
+.pc-desc {
+    display: block;
+    max-width: 46ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.pc-desc--none { color: var(--text-muted); }
+
+/* Row-level edit disclosure lives outside the table (see the ledger
+   markup): a <details> inside a <td> would restack badly and a form
+   inside a row cannot be nested at all. */
+
+/* ------------------------------------------------------------------
+   Settings
+   ------------------------------------------------------------------ */
+.pc-settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.pc-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.pc-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.pc-panel__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.pc-panel__note { margin: var(--space-1) 0 0; font-size: 12px; color: var(--text-muted); max-width: 68ch; }
+
+.pc-panel__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-top: 1px solid var(--border);
+    background: var(--canvas);
+}
+
+.pc-panel__body { padding: var(--space-5); }
+
+/* A role is one choice out of two per person, so the list is rows of
+   name plus control, not a table with a header that says "User". */
+.pc-roles { display: grid; gap: 0; }
+
+.pc-role {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 176px;
+    gap: var(--space-4);
+    align-items: center;
+    padding: var(--space-2) var(--space-5);
+}
+
+.pc-role + .pc-role { border-top: 1px solid var(--border); }
+.pc-role__who { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+
+/* Categories: name, order, status, save. Each row is its own form,
+   attached with the form= attribute because a <form> cannot be a
+   child of <tr>. */
+.pc-cats__head,
+.pc-cat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px 120px 92px 28px;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2) var(--space-5);
+}
+
+.pc-cats__head {
+    background: var(--canvas);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.pc-cat + .pc-cat { border-top: 1px solid var(--border); }
+
+.pc-cat__name { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+
+/* The `hidden` attribute is only a UA display rule and .x-btn sets
+   display: inline-flex, which out-specifies it. Without this opt-out
+   the per-row Save never hides and the reveal-on-change does nothing.
+   Exactly the trap that cost Round D Task 1 a round. */
+.pc-cat [data-pc-cat-save][hidden] { display: none; }
+
+.pc-add {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-end;
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-5);
+    border-top: 1px solid var(--border);
+    background: var(--canvas);
+}
+
+.pc-add__field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.pc-add__field--grow { flex: 1 1 220px; }
+.pc-add__field--num { flex: 0 0 108px; }
+.pc-add__label { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+.pc-cat:hover .x-menu__trigger,
+.pc-cat:focus-within .x-menu__trigger,
+.pc-panel__head .x-menu__trigger { opacity: 1; }
+
+/* ------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------ */
+@media (max-width: 900px) {
+    .pc-top { grid-template-columns: minmax(0, 1fr); }
+    .pc-people { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+    .pc-cats__head { display: none; }
+
+    .pc-cat {
+        grid-template-columns: minmax(0, 1fr) 28px;
+        row-gap: var(--space-2);
+        padding: var(--space-3) var(--space-4);
+        align-items: start;
+    }
+
+    .pc-cat > *:nth-child(n + 2):not(.x-menu) { grid-column: 1 / -1; }
+
+    .pc-cat > [data-label]::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .pc-role { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+
+    .pc-desc { max-width: none; white-space: normal; }
+}
+
+@media (max-width: 640px) {
+    .pc-hero__v { font-size: 26px; }
+    .pc-editor__actions { flex-direction: column-reverse; align-items: stretch; }
 }

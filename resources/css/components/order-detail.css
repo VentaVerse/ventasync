@@ -508,8 +508,13 @@ a.od-item__name:hover { color: var(--accent); }
 .od-pay:hover .x-menu__trigger { opacity: 1; }
 
 /* A card header has no row to hover, so its menu is always visible. It is
-   a neutral kebab, not a standing destructive control. */
-.od-card__head .x-menu__trigger { opacity: 1; }
+   a neutral kebab, not a standing destructive control. The page header is
+   the same case: .x-menu__trigger rests at opacity 0 and its only reveal
+   rule is `.x-table tbody tr:hover`, which never matches here, so without
+   this line the overflow menu beside the record's primary action is
+   invisible and every action inside it is unreachable with a mouse. */
+.od-card__head .x-menu__trigger,
+.od-head__actions .x-menu__trigger { opacity: 1; }
 
 /* ------------------------------------------------------------------
    Side column cards. Raised surfaces: reference panels, not the subject.

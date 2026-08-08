@@ -502,9 +502,13 @@ textarea.x-input {
 
 .fm-switch__text { min-width: 0; }
 
-.fm-switch__label { font-size: 13px; font-weight: 500; color: var(--text); }
+/* Both are spans, so without an explicit display they run together on
+   one line and the note reads as a continuation of the label. The
+   margin-top below has always assumed otherwise. Only visible on a
+   switch whose note is longer than a few words. */
+.fm-switch__label { display: block; font-size: 13px; font-weight: 500; color: var(--text); }
 
-.fm-switch__note { margin-top: 2px; font-size: 11px; color: var(--text-muted); }
+.fm-switch__note { display: block; margin-top: 2px; font-size: 11px; color: var(--text-muted); }
 
 /* ------------------------------------------------------------------
    Typeahead. Same behaviour the legacy components/typeahead.css drove,

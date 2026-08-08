@@ -20,9 +20,11 @@ import './pages/group-form';
 import './pages/group-products';
 import './pages/purchasing';
 import './pages/product-vendors';
+import './pages/warehousing';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';
+import pettyCash from './pages/petty-cash';
 
 import Alpine from 'alpinejs';
 
@@ -38,4 +40,5 @@ initNavGroups();
 
 window.Alpine = Alpine;
 Alpine.data('xenonPalette', xenonPalette);
+Alpine.data('pettyCash', pettyCash);
 Alpine.start();

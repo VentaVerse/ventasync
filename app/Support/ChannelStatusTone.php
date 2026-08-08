@@ -195,6 +195,36 @@ class ChannelStatusTone
             'CANCELLED'          => 'danger',
             'VOIDED'             => 'danger',
         ],
+
+        // Warehouse transfers. The lifecycle is written down in CLAUDE.md and
+        // enforced by WarehouseTransferController, which refuses every
+        // transition from the wrong state:
+        //
+        //   draft        editable, deletable, no stock has moved
+        //   in_progress  locked, no stock has moved yet, cancellable
+        //   completed    stock has moved, voidable (a void reverses it)
+        //   cancelled / voided   terminal
+        //
+        // Exactly one status takes the accent: in_progress. That is the only
+        // state with an unfinished physical job behind it - somebody has
+        // committed to moving goods and the stock has not moved yet, so the
+        // system and the shelf disagree until a human finishes it. It is also
+        // the only state the operator cannot leave alone: draft can sit
+        // forever harmlessly, completed is done.
+        //
+        // draft is neutral for the same reason it is on purchase orders: it is
+        // a scratchpad, drafts accumulate, and accenting them would drown the
+        // one state that genuinely needs a hand.
+        // completed recedes rather than taking success, because "the stock
+        // moved three weeks ago" and "move this stock now" must not be the
+        // same colour. cancelled and voided both ended the record.
+        'warehousing.transfers' => [
+            'DRAFT'       => 'neutral',
+            'IN_PROGRESS' => 'success',
+            'COMPLETED'   => 'neutral',
+            'CANCELLED'   => 'danger',
+            'VOIDED'      => 'danger',
+        ],
     ];
 
     /**
@@ -301,6 +331,19 @@ class ChannelStatusTone
             'RECEIVED'           => 'Received',
             'CANCELLED'          => 'Cancelled',
             'VOIDED'             => 'Voided',
+        ],
+
+        // The pre-redesign views disagreed with each other about what
+        // `in_progress` is called: the transfers list said "Approved", the
+        // transfer record said "In Progress", and the same row therefore
+        // changed its name when you clicked it. CLAUDE.md's lifecycle calls
+        // it In Progress, so that is the one name, in the one place.
+        'warehousing.transfers' => [
+            'DRAFT'       => 'Draft',
+            'IN_PROGRESS' => 'In progress',
+            'COMPLETED'   => 'Completed',
+            'CANCELLED'   => 'Cancelled',
+            'VOIDED'      => 'Voided',
         ],
     ];
 
