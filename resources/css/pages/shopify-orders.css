@@ -1,0 +1,72 @@
+/* Shopify Orders, per store.
+   -------------------------------------------------------------------
+   The shared anatomy this page is drawn on lives in
+   components/channel-orders.css under the `co-` prefix: the command bar, the
+   order band, the item rows, the money and status cells, the actions cell
+   and the mobile restack are the same picture every other channel draws, so
+   they are the same rules rather than a copy of them.
+
+   What is here is Shopify's own, and takes an `sf-` prefix so it can never
+   collide with another channel's page file: this channel's column widths and
+   the two viewport ranges where its column cut needs help.
+
+   Nothing here carries a colour of its own. Store identity is carried by the
+   sidebar head and the breadcrumb, which already name the store, and the
+   accent is spent on the one thing that needs a human: an order still to
+   pack. See the shopify.fulfilment map in App\Support\ChannelStatusTone.
+   ------------------------------------------------------------------- */
+
+/* Products | Qty | Price | Amount | Payment | Fulfilment | Date | Actions,
+   with the order facts banded above each order's item rows.
+
+   Percentages summing to 100, so the table's spare width spreads across
+   every column proportionally instead of pooling in one of them.
+
+   Two status columns, which no other channel has, because a Shopify order
+   genuinely carries two independent states: the money and the goods. They
+   are the same width as each other so neither reads as the more important
+   one; which one matters is the operator's question, not the table's. */
+.sf-col-products { width: 34%; }
+.sf-col-qty      { width: 5%; }
+.sf-col-price    { width: 9%; }
+.sf-col-total    { width: 10%; }
+.sf-col-pay      { width: 12%; }
+.sf-col-status   { width: 12%; }
+/* "2026-08-06 19:00" is sixteen mono characters and must not wrap: a
+   timestamp broken across two lines stops being one value and starts looking
+   like two. Same share Venta's page measured for the same string at the same
+   size. */
+.sf-col-date     { width: 13%; }
+/* Actions holds one overflow trigger, a 24px square. Everything the column
+   does not need goes to Products. */
+.sf-col-act      { width: 5%; }
+
+/* ------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------ */
+
+/* Between the mobile restack and a comfortable desktop width the fixed
+   columns leave too little for Products. Payment comes off first: it is the
+   one column here that is also on the sales order this row links to, so it
+   is the one the operator has somewhere else to read. Fulfilment never
+   comes off, because it is the reason this page is open. */
+@media (min-width: 641px) and (max-width: 1000px) {
+    .sf-col-pay { display: none; }
+    #shopify-orders-page .x-table td[data-label="Payment"] { display: none; }
+}
+
+/* Once the row restacks there are no columns left to align on, so a
+   right-aligned figure just floats away from its own label. Same rule and
+   the same scoping as every other channel's page file carries; unifying all
+   six belongs to the review round that can verify every channel at once. */
+@media (max-width: 640px) {
+    #shopify-orders-page .x-table tbody td.x-td-num { text-align: left; }
+}
+
+/* The payload dialog is a wall of JSON, so it gets a bounded height of its
+   own and scrolls inside itself rather than growing the dialog past the
+   viewport. .cs-pre supplies the face; this supplies the box. */
+#sfPayloadModal .cs-pre {
+    max-height: 60vh;
+    overflow: auto;
+}

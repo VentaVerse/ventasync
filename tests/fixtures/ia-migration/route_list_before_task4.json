@@ -1095,6 +1095,191 @@
         "name": "integrations.orders"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/categories",
+        "name": "ext.pedallion.categories.index"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/categories/fetch",
+        "name": "ext.pedallion.categories.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/categories/fetch-order-statuses",
+        "name": "ext.pedallion.fetch_order_statuses"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/categories/manufacturers/fetch",
+        "name": "ext.pedallion.manufacturers.fetch"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/categories/order-status-map",
+        "name": "ext.pedallion.order_status_map"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/orders",
+        "name": "ext.pedallion.orders.index"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/orders/{id}",
+        "name": "ext.pedallion.orders.show"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/product-groups",
+        "name": "ext.pedallion.product-groups.index"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/product-groups",
+        "name": "ext.pedallion.product-groups.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/product-groups/create",
+        "name": "ext.pedallion.product-groups.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "integrations/pedallion/product-groups/{id}",
+        "name": "ext.pedallion.product-groups.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "integrations/pedallion/product-groups/{id}",
+        "name": "ext.pedallion.product-groups.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/product-groups/{id}/edit",
+        "name": "ext.pedallion.product-groups.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/product-groups/{id}/products",
+        "name": "ext.pedallion.product-groups.products"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/product-groups/{id}/sync-products",
+        "name": "ext.pedallion.product-groups.sync_products"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/products",
+        "name": "ext.pedallion.products.index"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/bulk-delete",
+        "name": "ext.pedallion.products.bulk_delete"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/bulk-push",
+        "name": "ext.pedallion.products.bulk_push"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/bulk-sync",
+        "name": "ext.pedallion.products.bulk_sync"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/bulk-sync-price",
+        "name": "ext.pedallion.products.bulk_sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/bulk-sync-qty",
+        "name": "ext.pedallion.products.bulk_sync_qty"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/bulk-unlink",
+        "name": "ext.pedallion.products.bulk_unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/link",
+        "name": "ext.pedallion.products.link"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/push-qty",
+        "name": "ext.pedallion.products.push_qty"
+    },
+    {
+        "method": "DELETE",
+        "uri": "integrations/pedallion/products/{id}/unlink",
+        "name": "ext.pedallion.products.unlink"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/{productId}/delete",
+        "name": "ext.pedallion.products.delete"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/{productId}/push",
+        "name": "ext.pedallion.products.push"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/{productId}/sync",
+        "name": "ext.pedallion.products.sync"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/{productId}/sync-price",
+        "name": "ext.pedallion.products.sync_price"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/products/{productId}/sync-qty",
+        "name": "ext.pedallion.products.sync_qty"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/pedallion/settings",
+        "name": "ext.pedallion.index"
+    },
+    {
+        "method": "DELETE",
+        "uri": "integrations/pedallion/settings/api-logs",
+        "name": "ext.pedallion.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/settings/explorer/run",
+        "name": "ext.pedallion.explorer_run"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/settings/save",
+        "name": "ext.pedallion.save"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/settings/sync-days",
+        "name": "ext.pedallion.sync_days"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/settings/test",
+        "name": "ext.pedallion.test"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/pedallion/settings/toggle-logging",
+        "name": "ext.pedallion.toggle_logging"
+    },
+    {
         "method": "DELETE",
         "uri": "integrations/shopee/api-logs",
         "name": "ext.shopee.clear_api_logs"
@@ -1483,6 +1668,61 @@
         "method": "POST",
         "uri": "integrations/shopee/token/refresh",
         "name": "ext.shopee.token_refresh"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopify/save",
+        "name": "ext.shopify.save"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/shopify/settings",
+        "name": "ext.shopify.index"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopify/stores",
+        "name": "ext.shopify.stores.store"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopify/test",
+        "name": "ext.shopify.test"
+    },
+    {
+        "method": "DELETE",
+        "uri": "integrations/shopify/{id}",
+        "name": "ext.shopify.destroy"
+    },
+    {
+        "method": "DELETE",
+        "uri": "integrations/shopify/{id}/api-logs",
+        "name": "ext.shopify.clear_api_logs"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopify/{id}/toggle-api-logging",
+        "name": "ext.shopify.toggle_api_logging"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/shopify/{store}/orders",
+        "name": "ext.shopify.orders.index"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopify/{store}/orders/fetch",
+        "name": "ext.shopify.orders.fetch"
+    },
+    {
+        "method": "DELETE",
+        "uri": "integrations/shopify/{store}/orders/{order}",
+        "name": "ext.shopify.orders.destroy"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/shopify/{store}/settings",
+        "name": "ext.shopify.settings.show"
     },
     {
         "method": "DELETE",
@@ -1972,187 +2212,27 @@
     {
         "method": "GET|HEAD",
         "uri": "pedallion",
-        "name": "ext.pedallion.index"
-    },
-    {
-        "method": "DELETE",
-        "uri": "pedallion/api-logs",
-        "name": "ext.pedallion.clear_api_logs"
+        "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "pedallion/categories",
-        "name": "ext.pedallion.categories.index"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/categories/fetch",
-        "name": "ext.pedallion.categories.fetch"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/explorer/run",
-        "name": "ext.pedallion.explorer_run"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/fetch-order-statuses",
-        "name": "ext.pedallion.fetch_order_statuses"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/manufacturers/fetch",
-        "name": "ext.pedallion.manufacturers.fetch"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/order-status-map",
-        "name": "ext.pedallion.order_status_map"
+        "uri": "pedallion/categories/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "pedallion/orders",
-        "name": "ext.pedallion.orders.index"
+        "uri": "pedallion/orders/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "pedallion/orders/{id}",
-        "name": "ext.pedallion.orders.show"
+        "uri": "pedallion/product-groups/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "pedallion/product-groups",
-        "name": "ext.pedallion.product-groups.index"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/product-groups",
-        "name": "ext.pedallion.product-groups.store"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "pedallion/product-groups/create",
-        "name": "ext.pedallion.product-groups.create"
-    },
-    {
-        "method": "DELETE",
-        "uri": "pedallion/product-groups/{id}",
-        "name": "ext.pedallion.product-groups.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "pedallion/product-groups/{id}",
-        "name": "ext.pedallion.product-groups.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "pedallion/product-groups/{id}/edit",
-        "name": "ext.pedallion.product-groups.edit"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "pedallion/product-groups/{id}/products",
-        "name": "ext.pedallion.product-groups.products"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/product-groups/{id}/sync-products",
-        "name": "ext.pedallion.product-groups.sync_products"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "pedallion/products",
-        "name": "ext.pedallion.products.index"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/bulk-delete",
-        "name": "ext.pedallion.products.bulk_delete"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/bulk-push",
-        "name": "ext.pedallion.products.bulk_push"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/bulk-sync",
-        "name": "ext.pedallion.products.bulk_sync"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/bulk-sync-price",
-        "name": "ext.pedallion.products.bulk_sync_price"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/bulk-sync-qty",
-        "name": "ext.pedallion.products.bulk_sync_qty"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/bulk-unlink",
-        "name": "ext.pedallion.products.bulk_unlink"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/link",
-        "name": "ext.pedallion.products.link"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/push-qty",
-        "name": "ext.pedallion.products.push_qty"
-    },
-    {
-        "method": "DELETE",
-        "uri": "pedallion/products/{id}/unlink",
-        "name": "ext.pedallion.products.unlink"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/{productId}/delete",
-        "name": "ext.pedallion.products.delete"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/{productId}/push",
-        "name": "ext.pedallion.products.push"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/{productId}/sync",
-        "name": "ext.pedallion.products.sync"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/{productId}/sync-price",
-        "name": "ext.pedallion.products.sync_price"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/products/{productId}/sync-qty",
-        "name": "ext.pedallion.products.sync_qty"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/save",
-        "name": "ext.pedallion.save"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/sync-days",
-        "name": "ext.pedallion.sync_days"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/test",
-        "name": "ext.pedallion.test"
-    },
-    {
-        "method": "POST",
-        "uri": "pedallion/toggle-logging",
-        "name": "ext.pedallion.toggle_logging"
+        "uri": "pedallion/products/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -2877,57 +2957,17 @@
     {
         "method": "GET|HEAD",
         "uri": "shopify",
-        "name": "ext.shopify.index"
-    },
-    {
-        "method": "POST",
-        "uri": "shopify/save",
-        "name": "ext.shopify.save"
+        "name": null
     },
     {
         "method": "GET|HEAD",
         "uri": "shopify/settings/{store}",
-        "name": "ext.shopify.settings.show"
-    },
-    {
-        "method": "POST",
-        "uri": "shopify/stores",
-        "name": "ext.shopify.stores.store"
-    },
-    {
-        "method": "POST",
-        "uri": "shopify/test",
-        "name": "ext.shopify.test"
-    },
-    {
-        "method": "DELETE",
-        "uri": "shopify/{id}",
-        "name": "ext.shopify.destroy"
-    },
-    {
-        "method": "DELETE",
-        "uri": "shopify/{id}/api-logs",
-        "name": "ext.shopify.clear_api_logs"
-    },
-    {
-        "method": "POST",
-        "uri": "shopify/{id}/toggle-api-logging",
-        "name": "ext.shopify.toggle_api_logging"
+        "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "shopify/{store}/orders",
-        "name": "ext.shopify.orders.index"
-    },
-    {
-        "method": "POST",
-        "uri": "shopify/{store}/orders/fetch",
-        "name": "ext.shopify.orders.fetch"
-    },
-    {
-        "method": "DELETE",
-        "uri": "shopify/{store}/orders/{order}",
-        "name": "ext.shopify.orders.destroy"
+        "uri": "shopify/{store}/{any}",
+        "name": null
     },
     {
         "method": "GET|HEAD",

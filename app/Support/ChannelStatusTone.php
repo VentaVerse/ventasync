@@ -131,6 +131,78 @@ class ChannelStatusTone
             'CANCELLED'            => 'danger',
         ],
 
+        // Pedallion orders. Keys are exactly the statuses this extension
+        // itself names: the three PedallionExtension's unprocessedCounter
+        // treats as waiting (pending, processing, awaiting_shipment) plus the
+        // eight the pre-redesign view's own badge match enumerated. Pedallion
+        // publishes its status list through GET /references, so an operator
+        // can fetch a status this map has never heard of; that falls through
+        // to neutral and prints itself legibly, which is the deliberate
+        // behaviour rather than a gap.
+        //
+        // NO status here takes the accent, and that is a fact about the page
+        // rather than an oversight: extensions/pedallion/routes/web.php
+        // declares no order write route at all (its own comment says so), so
+        // there is nothing on this surface that is the operator's move and
+        // spending the accent would be spending it on nothing. Same call
+        // shopee.returns and reports.payouts already made.
+        //
+        // The four seller-side stages take warning rather than info because
+        // the party holding the order up is the seller's own desk, which is
+        // exactly the line this file draws between the two tones.
+        'pedallion.orders' => [
+            'PENDING'            => 'warning',
+            'PROCESSING'         => 'warning',
+            'AWAITING_SHIPMENT'  => 'warning',
+            'READY_TO_SHIP'      => 'warning',
+            'SHIPPED'            => 'info',
+            'DELIVERED'          => 'neutral',
+            'COMPLETED'          => 'neutral',
+            'PAID'               => 'neutral',
+            'CANCELLED'          => 'danger',
+            'REFUNDED'           => 'danger',
+            'FAILED'             => 'danger',
+        ],
+
+        // Shopify carries TWO independent status vocabularies on one order,
+        // which is why it gets two surfaces rather than one: a payment state
+        // and a fulfilment state, and an order can be paid and unfulfilled or
+        // unpaid and fulfilled. Merging them would mean inventing a combined
+        // status Shopify never sends.
+        //
+        // Keys are exactly the seven values ShopifyOrderController::index()
+        // offers as a financial filter, which are Shopify's own documented
+        // financial_status set.
+        //
+        // NO accent here. This is the record of what the buyer's money has
+        // done; the page's own accent belongs to the fulfilment column below,
+        // which is the column a packer actually reads, and one page spends
+        // the accent once.
+        'shopify.payment' => [
+            'PAID'               => 'neutral',
+            'AUTHORIZED'         => 'warning',
+            'PENDING'            => 'warning',
+            'PARTIALLY_PAID'     => 'warning',
+            'REFUNDED'           => 'danger',
+            'PARTIALLY_REFUNDED' => 'danger',
+            'VOIDED'             => 'danger',
+        ],
+
+        // Shopify fulfilment. Shopify sends NULL for an unfulfilled order
+        // rather than a word, and the controller's own filter spells that
+        // null as the string "unfulfilled", so that is the key here too and
+        // the view normalises a null to it before asking.
+        //
+        // The accent is spent on the two states with goods still to go out.
+        // This list is the seller's packing list: it is why a fulfilment
+        // operator opens the page, and it is what the channel's own
+        // unprocessed counter on the fulfilment hub is counting.
+        'shopify.fulfilment' => [
+            'UNFULFILLED' => 'success',
+            'PARTIAL'     => 'success',
+            'FULFILLED'   => 'neutral',
+        ],
+
         // Lazada returns. Keys cover every string
         // LazadaOrderController::returns()'s own $tabStatusMap matches on,
         // including the spaced spellings Lazada sends ("return initiated"),
@@ -331,6 +403,46 @@ class ChannelStatusTone
             'DELIVERED'            => 'Delivered',
             'COMPLETED'            => 'Completed',
             'CANCELLED'            => 'Cancelled',
+        ],
+
+        // Pedallion's statuses arrive as lowercase slugs from its own
+        // /references endpoint. Each one is said in the words a packing desk
+        // uses, the same words the other channels' labels use for the same
+        // physical state, so "shipped" reads identically wherever it appears.
+        'pedallion.orders' => [
+            'PENDING'            => 'To process',
+            'PROCESSING'         => 'Processing',
+            'AWAITING_SHIPMENT'  => 'To pack',
+            'READY_TO_SHIP'      => 'To hand over',
+            'SHIPPED'            => 'Shipped',
+            'DELIVERED'          => 'Delivered',
+            'COMPLETED'          => 'Completed',
+            'PAID'               => 'Paid',
+            'CANCELLED'          => 'Cancelled',
+            'REFUNDED'           => 'Refunded',
+            'FAILED'             => 'Failed',
+        ],
+
+        // Shopify's own constants read almost as English already; what they
+        // needed was consistent casing and the two multi-word ones saying
+        // what they mean rather than joining two words with an underscore.
+        'shopify.payment' => [
+            'PAID'               => 'Paid',
+            'AUTHORIZED'         => 'Authorised',
+            'PENDING'            => 'Unpaid',
+            'PARTIALLY_PAID'     => 'Partly paid',
+            'REFUNDED'           => 'Refunded',
+            'PARTIALLY_REFUNDED' => 'Partly refunded',
+            'VOIDED'             => 'Voided',
+        ],
+
+        // "Unfulfilled" is Shopify's word for "nothing has shipped", which is
+        // "To pack" in the words this application already uses for that state
+        // on Lazada and TikTok. "Partly packed" says which half is done.
+        'shopify.fulfilment' => [
+            'UNFULFILLED' => 'To pack',
+            'PARTIAL'     => 'Partly packed',
+            'FULFILLED'   => 'Packed',
         ],
 
         'lazada.returns' => [

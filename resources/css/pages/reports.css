@@ -2,14 +2,14 @@
    REPORTS
    ============================================================
 
-   Two things live in this file.
+   One thing lives in this file now: `.rp-*`, the report anatomy on
+   layouts.shell (Round D, Task 3).
 
-   1. `.report-stat-*` (bottom of the file), the LEGACY stat card grid.
-      Only extensions/shopify/views/orders/index.blade.php still renders
-      it, and that page is still on layouts.app. It stays until that page
-      moves. Nothing new should use it.
-
-   2. `.rp-*`, the report anatomy on layouts.shell (Round D, Task 3).
+   It used to carry a second half, the legacy `.report-stat-*` card grid,
+   kept alive by one page: extensions/shopify/views/orders/index.blade.php,
+   which was still on layouts.app. Round F Task 2 rebuilt that page on the
+   shared `co-` order anatomy, a repo-wide grep for `report-stat-` returned
+   nothing outside this file, and the dead half was deleted with it.
 
    -----------------------------------------------------------------
    What the `rp-` anatomy is for, and the decisions behind it
@@ -653,49 +653,3 @@
 .rp-pos  { color: var(--accent); }
 .rp-neg  { color: var(--danger); }
 .rp-warn { color: var(--warning); }
-
-/* ============================================================
-   LEGACY stat cards. extensions/shopify/views/orders/index.blade.php
-   only, still on layouts.app. Delete with that page.
-   ============================================================ */
-.report-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-}
-.report-stat-card {
-    background: var(--surface-alt);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 16px 20px;
-    text-align: center;
-    min-width: 0;
-}
-.report-stat-label {
-    font-size: 12px; color: var(--text-secondary);
-    text-transform: uppercase; font-weight: 600;
-    letter-spacing: .5px; margin-bottom: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.report-stat-value {
-    font-size: 22px; font-weight: 700; color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-@media (max-width: 1024px) {
-    .report-stat-grid { grid-template-columns: repeat(3, 1fr); }
-    .report-stat-card { padding: 12px 14px; }
-    .report-stat-value { font-size: 17px; }
-    .report-stat-label { font-size: 11px; }
-}
-@media (max-width: 768px) {
-    .report-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .report-stat-card { padding: 10px 12px; }
-    .report-stat-value { font-size: 15px; }
-    .report-stat-label { font-size: 10px; letter-spacing: .3px; }
-}

@@ -618,9 +618,12 @@ class ChannelWorkspace
      *    clock, so token expiry reads as not tracked rather than as a
      *    fabricated date;
      *  - pedallion_api_logs has no `ok` column (see its migration), only a
-     *    status_code, so a failure is a response outside the 2xx range. A
-     *    status_code of 0 is what the client writes when the request never
-     *    got an answer at all, which is a failure too and is counted as one.
+     *    status_code, so a failure is `status_code >= 400`. That is exactly
+     *    the test IntegrationController@index applies to the same table for
+     *    the same figure on the status board, and it is stated here as a
+     *    mirror rather than an independent judgement: two definitions of
+     *    "error" over one table is how the board and this page come to
+     *    disagree about the same channel on the same screen.
      *
      * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
      */
@@ -636,9 +639,7 @@ class ChannelWorkspace
             'errors24h' => ((bool) ($row?->logging_enabled ?? false))
                 ? DB::table('pedallion_api_logs')
                     ->where('created_at', '>=', Carbon::now()->subHours(24))
-                    ->where(function ($w) {
-                        $w->where('status_code', '<', 200)->orWhere('status_code', '>=', 300);
-                    })
+                    ->where('status_code', '>=', 400)
                     ->count()
                 : null,
         ];

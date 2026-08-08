@@ -144,6 +144,13 @@ function initLoggingToggle(root) {
     const token = document.querySelector('meta[name=csrf-token]');
     if (!url || !token) return;
 
+    // The three marketplace channels' endpoints read `api_logging`;
+    // Pedallion's column and its controller both say `logging_enabled`. The
+    // field name is the wire, so it is declared by the page rather than
+    // assumed here, and it defaults to what the first three channels send so
+    // none of their markup changes.
+    const field = box.getAttribute('data-field') || 'api_logging';
+
     function paint(enabled) {
         if (label) label.textContent = enabled ? 'Recording' : 'Not recording';
     }
@@ -159,7 +166,7 @@ function initLoggingToggle(root) {
                 'X-CSRF-TOKEN': token.content,
                 Accept: 'application/json',
             },
-            body: JSON.stringify({ api_logging: enabled ? 1 : 0 }),
+            body: JSON.stringify({ [field]: enabled ? 1 : 0 }),
         })
             .then(function (response) {
                 if (!response.ok) throw new Error('save failed');

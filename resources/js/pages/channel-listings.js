@@ -58,10 +58,24 @@ function makeProgress(overlaySelector) {
    Bulk actions.
    ------------------------------------------------------------------ */
 
-function tickedIds() {
+/**
+ * The ids the ticked rows contribute for one bulk form.
+ *
+ * By default that is each checkbox's own value, which is what every channel
+ * whose bulk endpoints all take the same kind of id needs.
+ *
+ * `attr` names a data attribute to read instead, for a page whose endpoints
+ * do not all speak the same id. Pedallion is the one such page: four of its
+ * six bulk endpoints take `link_ids[]` (rows that are actually linked to
+ * Pedallion) and two take `product_ids[]` (any catalogue product). A row with
+ * no link contributes nothing to the first group, which is why blanks are
+ * dropped here rather than posted as empty strings for the server to reject.
+ */
+function tickedIds(attr) {
     return Array.from(document.querySelectorAll('[data-row-check]'))
         .filter((box) => box.checked)
-        .map((box) => box.value);
+        .map((box) => (attr ? (box.getAttribute(attr) || '') : box.value))
+        .filter((id) => String(id) !== '');
 }
 
 function injectIds(form, ids, fieldName) {
@@ -86,20 +100,29 @@ function initBulkForms(config, showProgress) {
 
             e.preventDefault();
 
-            const ids = tickedIds();
+            // Both default to the page's own single answer, so a channel
+            // whose endpoints all take the same kind of id declares nothing
+            // per form and nothing about its markup changes.
+            const field = form.getAttribute('data-bulk-field') || config.bulkField;
+            const attr = form.getAttribute('data-bulk-attr') || '';
+
+            const ids = tickedIds(attr);
             if (!ids.length) {
-                // The bar is x-show'd on a non-empty selection, so this is
-                // unreachable in normal use. It stays as the guard both
-                // originals had, because a bulk POST with no ids would
-                // otherwise round-trip to the server to be told the same.
+                // With no attribute this is unreachable in normal use (the bar
+                // is x-show'd on a non-empty selection) and stays as the guard
+                // both originals had. With one it is genuinely reachable: the
+                // operator ticked rows that carry no link, and the message
+                // says which rows this action needs rather than letting the
+                // POST round-trip to be refused.
+                const message = form.getAttribute('data-bulk-empty') || config.emptyMessage;
                 if (typeof window.showFlashError === 'function') {
-                    window.showFlashError(config.emptyMessage);
+                    window.showFlashError(message);
                 }
                 return;
             }
 
             const submit = function () {
-                injectIds(form, ids, config.bulkField);
+                injectIds(form, ids, field);
                 showProgress(config.bulkTitle(ids.length));
                 const button = form.querySelector('button[type="submit"]');
                 if (button) button.disabled = true;

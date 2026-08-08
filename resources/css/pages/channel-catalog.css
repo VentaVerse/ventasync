@@ -415,6 +415,16 @@
    listings pages put it. */
 .x-list-head + .cc-unmatched { margin-top: 0; }
 
+/* Two head actions (a secondary control beside a primary one). `.x-list-head`
+   is a two-child flex, so a page with more than one needs a wrapper, the same
+   one pages/settings.css writes as `.st-head-actions` for the same reason. */
+.cc-head-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
 .cc-unmatched .x-table tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
 
 .cc-col-link { width: 340px; }

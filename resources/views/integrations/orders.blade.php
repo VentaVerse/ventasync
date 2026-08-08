@@ -265,6 +265,31 @@
                 'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
+    @elseif($selectedChannelBase === 'shopify')
+        {{-- Same shape as Venta's, and the same id the store's own seller
+             center carries so resources/js/pages/shopify-orders.js (the raw
+             payload dialog) binds here unchanged. --}}
+        <div class="x-fh-panel co-page" id="shopify-orders-page">
+            <div class="x-fh-panel__scope">
+                <span class="x-fh-panel__scope-label">Store</span>
+                <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
+            </div>
+            @include('ext-shopify::orders._panel', [
+                'panelBaseUrl' => route('integrations.orders'),
+                'panelHiddenParams' => ['channel' => $selectedChannel],
+            ])
+        </div>
+    @elseif($selectedChannelBase === 'pedallion')
+        {{-- Single-store, so no store line above it: the channel name on the
+             card that was clicked is the whole of the scope. Same id its own
+             seller center carries, which is what the page CSS scopes its
+             responsive rules to. --}}
+        <div class="x-fh-panel co-page" id="pedallion-orders-page">
+            @include('ext-pedallion::orders._panel', [
+                'panelBaseUrl' => route('integrations.orders'),
+                'panelHiddenParams' => ['channel' => 'pedallion'],
+            ])
+        </div>
     @else
         <section class="x-fh-sec">
             <header class="x-fh-sec__head">

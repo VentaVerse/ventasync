@@ -37,6 +37,8 @@ class IntegrationController extends Controller
         'tiktok'   => \Extensions\tiktok\Services\TikTokOrdersPanel::class,
         'venta'    => \Extensions\venta\Services\VentaOrdersPanel::class,
         'opencart' => \Extensions\opencart\Services\OpenCartOrdersPanel::class,
+        'shopify'  => \Extensions\shopify\Services\ShopifyOrdersPanel::class,
+        'pedallion' => \Extensions\pedallion\Services\PedallionOrdersPanel::class,
     ];
 
     /**
@@ -46,7 +48,7 @@ class IntegrationController extends Controller
      * single-store channel can never be handed a store and a multi-store one
      * can never be rendered without one.
      */
-    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart'];
+    private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify'];
 
     /**
      * The panel class and store id for an order-tab id, or null when that

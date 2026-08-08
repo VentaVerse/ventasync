@@ -1,6 +1,6 @@
 /*
- * Store settings: the shared behaviour the two multi-store channels' settings
- * pages need (Venta and OpenCart).
+ * Store settings: the shared behaviour the multi-store channels' settings
+ * pages need (Venta, OpenCart and, from Round F, Shopify).
  *
  * Round C Task 3 rebuilt extensions/venta/views/settings/index.blade.php and
  * extensions/opencart/views/index.blade.php on the design tokens and took them
@@ -21,6 +21,11 @@
  *                            request below sends it, which is what keeps store
  *                            1's actions off store 2's row.
  *   data-test-url            POST {store_id} -> {ok, body}
+ *   data-test-include        optional, comma-separated form field names to
+ *                            carry into that POST alongside store_id, for a
+ *                            channel whose test endpoint accepts credentials
+ *                            that have not been saved yet (Shopify's
+ *                            shop_domain + access_token). Absent elsewhere.
  *   data-fetch-statuses-url  POST {store_id} -> {statuses: [...]}
  *   data-save-map-url        POST {store_id, mappings: [...]}
  *   data-map-id-field        name of the marketplace id key in a mapping row
@@ -178,21 +183,43 @@ function initTest(root, config) {
             result.classList.remove('cs-actions__note--ok', 'cs-actions__note--fail');
         }
 
-        postJson(config.testUrl, { store_id: config.storeId })
+        const payload = { store_id: config.storeId };
+
+        // Optional, and only for a channel that declares it: carry the values
+        // currently TYPED into the connection form so a store can be tested
+        // before it has ever been saved. Shopify's testConnection() has that
+        // branch and its pre-redesign page used it; Venta and OpenCart have
+        // no such branch, declare no fields, and post exactly what they
+        // always did. A field left empty is not sent, so a blank
+        // access-token box never overwrites the stored credential for the
+        // purposes of the test.
+        config.testInclude.forEach(function (field) {
+            const input = root.querySelector('[name="' + field + '"]');
+            if (input && String(input.value || '').trim() !== '') {
+                payload[field] = input.value;
+            }
+        });
+
+        postJson(config.testUrl, payload)
             .then(function (data) {
                 restore();
                 if (!result) return;
 
-                // Both channels answer {ok, body}. OpenCart nests the store's
-                // own name and version under body.data when it succeeds;
-                // Venta's ping answers with ok alone. Neither shape is
+                // Three shapes, all answering {ok, ...}. OpenCart nests the
+                // store's own name and version under body.data; Venta's ping
+                // answers with ok alone; Shopify returns a `shop` object with
+                // the store's name, plan and currency. None of the three is
                 // required for the verdict.
                 const ok = !!data.ok && (!data.body || data.body.success !== false);
                 if (ok) {
                     const info = (data.body && data.body.data) || {};
+                    const shop = data.shop || {};
                     const parts = [];
                     if (info.store) parts.push(String(info.store));
                     if (info.version) parts.push('version ' + info.version);
+                    if (shop.name) parts.push(String(shop.name));
+                    if (shop.plan_name) parts.push(String(shop.plan_name));
+                    if (shop.currency) parts.push(String(shop.currency));
                     result.textContent = parts.length
                         ? 'Connected to ' + parts.join(', ') + '.'
                         : 'Connected.';
@@ -638,6 +665,13 @@ document.addEventListener('DOMContentLoaded', function () {
         storeId: root.getAttribute('data-store-id'),
         label: root.getAttribute('data-channel-label') || 'the store',
         testUrl: root.getAttribute('data-test-url') || '',
+        // Comma-separated field names to carry into the connection test, for
+        // a channel whose endpoint accepts un-saved credentials. Absent on
+        // Venta and OpenCart, so their payload is unchanged.
+        testInclude: (root.getAttribute('data-test-include') || '')
+            .split(',')
+            .map(function (name) { return name.trim(); })
+            .filter(Boolean),
         fetchStatusesUrl: root.getAttribute('data-fetch-statuses-url') || '',
         saveMapUrl: root.getAttribute('data-save-map-url') || '',
         mapIdField: root.getAttribute('data-map-id-field') || 'status_id',

@@ -83,6 +83,15 @@ Route::get('/reviews/{any?}', fn (?string $any = null) => redirect($withQuery('/
 //    GET /lazada/authorize ext.lazada.authorize  consent entry point
 //    GET /tiktok/callback  ext.tiktok.callback   TikTok Shop redirect URI
 //    GET /tiktok/authorize ext.tiktok.authorize  consent entry point
+//
+//  That list is now COMPLETE. Round F Task 2 brought the last two channels,
+//  Pedallion and Shopify, under this grammar and neither adds an entry to it:
+//  both authenticate with an operator-pasted API credential (a Pedallion API
+//  key, a Shopify custom app's Admin API access token), neither registers a
+//  redirect URI anywhere, and neither has a consent round trip. Verified
+//  against every controller, client and route file in both extensions before
+//  their URIs moved. The IA migration's final review registered their flat
+//  URIs as an unexplained gap; this closes it.
 // ─────────────────────────────────────────────────────────────────────────
 
 // A moved family: /{channel}/{family}/… -> /integrations/{channel}/{family}/…
@@ -115,11 +124,30 @@ foreach (['orders', 'product-groups', 'categories'] as $family) {
     $channelFamily('tiktok', $family);
 }
 
+// ── Pedallion ───────────────────────────────────────────────────────────
+// Single store, API key, no OAuth surface at all, so nothing here is exempt
+// and the bare channel root gets a shim like Lazada's and TikTok's do.
+Route::get('/pedallion', fn () => redirect($withQuery('/integrations/pedallion/settings'), 301));
+
+foreach (['orders', 'products', 'product-groups', 'categories'] as $family) {
+    $channelFamily('pedallion', $family);
+}
+
+// Two families whose flat form was NOT `/pedallion/{family}/…` and so is not
+// covered by the loop above: the manufacturers fetch (a POST, so no shim, but
+// named here so the inventory is complete) and the api-logs delete (likewise).
+// Both moved under the page that offers them. Nothing GETtable was lost.
+
 // ── Venta and OpenCart (multi-store, slash grammar) ─────────────────────
 // Their pages were already store-scoped as /{channel}/{store}/…, so the store
 // segment simply rides along under the new prefix. Only the settings page
 // changed shape: the store now precedes what it scopes.
-foreach (['venta', 'opencart'] as $channel) {
+// Shopify joins them with Round F Task 2. Its pages were already store-scoped
+// as /shopify/{store}/orders, and its settings page carried the same
+// /shopify/settings/{store} shape Venta's and OpenCart's did, so the three
+// shims below are identical in kind. Shopify has no OAuth surface either, so
+// its bare channel root is shimmed like theirs rather than exempted.
+foreach (['venta', 'opencart', 'shopify'] as $channel) {
     Route::get("/{$channel}/settings/{store}", fn (string $store) => redirect($withQuery("/integrations/{$channel}/{$store}/settings"), 301))
         ->whereNumber('store');
 
