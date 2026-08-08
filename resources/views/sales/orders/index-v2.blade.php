@@ -4,8 +4,9 @@
 @section('content')
 @php
     // Phase 4.5 view/manage gating: read-tier operators see the list and can
-    // open detail pages; create/edit/delete are manage-tier only. Mirrors
-    // orders/index.blade.php - hardcoded true until that gating lands.
+    // open detail pages; create/edit/delete are manage-tier only. Inherited
+    // from the legacy orders/index.blade.php this page replaced (deleted in
+    // Round F Task 4) - hardcoded true until that gating lands.
     $canManageOrders = true;
 @endphp
 <div class="x-list-head">
@@ -56,8 +57,8 @@
     // validates against and the same $sort/$dir it already computes and
     // passes here; the controller is untouched). request()->except keeps
     // every other query param (q, status, source, page) intact so sorting
-    // never discards an active filter, mirroring orders/index.blade.php's
-    // own sort-link construction.
+    // never discards an active filter, carrying over the sort-link
+    // construction from the legacy orders/index.blade.php this page replaced.
     $sortUrl = fn (string $col) => route('orders.index', array_merge(
         request()->except('sort', 'dir'),
         ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc']

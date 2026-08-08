@@ -312,17 +312,14 @@ class LazadaWorkspaceTest extends TestCase
      * Inside a seller center you see only that marketplace.
      *
      * Checked here on Returns, Listings, Product Groups, Categories, Brands
-     * and Settings, not Orders. orders/index.blade.php still includes
-     * integrations.partials._tab_strip at this point: Shopee's own history
-     * shows the identical carryover (commit 10458135, right after Shopee's
-     * workspace conversion, still had the include; it was only dropped in
-     * d9982985 when Orders was rebuilt on the shared anatomy). Stripping it
-     * now would be a content edit beyond breadcrumb/extends, which this task
-     * does not do, and that removal is Task 2's job. Asserting it away here
-     * would either fail honestly or require silently editing content this
-     * task is not scoped to touch, so this test covers the six destinations
-     * where the rule already holds today and leaves Orders to Task 2's own
-     * regression test once the strip is actually gone.
+     * and Settings, not Orders. When this was written the legacy core
+     * orders/index.blade.php still included integrations.partials._tab_strip,
+     * and stripping it was out of that task's scope. That view was deleted
+     * outright in Round F Task 4 (the legacy-layout retirement), so the
+     * carryover it described is gone: the strip partial now has no includer
+     * anywhere and is left standing only for the pending orders redesign.
+     * The six destinations below still make the point this test exists for,
+     * so the coverage is unchanged.
      */
     public function test_the_seller_center_shows_no_other_marketplace(): void
     {

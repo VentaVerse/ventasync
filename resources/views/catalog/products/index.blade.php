@@ -5,9 +5,8 @@
 @php
     // Phase 4.5 view/manage gating: read-tier sees the list plus the Sales
     // and Stock history satellites; create/edit/delete/bulk actions are
-    // manage-tier only. Mirrors orders/index.blade.php and
-    // sales/orders/index-v2.blade.php - hardcoded true until that gating
-    // lands app-wide. Same live gap as view_orders (documented separately):
+    // manage-tier only. Mirrors sales/orders/index-v2.blade.php - hardcoded
+    // true until that gating lands app-wide. Same live gap as view_orders (documented separately):
     // view_products is declared in config/permissions.php and in this
     // route's own middleware, but core permissions only reach the
     // `permissions` table via `php artisan permission:sync`, which nothing
