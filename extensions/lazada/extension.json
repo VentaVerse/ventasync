@@ -2,7 +2,7 @@
     "id": "lazada",
     "name": "Lazada",
     "version": "1.0.0",
-    "description": "Lazada marketplace integration — OAuth, products, product groups, orders, returns, brands",
+    "description": "Lazada marketplace integration: OAuth, products, product groups, orders, returns, brands",
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,

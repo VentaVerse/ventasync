@@ -8,6 +8,12 @@
     collide: resources/js/confirm-modal.js only wires itself up when it
     finds this element, which only exists on pages that include this
     partial. Legacy pages are untouched.
+
+    The Confirm button defaults to the danger fill, because nearly every
+    data-confirm in this application guards a deletion. A trigger that is
+    NOT destructive (enabling an extension, installing one) sets
+    data-confirm-tone="primary" and confirm-modal.js swaps the variant
+    class, so red on this dialog keeps meaning "this removes something".
 --}}
 <div class="modal-backdrop" id="x-confirm-modal">
     <div class="modal modal--sm">

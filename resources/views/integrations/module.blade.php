@@ -1,120 +1,136 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / ' . $card->name)
+@extends('layouts.shell')
+@section('title', $card->name)
+@section('breadcrumb', $card->name)
 
 @section('content')
+@php
+    $user = auth()->user();
 
-<div class="int-module-page" style="--module-accent: {{ $card->accent }};">
-    <header class="int-module-header">
-        <div class="int-module-icon" style="background: {{ $card->accent }};">
-            @include('integrations.partials._icon', ['icon' => $card->icon, 'name' => $card->name])
-        </div>
-        <div class="int-module-title">
-            <h2>{{ $card->name }}</h2>
-            <p>{{ $card->tagline }}</p>
-        </div>
-        @php
-            $canAdd = $card->addStore
-                && (!$card->addStore->permission || (auth()->user() && auth()->user()->hasPermission($card->addStore->permission)));
-            $modalId = 'addStore_' . $card->id;
-        @endphp
-        <div class="int-module-actions">
-            @if($canAdd)
-                <button type="button" class="btn"
-                        onclick="document.getElementById('{{ $modalId }}').classList.add('active')">
-                    + {{ $card->addStore->label }}
-                </button>
-            @endif
-            <a href="{{ route('integrations.index') }}" class="btn secondary">← Back to Integrations</a>
-        </div>
-    </header>
+    // Same per-item gate the registry's own consumers apply: a menu entry
+    // with a permission is only offered to somebody who holds it.
+    $allowed = fn ($item) => ! $item->permission || ($user && $user->hasPermission($item->permission));
 
-    @php
-        $visibleMenu = collect($card->menu)
-            ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
-            ->values();
-    @endphp
+    $visibleMenu = collect($card->menu)->filter($allowed)->values();
+
+    $canAdd = $card->addStore
+        && (! $card->addStore->permission || ($user && $user->hasPermission($card->addStore->permission)));
+
+    $stores = collect($card->stores);
+    $pending = $stores->filter(fn ($s) => ($s->status ?? 'active') === 'setup_pending')->count();
+@endphp
+
+{{-- The store list for a channel that has no seller center of its own yet.
+     A converted channel is entered through /integrations/{channel}; this page
+     is what the rest still land on, so it stays on the same list anatomy
+     every other index in the application uses rather than keeping its own
+     card grammar. --}}
+<div class="int-mod" x-data="{ addOpen: false }">
+
+    @include('partials.flash')
+
+    <div class="x-list-head">
+        <div>
+            <h1 class="x-page-title">{{ $card->name }}</h1>
+            <p class="x-page-sub">{{ $card->tagline }}</p>
+        </div>
+        @if($canAdd)
+            {{-- A disclosure, not the action: the panel's Create store is the
+                 only solid fill on this page. --}}
+            <x-ui.button type="button" @click="addOpen = !addOpen"
+                         x-bind:aria-expanded="addOpen ? 'true' : 'false'">
+                <x-ui.icon name="plus" size="14" /> {{ $card->addStore->label }}
+            </x-ui.button>
+        @endif
+    </div>
 
     @if($visibleMenu->isNotEmpty())
-        <div class="int-module-menu">
+        <nav class="int-mod__nav" aria-label="{{ $card->name }} pages">
             @foreach($visibleMenu as $item)
-                <a href="{{ route($item->routeName, $item->routeParams) }}">{{ $item->label }}</a>
+                <a class="int-mod__navlink" href="{{ route($item->routeName, $item->routeParams) }}">
+                    {{ $item->label }}
+                    <x-ui.icon name="chevron-right" size="12" />
+                </a>
             @endforeach
-        </div>
+        </nav>
     @endif
 
-    @if(empty($card->stores))
-        <div class="int-empty">
-            <h3>No stores configured</h3>
-            <p>
-                @if($canAdd)
-                    Use the <strong>+ {{ $card->addStore->label }}</strong> button at the top of this page to connect your first {{ $card->name }} store.
-                @else
-                    No stores have been added yet.
-                @endif
-            </p>
+    @if($canAdd)
+    <form method="POST" action="{{ route($card->addStore->route) }}" class="int-mod__add"
+          x-show="addOpen" x-cloak x-transition.duration.120ms>
+        @csrf
+        <h2 class="int-mod__add-title">{{ $card->addStore->label }}</h2>
+        <p class="int-mod__add-note">
+            Name it and point it at the store's address. The API token and everything else are
+            set on the store's own settings page straight after this.
+        </p>
+        <div class="int-mod__add-fields">
+            <x-ui.field label="Store name" for="int-store-name" name="store_name" :required="true">
+                <x-ui.input id="int-store-name" name="store_name" required
+                            placeholder="{{ $card->name }} main store" />
+            </x-ui.field>
+            <x-ui.field label="Base URL" for="int-store-url" name="base_url" :required="true">
+                <x-ui.input type="url" id="int-store-url" name="base_url" required
+                            placeholder="https://store.example.com" />
+            </x-ui.field>
         </div>
+        <div class="int-mod__add-bar">
+            <button type="button" class="fm-cancel" @click="addOpen = false">Cancel</button>
+            <x-ui.button variant="primary" type="submit">Create store</x-ui.button>
+        </div>
+    </form>
+    @endif
+
+    @if($stores->isEmpty())
+        <x-ui.empty
+            title="No stores connected"
+            description="{{ $canAdd
+                ? 'Use ' . $card->addStore->label . ' above to connect the first one.'
+                : 'Nobody has connected a ' . $card->name . ' store yet.' }}" />
     @else
-        <div class="int-module-stores-head">
-            <h3>Stores</h3>
-            <span class="int-module-stores-count">{{ count($card->stores) }} configured</span>
-        </div>
-        <ul class="int-module-stores">
-            @foreach($card->stores as $store)
-                @php
-                    $visibleStoreMenu = collect($store->menu)
-                        ->filter(fn($m) => !$m->permission || (auth()->user() && auth()->user()->hasPermission($m->permission)))
-                        ->values();
-                    $isPending = ($store->status ?? 'active') === 'setup_pending';
-                @endphp
-                <li class="int-module-store {{ $isPending ? 'is-pending' : '' }}">
-                    <div class="int-module-store-name">
+
+    <p class="x-page-sub int-mod__count">
+        {{ number_format($stores->count()) }} {{ Str::plural('store', $stores->count()) }} connected@if($pending > 0), {{ number_format($pending) }} still needing setup@endif.
+    </p>
+
+    <x-ui.table>
+        <x-slot:head>
+            <tr>
+                <th>Store</th>
+                <th class="x-col-stat">State</th>
+                <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            </tr>
+        </x-slot:head>
+
+        @foreach($stores as $store)
+            @php
+                $storeMenu = collect($store->menu)->filter($allowed)->values();
+                $isPending = ($store->status ?? 'active') === 'setup_pending';
+                $first = $storeMenu->first();
+            @endphp
+            <tr>
+                <td data-label="Store">
+                    @if($first)
+                        <a class="x-row-link" href="{{ route($first->routeName, $first->routeParams) }}">{{ $store->label }}</a>
+                    @else
                         {{ $store->label }}
-                        @if($isPending)
-                            <span class="int-module-store-badge">Setup pending</span>
-                        @endif
-                    </div>
-                    @if($visibleStoreMenu->isNotEmpty())
-                        <div class="int-module-store-actions">
-                            @foreach($visibleStoreMenu as $item)
-                                <a href="{{ route($item->routeName, $item->routeParams) }}" class="int-module-store-action">{{ $item->label }}</a>
-                            @endforeach
-                        </div>
                     @endif
-                </li>
-            @endforeach
-        </ul>
+                </td>
+                <td class="x-col-stat" data-label="State">
+                    <x-ui.badge :tone="$isPending ? 'warning' : 'success'">{{ $isPending ? 'Setup pending' : 'Connected' }}</x-ui.badge>
+                </td>
+                <td class="x-td-actions">
+                    @if($storeMenu->isNotEmpty())
+                    <x-ui.menu label="{{ $store->label }} actions">
+                        @foreach($storeMenu as $item)
+                            <a class="x-menu__item" href="{{ route($item->routeName, $item->routeParams) }}">{{ $item->label }}</a>
+                        @endforeach
+                    </x-ui.menu>
+                    @endif
+                </td>
+            </tr>
+        @endforeach
+    </x-ui.table>
+
     @endif
 </div>
-
-@if($canAdd)
-    <div id="{{ $modalId }}" class="modal-backdrop">
-        <div class="modal" style="max-width:480px;">
-            <div class="modal-header">
-                <h3>{{ $card->addStore->label }} — {{ $card->name }}</h3>
-                <button type="button" class="modal-close"
-                        onclick="document.getElementById('{{ $modalId }}').classList.remove('active')">&times;</button>
-            </div>
-            <form method="POST" action="{{ route($card->addStore->route) }}">
-                @csrf
-                <div style="display:grid; gap:14px;">
-                    <div>
-                        <label class="text-xs text-muted">Store Name</label>
-                        <input type="text" name="store_name" class="input" required placeholder="e.g. My {{ $card->name }} Store" autofocus>
-                    </div>
-                    <div>
-                        <label class="text-xs text-muted">Base URL</label>
-                        <input type="url" name="base_url" class="input" required placeholder="https://store.example.com">
-                        <div class="text-xs text-muted" style="margin-top:4px;">You'll add the API token and other settings on the next page.</div>
-                    </div>
-                </div>
-                <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:18px;">
-                    <button type="button" class="btn secondary"
-                            onclick="document.getElementById('{{ $modalId }}').classList.remove('active')">Cancel</button>
-                    <button type="submit" class="btn">Create Store</button>
-                </div>
-            </form>
-        </div>
-    </div>
-@endif
-
 @endsection

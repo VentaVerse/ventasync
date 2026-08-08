@@ -2,7 +2,7 @@
     "id": "opencart",
     "name": "OpenCart",
     "version": "1.0.0",
-    "description": "OpenCart store integration — product sync, order sync, product groups, and marketplace reviews",
+    "description": "OpenCart store integration: product sync, order sync, product groups, and marketplace reviews",
     "author": "VentaSync",
     "tier": "plus",
     "license_required": true,

@@ -60,8 +60,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.key === 'Escape' && backdrop.classList.contains('active')) close(false);
     });
 
+    // The dialog is shared, so the trigger says whether what it guards is
+    // destructive. Default danger (almost every data-confirm is a delete);
+    // data-confirm-tone="primary" is for the ones that are not, so a red
+    // Confirm never appears on an action that removes nothing.
+    function applyTone(trigger) {
+        var tone = (trigger && trigger.getAttribute && trigger.getAttribute('data-confirm-tone')) || 'danger';
+        okBtn.classList.remove('x-btn--danger', 'x-btn--primary');
+        okBtn.classList.add(tone === 'primary' ? 'x-btn--primary' : 'x-btn--danger');
+    }
+
     function confirmModal(message, trigger) {
         lastTrigger = trigger || document.activeElement;
+        applyTone(trigger);
         msgEl.textContent = message;
         backdrop.classList.add('active');
         okBtn.focus();
@@ -98,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!msg) return;
         if (form._confirmed) { form._confirmed = false; return; }
         e.preventDefault();
-        confirmModal(msg, document.activeElement).then(function (ok) {
+        confirmModal(msg, form).then(function (ok) {
             if (ok) {
                 form._confirmed = true;
                 form.requestSubmit ? form.requestSubmit() : form.submit();

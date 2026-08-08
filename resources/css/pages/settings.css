@@ -341,3 +341,351 @@
    pill row. Collapse to one track for the forms that are genuinely single
    column. */
 .st-form--wide .fm-body { grid-template-columns: minmax(0, 1fr); }
+
+/* ===============================================================
+   ROUND E, TASK 2 additions
+   ---------------------------------------------------------------
+   The four settings tabs, the extensions manager and the error
+   log. Same rule as the rest of this file: only what the shared
+   anatomies (`fm-`, `x-list-head`/`x-table`/`x-segment`) have no
+   equivalent for. Every value is a token, so both themes come out
+   of one set of rules.
+   =============================================================== */
+
+/* ---------------------------------------------------------------
+   8. THE FOUR TABS
+   Four real routes, so the strip is four links in the shared
+   segment trough rather than a client-side class toggle.
+   --------------------------------------------------------------- */
+.st-tabs {
+    align-self: flex-start;
+    max-width: 100%;
+}
+
+/* One sentence saying what this tab is for, under the strip. Not a
+   section note: it describes the page, not the fields below it. */
+.st-lede {
+    margin: calc(var(--space-3) * -1) 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    max-width: 78ch;
+}
+
+/* A form with no side rail. `fm-body` reserves a 320px second track
+   above 1000px; General and Maintenance have nothing to put in it and
+   would strand ~350px to the right of every field. Same collapse
+   `.st-form--wide` does, declared on the element itself so a page can
+   mix a one-column tab with a two-column one.
+
+   The measure is capped as well as collapsed. Freed of the side rail a
+   single-column form runs the full content width, and a 1100px-wide box
+   for "Company name" reads as a text area, not a name field. 900px keeps
+   the two-up pairs at a sane size and the full-width fields readable. */
+.st-body--one { grid-template-columns: minmax(0, 1fr); }
+.st-body--one .fm-col--main { max-width: 900px; }
+
+/* A real permission key or file extension quoted inside prose. It is
+   an identifier an admin greps for, not jargon, so it keeps its exact
+   spelling and takes the mono face to say so. */
+.st-key {
+    font-family: var(--font-mono);
+    font-size: .92em;
+    color: var(--text-secondary);
+}
+
+/* A number field that is two or three digits wide. Left at full width
+   it reads as though a paragraph is expected. */
+.st-days { max-width: 140px; }
+
+/* The SMTP block. `hidden` is toggled by JS, and a bare [hidden] is
+   only a user agent `display: none` rule, which `.fm-fields`'s own
+   `display: grid` out-specifies. Restate it at a winning specificity
+   or the block never actually hides. */
+.st-smtp[hidden] { display: none; }
+
+/* A checkbox that belongs to the field above it rather than to the
+   form as a whole (Forget the stored password). */
+.st-inline-check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------------
+   9. FILE CONTROL
+   A bare <input type="file"> is system chrome: a grey OS button, a
+   different one per platform, and no way to style the "no file
+   chosen" text beside it. The input is kept (it is the wire) and
+   visually removed; the label is the button and a span reports what
+   was chosen.
+   --------------------------------------------------------------- */
+.st-file {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+.st-file__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+.st-file__btn {
+    display: inline-flex;
+    align-items: center;
+    height: var(--control-h-sm);
+    padding: 0 var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.st-file__btn:hover { background: var(--surface-hover); }
+/* Keyboard focus reaches the hidden input, so the ring has to be drawn
+   on the label that stands in for it. */
+.st-file__input:focus-visible + .st-file__btn,
+.st-file__btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.st-file__input:disabled ~ .st-file__btn,
+.st-file__input:disabled + .st-file__btn { opacity: .45; cursor: not-allowed; }
+.st-file__name {
+    min-width: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------
+   10. BRANDING PREVIEW
+   What is on the login screen and in the browser tab right now,
+   beside the two upload controls that would replace them.
+   --------------------------------------------------------------- */
+.st-brand {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.st-brand + .st-brand { margin-top: var(--space-3); }
+.st-brand--icon { flex-direction: row; align-items: center; gap: var(--space-3); }
+.st-brand__logo { max-width: 100%; max-height: 96px; object-fit: contain; }
+/* The favicon is shown against a fixed dark square because that is the
+   only honest preview: a browser tab strip is dark in one theme and
+   light in the other, and a transparent PNG that looks fine on white
+   can disappear entirely. */
+.st-brand__fav {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    padding: 6px;
+    object-fit: contain;
+    background: #0f172a;
+    border-radius: var(--radius-sm);
+}
+.st-brand__cap { font-size: 11px; color: var(--text-muted); }
+
+/* ---------------------------------------------------------------
+   11. TEST MAIL
+   --------------------------------------------------------------- */
+.st-test__row { margin-top: var(--space-3); }
+.st-test__result {
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+.st-test__result[hidden] { display: none; }
+.st-test__result.is-ok { border-left-color: var(--accent); }
+.st-test__result.is-fail { border-left-color: var(--danger); }
+
+/* ---------------------------------------------------------------
+   12. EXTENSIONS
+   --------------------------------------------------------------- */
+.st-col-ver    { width: 96px; }
+.st-col-author { width: 168px; }
+
+/* The install form. Hidden until the head's primary action opens it,
+   so the resting page is the inventory and nothing else. */
+.st-install {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+}
+.st-install__title {
+    margin: 0 0 var(--space-1);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.st-install__note {
+    margin: 0 0 var(--space-3);
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 78ch;
+}
+.st-install__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+/* The identity cell: name, the id its routes and view namespace use,
+   and what it does. Three weights, one column, no second table. */
+.st-ext {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    padding: var(--space-2) 0;
+}
+.st-ext__name { font-size: 13px; font-weight: 500; color: var(--text); }
+.st-ext__id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.st-ext__desc {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    /* A free-text column in a restacked mobile row is a grid cell with
+       no width to truncate against, so nowrap would push the page
+       wider instead of clipping. It wraps. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.st-ext-page .x-table tbody td { white-space: normal; }
+
+/* ---------------------------------------------------------------
+   13. FACTS STRIP
+   Three facts about a file, on the error log. Not stat cards: none
+   of them is a figure anybody acts on, so they read as a line of
+   quiet key/value pairs the way `fm-stamps` does.
+   --------------------------------------------------------------- */
+.st-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-6);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.st-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.st-fact__k {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: .02em;
+}
+.st-fact__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+}
+.st-fact__v--path { overflow-wrap: anywhere; }
+.st-fact__note { font-size: 11px; color: var(--text-muted); }
+
+/* ---------------------------------------------------------------
+   14. ERROR LOG
+   A list, not a <pre> slab. The old page printed 250 raw lines into
+   one dark box with a hardcoded #0b1220 background that ignored the
+   theme entirely; nothing in it could be scanned or filtered.
+   --------------------------------------------------------------- */
+.st-log-count {
+    margin: 0 0 var(--space-3);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.st-log {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--border);
+}
+.st-log__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+}
+.st-log__top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+.st-log__at,
+.st-log__lvl {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.st-log__msg {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+.st-log__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+}
+.st-log__where {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* Numbered steps under a command. */
+.st-steps {
+    margin: var(--space-4) 0 0;
+    padding-left: var(--space-5);
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--text-secondary);
+}
+
+/* The head's overflow trigger rests at opacity 0 and its only reveal
+   rule is `.x-table tbody tr:hover`. Outside a table every anatomy has
+   to opt in, the same way `.od-head__actions` and `.fm-head__actions`
+   already do. Without this the error log's Empty the file action is
+   invisible to a mouse. */
+.st-head-actions .x-menu__trigger { opacity: 1; }

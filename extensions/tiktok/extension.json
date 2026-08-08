@@ -2,7 +2,7 @@
     "id": "tiktok",
     "name": "TikTok Shop",
     "version": "1.0.0",
-    "description": "TikTok Shop integration — OAuth, product sync, API explorer",
+    "description": "TikTok Shop integration: OAuth, product sync, API explorer",
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,

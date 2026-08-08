@@ -2,7 +2,7 @@
     "id": "venta",
     "name": "Venta Store",
     "version": "1.0.0",
-    "description": "Venta ecommerce integration — multi-store order sync, inventory push, product groups, categories",
+    "description": "Venta ecommerce integration: multi-store order sync, inventory push, product groups, categories",
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,

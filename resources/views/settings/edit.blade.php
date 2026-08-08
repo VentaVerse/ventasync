@@ -1,384 +1,150 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings')
+@extends('layouts.shell')
+
+@php
+    // One controller action and one view back four real routes
+    // (settings.general / .website / .mail / .maintenance, each with a
+    // ->defaults('tab', …)). Before this round all four rendered at once and
+    // a script hid three of them, so a page that had been split into four
+    // URLs was still one document pretending to be four. Each tab is now its
+    // own page: only its own sections render, and the segment below is real
+    // navigation between four addresses rather than a class toggle.
+    // Each tab's URL is resolved here with a clean literal route() call, not
+    // route($item['route']) inside the loop below. A route name assembled
+    // from a variable is invisible to RouteNameSweepTest's static half, which
+    // is the sweep that exists precisely so a renamed route cannot ship as a
+    // 500 nobody noticed.
+    $tabs = [
+        'general' => [
+            'label' => 'General',
+            'url'   => route('settings.general'),
+            'sub'   => 'The company name and address that identify this business on documents and mail.',
+            'saves' => true,
+        ],
+        'website' => [
+            'label' => 'Website Settings',
+            'url'   => route('settings.website'),
+            'sub'   => 'The sender address, the timezone every date is shown in, how long activity is kept, and the logo and favicon.',
+            'saves' => true,
+        ],
+        'mail' => [
+            'label' => 'Mail',
+            'url'   => route('settings.mail'),
+            'sub'   => 'How this system sends mail, and a way to prove it works.',
+            'saves' => true,
+        ],
+        'maintenance' => [
+            'label' => 'Maintenance',
+            'url'   => route('settings.maintenance'),
+            'sub'   => 'The one cron line every scheduled task in this application runs from.',
+            'saves' => false,
+        ],
+    ];
+
+    // edit() falls back to 'general' when no route default is bound, but a
+    // partial name is built from this below, so an unknown value has to
+    // resolve here rather than reach @include.
+    $activeTab = array_key_exists($activeTab, $tabs) ? $activeTab : 'general';
+    $tab = $tabs[$activeTab];
+
+    // routes/settings.php gates the four GETs on
+    // view_website_settings|manage_website_settings and settings.update on
+    // manage_website_settings alone. The pre-redesign view hardcoded this to
+    // true, so a read-tier operator saw a Save button that would bounce.
+    $canManage = auth()->user()?->hasPermission('manage_website_settings') ?? false;
+    $ro = ! $canManage;
+@endphp
+
+@section('title', $tab['label'])
+@section('breadcrumb', $tab['label'])
 
 @section('content')
-@php
-    // Phase 4.5: read-tier (view_website_settings) can browse the settings
-    // form but cannot save. All write controls (Save buttons, Test Mail)
-    // are hidden, inputs render but become read-only-ish via the missing
-    // submit. The underlying routes still 403 if probed.
-    $canManageSettings = true;
-@endphp
-<div class="page-header">
-    <h2>Settings</h2>
-    <a class="btn secondary" href="{{ route('dashboard') }}">Back</a>
-</div>
-@unless($canManageSettings)
-<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
-    <strong>Read-only view.</strong> You can browse settings. To save changes or send test mail, your user group needs the <code>manage_website_settings</code> permission tier.
-</div>
-@endunless
+<div class="fm-page">
 
-{{-- Tabs. IA migration (2026-08-08, Task 3): which one starts active is now
-     driven by $activeTab (set from the route, see SettingController::edit),
-     not the ?tab= query string. Click-to-switch and its URL sync below are
-     unchanged, this page still shows all four sections at once and toggles
-     between them client-side. --}}
-<div class="tabs mb-16">
-    <button class="tab {{ $activeTab === 'general' ? 'active' : '' }}" data-tab="tab-general">General</button>
-    <button class="tab {{ $activeTab === 'website' ? 'active' : '' }}" data-tab="tab-website">Website Settings</button>
-    <button class="tab {{ $activeTab === 'mail' ? 'active' : '' }}" data-tab="tab-mail">Mail</button>
-    <button class="tab {{ $activeTab === 'maintenance' ? 'active' : '' }}" data-tab="tab-maintenance">Maintenance</button>
-</div>
-
-<form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data">
-    @csrf
-
-    {{-- General Tab --}}
-    <div class="{{ $activeTab === 'general' ? '' : 'hidden' }}" id="tab-general">
-        <div class="card">
-            <h3 class="section-title mt-0">Company Information</h3>
-            <div class="form-grid">
-                <div>
-                    <label class="required">Company Name</label>
-                    <input class="input" name="company_name" value="{{ old('company_name', $setting->company_name) }}">
-                </div>
-
-                <div>
-                    <label>Email</label>
-                    <input class="input" type="email" name="company_email" value="{{ old('company_email', $setting->company_email) }}" maxlength="255" placeholder="Company contact email">
-                </div>
-
-                <div>
-                    <label>Phone</label>
-                    <input class="input" name="phone" value="{{ old('phone', $setting->phone) }}" maxlength="32">
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if(session('success'))
+            <div class="fm-note fm-note--ok"><div class="fm-note__body">{{ session('success') }}</div></div>
+        @endif
+        @if(session('error'))
+            <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+        @endif
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+        @if($ro)
+            <div class="fm-note fm-note--warn">
+                <div class="fm-note__body">
+                    Read only. You can browse these settings but not change them. Saving needs the
+                    <code class="st-key">manage_website_settings</code> permission.
                 </div>
             </div>
-
-            <h3 class="section-title mt-24">Address</h3>
-            <div class="form-grid">
-                <div class="full">
-                    <label>Address Line 1</label>
-                    <input class="input" name="address_line1" value="{{ old('address_line1', $setting->address_line1) }}" maxlength="255">
-                </div>
-
-                <div class="full">
-                    <label>Address Line 2</label>
-                    <input class="input" name="address_line2" value="{{ old('address_line2', $setting->address_line2) }}" maxlength="255">
-                </div>
-
-                <div>
-                    <label>City</label>
-                    <input class="input" name="city" value="{{ old('city', $setting->city) }}" maxlength="128">
-                </div>
-
-                <div>
-                    <label>State / Province</label>
-                    <input class="input" name="state" value="{{ old('state', $setting->state) }}" maxlength="128">
-                </div>
-
-                <div>
-                    <label>Postal Code</label>
-                    <input class="input" name="postal_code" value="{{ old('postal_code', $setting->postal_code) }}" maxlength="20">
-                </div>
-
-                <div>
-                    <label>Country</label>
-                    <input class="input" name="country" value="{{ old('country', $setting->country) }}" maxlength="128">
-                </div>
-            </div>
-
-            @if($canManageSettings)
-            <div class="d-flex justify-end mt-16">
-                <button class="btn" type="submit">Save Settings</button>
-            </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- Website Settings Tab --}}
-    <div class="{{ $activeTab === 'website' ? '' : 'hidden' }}" id="tab-website">
-        <div class="card">
-            <h3 class="section-title mt-0">Email & System</h3>
-            <div class="form-grid">
-                <div class="full">
-                    <label class="required">From Email</label>
-                    <input class="input" type="email" name="from_email" value="{{ old('from_email', $setting->from_email) }}">
-                </div>
-
-                <div class="full">
-                    <label class="required">Timezone</label>
-                    <select name="timezone" class="input">
-                        @foreach(timezone_identifiers_list() as $tz)
-                            <option value="{{ $tz }}" {{ old('timezone', $setting->timezone ?? 'Asia/Manila') === $tz ? 'selected' : '' }}>{{ $tz }}</option>
-                        @endforeach
-                    </select>
-                    <div class="hint">Used for displaying dates and times throughout the system.</div>
-                </div>
-
-                <div class="full">
-                    <label class="required">Activity Log Retention (days)</label>
-                    <input class="input" type="number" name="activity_log_retention_days"
-                           value="{{ old('activity_log_retention_days', $setting->activity_log_retention_days ?? 90) }}"
-                           min="7" max="3650" style="width:160px;">
-                    <div class="hint">Logs older than this many days will be cleared when using "Clear Old Logs" or via the scheduled cleanup.</div>
-                </div>
-            </div>
-
-            <h3 class="section-title mt-24">Branding</h3>
-            <div class="form-grid">
-                <div class="full">
-                    <label>Logo</label>
-                    <input class="input" type="file" name="logo" accept="image/*" onchange="previewLogo(this, 'logo-preview')">
-                    <div class="hint">Shown in the sidebar and on the login screen. If not uploaded, the default VentaSync logo is used.</div>
-                    <div class="mt-12" id="logo-preview">
-                        <div class="text-xs text-muted" style="margin-bottom:6px;">{{ $setting->logo_path ? 'Current logo:' : 'Default logo:' }}</div>
-                        <img src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync.png') }}" alt="Logo" style="max-height:140px; border-radius:var(--radius-sm);" id="logo-preview-img">
-                    </div>
-                </div>
-
-                <div class="full">
-                    <label>Favicon</label>
-                    <input class="input" type="file" name="favicon" accept="image/*,.ico,.svg" onchange="previewLogo(this, 'favicon-preview')">
-                    <div class="hint">Shown in the browser tab. PNG, SVG, or ICO. A square image (32×32 or 64×64) reads best. If not uploaded, the default VentaSync favicon is used.</div>
-                    <div class="mt-12" id="favicon-preview" style="display:flex; align-items:center; gap:12px;">
-                        <img src="{{ $setting->favicon_path ? asset('storage/'.$setting->favicon_path) : asset('images/brand/ventasync-icon.png') }}"
-                             alt="Favicon"
-                             style="width:48px; height:48px; object-fit:contain; border-radius:var(--radius-sm); background:#0f172a; padding:6px;"
-                             id="favicon-preview-img">
-                        <span class="text-xs text-muted">{{ $setting->favicon_path ? 'Current favicon' : 'Default favicon' }}</span>
-                    </div>
-                </div>
-            </div>
-
-            @if($canManageSettings)
-            <div class="d-flex justify-end mt-16">
-                <button class="btn" type="submit">Save Settings</button>
-            </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- Mail Tab --}}
-    <div class="{{ $activeTab === 'mail' ? '' : 'hidden' }}" id="tab-mail">
-        <div class="card">
-            <h3 class="section-title mt-0">Mail Transport</h3>
-            <div class="form-grid">
-                <div class="full">
-                    <label class="required">Mailer</label>
-                    <select name="mail_mailer" class="input" id="mailMailer">
-                        <option value="sendmail" {{ old('mail_mailer', $setting->mail_mailer ?? 'sendmail') === 'sendmail' ? 'selected' : '' }}>PHP</option>
-                        <option value="smtp" {{ old('mail_mailer', $setting->mail_mailer ?? 'sendmail') === 'smtp' ? 'selected' : '' }}>SMTP</option>
-                    </select>
-                    <div class="hint">PHP uses the server's local mail binary. SMTP is recommended for higher deliverability and inbox placement.</div>
-                </div>
-            </div>
-
-            <div id="smtpFields" class="form-grid mt-16">
-                <div>
-                    <label>SMTP Host</label>
-                    <input class="input" type="text" name="mail_host" value="{{ old('mail_host', $setting->mail_host) }}" placeholder="smtp.example.com">
-                </div>
-                <div>
-                    <label>SMTP Port</label>
-                    <input class="input" type="number" name="mail_port" value="{{ old('mail_port', $setting->mail_port) }}" placeholder="587" min="1" max="65535">
-                </div>
-                <div>
-                    <label>Username</label>
-                    <input class="input" type="text" name="mail_username" value="{{ old('mail_username', $setting->mail_username) }}" autocomplete="off">
-                </div>
-                <div>
-                    <label>Password</label>
-                    <input class="input" type="password" name="mail_password" value="" placeholder="{{ $setting->mail_password ? '•••••••• (leave blank to keep)' : '' }}" autocomplete="new-password">
-                    @if($setting->mail_password)
-                        <label class="text-xs text-muted mt-8 d-flex items-center gap-8">
-                            <input type="checkbox" name="clear_mail_password" value="1"> Clear stored password
-                        </label>
-                    @endif
-                </div>
-                <div>
-                    <label>Encryption</label>
-                    <select name="mail_encryption" class="input">
-                        <option value="" {{ old('mail_encryption', $setting->mail_encryption) === null || old('mail_encryption', $setting->mail_encryption) === '' ? 'selected' : '' }}>None</option>
-                        <option value="tls" {{ old('mail_encryption', $setting->mail_encryption) === 'tls' ? 'selected' : '' }}>TLS</option>
-                        <option value="ssl" {{ old('mail_encryption', $setting->mail_encryption) === 'ssl' ? 'selected' : '' }}>SSL</option>
-                    </select>
-                </div>
-            </div>
-
-            <h3 class="section-title mt-24">From</h3>
-            <div class="form-grid">
-                <div>
-                    <label>From Address</label>
-                    <input class="input" type="email" name="mail_from_address" value="{{ old('mail_from_address', $setting->mail_from_address) }}" placeholder="no-reply@example.com">
-                </div>
-                <div>
-                    <label>From Name</label>
-                    <input class="input" type="text" name="mail_from_name" value="{{ old('mail_from_name', $setting->mail_from_name) }}" placeholder="{{ config('app.name') }}">
-                </div>
-            </div>
-
-            @if($canManageSettings)
-            <div class="d-flex justify-end mt-16">
-                <button class="btn" type="submit">Save Settings</button>
-            </div>
-            @endif
-        </div>
-
-        @if($canManageSettings)
-        <div class="card mt-16">
-            <h3 class="section-title mt-0">Send Test Email</h3>
-            <div class="hint" style="margin-bottom:12px;">
-                Save your settings first. Then send a quick test message to verify the configuration.
-            </div>
-            <div class="form-grid">
-                <div class="full">
-                    <label>Send To</label>
-                    <div class="d-flex items-center gap-12">
-                        <input class="input" type="email" id="testMailTo" value="{{ auth()->user()->email ?? '' }}" placeholder="you@example.com" style="max-width:380px;">
-                        <button type="button" class="btn" id="btnSendTestMail">Send test email</button>
-                    </div>
-                    <div id="testMailResult" style="margin-top:12px; display:none;"></div>
-                </div>
-            </div>
-        </div>
         @endif
     </div>
-</form>
 
-{{-- Maintenance Tab --}}
-<div class="{{ $activeTab === 'maintenance' ? '' : 'hidden' }}" id="tab-maintenance">
-    <div class="card">
-        <h3 class="section-title mt-0">Scheduled Tasks (Cron)</h3>
-        <div class="hint" style="margin-bottom:12px;">
-            One OS-level cron entry drives every scheduled task across this app. Add the line below
-            to your server's crontab; per-job cadence is then editable from each integration's
-            <strong>Automations</strong> tab, no need to touch the system crontab again.
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('settings.hub') }}">
+                <x-ui.icon name="chevron-left" size="14" /> Settings
+            </a>
+            <h1 class="fm-title">{{ $tab['label'] }}</h1>
         </div>
-        @php
-            $cronLine = '* * * * * /usr/bin/php ' . base_path('artisan') . ' schedule:run >> /dev/null 2>&1';
-        @endphp
-        <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-            <code id="ws-global-cron" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $cronLine }}</code>
-            <button type="button" class="btn small secondary" onclick="(function(b){var c=document.getElementById('ws-global-cron');navigator.clipboard.writeText(c.innerText);var o=b.innerText;b.innerText='Copied';setTimeout(function(){b.innerText=o;},1200);})(this)" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-        </div>
-        <details style="margin-top:10px;">
-            <summary style="cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-secondary); user-select:none;">How to set this up</summary>
-            <ol style="margin:10px 0 0; padding-left:20px; font-size:13px; color:var(--text-secondary); line-height:1.8;">
-                <li>Open your hosting panel (HestiaCP, cPanel, etc.) and find <strong>Cron Jobs</strong> / <strong>Scheduled Tasks</strong>.</li>
-                <li>Paste the command above. Set the interval to every minute (<code>* * * * *</code>).</li>
-                <li>Save. From now on, every job listed in each integration's <strong>Automations</strong> tab runs at its configured cadence.</li>
-            </ol>
-        </details>
     </div>
 
+    <nav class="x-segment st-tabs" aria-label="Settings sections">
+        @foreach($tabs as $key => $item)
+            <a class="x-segment__item {{ $activeTab === $key ? 'is-active' : '' }}"
+               href="{{ $item['url'] }}"
+               @if($activeTab === $key) aria-current="page" @endif>{{ $item['label'] }}</a>
+        @endforeach
+    </nav>
+
+    <p class="st-lede">{{ $tab['sub'] }}</p>
+
+    @if($tab['saves'])
+        {{-- enctype is load-bearing: the Website Settings tab posts the logo
+             and favicon files through this same action. All four tabs share
+             one form element so the markup does not fork on which tab is
+             showing. --}}
+        <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data" class="st-set-form">
+            @csrf
+
+            {{-- Literal include names, not 'tab-' . $activeTab. The view
+                 sweep (tests/Feature/ViewResolutionSweepTest) resolves every
+                 referenced view and can only do that for a literal, and a
+                 dynamically-built name is exactly how a renamed partial ships
+                 as a 500 nobody noticed. $activeTab is already normalised to
+                 one of these four above. --}}
+            @if($activeTab === 'general')
+                @include('settings.partials.tab-general', ['setting' => $setting, 'ro' => $ro])
+            @elseif($activeTab === 'website')
+                @include('settings.partials.tab-website', ['setting' => $setting, 'ro' => $ro])
+            @elseif($activeTab === 'mail')
+                @include('settings.partials.tab-mail', ['setting' => $setting, 'ro' => $ro])
+            @endif
+
+            {{-- SettingController::update() validates the UNION of all four
+                 tabs (company_name, from_email, timezone,
+                 activity_log_retention_days and mail_mailer are each
+                 `required`), so a tab that posted only its own fields would
+                 fail validation on fields the operator cannot even see. The
+                 pre-redesign page never hit this because all four tabs sat
+                 inside one form and posted together. This carries the stored
+                 value of every required field the current tab does not show,
+                 which reproduces exactly what that one form used to send. --}}
+            @include('settings.partials.carry', ['setting' => $setting, 'activeTab' => $activeTab])
+
+            @if($canManage)
+            <div class="fm-bar">
+                <span class="fm-bar__meta">{{ $tab['label'] }}</span>
+                <div class="fm-bar__actions">
+                    <x-ui.button type="submit" variant="primary">Save settings</x-ui.button>
+                </div>
+            </div>
+            @endif
+        </form>
+    @else
+        @include('settings.partials.tab-maintenance')
+    @endif
 </div>
-
-@push('scripts')
-<script>
-    // Tab switching with URL sync (?tab=...)
-    var settingsTabs = ['tab-general', 'tab-website', 'tab-mail', 'tab-maintenance'];
-
-    function activateSettingsTab(id) {
-        if (settingsTabs.indexOf(id) === -1) id = settingsTabs[0];
-        document.querySelectorAll('.tabs .tab').forEach(function(t) {
-            t.classList.toggle('active', t.dataset.tab === id);
-        });
-        settingsTabs.forEach(function(tabId) {
-            var el = document.getElementById(tabId);
-            if (el) el.classList.toggle('hidden', tabId !== id);
-        });
-    }
-
-    document.querySelectorAll('.tabs .tab').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            var id = tab.dataset.tab;
-            activateSettingsTab(id);
-            var slug = id.replace(/^tab-/, '');
-            var url = new URL(window.location.href);
-            url.searchParams.set('tab', slug);
-            history.replaceState({}, '', url.toString());
-        });
-    });
-
-    // On load: pick tab from ?tab=... query param (defaults to general)
-    (function() {
-        var requested = new URLSearchParams(window.location.search).get('tab');
-        if (requested) {
-            activateSettingsTab('tab-' + requested);
-        }
-    })();
-
-    function previewLogo(input, previewId) {
-        var wrap = document.getElementById(previewId);
-        var img = wrap.querySelector('img');
-        var label = wrap.querySelector('.text-xs');
-
-        if (input.files && input.files[0]) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                img.src = e.target.result;
-                wrap.style.display = '';
-                if (label) label.textContent = 'Preview:';
-            };
-            reader.readAsDataURL(input.files[0]);
-        }
-    }
-
-    // Toggle SMTP fields visibility based on mailer dropdown
-    (function() {
-        var mailerSel = document.getElementById('mailMailer');
-        var smtpBlock = document.getElementById('smtpFields');
-        if (!mailerSel || !smtpBlock) return;
-        function sync() {
-            smtpBlock.style.display = mailerSel.value === 'smtp' ? '' : 'none';
-        }
-        mailerSel.addEventListener('change', sync);
-        sync();
-    })();
-
-    // Send test email
-    (function() {
-        var btn = document.getElementById('btnSendTestMail');
-        var input = document.getElementById('testMailTo');
-        var result = document.getElementById('testMailResult');
-        if (!btn || !input || !result) return;
-
-        btn.addEventListener('click', function() {
-            var to = (input.value || '').trim();
-            if (!to) { return; }
-            btn.disabled = true;
-            var originalText = btn.textContent;
-            btn.textContent = 'Sending...';
-            result.style.display = 'none';
-            result.className = '';
-
-            fetch('{{ route('settings.mail.test') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                },
-                body: JSON.stringify({ to: to })
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                result.style.display = '';
-                result.className = data.ok ? 'alert alert-success' : 'alert alert-danger';
-                result.textContent = data.message || (data.ok ? 'Sent.' : 'Failed.');
-            })
-            .catch(function(err) {
-                result.style.display = '';
-                result.className = 'alert alert-danger';
-                result.textContent = err.message || 'Network error';
-            })
-            .finally(function() {
-                btn.disabled = false;
-                btn.textContent = originalText;
-            });
-        });
-    })();
-</script>
-@endpush
 @endsection

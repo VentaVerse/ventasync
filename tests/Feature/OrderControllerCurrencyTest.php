@@ -445,8 +445,16 @@ class OrderControllerCurrencyTest extends TestCase
         // changing.
         $editPage = $this->get(route('orders.edit', $order->order_id));
         $editPage->assertOk();
-        $editPage->assertSee('basePrice: 6161.4295', false);
-        $editPage->assertSee('baseCost: 3499.6919', false);
+        // Round E Task 2 moved the two order forms onto layouts.shell and
+        // the inline <script> into resources/js/pages/order-form.js. The
+        // line-item state now reaches that module as JSON in a data-lines
+        // attribute instead of a JS object literal, so Blade escapes the
+        // JSON's quotes. The GUARANTEE is unchanged and is what this still
+        // asserts: the page hands the JS the raw stored default-currency
+        // figure, never one pre-converted to the order's currency at load
+        // time.
+        $editPage->assertSee('&quot;basePrice&quot;:6161.4295', false);
+        $editPage->assertSee('&quot;baseCost&quot;:3499.6919', false);
         $editPage->assertDontSee('priceIsDisplay', false);
 
         // What the (fixed) edit page would submit for this exact line,
@@ -539,10 +547,18 @@ class OrderControllerCurrencyTest extends TestCase
         // rate, which is what makes a later currency switch on either page
         // safe: only the rate field changes, and convertPrice() recomputes
         // the display/submit value from the same unchanged basePrice.
-        $phpEdit->assertSee('basePrice: 6161.4295', false);
-        $usdEdit->assertSee('basePrice: 6161.4295', false);
-        $phpEdit->assertSee('baseCost: 3499.6919', false);
-        $usdEdit->assertSee('baseCost: 3499.6919', false);
+        // Round E Task 2 moved the two order forms onto layouts.shell and
+        // the inline <script> into resources/js/pages/order-form.js. The
+        // line-item state now reaches that module as JSON in a data-lines
+        // attribute instead of a JS object literal, so Blade escapes the
+        // JSON's quotes. The GUARANTEE is unchanged and is what this still
+        // asserts: the page hands the JS the raw stored default-currency
+        // figure, never one pre-converted to the order's currency at load
+        // time.
+        $phpEdit->assertSee('&quot;basePrice&quot;:6161.4295', false);
+        $usdEdit->assertSee('&quot;basePrice&quot;:6161.4295', false);
+        $phpEdit->assertSee('&quot;baseCost&quot;:3499.6919', false);
+        $usdEdit->assertSee('&quot;baseCost&quot;:3499.6919', false);
     }
 
     /**
@@ -700,7 +716,15 @@ class OrderControllerCurrencyTest extends TestCase
         // the raw order-currency figure - the latter is exactly what a
         // second, unconditional convertPrice() division would corrupt.
         $expectedBasePrice = 100 * $rate;
-        $createPage->assertSee('"basePrice":' . $expectedBasePrice, false);
-        $createPage->assertDontSee('"basePrice":100', false);
+        // Round E Task 2 moved the two order forms onto layouts.shell and
+        // the inline <script> into resources/js/pages/order-form.js. The
+        // line-item state now reaches that module as JSON in a data-lines
+        // attribute instead of a JS object literal, so Blade escapes the
+        // JSON's quotes. The GUARANTEE is unchanged and is what this still
+        // asserts: the page hands the JS the raw stored default-currency
+        // figure, never one pre-converted to the order's currency at load
+        // time.
+        $createPage->assertSee('&quot;basePrice&quot;:' . $expectedBasePrice, false);
+        $createPage->assertDontSee('&quot;basePrice&quot;:100', false);
     }
 }

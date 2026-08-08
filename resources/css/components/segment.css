@@ -45,11 +45,20 @@
 
 .x-segment::-webkit-scrollbar { display: none; }
 
+/* An item is an <a> when it navigates and a <button> when it switches a
+   view in place (the error log's severity filter, which narrows lines
+   already in the document). The four resets below are inert on an anchor
+   and are what stop a button arriving with the user agent's own grey
+   face, border and 13.333px system font. */
 .x-segment__item {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
     flex: none;
+    background: transparent;
+    border: 0;
+    font-family: inherit;
+    cursor: pointer;
     /* Sized for a working surface, per the owner: "Make the tabs bigger".
        These are the primary mode switch on the fulfilment pages and get
        clicked all day, so they earn control-scale hit targets. */

@@ -1,0 +1,379 @@
+/* ============================================================
+   SALES ORDER FORM  (`of-`)
+   ------------------------------------------------------------
+   /sales/orders/create and /sales/orders/{id}/edit. Both are the
+   shared `fm-` form anatomy: the head, the two-column body, the
+   sections, the sticky save bar and every control come from
+   components/form-page.css. This file adds only the four things
+   that anatomy has no equivalent for:
+
+     1. the line-item editor's columns and its dual-currency cell
+     2. the order-total summary under it
+     3. the product picker
+     4. the history list on the edit page
+
+   THE DUAL FIGURE, which is the reason this file exists.
+   A foreign order stores each amount twice: converted into the
+   default currency (`price`, `total`) and as it was actually
+   transacted (`foreign_price`, `foreign_total`). Only the second
+   is typed. Showing just one of them is what let opposite-
+   direction conversion bugs hide for months, so every line and
+   the order total print the pair, with the typed figure leading
+   and the stored default-currency figure under it in the muted
+   token. On a default-currency order there is only one number and
+   the second line is not rendered at all.
+
+   Colour has one job on these pages: the primary action in the
+   save bar. Remove is a quiet icon button, never a red one.
+   ============================================================ */
+
+/* JS toggles the `hidden` attribute on the payment block, the picker
+   results, the variation list and the second total line. A bare
+   [hidden] is only a user agent `display: none`, which any class
+   setting `display` out-specifies, so it is restated here at a
+   specificity that wins for everything inside these two anatomies. */
+.of-page [hidden],
+.of-pick [hidden] { display: none !important; }
+
+/* ------------------------------------------------------------------
+   1. LINE ITEMS
+   ------------------------------------------------------------------ */
+.of-col-var   { width: 152px; }
+.of-col-sku   { width: 124px; }
+.of-col-price { width: 116px; }
+.of-col-qty   { width: 84px; }
+.of-col-total { width: 148px; }
+
+/* The rows carry inputs, so they need more room than a read-only
+   table row and must not be clipped to one line. */
+.of-lines tbody tr { height: auto; }
+.of-lines tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+
+.of-line__name {
+    display: table-cell;
+    min-width: 0;
+}
+.of-line__title {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.of-line__id {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.of-line__price,
+.of-line__qty {
+    height: var(--control-h-sm);
+    width: 100%;
+    text-align: right;
+}
+
+/* The pair. The typed figure leads; the stored default-currency
+   figure sits under it, muted, and is simply absent when the order is
+   in the default currency. */
+.of-line__total { display: block; font-size: 13px; color: var(--text); }
+.of-line__base { display: block; font-size: 11px; color: var(--text-muted); }
+
+/* Remove. An icon button at text weight, not a red control: on an
+   order with twenty lines, twenty red buttons is twenty destructive
+   controls at rest. */
+.of-line__x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    position: relative;
+    z-index: 1;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color var(--motion-fast), background var(--motion-fast);
+}
+.of-line__x:hover { background: var(--surface-hover); color: var(--danger); }
+.of-line__x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.of-lines__empty {
+    padding: var(--space-5) var(--space-3);
+    color: var(--text-muted);
+    font-size: 13px;
+    white-space: normal;
+}
+
+/* ------------------------------------------------------------------
+   2. TOTAL
+   Sunken, because it is a figure the page computes and nobody types
+   into. Same rule form-page.css states for every computed figure.
+   ------------------------------------------------------------------ */
+.of-sum {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.of-sum__count { font-size: 12px; color: var(--text-muted); }
+.of-sum__totals {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+.of-sum__k { font-size: 12px; color: var(--text-muted); }
+.of-sum__v { font-size: 18px; font-weight: 600; color: var(--text); }
+.of-sum__base { font-size: 12px; color: var(--text-muted); }
+
+/* The rate sentence under the currency card's two fields. */
+.of-rate__hint {
+    margin: var(--space-2) 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+/* The payment block, hidden while Same as shipping is on. */
+.of-pay-block[hidden] { display: none; }
+
+/* ------------------------------------------------------------------
+   3. PRODUCT PICKER
+   Rides `.modal-backdrop`'s show/hide mechanics, the same way the
+   product image library does, and dresses the panel itself.
+   ------------------------------------------------------------------ */
+.of-pick {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 720px;
+    max-height: 82vh;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal);
+    overflow: hidden;
+}
+.of-pick__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+.of-pick__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
+.of-pick__head-right { display: flex; align-items: center; gap: var(--space-3); }
+.of-pick__msg { font-size: 12px; color: var(--text-muted); }
+.of-pick__body {
+    padding: var(--space-4);
+    overflow-y: auto;
+}
+.of-pick__added {
+    margin: var(--space-3) 0 0;
+    font-size: 12px;
+    color: var(--accent);
+}
+
+/* Results. A list of hairline-separated rows, not a bordered grid:
+   two columns of rules read as a spreadsheet export. */
+.of-res__list {
+    margin-top: var(--space-3);
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.of-res {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px 96px 92px;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--motion-fast);
+}
+.of-res + .of-res { border-top: 1px solid var(--border); }
+.of-res:hover { background: var(--surface-hover); }
+.of-res:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.of-res__main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.of-res__name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.of-res__sku {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.of-res__price {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+    text-align: right;
+}
+.of-res__stock,
+.of-res__opts {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+}
+.of-res__none { margin: 0; padding: var(--space-4); font-size: 13px; color: var(--text-muted); }
+
+/* The chosen product. */
+.of-detail {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.of-detail__id { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.of-detail__name { font-size: 14px; font-weight: 600; color: var(--text); }
+.of-detail__sku { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.of-detail__price {
+    margin: var(--space-1) 0 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.of-detail__label {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.of-detail__options { max-height: 200px; overflow-y: auto; }
+.of-detail__foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-top: var(--space-4);
+}
+.of-detail__qty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.of-detail__qty .x-input { width: 80px; height: var(--control-h-sm); text-align: right; }
+
+.of-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    cursor: pointer;
+}
+.of-opt + .of-opt { border-top: 1px solid var(--border); }
+.of-opt__radio { margin: 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+.of-opt__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.of-opt__name { font-size: 13px; color: var(--text); }
+.of-opt__meta {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   4. EDIT PAGE EXTRAS
+   ------------------------------------------------------------------ */
+.of-totals { margin: 0; }
+.of-totals__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+}
+.of-totals__row dt { font-size: 13px; color: var(--text-secondary); }
+.of-totals__row dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text);
+}
+
+/* History. A list, not a four-column table: three of those columns
+   were narrow stamps and the fourth was free text, which is a list
+   wearing a table's clothes. */
+.of-hist { list-style: none; margin: 0; padding: 0; }
+.of-hist__item {
+    display: grid;
+    grid-template-columns: 152px minmax(0, 1fr);
+    gap: var(--space-1) var(--space-4);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+}
+.of-hist__when {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.of-hist__what { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.of-hist__status { font-size: 13px; font-weight: 500; color: var(--text); }
+.of-hist__who { font-size: 12px; color: var(--text-muted); }
+.of-hist__note {
+    grid-column: 2;
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+    .of-hist__item { grid-template-columns: minmax(0, 1fr); }
+    .of-hist__note { grid-column: 1; }
+    .of-res { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--space-1); }
+    .of-res__stock, .of-res__opts { text-align: left; }
+    /* A restacked row is a grid cell with no width to truncate
+       against, so the product name has to wrap rather than push the
+       page wider. */
+    .of-page .x-table tbody td { white-space: normal; }
+    .of-line__price, .of-line__qty { max-width: 140px; }
+}
+
+/* ------------------------------------------------------------------
+   5. ORDER PAYMENTS
+   The one column the shared report anatomy has no width for.
+   ------------------------------------------------------------------ */
+.op-col-count { width: 92px; }
+/* A balance still owed. The only coloured figure on that page, and it
+   is the one the page exists to surface. */
+.op-owing { color: var(--warning); }
+/* The lead figure on the payments report is money OWED. `rp-lead__v` takes
+   the accent because on the payouts report that figure is money arriving;
+   here the accent would read as good news about a debt. It takes the same
+   warning token the balance column uses, and drops to neutral at zero. */
+.op-band .rp-lead__v.op-owing { color: var(--warning); }
+.op-band .rp-lead__v.op-clear { color: var(--text); }

@@ -68,7 +68,6 @@
 @import './pages/api-explorer.css';
 @import './pages/reports.css';
 @import './pages/opencart.css';
-@import './pages/permissions.css';
 @import './pages/timeline.css';
 @import './pages/toggle-switch.css';
 @import './pages/product-result.css';
@@ -103,6 +102,18 @@
    the column widths, the API scope matrix, the token reveal, the rate basis
    and the cron block, none of which either anatomy has an equivalent for. */
 @import './pages/settings.css';
+
+/* The activity log (`au-`, Round E Task 2). After ui-table.css and
+   reports.css: the page is the shared list anatomy plus that file's
+   generic date-range control, and this adds only the subject cell and the
+   field-change disclosure. */
+@import './pages/audit-log.css';
+
+/* The two sales order forms and the payments report (`of-`/`op-`, Round E
+   Task 2). After form-page.css and reports.css, both of which carry nearly
+   all of those pages: this adds the line-item editor, its dual-currency
+   cell, the product picker and the order history list. */
+@import './pages/order-form.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';
