@@ -2,6 +2,12 @@
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Lazada Product Group')
 @section('breadcrumb', $mode === 'create' ? 'New Product Group' : $group->name)
 
+{{-- This page shows its own validation summary (the fm-note below) and marks
+     the offending fields inline, so partials/legacy-page-contract skips its
+     bullet list of every message rather than stacking a second red box on
+     top of this one. --}}
+@section('own-errors', true)
+
 {{-- Round F Task 1. Rebuilt on the shared fm- form anatomy
      (components/form-page.css) and the gf- product picker
      (pages/group-form.css), with the behaviour moved out of an inline

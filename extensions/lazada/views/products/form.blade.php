@@ -1,5 +1,11 @@
 @extends('layouts.channel')
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Lazada Listing')
+
+{{-- This page shows its own validation summary (the fm-note below) and marks
+     the offending fields inline, so partials/legacy-page-contract skips its
+     bullet list of every message rather than stacking a second red box on
+     top of this one. --}}
+@section('own-errors', true)
 @section('breadcrumb', $mode === 'create'
     ? 'New Listing'
     : (($productRow->name ?? null) ? html_entity_decode((string) $productRow->name, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'Listing ' . $listing->id))

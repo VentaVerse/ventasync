@@ -1,19 +1,28 @@
-{{-- The four things layouts/app.blade.php renders around @yield('content')
-     that the views it hosts depend on: the session flash region, the
-     validation error region, the integration banner region, and the
-     #js-flash-container that window.showFlashError/showFlashSuccess write
-     into (defined in resources/js/legacy-flash.js).
+{{-- The four page regions the views hosted on layouts.channel depend on: the
+     session flash region, the validation error region, the integration banner
+     region, and the #js-flash-container that window.showFlashError /
+     showFlashSuccess write into (defined in resources/js/legacy-flash.js).
 
-     This markup is a faithful copy of layouts/app.blade.php's. That file is
-     protected and must stay byte-identical, so the duplication is deliberate
-     rather than an oversight: any layout that hosts a view written against
-     the old one has to honour the same contract, and a copy is the only way
-     to do that without editing the protected original. When app.blade.php is
-     eventually retired, this partial should become the single definition and
-     be included from every layout, not deleted.
+     THIS IS NOW THE SINGLE DEFINITION. It began as a faithful copy of the
+     same markup inside layouts/app.blade.php: that file was protected and had
+     to stay byte-identical, so a layout hosting a view written against it
+     could only honour the contract by duplicating it. Round F Task 4 deleted
+     layouts/app.blade.php, which removed the original and with it the reason
+     for the copy. There is one definition of these regions again, and it is
+     this file.
 
      Include this inside the element that wraps page content, before
-     @yield('content'), so the alerts sit where the views expect them. --}}
+     @yield('content'), so the alerts sit where the views expect them.
+
+     A page that presents its own validation errors declares
+     @section('own-errors') and this partial then skips its error list. That
+     exists because the fm- form anatomy shows a short summary note ("Nothing
+     was saved. Check the fields marked below.") and marks the offending
+     fields inline, which is a different and better thing than a bullet dump
+     of every message. Rendering both stacked two red boxes on top of each
+     other on every failed save - the defect registered in Task 1 as "stacked
+     double error banners", released here. Pages that do NOT opt out keep the
+     full list, which is the only error display they have. --}}
 
 @if(session('status'))
     <div class="alert success">
@@ -31,7 +40,7 @@
     </div>
 @endif
 
-@if($errors->any())
+@if($errors->any() && !$__env->hasSection('own-errors'))
     <div class="alert danger">
         <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
         <div>

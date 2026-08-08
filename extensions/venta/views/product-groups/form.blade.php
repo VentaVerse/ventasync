@@ -2,6 +2,12 @@
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product Group')
 @section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Product Group')
 
+{{-- This page shows its own validation summary (the fm-note below) and marks
+     the offending fields inline, so partials/legacy-page-contract skips its
+     bullet list of every message rather than stacking a second red box on
+     top of this one. --}}
+@section('own-errors', true)
+
 {{-- Leaves the .x-legacy content boundary, rebuilt on the fm- form anatomy.
 
      Venta is multi-store: the form action, the back link, the products link

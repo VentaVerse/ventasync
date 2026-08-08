@@ -2,6 +2,12 @@
 @section('title', 'Push ' . $product->name . ' to Shopee')
 @section('breadcrumb', 'Push to Shopee')
 
+{{-- This page shows its own validation summary (the fm-note below) and marks
+     the offending fields inline, so partials/legacy-page-contract skips its
+     bullet list of every message rather than stacking a second red box on
+     top of this one. --}}
+@section('own-errors', true)
+
 {{-- Round F Task 1. Rebuilt on the shared fm- form anatomy
      (components/form-page.css), with the image chooser and the delivery-option
      list in pages/channel-listing.css and pages/group-form.css.

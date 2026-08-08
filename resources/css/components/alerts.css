@@ -28,11 +28,14 @@
 }
 .alert .alert-close:hover { opacity: 1; }
 /* The leading status icon and the validation-error list inside an alert.
-   layouts/app.blade.php carries these as inline style attributes; it is a
-   protected file and cannot be edited, so partials/legacy-page-contract.blade.php
-   reproduces the same markup using these classes instead of copying the
+   layouts/app.blade.php carried these as inline style attributes; it was a
+   protected file and could not be edited, so partials/legacy-page-contract.blade.php
+   reproduced the same markup using these classes instead of copying the
    inline CSS, which this project does not allow in Blade. Same values, so the
-   two render identically. */
+   two rendered identically. That layout was deleted in Round F Task 4, and
+   resources/js/legacy-flash.js - which built the same icon from a style
+   string - now sets .alert__icon too, so these two rules are the only
+   definition left for both the server-rendered and the script-rendered flash. */
 .alert__icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
 .alert__list { margin: 0; padding-left: 18px; }
 .alert.success {
@@ -83,8 +86,8 @@
    below is now always true. It is left in place rather than stripped: the
    raw-hex rules above still exist for whatever the next unmigrated surface
    turns out to be, and this is what re-tones a flash on everything that
-   isn't one. layouts/channel.blade.php and layouts/shell.blade.php both
-   render partials/legacy-page-contract.blade.php - the session flash, the
+   isn't one. layouts/channel.blade.php renders
+   partials/legacy-page-contract.blade.php - the session flash, the
    validation errors and the integration banners - INSIDE .x-content, so a
    migrated page in dark theme got a pale pink slab across the top of an
    otherwise dark canvas. Measured in the browser on the Shopee workspace
