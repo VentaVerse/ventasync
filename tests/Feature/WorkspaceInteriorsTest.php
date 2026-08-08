@@ -820,6 +820,39 @@ class WorkspaceInteriorsTest extends TestCase
     }
 
     /**
+     * I-2: the field census above proves both env forms exist, but not that
+     * each carries the RIGHT hidden env value. A hidden `env` flipped from
+     * `sandbox` to `live` on the sandbox credential form would survive it,
+     * and every "sandbox" save would silently overwrite production
+     * credentials instead. This pins each save form's hidden env to the
+     * credential fields that live inside it.
+     */
+    public function test_each_shopee_credential_form_carries_its_own_env_value(): void
+    {
+        $this->seedSetting();
+
+        $html = $this->actingAs($this->manager())
+            ->get(route('ext.shopee.index'))->assertOk()->getContent();
+
+        $saveAction = 'action="'.e(route('ext.shopee.save')).'"';
+        preg_match_all('#<form[^>]*'.preg_quote($saveAction, '#').'.*?</form>#s', $html, $matches);
+        $this->assertCount(2, $matches[0], 'Expected exactly two Shopee credential-save forms.');
+
+        [$liveForm, $sandboxForm] = $matches[0];
+
+        $this->assertStringContainsString('name="partner_id"', $liveForm);
+        $this->assertStringNotContainsString('name="sandbox_partner_id"', $liveForm);
+        $this->assertStringContainsString('name="env" value="live"', $liveForm);
+        $this->assertStringNotContainsString('value="sandbox"', $liveForm,
+            'The production credential form carried the sandbox env value.');
+
+        $this->assertStringContainsString('name="sandbox_partner_id"', $sandboxForm);
+        $this->assertStringContainsString('name="env" value="sandbox"', $sandboxForm);
+        $this->assertStringNotContainsString('value="live"', $sandboxForm,
+            'The sandbox credential form carried the live env value, which would overwrite production on save.');
+    }
+
+    /**
      * Stored credentials render as a mask, never as the secret itself. The
      * redesign moved all ten of these inputs, so this is worth pinning: a
      * value="{{ $setting->partner_key }}" typo would put an encrypted, or
@@ -1508,6 +1541,37 @@ class WorkspaceInteriorsTest extends TestCase
         // Both status-map surfaces, one key from each.
         $this->assertStringContainsString('name="map[ready_to_ship]"', $html);
         $this->assertStringContainsString('name="map[refund_paid]"', $html);
+    }
+
+    /**
+     * I-2: same gap as Shopee's. The field census proves both env forms
+     * exist, not that each carries the right hidden env value. `region` is
+     * deliberately shared between the two forms, so `app_key` versus
+     * `sandbox_app_key` is what tells them apart.
+     */
+    public function test_each_lazada_credential_form_carries_its_own_env_value(): void
+    {
+        $this->seedLazadaSetting();
+
+        $html = $this->actingAs($this->lazadaManager())
+            ->get(route('ext.lazada.index'))->assertOk()->getContent();
+
+        $saveAction = 'action="'.e(route('ext.lazada.save')).'"';
+        preg_match_all('#<form[^>]*'.preg_quote($saveAction, '#').'.*?</form>#s', $html, $matches);
+        $this->assertCount(2, $matches[0], 'Expected exactly two Lazada credential-save forms.');
+
+        [$liveForm, $sandboxForm] = $matches[0];
+
+        $this->assertStringContainsString('name="app_key"', $liveForm);
+        $this->assertStringNotContainsString('name="sandbox_app_key"', $liveForm);
+        $this->assertStringContainsString('name="env" value="live"', $liveForm);
+        $this->assertStringNotContainsString('value="sandbox"', $liveForm,
+            'The production credential form carried the sandbox env value.');
+
+        $this->assertStringContainsString('name="sandbox_app_key"', $sandboxForm);
+        $this->assertStringContainsString('name="env" value="sandbox"', $sandboxForm);
+        $this->assertStringNotContainsString('value="live"', $sandboxForm,
+            'The sandbox credential form carried the live env value, which would overwrite production on save.');
     }
 
     /**
@@ -3099,12 +3163,21 @@ class WorkspaceInteriorsTest extends TestCase
        ================================================================= */
 
     /**
-     * Holding one channel's manage tier opens nothing on the other two. The
+     * Holding one channel's manage tier opens nothing on the others. The
      * cheapest way for a gate to be wrong is for it to be checked against the
      * wrong channel's permission key.
+     *
+     * I-3: this matrix originally covered only the TikTok/Venta/OpenCart
+     * triangle; test_the_other_channels_manage_tier_opens_nothing_here()
+     * separately covers Shopee<->Lazada. Neither combination ever put
+     * Shopee's manager against TikTok/Venta/OpenCart (or the reverse), so a
+     * route gate that accidentally accepted `manage_tiktok` alongside
+     * `manage_shopee` on a Shopee read group could survive the whole suite.
+     * Shopee is folded into this matrix to close that gap.
      */
     public function test_one_channels_manage_tier_opens_nothing_on_the_others(): void
     {
+        $this->seedSetting();
         $this->seedTiktokSetting();
         [$ventaStore] = $this->seedVentaStores();
         [$opencartStore] = $this->seedOpencartStores();
@@ -3112,14 +3185,16 @@ class WorkspaceInteriorsTest extends TestCase
         $ventaGroup = VentaProductGroup::create(['venta_setting_id' => $ventaStore, 'name' => 'Pedals']);
         $opencartGroup = OpenCartProductGroup::create(['opencart_setting_id' => $opencartStore, 'name' => 'Cables']);
 
+        $shopeeUrls = $this->interiorUrls();
         $tiktokUrls = $this->tiktokInteriorUrls();
         $ventaUrls = $this->ventaInteriorUrls($ventaStore, $ventaGroup->id);
         $opencartUrls = $this->opencartInteriorUrls($opencartStore, $opencartGroup->id);
 
         $matrix = [
-            'tiktok manager' => [$this->tiktokManager(), array_merge($ventaUrls, $opencartUrls)],
-            'venta manager' => [$this->ventaManager(), array_merge($tiktokUrls, $opencartUrls)],
-            'opencart manager' => [$this->opencartManager(), array_merge($tiktokUrls, $ventaUrls)],
+            'shopee manager' => [$this->manager(), array_merge($tiktokUrls, $ventaUrls, $opencartUrls)],
+            'tiktok manager' => [$this->tiktokManager(), array_merge($shopeeUrls, $ventaUrls, $opencartUrls)],
+            'venta manager' => [$this->ventaManager(), array_merge($shopeeUrls, $tiktokUrls, $opencartUrls)],
+            'opencart manager' => [$this->opencartManager(), array_merge($shopeeUrls, $tiktokUrls, $ventaUrls)],
         ];
 
         foreach ($matrix as $who => [$user, $urls]) {
