@@ -23,6 +23,7 @@ import './pages/product-vendors';
 import './pages/warehousing';
 import './pages/reports';
 import './pages/reviews';
+import './pages/settings';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';

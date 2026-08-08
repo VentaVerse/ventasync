@@ -1,108 +1,151 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / API')
-
-@php
-    $canManage = auth()->user()?->hasPermission('manage_api_clients');
-@endphp
+@extends('layouts.shell')
+@section('title', 'API applications')
+@section('breadcrumb', 'API applications')
 
 @section('content')
+@php
+    // Reading needs view_api_clients|manage_api_clients; every write needs
+    // manage_api_clients. See routes/settings.php.
+    $canManage = auth()->user()?->hasPermission('manage_api_clients') ?? false;
 
-<div class="card">
-    <div class="page-header">
-        <h2>API Applications</h2>
+    // The plaintext token exists for exactly one request, flashed by
+    // ApiClientController after create or rotate. It is never stored in
+    // readable form and never rendered on any other page, so this is the
+    // only place in the product where it can appear at all.
+    $newToken = session('new_token');
+@endphp
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">API applications</h1>
+        <p class="x-page-sub">
+            Other software that talks to this ERP. Each one gets a token that only opens the
+            resources and actions granted to it.
+        </p>
+    </div>
+    @if($canManage)
+        <x-ui.button variant="primary" :href="route('api_clients.create')">New application</x-ui.button>
+    @endif
+</div>
+
+@if($newToken)
+    {{-- Shown once and never again. Not a modal: a modal that cannot be
+         reopened hides the one thing this page exists to hand over. --}}
+    <div class="st-token">
+        <p class="st-token__title">Token for {{ session('new_token_client') }}</p>
+        <p class="st-token__note">
+            Copy it now and store it wherever that application keeps its credentials. This is the
+            only time it can be read. If it is lost, rotate the application to issue a new one.
+        </p>
+        <div class="st-token__row">
+            {{-- No inline handler: resources/js/pages/settings.js selects the
+                 field on focus and drives the copy button. --}}
+            <input class="x-input st-token__value" id="st-api-token" type="text" readonly
+                   data-select-on-focus value="{{ $newToken }}" aria-label="New API token">
+            <x-ui.button type="button" data-copy-target="st-api-token">Copy</x-ui.button>
+        </div>
+    </div>
+@endif
+
+@if(session('status') || session('error'))
+<div class="fm-flash" role="status" aria-live="polite">
+    @if(session('status'))
+        <div class="fm-note fm-note--ok"><div class="fm-note__body">{{ session('status') }}</div></div>
+    @endif
+    @if(session('error'))
+        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+    @endif
+</div>
+@endif
+
+@if($clients->isEmpty())
+    <x-ui.empty
+        title="No API applications yet"
+        description="Add one for each piece of software that needs to read or write through the API, and give it only the access that piece of software actually needs.">
         @if($canManage)
-            <a class="btn" href="{{ route('api_clients.create') }}">Add Application</a>
+            <x-slot:action>
+                <x-ui.button variant="primary" :href="route('api_clients.create')">New application</x-ui.button>
+            </x-slot:action>
         @endif
-    </div>
-    <p class="text-secondary text-xs">
-        Third-party applications with scoped, token-based access to this ERP. Each
-        token only permits the resources and actions granted to it.
-    </p>
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th>Name</th>
+            <th class="st-col-tiers x-td-num">Permissions</th>
+            <th class="st-col-when">Expires</th>
+            <th class="st-col-when">Created</th>
+            <th class="st-col-when">Last used</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
 
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th style="width:150px;">Expires</th>
-                    <th style="width:150px;">Created</th>
-                    <th style="width:180px;">Last used</th>
-                    @if($canManage)<th style="width:260px;">Actions</th>@endif
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($clients as $row)
-                    <tr>
-                        <td>{{ $row->model->name }}</td>
-                        <td class="text-xs">
-                            @if($row->expires_at)
-                                @if($row->expires_at->isPast())
-                                    <span class="badge badge-gray">expired {{ $row->expires_at->format('Y-m-d') }}</span>
-                                @else
-                                    {{ $row->expires_at->format('Y-m-d') }}
-                                @endif
-                            @else
-                                <span class="text-secondary">No expiry</span>
-                            @endif
-                        </td>
-                        <td class="text-xs">
-                            {{ $row->model->created_at?->format('Y-m-d') }}
-                        </td>
-                        <td class="text-xs">
-                            @if($row->last_used)
-                                {{ $row->last_used->format('Y-m-d H:i') }}
-                                <span class="text-secondary">({{ $row->last_used->diffForHumans() }})</span>
-                            @else
-                                <span class="text-secondary">never</span>
-                            @endif
-                        </td>
-                        @if($canManage)
-                        <td>
-                            <div class="d-flex gap-6 flex-wrap">
-                                <a class="btn small secondary" href="{{ route('api_clients.edit', $row->model->id) }}">Edit</a>
-                                <form method="POST" action="{{ route('api_clients.rotate', $row->model->id) }}"
-                                      data-confirm="Rotate this token? The current token stops working immediately.">
-                                    @csrf
-                                    <button class="btn small" type="submit">Rotate</button>
-                                </form>
-                                <form method="POST" action="{{ route('api_clients.destroy', $row->model->id) }}"
-                                      data-confirm="Revoke this application and delete its token?">
-                                    @csrf @method('DELETE')
-                                    <button class="btn danger small" type="submit">Revoke</button>
-                                </form>
-                            </div>
-                        </td>
-                        @endif
-                    </tr>
-                @empty
-                    <tr><td colspan="{{ $canManage ? 5 : 4 }}" class="text-secondary">No API applications yet.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
+    @foreach($clients as $row)
+        @php
+            $scopeCount = is_array($row->scopes) ? count($row->scopes) : 0;
+            $isExpired = $row->expires_at && $row->expires_at->isPast();
+        @endphp
+        <tr>
+            <td data-label="Name">
+                @if($canManage)
+                    <a class="x-row-link" href="{{ route('api_clients.edit', $row->model->id) }}">{{ $row->model->name }}</a>
+                @else
+                    {{ $row->model->name }}
+                @endif
+            </td>
+            <td class="st-col-tiers x-td-num" data-label="Permissions">
+                <span class="x-num">{{ $scopeCount }}</span>
+            </td>
+            <td class="st-col-when" data-label="Expires">
+                @if($row->expires_at)
+                    @if($isExpired)
+                        <x-ui.badge tone="danger">Expired {{ $row->expires_at->format('Y-m-d') }}</x-ui.badge>
+                    @else
+                        <span class="x-num">{{ $row->expires_at->format('Y-m-d') }}</span>
+                    @endif
+                @else
+                    <span class="st-note">No expiry</span>
+                @endif
+            </td>
+            <td class="st-col-when" data-label="Created">
+                <span class="x-num">{{ $row->model->created_at?->format('Y-m-d') }}</span>
+            </td>
+            <td class="st-col-when" data-label="Last used">
+                @if($row->last_used)
+                    <span class="x-num">{{ $row->last_used->format('Y-m-d H:i') }}</span>
+                @else
+                    <span class="st-note">Never</span>
+                @endif
+            </td>
+            <td class="x-td-actions">
+                @if($canManage)
+                <x-ui.menu label="{{ $row->model->name }} actions">
+                    <a class="x-menu__item" href="{{ route('api_clients.edit', $row->model->id) }}">Edit</a>
+                    <button type="button" class="x-menu__item"
+                            data-confirm="Rotate the token for {{ $row->model->name }}? The current token stops working the moment the new one is issued."
+                            data-confirm-submit="st-api-rot-{{ $row->model->id }}">Rotate token</button>
+                    <div class="x-menu__sep"></div>
+                    <button type="button" class="x-menu__item x-menu__item--danger"
+                            data-confirm="Revoke {{ $row->model->name }}? Its token stops working immediately. This cannot be undone."
+                            data-confirm-submit="st-api-del-{{ $row->model->id }}">Revoke</button>
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
 
-{{-- One-time token reveal — auto-opens after create / rotate --}}
-<div id="apiTokenModal" class="modal-backdrop {{ session('new_token') ? 'active' : '' }}">
-    <div class="modal" style="max-width:620px;">
-        <div class="modal-header">
-            <h3>API token for &ldquo;{{ session('new_token_client') }}&rdquo;</h3>
-            <button type="button" class="modal-close"
-                    onclick="document.getElementById('apiTokenModal').classList.remove('active')">&times;</button>
-        </div>
-        <div style="padding:1rem;">
-            <p class="text-secondary text-xs">Copy this now — it is shown once and cannot be retrieved again.</p>
-            <div class="toolbar">
-                <input class="input" id="apiTokenValue" type="text" readonly value="{{ session('new_token') }}" onclick="this.select()">
-                <button class="btn" type="button"
-                        onclick="var el=document.getElementById('apiTokenValue'); el.focus(); el.select(); el.setSelectionRange(0, 99999); var ok=false; try { ok=document.execCommand('copy'); } catch(e){} if(!ok && navigator.clipboard){ navigator.clipboard.writeText(el.value); ok=true; } this.textContent = ok ? 'Copied' : 'Press Ctrl+C';">Copy</button>
-            </div>
-            <div class="page-header" style="margin-top:1rem;">
-                <button type="button" class="btn secondary"
-                        onclick="document.getElementById('apiTokenModal').classList.remove('active')">Done</button>
-            </div>
-        </div>
-    </div>
-</div>
-
+@if($canManage)
+    @foreach($clients as $row)
+        <form id="st-api-rot-{{ $row->model->id }}" method="POST" action="{{ route('api_clients.rotate', $row->model->id) }}" class="x-sr">
+            @csrf
+        </form>
+        <form id="st-api-del-{{ $row->model->id }}" method="POST" action="{{ route('api_clients.destroy', $row->model->id) }}" class="x-sr">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endforeach
+@endif
+@endif
 @endsection

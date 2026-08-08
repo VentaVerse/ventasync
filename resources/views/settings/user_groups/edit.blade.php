@@ -1,43 +1,126 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / Edit User Group')
+@extends('layouts.shell')
+@section('title', 'Edit ' . $group->name)
+@section('breadcrumb', $group->name)
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Edit User Group #{{ $group->id }}</h2>
-        <div class="page-header-actions">
-            <button class="btn" type="submit" form="user-group-update-form">Update</button>
-            <a class="btn secondary" href="{{ route('user_groups.index') }}">Back</a>
+@php
+    // UserGroupController@destroy refuses the Administrator group outright, and
+    // @update force-adds manage_settings / manage_user_groups / manage_users
+    // back onto it whatever the form posted. Both facts are said out loud
+    // rather than left for the operator to discover from a bounced flash.
+    $isAdminGroup = strtolower($group->name) === 'administrator';
+@endphp
+
+<form id="st-group-form" method="POST" action="{{ route('user_groups.update', $group->id) }}" class="fm-page st-form--wide">
+    @csrf
+    @method('PUT')
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if(session('status'))
+            <div class="fm-note fm-note--ok"><div class="fm-note__body">{{ session('status') }}</div></div>
+        @endif
+        @if(session('error'))
+            <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+        @endif
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+        @if($isAdminGroup)
+            <div class="fm-note fm-note--warn">
+                <div class="fm-note__body">
+                    This is the Administrator group. Settings, users and user groups stay switched
+                    on for it however you leave them below, and the group cannot be deleted.
+                </div>
+            </div>
+        @endif
+    </div>
+
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('user_groups.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> User groups
+            </a>
+            <h1 class="fm-title">{{ $group->name }}</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">ID</span>
+                    <span class="fm-stamp__v">{{ $group->id }}</span>
+                </span>
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Granted</span>
+                    <span class="fm-stamp__v">{{ count($selected) }}</span>
+                </span>
+            </div>
+        </div>
+
+        @unless($isAdminGroup)
+        <div class="fm-head__actions">
+            <x-ui.menu label="{{ $group->name }} actions">
+                {{-- Destroy sits behind the overflow menu and the shared confirm
+                     dialog, driving a form outside this one. It is refused
+                     server-side while any user is still assigned to the group. --}}
+                <button type="button" class="x-menu__item x-menu__item--danger"
+                        data-confirm="Delete {{ $group->name }}? Everyone still in this group has to be moved out first. This cannot be undone."
+                        data-confirm-submit="st-group-delete-form">Delete group</button>
+            </x-ui.menu>
+        </div>
+        @endunless
+    </div>
+
+    {{-- One column, not the usual main plus side split: the permission editor
+         is the page, and a 320px side rail would squeeze every pill row. --}}
+    <div class="fm-body">
+        <div class="fm-col">
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Name</h2>
+                </div>
+
+                <div class="fm-fields">
+                    <x-ui.field label="Group name" for="st-group-name" name="name" :required="true" wide
+                                hint="Name it after the job, not the person. Operator, Warehouse, Accounts.">
+                        <x-ui.input id="st-group-name" name="name" maxlength="255" required
+                                    value="{{ old('name', $group->name) }}" />
+                    </x-ui.field>
+                </div>
+            </section>
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">What this group may do</h2>
+                </div>
+                <p class="fm-section__note">
+                    Every area has its own level. Off means the area does not appear at all.
+                    View means read but not change. Manage means full control, and includes view.
+                    Switching an area off switches everything under it off with it.
+                </p>
+
+                <div class="st-perm">
+                    @include('settings.user_groups.partials.permissions', [
+                        'permissionGroups' => $permissionGroups,
+                        'selected' => old('permissions', $selected),
+                    ])
+                </div>
+            </section>
         </div>
     </div>
 
-    <form id="user-group-update-form" method="POST" action="{{ route('user_groups.update', $group->id) }}">
-        @csrf
-        @method('PUT')
-
-        <div class="form-grid">
-            <div class="full">
-                <label>Group Name</label>
-                <input class="input" name="name" value="{{ old('name', $group->name) }}">
-            </div>
-
-            <div class="full">
-                @include('settings.user_groups.partials.permissions', [
-                    'permissionGroups' => $permissionGroups,
-                    'selected' => old('permissions', $selected),
-                ])
-            </div>
+    <div class="fm-bar">
+        <span class="fm-bar__meta">Group {{ $group->id }}</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('user_groups.index') }}">Cancel</a>
+            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
         </div>
-
-    </form>
-
-    <form id="user-group-delete-form" method="POST" action="{{ route('user_groups.destroy', $group->id) }}" data-confirm="Delete this group?" class="hidden">
-        @csrf
-        @method('DELETE')
-    </form>
-
-    <div class="mt-16" style="display:flex; justify-content:flex-end;">
-        <button class="btn danger" type="submit" form="user-group-delete-form">Delete</button>
     </div>
-</div>
+</form>
+
+@unless($isAdminGroup)
+<form id="st-group-delete-form" method="POST" action="{{ route('user_groups.destroy', $group->id) }}" class="x-sr">
+    @csrf
+    @method('DELETE')
+</form>
+@endunless
 @endsection

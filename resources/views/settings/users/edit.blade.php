@@ -1,72 +1,163 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / Edit User')
+@extends('layouts.shell')
+@section('title', 'Edit ' . $user->name)
+@section('breadcrumb', $user->name)
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Edit User #{{ $user->id }}</h2>
-        <div class="page-header-actions">
-            <button class="btn" type="submit" form="edit-user-form">Update</button>
-            <a class="btn secondary" href="{{ route('users.index') }}">Back</a>
+@php
+    // UserController@destroy refuses both cases, so the page never offers a
+    // delete the server would bounce.
+    $isAdminAccount = ($user->userGroup->name ?? '') === 'Administrator';
+    $isSelf = auth()->check() && (int) auth()->id() === (int) $user->id;
+    $canDelete = !$isAdminAccount && !$isSelf;
+@endphp
+
+<form id="st-user-form" method="POST" action="{{ route('users.update', $user->id) }}" class="fm-page">
+    @csrf
+    @method('PUT')
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if(session('status'))
+            <div class="fm-note fm-note--ok"><div class="fm-note__body">{{ session('status') }}</div></div>
+        @endif
+        @if(session('error'))
+            <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+        @endif
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+    </div>
+
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('users.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> Users
+            </a>
+            <h1 class="fm-title">{{ $user->name }}</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">ID</span>
+                    <span class="fm-stamp__v">{{ $user->id }}</span>
+                </span>
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Last sign-in</span>
+                    <span class="fm-stamp__v">{{ $user->last_login_at ? $user->last_login_at->format('Y-m-d H:i') : 'Never' }}</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="fm-head__actions">
+            <x-ui.menu label="{{ $user->name }} actions">
+                @if(Route::has('ext.audit.activity-log.index'))
+                    <a class="x-menu__item" href="{{ route('ext.audit.activity-log.index', ['user_id' => $user->id]) }}">Activity log</a>
+                @endif
+                @if($canDelete)
+                    @if(Route::has('ext.audit.activity-log.index'))<div class="x-menu__sep"></div>@endif
+                    {{-- Destroy is never a standing control: it sits behind the
+                         overflow menu and the shared confirm dialog, and drives
+                         a form outside this one, because forms cannot nest. --}}
+                    <button type="button" class="x-menu__item x-menu__item--danger"
+                            data-confirm="Delete {{ $user->name }}? This cannot be undone."
+                            data-confirm-submit="st-user-delete-form">Delete user</button>
+                @endif
+            </x-ui.menu>
         </div>
     </div>
 
-    <form id="edit-user-form" method="POST" action="{{ route('users.update', $user->id) }}">
-        @csrf
-        @method('PUT')
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
 
-        <div class="form-grid">
-            <div>
-                <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $user->name) }}">
-            </div>
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Who they are</h2>
+                </div>
 
-            <div>
-                <label class="required">Username</label>
-                <input class="input" name="username" value="{{ old('username', $user->username) }}">
-            </div>
+                <div class="fm-fields fm-fields--2">
+                    <x-ui.field label="Name" for="st-user-name" name="name" :required="true">
+                        <x-ui.input id="st-user-name" name="name" maxlength="255" required
+                                    autocomplete="name" value="{{ old('name', $user->name) }}" />
+                    </x-ui.field>
 
-            <div class="full">
-                <label class="required">Email</label>
-                <input class="input" type="email" name="email" value="{{ old('email', $user->email) }}">
-            </div>
+                    <x-ui.field label="Username" for="st-user-username" name="username" :required="true"
+                                hint="What they type to sign in. Must be unique.">
+                        <x-ui.input id="st-user-username" name="username" maxlength="255" required
+                                    autocomplete="off" value="{{ old('username', $user->username) }}" />
+                    </x-ui.field>
 
-            <div>
-                <label>New Password (optional)</label>
-                <input class="input" type="password" name="password" autocomplete="new-password">
-            </div>
+                    <x-ui.field label="Email" for="st-user-email" name="email" :required="true" wide>
+                        <x-ui.input type="email" id="st-user-email" name="email" maxlength="255" required
+                                    autocomplete="email" value="{{ old('email', $user->email) }}" />
+                    </x-ui.field>
+                </div>
+            </section>
 
-            <div>
-                <label>Confirm New Password</label>
-                <input class="input" type="password" name="password_confirmation" autocomplete="new-password">
-            </div>
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Password</h2>
+                </div>
+                <p class="fm-section__note">
+                    Leave both boxes empty to keep the current password. To change it, type the
+                    new one twice. At least 6 characters.
+                </p>
 
-            <div class="full">
-                <label class="required">User Group</label>
-                <select class="input" name="user_group_id">
-                    @foreach($groups as $g)
-                        <option value="{{ $g->id }}" {{ (string)old('user_group_id', $user->user_group_id) === (string)$g->id ? 'selected' : '' }}>
-                            {{ $g->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+                <div class="fm-fields fm-fields--2">
+                    {{-- No value attribute, ever. The stored password is a hash
+                         and is never rendered; an empty box means "unchanged",
+                         which is what UserController@update does with
+                         $request->filled('password'). --}}
+                    <x-ui.field label="New password" for="st-user-password" name="password">
+                        <x-ui.input type="password" id="st-user-password" name="password"
+                                    autocomplete="new-password" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Confirm new password" for="st-user-password2" name="password_confirmation">
+                        <x-ui.input type="password" id="st-user-password2" name="password_confirmation"
+                                    autocomplete="new-password" />
+                    </x-ui.field>
+                </div>
+            </section>
         </div>
 
-        <div class="mt-16" style="display:flex; justify-content:flex-end; gap:8px;">
-            @if(Route::has('ext.audit.activity-log.index'))
-            <a class="btn secondary" href="{{ route('ext.audit.activity-log.index', ['user_id' => $user->id]) }}">View Activity Log</a>
-            @endif
-            <button class="btn danger" type="button"
-                data-confirm="Delete this user?" data-confirm-submit="delete-user-form">
-                Delete
-            </button>
-        </div>
-    </form>
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Access</h2></div>
+                <div class="fm-card__body">
+                    <x-ui.field label="User group" for="st-user-group" name="user_group_id" :required="true" wide
+                                hint="The group decides what this person may open and change.">
+                        <x-ui.select id="st-user-group" name="user_group_id" required>
+                            @foreach($groups as $g)
+                                <option value="{{ $g->id }}" @selected((string) old('user_group_id', $user->user_group_id) === (string) $g->id)>{{ $g->name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    </x-ui.field>
 
-    <form id="delete-user-form" method="POST" action="{{ route('users.destroy', $user->id) }}" class="hidden">
-        @csrf
-        @method('DELETE')
-    </form>
-</div>
+                    @if($isAdminAccount)
+                        <p class="st-note">
+                            Administrator accounts cannot be deleted. Move this person to another
+                            group first if you need to remove their access.
+                        </p>
+                    @elseif($isSelf)
+                        <p class="st-note">This is the account you are signed in with, so it cannot delete itself.</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fm-bar">
+        <span class="fm-bar__meta">User {{ $user->id }}</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('users.index') }}">Cancel</a>
+            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
+        </div>
+    </div>
+</form>
+
+@if($canDelete)
+<form id="st-user-delete-form" method="POST" action="{{ route('users.destroy', $user->id) }}" class="x-sr">
+    @csrf
+    @method('DELETE')
+</form>
+@endif
 @endsection

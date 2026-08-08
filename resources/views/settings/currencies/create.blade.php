@@ -1,61 +1,125 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / Currencies / Add')
+@extends('layouts.shell')
+@section('title', 'New currency')
+@section('breadcrumb', 'New')
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Add Currency</h2>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('currencies.index') }}">Back</a>
-            <button class="btn" type="submit" form="currency-form">Save</button>
+@php
+    // Never hardcoded: whichever currency carries is_default in the
+    // `currencies` table is what a rate is expressed in.
+    $defaultCode = \App\Support\Money::defaultCode();
+@endphp
+
+<form method="POST" action="{{ route('currencies.store') }}" class="fm-page">
+    @csrf
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+    </div>
+
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('currencies.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> Currencies
+            </a>
+            <h1 class="fm-title">New currency</h1>
         </div>
     </div>
 
-    @if ($errors->any())
-        <div class="alert danger">{{ $errors->first() }}</div>
-    @endif
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">What it is</h2>
+                </div>
 
-    <form id="currency-form" method="POST" action="{{ route('currencies.store') }}">
-        @csrf
+                <div class="fm-fields fm-fields--2">
+                    <x-ui.field label="Code" for="st-cur-code" name="code" :required="true"
+                                hint="Three letters, e.g. USD.">
+                        <x-ui.input id="st-cur-code" name="code" maxlength="3" required
+                                    class="st-code-input" value="{{ old('code') }}" placeholder="USD" />
+                    </x-ui.field>
 
-        <div class="form-grid">
-            <div>
-                <label class="required">Code</label>
-                <input class="input" name="code" value="{{ old('code') }}" maxlength="3" placeholder="e.g. USD" style="text-transform:uppercase;">
-            </div>
+                    <x-ui.field label="Symbol" for="st-cur-symbol" name="symbol" :required="true"
+                                hint="What is printed in front of an amount.">
+                        <x-ui.input id="st-cur-symbol" name="symbol" maxlength="8" required
+                                    value="{{ old('symbol') }}" placeholder="$" />
+                    </x-ui.field>
 
-            <div>
-                <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}" placeholder="e.g. US Dollar">
-            </div>
+                    <x-ui.field label="Name" for="st-cur-name" name="name" :required="true" wide>
+                        <x-ui.input id="st-cur-name" name="name" maxlength="64" required
+                                    value="{{ old('name') }}" placeholder="US Dollar" />
+                    </x-ui.field>
+                </div>
+            </section>
 
-            <div>
-                <label class="required">Symbol</label>
-                <input class="input" name="symbol" value="{{ old('symbol') }}" maxlength="8" placeholder="e.g. $">
-            </div>
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Rate</h2>
+                </div>
+                <p class="fm-section__note">
+                    A rate says how much of {{ $defaultCode }} one unit of this currency is worth.
+                    So a rate of 61.61429452 means 1 of this currency buys 61.61429452 {{ $defaultCode }}.
+                    The default currency itself is always 1. Refresh rates on the list page
+                    overwrites this with the European Central Bank figure.
+                </p>
 
-            <div>
-                <label class="required">Exchange Rate</label>
-                <input class="input" name="exchange_rate" value="{{ old('exchange_rate', '1.00000000') }}">
-                <div class="hint">Rate relative to base currency (PHP)</div>
-            </div>
+                <div class="fm-fields fm-fields--2">
+                    <x-ui.field label="Rate" for="st-cur-rate" name="exchange_rate" :required="true"
+                                hint="Up to 8 decimal places.">
+                        <x-ui.input id="st-cur-rate" name="exchange_rate" required
+                                    class="fm-input--num" inputmode="decimal"
+                                    value="{{ old('exchange_rate', '1.00000000') }}" />
+                    </x-ui.field>
+                </div>
+            </section>
+        </div>
 
-            <div>
-                <label>Default Currency</label>
-                <select class="input" name="is_default">
-                    <option value="0" {{ old('is_default') == '0' ? 'selected' : '' }}>No</option>
-                    <option value="1" {{ old('is_default') == '1' ? 'selected' : '' }}>Yes</option>
-                </select>
-            </div>
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">How it is used</h2></div>
+                <div class="fm-card__body">
+                    {{-- status is validated `required|in:0,1`, so a bare
+                         checkbox (which submits nothing when off) would fail
+                         outright. The hidden 0 in front of it is what makes a
+                         switch legal here. --}}
+                    @php $statusOn = old('status', '1') === '1'; @endphp
+                    <input type="hidden" name="status" value="0">
+                    <label class="fm-switch">
+                        <input type="checkbox" class="fm-switch__input" name="status" value="1" @checked($statusOn)>
+                        <span class="fm-switch__track" aria-hidden="true"></span>
+                        <span class="fm-switch__text">
+                            <span class="fm-switch__label">Active</span>
+                            <span class="fm-switch__note">Off hides it from currency pickers and from rate refreshes.</span>
+                        </span>
+                    </label>
+                    @error('status')<div class="fm-error">{{ $message }}</div>@enderror
 
-            <div>
-                <label class="required">Status</label>
-                <select class="input" name="status">
-                    <option value="1" {{ old('status', '1') == '1' ? 'selected' : '' }}>Active</option>
-                    <option value="0" {{ old('status') == '0' ? 'selected' : '' }}>Inactive</option>
-                </select>
+                    {{-- is_default is `nullable|boolean`, so a bare checkbox is
+                         correct: absent reads as false. --}}
+                    <label class="fm-switch">
+                        <input type="checkbox" class="fm-switch__input" name="is_default" value="1" @checked(old('is_default'))>
+                        <span class="fm-switch__track" aria-hidden="true"></span>
+                        <span class="fm-switch__text">
+                            <span class="fm-switch__label">Make this the default</span>
+                            <span class="fm-switch__note">Every stored figure is reported in the default currency. Turning this on turns it off for {{ $defaultCode }}.</span>
+                        </span>
+                    </label>
+                    @error('is_default')<div class="fm-error">{{ $message }}</div>@enderror
+                </div>
             </div>
         </div>
-    </form>
-</div>
+    </div>
+
+    <div class="fm-bar">
+        <span class="fm-bar__meta">Nothing is saved until you create the currency.</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('currencies.index') }}">Cancel</a>
+            <x-ui.button type="submit" variant="primary">Create currency</x-ui.button>
+        </div>
+    </div>
+</form>
 @endsection

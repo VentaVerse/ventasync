@@ -1,82 +1,96 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / API / Add Application')
+@extends('layouts.shell')
+@section('title', 'New API application')
+@section('breadcrumb', 'New')
 
 @section('content')
+@php
+    // Default to no expiry, matching the pre-redesign form.
+    $noExpiry = (bool) old('no_expiry', '1');
+@endphp
 
-<div class="card">
-    <div class="page-header">
-        <h2>Add API Application</h2>
-        <a class="btn secondary" href="{{ route('api_clients.index') }}">Back</a>
+<form method="POST" action="{{ route('api_clients.store') }}" class="fm-page">
+    @csrf
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if(session('error'))
+            <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+        @endif
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
     </div>
 
-    @if(session('error'))
-        <div class="field-error">{{ session('error') }}</div>
-    @endif
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('api_clients.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> API applications
+            </a>
+            <h1 class="fm-title">New API application</h1>
+        </div>
+    </div>
 
-    <form method="POST" action="{{ route('api_clients.store') }}">
-        @csrf
-
-        <div class="form-grid">
-            <div class="full">
-                <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name') }}" required maxlength="255"
-                       placeholder="e.g. Pricing Assistant">
-                @error('name')<div class="field-error">{{ $message }}</div>@enderror
-            </div>
-
-            <div class="full">
-                <label class="required">Permissions</label>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Resource</th><th style="width:90px;">Read</th><th style="width:90px;">Write</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach($scopes as $key => $meta)
-                                <tr>
-                                    <td>
-                                        {{ $meta['label'] }}
-                                        <div class="text-xs text-secondary">{{ $meta['description'] }}</div>
-                                    </td>
-                                    <td>
-                                        @if(in_array('read', $meta['actions'], true))
-                                            <input type="checkbox" name="scopes[{{ $key }}][read]" value="1"
-                                                   @checked(old("scopes.$key.read"))>
-                                        @else
-                                            <span class="text-secondary">—</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if(in_array('write', $meta['actions'], true))
-                                            <input type="checkbox" name="scopes[{{ $key }}][write]" value="1"
-                                                   @checked(old("scopes.$key.write"))>
-                                        @else
-                                            <span class="text-secondary">—</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Name</h2>
                 </div>
-                @error('scopes')<div class="field-error">{{ $message }}</div>@enderror
-            </div>
 
-            <div class="full">
-                <label>Expiry</label>
-                <label class="text-xs">
-                    <input type="checkbox" name="no_expiry" value="1" {{ old('no_expiry', '1') ? 'checked' : '' }}> No expiry
-                </label>
-                <div class="text-xs text-secondary">Or set an expiry date (uncheck &ldquo;No expiry&rdquo; to use it):</div>
-                <input class="input" type="date" name="expires_at" value="{{ old('expires_at') }}">
-                @error('expires_at')<div class="field-error">{{ $message }}</div>@enderror
-            </div>
+                <div class="fm-fields">
+                    <x-ui.field label="Name" for="st-api-name" name="name" :required="true" wide
+                                hint="Name the software, not the person who set it up. It is what appears in the request log.">
+                        <x-ui.input id="st-api-name" name="name" maxlength="255" required
+                                    value="{{ old('name') }}" placeholder="Pricing assistant" />
+                    </x-ui.field>
+                </div>
+            </section>
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">What it may reach</h2>
+                </div>
+                <p class="fm-section__note">
+                    Read lets it fetch. Write lets it change. Grant the smallest set that does the
+                    job: the token opens exactly this and nothing else. At least one is required.
+                </p>
+
+                @include('settings.api.partials.scopes', ['scopes' => $scopes, 'current' => []])
+            </section>
         </div>
 
-        <div class="page-header">
-            <button class="btn" type="submit">Create &amp; issue token</button>
-        </div>
-    </form>
-</div>
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Expiry</h2></div>
+                <div class="fm-card__body">
+                    <label class="fm-switch">
+                        <input type="checkbox" class="fm-switch__input" name="no_expiry" value="1"
+                               data-toggle-disables="st-api-expires" @checked($noExpiry)>
+                        <span class="fm-switch__track" aria-hidden="true"></span>
+                        <span class="fm-switch__text">
+                            <span class="fm-switch__label">No expiry</span>
+                            <span class="fm-switch__note">The token keeps working until it is rotated or the application is revoked.</span>
+                        </span>
+                    </label>
+                    @error('no_expiry')<div class="fm-error">{{ $message }}</div>@enderror
 
+                    <x-ui.field label="Stop working on" for="st-api-expires" name="expires_at"
+                                hint="Turn off No expiry to set a date. It has to be in the future.">
+                        <x-ui.input type="date" id="st-api-expires" name="expires_at"
+                                    class="st-date" value="{{ old('expires_at') }}" :disabled="$noExpiry" />
+                    </x-ui.field>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fm-bar">
+        <span class="fm-bar__meta">The token is shown once, right after you create this.</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('api_clients.index') }}">Cancel</a>
+            <x-ui.button type="submit" variant="primary">Create and issue token</x-ui.button>
+        </div>
+    </div>
+</form>
 @endsection

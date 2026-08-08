@@ -1,57 +1,107 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / User Groups')
+@extends('layouts.shell')
+@section('title', 'User groups')
+@section('breadcrumb', 'User groups')
 
 @section('content')
 @php
-    $canManageUserGroups = true;
+    // routes/settings.php gates the list on view_user_groups|manage_user_groups
+    // and every write on manage_user_groups. The pre-redesign view hardcoded
+    // this to true and offered Edit and Delete to the read tier.
+    $canManageUserGroups = auth()->user()?->hasPermission('manage_user_groups') ?? false;
+
+    $hasFilters = ($q ?? '') !== '';
 @endphp
-<div class="card">
-    <div class="page-header">
-        <h2>User Groups</h2>
-        @if($canManageUserGroups)
-        <a class="btn" href="{{ route('user_groups.create') }}">Add Group</a>
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">User groups</h1>
+        <p class="x-page-sub">{{ number_format($groups->total()) }} {{ Str::plural('group', $groups->total()) }}. A group decides what everyone in it may open and change.</p>
+    </div>
+    @if($canManageUserGroups)
+        <x-ui.button variant="primary" :href="route('user_groups.create')">New group</x-ui.button>
+    @endif
+</div>
+
+@if(session('error'))
+    <div class="fm-flash" role="status" aria-live="polite">
+        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+    </div>
+@endif
+
+<form method="GET" action="{{ route('user_groups.index') }}" class="x-filters">
+    <label class="x-sr" for="st-groups-q">Search groups</label>
+    <x-ui.input type="search" id="st-groups-q" name="q" value="{{ $q ?? '' }}"
+                placeholder="Search groups" class="x-filters__search" />
+</form>
+
+@if($groups->isEmpty())
+    <x-ui.empty
+        title="{{ $hasFilters ? 'No groups match that search' : 'No user groups yet' }}"
+        description="{{ $hasFilters ? 'Try a different name.' : 'Create a group for each kind of job, then set what that job is allowed to do.' }}">
+        @if($canManageUserGroups && !$hasFilters)
+            <x-slot:action>
+                <x-ui.button variant="primary" :href="route('user_groups.create')">New group</x-ui.button>
+            </x-slot:action>
         @endif
-    </div>
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="st-col-id">ID</th>
+            <th>Name</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
 
-    <div class="toolbar">
-        <form method="GET" action="{{ route('user_groups.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search group">
-            <button class="btn" type="submit">Search</button>
-        </form>
-    </div>
+    @foreach($groups as $g)
+        @php $isAdminGroup = strtolower($g->name) === 'administrator'; @endphp
+        <tr>
+            <td class="st-col-id" data-label="ID"><span class="x-num">{{ $g->id }}</span></td>
+            <td data-label="Name">
+                @if($canManageUserGroups)
+                    <a class="x-row-link" href="{{ route('user_groups.edit', $g->id) }}">{{ $g->name }}</a>
+                @else
+                    {{ $g->name }}
+                @endif
+                @if($isAdminGroup)
+                    <div class="st-note">Always keeps settings, users and user groups. Cannot be deleted.</div>
+                @endif
+            </td>
+            <td class="x-td-actions">
+                @if($canManageUserGroups)
+                <x-ui.menu label="{{ $g->name }} actions">
+                    <a class="x-menu__item" href="{{ route('user_groups.edit', $g->id) }}">Edit permissions</a>
+                    @unless($isAdminGroup)
+                        <div class="x-menu__sep"></div>
+                        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete {{ $g->name }}? This cannot be undone."
+                                data-confirm-submit="st-group-del-{{ $g->id }}">Delete</button>
+                    @endunless
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
 
-    <div class="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th style="width:90px;">ID</th>
-                <th>Name</th>
-                <th style="width:160px;">Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            @foreach($groups as $g)
-                <tr>
-                    <td>{{ $g->id }}</td>
-                    <td>{{ $g->name }}</td>
-                    <td class="d-flex gap-8 items-center">
-                        @if($canManageUserGroups)
-                        <a class="btn small" href="{{ route('user_groups.edit', $g->id) }}">Edit</a>
-                        <form method="POST" action="{{ route('user_groups.destroy', $g->id) }}" data-confirm="Delete this group?">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn danger small" type="submit">Delete</button>
-                        </form>
-                        @endif
-                    </td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    </div>
+@if($canManageUserGroups)
+    @foreach($groups as $g)
+        @if(strtolower($g->name) !== 'administrator')
+            <form id="st-group-del-{{ $g->id }}" method="POST" action="{{ route('user_groups.destroy', $g->id) }}" class="x-sr">
+                @csrf
+                @method('DELETE')
+            </form>
+        @endif
+    @endforeach
+@endif
 
-    <div class="mt-16">
-        {{ $groups->onEachSide(1)->links('vendor.pagination.simple') }}
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($groups->firstItem() ?? 0) }} to {{ number_format($groups->lastItem() ?? 0) }} of {{ number_format($groups->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$groups->previousPageUrl()" :disabled="!$groups->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$groups->nextPageUrl()" :disabled="!$groups->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
     </div>
 </div>
+@endif
 @endsection

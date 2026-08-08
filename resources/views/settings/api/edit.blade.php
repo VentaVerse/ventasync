@@ -1,87 +1,134 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / API / Edit')
-
-@php
-    $hasExpiry = old('expires_at', $expiresAt?->format('Y-m-d'));
-    $noExpiry = old('no_expiry', $expiresAt ? null : '1');
-@endphp
+@extends('layouts.shell')
+@section('title', 'Edit ' . $client->name)
+@section('breadcrumb', $client->name)
 
 @section('content')
+@php
+    // Same derivation the pre-redesign view used: the date box shows the
+    // token's own expiry, and "No expiry" starts on only when there is none.
+    $expiresValue = old('expires_at', $expiresAt?->format('Y-m-d'));
+    $noExpiry = (bool) old('no_expiry', $expiresAt ? null : '1');
+@endphp
 
-<div class="card">
-    <div class="page-header">
-        <h2>Edit API Application</h2>
-        <a class="btn secondary" href="{{ route('api_clients.index') }}">Back</a>
+<form method="POST" action="{{ route('api_clients.update', $client->id) }}" class="fm-page">
+    @csrf
+    @method('PUT')
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if(session('error'))
+            <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+        @endif
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
     </div>
 
-    @if(session('error'))
-        <div class="field-error">{{ session('error') }}</div>
-    @endif
-
-    <form method="POST" action="{{ route('api_clients.update', $client->id) }}">
-        @csrf
-        @method('PUT')
-
-        <div class="form-grid">
-            <div class="full">
-                <label class="required">Name</label>
-                <input class="input" name="name" value="{{ old('name', $client->name) }}" required maxlength="255">
-                @error('name')<div class="field-error">{{ $message }}</div>@enderror
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('api_clients.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> API applications
+            </a>
+            <h1 class="fm-title">{{ $client->name }}</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Created</span>
+                    <span class="fm-stamp__v">{{ $client->created_at?->format('Y-m-d') ?? 'Unknown' }}</span>
+                </span>
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Last used</span>
+                    <span class="fm-stamp__v">{{ $client->last_used_at?->format('Y-m-d H:i') ?? 'Never' }}</span>
+                </span>
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Permissions</span>
+                    <span class="fm-stamp__v">{{ count($current) }}</span>
+                </span>
             </div>
+        </div>
 
-            <div class="full">
-                <label class="required">Permissions</label>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Resource</th><th style="width:90px;">Read</th><th style="width:90px;">Write</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach($scopes as $key => $meta)
-                                <tr>
-                                    <td>
-                                        {{ $meta['label'] }}
-                                        <div class="text-xs text-secondary">{{ $meta['description'] }}</div>
-                                    </td>
-                                    <td>
-                                        @if(in_array('read', $meta['actions'], true))
-                                            <input type="checkbox" name="scopes[{{ $key }}][read]" value="1"
-                                                   @checked(old("scopes.$key.read", in_array("$key:read", $current, true)))>
-                                        @else
-                                            <span class="text-secondary">—</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if(in_array('write', $meta['actions'], true))
-                                            <input type="checkbox" name="scopes[{{ $key }}][write]" value="1"
-                                                   @checked(old("scopes.$key.write", in_array("$key:write", $current, true)))>
-                                        @else
-                                            <span class="text-secondary">—</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+        <div class="fm-head__actions">
+            <x-ui.menu label="{{ $client->name }} actions">
+                <button type="button" class="x-menu__item"
+                        data-confirm="Rotate the token for {{ $client->name }}? The current token stops working the moment the new one is issued."
+                        data-confirm-submit="st-api-rotate-form">Rotate token</button>
+                <div class="x-menu__sep"></div>
+                <button type="button" class="x-menu__item x-menu__item--danger"
+                        data-confirm="Revoke {{ $client->name }}? Its token stops working immediately. This cannot be undone."
+                        data-confirm-submit="st-api-delete-form">Revoke application</button>
+            </x-ui.menu>
+        </div>
+    </div>
+
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Name</h2>
                 </div>
-                @error('scopes')<div class="field-error">{{ $message }}</div>@enderror
-            </div>
 
-            <div class="full">
-                <label>Expiry</label>
-                <label class="text-xs">
-                    <input type="checkbox" name="no_expiry" value="1" {{ $noExpiry ? 'checked' : '' }}> No expiry
-                </label>
-                <div class="text-xs text-secondary">Or set an expiry date (uncheck &ldquo;No expiry&rdquo; to use it):</div>
-                <input class="input" type="date" name="expires_at" value="{{ $hasExpiry }}">
-                @error('expires_at')<div class="field-error">{{ $message }}</div>@enderror
-            </div>
+                <div class="fm-fields">
+                    <x-ui.field label="Name" for="st-api-name" name="name" :required="true" wide
+                                hint="Name the software, not the person who set it up. It is what appears in the request log.">
+                        <x-ui.input id="st-api-name" name="name" maxlength="255" required
+                                    value="{{ old('name', $client->name) }}" />
+                    </x-ui.field>
+                </div>
+            </section>
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">What it may reach</h2>
+                </div>
+                <p class="fm-section__note">
+                    Read lets it fetch. Write lets it change. Changing these takes effect on the
+                    existing token straight away. The token value itself does not change, and it is
+                    never shown again. If you need a new one, rotate it.
+                </p>
+
+                @include('settings.api.partials.scopes', ['scopes' => $scopes, 'current' => $current])
+            </section>
         </div>
 
-        <div class="page-header">
-            <button class="btn" type="submit">Save changes</button>
-        </div>
-    </form>
-</div>
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Expiry</h2></div>
+                <div class="fm-card__body">
+                    <label class="fm-switch">
+                        <input type="checkbox" class="fm-switch__input" name="no_expiry" value="1"
+                               data-toggle-disables="st-api-expires" @checked($noExpiry)>
+                        <span class="fm-switch__track" aria-hidden="true"></span>
+                        <span class="fm-switch__text">
+                            <span class="fm-switch__label">No expiry</span>
+                            <span class="fm-switch__note">The token keeps working until it is rotated or the application is revoked.</span>
+                        </span>
+                    </label>
+                    @error('no_expiry')<div class="fm-error">{{ $message }}</div>@enderror
 
+                    <x-ui.field label="Stop working on" for="st-api-expires" name="expires_at"
+                                hint="Turn off No expiry to set a date. It has to be in the future.">
+                        <x-ui.input type="date" id="st-api-expires" name="expires_at"
+                                    class="st-date" value="{{ $expiresValue }}" :disabled="$noExpiry" />
+                    </x-ui.field>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fm-bar">
+        <span class="fm-bar__meta">{{ $client->name }}</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('api_clients.index') }}">Cancel</a>
+            <x-ui.button type="submit" variant="primary">Save changes</x-ui.button>
+        </div>
+    </div>
+</form>
+
+<form id="st-api-rotate-form" method="POST" action="{{ route('api_clients.rotate', $client->id) }}" class="x-sr">
+    @csrf
+</form>
+<form id="st-api-delete-form" method="POST" action="{{ route('api_clients.destroy', $client->id) }}" class="x-sr">
+    @csrf
+    @method('DELETE')
+</form>
 @endsection

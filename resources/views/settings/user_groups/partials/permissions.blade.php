@@ -12,7 +12,7 @@
     Hidden inputs (`permissions[]`) underneath each pill carry the
     actual DB permission IDs. The JS controller toggles each input's
     `disabled` attribute so the submission contract stays identical
-    to the legacy checkbox UI — the backend still receives a flat
+    to the legacy checkbox UI. The backend still receives a flat
     array of granted IDs.
 
     Display labels come from the existing Permission::label accessor,
@@ -26,7 +26,7 @@
 
     // Collapse view_X / manage_X siblings into one logical row per base.
     // Each "row" carries up to two permission records and the pill it should
-    // render. Standalone keys (no view/manage prefix — e.g. container parents)
+    // render. Standalone keys (no view/manage prefix, e.g. container parents)
     // are surfaced as a 2-segment pill on the base itself.
     $buildRows = function (array $perms) use ($hierarchy, $selected) {
         $byBase = [];
@@ -45,7 +45,7 @@
             } elseif (str_starts_with($perm->key, 'manage_')) {
                 $byBase[$bucket]['manage'] = $perm;
             } else {
-                // Container / standalone — bind it under "manage" so the pill
+                // Container or standalone. Bind it under "manage" so the pill
                 // collapses to Off|Manage with this id as the manage tier.
                 $byBase[$bucket]['manage'] = $perm;
                 $byBase[$bucket]['fallback'] = $perm;
@@ -58,7 +58,7 @@
             // otherwise 2. The single non-off segment for the 2-seg case carries
             // the tier name of whichever variant actually exists (view OR manage),
             // so a read-only extension key like view_petty_cash_transactions renders
-            // as [Off | View] — not the impossible [Off | Manage].
+            // as [Off | View], not the impossible [Off | Manage].
             $hasView = (bool) $entry['view'];
             $hasManage = (bool) $entry['manage'];
             $segCount = ($hasView && $hasManage) ? 3 : 2;
@@ -72,7 +72,7 @@
                 $state = 'view';
             }
 
-            // The "primary" permission record is used purely for the label —
+            // The "primary" permission record is used purely for the label:
             // prefer manage (since it's the broader scope and most familiar
             // to existing operators).
             $primary = $entry['manage'] ?? $entry['view'];
@@ -94,7 +94,7 @@
     // which selected IDs are "orphans" (e.g. top-level container parents like
     // manage_marketplace_api that don't appear as their own row). Orphans are
     // re-emitted as hidden, untouchable inputs so existing saves stay
-    // wire-compatible — they're invisible to the operator but survive Save.
+    // wire-compatible. They are invisible to the operator but survive Save.
     $pillSurfacedIds = [];
     foreach ($permissionGroups as $pg) {
         $kids = $pg['children'] ?? [];
@@ -104,7 +104,7 @@
             }
         }
         if (empty($kids)) {
-            // Standalone group — its single parent IS the pill.
+            // Standalone group. Its single parent IS the pill.
             $pillSurfacedIds[] = $pg['parent']->id;
         } else {
             foreach ($kids as $perm) {
@@ -178,7 +178,7 @@
     // BOTH view_<domain> and manage_<domain> declared at top level
     // (no `parent` field). PermissionHierarchy::compute() treats each
     // as its own group, so the rendering loop above emits two
-    // <section> blocks per domain — one with just the parent pill,
+    // <section> blocks per domain, one with just the parent pill,
     // one with the children.
     //
     // We want a single section per domain so:
@@ -208,12 +208,12 @@
 
             // Decide which section stays as the host (the manage_<X> one).
             if ($isManageParent && !$existingIsManage) {
-                // Current iteration brings the manage_<X> section — promote it,
+                // Current iteration brings the manage_<X> section. Promote it,
                 // fold the existing (view_<X>) section into it as a row.
                 $host = $section;
                 $orphan = $existing;
             } else {
-                // Existing section already owns manage_<X> — fold the current
+                // Existing section already owns manage_<X>. Fold the current
                 // (view_<X>) one into it.
                 $host = $existing;
                 $orphan = $section;
@@ -260,7 +260,7 @@
     @endforeach
 
     {{-- ============================================================
-         Sticky toolbar — global counter, cascade buttons, presets, search
+         Sticky toolbar: global counter, cascade buttons, presets, search
          ============================================================ --}}
     <div class="permv2-toolbar">
         <div class="permv2-title">
@@ -315,7 +315,7 @@
             </span>
             <input type="search"
                    class="permv2-search"
-                   placeholder="Filter — e.g. ‘lazada’, ‘orders’, ‘settings’ — press Esc to clear"
+                   placeholder="Filter permissions. Press Esc to clear."
                    aria-label="Filter permissions"
                    data-permv2="search">
         </div>
@@ -437,7 +437,7 @@
                                             data-value="manage"
                                             aria-checked="{{ $state === 'manage' ? 'true' : 'false' }}"
                                             tabindex="{{ $state === 'manage' ? '0' : '-1' }}"
-                                            title="Full control — includes view">
+                                            title="Full control. Includes view.">
                                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
                                         <span>Manage</span>
                                     </button>
@@ -459,7 +459,7 @@
                                             data-value="manage"
                                             aria-checked="{{ $state === 'manage' ? 'true' : 'false' }}"
                                             tabindex="{{ $state === 'manage' ? '0' : '-1' }}"
-                                            title="Full control — includes view">
+                                            title="Full control. Includes view.">
                                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
                                         <span>Manage</span>
                                     </button>
@@ -469,7 +469,7 @@
                                      - The active tier's input is enabled and submits its DB id.
                                      - The inactive tier (if any) is disabled and is skipped at submit time.
                                      - When state="off" BOTH are disabled and the row contributes nothing
-                                       to permissions[] — equivalent to the old "unchecked" state. --}}
+                                       to permissions[], equivalent to the old "unchecked" state. --}}
                                 @if($row['view'])
                                     <input type="hidden"
                                            name="permissions[]"

@@ -1,0 +1,343 @@
+/* ============================================================
+   SETTINGS  (`st-`)
+   ------------------------------------------------------------
+   The five settings CRUD families (users, user groups, order
+   statuses, currencies, API applications) are almost entirely
+   the shared anatomies: `x-list-head` / `x-filters` / `x-table`
+   / `x-pager` on the indexes, `fm-` on every create and edit
+   page. This file adds ONLY the pieces those two anatomies have
+   no equivalent for:
+
+     1. column widths for the five tables
+     2. the API scope matrix (a resource with two tier switches)
+     3. the one-time API token reveal
+     4. the exchange-rate basis line
+     5. the cron command block on the currencies page
+     6. one date control that is not raw browser chrome
+
+   Everything else here is a graduation of a shared class, never
+   a re-facing of it. No raw colour: every value is a token, so
+   both themes come out of the same rules.
+   ============================================================ */
+
+/* ---------------------------------------------------------------
+   1. TABLE COLUMNS
+   Widths only. The cells themselves are plain `x-table` cells and
+   inherit its hairlines, row height and mobile restack.
+   --------------------------------------------------------------- */
+.st-col-id      { width: 72px; }
+.st-col-check   { width: 36px; }
+.st-col-code    { width: 88px; }
+.st-col-symbol  { width: 72px; }
+.st-col-rate    { width: 190px; }
+.st-col-flag    { width: 140px; }
+.st-col-stat    { width: 112px; }
+.st-col-user    { width: 168px; }
+.st-col-when    { width: 176px; }
+.st-col-tiers   { width: 132px; }
+
+/* Selection checkboxes. The native control is kept (it carries the
+   form= binding and the indeterminate state); only its size and
+   accent are brought onto the token palette. */
+.st-check {
+    /* The row is a stretched link: `.x-row-link::after` is inset:0 against
+       the positioned <tr> (components/ui-table.css). Without its own
+       stacking context the checkbox sits UNDER that overlay and never
+       receives a click, which is the same reason `.x-menu__trigger` already
+       carries this position/z-index pair for the actions column. Verified in
+       a browser: without these two lines the order-status row checkboxes are
+       completely unclickable and the bulk bar can never appear. */
+    position: relative;
+    z-index: 1;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* Bulk bar. Appears only once rows are selected, which is the only
+   place a destructive control is allowed to stand on a list page. */
+.st-bulkbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+}
+.st-bulkbar__count { font-size: 12px; color: var(--text-secondary); }
+.st-bulkbar__actions { display: flex; gap: var(--space-2); }
+
+/* Two head actions (a secondary workflow control beside the primary
+   create). `.x-list-head` is a two-child flex, so they need one wrapper. */
+.st-head-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+/* A currency code is always upper case in the `currencies` table
+   (CurrencyController strtoupper()s it on save), so the field shows what
+   will actually be stored while it is being typed. */
+.st-code-input { text-transform: uppercase; }
+
+/* A fact that belongs to the row but must not compete with it:
+   "Administrator accounts cannot be deleted", the default-currency
+   marker. Muted, small, no border, no colour of its own. */
+.st-note {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------
+   2. API SCOPE MATRIX
+   One row per resource, two tier switches per row. Rendered as a
+   list of hairline-separated rows rather than a bordered grid: a
+   full grid of 2 checkbox columns reads as a spreadsheet export.
+   --------------------------------------------------------------- */
+.st-scopes {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.st-scopes__head,
+.st-scope {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 176px;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+}
+.st-scope__tiers {
+    display: grid;
+    grid-template-columns: 84px 84px;
+    gap: var(--space-2);
+    align-items: center;
+}
+.st-scopes__head {
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.st-scopes__tier { text-align: center; }
+.st-scope + .st-scope { border-top: 1px solid var(--border); }
+.st-scope:hover { background: var(--surface-hover); }
+.st-scope__name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+.st-scope__desc {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* The tier cell. A label wrapping the checkbox so the whole cell is
+   the hit target, with the tier word repeated for screen readers and
+   for the mobile layout where the column header is gone. */
+.st-tier {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control-h-sm);
+    cursor: pointer;
+}
+.st-tier__box {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.st-tier__text {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+/* Desktop repeats the word in the column header, so the per-cell
+   word is only needed once the header is gone. */
+@media (min-width: 641px) {
+    .st-tier__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+/* A tier this resource does not offer. Rendered as a dash so the
+   column still lines up, muted so it reads as "not applicable"
+   rather than "off". */
+.st-tier--none {
+    display: flex;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+    .st-scopes__head { display: none; }
+    .st-scope {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-2);
+        padding: var(--space-3);
+    }
+    .st-scope__tiers {
+        display: flex;
+        gap: var(--space-5);
+    }
+    .st-tier { justify-content: flex-start; }
+    .st-tier--none { justify-content: flex-start; }
+}
+
+/* ---------------------------------------------------------------
+   3. ONE-TIME TOKEN REVEAL
+   Shown once, immediately after create or rotate. Not a modal: a
+   modal that can never be reopened hides the one thing the page
+   exists to hand over. It sits at the top of the list, in the warning
+   tone, and stays until the operator navigates away.
+   --------------------------------------------------------------- */
+.st-token {
+    padding: var(--space-4);
+    margin-bottom: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius-md);
+}
+.st-token__title {
+    margin: 0 0 var(--space-1);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.st-token__note {
+    margin: 0 0 var(--space-3);
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 62ch;
+}
+.st-token__row {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+.st-token__value {
+    flex: 1 1 320px;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+/* ---------------------------------------------------------------
+   4. EXCHANGE-RATE BASIS
+   The rate column means nothing without its direction, so the
+   direction is written out on every row rather than once in a
+   header the eye leaves behind after two rows.
+   --------------------------------------------------------------- */
+.st-rate {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    align-items: flex-end;
+}
+.st-rate__value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+}
+.st-rate__basis {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+@media (max-width: 640px) {
+    .st-rate { align-items: flex-start; }
+}
+
+/* ---------------------------------------------------------------
+   5. CRON COMMAND
+   A command an operator has to copy into a crontab. Sunken surface,
+   mono, selectable, with a copy control that never blocks selection.
+   --------------------------------------------------------------- */
+.st-cron {
+    margin-top: var(--space-6);
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.st-cron__title {
+    margin: 0 0 var(--space-1);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.st-cron__note {
+    margin: 0 0 var(--space-3);
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 72ch;
+}
+.st-cron__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+}
+.st-cron__cmd {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    user-select: all;
+}
+
+/* ---------------------------------------------------------------
+   6. DATE CONTROL
+   A bare <input type="date"> arrives as system chrome, and its
+   calendar glyph stays dark on the dark theme. One bordered control
+   that matches .x-input, with the glyph inverted where it has to be.
+   --------------------------------------------------------------- */
+.st-date { max-width: 220px; }
+.st-date::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
+.st-date:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+:root[data-theme="dark"] .x-app .st-date::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+/* Disabled while "No expiry" is on. `disabled` (not `hidden`) so the
+   field stops submitting AND stops being reachable, and so nothing
+   here depends on a display rule some other selector could outrank. */
+.st-date:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------
+   7. PERMISSION EDITOR HOST
+   The editor itself keeps its own `permv2-` vocabulary (that markup
+   is the security model's DOM contract and its JS queries those
+   class names). All this does is give it room inside an fm- section
+   and opt its group headers into the overflow-trigger reveal rule,
+   which is written against table rows only.
+   --------------------------------------------------------------- */
+.st-perm { margin-top: var(--space-2); }
+.st-perm .x-menu__trigger { opacity: 1; }
+
+/* `fm-body` is a two-track grid above 1000px (content plus a 320px side
+   rail). The permission editor has no side rail, and without this the grid
+   still reserves the empty track and strands ~350px to the right of every
+   pill row. Collapse to one track for the forms that are genuinely single
+   column. */
+.st-form--wide .fm-body { grid-template-columns: minmax(0, 1fr); }

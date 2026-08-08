@@ -1,97 +1,156 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Settings / Currencies')
+@extends('layouts.shell')
+@section('title', 'Currencies')
+@section('breadcrumb', 'Currencies')
 
 @section('content')
-<div class="card">
-    <div class="page-header">
-        <h2>Currencies</h2>
-        <div class="page-header-actions">
-            <form method="POST" action="{{ route('currencies.update_rates') }}" style="display:inline;">
-                @csrf
-                <button class="btn secondary" type="submit">Update Rates</button>
-            </form>
-            <a class="btn" href="{{ route('currencies.create') }}">Add Currency</a>
-        </div>
-    </div>
+@php
+    // Reading the list needs view_website_settings|manage_website_settings;
+    // every write (create, edit, delete, refresh rates) needs
+    // manage_website_settings specifically. See routes/settings.php.
+    $canManageCurrencies = auth()->user()?->hasPermission('manage_website_settings') ?? false;
 
-    <div class="toolbar">
-        <form method="GET" action="{{ route('currencies.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search by code or name" style="max-width:300px;">
-            <button class="btn" type="submit">Search</button>
+    // Never hardcoded: the default currency is whatever the `currencies`
+    // table says it is, resolved once per request and cached by Money.
+    $defaultCode = \App\Support\Money::defaultCode();
+
+    $hasFilters = ($q ?? '') !== '';
+    $artisanPath = '/usr/bin/php ' . base_path('artisan');
+@endphp
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Currencies</h1>
+        <p class="x-page-sub">
+            {{ number_format($currencies->total()) }} {{ Str::plural('currency', $currencies->total()) }}.
+            A rate says how much of {{ $defaultCode }} one unit of that currency is worth.
+        </p>
+    </div>
+    @if($canManageCurrencies)
+    <div class="st-head-actions">
+        <form method="POST" action="{{ route('currencies.update_rates') }}">
+            @csrf
+            <x-ui.button type="submit">Refresh rates</x-ui.button>
         </form>
+        <x-ui.button variant="primary" :href="route('currencies.create')">New currency</x-ui.button>
     </div>
-
-    <div class="table-wrap">
-    <table>
-        <thead>
-        <tr>
-            <th style="width:70px;">ID</th>
-            <th style="width:80px;">Code</th>
-            <th>Name</th>
-            <th style="width:70px;">Symbol</th>
-            <th style="width:140px;">Exchange Rate</th>
-            <th style="width:80px;">Default</th>
-            <th style="width:80px;">Status</th>
-            <th style="width:160px;">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach($currencies as $c)
-            <tr>
-                <td>{{ $c->id }}</td>
-                <td><strong>{{ $c->code }}</strong></td>
-                <td>{{ $c->name }}</td>
-                <td>{{ $c->symbol }}</td>
-                <td>{{ number_format((float) $c->exchange_rate, 4) }}</td>
-                <td>{!! $c->is_default ? '<span class="badge badge-green">Yes</span>' : '' !!}</td>
-                <td>{!! $c->status ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Inactive</span>' !!}</td>
-                <td class="d-flex gap-8 items-center">
-                    <a class="btn small" href="{{ route('currencies.edit', $c->id) }}">Edit</a>
-                    @if(!$c->is_default)
-                    <form method="POST" action="{{ route('currencies.destroy', $c->id) }}" data-confirm="Delete this currency?">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn danger small" type="submit">Delete</button>
-                    </form>
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
-    </div>
-
-    <div class="mt-16">
-        {{ $currencies->onEachSide(1)->links('vendor.pagination.simple') }}
-    </div>
+    @endif
 </div>
 
-@php $artisanPath = '/usr/bin/php ' . base_path('artisan'); @endphp
-<div class="card mt-16">
-    <div class="page-header">
-        <h2>Auto-Update Exchange Rates</h2>
-    </div>
-    <p style="margin-bottom:12px; color:var(--text-secondary);">
-        Rates are fetched from the <strong>European Central Bank (ECB)</strong> via frankfurter.app.
-        ECB publishes new rates every business day around 16:00 CET. Weekends and holidays keep the last known rate.
-    </p>
+@if(session('status') || session('error'))
+<div class="fm-flash" role="status" aria-live="polite">
+    @if(session('status'))
+        <div class="fm-note fm-note--ok"><div class="fm-note__body">{{ session('status') }}</div></div>
+    @endif
+    @if(session('error'))
+        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
+    @endif
+</div>
+@endif
 
-    <h3 class="section-title">Cronjob Command</h3>
-    <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
-        <div>
-            <label class="text-xs" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                <span style="font-weight:600; color:var(--text-primary);">Update Exchange Rates</span>
-                <span class="badge badge-blue" style="font-size:10px;">ECB / frankfurter.app</span>
-                <span style="margin-left:auto; color:var(--text-muted);">once daily</span>
-            </label>
-            <div style="display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #334155; border-radius:var(--radius-sm); padding:10px 12px; overflow-x:auto;">
-                <code id="cron-cmd" style="flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12.5px; color:#e2e8f0; white-space:nowrap; user-select:all;">{{ $artisanPath }} currencies:update-rates</code>
-                <button type="button" class="btn small secondary" onclick="navigator.clipboard.writeText(document.getElementById('cron-cmd').textContent); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',1500);" style="flex-shrink:0; height:28px; padding:0 10px; font-size:11px;">Copy</button>
-            </div>
-        </div>
+<form method="GET" action="{{ route('currencies.index') }}" class="x-filters">
+    <label class="x-sr" for="st-cur-q">Search currencies</label>
+    <x-ui.input type="search" id="st-cur-q" name="q" value="{{ $q ?? '' }}"
+                placeholder="Search by code or name" class="x-filters__search" />
+</form>
+
+@if($currencies->isEmpty())
+    <x-ui.empty
+        title="{{ $hasFilters ? 'No currencies match that search' : 'No currencies yet' }}"
+        description="{{ $hasFilters ? 'Try a different code or name.' : 'Add the currencies you sell and buy in. One of them has to be the default that every figure is reported in.' }}">
+        @if($canManageCurrencies && !$hasFilters)
+            <x-slot:action>
+                <x-ui.button variant="primary" :href="route('currencies.create')">New currency</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="st-col-code">Code</th>
+            <th>Name</th>
+            <th class="st-col-symbol">Symbol</th>
+            <th class="st-col-rate x-td-num">Rate</th>
+            <th class="st-col-stat">Status</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($currencies as $c)
+        <tr>
+            <td class="st-col-code" data-label="Code">
+                @if($canManageCurrencies)
+                    <a class="x-row-link x-num" href="{{ route('currencies.edit', $c->id) }}">{{ $c->code }}</a>
+                @else
+                    <span class="x-num">{{ $c->code }}</span>
+                @endif
+            </td>
+            <td data-label="Name">
+                {{ $c->name }}
+                @if($c->is_default)
+                    <div class="st-note">Default. Every stored figure is reported in this currency.</div>
+                @endif
+            </td>
+            <td class="st-col-symbol" data-label="Symbol">{{ $c->symbol }}</td>
+            <td class="st-col-rate x-td-num" data-label="Rate">
+                {{-- The number alone is ambiguous in both directions, so the
+                     row spells out which way it reads. --}}
+                <div class="st-rate">
+                    <span class="st-rate__value">{{ rtrim(rtrim(number_format((float) $c->exchange_rate, 8, '.', ''), '0'), '.') }}</span>
+                    <span class="st-rate__basis">1 {{ $c->code }} = {{ rtrim(rtrim(number_format((float) $c->exchange_rate, 8, '.', ''), '0'), '.') }} {{ $defaultCode }}</span>
+                </div>
+            </td>
+            <td class="st-col-stat" data-label="Status">
+                <x-ui.badge :tone="$c->status ? 'success' : 'neutral'">{{ $c->status ? 'Active' : 'Inactive' }}</x-ui.badge>
+            </td>
+            <td class="x-td-actions">
+                @if($canManageCurrencies)
+                <x-ui.menu label="{{ $c->code }} actions">
+                    <a class="x-menu__item" href="{{ route('currencies.edit', $c->id) }}">Edit</a>
+                    @unless($c->is_default)
+                        <div class="x-menu__sep"></div>
+                        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete {{ $c->code }}? This cannot be undone."
+                                data-confirm-submit="st-cur-del-{{ $c->id }}">Delete</button>
+                    @endunless
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+
+@if($canManageCurrencies)
+    @foreach($currencies as $c)
+        @unless($c->is_default)
+            <form id="st-cur-del-{{ $c->id }}" method="POST" action="{{ route('currencies.destroy', $c->id) }}" class="x-sr">
+                @csrf
+                @method('DELETE')
+            </form>
+        @endunless
+    @endforeach
+@endif
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($currencies->firstItem() ?? 0) }} to {{ number_format($currencies->lastItem() ?? 0) }} of {{ number_format($currencies->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$currencies->previousPageUrl()" :disabled="!$currencies->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$currencies->nextPageUrl()" :disabled="!$currencies->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
     </div>
-    <p style="font-size:12px; color:var(--text-muted);">
-        Recommended schedule: once daily at 17:00 (after ECB publishes at ~16:00 CET)
+</div>
+@endif
+
+<div class="st-cron">
+    <h2 class="st-cron__title">Keeping rates up to date</h2>
+    <p class="st-cron__note">
+        Rates come from the European Central Bank through frankfurter.app, which publishes once
+        every business day at about 16:00 CET. Weekends and holidays keep the last rate. Refresh
+        rates above does it now for every active currency that is not the default; the line below
+        does the same thing on a schedule. Run it once a day at 17:00.
     </p>
+    <div class="st-cron__row">
+        <code class="st-cron__cmd" id="st-cron-cmd">{{ $artisanPath }} currencies:update-rates</code>
+        <x-ui.button type="button" size="sm" data-copy-target="st-cron-cmd">Copy</x-ui.button>
+    </div>
 </div>
 @endsection

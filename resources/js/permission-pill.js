@@ -10,7 +10,7 @@
  *     so it does NOT submit. When ACTIVE it's `disabled=false`.
  *   - The 2-segment pill carries ONLY a manage input.
  *   - The 3-segment pill carries one view + one manage input. Selecting
- *     "Manage" detaches view (manage implies view at the query layer —
+ *     "Manage" detaches view (manage implies view at the query layer:
  *     the backend doesn't need both rows in `user_group_permissions`).
  *
  * Keyboard model (per ARIA APG: radiogroup):
@@ -38,7 +38,7 @@
     // ---------------------------------------------------------------- pill state
     function setPillState(pill, state) {
         // Derive the allowed states from the segment buttons actually in the
-        // DOM — a 2-segment pill can be [off|manage] OR [off|view] depending
+        // DOM, a 2-segment pill can be [off|manage] OR [off|view] depending
         // on whether the resource has a manage tier. Hardcoding [off,manage]
         // here would silently drop "view" cascades on read-only resources.
         const segs = pill.querySelectorAll('.permv2-pill-seg');
@@ -83,7 +83,7 @@
 
         // Child → parent View elevation. If THIS pill is a CHILD of its
         // group (its base differs from the group key) and the new state
-        // grants any tier, ensure the parent pill is not Off — promote it
+        // grants any tier, ensure the parent pill is not Off, promote it
         // to "view" (or "manage" for container parents that don't expose
         // a view tier). Symmetric counterpart to the parent-off cascade
         // above: keeps the invariant that the parent's tier is always
@@ -206,7 +206,7 @@
             //   - "off"    → "off" (universal).
             //   - "view"   → "view" if supported, else stays at current
             //                tier's lowest available (i.e. no change if
-            //                only manage exists — Operator/Viewer presets
+            //                only manage exists, Operator/Viewer presets
             //                shouldn't accidentally over-grant).
             //   - "manage" → "manage" if supported, else fall back to
             //                "view" (view-only resources can't be "managed").
@@ -218,7 +218,7 @@
             if (targetState === 'manage' && !supportsManage) {
                 coerced = supportsView ? 'view' : 'off';
             } else if (targetState === 'view' && !supportsView) {
-                // Skip — view-only cascade shouldn't elevate a manage-only
+                // Skip, view-only cascade shouldn't elevate a manage-only
                 // resource to manage. Leave the pill alone.
                 return;
             }
@@ -234,7 +234,7 @@
             cascadeAll(btn.dataset.cascade);
             // "Off all" must also detach orphan hidden inputs (container
             // permissions like manage_marketplace_api that have no pill).
-            // For "View all" / "Manage all" we leave them attached — they're
+            // For "View all" / "Manage all" we leave them attached, they're
             // implied-redundant given any child grant, but harmless.
             const orphans = picker.querySelectorAll('input[type="hidden"][data-orphan="1"]');
             orphans.forEach((inp) => {
@@ -311,7 +311,7 @@
     }
 
     /**
-     * Bulk presets — applied to ALL pills regardless of search state, so the
+     * Bulk presets, applied to ALL pills regardless of search state, so the
      * operator never accidentally creates an incoherent role by typing into
      * the search box first.
      *
@@ -332,7 +332,7 @@
 
             // Pick the best tier each preset wants, falling back to whatever
             // the pill actually supports. A resource that only has view_X
-            // (e.g. petty_cash_transactions) tops out at "view" — Operator
+            // (e.g. petty_cash_transactions) tops out at "view", Operator
             // and Administrator presets still grant it at that tier.
             const target = (preferred) => {
                 if (preferred === 'manage') {

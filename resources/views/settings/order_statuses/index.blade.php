@@ -1,130 +1,145 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Sales / Order Statuses')
+@extends('layouts.shell')
+@section('title', 'Order statuses')
+@section('breadcrumb', 'Order statuses')
 
 @section('content')
 @php
-    $canManageOrderStatuses = true;
+    // routes/settings.php gates the list on view_order_statuses|manage_order_statuses
+    // and every write on manage_order_statuses. The pre-redesign view hardcoded
+    // this to true.
+    $canManageOrderStatuses = auth()->user()?->hasPermission('manage_order_statuses') ?? false;
+
+    $hasFilters = ($q ?? '') !== '';
 @endphp
-<div class="card">
-    <div class="page-header">
-        <h2>Order Statuses</h2>
-        <div class="page-header-actions">
-            @if($canManageOrderStatuses)
-            <a class="btn" href="{{ route('order_statuses.create') }}">Add Order Status</a>
-            <button class="btn danger" type="submit" form="os-bulk-form" id="os-bulk-delete-btn">Delete Selected</button>
-            @endif
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Order statuses</h1>
+        <p class="x-page-sub">{{ number_format($statuses->total()) }} {{ Str::plural('status', $statuses->total()) }} an order can move through. Each marketplace maps its own statuses onto these in that channel's settings.</p>
+    </div>
+    @if($canManageOrderStatuses)
+        <x-ui.button variant="primary" :href="route('order_statuses.create')">New status</x-ui.button>
+    @endif
+</div>
+
+<form method="GET" action="{{ route('order_statuses.index') }}" class="x-filters">
+    <label class="x-sr" for="st-os-q">Search order statuses</label>
+    <x-ui.input type="search" id="st-os-q" name="q" value="{{ $q ?? '' }}"
+                placeholder="Search order statuses" class="x-filters__search" />
+</form>
+
+@if($statuses->isEmpty())
+    <x-ui.empty
+        title="{{ $hasFilters ? 'No statuses match that search' : 'No order statuses yet' }}"
+        description="{{ $hasFilters ? 'Try a different name.' : 'Add the statuses your orders move through, and say which ones take stock and which ones count as revenue.' }}">
+        @if($canManageOrderStatuses && !$hasFilters)
+            <x-slot:action>
+                <x-ui.button variant="primary" :href="route('order_statuses.create')">New status</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+{{-- Alpine tracks the selection so the bulk bar can appear only once
+     something is selected. The checkboxes themselves carry the real
+     `ids[]` name and bind to the bulk form with form=, so the payload is
+     built declaratively by the browser rather than assembled in a submit
+     handler, which would run twice through the confirm dialog. --}}
+<div class="st-os-page" x-data="{
+        selected: [],
+        ids: {{ \Illuminate\Support\Js::from($statuses->pluck('order_status_id')->map(fn ($v) => (string) $v)->values()) }}
+    }">
+
+@if($canManageOrderStatuses)
+    {{-- OrderStatusController@bulkAction only ever deletes, so this bar
+         offers exactly that and nothing invented alongside it. --}}
+    <form id="st-os-bulk-form" method="POST" action="{{ route('order_statuses.bulk') }}">@csrf</form>
+
+    <div class="st-bulkbar" x-show="selected.length > 0" x-cloak>
+        <span class="st-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+        <div class="st-bulkbar__actions">
+            <x-ui.button type="button" variant="danger" size="sm"
+                         data-confirm="Delete the selected order statuses? Any order still sitting on one of them keeps the number but loses its name. This cannot be undone."
+                         data-confirm-submit="st-os-bulk-form">Delete selected</x-ui.button>
         </div>
     </div>
+@endif
 
-    <div class="toolbar">
-        <form method="GET" action="{{ route('order_statuses.index') }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search order status">
-            <button class="btn" type="submit">Search</button>
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            @if($canManageOrderStatuses)
+            <th class="st-col-check">
+                <input type="checkbox" class="st-check"
+                       :checked="ids.length > 0 && selected.length === ids.length"
+                       x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
+                       @change="selected = $event.target.checked ? ids.slice() : []"
+                       aria-label="Select every order status on this page">
+            </th>
+            @endif
+            <th class="st-col-id">ID</th>
+            <th>Name</th>
+            <th class="st-col-flag">Takes stock</th>
+            <th class="st-col-flag">Counts as revenue</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($statuses as $s)
+        <tr>
+            @if($canManageOrderStatuses)
+            <td class="st-col-check">
+                <input type="checkbox" class="st-check" name="ids[]" value="{{ (string) $s->order_status_id }}"
+                       form="st-os-bulk-form" x-model="selected"
+                       aria-label="Select {{ $s->name }}">
+            </td>
+            @endif
+            <td class="st-col-id" data-label="ID"><span class="x-num">{{ $s->order_status_id }}</span></td>
+            <td data-label="Name">
+                @if($canManageOrderStatuses)
+                    <a class="x-row-link" href="{{ route('order_statuses.edit', $s->order_status_id) }}">{{ $s->name }}</a>
+                @else
+                    {{ $s->name }}
+                @endif
+            </td>
+            <td class="st-col-flag" data-label="Takes stock">
+                <x-ui.badge :tone="$s->subtract_stock ? 'success' : 'neutral'">{{ $s->subtract_stock ? 'Yes' : 'No' }}</x-ui.badge>
+            </td>
+            <td class="st-col-flag" data-label="Counts as revenue">
+                <x-ui.badge :tone="$s->add_revenue ? 'success' : 'neutral'">{{ $s->add_revenue ? 'Yes' : 'No' }}</x-ui.badge>
+            </td>
+            <td class="x-td-actions">
+                @if($canManageOrderStatuses)
+                <x-ui.menu label="{{ $s->name }} actions">
+                    <a class="x-menu__item" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
+                    <div class="x-menu__sep"></div>
+                    <button type="button" class="x-menu__item x-menu__item--danger"
+                            data-confirm="Delete {{ $s->name }}? This cannot be undone."
+                            data-confirm-submit="st-os-del-{{ $s->order_status_id }}">Delete</button>
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+
+@if($canManageOrderStatuses)
+    {{-- Hoisted out of the table: the bulk form above cannot contain them,
+         and a form cannot nest inside another form. --}}
+    @foreach($statuses as $s)
+        <form id="st-os-del-{{ $s->order_status_id }}" method="POST" action="{{ route('order_statuses.destroy', $s->order_status_id) }}" class="x-sr">
+            @csrf
+            @method('DELETE')
         </form>
-    </div>
+    @endforeach
+@endif
 
-    <form id="os-bulk-form" method="POST" action="{{ route('order_statuses.bulk') }}" onsubmit="return window.__confirmOsBulkDelete(event);">
-        @csrf
-    </form>
-
-    <div class="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th style="width:36px;">@if($canManageOrderStatuses)<input type="checkbox" id="os-select-all" title="Select all">@endif</th>
-                <th style="width:90px;">ID</th>
-                <th>Name</th>
-                <th style="width:120px;">Subtract Stock</th>
-                <th style="width:120px;">Add Revenue</th>
-                <th style="width:160px;">Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            @foreach($statuses as $s)
-                <tr>
-                    <td>@if($canManageOrderStatuses)<input type="checkbox" class="os-row-check" name="ids[]" value="{{ (int)$s->order_status_id }}" form="os-bulk-form">@endif</td>
-                    <td>{{ $s->order_status_id }}</td>
-                    <td>{{ $s->name }}</td>
-                    <td>
-                        @if($s->subtract_stock)
-                            <span class="badge success">Yes</span>
-                        @else
-                            <span class="badge secondary">No</span>
-                        @endif
-                    </td>
-                    <td>
-                        @if($s->add_revenue)
-                            <span class="badge success">Yes</span>
-                        @else
-                            <span class="badge secondary">No</span>
-                        @endif
-                    </td>
-                    <td class="d-flex gap-8 items-center">
-                        @if($canManageOrderStatuses)
-                        <a class="btn small" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
-                        <form method="POST" action="{{ route('order_statuses.destroy', $s->order_status_id) }}" data-confirm="Delete this order status?">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn danger small" type="submit">Delete</button>
-                        </form>
-                        @endif
-                    </td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    </div>
-
-    <script>
-        (function () {
-            var selectAll = document.getElementById('os-select-all');
-            var checks = function () { return Array.prototype.slice.call(document.querySelectorAll('.os-row-check')); };
-
-            function updateSelectAllState() {
-                var boxes = checks();
-                if (!selectAll) return;
-                if (boxes.length === 0) {
-                    selectAll.checked = false;
-                    selectAll.indeterminate = false;
-                    return;
-                }
-                var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
-                selectAll.checked = checkedCount === boxes.length;
-                selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-            }
-
-            if (selectAll) {
-                selectAll.addEventListener('change', function () {
-                    checks().forEach(function (b) { b.checked = selectAll.checked; });
-                    updateSelectAllState();
-                });
-            }
-
-            checks().forEach(function (b) {
-                b.addEventListener('change', updateSelectAllState);
-            });
-
-            window.__confirmOsBulkDelete = function (e) {
-                var form = e.target;
-                if (form._confirmed) { form._confirmed = false; return true; }
-                var selected = checks().filter(function (b) { return b.checked; }).length;
-                if (selected === 0) {
-                    showFlashError('Please select at least one order status.');
-                    return false;
-                }
-                e.preventDefault();
-                confirmModal('Delete selected order statuses? This cannot be undone.').then(function (ok) {
-                    if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
-                });
-                return false;
-            };
-
-            updateSelectAllState();
-        })();
-    </script>
-
-    <div class="mt-16">
-        {{ $statuses->onEachSide(1)->links('vendor.pagination.simple') }}
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($statuses->firstItem() ?? 0) }} to {{ number_format($statuses->lastItem() ?? 0) }} of {{ number_format($statuses->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$statuses->previousPageUrl()" :disabled="!$statuses->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$statuses->nextPageUrl()" :disabled="!$statuses->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
     </div>
 </div>
+</div>
+@endif
 @endsection

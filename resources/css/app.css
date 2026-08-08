@@ -98,6 +98,12 @@
    equivalent for. */
 @import './pages/group-form.css';
 
+/* The five settings CRUD families (Round E Task 1). After form-page.css and
+   ui-table.css, which carry nearly all of those pages: this file adds only
+   the column widths, the API scope matrix, the token reveal, the rate basis
+   and the cron block, none of which either anatomy has an equivalent for. */
+@import './pages/settings.css';
+
 /* Utilities & Responsive */
 @import './utilities.css';
 @import './responsive.css';
