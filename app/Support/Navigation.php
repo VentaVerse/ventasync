@@ -91,9 +91,91 @@ class Navigation
             ['label' => 'Petty Cash', 'icon' => 'wallet', 'route' => 'ext.pettycash.index',
              'keywords' => ['expense', 'cash', 'reimbursement', 'float']],
 
+            // One entry per extension-declared nav group (extension.json's
+            // "nav" key), e.g. the audit extension's "Audit & Monitoring".
+            // Placed here, ahead of Settings, because that is what an
+            // accountability/tracking feature sits beside; an extension
+            // whose manifest names no group at all falls back to a Settings
+            // hub card instead (SettingsHubController), never here.
+            ...self::extensionEntries(),
+
             ['label' => 'Settings', 'icon' => 'shield', 'route' => 'settings.hub',
              'keywords' => ['config', 'currency', 'user', 'permission', 'extension', 'order status']],
         ];
+    }
+
+    /**
+     * One nav group per enabled extension manifest that declares a "nav"
+     * key (ExtensionManager::getNavItems()), reshaped into the same
+     * {label, icon, items: [{label, route, params, permission}]} the rest of
+     * definition() uses.
+     *
+     * Two gates apply to every item, exactly as MenuItem's does for the
+     * channel workspace sidebar (ChannelWorkspace::allows()): the route's own
+     * `perm:` middleware (through allows(), the same authority every other
+     * entry in this tree answers to) AND the manifest's own declared
+     * `permission` field, checked in groups() via itemPermissionAllows().
+     * Neither gate can grant what the other refuses. The manifest's
+     * GROUP-level `permission` (e.g. "manage_audit") is metadata for the
+     * permission editor's grouping, not a nav gate: the item's own
+     * `permission` plus its route's real middleware are what decide
+     * visibility, so a link is never hidden from someone the route would
+     * actually let through.
+     *
+     * A manifest with no "nav" key, no items, or only items pointing at
+     * dead or disabled-extension routes contributes nothing: an empty
+     * group is dropped by groups() the same way an empty Channels or
+     * Catalogue group would be.
+     */
+    protected static function extensionEntries(): array
+    {
+        $entries = [];
+
+        try {
+            $navGroups = app(\App\Extensions\ExtensionManager::class)->getNavItems();
+
+            foreach ($navGroups as $navGroup) {
+                $label = trim((string) ($navGroup['group'] ?? ''));
+
+                if ($label === '') {
+                    continue;
+                }
+
+                $items = [];
+
+                foreach ($navGroup['items'] ?? [] as $navItem) {
+                    if (!isset($navItem['route']) || !is_string($navItem['route']) || $navItem['route'] === '') {
+                        continue;
+                    }
+
+                    $items[] = [
+                        'label' => (string) ($navItem['label'] ?? $navItem['route']),
+                        'route' => $navItem['route'],
+                        'params' => $navItem['params'] ?? [],
+                        'permission' => isset($navItem['permission']) && $navItem['permission'] !== ''
+                            ? (string) $navItem['permission']
+                            : null,
+                        'keywords' => $navItem['keywords'] ?? [],
+                    ];
+                }
+
+                if ($items === []) {
+                    continue;
+                }
+
+                $entries[] = [
+                    'label' => $label,
+                    'icon' => (string) ($navGroup['icon'] ?? 'square'),
+                    'items' => $items,
+                ];
+            }
+        } catch (\Throwable) {
+            // A failed manager (manifest JSON error, extensions table
+            // missing mid-migration) must not take down every page that
+            // renders the nav. It degrades to no extension groups at all.
+        }
+
+        return $entries;
     }
 
     /**
@@ -486,6 +568,35 @@ class Navigation
     }
 
     /**
+     * The second gate a manifest-declared item can carry alongside the
+     * route's own perm: middleware (see extensionEntries()). Core
+     * definition() entries never set this key, so this is a no-op for
+     * every one of them: absent or empty means "no extra gate".
+     */
+    private static function itemPermissionAllows(array $item): bool
+    {
+        $permission = $item['permission'] ?? null;
+
+        if ($permission === null || $permission === '') {
+            return true;
+        }
+
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        foreach (explode('|', $permission) as $key) {
+            if ($user->hasPermission(trim($key))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The tree a view should render: existing routes only, permitted only,
      * and groups with no surviving children removed entirely.
      */
@@ -495,7 +606,7 @@ class Navigation
 
         foreach (self::definition() as $entry) {
             if (isset($entry['route'])) {
-                if (self::allows($entry['route'], $entry['params'] ?? [])) {
+                if (self::allows($entry['route'], $entry['params'] ?? []) && self::itemPermissionAllows($entry)) {
                     $out[] = $entry;
                 }
                 continue;
@@ -503,7 +614,7 @@ class Navigation
 
             $items = array_values(array_filter(
                 $entry['items'],
-                fn (array $i) => self::allows($i['route'], $i['params'] ?? [])
+                fn (array $i) => self::allows($i['route'], $i['params'] ?? []) && self::itemPermissionAllows($i)
             ));
 
             if ($items !== []) {
