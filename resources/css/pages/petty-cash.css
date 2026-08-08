@@ -309,6 +309,14 @@ button.fm-cancel {
 
 .pc-bal.is-neg { color: var(--danger); }
 
+/* Fix round, Minor 6: this cell used to render &mdash;, an em dash the
+   suite's own guard could not see because it only matched the raw
+   character, not the entity. The round's own standard for "nothing to
+   show here" elsewhere (reports fees/inventory tables, rp-dash) is a
+   muted en dash, not an em dash; matched here rather than reusing pc-bal's
+   own colour so an empty balance never reads like a real figure. */
+.pc-dash { color: var(--text-muted); }
+
 .pc-desc {
     display: block;
     max-width: 46ch;
