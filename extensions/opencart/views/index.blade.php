@@ -16,14 +16,11 @@
      configured in the store's own ERP Sync module, so nothing here is a
      registered redirect and nothing is exempt from the /integrations prefix.
 
-     KNOWN, DELIBERATELY UNCHANGED: the API key field below renders the stored
-     key in the page source, as it always has. It cannot be masked the way
-     Shopee's and Lazada's secrets are, because OpenCartController::save()
-     validates `api_key` as `required` and has no "blank keeps the stored
-     value" branch: masking it would make every save that did not retype the
-     key fail validation. What HAS changed is that a read-tier operator, who
-     can never submit this form, is no longer shown the value at all. The
-     controller-side fix is recorded in the Round C Task 3 report. --}}
+     The API key field below is always sent blank, both tiers:
+     OpenCartController::save() now keeps the stored key when the field posts
+     empty, the same blank-keeps-stored branch Shopee's and TikTok's save()
+     already carry, so the view no longer needs to echo the secret to mask
+     it in the DOM. --}}
 @section('content-class', '')
 
 @section('content')
@@ -199,17 +196,16 @@
                                     placeholder="https://store.example.com" :disabled="!$canManageOpencart" />
                     </x-ui.field>
 
-                    <x-ui.field label="API key" for="oc-api-key" name="api_key" :required="true" wide
+                    <x-ui.field label="API key" for="oc-api-key" name="api_key" wide
                                 :hint="$canManageOpencart
-                                    ? 'Must match the key set in the ERP Sync module on the OpenCart side. Stored encrypted, and it has to be retyped whenever this form is saved, because the server requires it on every save.'
+                                    ? 'Must match the key set in the ERP Sync module on the OpenCart side. Stored encrypted. Leave blank to keep the stored key, type a new one to replace it.'
                                     : 'Stored encrypted, and not shown to the view tier.'">
-                        {{-- The read tier can never submit this form, so it is
-                             sent an empty control rather than the stored key.
-                             See the note at the top of this file for why the
-                             manage tier still gets the value. --}}
+                        {{-- Always sent blank, both tiers. The stored key
+                             never reaches the page source: save() keeps the
+                             existing value when this field posts empty. --}}
                         <x-ui.input id="oc-api-key" name="api_key" type="password" autocomplete="off"
-                                    value="{{ $canManageOpencart ? $store->api_key : '' }}"
-                                    :disabled="!$canManageOpencart" />
+                                    placeholder="{{ $store->api_key ? '••••••••' : '' }}"
+                                    value="" :disabled="!$canManageOpencart" />
                     </x-ui.field>
 
                     <x-ui.field label="Colour" for="oc-brand-color" name="brand_color"

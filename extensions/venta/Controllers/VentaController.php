@@ -91,12 +91,20 @@ class VentaController extends Controller
 
     public function save(Request $request)
     {
+        $storeId = $request->input('store_id');
+        // Looked up ahead of validate() so the credential rule below can key
+        // off whether this store already has a stored token: the field is
+        // masked in the form, so a blank submission must not be forced
+        // through `required` just because the user didn't retype it.
+        $existing = $storeId ? VentaSetting::findOrFail((int) $storeId) : null;
+        $hasStoredToken = $existing !== null && $existing->api_token !== null && $existing->api_token !== '';
+
         $data = $request->validate([
             'store_id'       => ['nullable', 'integer'],
             'store_name'     => ['nullable', 'string', 'max:128'],
             'brand_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'base_url'       => ['required', 'string', 'max:255'],
-            'api_token'      => ['required', 'string', 'max:255'],
+            'api_token'      => [$hasStoredToken ? 'nullable' : 'required', 'string', 'max:255'],
             'enabled'        => ['nullable'],
             'warehouse_id'   => ['nullable', 'integer'],
             'sync_last_days'   => ['nullable', 'integer', 'min:1', 'max:365'],
@@ -105,20 +113,24 @@ class VentaController extends Controller
 
         $data['enabled'] = $request->has('enabled');
 
-        $storeId = $request->input('store_id');
-
-        if ($storeId) {
-            $setting = VentaSetting::findOrFail((int) $storeId);
-            $setting->update([
+        if ($existing) {
+            $setting = $existing;
+            $setting->fill([
                 'store_name'       => $data['store_name'] ?? '',
                 'brand_color'      => $data['brand_color'] ?? $setting->brand_color,
                 'base_url'         => $data['base_url'],
-                'api_token'        => $data['api_token'],
                 'enabled'          => $data['enabled'],
                 'warehouse_id'     => $data['warehouse_id'] ?? $setting->warehouse_id,
                 'sync_last_days'   => $data['sync_last_days'] ?? $setting->sync_last_days,
                 'sync_orders_from' => $data['sync_orders_from'] ?? $setting->sync_orders_from,
             ]);
+            // Blank submission means "keep existing" -- never wipe the
+            // stored token just because the form was resaved without
+            // retyping it.
+            if (!empty($data['api_token'])) {
+                $setting->api_token = $data['api_token'];
+            }
+            $setting->save();
             ActivityLogger::log('updated', 'Venta Store', $setting->id, $setting->store_name ?? $setting->base_url);
         } else {
             $setting = VentaSetting::create([

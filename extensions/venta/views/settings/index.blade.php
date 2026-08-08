@@ -15,15 +15,11 @@
      nothing here is a registered redirect and nothing is exempt from the
      /integrations prefix.
 
-     KNOWN, DELIBERATELY UNCHANGED: the API token field below renders the
-     stored token in the page source, as it always has. It cannot be masked the
-     way Shopee's and Lazada's secrets are, because VentaController::save()
-     validates `api_token` as `required` and has no "blank keeps the stored
-     value" branch: masking it would make every save that did not retype the
-     token fail validation. What HAS changed is that a read-tier operator, who
-     can never submit this form, is no longer shown the value at all. The
-     controller-side fix (the same three lines Shopee's save() already carries)
-     is recorded in the Round C Task 3 report. --}}
+     The API token field below is always sent blank, both tiers:
+     VentaController::save() now keeps the stored token when the field posts
+     empty, the same blank-keeps-stored branch Shopee's and TikTok's save()
+     already carry, so the view no longer needs to echo the secret to mask
+     it in the DOM. --}}
 @section('content-class', '')
 
 @section('content')
@@ -178,17 +174,16 @@
                                     placeholder="https://store.example.com" :disabled="!$canManageVenta" />
                     </x-ui.field>
 
-                    <x-ui.field label="API token" for="vt-api-token" name="api_token" :required="true" wide
+                    <x-ui.field label="API token" for="vt-api-token" name="api_token" wide
                                 :hint="$canManageVenta
-                                    ? 'Stored encrypted. It has to be retyped whenever this form is saved, because the server requires it on every save.'
+                                    ? 'Stored encrypted. Leave blank to keep the stored token, type a new one to replace it.'
                                     : 'Stored encrypted, and not shown to the view tier.'">
-                        {{-- The read tier can never submit this form, so it is
-                             sent an empty control rather than the stored token.
-                             See the note at the top of this file for why the
-                             manage tier still gets the value. --}}
+                        {{-- Always sent blank, both tiers. The stored token
+                             never reaches the page source: save() keeps the
+                             existing value when this field posts empty. --}}
                         <x-ui.input id="vt-api-token" name="api_token" type="password" autocomplete="off"
-                                    value="{{ $canManageVenta ? $store->api_token : '' }}"
-                                    :disabled="!$canManageVenta" />
+                                    placeholder="{{ $store->api_token ? '••••••••' : '' }}"
+                                    value="" :disabled="!$canManageVenta" />
                     </x-ui.field>
 
                     <x-ui.field label="Colour" for="vt-brand-color" name="brand_color"

@@ -2470,6 +2470,68 @@ class WorkspaceInteriorsTest extends TestCase
     }
 
     /**
+     * I-1: the blank-keeps-stored branch. The credential field is masked in
+     * the form (always sent empty), so a save that does not retype the token
+     * must not wipe it - that would make every unrelated field edit
+     * (renaming the store, changing the sync window) destroy the connection.
+     */
+    public function test_a_venta_save_with_a_blank_token_keeps_the_stored_one(): void
+    {
+        [$one] = $this->seedVentaStores();
+
+        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+            'store_id' => $one,
+            'store_name' => 'Gear Depot Renamed',
+            'base_url' => 'https://one.venta.test',
+            'api_token' => '',
+        ])->assertRedirect(route('ext.venta.index'));
+
+        $saved = VentaSetting::findOrFail($one);
+        $this->assertSame('Gear Depot Renamed', $saved->store_name, 'The rest of the form still saved.');
+        $this->assertSame('venta-token-one', $saved->api_token, 'The stored token survived a blank submission.');
+    }
+
+    public function test_a_venta_save_with_a_new_token_replaces_the_stored_one(): void
+    {
+        [$one] = $this->seedVentaStores();
+
+        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+            'store_id' => $one,
+            'base_url' => 'https://one.venta.test',
+            'api_token' => 'venta-token-one-replaced',
+        ])->assertRedirect(route('ext.venta.index'));
+
+        $this->assertSame('venta-token-one-replaced', VentaSetting::findOrFail($one)->api_token);
+    }
+
+    /**
+     * A brand new store (no store_id yet, no stored token to fall back on)
+     * must still refuse to save without a token - the blank-keeps-stored
+     * branch only applies once something is actually stored to keep.
+     */
+    public function test_a_new_venta_store_still_requires_the_api_token(): void
+    {
+        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+            'base_url' => 'https://new.venta.test',
+        ])->assertSessionHasErrors('api_token');
+
+        $this->assertSame(0, VentaSetting::query()->count());
+    }
+
+    public function test_the_venta_api_token_never_reaches_the_page_source_for_either_tier(): void
+    {
+        [$one] = $this->seedVentaStores();
+
+        foreach ([$this->ventaManager(), $this->ventaViewer()] as $user) {
+            $html = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))
+                ->assertOk()->getContent();
+
+            $this->assertStringNotContainsString('venta-token-one', $html,
+                'The stored API token reached the page source.');
+        }
+    }
+
+    /**
      * The enabled checkbox has NO hidden companion field, deliberately.
      * VentaController::save() reads $request->has('enabled'), so a hidden 0 in
      * front of the box would make every store permanently enabled - the box
@@ -2847,6 +2909,60 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame($beforeTwo['enabled'], (bool) $after->enabled);
         $this->assertSame($beforeTwo['brand_color'], $after->brand_color);
         $this->assertSame($beforeTwo['sync_last_days'], $after->sync_last_days);
+    }
+
+    /**
+     * I-1: the blank-keeps-stored branch, OpenCart side. Mirrors Venta's.
+     */
+    public function test_an_opencart_save_with_a_blank_key_keeps_the_stored_one(): void
+    {
+        [$one] = $this->seedOpencartStores();
+
+        $this->actingAs($this->opencartManager())->post(route('ext.opencart.save'), [
+            'store_id' => $one,
+            'store_name' => 'Parts Yard Renamed',
+            'base_url' => 'https://one.opencart.test',
+            'api_key' => '',
+        ])->assertRedirect();
+
+        $saved = OpenCartSetting::findOrFail($one);
+        $this->assertSame('Parts Yard Renamed', $saved->store_name, 'The rest of the form still saved.');
+        $this->assertSame('oc-key-one', $saved->api_key, 'The stored key survived a blank submission.');
+    }
+
+    public function test_an_opencart_save_with_a_new_key_replaces_the_stored_one(): void
+    {
+        [$one] = $this->seedOpencartStores();
+
+        $this->actingAs($this->opencartManager())->post(route('ext.opencart.save'), [
+            'store_id' => $one,
+            'base_url' => 'https://one.opencart.test',
+            'api_key' => 'oc-key-one-replaced',
+        ])->assertRedirect();
+
+        $this->assertSame('oc-key-one-replaced', OpenCartSetting::findOrFail($one)->api_key);
+    }
+
+    public function test_a_new_opencart_store_still_requires_the_api_key(): void
+    {
+        $this->actingAs($this->opencartManager())->post(route('ext.opencart.save'), [
+            'base_url' => 'https://new.opencart.test',
+        ])->assertSessionHasErrors('api_key');
+
+        $this->assertSame(0, OpenCartSetting::query()->count());
+    }
+
+    public function test_the_opencart_api_key_never_reaches_the_page_source_for_either_tier(): void
+    {
+        [$one] = $this->seedOpencartStores();
+
+        foreach ([$this->opencartManager(), $this->opencartViewer()] as $user) {
+            $html = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))
+                ->assertOk()->getContent();
+
+            $this->assertStringNotContainsString('oc-key-one', $html,
+                'The stored API key reached the page source.');
+        }
     }
 
     /**
