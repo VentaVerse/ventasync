@@ -39,8 +39,6 @@
      the controller writes one shared region column whichever env is posted.
      Blank means "keep the stored value" for the two secrets, which is what the
      •••••••• masks plus resources/js/credential-mask.js are for. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_lazada|manage_lazada` on this route; every write

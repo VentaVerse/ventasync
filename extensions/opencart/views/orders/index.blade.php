@@ -8,8 +8,6 @@
      went with it. Inside a storefront's own workspace you are working one
      storefront, and the workspace sidebar (which names the store in its
      head) and the fulfilment hub are the two ways to reach another one. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // This surface is read-only on the channel's own routes: OpenCart

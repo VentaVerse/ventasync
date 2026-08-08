@@ -7,8 +7,6 @@
      OpenCart is multi-store. Every self-link, every form action and the
      product-search endpoint carry the {store} segment this page arrived on,
      and the store is named on the page as well as in the breadcrumb. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier on this route is `view_opencart|manage_opencart`; the push and

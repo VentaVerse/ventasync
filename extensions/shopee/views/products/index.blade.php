@@ -8,8 +8,6 @@
      used to be an inline <script> at the bottom of this file now lives in
      resources/js/pages/shopee-listings.js, bound from data- attributes on
      the elements below. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_shopee|manage_shopee`; every push, sync, link,

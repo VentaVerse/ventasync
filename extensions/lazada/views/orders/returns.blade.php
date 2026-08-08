@@ -4,8 +4,6 @@
 {{-- Same exit from .x-legacy the Orders page took: rebuilt directly on the
      token set and the x-ui components, so it drops the legacy content
      boundary rather than living inside it. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Returns is visible to view_lazada_orders holders; Fetch returns renders

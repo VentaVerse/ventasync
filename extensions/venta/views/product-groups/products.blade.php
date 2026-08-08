@@ -11,8 +11,6 @@
      field used to be injected by an inline script at load; it is a real
      hidden input now, which is the same value ($_SERVER request URI) without
      depending on JavaScript having run. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier on this route is `view_venta|manage_venta`; every push, sync,

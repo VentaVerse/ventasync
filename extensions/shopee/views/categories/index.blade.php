@@ -7,8 +7,6 @@
      the order detail page already took: the page is rebuilt directly on the
      token set and the x-ui components, so it no longer needs the wrapper
      that re-pins twelve custom properties to their legacy values. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_shopee|manage_shopee` (see the extension's

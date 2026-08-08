@@ -22,14 +22,6 @@
     <link rel="shortcut icon" href="{{ $__faviconUrl }}">
     <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">
     @include('partials.theme-boot')
-    {{-- Inter, for the .x-legacy content boundary only. base/reset.css and the
-         .x-legacy rule both ask for 'Inter', and layouts/app.blade.php is
-         where the seven pages hosted here used to get it. Without this they
-         fall back to system-ui and their type metrics shift. The workspace
-         chrome around them still uses Geist, which tokens.css self-hosts. --}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
@@ -131,7 +123,7 @@
              #js-flash-container that showFlashError()/showFlashSuccess()
              write into. Reproducing that contract is what makes this a
              layout those views can actually live in. --}}
-        <main class="x-content @yield('content-class', 'x-legacy')">
+        <main class="x-content @yield('content-class', '')">
             @include('partials.legacy-page-contract')
             @yield('content')
         </main>

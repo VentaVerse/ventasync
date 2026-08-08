@@ -46,8 +46,6 @@
      getShops() instead. save() now leaves it untouched when the form does
      not carry it, the same way it already leaves app_key/app_secret
      untouched on the environment it is not saving. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier on this route is `view_tiktok|manage_tiktok`; every write below

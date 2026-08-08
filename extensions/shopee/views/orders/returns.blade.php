@@ -4,8 +4,6 @@
 {{-- Same exit from .x-legacy that the Orders page took in Task 1-2: this
      page is rebuilt directly on the token set and the x-ui components, so
      it drops the legacy content boundary rather than living inside it. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Returns is visible to view_shopee_orders holders; Fetch Returns

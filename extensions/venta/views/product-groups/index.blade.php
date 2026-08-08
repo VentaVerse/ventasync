@@ -8,8 +8,6 @@
      segment it arrived on ($setting->id), and the store is named on the page
      as well as in the breadcrumb, because the trail collapses to the leaf
      alone below 768px. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier on this route is `view_venta|manage_venta`; create, update and

@@ -8,8 +8,6 @@
      and the product-search endpoint all carry the {store} segment this page
      arrived on, and the store is named in the header as well as in the
      breadcrumb. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // The create GET is `manage_venta`, but the EDIT GET is registered in the

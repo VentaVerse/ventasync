@@ -7,8 +7,6 @@
      x-ui components, the same exit Shopee's four catalogue interiors took in
      Round C Task 1. Brands is the surface Lazada carries where Shopee carries
      Logistics, so it lands on the same cc- grammar. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_lazada|manage_lazada` (extensions/lazada/routes/web.php);

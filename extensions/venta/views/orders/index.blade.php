@@ -8,8 +8,6 @@
      went with it. Inside a store's own workspace you are working one store,
      and the workspace sidebar (which names the store in its head) and the
      fulfilment hub are the two ways to reach another one. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Orders is visible to view_venta_orders holders; Fetch and the bulk

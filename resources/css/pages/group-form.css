@@ -159,12 +159,12 @@
 }
 
 /* components/tables.css carries BARE `th, td` element selectors with a
-   1px right border and an uppercased, letter-spaced `th`. Those used to be
-   contained by the .x-legacy boundary; this page has left it, so they now
-   reach any table on the canvas. Both are undone here rather than by editing
-   that file, which the pages still inside the boundary depend on. A vertical
-   rule between every cell is the spreadsheet-export look this design system
-   does not draw, and nothing in it shouts. Caught in the browser. */
+   1px right border and an uppercased, letter-spaced `th`. That file is
+   protected and out of scope to edit here, and its bare selectors now
+   reach every table on the canvas since the .x-legacy boundary that used
+   to contain them was retired in fix round 5. A vertical rule between
+   every cell is the spreadsheet-export look this design system does not
+   draw, and nothing in it shouts. Caught in the browser. */
 .gf-list th,
 .gf-list td { border-right: 0; border-left: 0; }
 

@@ -76,21 +76,26 @@
    Alerts on a page that has LEFT the .x-legacy boundary.
 
    The three tone rules above are raw light-mode hex (#fef2f2 on #991b1b
-   and friends). That is correct inside .x-legacy, which pins itself to a
-   light surface in both themes and has no dark mode at all. It is wrong
-   on a rebuilt page: layouts/channel.blade.php and layouts/shell.blade.php
-   both render partials/legacy-page-contract.blade.php - the session flash,
-   the validation errors and the integration banners - INSIDE .x-content,
-   so a migrated page in dark theme got a pale pink slab across the top of
-   an otherwise dark canvas. Measured in the browser on the Shopee
-   workspace pages; it affects every already-migrated page too (Orders,
-   Returns, the order detail, the catalogue) wherever a flash appears.
+   and friends), which was correct while .x-legacy still existed: that rule
+   (resources/css/layout/channel.css) pinned itself to a light surface in
+   both themes and had no dark mode at all. .x-legacy was retired in fix
+   round 5 - no page carries it any more - so the `:not(.x-legacy)` guard
+   below is now always true. It is left in place rather than stripped: the
+   raw-hex rules above still exist for whatever the next unmigrated surface
+   turns out to be, and this is what re-tones a flash on everything that
+   isn't one. layouts/channel.blade.php and layouts/shell.blade.php both
+   render partials/legacy-page-contract.blade.php - the session flash, the
+   validation errors and the integration banners - INSIDE .x-content, so a
+   migrated page in dark theme got a pale pink slab across the top of an
+   otherwise dark canvas. Measured in the browser on the Shopee workspace
+   pages; it affects every already-migrated page too (Orders, Returns, the
+   order detail, the catalogue) wherever a flash appears.
 
-   Re-toned here rather than by editing the rules above, so legacy pages
-   render exactly as they always have. The shape deliberately matches
-   .fm-note (components/form-page.css): one hairline box, the tone carried
-   by a left rule and the icon, never by a tinted fill. Colour keeps its
-   one job.
+   Re-toned here rather than by editing the rules above, so a future
+   .x-legacy-shaped surface would still render exactly as it always has.
+   The shape deliberately matches .fm-note (components/form-page.css): one
+   hairline box, the tone carried by a left rule and the icon, never by a
+   tinted fill. Colour keeps its one job.
    ------------------------------------------------------------------ */
 
 .x-app .x-content:not(.x-legacy) .alert {

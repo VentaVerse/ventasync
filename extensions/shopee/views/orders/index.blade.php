@@ -8,8 +8,6 @@
      its only job was to repaint --accent with Shopee orange, and channel
      identity belongs in the sidebar and the breadcrumb, not on every
      control of every row. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // The page is visible to view_shopee_orders holders; Fetch, Update,

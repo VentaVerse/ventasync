@@ -4,12 +4,6 @@
      across channels, so "Shop A" alone does not identify an open tab. --}}
 @section('title', ($channelStoreLabel ?? null) ? $channelCard->name.' '.$channelStoreLabel : $channelCard->name)
 
-{{-- Opt out of the .x-legacy boundary: this page is built to the current
-     design, so it should use the current tokens. Task 3 made the boundary the
-     default because six of the seven pages rendering in this layout are
-     legacy. --}}
-@section('content-class', '')
-
 @section('content')
     <div class="x-overview-head">
         <div>

@@ -21,8 +21,6 @@
      empty, the same blank-keeps-stored branch Shopee's and TikTok's save()
      already carry, so the view no longer needs to echo the secret to mask
      it in the DOM. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier on this route is `view_opencart|manage_opencart`; every write

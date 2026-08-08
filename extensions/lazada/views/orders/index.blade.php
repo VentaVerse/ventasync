@@ -9,8 +9,6 @@
      sidebar and the breadcrumb, not on every control of every row. The
      cross-marketplace tab strip went too: inside a seller center you see one
      marketplace. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Orders is visible to view_lazada_orders holders; Fetch, Update, Pack,

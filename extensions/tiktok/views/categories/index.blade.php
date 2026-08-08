@@ -6,8 +6,6 @@
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
      x-ui components, the same exit Shopee's and Lazada's Categories pages
      took in Round C Tasks 1 and 2. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier on this route is `view_tiktok|manage_tiktok`; the sync POST is

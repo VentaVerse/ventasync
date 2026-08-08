@@ -3,8 +3,6 @@
 @section('breadcrumb', 'Product Groups')
 
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_tiktok|manage_tiktok`; create, update and destroy are

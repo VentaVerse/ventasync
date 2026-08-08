@@ -5,8 +5,6 @@
 {{-- Leaves the .x-legacy content boundary, the same exit the Orders page
      took: this page is built directly on the design tokens, the x-ui
      components and the shared `od-` detail anatomy. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Wire-format truth is TikTokOrderController@show, which passes exactly

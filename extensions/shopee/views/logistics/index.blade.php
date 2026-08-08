@@ -4,8 +4,6 @@
 @section('title', 'Shopee Logistics Channels')
 
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_shopee|manage_shopee`; the fetch POST is

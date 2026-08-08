@@ -6,8 +6,6 @@
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
      x-ui components, the same exit Shopee's Categories page took in Round C
      Task 1. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_lazada|manage_lazada`; the fetch POST is

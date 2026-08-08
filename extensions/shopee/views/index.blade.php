@@ -26,8 +26,6 @@
      `env` plus exactly the ten field names ShopeeController::save()
      validates. Blank means "keep the stored value", which is what the
      •••••••• masks plus resources/js/credential-mask.js are for. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_shopee|manage_shopee` on this route; every write

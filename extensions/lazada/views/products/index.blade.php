@@ -9,8 +9,6 @@
      resources/js/pages/lazada-listings.js (Lazada's three values) on top of
      resources/js/pages/channel-listings.js (the behaviour it shares with
      Shopee), bound from data- attributes on the elements below. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_lazada|manage_lazada`; every upload, sync, link,

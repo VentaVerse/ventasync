@@ -4,8 +4,6 @@
 @section('title', 'Lazada Product Groups')
 
 {{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // Read tier is `view_lazada|manage_lazada`; create, edit and destroy are

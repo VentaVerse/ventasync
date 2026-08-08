@@ -122,66 +122,6 @@
     font-weight: 500;
 }
 
-/* The legacy content boundary.
-   tokens.css declares these twelve names on .x-app (the body) and
-   variables.css declares them on :root (the html element), so inside the
-   body the new values win by inheritance. An existing channel page rendered
-   in here would silently change accent colour and corner radius as a side
-   effect of a navigation change, so this wrapper restores exactly the twelve
-   colliding names to their legacy values and nothing else.
-
-   These are pinned in both themes on purpose: legacy CSS contains no
-   data-theme rule anywhere, so those pages have never had a dark mode.
-   Letting them inherit dark values for these twelve names alone would give a
-   dark surface with light-mode text tokens that were never darkened.
-
-   Deleting this wrapper from a page is how that page gets migrated to the
-   new design, one page at a time, deliberately. */
-.x-legacy {
-    --surface: #ffffff;
-    --surface-hover: #f8fafc;
-    --border: #e2e8f0;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-
-    /* The twelve custom properties above stop a *var() lookup* from
-       resolving to the new design system inside legacy content. They do
-       nothing about background/color/font-*: theme.css sets those as plain
-       values on .x-app (the body), and every legacy page inherits them by
-       ordinary CSS cascade the moment its layout puts that class on <body>
-       - which channel.blade.php does, unlike layouts/app.blade.php's bare
-       <body>. Reset.css's own body rule is what legacy pages were actually
-       built against (background: #f1f5f9; color: var(--text-primary), which
-       is a fixed #0f172a with no dark override; Inter 14px/1.6), so that is
-       what is restored here, not var(--canvas)/var(--text)/var(--font-ui) -
-       those move with the theme toggle, and legacy content must not.
-       Undetectable in light theme, where Geist 13px reads close enough to
-       Inter 14px not to notice - the failure this closes is dark theme,
-       where uncorrected .x-app text renders near-white-on-white inside
-       these pages' cards and near-black-on-black outside them, on pages
-       that could not enter dark theme at all before this boundary existed. */
-    background: #f1f5f9;
-    color: #0f172a;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
-
-    /* theme.css sets text-rendering: optimizeLegibility on .x-app, and it
-       inherits straight into legacy content. base/reset.css never set it, so
-       these pages were built and shipped against the CSS initial value.
-       optimizeLegibility turns on ligatures and kerning, which shifts glyph
-       widths and can retrack a whole table row. Restore the default the same
-       way the properties above restore theirs. */
-    text-rendering: auto;
-}
-
 @media (max-width: 900px) {
     .x-cnav__head { padding: 8px 4px; }
     .x-cnav__group-label { padding: 4px; }

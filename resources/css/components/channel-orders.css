@@ -506,9 +506,8 @@
 /* The SLA chip is a shared component that predates the token set: a filled
    pill built from fixed light-theme hex values with no dark variant at all,
    so on these pages it rendered as a bright pill floating on a dark
-   surface. It is reskinned here rather than in its own file, because the
-   old pages still inside .x-legacy are built against the current look and
-   must not move.
+   surface. It is reskinned here rather than in its own file, because
+   wherever else the shared chip renders must not move.
 
    The chip loses its fill entirely. A filled pill next to a dotted badge
    two columns away puts two different visual grammars on the same reading

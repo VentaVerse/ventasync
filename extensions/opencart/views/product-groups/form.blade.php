@@ -7,8 +7,6 @@
      OpenCart is multi-store: the form action, the back link and the products
      link all carry the {store} segment this page arrived on, and the store is
      named in the sub-line as well as in the breadcrumb. --}}
-@section('content-class', '')
-
 @section('content')
 @php
     // The create GET is `manage_opencart`, but the EDIT GET is registered in

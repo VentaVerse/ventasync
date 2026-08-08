@@ -218,12 +218,13 @@ class WorkspaceInteriorsTest extends TestCase
     }
 
     /**
-     * The point of the whole task. `.x-legacy` is applied by
+     * The point of the whole task. `.x-legacy` was applied by
      * layouts/channel.blade.php as the DEFAULT of @yield('content-class'),
-     * so a page that has not opted out carries it on its <main>. Each of
-     * these five now sets @section('content-class', ''), and this asserts
-     * the rendered <main> really lost the class rather than the section
-     * merely being present in the file.
+     * carried by any page that had not opted out. Fix round 5 retired the
+     * boundary entirely: the default is now '' and the per-view opt-outs
+     * that used to override it are gone as redundant. This still asserts the
+     * rendered <main> carries no legacy class, now proving the boundary is
+     * unreachable rather than that this page happened to opt out.
      */
     public function test_no_interior_still_carries_the_legacy_boundary(): void
     {
@@ -1031,12 +1032,9 @@ class WorkspaceInteriorsTest extends TestCase
     }
 
     /**
-     * The point of the whole task, Lazada's half. `.x-legacy` is applied by
-     * layouts/channel.blade.php as the DEFAULT of @yield('content-class'), so
-     * a page that has not opted out carries it on its <main>. Each of these
-     * five now sets @section('content-class', ''), and this asserts the
-     * rendered <main> really lost the class rather than the section merely
-     * being present in the file.
+     * The point of the whole task, Lazada's half. See the Shopee version of
+     * this test for the boundary's retirement in fix round 5: the layout's
+     * default content-class is now '' and the per-view opt-outs are gone.
      */
     public function test_no_lazada_interior_still_carries_the_legacy_boundary(): void
     {
@@ -1895,7 +1893,11 @@ class WorkspaceInteriorsTest extends TestCase
         return substr($inside, $at + strlen($marker));
     }
 
-    /** The rendered <main>, which is where the boundary class lives. */
+    /**
+     * The rendered <main>, which is where the boundary class used to live.
+     * The layout's default content-class is now '' (fix round 5), so this
+     * proves the class is unreachable, not merely opted out per view.
+     */
     private function assertBoundaryDropped(string $html, string $label): void
     {
         $this->assertStringNotContainsString(
