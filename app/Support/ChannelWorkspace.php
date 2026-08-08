@@ -251,15 +251,16 @@ class ChannelWorkspace
      *
      * The honest signal is the card declaring at least one MenuItem with a
      * non-null group, because grouping the menu is precisely the conversion
-     * work. Only Shopee qualifies today.
+     * work. Every channel qualifies as of Round F: the last two, Pedallion
+     * and Shopify, converted with this round.
      *
      * groups() is not that signal and must not be used as one: it buckets an
      * ungrouped item into 'Channel' rather than dropping it, so it is
      * non-empty for every channel with any parameterless menu item. Reading
-     * it that way linked Lazada, TikTok, Shopify, OpenCart and Pedallion into
-     * half-built workspaces, and cost OpenCart and Shopify their per-store
-     * destinations entirely, since those live on store cards and a workspace
-     * sidebar built from the top card never shows them.
+     * it that way linked every then-unconverted channel into a half-built
+     * workspace, and cost the multi-store ones their per-store destinations
+     * entirely, since those live on store cards and a workspace sidebar built
+     * from the top card never shows them.
      */
     public function hasWorkspace(IntegrationCard $card): bool
     {
@@ -476,7 +477,7 @@ class ChannelWorkspace
      * single-store OAuth marketplaces (Shopee, Lazada, TikTok) - same table
      * shape, same columns, same sandbox/live selection by `mode`.
      *
-     * Venta and OpenCart are read per STORE, which is the only level they
+     * Venta, OpenCart and Shopify are read per STORE, which is the only level they
      * track anything at: their settings rows ARE their stores, and the same
      * row is what IntegrationController@index reads for that store's row on
      * the board. Asked about the card as a whole (no store id) they still
@@ -484,8 +485,12 @@ class ChannelWorkspace
      * a multi-store channel is how the board and this page came to disagree
      * about a healthy OpenCart store in the first place.
      *
-     * Shopify and Pedallion stay unhandled until their own conversion, for
-     * the same reason as before: no workspace links to them yet.
+     * Pedallion is single-store and authenticates with a stored API key
+     * rather than OAuth, so it has a row here of its own shape: a key
+     * instead of a token, no expiry column at all, and an error count that
+     * has to be derived from status codes because pedallion_api_logs carries
+     * no `ok` column. Shopify is multi-store and is handled in
+     * storeFigures() with Venta and OpenCart.
      *
      * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
      */
@@ -493,6 +498,10 @@ class ChannelWorkspace
     {
         if ($storeId !== null) {
             return $this->storeFigures($channelId, $storeId);
+        }
+
+        if ($channelId === 'pedallion') {
+            return $this->pedallionFigures();
         }
 
         if (! in_array($channelId, ['shopee', 'lazada', 'tiktok'], true)) {
@@ -525,7 +534,8 @@ class ChannelWorkspace
      * token column, and its own error source.
      *
      * Token expiry is genuinely absent from both schemas (neither
-     * venta_settings nor opencart_settings has an expiry column), so it
+     * venta_settings, opencart_settings nor shopify_settings has an expiry
+     * column, and a Shopify custom-app token does not expire on a clock), so it
      * reads as not tracked rather than as a fabricated date. That is a
      * recorded schema gap, not an oversight here.
      *
@@ -536,6 +546,12 @@ class ChannelWorkspace
         $tokenColumn = match ($channelId) {
             'venta' => 'api_token',
             'opencart' => 'api_key',
+            // A Shopify custom app's Admin API access token. It is a
+            // long-lived credential with no expiry the API reports, so
+            // tokenExpiresAt below stays null for the same honest reason it
+            // does for the other two: the schema has no such column and a
+            // fabricated date would read as a fact.
+            'shopify' => 'access_token',
             default => null,
         };
 
@@ -567,6 +583,17 @@ class ChannelWorkspace
                 ->where('created_at', '>=', $since)
                 ->where('status', 'failed')
                 ->count();
+        } elseif ($row && $channelId === 'shopify') {
+            // Same shape as Venta's: shopify_api_logs is written only while
+            // that store's api_logging switch is on, so a zero with it off
+            // means "never measured", not "no errors".
+            $errors24h = ((bool) ($row->api_logging ?? false))
+                ? DB::table('shopify_api_logs')
+                    ->where('shopify_setting_id', $row->id)
+                    ->where('created_at', '>=', $since)
+                    ->where('ok', 0)
+                    ->count()
+                : null;
         }
 
         return [
@@ -574,6 +601,46 @@ class ChannelWorkspace
             'tokenExpiresAt' => null,
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             'errors24h' => $errors24h,
+        ];
+    }
+
+    /**
+     * Pedallion's single settings row, read the same way the three OAuth
+     * marketplaces' rows are but against the columns this channel actually
+     * has.
+     *
+     * Three differences from tokenFigures()' OAuth branch, each one a fact
+     * about Pedallion rather than a shortcut:
+     *
+     *  - the credential is `api_key`, an operator-pasted key, so "has token"
+     *    is "has a key";
+     *  - there is no expiry column, because an API key does not expire on a
+     *    clock, so token expiry reads as not tracked rather than as a
+     *    fabricated date;
+     *  - pedallion_api_logs has no `ok` column (see its migration), only a
+     *    status_code, so a failure is a response outside the 2xx range. A
+     *    status_code of 0 is what the client writes when the request never
+     *    got an answer at all, which is a failure too and is counted as one.
+     *
+     * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
+     */
+    private function pedallionFigures(): array
+    {
+        $row = DB::table('pedallion_settings')->first();
+        $lastSyncRaw = $row?->last_order_sync_at;
+
+        return [
+            'hasToken' => $row ? ! empty($row->api_key) : false,
+            'tokenExpiresAt' => null,
+            'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
+            'errors24h' => ((bool) ($row?->logging_enabled ?? false))
+                ? DB::table('pedallion_api_logs')
+                    ->where('created_at', '>=', Carbon::now()->subHours(24))
+                    ->where(function ($w) {
+                        $w->where('status_code', '<', 200)->orWhere('status_code', '>=', 300);
+                    })
+                    ->count()
+                : null,
         ];
     }
 
