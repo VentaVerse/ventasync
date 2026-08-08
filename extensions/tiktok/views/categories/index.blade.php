@@ -3,86 +3,133 @@
 
 @section('title', 'TikTok Shop Categories')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set and the
+     x-ui components, the same exit Shopee's and Lazada's Categories pages
+     took in Round C Tasks 1 and 2. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    $canManageTiktok = true;
+    // Read tier on this route is `view_tiktok|manage_tiktok`; the sync POST is
+    // `manage_tiktok` only. Replaces a hardcoded `true`, which showed every
+    // read-only operator a button the route would refuse.
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+
+    $q = (string) ($q ?? '');
+    $hasSearch = $q !== '';
 @endphp
-    <div class="page-header">
-        <div>
-            <h2>TikTok Shop Category List</h2>
-            <div class="text-muted text-sm">Fetch and cache TikTok's category tree locally for fast search and mapping.</div>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
 
-            @if($canManageTiktok)
-            <form method="POST" action="{{ route('ext.tiktok.categories.sync') }}" style="display:inline;">
-                @csrf
-                <button class="btn" type="submit">Fetch Categories from TikTok</button>
-            </form>
-            @endif
-        </div>
+<div class="cc-page">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Categories</h1>
+        <p class="x-page-sub">
+            {{ number_format($categories->total()) }} {{ $categories->total() === 1 ? 'category' : 'categories' }} cached from TikTok Shop
+        </p>
     </div>
+</div>
 
-    @if(session('status'))
-        <div class="alert info mb-12">{{ session('status') }}</div>
+@if($canManageTiktok)
+{{-- One command bar, the same grammar the other channels' Categories pages
+     use. It says what the button does rather than leaving the operator to
+     guess: syncCategories() upserts the tree it just fetched into the cache. --}}
+<div class="x-cmdbar">
+    <form method="POST" action="{{ route('ext.tiktok.categories.sync') }}" class="x-cmdbar__row">
+        @csrf
+        <p class="x-cmdbar__hint x-cmdbar__hint--inline">Pulls TikTok Shop's category tree into the local cache. Product Groups pick their TikTok category from this list, so refresh it when TikTok adds one.</p>
+        <div class="x-cmdbar__actions">
+            <x-ui.button type="submit" variant="primary">Fetch categories</x-ui.button>
+        </div>
+    </form>
+</div>
+@endif
+
+{{-- One filter row. The old page had a card holding a labelled search box, a
+     Search button and a Reset button of identical weight side by side; the row
+     here keeps the button (a form with a text field and no submit does not
+     submit on Enter per the HTML spec) and demotes Reset to the link it always
+     was, since it is navigation and not an action. --}}
+<form method="GET" action="{{ route('ext.tiktok.categories.index') }}" class="x-filters">
+    <x-ui.input type="search" name="q" class="x-filters__search"
+                value="{{ $q }}" placeholder="Category name or ID" aria-label="Search categories by name or ID" />
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+    @if($hasSearch)
+        <a class="x-filters__reset" href="{{ route('ext.tiktok.categories.index') }}">Reset</a>
     @endif
+</form>
 
-    <div class="card mb-12">
-        <form method="GET" action="{{ route('ext.tiktok.categories.index') }}" class="d-flex gap-10 items-center">
-            <div style="flex:1;">
-                <label class="text-xs text-muted">Search</label>
-                <input type="text" name="q" value="{{ $q }}" placeholder="Search category name or ID" class="input" />
-            </div>
-            <div class="d-flex gap-8 items-center" style="padding-top:18px;">
-                <button class="btn" type="submit">Search</button>
-                <a class="btn" href="{{ route('ext.tiktok.categories.index') }}">Reset</a>
-            </div>
-        </form>
+@if($categories->count() === 0)
+    <x-ui.empty title="No categories here"
+                :description="$hasSearch
+                    ? 'Nothing matches that name or ID. Clear the search to see the whole tree.'
+                    : ($canManageTiktok
+                        ? 'Nothing has been cached yet. Click Fetch categories to pull the tree from TikTok Shop.'
+                        : 'Nothing has been cached yet. Someone with the manage tier needs to fetch the tree from TikTok Shop.')" />
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="cc-col-chanid">Category ID</th>
+            <th>Name</th>
+            <th class="cc-col-leaf">Can list here</th>
+            <th class="cc-col-chanid">Parent ID</th>
+            <th class="tt-col-perms">Selling permissions</th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($categories as $c)
+        @php
+            // Same normalisation the old view did inline: the column is a JSON
+            // array on some rows and an already-cast array on others.
+            $perms = is_array($c->permission_statuses)
+                ? $c->permission_statuses
+                : (json_decode((string) $c->permission_statuses, true) ?: []);
+            $perms = array_values(array_filter(array_map(
+                fn ($p) => is_scalar($p) ? trim((string) $p) : '',
+                $perms
+            ), fn ($p) => $p !== ''));
+        @endphp
+        <tr>
+            <td class="cc-col-chanid" data-label="Category ID"><span class="x-num">{{ $c->id }}</span></td>
+            <td data-label="Name">{{ $c->name }}</td>
+            <td class="cc-col-leaf" data-label="Can list here">
+                {{-- TikTok calls this `is_leaf` and the old view headed it
+                     "Leaf". What it means to the operator is whether a listing
+                     can sit in this category at all, so that is what the
+                     column says. --}}
+                @if($c->is_leaf)
+                    <x-ui.badge tone="success">Yes</x-ui.badge>
+                @else
+                    <span class="x-cell-muted">No</span>
+                @endif
+            </td>
+            <td class="cc-col-chanid" data-label="Parent ID">
+                @if($c->parent_id)
+                    <span class="x-num">{{ $c->parent_id }}</span>
+                @else
+                    <span class="x-cell-muted">Top level</span>
+                @endif
+            </td>
+            <td class="tt-col-perms" data-label="Selling permissions">
+                @if(count($perms) === 0)
+                    <span class="x-cell-muted">None stated</span>
+                @else
+                    <span class="cc-sub cc-sub--mono">{{ implode(', ', $perms) }}</span>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($categories->firstItem() ?? 0) }} to {{ number_format($categories->lastItem() ?? 0) }} of {{ number_format($categories->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$categories->previousPageUrl()" :disabled="!$categories->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$categories->nextPageUrl()" :disabled="!$categories->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
     </div>
+</div>
+@endif
 
-    <div class="card">
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                <tr>
-                    <th>Category ID</th>
-                    <th>Name</th>
-                    <th>Leaf</th>
-                    <th>Parent ID</th>
-                    <th>Permissions</th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($categories as $c)
-                    <tr>
-                        <td><code style="font-size:11.5px;">{{ $c->id }}</code></td>
-                        <td>{{ $c->name }}</td>
-                        <td>{{ $c->is_leaf ? 'Yes' : 'No' }}</td>
-                        <td>{{ $c->parent_id ?? '-' }}</td>
-                        <td>
-                            @php
-                                $perms = is_array($c->permission_statuses) ? $c->permission_statuses : (json_decode((string) $c->permission_statuses, true) ?: []);
-                            @endphp
-                            <span class="text-muted text-xs">{{ implode(', ', $perms) }}</span>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="5" class="text-muted">No categories cached yet. Click <strong>Fetch Categories from TikTok</strong>.</td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <div class="d-flex justify-between items-center mt-12">
-            <div class="text-muted text-xs">
-                Showing {{ $categories->firstItem() ?? 0 }} to {{ $categories->lastItem() ?? 0 }} of {{ $categories->total() }}
-            </div>
-            <div>
-                {{ $categories->links('vendor.pagination.simple') }}
-            </div>
-        </div>
-    </div>
+</div>{{-- /.cc-page --}}
 @endsection

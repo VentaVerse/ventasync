@@ -21,7 +21,24 @@ use Extensions\lazada\Models\LazadaProduct;
 use Extensions\lazada\Models\LazadaProductGroup;
 use Extensions\lazada\Models\LazadaSetting;
 use Extensions\lazada\Models\LazadaUnmatchedItem;
+use Extensions\opencart\Models\OpenCartOrderStatusMap;
+use Extensions\opencart\Models\OpenCartProductGroup;
+use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\opencart\Models\OpenCartSyncLog;
+use Extensions\opencart\OpencartExtension;
+use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\tiktok\Models\TikTokCategory;
+use Extensions\tiktok\Models\TikTokProductGroup;
+use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\tiktok\TiktokExtension;
+use Extensions\venta\Models\VentaApiLog;
+use Extensions\venta\Models\VentaOrderStatusMap;
+use Extensions\venta\Models\VentaProductGroup;
+use Extensions\venta\Models\VentaSetting;
+use Extensions\venta\Models\VentaSyncLog;
+use Extensions\venta\VentaExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -76,9 +93,22 @@ class WorkspaceInteriorsTest extends TestCase
         // once, after both have loaded their routes.
         $manager->install('lazada');
         $manager->enable('lazada');
+        // Task 3 brought the remaining eleven interiors onto the same
+        // anatomies: TikTok's three, and the two multi-store channels' four
+        // each. All five extensions boot here and the name lookups are rebuilt
+        // once, after every one of them has loaded its routes.
+        $manager->install('tiktok');
+        $manager->enable('tiktok');
+        $manager->install('venta');
+        $manager->enable('venta');
+        $manager->install('opencart');
+        $manager->enable('opencart');
 
         $this->app->register(ShopeeExtension::class);
         $this->app->register(LazadaExtension::class);
+        $this->app->register(TiktokExtension::class);
+        $this->app->register(VentaExtension::class);
+        $this->app->register(OpencartExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
@@ -1548,5 +1578,1447 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertStringContainsString('name="dir" value="asc"', $html);
         // Clicking the column already sorted ascending flips it to descending.
         $this->assertStringContainsString('sort=quantity&amp;dir=desc', $html);
+    }
+
+    /* =================================================================
+       ROUND C, TASK 3 - TikTok, Venta and OpenCart
+       -----------------------------------------------------------------
+       The remaining eleven interiors. Three of them are TikTok's, which
+       is single-shop and OAuth-authenticated like Shopee and Lazada; the
+       other eight belong to the two MULTI-STORE channels, and that is
+       what most of what follows is really about.
+
+       On a multi-store channel every one of these pages is scoped to one
+       store by a {store} path segment, and the danger is not that a page
+       fails to render but that it renders the right thing while acting
+       on the wrong row. So the store-scoped assertions here are not
+       "does the page mention the store": they are
+
+         - every self-link on the page carries the store it arrived on,
+           and never the other store's id;
+         - the store is NAMED in the rendered content, not only in the
+           breadcrumb, because the trail collapses to the leaf below
+           768px;
+         - a save posted for store 1 changes store 1's row and leaves
+           store 2's row byte-identical. Both halves are asserted, which
+           is the only way that claim means anything.
+       ================================================================= */
+
+    // ------------------------------------------------------------------
+    // Fixtures
+    // ------------------------------------------------------------------
+
+    /** An operator holding one channel's view tier and nothing else. */
+    private function tierUser(string $label, array $permissions): User
+    {
+        // Unique per call: several tests below build the same tier twice, and
+        // user_groups.name is unique.
+        $group = UserGroup::create(['name' => $label.' '.uniqid('', true)]);
+        $group->permissions()->attach(
+            Permission::whereIn('key', $permissions)->pluck('id')->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    private function tiktokViewer(): User { return $this->tierUser('TikTok Viewer', ['view_tiktok']); }
+    private function tiktokManager(): User { return $this->tierUser('TikTok Manager', ['manage_tiktok']); }
+    private function ventaViewer(): User { return $this->tierUser('Venta Viewer', ['view_venta']); }
+    private function ventaManager(): User { return $this->tierUser('Venta Manager', ['manage_venta']); }
+    private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart']); }
+    private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart']); }
+
+    /**
+     * Enough of a TikTok settings row that the Connection tab renders every
+     * branch: live mode with credentials and a shop, so the masked-field,
+     * token-state and shop-facts paths are exercised rather than skipped.
+     */
+    private function seedTiktokSetting(array $overrides = []): TikTokSetting
+    {
+        $setting = new TikTokSetting();
+        $setting->forceFill(array_merge([
+            'mode' => 'live',
+            'app_key' => '6h1tv0kbcdefg',
+            'app_secret' => encrypt('live-app-secret'),
+            'access_token' => encrypt('live-access-token'),
+            'shop_id' => '7495',
+            'shop_cipher' => 'TTP_cipher_abc',
+            'shop_name' => 'example TikTok',
+            'region' => 'ph',
+            'api_logging' => true,
+        ], $overrides));
+        $setting->save();
+
+        return $setting;
+    }
+
+    /**
+     * TWO stores per multi-store channel, always. One store cannot prove a
+     * store-scoped claim: a page that ignored the segment entirely would
+     * still pass every assertion against a single row.
+     *
+     * @return array{0:int,1:int} the two store ids, in creation order
+     */
+    private function seedVentaStores(): array
+    {
+        $one = VentaSetting::create([
+            'store_name' => 'Gear Depot',
+            'base_url' => 'https://one.venta.test',
+            'api_token' => 'venta-token-one',
+            'enabled' => true,
+            'api_logging' => true,
+            'sync_last_days' => 30,
+            'warehouse_id' => 4,
+            'brand_color' => '#059669',
+        ]);
+
+        $two = VentaSetting::create([
+            'store_name' => 'Switch Bazaar',
+            'base_url' => 'https://two.venta.test',
+            'api_token' => 'venta-token-two',
+            'enabled' => true,
+            'api_logging' => false,
+            'sync_last_days' => 14,
+            'warehouse_id' => 9,
+            'brand_color' => '#123456',
+        ]);
+
+        return [$one->id, $two->id];
+    }
+
+    /** @return array{0:int,1:int} */
+    private function seedOpencartStores(): array
+    {
+        $one = OpenCartSetting::create([
+            'store_name' => 'Parts Yard',
+            'base_url' => 'https://one.opencart.test',
+            'api_key' => 'oc-key-one',
+            'enabled' => true,
+            'sync_last_days' => 7,
+            'brand_color' => '#16a34a',
+            'review_auto_approve' => true,
+        ]);
+
+        $two = OpenCartSetting::create([
+            'store_name' => 'Cable Loft',
+            'base_url' => 'https://two.opencart.test',
+            'api_key' => 'oc-key-two',
+            'enabled' => true,
+            'sync_last_days' => 21,
+            'brand_color' => '#654321',
+            'review_auto_approve' => false,
+        ]);
+
+        return [$one->id, $two->id];
+    }
+
+    /** One catalogue product, enough for a group's Products page to have a row. */
+    private function seedCatalogueProduct(string $name, string $sku): int
+    {
+        $prefix = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $id = DB::table($prefix.'product')->insertGetId([
+            'model' => $sku, 'sku' => $sku, 'quantity' => 6,
+            'price' => 249.0000, 'status' => 1, 'image' => null,
+            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+        ]);
+
+        DB::table($prefix.'product_description')->insert([
+            'product_id' => $id, 'language_id' => $langId, 'name' => $name,
+            'description' => '', 'tag' => '', 'meta_title' => $name,
+            'meta_description' => '', 'meta_keyword' => '',
+        ]);
+
+        return $id;
+    }
+
+    /** @return array<string, string> label => url */
+    private function tiktokInteriorUrls(): array
+    {
+        return [
+            'settings'       => route('ext.tiktok.index'),
+            'categories'     => route('ext.tiktok.categories.index'),
+            'product-groups' => route('ext.tiktok.product-groups.index'),
+        ];
+    }
+
+    /** @return array<string, string> label => url, all scoped to $store */
+    private function ventaInteriorUrls(int $store, int $group): array
+    {
+        return [
+            'settings'          => route('ext.venta.settings.show', ['store' => $store]),
+            'product-groups'    => route('ext.venta.product-groups.index', $store),
+            'group-form'        => route('ext.venta.product-groups.edit', [$store, $group]),
+            'group-products'    => route('ext.venta.product-groups.products', [$store, $group]),
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function opencartInteriorUrls(int $store, int $group): array
+    {
+        return [
+            'settings'          => route('ext.opencart.settings.show', ['store' => $store]),
+            'product-groups'    => route('ext.opencart.product-groups.index', $store),
+            'group-form'        => route('ext.opencart.product-groups.edit', [$store, $group]),
+            'group-products'    => route('ext.opencart.product-groups.products', [$store, $group]),
+        ];
+    }
+
+    /**
+     * The page's OWN markup, with the shared region in front of it removed.
+     *
+     * partials/legacy-page-contract.blade.php renders inside <main>, ahead of
+     * @yield('content'): flashes, validation errors, and the layout banners
+     * every enabled integration contributes. On a multi-store channel those
+     * banners legitimately name and link OTHER stores, because they are the
+     * whole workspace's warnings and not this page's. Asserting store scoping
+     * against the raw <main> would therefore fail on markup this task does not
+     * own, so the region is cut at its last element, the flash container.
+     */
+    private function pageContent(string $html, string $label): string
+    {
+        preg_match('/<main class="x-content[^"]*">(.*?)<\/main>/s', $html, $main);
+        $inside = $main[1] ?? '';
+        $this->assertNotEmpty($inside, "No content region rendered for {$label}.");
+
+        $marker = '<div id="js-flash-container"></div>';
+        $at = strpos($inside, $marker);
+        $this->assertNotFalse($at, "The shared page contract did not render on {$label}.");
+
+        return substr($inside, $at + strlen($marker));
+    }
+
+    /** The rendered <main>, which is where the boundary class lives. */
+    private function assertBoundaryDropped(string $html, string $label): void
+    {
+        $this->assertStringNotContainsString(
+            'class="x-content x-legacy"',
+            $html,
+            "{$label} is still inside the .x-legacy content boundary."
+        );
+        $this->assertStringContainsString(
+            'class="x-content "',
+            $html,
+            "{$label} did not render the opted-out content class."
+        );
+    }
+
+    /* =================================================================
+       TIKTOK
+       ================================================================= */
+
+    public function test_every_tiktok_interior_renders_for_both_tiers(): void
+    {
+        $this->seedTiktokSetting();
+
+        foreach ([$this->tiktokManager(), $this->tiktokViewer()] as $user) {
+            foreach ($this->tiktokInteriorUrls() as $label => $url) {
+                $this->actingAs($user)->get($url)->assertOk();
+            }
+        }
+    }
+
+    public function test_no_tiktok_interior_still_carries_the_legacy_boundary(): void
+    {
+        $this->seedTiktokSetting();
+        $user = $this->tiktokManager();
+
+        foreach ($this->tiktokInteriorUrls() as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $this->assertBoundaryDropped($html, "TikTok {$label}");
+        }
+    }
+
+    public function test_tiktok_interiors_render_their_seeded_records(): void
+    {
+        $this->seedTiktokSetting();
+
+        TikTokCategory::create([
+            'id' => '600123', 'parent_id' => '600001', 'name' => 'Guitar Pedals',
+            'is_leaf' => true, 'permission_statuses' => ['AVAILABLE', 'INVITE_ONLY'],
+        ]);
+
+        $group = TikTokProductGroup::create([
+            'name' => 'Pedal Batch', 'tiktok_category_id' => '600123',
+            'markup_percent' => 7.5, 'markup_fixed' => 250,
+        ]);
+
+        TikTokApiLog::create([
+            'method' => 'GET', 'api_path' => '/authorization/202309/shops',
+            'auth_required' => true, 'request_params' => ['a' => 1],
+            'response_status' => 200, 'ok' => true, 'response_body' => ['data' => []],
+        ]);
+
+        $user = $this->tiktokManager();
+
+        $categories = $this->actingAs($user)->get(route('ext.tiktok.categories.index'))->assertOk();
+        $categories->assertSee('Guitar Pedals');
+        $categories->assertSee('600123');
+        // The permission list is joined for reading, not printed as a raw array.
+        $categories->assertSee('AVAILABLE, INVITE_ONLY');
+
+        $groups = $this->actingAs($user)->get(route('ext.tiktok.product-groups.index'))->assertOk();
+        $groups->assertSee('Pedal Batch');
+        $groups->assertSee('Guitar Pedals');
+        $groups->assertSee('7.5% of price');
+
+        $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
+        $settings->assertSee('/authorization/202309/shops');
+        $settings->assertSee('TTP_cipher_abc');
+
+        $this->assertGreaterThan(0, $group->id);
+    }
+
+    public function test_tiktok_channel_sourced_names_are_escaped(): void
+    {
+        $this->seedTiktokSetting();
+
+        $payload = '<img src=x onerror=alert(1)>';
+
+        TikTokCategory::create([
+            'id' => '600999', 'parent_id' => null, 'name' => $payload,
+            'is_leaf' => false, 'permission_statuses' => [$payload],
+        ]);
+        TikTokProductGroup::create(['name' => $payload, 'tiktok_category_id' => '600999']);
+
+        $user = $this->tiktokManager();
+
+        foreach ([
+            route('ext.tiktok.categories.index'),
+            route('ext.tiktok.product-groups.index'),
+        ] as $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $this->assertStringNotContainsString('<img src=x onerror=', $html, "Unescaped output on {$url}");
+            $this->assertStringContainsString('&lt;img src=x onerror=', $html);
+        }
+    }
+
+    public function test_an_operator_with_no_tiktok_permission_is_refused_every_tiktok_interior(): void
+    {
+        $this->seedTiktokSetting();
+        $user = $this->outsider();
+
+        foreach ($this->tiktokInteriorUrls() as $label => $url) {
+            $this->assertDenied($this->actingAs($user)->get($url), $label);
+        }
+    }
+
+    public function test_guests_are_redirected_away_from_every_tiktok_interior(): void
+    {
+        $this->seedTiktokSetting();
+
+        foreach ($this->tiktokInteriorUrls() as $label => $url) {
+            $this->get($url)->assertRedirect(route('login'));
+        }
+    }
+
+    public function test_the_tiktok_read_tier_is_not_offered_write_controls(): void
+    {
+        $this->seedTiktokSetting();
+        TikTokProductGroup::create(['name' => 'Pedal Batch', 'tiktok_category_id' => '600123']);
+        $user = $this->tiktokViewer();
+
+        $categories = $this->actingAs($user)->get(route('ext.tiktok.categories.index'))->assertOk();
+        $categories->assertDontSee(route('ext.tiktok.categories.sync'), false);
+
+        $groups = $this->actingAs($user)->get(route('ext.tiktok.product-groups.index'))->assertOk();
+        $groups->assertDontSee(route('ext.tiktok.product-groups.create'), false);
+        $groups->assertDontSee('Delete group');
+
+        // The settings page is deliberately different from the two lists: a
+        // read-tier operator can READ the credentials page, so the fields
+        // render, every one of them disabled. What disappears is every control
+        // that writes.
+        $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
+
+        // Every route whose whole surface disappears for a reader.
+        foreach ([
+            'ext.tiktok.toggle_mode', 'ext.tiktok.token_get',
+            'ext.tiktok.token_refresh', 'ext.tiktok.shops', 'ext.tiktok.authorize',
+            'ext.tiktok.explorer_run', 'ext.tiktok.packs_run',
+            'ext.tiktok.toggle_logging', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
+        ] as $name) {
+            $settings->assertDontSee(route($name), false);
+        }
+
+        // The credential save and the status-map save are different: their
+        // FORMS still render, because they are what wraps the disabled fields
+        // a reader is meant to be able to read. What must be gone is the
+        // submit control, so that is what is asserted.
+        $settings->assertDontSee('Save production settings');
+        $settings->assertDontSee('Save sandbox settings');
+        $settings->assertDontSee('Save order mapping');
+
+        $html = $settings->getContent();
+        $this->assertStringContainsString('name="app_key"', $html, 'The read tier lost the credential field entirely.');
+        foreach (['app_key', 'app_secret', 'sandbox_app_key', 'sandbox_app_secret'] as $field) {
+            $this->assertMatchesRegularExpression(
+                '/name="'.preg_quote($field, '/').'"[^>]*\bdisabled\b/',
+                $html,
+                "The {$field} control is editable for an operator who cannot save it."
+            );
+        }
+    }
+
+    public function test_the_tiktok_manage_tier_is_offered_those_same_controls(): void
+    {
+        $this->seedTiktokSetting();
+        // The Delete-all-logs form only exists when there is something to
+        // delete, which is the pre-redesign rule kept unchanged.
+        TikTokApiLog::create([
+            'method' => 'GET', 'api_path' => '/authorization/202309/shops',
+            'auth_required' => true, 'request_params' => [],
+            'response_status' => 200, 'ok' => true, 'response_body' => [],
+        ]);
+        $user = $this->tiktokManager();
+
+        $this->actingAs($user)->get(route('ext.tiktok.categories.index'))
+            ->assertOk()->assertSee(route('ext.tiktok.categories.sync'), false);
+
+        $this->actingAs($user)->get(route('ext.tiktok.product-groups.index'))
+            ->assertOk()->assertSee(route('ext.tiktok.product-groups.create'), false);
+
+        $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
+        foreach ([
+            'ext.tiktok.toggle_mode', 'ext.tiktok.save', 'ext.tiktok.token_get',
+            'ext.tiktok.token_refresh', 'ext.tiktok.shops', 'ext.tiktok.authorize',
+            'ext.tiktok.explorer_run', 'ext.tiktok.packs_run',
+            'ext.tiktok.toggle_logging', 'ext.tiktok.clear_api_logs', 'ext.tiktok.purge_raw',
+            'ext.tiktok.order_status_map',
+        ] as $name) {
+            $settings->assertSee(route($name), false);
+        }
+    }
+
+    public function test_the_tiktok_write_routes_refuse_the_read_tier_on_their_own(): void
+    {
+        $this->seedTiktokSetting();
+        $user = $this->tiktokViewer();
+
+        $this->assertDenied($this->actingAs($user)->post(route('ext.tiktok.categories.sync')), 'categories.sync');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.tiktok.save'), ['env' => 'live']), 'save');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.tiktok.toggle_mode'), ['mode' => 'sandbox']), 'toggle_mode');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.tiktok.shops')), 'shops');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.tiktok.token_refresh')), 'token_refresh');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.tiktok.purge_raw'), ['days' => 30]), 'purge_raw');
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.tiktok.clear_api_logs')), 'clear_api_logs');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.tiktok.product-groups.create')), 'product-groups.create');
+    }
+
+    /**
+     * The whole census TikTokController::save() reads, per environment, and
+     * nothing it does not read. Two things are pinned that a redesign is
+     * likeliest to break silently: the production form must carry `env=live`
+     * and the sandbox form `env=sandbox`, because the controller chooses which
+     * pair of columns to write from that one hidden field.
+     */
+    public function test_the_tiktok_settings_page_carries_the_whole_field_census(): void
+    {
+        $this->seedTiktokSetting();
+        $html = $this->actingAs($this->tiktokManager())->get(route('ext.tiktok.index'))->assertOk()->getContent();
+
+        foreach ([
+            'name="env" value="live"',
+            'name="env" value="sandbox"',
+            'name="app_key"',
+            'name="app_secret"',
+            'name="sandbox_app_key"',
+            'name="sandbox_app_secret"',
+            'name="mode"',
+            'name="code"',
+            'name="days"',
+            'name="pack"',
+            'name="method"',
+            'name="api_path"',
+            'name="auth_required"',
+            'name="params_json_pretty"',
+            'name="params_json"',
+            'name="map[UNPAID]"',
+            'name="map[COMPLETED]"',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $html, "The settings page lost {$needle}.");
+        }
+
+        // Exactly one env=live form and one env=sandbox form. A second copy of
+        // either would give the page two credential saves for one environment.
+        $this->assertSame(1, substr_count($html, 'name="env" value="live"'));
+        $this->assertSame(1, substr_count($html, 'name="env" value="sandbox"'));
+    }
+
+    /**
+     * The OAuth surfaces, which are contracts registered at the TikTok Shop
+     * Partner Center.
+     *
+     * The most important assertion here is the negative one. Lazada's sandbox
+     * authorize link carries `?sandbox=1` because its controller reads that
+     * query param; TikTok's does NOT, because redirectToAuth() reads the stored
+     * `mode` column instead. Adding one would be inventing a parameter nothing
+     * reads, and it is exactly the kind of thing a person porting Lazada's page
+     * onto TikTok would add for consistency.
+     */
+    public function test_the_tiktok_settings_page_still_carries_every_oauth_control(): void
+    {
+        $this->seedTiktokSetting();
+        $html = $this->actingAs($this->tiktokManager())->get(route('ext.tiktok.index'))->assertOk()->getContent();
+
+        $authorize = route('ext.tiktok.authorize');
+
+        // Two authorize links, one per environment panel, both the bare route.
+        $this->assertSame(2, substr_count($html, 'href="'.e($authorize).'"'));
+        $this->assertStringNotContainsString($authorize.'?sandbox', $html);
+        $this->assertStringNotContainsString(e($authorize).'?sandbox', $html);
+        $this->assertStringContainsString('rel="noopener"', $html);
+
+        // No hidden environment flag on the exchange or the refresh: both read
+        // the stored mode, so a `sandbox` field here would be dead weight that
+        // a later reader would take for a contract.
+        $this->assertStringNotContainsString('name="sandbox"', $html);
+
+        $this->assertStringContainsString(route('ext.tiktok.token_get'), $html);
+        $this->assertStringContainsString(route('ext.tiktok.token_refresh'), $html);
+        $this->assertStringContainsString(route('ext.tiktok.shops'), $html);
+    }
+
+    /**
+     * The redirect URI is shown so it can be copied into the Partner Center,
+     * and must never be posted back as a settable field. Both copies (live and
+     * sandbox) are readonly and carry no name.
+     */
+    public function test_the_tiktok_redirect_uri_is_shown_but_not_submittable(): void
+    {
+        $this->seedTiktokSetting();
+        $html = $this->actingAs($this->tiktokManager())->get(route('ext.tiktok.index'))->assertOk()->getContent();
+
+        $redirect = preg_replace('/^http:/i', 'https:', route('ext.tiktok.callback'));
+
+        $this->assertStringContainsString(e($redirect), $html);
+        $this->assertSame(2, substr_count($html, 'value="'.e($redirect).'"'));
+
+        // Every element carrying that value is readonly and has no name.
+        preg_match_all('/<input[^>]*value="'.preg_quote(e($redirect), '/').'"[^>]*>/', $html, $matches);
+        $this->assertCount(2, $matches[0]);
+        foreach ($matches[0] as $tag) {
+            $this->assertStringContainsString('readonly', $tag);
+            $this->assertStringNotContainsString('name=', $tag);
+        }
+    }
+
+    public function test_the_tiktok_settings_save_round_trips_both_environments(): void
+    {
+        $this->seedTiktokSetting();
+        $user = $this->tiktokManager();
+
+        $this->actingAs($user)->post(route('ext.tiktok.save'), [
+            'env' => 'live',
+            'app_key' => 'new-live-key',
+            'app_secret' => 'new-live-secret',
+        ])->assertRedirect(route('ext.tiktok.index'));
+
+        $setting = TikTokSetting::query()->first();
+        $this->assertSame('live', $setting->mode);
+        $this->assertSame('new-live-key', $setting->app_key);
+        $this->assertSame('new-live-secret', decrypt($setting->app_secret));
+
+        $this->actingAs($user)->post(route('ext.tiktok.save'), [
+            'env' => 'sandbox',
+            'sandbox_app_key' => 'new-sandbox-key',
+            'sandbox_app_secret' => 'new-sandbox-secret',
+        ])->assertRedirect(route('ext.tiktok.index'));
+
+        $setting->refresh();
+        $this->assertSame('sandbox', $setting->mode);
+        $this->assertSame('new-sandbox-key', $setting->sandbox_app_key);
+        $this->assertSame('new-sandbox-secret', decrypt($setting->sandbox_app_secret));
+        // The live half survived a sandbox save.
+        $this->assertSame('new-live-key', $setting->app_key);
+    }
+
+    public function test_a_tiktok_save_that_omits_the_masked_secret_keeps_it(): void
+    {
+        $this->seedTiktokSetting();
+
+        $this->actingAs($this->tiktokManager())->post(route('ext.tiktok.save'), [
+            'env' => 'live',
+            'app_key' => 'still-here',
+            'app_secret' => '',
+        ])->assertRedirect();
+
+        $setting = TikTokSetting::query()->first();
+        $this->assertSame('still-here', $setting->app_key);
+        $this->assertSame('live-app-secret', decrypt($setting->app_secret));
+    }
+
+    public function test_stored_tiktok_secrets_never_reach_the_page_source(): void
+    {
+        $this->seedTiktokSetting(['sandbox_app_secret' => encrypt('sandbox-app-secret')]);
+
+        foreach ([$this->tiktokManager(), $this->tiktokViewer()] as $user) {
+            $html = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk()->getContent();
+
+            $this->assertStringNotContainsString('live-app-secret', $html);
+            $this->assertStringNotContainsString('sandbox-app-secret', $html);
+            $this->assertStringNotContainsString('live-access-token', $html);
+            $this->assertStringContainsString('••••••••', $html, 'The mask that says a secret IS stored is gone.');
+        }
+    }
+
+    public function test_the_tiktok_logging_switch_saves_without_a_page_reload(): void
+    {
+        $this->seedTiktokSetting(['api_logging' => true]);
+
+        // The wire the shared switch sends: a JSON body read through
+        // $request->input('api_logging'), which is the same accessor the old
+        // form-encoded field went through.
+        $this->actingAs($this->tiktokManager())
+            ->postJson(route('ext.tiktok.toggle_logging'), ['api_logging' => 0])
+            ->assertRedirect();
+
+        $this->assertFalse((bool) TikTokSetting::query()->first()->api_logging);
+
+        $this->actingAs($this->tiktokManager())
+            ->postJson(route('ext.tiktok.toggle_logging'), ['api_logging' => 1])
+            ->assertRedirect();
+
+        $this->assertTrue((bool) TikTokSetting::query()->first()->api_logging);
+    }
+
+    /* =================================================================
+       VENTA - store-scoped
+       ================================================================= */
+
+    public function test_every_venta_interior_renders_for_both_tiers(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+
+        foreach ([$this->ventaManager(), $this->ventaViewer()] as $user) {
+            foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+                $this->actingAs($user)->get($url)->assertOk();
+            }
+        }
+    }
+
+    public function test_no_venta_interior_still_carries_the_legacy_boundary(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->ventaManager();
+
+        foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $this->assertBoundaryDropped($html, "Venta {$label}");
+        }
+    }
+
+    /**
+     * The multi-store claim, stated as an assertion rather than a hope.
+     *
+     * Rendering store 2's pages must never emit store 1's id in a self-link,
+     * and vice versa. A page that dropped the segment and fell back to "the
+     * first store" would render fine and fail here.
+     */
+    public function test_every_venta_self_link_carries_the_store_it_arrived_on(): void
+    {
+        [$one, $two] = $this->seedVentaStores();
+        $groupTwo = VentaProductGroup::create(['venta_setting_id' => $two, 'name' => 'Switches']);
+        $user = $this->ventaManager();
+
+        foreach ($this->ventaInteriorUrls($two, $groupTwo->id) as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $content = $this->pageContent($html, "Venta {$label}");
+
+            // Never store 1, on any page.
+            $this->assertStringNotContainsString('/integrations/venta/'.$one.'/', $content,
+                "Venta {$label} for store {$two} leaked a link to store {$one}.");
+            $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
+                "Venta {$label} for store {$two} posts store {$one}'s id.");
+
+            // Always store 2, by whichever mechanism that page uses. The three
+            // list pages put the store in the path; the settings page's forms
+            // post to unscoped URLs and carry the store as a hidden field, so
+            // asserting a path segment there would be asserting against a
+            // mechanism it does not use.
+            if ($label === 'settings') {
+                $this->assertStringContainsString('name="store_id" value="'.$two.'"', $content,
+                    'Venta settings does not post the store it was asked for.');
+                $this->assertStringContainsString('data-store-id="'.$two.'"', $content,
+                    'Venta settings does not scope its AJAX calls to the store it was asked for.');
+            } else {
+                $this->assertStringContainsString('/integrations/venta/'.$two.'/', $content,
+                    "Venta {$label} emitted no link scoped to the store it was asked for.");
+            }
+        }
+    }
+
+    /**
+     * The store has to be NAMED in the page body, not only in the breadcrumb.
+     * Below 768px the trail collapses to its leaf, so an operator with two
+     * stores open in two tabs would have nothing on screen telling them apart.
+     */
+    public function test_every_venta_interior_names_its_store_in_the_content(): void
+    {
+        [, $two] = $this->seedVentaStores();
+        $groupTwo = VentaProductGroup::create(['venta_setting_id' => $two, 'name' => 'Switches']);
+        $user = $this->ventaManager();
+
+        foreach ($this->ventaInteriorUrls($two, $groupTwo->id) as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $content = $this->pageContent($html, "Venta {$label}");
+
+            $this->assertStringContainsString('Switch Bazaar', $content,
+                "Venta {$label} does not name its store anywhere in the page body.");
+            $this->assertStringNotContainsString('Gear Depot', $content,
+                "Venta {$label} names the wrong store.");
+        }
+    }
+
+    public function test_an_operator_with_no_venta_permission_is_refused_every_venta_interior(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->outsider();
+
+        foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+            $this->assertDenied($this->actingAs($user)->get($url), $label);
+        }
+    }
+
+    public function test_guests_are_redirected_away_from_every_venta_interior(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+
+        foreach ($this->ventaInteriorUrls($one, $group->id) as $label => $url) {
+            $this->get($url)->assertRedirect(route('login'));
+        }
+    }
+
+    public function test_the_venta_read_tier_is_not_offered_write_controls(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->ventaViewer();
+
+        $groups = $this->actingAs($user)->get(route('ext.venta.product-groups.index', $one))->assertOk();
+        $groups->assertDontSee(route('ext.venta.product-groups.create', $one), false);
+        $groups->assertDontSee('Delete group');
+
+        $form = $this->actingAs($user)->get(route('ext.venta.product-groups.edit', [$one, $group->id]))->assertOk();
+        $form->assertDontSee('Save product group');
+        $this->assertMatchesRegularExpression('/name="name"[^>]*\bdisabled\b/', $form->getContent());
+
+        $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
+        $products->assertDontSee(route('ext.venta.product-groups.push', [$one, $group->id]), false);
+        $products->assertDontSee(route('ext.venta.product-groups.addProducts', [$one, $group->id]), false);
+
+        $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
+        foreach ([
+            route('ext.venta.test'),
+            route('ext.venta.fetch_statuses'),
+            route('ext.venta.save_status_map'),
+            route('ext.venta.toggle_api_logging', $one),
+            route('ext.venta.clear_api_logs', $one),
+        ] as $url) {
+            $settings->assertDontSee($url, false);
+        }
+
+        // ext.venta.save is the exception, and deliberately so: its FORM is
+        // what wraps the disabled connection fields a reader is meant to be
+        // able to read. The submit control is what must be gone.
+        $settings->assertDontSee('Save connection');
+        $settings->assertDontSee('Test connection');
+        $settings->assertDontSee('Delete store');
+        // Asserted as the form action, not as a bare URL: /integrations/venta/3
+        // is a PREFIX of every other store-scoped URI on this channel, so
+        // assertDontSee on it alone could never pass.
+        $settings->assertDontSee('action="'.e(route('ext.venta.destroy', $one)).'"', false);
+
+        // The credential fields still render, disabled, so a reader can see
+        // what is configured. The token value itself is NOT sent.
+        $html = $settings->getContent();
+        foreach (['store_name', 'base_url', 'api_token', 'warehouse_id', 'sync_last_days', 'sync_orders_from', 'enabled'] as $field) {
+            $this->assertMatchesRegularExpression(
+                '/name="'.preg_quote($field, '/').'"[^>]*\bdisabled\b/',
+                $html,
+                "The {$field} control is editable for an operator who cannot save it."
+            );
+        }
+        $this->assertStringNotContainsString('venta-token-one', $html,
+            'The read tier was sent the store API token.');
+    }
+
+    public function test_the_venta_manage_tier_is_offered_those_same_controls(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        // The Delete-all-logs form only exists when there is something to
+        // delete, which is the pre-redesign rule kept unchanged.
+        VentaApiLog::create([
+            'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
+            'status_code' => 200, 'response_time_ms' => 12, 'ok' => true,
+            'request_body' => null, 'response_body' => [],
+        ]);
+        $user = $this->ventaManager();
+
+        $this->actingAs($user)->get(route('ext.venta.product-groups.index', $one))
+            ->assertOk()->assertSee(route('ext.venta.product-groups.create', $one), false);
+
+        $this->actingAs($user)->get(route('ext.venta.product-groups.edit', [$one, $group->id]))
+            ->assertOk()->assertSee('Save product group');
+
+        $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
+        foreach ([
+            route('ext.venta.product-groups.push', [$one, $group->id]),
+            route('ext.venta.product-groups.push-stock', [$one, $group->id]),
+            route('ext.venta.product-groups.push-prices', [$one, $group->id]),
+            route('ext.venta.product-groups.sync-ids', [$one, $group->id]),
+            route('ext.venta.product-groups.mass-remove', [$one, $group->id]),
+            route('ext.venta.product-groups.addProducts', [$one, $group->id]),
+        ] as $url) {
+            $products->assertSee($url, false);
+        }
+
+        $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
+        foreach ([
+            route('ext.venta.save'),
+            route('ext.venta.test'),
+            route('ext.venta.fetch_statuses'),
+            route('ext.venta.save_status_map'),
+            route('ext.venta.toggle_api_logging', $one),
+            route('ext.venta.clear_api_logs', $one),
+        ] as $url) {
+            $settings->assertSee($url, false);
+        }
+    }
+
+    public function test_the_venta_write_routes_refuse_the_read_tier_on_their_own(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => 'Pedals']);
+        $user = $this->ventaViewer();
+
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.save'), [
+            'store_id' => $one, 'base_url' => 'https://x.test', 'api_token' => 'x',
+        ]), 'save');
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.venta.destroy', $one)), 'destroy');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.test'), ['store_id' => $one]), 'test');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.fetch_statuses'), ['store_id' => $one]), 'fetch_statuses');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.save_status_map'), ['store_id' => $one]), 'save_status_map');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.toggle_api_logging', $one)), 'toggle_api_logging');
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.venta.clear_api_logs', $one)), 'clear_api_logs');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.venta.product-groups.create', $one)), 'product-groups.create');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.venta.product-groups.push', [$one, $group->id])), 'product-groups.push');
+    }
+
+    /**
+     * THE store-scoped save round trip.
+     *
+     * Both halves are asserted, which is the only thing that makes this claim
+     * mean anything: store 1's row changed to exactly what was posted, and
+     * store 2's row is byte-identical to what it was seeded with. Without the
+     * second half, a save() that ignored `store_id` and wrote the first row it
+     * found would pass.
+     */
+    public function test_a_venta_save_for_one_store_leaves_the_other_store_untouched(): void
+    {
+        [$one, $two] = $this->seedVentaStores();
+
+        $before = VentaSetting::findOrFail($two);
+        $beforeTwo = [
+            'store_name' => $before->store_name,
+            'base_url' => $before->base_url,
+            'api_token' => $before->api_token,
+            'enabled' => (bool) $before->enabled,
+            'warehouse_id' => $before->warehouse_id,
+            'sync_last_days' => $before->sync_last_days,
+            'brand_color' => $before->brand_color,
+        ];
+
+        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+            'store_id' => $one,
+            'store_name' => 'Gear Depot Renamed',
+            'brand_color' => '#aabbcc',
+            'base_url' => 'https://renamed.venta.test',
+            'api_token' => 'venta-token-one-rotated',
+            'warehouse_id' => 11,
+            'sync_last_days' => 45,
+            'sync_orders_from' => '2026-01-15',
+            'enabled' => '1',
+        ])->assertRedirect(route('ext.venta.index'));
+
+        // Every column the controller writes, read back.
+        $saved = VentaSetting::findOrFail($one);
+        $this->assertSame('Gear Depot Renamed', $saved->store_name);
+        $this->assertSame('#aabbcc', $saved->brand_color);
+        $this->assertSame('https://renamed.venta.test', $saved->base_url);
+        $this->assertSame('venta-token-one-rotated', $saved->api_token);
+        $this->assertSame(11, (int) $saved->warehouse_id);
+        $this->assertSame(45, (int) $saved->sync_last_days);
+        $this->assertSame('2026-01-15', $saved->sync_orders_from->format('Y-m-d'));
+        $this->assertTrue((bool) $saved->enabled);
+
+        // The other store, untouched.
+        $after = VentaSetting::findOrFail($two);
+        $this->assertSame($beforeTwo['store_name'], $after->store_name);
+        $this->assertSame($beforeTwo['base_url'], $after->base_url);
+        $this->assertSame($beforeTwo['api_token'], $after->api_token);
+        $this->assertSame($beforeTwo['enabled'], (bool) $after->enabled);
+        $this->assertSame($beforeTwo['warehouse_id'], $after->warehouse_id);
+        $this->assertSame($beforeTwo['sync_last_days'], $after->sync_last_days);
+        $this->assertSame($beforeTwo['brand_color'], $after->brand_color);
+    }
+
+    /**
+     * The enabled checkbox has NO hidden companion field, deliberately.
+     * VentaController::save() reads $request->has('enabled'), so a hidden 0 in
+     * front of the box would make every store permanently enabled - the box
+     * could never be unticked again.
+     */
+    public function test_the_venta_enabled_switch_can_actually_be_turned_off(): void
+    {
+        [$one] = $this->seedVentaStores();
+
+        $html = $this->actingAs($this->ventaManager())
+            ->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('name="enabled" value="0"', $html,
+            'A hidden companion field would make $request->has(\'enabled\') always true.');
+
+        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), [
+            'store_id' => $one,
+            'base_url' => 'https://one.venta.test',
+            'api_token' => 'venta-token-one',
+            // `enabled` deliberately absent, which is what an unticked box posts.
+        ])->assertRedirect();
+
+        $this->assertFalse((bool) VentaSetting::findOrFail($one)->enabled);
+    }
+
+    public function test_the_venta_status_map_save_is_scoped_to_its_own_store(): void
+    {
+        [$one, $two] = $this->seedVentaStores();
+
+        VentaOrderStatusMap::create([
+            'venta_setting_id' => $two, 'venta_status_id' => 3,
+            'venta_status_name' => 'Shipped', 'order_status_id' => 3,
+        ]);
+
+        $this->actingAs($this->ventaManager())->postJson(route('ext.venta.save_status_map'), [
+            'store_id' => $one,
+            'mappings' => [
+                ['venta_status_id' => 3, 'venta_status_name' => 'Shipped', 'order_status_id' => 5],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(5, (int) VentaOrderStatusMap::where('venta_setting_id', $one)
+            ->where('venta_status_id', 3)->value('order_status_id'));
+        $this->assertSame(3, (int) VentaOrderStatusMap::where('venta_setting_id', $two)
+            ->where('venta_status_id', 3)->value('order_status_id'));
+    }
+
+    public function test_venta_interiors_render_their_seeded_records(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $productId = $this->seedCatalogueProduct('Overdrive Pedal', 'OD-808');
+
+        $group = VentaProductGroup::create([
+            'venta_setting_id' => $one, 'name' => 'Pedal Batch',
+            'markup_percent' => 5, 'markup_fixed' => 100,
+        ]);
+        DB::table('venta_product_group_products')->insert([
+            'venta_product_group_id' => $group->id, 'product_id' => $productId,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        VentaOrderStatusMap::create([
+            'venta_setting_id' => $one, 'venta_status_id' => 7,
+            'venta_status_name' => 'Awaiting pickup', 'order_status_id' => 0,
+        ]);
+        VentaApiLog::create([
+            'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
+            'status_code' => 200, 'response_time_ms' => 84, 'ok' => true,
+            'request_body' => null, 'response_body' => ['data' => []],
+        ]);
+        VentaSyncLog::create([
+            'venta_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+            'status' => 'completed', 'started_at' => now()->subMinute(), 'completed_at' => now(),
+            'records_processed' => 12, 'records_updated' => 4, 'records_failed' => 0,
+        ]);
+
+        $user = $this->ventaManager();
+
+        $groups = $this->actingAs($user)->get(route('ext.venta.product-groups.index', $one))->assertOk();
+        $groups->assertSee('Pedal Batch');
+        $groups->assertSee('5% of price');
+
+        $products = $this->actingAs($user)->get(route('ext.venta.product-groups.products', [$one, $group->id]))->assertOk();
+        $products->assertSee('Overdrive Pedal');
+        $products->assertSee('OD-808');
+
+        $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
+        $settings->assertSee('Awaiting pickup');
+        $settings->assertSee('/api/orders');
+        $settings->assertSee('venta:sync orders --store='.$one);
+    }
+
+    public function test_venta_channel_sourced_names_are_escaped(): void
+    {
+        [$one] = $this->seedVentaStores();
+        $payload = '<img src=x onerror=alert(1)>';
+
+        $group = VentaProductGroup::create(['venta_setting_id' => $one, 'name' => $payload]);
+        VentaOrderStatusMap::create([
+            'venta_setting_id' => $one, 'venta_status_id' => 9,
+            'venta_status_name' => $payload, 'order_status_id' => 0,
+        ]);
+        VentaApiLog::create([
+            'venta_setting_id' => $one, 'method' => 'GET', 'endpoint' => $payload,
+            'status_code' => 500, 'response_time_ms' => 3, 'ok' => false,
+            'request_body' => null, 'response_body' => ['error' => $payload],
+        ]);
+
+        $user = $this->ventaManager();
+
+        foreach ([
+            route('ext.venta.product-groups.index', $one),
+            route('ext.venta.product-groups.edit', [$one, $group->id]),
+            route('ext.venta.settings.show', ['store' => $one]),
+        ] as $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $this->assertStringNotContainsString('<img src=x onerror=', $html, "Unescaped output on {$url}");
+        }
+    }
+
+    /* =================================================================
+       OPENCART - store-scoped
+       ================================================================= */
+
+    public function test_every_opencart_interior_renders_for_both_tiers(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+
+        foreach ([$this->opencartManager(), $this->opencartViewer()] as $user) {
+            foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
+                $this->actingAs($user)->get($url)->assertOk();
+            }
+        }
+    }
+
+    public function test_no_opencart_interior_still_carries_the_legacy_boundary(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $user = $this->opencartManager();
+
+        foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $this->assertBoundaryDropped($html, "OpenCart {$label}");
+        }
+    }
+
+    public function test_every_opencart_self_link_carries_the_store_it_arrived_on(): void
+    {
+        [$one, $two] = $this->seedOpencartStores();
+        $groupTwo = OpenCartProductGroup::create(['opencart_setting_id' => $two, 'name' => 'Looms']);
+        $user = $this->opencartManager();
+
+        foreach ($this->opencartInteriorUrls($two, $groupTwo->id) as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $content = $this->pageContent($html, "OpenCart {$label}");
+
+            $this->assertStringNotContainsString('/integrations/opencart/'.$one.'/', $content,
+                "OpenCart {$label} for store {$two} leaked a link to store {$one}.");
+            $this->assertStringNotContainsString('name="store_id" value="'.$one.'"', $content,
+                "OpenCart {$label} for store {$two} posts store {$one}'s id.");
+
+            // Same split as Venta: OpenCart's settings forms all post to
+            // unscoped URLs and carry the store as a hidden field.
+            if ($label === 'settings') {
+                $this->assertStringContainsString('name="store_id" value="'.$two.'"', $content,
+                    'OpenCart settings does not post the store it was asked for.');
+                $this->assertStringContainsString('data-store-id="'.$two.'"', $content,
+                    'OpenCart settings does not scope its AJAX calls to the store it was asked for.');
+                $this->assertStringContainsString('--store='.$two, $content,
+                    'OpenCart settings printed a cron command for the wrong store.');
+            } else {
+                $this->assertStringContainsString('/integrations/opencart/'.$two.'/', $content,
+                    "OpenCart {$label} emitted no link scoped to the store it was asked for.");
+            }
+        }
+    }
+
+    public function test_every_opencart_interior_names_its_store_in_the_content(): void
+    {
+        [, $two] = $this->seedOpencartStores();
+        $groupTwo = OpenCartProductGroup::create(['opencart_setting_id' => $two, 'name' => 'Looms']);
+        $user = $this->opencartManager();
+
+        foreach ($this->opencartInteriorUrls($two, $groupTwo->id) as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $content = $this->pageContent($html, "OpenCart {$label}");
+
+            $this->assertStringContainsString('Cable Loft', $content,
+                "OpenCart {$label} does not name its store anywhere in the page body.");
+            $this->assertStringNotContainsString('Parts Yard', $content,
+                "OpenCart {$label} names the wrong store.");
+        }
+    }
+
+    public function test_an_operator_with_no_opencart_permission_is_refused_every_opencart_interior(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $user = $this->outsider();
+
+        foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
+            $this->assertDenied($this->actingAs($user)->get($url), $label);
+        }
+    }
+
+    public function test_guests_are_redirected_away_from_every_opencart_interior(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+
+        foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
+            $this->get($url)->assertRedirect(route('login'));
+        }
+    }
+
+    public function test_the_opencart_read_tier_is_not_offered_write_controls(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $user = $this->opencartViewer();
+
+        $groups = $this->actingAs($user)->get(route('ext.opencart.product-groups.index', $one))->assertOk();
+        $groups->assertDontSee(route('ext.opencart.product-groups.create', $one), false);
+        $groups->assertDontSee('Delete group');
+
+        $form = $this->actingAs($user)->get(route('ext.opencart.product-groups.edit', [$one, $group->id]))->assertOk();
+        $form->assertDontSee('Save product group');
+        $this->assertMatchesRegularExpression('/name="name"[^>]*\bdisabled\b/', $form->getContent());
+
+        $products = $this->actingAs($user)->get(route('ext.opencart.product-groups.products', [$one, $group->id]))->assertOk();
+        $products->assertDontSee(route('ext.opencart.product-groups.push', [$one, $group->id]), false);
+        $products->assertDontSee(route('ext.opencart.product-groups.addProducts', [$one, $group->id]), false);
+
+        $settings = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk();
+        foreach ([
+            route('ext.opencart.test'),
+            route('ext.opencart.push'),
+            route('ext.opencart.push_qty'),
+            route('ext.opencart.verify_password'),
+            route('ext.opencart.fetch_oc_statuses'),
+            route('ext.opencart.save_status_map'),
+        ] as $url) {
+            $settings->assertDontSee($url, false);
+        }
+
+        // ext.opencart.sync has the same prefix hazard the destroy route has:
+        // /integrations/opencart/sync is a PREFIX of
+        // /integrations/opencart/sync-date, whose form legitimately renders for
+        // a reader around the disabled window fields. Asserted as the attribute
+        // the module actually reads, which is empty for a reader.
+        $settings->assertSee('data-sync-url=""', false);
+        $settings->assertSee('data-push-url=""', false);
+        $settings->assertSee('data-verify-url=""', false);
+        $settings->assertSee('data-test-url=""', false);
+
+        // Three saves keep their FORMS, because those forms are what wrap the
+        // disabled fields a reader is meant to be able to read. Their submit
+        // controls are what must be gone.
+        $settings->assertDontSee('Save connection');
+        $settings->assertDontSee('Save the window');
+        $settings->assertDontSee('Save review setting');
+        $settings->assertDontSee('Test connection');
+        $settings->assertDontSee('Delete store');
+        $settings->assertDontSee('action="'.e(route('ext.opencart.destroy', $one)).'"', false);
+        // The whole first-import tab is manage-only, tab strip included.
+        $settings->assertDontSee('First import');
+
+        $html = $settings->getContent();
+        foreach (['store_name', 'base_url', 'api_key', 'enabled'] as $field) {
+            $this->assertMatchesRegularExpression(
+                '/name="'.preg_quote($field, '/').'"[^>]*\bdisabled\b/',
+                $html,
+                "The {$field} control is editable for an operator who cannot save it."
+            );
+        }
+        $this->assertStringNotContainsString('oc-key-one', $html,
+            'The read tier was sent the store API key.');
+    }
+
+    public function test_the_opencart_manage_tier_is_offered_those_same_controls(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $user = $this->opencartManager();
+
+        $this->actingAs($user)->get(route('ext.opencart.product-groups.index', $one))
+            ->assertOk()->assertSee(route('ext.opencart.product-groups.create', $one), false);
+
+        $this->actingAs($user)->get(route('ext.opencart.product-groups.edit', [$one, $group->id]))
+            ->assertOk()->assertSee('Save product group');
+
+        $products = $this->actingAs($user)->get(route('ext.opencart.product-groups.products', [$one, $group->id]))->assertOk();
+        $products->assertSee(route('ext.opencart.product-groups.push', [$one, $group->id]), false);
+        $products->assertSee(route('ext.opencart.product-groups.addProducts', [$one, $group->id]), false);
+
+        $settings = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk();
+        $settings->assertSee('action="'.e(route('ext.opencart.destroy', $one)).'"', false);
+        foreach ([
+            route('ext.opencart.save'),
+            route('ext.opencart.test'),
+            route('ext.opencart.sync'),
+            route('ext.opencart.push'),
+            route('ext.opencart.push_qty'),
+            route('ext.opencart.verify_password'),
+            route('ext.opencart.fetch_oc_statuses'),
+            route('ext.opencart.save_status_map'),
+            route('ext.opencart.sync_date'),
+            route('ext.opencart.save_review_settings'),
+        ] as $url) {
+            $settings->assertSee($url, false);
+        }
+    }
+
+    public function test_the_opencart_write_routes_refuse_the_read_tier_on_their_own(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $user = $this->opencartViewer();
+
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.save'), [
+            'store_id' => $one, 'base_url' => 'https://x.test', 'api_key' => 'x',
+        ]), 'save');
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.opencart.destroy', $one)), 'destroy');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.test'), ['store_id' => $one]), 'test');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.sync'), ['store_id' => $one, 'entity' => 'orders']), 'sync');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.push'), ['store_id' => $one]), 'push');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.push_qty'), ['store_id' => $one]), 'push_qty');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.verify_password'), ['password' => 'x']), 'verify_password');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.fetch_oc_statuses'), ['store_id' => $one]), 'fetch_oc_statuses');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.save_status_map'), ['store_id' => $one]), 'save_status_map');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.sync_date'), ['store_id' => $one]), 'sync_date');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.save_review_settings'), ['store_id' => $one]), 'save_review_settings');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.opencart.product-groups.create', $one)), 'product-groups.create');
+    }
+
+    /** The OpenCart half of the store-scoped save claim. Both stores asserted. */
+    public function test_an_opencart_save_for_one_store_leaves_the_other_store_untouched(): void
+    {
+        [$one, $two] = $this->seedOpencartStores();
+
+        $before = OpenCartSetting::findOrFail($two);
+        $beforeTwo = [
+            'store_name' => $before->store_name,
+            'base_url' => $before->base_url,
+            'api_key' => $before->api_key,
+            'enabled' => (bool) $before->enabled,
+            'brand_color' => $before->brand_color,
+            'sync_last_days' => $before->sync_last_days,
+        ];
+
+        $this->actingAs($this->opencartManager())->post(route('ext.opencart.save'), [
+            'store_id' => $one,
+            'store_name' => 'Parts Yard Renamed',
+            'brand_color' => '#ddeeff',
+            'base_url' => 'https://renamed.opencart.test',
+            'api_key' => 'oc-key-one-rotated',
+            'sync_orders_from' => '2026-02-20',
+            'enabled' => '1',
+        ])->assertRedirect();
+
+        $saved = OpenCartSetting::findOrFail($one);
+        $this->assertSame('Parts Yard Renamed', $saved->store_name);
+        $this->assertSame('#ddeeff', $saved->brand_color);
+        $this->assertSame('https://renamed.opencart.test', $saved->base_url);
+        $this->assertSame('oc-key-one-rotated', $saved->api_key);
+        $this->assertSame('2026-02-20', $saved->sync_orders_from->format('Y-m-d'));
+        $this->assertTrue((bool) $saved->enabled);
+
+        $after = OpenCartSetting::findOrFail($two);
+        $this->assertSame($beforeTwo['store_name'], $after->store_name);
+        $this->assertSame($beforeTwo['base_url'], $after->base_url);
+        $this->assertSame($beforeTwo['api_key'], $after->api_key);
+        $this->assertSame($beforeTwo['enabled'], (bool) $after->enabled);
+        $this->assertSame($beforeTwo['brand_color'], $after->brand_color);
+        $this->assertSame($beforeTwo['sync_last_days'], $after->sync_last_days);
+    }
+
+    /**
+     * Same reasoning as Venta's: saveReviewSettings() and save() both read
+     * $request->has(), so neither switch may carry a hidden companion field.
+     */
+    public function test_the_opencart_switches_can_actually_be_turned_off(): void
+    {
+        [$one] = $this->seedOpencartStores();
+
+        $html = $this->actingAs($this->opencartManager())
+            ->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('name="enabled" value="0"', $html);
+        $this->assertStringNotContainsString('name="review_auto_approve" value="0"', $html);
+
+        $this->actingAs($this->opencartManager())->post(route('ext.opencart.save_review_settings'), [
+            'store_id' => $one,
+        ])->assertRedirect();
+
+        $this->assertFalse((bool) OpenCartSetting::findOrFail($one)->review_auto_approve);
+    }
+
+    public function test_the_opencart_status_map_save_is_scoped_to_its_own_store(): void
+    {
+        [$one, $two] = $this->seedOpencartStores();
+
+        OpenCartOrderStatusMap::create([
+            'opencart_setting_id' => $two, 'oc_status_id' => 3,
+            'oc_status_name' => 'Shipped', 'order_status_id' => 3,
+        ]);
+
+        $this->actingAs($this->opencartManager())->postJson(route('ext.opencart.save_status_map'), [
+            'store_id' => $one,
+            'mappings' => [
+                ['oc_status_id' => 3, 'oc_status_name' => 'Shipped', 'order_status_id' => 5],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(5, (int) OpenCartOrderStatusMap::where('opencart_setting_id', $one)
+            ->where('oc_status_id', 3)->value('order_status_id'));
+        $this->assertSame(3, (int) OpenCartOrderStatusMap::where('opencart_setting_id', $two)
+            ->where('oc_status_id', 3)->value('order_status_id'));
+    }
+
+    public function test_opencart_interiors_render_their_seeded_records(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $productId = $this->seedCatalogueProduct('Patch Cable', 'PC-15');
+
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cable Batch']);
+        DB::table('opencart_product_group_products')->insert([
+            'opencart_product_group_id' => $group->id, 'product_id' => $productId,
+        ]);
+
+        OpenCartOrderStatusMap::create([
+            'opencart_setting_id' => $one, 'oc_status_id' => 5,
+            'oc_status_name' => 'Complete', 'order_status_id' => 0,
+        ]);
+        OpenCartSyncLog::create([
+            'opencart_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+            'status' => 'completed', 'started_at' => now()->subMinute(), 'completed_at' => now(),
+            'records_processed' => 9, 'records_updated' => 2, 'records_failed' => 0,
+        ]);
+
+        $user = $this->opencartManager();
+
+        $groups = $this->actingAs($user)->get(route('ext.opencart.product-groups.index', $one))->assertOk();
+        $groups->assertSee('Cable Batch');
+
+        $products = $this->actingAs($user)->get(route('ext.opencart.product-groups.products', [$one, $group->id]))->assertOk();
+        $products->assertSee('Patch Cable');
+        $products->assertSee('PC-15');
+
+        $settings = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk();
+        $settings->assertSee('Complete');
+        $settings->assertSee('opencart:sync orders --store='.$one);
+    }
+
+    public function test_opencart_channel_sourced_names_are_escaped(): void
+    {
+        [$one] = $this->seedOpencartStores();
+        $payload = '<img src=x onerror=alert(1)>';
+
+        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => $payload]);
+        OpenCartOrderStatusMap::create([
+            'opencart_setting_id' => $one, 'oc_status_id' => 11,
+            'oc_status_name' => $payload, 'order_status_id' => 0,
+        ]);
+        OpenCartSyncLog::create([
+            'opencart_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+            'status' => 'failed', 'started_at' => now(), 'completed_at' => now(),
+            'records_processed' => 0, 'records_updated' => 0, 'records_failed' => 1,
+            'error_message' => $payload,
+        ]);
+
+        $user = $this->opencartManager();
+
+        foreach ([
+            route('ext.opencart.product-groups.index', $one),
+            route('ext.opencart.product-groups.edit', [$one, $group->id]),
+            route('ext.opencart.settings.show', ['store' => $one]),
+        ] as $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+            $this->assertStringNotContainsString('<img src=x onerror=', $html, "Unescaped output on {$url}");
+        }
+    }
+
+    /* =================================================================
+       CROSS-CHANNEL
+       ================================================================= */
+
+    /**
+     * Holding one channel's manage tier opens nothing on the other two. The
+     * cheapest way for a gate to be wrong is for it to be checked against the
+     * wrong channel's permission key.
+     */
+    public function test_one_channels_manage_tier_opens_nothing_on_the_others(): void
+    {
+        $this->seedTiktokSetting();
+        [$ventaStore] = $this->seedVentaStores();
+        [$opencartStore] = $this->seedOpencartStores();
+
+        $ventaGroup = VentaProductGroup::create(['venta_setting_id' => $ventaStore, 'name' => 'Pedals']);
+        $opencartGroup = OpenCartProductGroup::create(['opencart_setting_id' => $opencartStore, 'name' => 'Cables']);
+
+        $tiktokUrls = $this->tiktokInteriorUrls();
+        $ventaUrls = $this->ventaInteriorUrls($ventaStore, $ventaGroup->id);
+        $opencartUrls = $this->opencartInteriorUrls($opencartStore, $opencartGroup->id);
+
+        $matrix = [
+            'tiktok manager' => [$this->tiktokManager(), array_merge($ventaUrls, $opencartUrls)],
+            'venta manager' => [$this->ventaManager(), array_merge($tiktokUrls, $opencartUrls)],
+            'opencart manager' => [$this->opencartManager(), array_merge($tiktokUrls, $ventaUrls)],
+        ];
+
+        foreach ($matrix as $who => [$user, $urls]) {
+            foreach ($urls as $label => $url) {
+                $this->assertDenied($this->actingAs($user)->get($url), "{$who} reached {$label}");
+            }
+        }
+    }
+
+    /**
+     * ONE GATE, PROVEN.
+     *
+     * /venta/save is the riskiest write on this task's eleven pages: it is
+     * store-scoped, it rotates a credential, and it is reachable from a page a
+     * read-tier operator can open. This test is the one the mutation proof was
+     * run against - relaxing the route's own middleware to accept either tier
+     * must make the viewer half of this fail.
+     */
+    public function test_the_venta_save_gate_separates_the_two_tiers_on_one_route(): void
+    {
+        [$one] = $this->seedVentaStores();
+
+        $payload = [
+            'store_id' => $one,
+            'store_name' => 'Renamed By Test',
+            'base_url' => 'https://gate.venta.test',
+            'api_token' => 'gate-token',
+        ];
+
+        // The read tier is refused, and nothing moved.
+        $this->assertDenied(
+            $this->actingAs($this->ventaViewer())->post(route('ext.venta.save'), $payload),
+            'venta save, viewer'
+        );
+        $this->assertSame('Gear Depot', VentaSetting::findOrFail($one)->store_name);
+
+        // The manage tier goes through, and the row really changed.
+        $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), $payload)->assertRedirect();
+        $this->assertSame('Renamed By Test', VentaSetting::findOrFail($one)->store_name);
     }
 }

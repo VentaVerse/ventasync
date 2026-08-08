@@ -1,15 +1,64 @@
 @extends('layouts.channel')
 @section('breadcrumb', 'Settings')
 
-@section('content')
-<div class="page-header">
-    <h2>TikTok Shop Settings</h2>
-    <div class="page-header-actions">
-        <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
-    </div>
-</div>
+@section('title', 'TikTok Shop Settings')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
+
+     READ THIS BEFORE EDITING ANY FORM BELOW.
+
+     TikTok Shop's OAuth surfaces are contracts registered in the TikTok Shop
+     Partner Center and compared byte-for-byte on every consent round trip.
+     This page is NOT the callback landing: TikTok redirects to the separate,
+     permanently exempt `/tiktok/callback` route, and
+     TikTokController::computedRedirectUri() returns exactly
+     route('ext.tiktok.callback') forced to https. That URL is what the
+     readonly Redirect URI boxes below display, and nothing in this file may
+     change any of these surfaces:
+
+       - the redirect URI display     a readonly input with NO name attribute,
+                                      so it is shown and never submitted
+       - the authorize link           route('ext.tiktok.authorize'), a GET in a
+                                      new tab, rel="noopener". Production and
+                                      sandbox use the SAME URL with NO query
+                                      parameter, unlike Lazada: TikTokController
+                                      ::redirectToAuth() reads the stored `mode`
+                                      column to pick which app key it sends, so
+                                      adding a ?sandbox flag here would be
+                                      inventing a parameter nothing reads
+       - the auth-code exchange       POST route('ext.tiktok.token_get'), one
+                                      field named `code`, on both environments,
+                                      with no hidden environment flag for the
+                                      same reason
+       - the token refresh            POST route('ext.tiktok.token_refresh'),
+                                      no fields
+       - the shop lookup              POST route('ext.tiktok.shops'), no fields.
+                                      This is what writes shop_cipher, which
+                                      most TikTok API calls need
+
+     The credential save (POST route('ext.tiktok.save')) carries a hidden `env`
+     plus exactly the field names TikTokController::save() reads for that
+     environment. Blank means "keep the stored value" for the two secrets,
+     which is what the •••••••• masks plus resources/js/credential-mask.js are
+     for.
+
+     KNOWN, DELIBERATELY UNCHANGED: save() also validates `region` and, on a
+     live save, assigns `$setting->region = $data['region'] ?? null`. This form
+     has never carried a region field, so every production save clears the
+     region that getShops() wrote. That is the pre-redesign behaviour and this
+     task freezes behaviour at the wire, so no region control was added.
+     Recorded in the Round C Task 3 report for a controller-side fix. --}}
+@section('content-class', '')
+
+@section('content')
 @php
+    // Read tier on this route is `view_tiktok|manage_tiktok`; every write below
+    // (save, toggle mode, token get/refresh, shops, explorer, packs, status
+    // map, logging, log delete, purge) is `manage_tiktok`. Replaces a hardcoded
+    // `true`, which offered a read-only operator every one of those controls
+    // and let each of them be refused.
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+
     $currentMode = $setting->mode ?? 'live';
     $isSandbox = $currentMode === 'sandbox';
 
@@ -27,915 +76,737 @@
     $logCount = count($logs);
     $hasResult = !empty($result);
 
-    // Phase 4 (view/manage tier split): operators with only `view_tiktok` get
-    // here through the read-tier route gate. Action triggers (Save, Authorize,
-    // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
-    // them — the routes still 403 if probed directly, but the UI surface
-    // should match the operator's capability set.
-    $canManageTiktok = true;
+    $apiLogging = (bool) ($setting->api_logging ?? true);
+
+    // Exactly the six TikTokController::packsRun() validates, no more.
+    $packs = [
+        'shops' => 'Shops', 'products' => 'Products', 'orders' => 'Orders',
+        'logistics' => 'Logistics', 'finance' => 'Finance', 'full' => 'Everything',
+    ];
 @endphp
 
+<div class="cs-page"
+     data-channel-settings
+     data-tab-prefix="tt-tab-"
+     data-tab-storage-key="tt-active-tab"
+     data-default-tab="{{ $hasResult ? 'tt-tab-logs' : '' }}">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Settings</h1>
+        <p class="x-page-sub">Credentials, status mapping and the API record for this TikTok Shop.</p>
+    </div>
+</div>
+
 @unless($canManageTiktok)
-<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
-    <strong>Read-only view.</strong> You can browse TikTok Shop settings, mappings, and logs. To edit credentials, run syncs, or trigger marketplace actions, your user group needs the <code>manage_tiktok</code> permission tier.
+<div class="cs-readonly">
+    <div>
+        <strong>You can look, not change.</strong>
+        Settings, status mapping and the API record are readable with the TikTok view permission. Editing credentials, authorising the shop and clearing logs need the manage tier.
+    </div>
 </div>
 @endunless
 
-{{-- Tabs --}}
-<div class="tabs mb-12" style="justify-content:flex-start;">
-    <button class="tab {{ !$hasResult ? 'active' : '' }}" data-tab="tt-tab-settings" type="button">Settings</button>
-    <button class="tab" data-tab="tt-tab-status" type="button">Status Mapping</button>
-    @if($canManageTiktok)
-    <button class="tab" data-tab="tt-tab-explorer" type="button">API Explorer</button>
-    @endif
-    <button class="tab {{ $hasResult ? 'active' : '' }}" data-tab="tt-tab-logs" type="button">
-        API Logs
-        @if($logCount > 0)
-            <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
-        @endif
-    </button>
-    @if($canManageTiktok)
-    <button class="tab" data-tab="tt-tab-automations" type="button">Automations</button>
-    @endif
-</div>
-
-{{-- AUTOMATIONS TAB — universal admin scheduler --}}
-@if($canManageTiktok)
-<div id="tt-tab-automations" class="hidden">
-    @include('partials._automations_tab', ['integration' => 'tiktok', 'storeId' => null])
-</div>
-@endif
-
-{{-- TAB 1 -- SETTINGS --}}
-<div id="tt-tab-settings" class="{{ $hasResult ? 'hidden' : '' }}">
-
-    {{-- Environment Toggle --}}
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
-        <span class="font-semibold text-sm">Environment:</span>
+{{-- Five views of one subject, so this is the same segmented control the
+     orders pages use for their status filters rather than a second tab
+     grammar. API explorer and Automations are write-only tools (they call
+     TikTok directly and set the cron schedule) so a read-only operator does
+     not see them; Status mapping and API log show their data with the write
+     controls removed. --}}
+<div class="x-segment-bar">
+    <div class="x-segment" role="tablist" aria-label="Settings sections">
+        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="tt-tab-settings-tab" aria-controls="tt-tab-settings" data-cs-tab="tt-tab-settings">Connection</button>
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-status-tab" aria-controls="tt-tab-status" data-cs-tab="tt-tab-status">Status mapping</button>
         @if($canManageTiktok)
-        <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" id="tt-mode-form" style="display:flex; align-items:center; gap:10px;">
-            @csrf
-            <input type="hidden" name="mode" id="tt-mode-value" value="{{ $currentMode }}">
-            <button type="button" id="tt-mode-toggle" style="
-                position:relative; display:inline-flex; align-items:center; width:48px; height:26px;
-                border-radius:13px; border:none; cursor:pointer; transition:background 0.2s;
-                background:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};
-            ">
-                <span id="tt-mode-knob" style="
-                    position:absolute; top:3px; {{ $isSandbox ? 'left:3px' : 'left:25px' }};
-                    width:20px; height:20px; background:#fff; border-radius:50%;
-                    transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);
-                "></span>
-            </button>
-            <span id="tt-mode-label" class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
-                {{ $isSandbox ? 'Sandbox' : 'Production' }}
-            </span>
-        </form>
-        @else
-        <span class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
-            {{ $isSandbox ? 'Sandbox' : 'Production' }}
-        </span>
+            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-explorer-tab" aria-controls="tt-tab-explorer" data-cs-tab="tt-tab-explorer">API explorer</button>
+        @endif
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-logs-tab" aria-controls="tt-tab-logs" data-cs-tab="tt-tab-logs">
+            <span>API log</span>
+            @if($logCount > 0)<span class="x-segment__count">{{ number_format($logCount) }}</span>@endif
+        </button>
+        @if($canManageTiktok)
+            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-automations-tab" aria-controls="tt-tab-automations" data-cs-tab="tt-tab-automations">Automations</button>
         @endif
     </div>
+</div>
 
-    {{-- Connection + Auth side-by-side --}}
-    {{-- PRODUCTION fields --}}
-    <div id="tt-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
-    <div class="marketplace-settings-grid">
-        {{-- Connection (Live) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Connection <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
+{{-- ================================================================
+     CONNECTION
+     ================================================================ --}}
+<div id="tt-tab-settings" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-settings-tab">
 
-            @if($hasCredentials)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Connected</span>
-                    @if($setting->region ?? null)
-                        <span class="text-xs text-muted">Region: {{ strtoupper($setting->region) }}</span>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Environment</h2>
+        </div>
+
+        <div class="cs-env">
+            @if($canManageTiktok)
+                {{-- Wire unchanged: one hidden `mode` field posted to
+                     toggle-mode, exactly as the old knob did. What changed is
+                     that the control names both environments instead of being
+                     an on/off switch you had to read the label to decode, and
+                     it no longer paints itself green and grey with inline
+                     styles. --}}
+                <form method="POST" action="{{ route('ext.tiktok.toggle_mode') }}" data-cs-env-form>
+                    @csrf
+                    <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
+                    <div class="x-segment" role="tablist" aria-label="TikTok environment">
+                        <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
+                                data-cs-env-option="live">Production</button>
+                        <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
+                                data-cs-env-option="sandbox">Sandbox</button>
+                    </div>
+                </form>
+            @else
+                <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
+            @endif
+
+            <p class="cs-env__note">
+                Every sync, push and order fetch uses the credentials of the environment selected here. It is also what the Authorise button sends, so switch first and authorise second.
+            </p>
+        </div>
+    </section>
+
+    {{-- ---- PRODUCTION ---------------------------------------------- --}}
+    <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
+
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Production credentials</h2>
+                <div class="fm-section__aside">
+                    @if($hasCredentials)
+                        <x-ui.badge tone="success">Configured</x-ui.badge>
+                    @else
+                        <x-ui.badge tone="neutral">Not configured</x-ui.badge>
                     @endif
                 </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-gray">Not configured</span>
-                </div>
-            @endif
+            </div>
 
             <form method="POST" action="{{ route('ext.tiktok.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="live">
-                <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div>
-                        <label>App Key</label>
-                        {{-- App identifier, not a secret — shown in full. --}}
-                        <input class="input" name="app_key" type="text" autocomplete="off"
-                               value="{{ $setting->app_key ?? '' }}">
-                        <div class="hint">From TikTok Shop Partner Center.</div>
-                    </div>
-                    <div>
-                        <label>App Secret</label>
-                        <input class="input" name="app_secret" type="password" autocomplete="off"
-                               value="{{ !empty($setting->app_secret) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->app_secret) ? '1' : '0' }}">
-                        <div class="hint">Stored encrypted.</div>
-                    </div>
-                    <div>
-                        <label>Redirect URI</label>
-                        <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
-                        <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your TikTok Shop developer console. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
-                    </div>
+
+                <div class="fm-fields">
+                    <x-ui.field label="App Key" for="tt-app-key" name="app_key" wide
+                                hint="The app identifier from TikTok Shop Partner Center. Not a secret, so it is shown in full.">
+                        <x-ui.input id="tt-app-key" name="app_key" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ $setting->app_key ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="App Secret" for="tt-app-secret" name="app_secret" wide
+                                hint="Stored encrypted. Leave it as it is to keep the saved secret.">
+                        <x-ui.input id="tt-app-secret" name="app_secret" type="password" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ !empty($setting->app_secret) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->app_secret) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    {{-- No name attribute, deliberately: this is shown so it can
+                         be copied into the TikTok Shop Partner Center, and it
+                         must never be posted back as a settable field. --}}
+                    <x-ui.field label="Redirect URI" for="tt-redirect" wide
+                                hint="Register this exact URL in your TikTok Shop app. It is always https. To change it, edit APP_URL in the environment file.">
+                        <x-ui.input id="tt-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
+                    </x-ui.field>
                 </div>
+
                 @if($canManageTiktok)
-                <div style="margin-top:14px;">
-                    <button class="btn" type="submit">Save Settings</button>
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save production settings</x-ui.button>
+                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored. Saving also switches the shop to production.</span>
                 </div>
                 @endif
             </form>
-        </div>
+        </section>
 
-        {{-- Authorization (Live) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Authorization <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Production authorisation</h2>
+            </div>
 
-            @if($hasToken && !$tokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Token Active</span>
+            <div class="cs-state">
+                @if($hasToken && !$tokenExpired)
+                    <x-ui.badge tone="success">Token active</x-ui.badge>
                     @if($setting->expires_at ?? null)
-                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
+                        <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
                     @endif
-                </div>
-            @elseif($hasToken && $tokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-red">Token Expired</span>
-                    <span class="text-xs text-muted">Use "Refresh Token" below to renew.</span>
-                </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-yellow">No Token</span>
-                    <span class="text-xs text-muted">Follow the steps below to authorize.</span>
-                </div>
-            @endif
+                @elseif($hasToken && $tokenExpired)
+                    <x-ui.badge tone="danger">Token expired</x-ui.badge>
+                    <span class="cs-state__note">Use step 4 to renew it without authorising again.</span>
+                @else
+                    <x-ui.badge tone="warning">No token</x-ui.badge>
+                    <span class="cs-state__note">Work through the four steps below.</span>
+                @endif
+            </div>
 
             @if($canManageTiktok)
-            <div style="display:flex; flex-direction:column; gap:16px;">
-                {{-- Step 1: Authorize --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
-                        <span class="font-semibold text-sm">Open TikTok Shop authorization page</span>
-                    </div>
-                    <a class="btn small" href="{{ route('ext.tiktok.authorize') }}" target="_blank" rel="noopener">Authorize with TikTok Shop</a>
-                    <div class="hint" style="margin-top:6px;">Opens TikTok Shop login in a new tab. After granting access, you'll be redirected back with an auth code.</div>
-                </div>
-
-                {{-- Step 2: Exchange Token --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
-                        <span class="font-semibold text-sm">Exchange auth code for access token</span>
-                    </div>
-                    <form method="POST" action="{{ route('ext.tiktok.token_get') }}">
-                        @csrf
-                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width:200px;">
-                                <label class="text-xs text-muted">Auth Code</label>
-                                <input class="input" name="code" value="{{ old('code') }}" placeholder="Auto-fills after callback, or paste here">
-                            </div>
-                            <button class="btn small" type="submit">Exchange Token</button>
+            <div class="cs-steps">
+                <div class="cs-step">
+                    <span class="cs-step__n">1</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Authorise with TikTok Shop</span>
+                        <div>
+                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize')" target="_blank" rel="noopener">Open TikTok Shop authorisation</x-ui.button>
                         </div>
-                    </form>
-                    <div class="hint" style="margin-top:6px;">If the callback auto-exchanges tokens, this step is already done.</div>
+                        <p class="cs-step__note">Opens TikTok Shop sign-in in a new tab, using whichever environment is selected above. After you grant access TikTok sends you back to the callback URL with an auth code, and the code is exchanged for a token automatically.</p>
+                    </div>
                 </div>
 
-                {{-- Step 3: Get Shops --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
-                        <span class="font-semibold text-sm">Get authorized shops</span>
+                <div class="cs-step">
+                    <span class="cs-step__n">2</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Exchange an auth code by hand</span>
+                        <form method="POST" action="{{ route('ext.tiktok.token_get') }}" class="cs-exchange">
+                            @csrf
+                            <x-ui.field label="Auth code" for="tt-code" name="code">
+                                <x-ui.input id="tt-code" name="code" value="{{ old('code') }}" placeholder="Fills in after the callback, or paste it here" />
+                            </x-ui.field>
+                            <x-ui.button type="submit" size="sm">Exchange</x-ui.button>
+                        </form>
+                        <p class="cs-step__note">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</p>
                     </div>
-                    <form method="POST" action="{{ route('ext.tiktok.shops') }}" style="display:inline;">
-                        @csrf
-                        <button class="btn small" type="submit">Get Shops</button>
-                    </form>
-                    <div class="hint" style="margin-top:6px;">Fetches your authorized shops and saves the shop_cipher required for API calls.</div>
-
-                    @if($hasShop)
-                        <div style="margin-top:12px; padding:10px 14px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border); line-height:1.7;">
-                            <div class="text-xs text-muted" style="margin-bottom:6px;">Shop Info</div>
-                            <div><strong>{{ $setting->shop_name ?? '—' }}</strong></div>
-                            <div class="text-xs text-muted">Shop ID: {{ $setting->shop_id ?? '—' }}</div>
-                            <div class="text-xs text-muted">Shop Code: {{ $setting->shop_code ?? '—' }}</div>
-                            <div class="text-xs text-muted">Shop Cipher: {{ $setting->shop_cipher ?? '—' }}</div>
-                            <div class="text-xs text-muted">Region: {{ strtoupper($setting->region ?? '—') }}</div>
-                            <div class="text-xs text-muted">Warehouse: {{ $setting->warehouse_id ?? '—' }}</div>
-                        </div>
-                    @endif
                 </div>
 
-                {{-- Step 4: Refresh Token --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">4</span>
-                        <span class="font-semibold text-sm">Refresh token (when expired)</span>
+                <div class="cs-step">
+                    <span class="cs-step__n">3</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Fetch the authorised shop</span>
+                        <form method="POST" action="{{ route('ext.tiktok.shops') }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Fetch shop</x-ui.button>
+                        </form>
+                        <p class="cs-step__note">Saves the shop cipher, which nearly every TikTok API call needs. Without it products and orders will not sync even with a valid token.</p>
+
+                        @if($hasShop)
+                            <dl class="cs-facts">
+                                <div class="cs-fact"><dt>Shop</dt><dd>{{ $setting->shop_name ?? 'Not named' }}</dd></div>
+                                <div class="cs-fact"><dt>Shop ID</dt><dd class="cs-fact__mono">{{ $setting->shop_id ?? 'Not set' }}</dd></div>
+                                <div class="cs-fact"><dt>Shop code</dt><dd class="cs-fact__mono">{{ $setting->shop_code ?? 'Not set' }}</dd></div>
+                                <div class="cs-fact"><dt>Shop cipher</dt><dd class="cs-fact__mono">{{ $setting->shop_cipher ?? 'Not set' }}</dd></div>
+                                <div class="cs-fact"><dt>Region</dt><dd class="cs-fact__mono">{{ ($setting->region ?? '') !== '' ? strtoupper($setting->region) : 'Not set' }}</dd></div>
+                                <div class="cs-fact"><dt>Warehouse</dt><dd class="cs-fact__mono">{{ $setting->warehouse_id ?? 'Not set' }}</dd></div>
+                            </dl>
+                        @endif
                     </div>
-                    <form method="POST" action="{{ route('ext.tiktok.token_refresh') }}" style="display:inline;">
-                        @csrf
-                        <button class="btn small secondary" type="submit">Refresh Access Token</button>
-                    </form>
-                    <div class="hint" style="margin-top:6px;">TikTok tokens expire periodically. Use this to renew without re-authorizing.</div>
+                </div>
+
+                <div class="cs-step">
+                    <span class="cs-step__n">4</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Refresh an expired token</span>
+                        <form method="POST" action="{{ route('ext.tiktok.token_refresh') }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Refresh access token</x-ui.button>
+                        </form>
+                        <p class="cs-step__note">TikTok access tokens last about seven days. The scheduled job renews them, so this is here for when that job has not run.</p>
+                    </div>
                 </div>
             </div>
             @else
-            <div class="hint">Token-related actions require the <code>manage_tiktok</code> permission tier.</div>
+            <p class="cs-step__note">Authorising, fetching the shop and refreshing tokens need the TikTok manage permission.</p>
             @endif
-        </div>
-    </div>
+        </section>
     </div>
 
-    {{-- SANDBOX fields --}}
-    <div id="tt-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
-    <div class="marketplace-settings-grid">
-        {{-- Connection (Sandbox) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Connection <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+    {{-- ---- SANDBOX ------------------------------------------------- --}}
+    <div class="cs-grid" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
 
-            @if($hasSandboxCredentials)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Connected</span>
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Sandbox credentials</h2>
+                <div class="fm-section__aside">
+                    @if($hasSandboxCredentials)
+                        <x-ui.badge tone="success">Configured</x-ui.badge>
+                    @else
+                        <x-ui.badge tone="neutral">Not configured</x-ui.badge>
+                    @endif
                 </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-gray">Not configured</span>
-                </div>
-            @endif
+            </div>
 
             <form method="POST" action="{{ route('ext.tiktok.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
-                <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div>
-                        <label>Sandbox App Key</label>
-                        <input class="input" name="sandbox_app_key" type="text" autocomplete="off"
-                               value="{{ $setting->sandbox_app_key ?? '' }}">
-                    </div>
-                    <div>
-                        <label>Sandbox App Secret</label>
-                        <input class="input" name="sandbox_app_secret" type="password" autocomplete="off"
-                               value="{{ !empty($setting->sandbox_app_secret) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_app_secret) ? '1' : '0' }}">
-                        <div class="hint">Stored encrypted.</div>
-                    </div>
-                    <div>
-                        <label>Sandbox Redirect URI</label>
-                        <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
-                        <div class="hint">Register this exact URL (HTTPS, derived from APP_URL) in your TikTok Shop sandbox app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
-                    </div>
+
+                <div class="fm-fields">
+                    <x-ui.field label="Sandbox App Key" for="tt-sb-app-key" name="sandbox_app_key" wide>
+                        <x-ui.input id="tt-sb-app-key" name="sandbox_app_key" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ $setting->sandbox_app_key ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Sandbox App Secret" for="tt-sb-app-secret" name="sandbox_app_secret" wide
+                                hint="Stored encrypted. Leave it as it is to keep the saved secret.">
+                        <x-ui.input id="tt-sb-app-secret" name="sandbox_app_secret" type="password" autocomplete="off" :disabled="!$canManageTiktok"
+                                    value="{{ !empty($setting->sandbox_app_secret) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->sandbox_app_secret) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    {{-- No name attribute, same as the production copy. --}}
+                    <x-ui.field label="Redirect URI" for="tt-sb-redirect" wide
+                                hint="Register this exact URL in your TikTok Shop sandbox app. It is always https. To change it, edit APP_URL in the environment file.">
+                        <x-ui.input id="tt-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
+                    </x-ui.field>
                 </div>
-                <div style="margin-top:14px;">
-                    @if($canManageTiktok)
-                    <button class="btn" type="submit">Save Sandbox Settings</button>
-                    @endif
+
+                @if($canManageTiktok)
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save sandbox settings</x-ui.button>
+                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored. Saving also switches the shop to sandbox.</span>
                 </div>
+                @endif
             </form>
-        </div>
+        </section>
 
-        {{-- Authorization (Sandbox) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Authorization <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Sandbox authorisation</h2>
+            </div>
 
-            @if($hasSandboxToken && !$sandboxTokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Token Active</span>
+            <div class="cs-state">
+                @if($hasSandboxToken && !$sandboxTokenExpired)
+                    <x-ui.badge tone="success">Token active</x-ui.badge>
                     @if($setting->sandbox_expires_at ?? null)
-                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
+                        <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
                     @endif
-                </div>
-            @elseif($hasSandboxToken && $sandboxTokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-red">Token Expired</span>
-                </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-yellow">No Token</span>
-                    <span class="text-xs text-muted">Configure sandbox credentials, then authorize.</span>
-                </div>
-            @endif
+                @elseif($hasSandboxToken && $sandboxTokenExpired)
+                    <x-ui.badge tone="danger">Token expired</x-ui.badge>
+                @else
+                    <x-ui.badge tone="warning">No token</x-ui.badge>
+                    <span class="cs-state__note">Fill in the sandbox credentials first, then authorise.</span>
+                @endif
+            </div>
 
             @if($canManageTiktok)
-            <div style="display:flex; flex-direction:column; gap:16px;">
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
-                        <span class="font-semibold text-sm">Open TikTok sandbox authorization page</span>
-                    </div>
-                    <a class="btn small" href="{{ route('ext.tiktok.authorize') }}" target="_blank" rel="noopener">Authorize Sandbox</a>
-                </div>
-
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
-                        <span class="font-semibold text-sm">Exchange auth code for sandbox token</span>
-                    </div>
-                    <form method="POST" action="{{ route('ext.tiktok.token_get') }}">
-                        @csrf
-                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width:200px;">
-                                <label class="text-xs text-muted">Auth Code</label>
-                                <input class="input" name="code" placeholder="Paste sandbox auth code here">
-                            </div>
-                            <button class="btn small" type="submit">Exchange Token</button>
+            <div class="cs-steps">
+                <div class="cs-step">
+                    <span class="cs-step__n">1</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Authorise with the TikTok test environment</span>
+                        <div>
+                            {{-- The same URL as the production button, with no
+                                 query parameter. redirectToAuth() reads the
+                                 stored `mode` column, which the segmented
+                                 control above has already set to sandbox by the
+                                 time this panel is on screen. --}}
+                            <x-ui.button size="sm" :href="route('ext.tiktok.authorize')" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
                         </div>
-                    </form>
+                        <p class="cs-step__note">Opens the TikTok test environment in a new tab, using the sandbox credentials above.</p>
+                    </div>
                 </div>
 
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
-                        <span class="font-semibold text-sm">Get sandbox shops</span>
+                <div class="cs-step">
+                    <span class="cs-step__n">2</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Exchange an auth code by hand</span>
+                        <form method="POST" action="{{ route('ext.tiktok.token_get') }}" class="cs-exchange">
+                            @csrf
+                            <x-ui.field label="Auth code" for="tt-sb-code" name="code">
+                                <x-ui.input id="tt-sb-code" name="code" placeholder="Paste the sandbox code here" />
+                            </x-ui.field>
+                            <x-ui.button type="submit" size="sm">Exchange</x-ui.button>
+                        </form>
                     </div>
-                    <form method="POST" action="{{ route('ext.tiktok.shops') }}" style="display:inline;">
-                        @csrf
-                        <button class="btn small" type="submit">Get Shops</button>
-                    </form>
                 </div>
 
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">4</span>
-                        <span class="font-semibold text-sm">Refresh sandbox token</span>
+                <div class="cs-step">
+                    <span class="cs-step__n">3</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Fetch the sandbox shop</span>
+                        <form method="POST" action="{{ route('ext.tiktok.shops') }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Fetch shop</x-ui.button>
+                        </form>
                     </div>
-                    <form method="POST" action="{{ route('ext.tiktok.token_refresh') }}" style="display:inline;">
-                        @csrf
-                        <button class="btn small secondary" type="submit">Refresh Sandbox Token</button>
-                    </form>
+                </div>
+
+                <div class="cs-step">
+                    <span class="cs-step__n">4</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Refresh an expired token</span>
+                        <form method="POST" action="{{ route('ext.tiktok.token_refresh') }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Refresh sandbox token</x-ui.button>
+                        </form>
+                    </div>
                 </div>
             </div>
             @else
-            <div class="hint">Sandbox token actions require the <code>manage_tiktok</code> permission tier.</div>
+            <p class="cs-step__note">Authorising, fetching the shop and refreshing tokens need the TikTok manage permission.</p>
             @endif
-        </div>
-    </div>
+        </section>
     </div>
 
-    {{-- Sync settings + cron commands moved to the Automations tab.
-         Order Status Mapping promoted to its own top-level tab. --}}
-
-    {{-- Setup Guide --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Setup Guide</h3>
-        <div style="display:flex; flex-direction:column; gap:12px;">
-            <div>
-                <strong>1. Register as a TikTok Shop Developer</strong>
-                <div class="hint">Go to <code>partner.tiktokshop.com</code> and register for a developer account.</div>
-            </div>
-            <div>
-                <strong>2. Create an App</strong>
-                <div class="hint">In the Partner Center, create a new application. You will receive an App Key and App Secret.</div>
-            </div>
-            <div>
-                <strong>3. Configure Redirect URI</strong>
-                <div class="hint">In your TikTok app settings, set the Redirect URI to: <code>{{ url('/tiktok/callback') }}</code></div>
-            </div>
-            <div>
-                <strong>4. Enter credentials above</strong>
-                <div class="hint">Paste the App Key and App Secret in the Connection card and save.</div>
-            </div>
-            <div>
-                <strong>5. Authorize your shop</strong>
-                <div class="hint">Click "Authorize with TikTok Shop" to start the OAuth flow. After granting access, the token will be exchanged automatically.</div>
-            </div>
-            <div>
-                <strong>6. Get authorized shops</strong>
-                <div class="hint">Click "Get Shops" to fetch your shop information (shop_cipher is required for most API calls).</div>
-            </div>
+    {{-- Full width under the split: this is orientation for a first setup, not
+         a control, so it sits underneath both columns rather than competing
+         with them. The old page printed the redirect URL a second time here,
+         computed a different way (url('/tiktok/callback'), which keeps the
+         request's own scheme) than the field above (https, forced). Two URLs
+         on one page that must byte-match a console entry is a trap, so the
+         step points at the field instead of restating it. --}}
+    <section class="fm-section cs-span">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Setting this up for the first time</h2>
         </div>
-        <div style="margin-top:12px; padding:10px; background:var(--surface-alt); border-radius:var(--radius-md); border:1px solid var(--border);">
-            <div class="text-xs text-muted" style="margin-bottom:4px;">Important</div>
-            <div class="hint">
-                Use <strong>partner.tiktokshop.com</strong> (TikTok Shop Partner Center) for seller/e-commerce integrations.
-                <br><strong>developers.tiktok.com</strong> is for general TikTok platform features (Login Kit, Share Kit) and is NOT used for shop/order/product sync.
-            </div>
-        </div>
-    </div>
+        <ol class="cs-guide">
+            <li>Register a developer account at <span class="cs-code">partner.tiktokshop.com</span>. This is the seller side. <span class="cs-code">developers.tiktok.com</span> is a different platform and will not sync shops, orders or products.</li>
+            <li>Create an app in the Partner Center. It gives you an App Key and an App Secret.</li>
+            <li>Paste the Redirect URI shown above into that app's settings, exactly as it appears.</li>
+            <li>Put the App Key and App Secret in the fields above and save.</li>
+            <li>Authorise the shop, then fetch the shop so the shop cipher is stored.</li>
+        </ol>
+    </section>
 </div>
 
-{{-- STATUS MAPPING TAB --}}
-<div id="tt-tab-status" class="hidden">
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Order Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            When TikTok orders are synced, each TikTok status is mapped to an ERP order status below.
+{{-- ================================================================
+     STATUS MAPPING
+     ================================================================ --}}
+<div id="tt-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-status-tab" hidden>
+
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Order status mapping</h2>
         </div>
+        <p class="fm-section__note">When a TikTok order is synced, its TikTok status becomes the sales order status chosen here.</p>
 
         <form method="POST" action="{{ route('ext.tiktok.order_status_map') }}">
             @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
+            <x-ui.table>
+                <x-slot:head>
                     <tr>
-                        <th style="width:45%;">TikTok Status</th>
-                        <th>ERP Order Status</th>
+                        <th class="cs-col-src">TikTok status</th>
+                        <th>Sales order status</th>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach($tikTokStatuses as $key => $label)
+                </x-slot:head>
+                @foreach($tikTokStatuses as $key => $label)
                     <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        <td class="cs-col-src" data-label="TikTok status">
+                            <span class="cs-code">{{ $key }}</span>
+                            <span class="cs-map-label">{{ $label }}</span>
                         </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageTiktok ? '' : 'disabled' }}>
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        <td data-label="Sales order status">
+                            <div class="x-select-wrap cs-map-select">
+                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $label }}" @disabled(!$canManageTiktok)>
+                                    @foreach($erpOrderStatuses as $os)
+                                        <option value="{{ $os->order_status_id }}" @selected((int) ($orderStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
+                                    @endforeach
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
                         </td>
                     </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
+                @endforeach
+            </x-ui.table>
+
             @if($canManageTiktok)
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
+            <div class="cs-actions">
+                <x-ui.button type="submit" variant="primary">Save order mapping</x-ui.button>
             </div>
             @endif
         </form>
-    </div>
+    </section>
 </div>
 
-{{-- TAB 2 -- API EXPLORER --}}
-<div id="tt-tab-explorer" class="hidden">
-<div class="card">
-    <h3 class="section-title mt-0">API Explorer</h3>
-    <div class="hint" style="margin-bottom:10px;">
-        Pick an endpoint, fill parameters, and run. Signing fields (<code>app_key</code>, <code>timestamp</code>, <code>sign</code>, <code>shop_cipher</code>) are generated automatically.
-    </div>
-
-    <div class="api-explorer">
-        <div class="api-panel">
-            <div class="api-search">
-                <input class="input" id="api-endpoint-search" placeholder="Search endpoints (e.g. product, orders)">
-            </div>
-            <div class="api-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
-
-            <div class="api-list" id="api-endpoint-list">
-                <div class="api-cat">Authorization</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Authorized Shops","method":"GET","auth":true,"path":"/authorization/202309/shops","desc":"Fetch shops authorized for your app.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/authorization/202309/shops</span><div class="api-hint">Returns shop_id, shop_cipher, shop_name</div></button>
-
-                <div class="api-cat">Product</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Search Products","method":"POST","auth":true,"path":"/product/202309/products/search","desc":"Search products in your shop.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/202309/products/search</span><div class="api-hint">page_size (body)</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Detail","method":"GET","auth":true,"path":"/product/202309/products","desc":"Get details of a specific product.","params":[{"k":"ids","ph":"product_id"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/products</span><div class="api-hint">ids (query param)</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Categories","method":"GET","auth":true,"path":"/product/202309/categories","desc":"Get product category tree.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/categories</span><div class="api-hint">Category tree</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Attributes","method":"GET","auth":true,"path":"/product/202309/categories/rules","desc":"Get required/optional attributes for a category.","params":[{"k":"category_id","ph":"600001"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/categories/rules</span><div class="api-hint">category_id</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Brands","method":"GET","auth":true,"path":"/product/202309/brands","desc":"Get available brands.","params":[{"k":"page_size","ph":"20"},{"k":"category_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/brands</span><div class="api-hint">page_size, category_id</div></button>
-
-                <div class="api-cat">Order</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Search Orders","method":"POST","auth":true,"path":"/order/202309/orders/search","desc":"Search orders by date range.","params":[{"k":"page_size","ph":"10"},{"k":"create_time_ge","ph":""},{"k":"create_time_lt","ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/order/202309/orders/search</span><div class="api-hint">page_size, create_time_ge/lt (unix)</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Order Detail","method":"POST","auth":true,"path":"/order/202309/orders","desc":"Get details of specific orders.","params":[{"k":"order_ids","ph":"[\"order_id\"]"}]}'><span class="api-badge post">POST</span><span class="api-code">/order/202309/orders</span><div class="api-hint">order_ids (body)</div></button>
-
-                <div class="api-cat">Logistics</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Delivery Options","method":"GET","auth":true,"path":"/logistics/202309/delivery_options","desc":"Get available delivery/shipping options.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/delivery_options</span><div class="api-hint">Shipping options</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Warehouses","method":"GET","auth":true,"path":"/logistics/202309/warehouses","desc":"Get warehouse list.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/warehouses</span><div class="api-hint">Warehouse info</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Providers","method":"GET","auth":true,"path":"/logistics/202309/shipping_providers","desc":"Get available shipping providers.","params":[{"k":"delivery_option_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/shipping_providers</span><div class="api-hint">delivery_option_id</div></button>
-
-                <div class="api-cat">Finance</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Search Settlements","method":"POST","auth":true,"path":"/finance/202309/settlements/search","desc":"Search financial settlement records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/settlements/search</span><div class="api-hint">page_size</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Payments","method":"POST","auth":true,"path":"/finance/202309/payments/search","desc":"Search payment records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/payments/search</span><div class="api-hint">page_size</div></button>
-
-                <div class="api-cat">Fulfillment</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Search Packages","method":"POST","auth":true,"path":"/fulfillment/202309/packages/search","desc":"Search fulfillment packages.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/fulfillment/202309/packages/search</span><div class="api-hint">page_size</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Package Detail","method":"GET","auth":true,"path":"/fulfillment/202309/packages","desc":"Get package details.","params":[{"k":"package_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/fulfillment/202309/packages</span><div class="api-hint">package_id</div></button>
-            </div>
+{{-- ================================================================
+     API EXPLORER
+     ================================================================ --}}
+@if($canManageTiktok)
+<div id="tt-tab-explorer" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-explorer-tab" hidden>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">API explorer</h2>
         </div>
+        <p class="fm-section__note">Calls the TikTok Shop API directly with this shop's credentials. The signing fields (app key, timestamp, signature and shop cipher) are generated for you. Anything you run here is recorded in the API log.</p>
 
-        <div class="api-panel">
-            <div class="api-split" style="margin-bottom:10px;">
-                <div>
-                    <div style="margin-bottom:0;">
-                        <label>Selected Endpoint</label>
-                        <div class="api-mini" id="tt-ep-name">None selected</div>
-                        <div class="api-hint" id="tt-ep-desc"></div>
-                    </div>
+        <div class="api-explorer" data-cs-explorer>
+            <div class="api-panel">
+                <div class="api-search">
+                    <x-ui.input id="api-endpoint-search" data-cs-ex-search placeholder="Search endpoints" aria-label="Search endpoints" />
                 </div>
-                <div class="api-note">
-                    <div class="font-bold" style="margin-bottom:6px;">TikTok API Notes</div>
-                    <div class="api-mini">
-                        <div>&#8226; TikTok uses path-based versioning: <code>/product/202309/...</code></div>
-                        <div>&#8226; Most endpoints require <code>shop_cipher</code> (auto-added if set).</div>
-                        <div>&#8226; POST body must be JSON. Query params include <code>app_key</code>, <code>timestamp</code>, <code>sign</code>.</div>
-                    </div>
+
+                <div class="api-list" id="api-endpoint-list">
+                    <div class="api-cat">Authorisation</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Authorized Shops","method":"GET","auth":true,"path":"/authorization/202309/shops","desc":"Fetch shops authorized for your app.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/authorization/202309/shops</span><div class="api-hint">Returns shop id, cipher and name</div></button>
+
+                    <div class="api-cat">Products</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Search Products","method":"POST","auth":true,"path":"/product/202309/products/search","desc":"Search products in your shop.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/product/202309/products/search</span><div class="api-hint">page_size, in the body</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Detail","method":"GET","auth":true,"path":"/product/202309/products","desc":"Get details of a specific product.","params":[{"k":"ids","ph":"product_id"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/products</span><div class="api-hint">ids, a query parameter</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Categories","method":"GET","auth":true,"path":"/product/202309/categories","desc":"Get product category tree.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/categories</span><div class="api-hint">The whole category tree</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Product Attributes","method":"GET","auth":true,"path":"/product/202309/categories/rules","desc":"Get required/optional attributes for a category.","params":[{"k":"category_id","ph":"600001"}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/categories/rules</span><div class="api-hint">category_id</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Brands","method":"GET","auth":true,"path":"/product/202309/brands","desc":"Get available brands.","params":[{"k":"page_size","ph":"20"},{"k":"category_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/product/202309/brands</span><div class="api-hint">page_size, category_id</div></button>
+
+                    <div class="api-cat">Orders</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Search Orders","method":"POST","auth":true,"path":"/order/202309/orders/search","desc":"Search orders by date range.","params":[{"k":"page_size","ph":"10"},{"k":"create_time_ge","ph":""},{"k":"create_time_lt","ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/order/202309/orders/search</span><div class="api-hint">page_size, create_time_ge and create_time_lt as unix seconds</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Order Detail","method":"POST","auth":true,"path":"/order/202309/orders","desc":"Get details of specific orders.","params":[{"k":"order_ids","ph":"[\"order_id\"]"}]}'><span class="api-badge post">POST</span><span class="api-code">/order/202309/orders</span><div class="api-hint">order_ids, in the body</div></button>
+
+                    <div class="api-cat">Logistics</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Delivery Options","method":"GET","auth":true,"path":"/logistics/202309/delivery_options","desc":"Get available delivery/shipping options.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/delivery_options</span><div class="api-hint">Shipping options</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Warehouses","method":"GET","auth":true,"path":"/logistics/202309/warehouses","desc":"Get warehouse list.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/warehouses</span><div class="api-hint">Warehouse info</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Providers","method":"GET","auth":true,"path":"/logistics/202309/shipping_providers","desc":"Get available shipping providers.","params":[{"k":"delivery_option_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/logistics/202309/shipping_providers</span><div class="api-hint">delivery_option_id</div></button>
+
+                    <div class="api-cat">Finance</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Search Settlements","method":"POST","auth":true,"path":"/finance/202309/settlements/search","desc":"Search financial settlement records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/settlements/search</span><div class="api-hint">page_size</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Payments","method":"POST","auth":true,"path":"/finance/202309/payments/search","desc":"Search payment records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/payments/search</span><div class="api-hint">page_size</div></button>
+
+                    <div class="api-cat">Fulfilment</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Search Packages","method":"POST","auth":true,"path":"/fulfillment/202309/packages/search","desc":"Search fulfillment packages.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/fulfillment/202309/packages/search</span><div class="api-hint">page_size</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Package Detail","method":"GET","auth":true,"path":"/fulfillment/202309/packages","desc":"Get package details.","params":[{"k":"package_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/fulfillment/202309/packages</span><div class="api-hint">package_id</div></button>
                 </div>
             </div>
 
-            <form id="tt-api-explorer-form" method="POST" action="{{ route('ext.tiktok.explorer_run') }}">
-                @csrf
-
-                <div class="form-grid">
+            <div class="api-panel">
+                <div class="api-split">
                     <div>
-                        <label>Method</label>
-                        <select name="method" class="input" id="api-explorer-method">
-                            <option value="GET" {{ old('method', 'GET') === 'GET' ? 'selected' : '' }}>GET</option>
-                            <option value="POST" {{ old('method') === 'POST' ? 'selected' : '' }}>POST</option>
-                        </select>
+                        <span class="fm-label">Selected endpoint</span>
+                        <div class="api-mini" data-cs-ex-name>None selected</div>
+                        <div class="api-hint" data-cs-ex-desc></div>
                     </div>
                     <div>
-                        <label>Auth</label>
-                        <label class="d-flex items-center gap-8" style="margin-top:6px;">
-                            <input type="checkbox" name="auth_required" value="1" id="api-explorer-auth" {{ old('auth_required') ? 'checked' : '' }}>
-                            Use Access Token
-                        </label>
-                        <div class="api-mini">Enable for shop-level endpoints (products, orders, etc.).</div>
+                        <span class="fm-label">If a call comes back wrong</span>
+                        <div class="api-mini">
+                            <div>TikTok versions its paths, so /product/202309/... is the whole path, not a prefix.</div>
+                            <div>Most endpoints need the shop cipher. It is added for you once step 3 on the Connection tab has run.</div>
+                            <div>A POST sends the parameters as a JSON body. A GET sends them as query parameters.</div>
+                        </div>
                     </div>
                 </div>
 
-                <div style="margin-top:12px;">
-                    <label>API Path</label>
-                    <input class="input" name="api_path" id="api-explorer-path" value="{{ old('api_path', '/authorization/202309/shops') }}" placeholder="/authorization/202309/shops">
-                    <div class="api-mini">Leading slash will be added automatically.</div>
-                </div>
+                <form method="POST" action="{{ route('ext.tiktok.explorer_run') }}" data-cs-ex-form>
+                    @csrf
 
-                <div style="margin-top:12px;">
-                    <label>Parameters</label>
-                    <div class="api-mini" style="margin-bottom:8px;">Use this table for key-value parameters. It will generate JSON automatically.</div>
-                    <table class="api-kv" id="api-kv-table">
-                        <thead>
-                            <tr>
-                                <th style="width:34%;">Key</th>
-                                <th>Value</th>
-                                <th style="width:70px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="api-kv-body"></tbody>
-                    </table>
-                    <div class="api-row-actions" style="margin-top:10px;">
-                        <button class="btn small" type="button" id="tt-add-row">Add Param</button>
-                        <button class="btn small" type="button" id="tt-sync-to-json">Update JSON</button>
-                        <span class="api-mini">(Auto updates before submit)</span>
+                    <div class="fm-fields fm-fields--2">
+                        <x-ui.field label="Method" for="api-explorer-method" name="method">
+                            <div class="x-select-wrap">
+                                <select id="api-explorer-method" name="method" class="x-input" data-cs-ex-method>
+                                    <option value="GET" @selected(old('method', 'GET') === 'GET')>GET</option>
+                                    <option value="POST" @selected(old('method') === 'POST')>POST</option>
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
+                        </x-ui.field>
+
+                        <div class="fm-field">
+                            <span class="fm-label">Send with the request</span>
+                            <label class="cs-check">
+                                <input type="checkbox" name="auth_required" value="1" @checked(old('auth_required')) data-cs-ex-auth>
+                                Access token
+                            </label>
+                            <div class="fm-hint">Needed for every shop-level endpoint: products, orders, logistics, finance and fulfilment.</div>
+                        </div>
+
+                        <x-ui.field label="API path" for="api-explorer-path" name="api_path" wide
+                                    hint="A leading slash is added for you.">
+                            <x-ui.input id="api-explorer-path" name="api_path" class="api-code" data-cs-ex-path
+                                        value="{{ old('api_path', '/authorization/202309/shops') }}" placeholder="/authorization/202309/shops" />
+                        </x-ui.field>
+
+                        <div class="fm-field fm-field--wide">
+                            <span class="fm-label">Parameters</span>
+                            <div class="api-mini">Fill the table and the JSON below is written for you. A value that parses as JSON is sent as JSON.</div>
+                            <table class="api-kv">
+                                <thead>
+                                    <tr>
+                                        <th class="cs-kv-name">Name</th>
+                                        <th>Value</th>
+                                        <th class="cs-kv-act"><span class="x-sr">Remove</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody data-cs-ex-kv></tbody>
+                            </table>
+                            <div class="api-row-actions">
+                                <x-ui.button type="button" size="sm" data-cs-ex-add>Add parameter</x-ui.button>
+                                <x-ui.button type="button" size="sm" data-cs-ex-sync>Read from JSON</x-ui.button>
+                            </div>
+                        </div>
+
+                        <x-ui.field label="Parameters as JSON" for="api-explorer-params" name="params_json_pretty" wide
+                                    hint="Edit here or in the table above, whichever is easier.">
+                            <x-ui.textarea id="api-explorer-params" name="params_json_pretty" rows="8" class="api-code" data-cs-ex-params placeholder='{"page_size": 10}'>{{ old('params_json_pretty', '{}') }}</x-ui.textarea>
+                        </x-ui.field>
+
+                        {{-- The field TikTokController::explorerRun() actually
+                             validates. The readable copy above is the one the
+                             operator edits; this one is kept in step by
+                             resources/js/pages/channel-settings.js on submit,
+                             which is the pre-redesign wire unchanged. --}}
+                        <input type="hidden" name="params_json" data-cs-ex-hidden value="{{ old('params_json', '{}') }}">
                     </div>
-                </div>
 
-                <div style="margin-top:12px;">
-                    <label>Params JSON</label>
-                    <textarea class="input api-code" name="params_json_pretty" id="api-explorer-params" rows="8" placeholder='{"page_size": 10}'>{{ old('params_json_pretty', '{}') }}</textarea>
-                    <input type="hidden" name="params_json" id="api-explorer-params-hidden" value="{{ e(old('params_json', '{}')) }}" />
-                    <div class="api-mini">For POST requests, this becomes the JSON body. For GET, these are added to query params.</div>
-                </div>
-
-                <div class="d-flex gap-8 mt-12">
-                    <button class="btn" type="submit">Run</button>
-                </div>
-            </form>
-
-            {{-- Preset Packs --}}
-            <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
-                <label>Preset Packs</label>
-                <div class="api-mini" style="margin-bottom:8px;">Quick-run common endpoint groups.</div>
-                <div class="d-flex gap-8" style="flex-wrap:wrap;">
-                    @foreach(['shops' => 'Shops', 'products' => 'Products', 'orders' => 'Orders', 'logistics' => 'Logistics', 'finance' => 'Finance', 'full' => 'Full'] as $pack => $label)
-                        <form method="POST" action="{{ route('ext.tiktok.packs_run') }}" style="display:inline;">
-                            @csrf
-                            <input type="hidden" name="pack" value="{{ $pack }}">
-                            <button class="btn small secondary" type="submit">{{ $label }}</button>
-                        </form>
-                    @endforeach
-                </div>
+                    <div class="cs-actions">
+                        <x-ui.button type="submit" variant="primary">Run request</x-ui.button>
+                        <span class="cs-actions__note">The response lands on the API log tab.</span>
+                    </div>
+                </form>
             </div>
         </div>
-    </div>
-</div>
-</div>
+    </section>
 
-{{-- TAB 3 -- API LOGS --}}
-<div id="tt-tab-logs" class="{{ !$hasResult ? 'hidden' : '' }}">
-
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-        <div>
-            <span class="font-semibold text-sm">API Logging</span>
-            <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Preset runs</h2>
         </div>
-        @if($canManageTiktok)
-        <form method="POST" action="{{ route('ext.tiktok.toggle_logging') }}">
-            @csrf
-            <label class="d-flex items-center gap-10" style="cursor:pointer;">
-                <span style="position:relative; display:inline-block; width:44px; height:24px;">
-                    <input type="hidden" name="api_logging" value="0">
-                    <input type="checkbox" name="api_logging" value="1"
-                           {{ ($setting->api_logging ?? true) ? 'checked' : '' }}
-                           onchange="this.form.submit()"
-                           style="position:absolute; opacity:0; width:0; height:0;">
-                    <span style="position:absolute; inset:0; background:{{ ($setting->api_logging ?? true) ? 'var(--accent)' : 'var(--border)' }}; border-radius:12px; transition:background 0.2s;"></span>
-                    <span style="position:absolute; top:2px; left:{{ ($setting->api_logging ?? true) ? '22px' : '2px' }}; width:20px; height:20px; background:#fff; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
-                </span>
-                <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
-                    {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
-                </span>
-            </label>
-        </form>
-        @else
-        <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
-            API Logging: {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
-        </span>
-        @endif
-    </div>
+        <p class="fm-section__note">Each one runs a small set of related endpoints in order and records every call in the API log. Useful for checking a new connection end to end.</p>
+
+        <div class="cs-packs">
+            @foreach($packs as $pack => $label)
+                <form method="POST" action="{{ route('ext.tiktok.packs_run') }}">
+                    @csrf
+                    <input type="hidden" name="pack" value="{{ $pack }}">
+                    <x-ui.button type="submit" size="sm">{{ $label }}</x-ui.button>
+                </form>
+            @endforeach
+        </div>
+    </section>
+</div>
+@endif
+
+{{-- ================================================================
+     API LOG
+     ================================================================ --}}
+<div id="tt-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-logs-tab" hidden>
+
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Recording</h2>
+            <div class="fm-section__aside">
+                @if($canManageTiktok)
+                    <label class="fm-switch">
+                        {{-- No hidden companion field: this switch does not post
+                             with a form. Its change handler sends
+                             {"api_logging": 0|1} to toggle-logging, which
+                             TikTokController::toggleLogging() reads through
+                             $request->input() exactly as it read the old
+                             form-encoded field. --}}
+                        <input type="checkbox" class="fm-switch__input" value="1" @checked($apiLogging)
+                               data-cs-logging data-url="{{ route('ext.tiktok.toggle_logging') }}"
+                               aria-label="Record TikTok API requests and responses">
+                        <span class="fm-switch__track"></span>
+                        <span class="fm-switch__text">
+                            <span class="fm-switch__label" data-cs-logging-label>{{ $apiLogging ? 'Recording' : 'Not recording' }}</span>
+                        </span>
+                    </label>
+                @else
+                    <x-ui.badge :tone="$apiLogging ? 'success' : 'neutral'">{{ $apiLogging ? 'Recording' : 'Not recording' }}</x-ui.badge>
+                @endif
+            </div>
+        </div>
+        <p class="fm-section__note">Keeps a copy of every request sent to TikTok and the response that came back. Useful while setting a shop up, and worth switching off once it is running.</p>
+    </section>
 
     @if($result)
-        <div class="card mb-16">
-            <h3 class="section-title mt-0">Last Result</h3>
-            @php $ok = (bool)($result['ok'] ?? false); @endphp
-            <div class="alert {{ $ok ? 'success' : 'danger' }}">
-                <strong>{{ $result['title'] ?? 'Result' }}</strong>
+        @php $ok = (bool) ($result['ok'] ?? false); @endphp
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Last result</h2>
+                <div class="fm-section__aside">
+                    <x-ui.badge :tone="$ok ? 'success' : 'danger'">{{ $ok ? 'Succeeded' : 'Failed' }}</x-ui.badge>
+                </div>
             </div>
-            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:400px;">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-        </div>
+            <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
+            <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+        </section>
     @endif
 
-    <div class="card">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Recent calls</h2>
             @if($logCount > 0 && $canManageTiktok)
-                <form method="POST" action="{{ route('ext.tiktok.clear_api_logs') }}" data-confirm="Delete all TikTok API logs?">
+            <div class="fm-section__aside">
+                <form method="POST" action="{{ route('ext.tiktok.clear_api_logs') }}"
+                      data-confirm="Delete every recorded TikTok API call? This cannot be undone.">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn small danger">Delete All Logs</button>
+                    <x-ui.button type="submit" variant="danger" size="sm">Delete all</x-ui.button>
                 </form>
+            </div>
             @endif
         </div>
 
-        @if($logCount > 0)
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th style="width:140px;">Time</th>
-                            <th style="width:80px;">Method</th>
-                            <th>API Path</th>
-                            <th style="width:90px;">Auth</th>
-                            <th style="width:90px;">Status</th>
-                            <th style="width:70px;">OK</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($logs as $log)
-                            <tr>
-                                <td>{{ $log->created_at }}</td>
-                                <td>{{ $log->method }}</td>
-                                <td>
-                                    @if(!empty($log->pack))
-                                        <div class="hint" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
-                                    @endif
-                                    <div><code>{{ $log->api_path }}</code></div>
-                                    <details style="margin-top:6px;">
-                                        <summary>View</summary>
-                                        <div style="margin-top:8px;">
-                                            <div class="hint" style="margin-bottom:6px;">Request Params</div>
-                                            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:220px;">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                            <div class="hint" style="margin:10px 0 6px;">Response</div>
-                                            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:220px;">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                        </div>
-                                    </details>
-                                </td>
-                                <td>{{ $log->auth_required ? 'Yes' : 'No' }}</td>
-                                <td>{{ $log->response_status }}</td>
-                                <td>{{ $log->ok ? 'Yes' : 'No' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+        @if($logCount === 0)
+            <x-ui.empty title="Nothing recorded yet"
+                        description="Calls appear here as soon as a sync runs or you run something from the API explorer." />
         @else
-            <div class="text-center text-muted" style="padding:32px 0;">No API logs yet.</div>
-        @endif
-    </div>
+            <x-ui.table>
+                <x-slot:head>
+                    <tr>
+                        <th class="cs-col-when">When</th>
+                        <th class="cs-col-method">Method</th>
+                        <th>Path</th>
+                        <th class="cs-col-auth">Signed</th>
+                        <th class="cs-col-status x-td-num">Status</th>
+                    </tr>
+                </x-slot:head>
 
-    {{-- Data Maintenance — clears the verbose `raw` API payload column
-         on TikTok order tables for rows older than N days. Synced
-         order data is left intact; only the raw blob is nulled.
-         TikTok has no returns table, so only orders + order_products
-         are touched. --}}
-    <div class="card mt-16">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">Data Maintenance</h3>
+                @foreach($logs as $log)
+                    <tr>
+                        <td class="cs-col-when" data-label="When">{{ $log->created_at }}</td>
+                        <td class="cs-col-method" data-label="Method">
+                            <x-ui.badge :tone="$log->ok ? 'success' : 'danger'">{{ $log->method }}</x-ui.badge>
+                        </td>
+                        <td data-label="Path">
+                            @if(!empty($log->pack))
+                                <span class="cs-map-label">Preset {{ strtoupper($log->pack) }}</span>
+                            @endif
+                            <div class="cs-code">{{ $log->api_path }}</div>
+
+                            <details class="cs-disclosure">
+                                <summary>Request and response</summary>
+                                <div class="cs-disclosure__body">
+                                    <span class="cs-disclosure__label">Request parameters</span>
+                                    <pre class="cs-pre">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <span class="cs-disclosure__label">Response</span>
+                                    <pre class="cs-pre">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                            </details>
+                        </td>
+                        <td class="cs-col-auth" data-label="Signed">{{ $log->auth_required ? 'Yes' : 'No' }}</td>
+                        <td class="cs-col-status x-td-num" data-label="Status">{{ $log->response_status ?? '-' }}</td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        @endif
+    </section>
+
+    @if($canManageTiktok)
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Free up space</h2>
         </div>
-        <div class="hint" style="margin-bottom:12px;">
-            Clears the raw API response payloads from TikTok order tables for rows older than the specified number of days. Frees database space without affecting any synced order data.
-        </div>
+        <p class="fm-section__note">Every synced TikTok order and order line keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</p>
+
         <form method="POST" action="{{ route('ext.tiktok.purge_raw') }}"
-              data-confirm="Permanently null the raw payloads on TikTok rows older than the specified days? This cannot be undone.">
+              data-confirm="Clear the stored API payloads on TikTok rows older than the number of days given? The orders stay, only the raw payloads go, and this cannot be undone.">
             @csrf
-            <div class="d-flex items-center gap-12">
-                <input class="input" type="number" name="days" value="30" min="1" max="3650" required style="width:120px;">
-                <span class="text-secondary">days</span>
-                <button type="submit" class="btn small danger">Purge Raw Data</button>
+            <div class="fm-field">
+                <label class="fm-label" for="tt-purge-days">Clear payloads older than</label>
+                <div class="cs-inline">
+                    <x-ui.input id="tt-purge-days" name="days" type="number" value="30" min="1" max="3650" required
+                                class="fm-input--num cs-days" aria-describedby="tt-purge-hint" />
+                    <span class="cs-inline__unit">days</span>
+                    <x-ui.button type="submit" variant="danger">Clear stored payloads</x-ui.button>
+                </div>
+                <div class="fm-hint" id="tt-purge-hint">Anything from 1 to 3650 days.</div>
+                @error('days')<div class="fm-error">{{ $message }}</div>@enderror
             </div>
         </form>
-    </div>
+    </section>
+    @endif
 </div>
 
-@push('scripts')
-<script>
-// Copy helper for cronjob commands
-function ttCopy(id, btn) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    var text = el.textContent || el.innerText;
-    navigator.clipboard.writeText(text).then(function() {
-        var orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(function() { btn.textContent = orig; }, 1500);
-    });
-}
+{{-- ================================================================
+     AUTOMATIONS
+     ================================================================ --}}
+@if($canManageTiktok)
+<div id="tt-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-automations-tab" hidden>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Scheduled jobs</h2>
+        </div>
+        <p class="fm-section__note">How often each TikTok sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</p>
+        @include('partials._automations_tab', ['integration' => 'tiktok', 'storeId' => null])
+    </section>
+</div>
+@endif
 
-// Environment toggle
-(function(){
-    var toggle = document.getElementById('tt-mode-toggle');
-    var knob = document.getElementById('tt-mode-knob');
-    var label = document.getElementById('tt-mode-label');
-    var input = document.getElementById('tt-mode-value');
-    var form = document.getElementById('tt-mode-form');
-    var envLive = document.getElementById('tt-env-live');
-    var envSandbox = document.getElementById('tt-env-sandbox');
-    if (!toggle) return;
-
-    toggle.addEventListener('click', function(){
-        var isNowSandbox = input.value === 'live';
-        input.value = isNowSandbox ? 'sandbox' : 'live';
-        toggle.style.background = isNowSandbox ? '#9ca3af' : '#22c55e';
-        knob.style.left = isNowSandbox ? '3px' : '25px';
-        label.textContent = isNowSandbox ? 'Sandbox' : 'Production';
-        label.style.color = isNowSandbox ? '#9ca3af' : '#22c55e';
-        if (envLive) envLive.classList.toggle('hidden', isNowSandbox);
-        if (envSandbox) envSandbox.classList.toggle('hidden', !isNowSandbox);
-        form.submit();
-    });
-})();
-
-// Tab switching
-(function(){
-    var ids = ['tt-tab-settings', 'tt-tab-status', 'tt-tab-automations', 'tt-tab-explorer', 'tt-tab-logs'];
-    var tabs = document.querySelectorAll('[data-tab^="tt-tab-"]');
-    tabs.forEach(function(btn){
-        btn.addEventListener('click', function(){
-            tabs.forEach(function(t){ t.classList.remove('active'); });
-            btn.classList.add('active');
-            ids.forEach(function(id){
-                var el = document.getElementById(id);
-                if (el) el.classList.toggle('hidden', id !== btn.dataset.tab);
-            });
-        });
-    });
-})();
-
-// Explorer JS
-(function(){
-    function qs(sel){ return document.querySelector(sel); }
-
-    var methodSel = qs('#api-explorer-method');
-    var authChk   = qs('#api-explorer-auth');
-    var pathInp   = qs('#api-explorer-path');
-    var paramsTa  = qs('#api-explorer-params');
-    var paramsHidden = qs('#api-explorer-params-hidden');
-    var kvBody    = qs('#api-kv-body');
-    var epName    = qs('#tt-ep-name');
-    var epDesc    = qs('#tt-ep-desc');
-    var epSearch  = qs('#api-endpoint-search');
-    var btnAddRow = qs('#tt-add-row');
-    var btnSync   = qs('#tt-sync-to-json');
-
-    function safeJsonParse(str){
-        try { return JSON.parse(str); } catch(e){ return null; }
-    }
-
-    function buildRow(key, value){
-        var tr = document.createElement('tr');
-        var keyTd = document.createElement('td');
-        var keyInput = document.createElement('input');
-        keyInput.className = 'input';
-        keyInput.style.width = '100%';
-        keyInput.value = key;
-        keyInput.setAttribute('data-role', 'key');
-        keyTd.appendChild(keyInput);
-
-        var valTd = document.createElement('td');
-        var valInput = document.createElement('input');
-        valInput.className = 'input';
-        valInput.style.width = '100%';
-        valInput.value = String(value);
-        valInput.setAttribute('data-role', 'value');
-        valTd.appendChild(valInput);
-
-        var btnTd = document.createElement('td');
-        var removeBtn = document.createElement('button');
-        removeBtn.className = 'btn small danger';
-        removeBtn.type = 'button';
-        removeBtn.textContent = 'X';
-        removeBtn.addEventListener('click', function(){ tr.remove(); ttSyncToJson(); });
-        btnTd.appendChild(removeBtn);
-
-        tr.appendChild(keyTd);
-        tr.appendChild(valTd);
-        tr.appendChild(btnTd);
-        return tr;
-    }
-
-    function clearRows(){
-        if (kvBody) kvBody.textContent = '';
-    }
-
-    function tableToObject(){
-        var obj = {};
-        if (!kvBody) return obj;
-        var rows = kvBody.querySelectorAll('tr');
-        rows.forEach(function(tr){
-            var kInp = tr.querySelector('[data-role="key"]');
-            var vInp = tr.querySelector('[data-role="value"]');
-            if (kInp && vInp) {
-                var k = kInp.value.trim();
-                if (k !== '') obj[k] = vInp.value;
-            }
-        });
-        return obj;
-    }
-
-    window.ttSyncToJson = function(){
-        var obj = tableToObject();
-        if (paramsTa) paramsTa.value = JSON.stringify(obj, null, 2);
-    };
-
-    function rebuildTableFromJson(){
-        var obj = safeJsonParse((paramsTa ? paramsTa.value : '') || '{}');
-        if (!obj || typeof obj !== 'object') return;
-        clearRows();
-        Object.keys(obj).forEach(function(k){
-            var v = obj[k];
-            if (typeof v === 'object') v = JSON.stringify(v);
-            kvBody.appendChild(buildRow(k, String(v)));
-        });
-    }
-
-    function selectEndpoint(ep){
-        if (methodSel) methodSel.value = ep.method || 'GET';
-        if (authChk) authChk.checked = !!ep.auth;
-        if (pathInp) pathInp.value = ep.path || '';
-        if (epName) epName.textContent = ep.name || '';
-        if (epDesc) epDesc.textContent = ep.desc || '';
-
-        clearRows();
-        var obj = {};
-        (ep.params || []).forEach(function(p){
-            var val = p.ph || '';
-            obj[p.k] = val;
-            kvBody.appendChild(buildRow(p.k, val));
-        });
-        if (paramsTa) paramsTa.value = JSON.stringify(obj, null, 2);
-    }
-
-    // Click on endpoint buttons
-    document.querySelectorAll('.api-endpoint').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            var ep = safeJsonParse(btn.getAttribute('data-ep'));
-            if (ep) selectEndpoint(ep);
-        });
-    });
-
-    // Search endpoints
-    if (epSearch) {
-        epSearch.addEventListener('input', function(){
-            var q = epSearch.value.toLowerCase();
-            document.querySelectorAll('.api-endpoint').forEach(function(btn){
-                var text = btn.textContent.toLowerCase();
-                btn.style.display = text.indexOf(q) >= 0 ? '' : 'none';
-            });
-        });
-    }
-
-    // Add row
-    if (btnAddRow) {
-        btnAddRow.addEventListener('click', function(){
-            kvBody.appendChild(buildRow('', ''));
-        });
-    }
-
-    // Sync to JSON
-    if (btnSync) {
-        btnSync.addEventListener('click', function(){
-            ttSyncToJson();
-        });
-    }
-
-    // Before form submit: sync table -> hidden param
-    var form = qs('#tt-api-explorer-form');
-    if (form) {
-        form.addEventListener('submit', function(){
-            ttSyncToJson();
-            if (paramsHidden && paramsTa) {
-                paramsHidden.value = paramsTa.value;
-            }
-        });
-    }
-})();
-</script>
-@endpush
-
+</div>{{-- /.cs-page --}}
 @endsection

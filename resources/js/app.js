@@ -15,6 +15,9 @@ import './pages/product-form';
 import './pages/shopee-listings';
 import './pages/lazada-listings';
 import './pages/channel-settings';
+import './pages/store-settings';
+import './pages/group-form';
+import './pages/group-products';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';

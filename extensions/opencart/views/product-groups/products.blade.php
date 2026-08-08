@@ -2,302 +2,292 @@
 @section('title', $group->name . ' Products, ' . $setting->store_name)
 @section('breadcrumb', $group->name . ' Products')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
+
+     OpenCart is multi-store. Every self-link, every form action and the
+     product-search endpoint carry the {store} segment this page arrived on,
+     and the store is named on the page as well as in the breadcrumb. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    $canManageOpencart = true;
-@endphp
-    <div class="page-header">
-        <div>
-            <h2>{{ $group->name }} — Products</h2>
-            <div class="text-muted text-sm">{{ $setting->store_name }} — select products and push to OpenCart.</div>
-        </div>
-        <div class="page-header-actions">
-            @if($canManageOpencart)
-            <a class="btn secondary" href="{{ route('ext.opencart.product-groups.edit', [$setting->id, $group->id]) }}">Edit Product Group</a>
-            @endif
-            <a class="btn secondary" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">Back to Product Groups</a>
-            @if($canManageOpencart)
-            <button class="btn" type="submit" form="push-form" onclick="return confirmPush(event);">Push Selected</button>
-            @endif
-        </div>
-    </div>
+    // Read tier on this route is `view_opencart|manage_opencart`; the push and
+    // remove writes are `manage_opencart`. Replaces a hardcoded `true`.
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
 
-    {{-- Search --}}
-    <div class="toolbar">
-        <form method="GET" action="{{ route('ext.opencart.product-groups.products', [$setting->id, $group->id]) }}">
-            <input class="input" name="q" value="{{ $q ?? '' }}" placeholder="Search name / SKU / model" style="min-width:220px;">
-            <button class="btn" type="submit">Search</button>
+    $storeName = $setting->store_name ?: 'Unnamed store';
+
+    $q = (string) ($q ?? '');
+    $hasSearch = $q !== '';
+
+    $listUrl = route('ext.opencart.product-groups.products', [$setting->id, $group->id]);
+
+    // The controller's empty-group branch returns before it builds any of the
+    // cross-channel link maps, so nothing below may assume they exist. The
+    // table is not rendered at all in that case, but resolving them once here
+    // keeps that fact stated rather than depending on it.
+    $otherOcLinks = $otherOcLinks ?? [];
+    $otherStoreNames = $otherStoreNames ?? [];
+    $shopeeLinked = $shopeeLinked ?? collect();
+    $lazadaLinked = $lazadaLinked ?? collect();
+    $tiktokLinked = $tiktokLinked ?? collect();
+@endphp
+
+<div class="cc-page"
+     x-data="{
+        selected: [],
+        ids: {{ \Illuminate\Support\Js::from(collect($products->items())->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
+     }">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">{{ $group->name }}</h1>
+        <p class="x-page-sub">
+            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on {{ $storeName }}
+        </p>
+    </div>
+    @if($canManageOpencart)
+        <x-ui.button :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+    @endif
+</div>
+
+{{-- One filter row, same `q` param as before. The old page put the field and
+     its button inside a toolbar card; the button stays because a form with a
+     text field and no submit does not submit on Enter per the HTML spec. --}}
+<form method="GET" action="{{ $listUrl }}" class="x-filters">
+    <x-ui.input type="search" name="q" class="x-filters__search"
+                value="{{ $q }}" placeholder="Name, SKU or model" aria-label="Search products in this group" />
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+    @if($hasSearch)
+        <a class="x-filters__reset" href="{{ $listUrl }}">Clear</a>
+    @endif
+</form>
+
+@if($canManageOpencart)
+{{-- Bulk bar. The old page put a solid "Push Selected" button in the page
+     header, where it was on screen with nothing selected and did nothing when
+     pressed. It appears here only once at least one row is ticked. Same route,
+     same `ids[]` payload; the module injects the ticked ids. --}}
+<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
+    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+    <div class="cc-bulkbar__actions">
+        <form method="POST" action="{{ route('ext.opencart.product-groups.push', [$setting->id, $group->id]) }}" data-bulk-form
+              data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
+            @csrf
+            <x-ui.button type="submit" size="sm">Push to {{ $storeName }}</x-ui.button>
         </form>
     </div>
+</div>
+@endif
 
-    {{-- Push form --}}
-    <form id="push-form" method="POST" action="{{ route('ext.opencart.product-groups.push', [$setting->id, $group->id]) }}">
-        @csrf
-    </form>
+@if($products->count() === 0)
+    <x-ui.empty title="{{ $hasSearch ? 'Nothing matches that search' : 'No products in this group' }}"
+                :description="$hasSearch
+                    ? 'Clear the search to see everything in the group.'
+                    : 'Edit the group to widen its category and manufacturer filter, or add products one at a time below.'">
+        @if($canManageOpencart && !$hasSearch)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+        </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            @if($canManageOpencart)
+            <th class="cc-col-check">
+                <input type="checkbox" class="cc-check"
+                       :checked="ids.length > 0 && selected.length === ids.length"
+                       x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
+                       @change="selected = $event.target.checked ? ids.slice() : []"
+                       aria-label="Select every product on this page">
+            </th>
+            @endif
+            <th class="cc-col-id">ID</th>
+            <th>Product</th>
+            <th class="cc-col-qty x-td-num">Stock</th>
+            <th class="cc-col-price x-td-num">Price</th>
+            <th class="cc-col-stat">Catalogue</th>
+            <th class="cc-col-chanid">This store</th>
+            <th class="oc-col-elsewhere">Also listed on</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
 
-    {{-- Add manual products form --}}
-    <form id="add-products-form" method="POST" action="{{ route('ext.opencart.product-groups.addProducts', [$setting->id, $group->id]) }}">
-        @csrf
-    </form>
+    @foreach($products as $p)
+        @php
+            $link = $links->get($p->product_id);
+            $isManual = in_array((int) $p->product_id, $manualIds, true);
 
-    <div class="card">
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                <tr>
-                    <th style="width:36px;">
-                        @if($canManageOpencart)<input type="checkbox" id="select-all" title="Select all">@endif
-                    </th>
-                    <th style="width:70px;">ID</th>
-                    <th style="width:70px;">Image</th>
-                    <th>Name</th>
-                    <th style="width:130px;">SKU</th>
-                    <th style="width:100px;">Price</th>
-                    <th style="width:80px;">Qty</th>
-                    <th style="width:90px;">Status</th>
-                    <th>Sync Status</th>
-                    <th style="width:100px;">Source</th>
-                    <th style="width:140px;"></th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($products as $p)
-                    @php
-                        $link = $links->get($p->product_id);
-                        $isManual = in_array((int)$p->product_id, $manualIds);
-                        $img = trim((string)($p->image ?? ''));
-                        $src = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-                    @endphp
-                    <tr>
-                        <td>
-                            @if($canManageOpencart)<input type="checkbox" class="row-check" name="ids[]" value="{{ (int)$p->product_id }}" form="push-form">@endif
-                        </td>
-                        <td>{{ $p->product_id }}</td>
-                        <td>
-                            @if($src)
-                                <img src="{{ $src }}" alt="" class="thumb" loading="lazy" decoding="async" onerror="this.style.display='none';">
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            <div class="font-semibold truncate">{{ $p->name ?? '-' }}</div>
-                        </td>
-                        <td>{{ $p->sku ?? '-' }}</td>
-                        <td>{{ number_format((float)$p->price, 2) }}</td>
-                        <td>{{ (int)$p->quantity }}</td>
-                        <td>{{ (int)$p->status === 1 ? 'Enabled' : 'Disabled' }}</td>
-                        <td>
-                            <div class="d-flex gap-4 flex-wrap">
-                                @if($link)
-                                    <span class="badge badge-green" title="{{ $setting->store_name }} #{{ $link->oc_product_id }}">{{ $setting->store_name }} #{{ $link->oc_product_id }}</span>
-                                @endif
-                                @if(isset($otherOcLinks[$p->product_id]))
-                                    @foreach($otherOcLinks[$p->product_id] as $oLink)
-                                        <span class="badge badge-green" title="{{ $otherStoreNames[$oLink->opencart_setting_id] ?? 'OC' }} #{{ $oLink->oc_product_id }}">{{ $otherStoreNames[$oLink->opencart_setting_id] ?? 'OC' }} #{{ $oLink->oc_product_id }}</span>
-                                    @endforeach
-                                @endif
-                                @if($shopeeLinked->has($p->product_id))
-                                    <span class="badge badge-green" title="Shopee Item {{ $shopeeLinked[$p->product_id] }}">Shopee</span>
-                                @endif
-                                @if($lazadaLinked->has($p->product_id))
-                                    <span class="badge badge-green" title="Lazada Item {{ $lazadaLinked[$p->product_id] }}">Lazada</span>
-                                @endif
-                                @if($tiktokLinked->has($p->product_id))
-                                    <span class="badge badge-green" title="TikTok Product {{ $tiktokLinked[$p->product_id] }}">TikTok</span>
-                                @endif
-                                @if(!$link && !isset($otherOcLinks[$p->product_id]) && !$shopeeLinked->has($p->product_id) && !$lazadaLinked->has($p->product_id) && !$tiktokLinked->has($p->product_id))
-                                    <span class="text-muted">Not synced</span>
-                                @endif
-                            </div>
-                        </td>
-                        <td>
-                            @if($isManual)
-                                <span class="badge">Manual</span>
-                            @else
-                                <span class="text-muted text-sm">Filter</span>
-                            @endif
-                        </td>
-                        <td class="d-flex gap-4">
-                            @if($canManageOpencart)
-                            <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-confirm="Push this product to {{ $setting->store_name }}?">
-                                @csrf
-                                <button type="submit" class="btn small">Push</button>
-                            </form>
-                            @if($isManual)
-                                <form method="POST" action="{{ route('ext.opencart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}" data-confirm="Remove from product group?">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn small danger">Remove</button>
-                                </form>
-                            @endif
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="11" class="text-muted">No products match this product group. Add filters or add products manually below.</td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
+            $img = trim((string) ($p->image ?? ''));
+            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
 
-        <div class="mt-16">
-            {{ $products->onEachSide(1)->links('vendor.pagination.simple') }}
-        </div>
-    </div>
+            $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $pSku = (string) ($p->sku ?: ($p->model ?: ''));
 
-    {{-- Add Individual Products --}}
-    <div class="card mt-16">
-        <h3 class="section-title mt-0">Add Products Manually</h3>
-        <div class="hint" style="margin-bottom:10px;">Search for products to add individually to this product group.</div>
-
-        <div class="d-flex gap-8 items-center flex-wrap">
-            <input type="text" class="input" id="manual-search" placeholder="Search by name or SKU..." style="min-width:260px;">
-            <button type="button" class="btn" id="manual-search-btn">Search</button>
-            <button type="button" class="btn" id="add-selected-btn">Add Selected</button>
-        </div>
-
-        <div class="table-wrap mt-10" id="manual-results-wrap" style="display:none;">
-            <table class="table" id="manual-results-table">
-                <thead>
-                <tr>
-                    <th style="width:36px;"><input type="checkbox" id="manual-select-all"></th>
-                    <th style="width:70px;">ID</th>
-                    <th>Name</th>
-                    <th style="width:130px;">SKU</th>
-                    <th style="width:100px;">Price</th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-
-    <script>
-    (function () {
-        var selectAll = document.getElementById('select-all');
-        var checks = function () { return Array.from(document.querySelectorAll('.row-check')); };
-
-        if (selectAll) {
-            selectAll.addEventListener('change', function () {
-                checks().forEach(function (b) { b.checked = selectAll.checked; });
-            });
-        }
-
-        window.confirmPush = function (e) {
-            var selected = checks().filter(function (b) { return b.checked; }).length;
-            if (selected === 0) {
-                showFlashError('Please select at least one product.');
-                return false;
+            // The old row printed six identical green badges, one per place the
+            // product is listed. Green there meant nothing, because everything
+            // was green. The store you are standing in gets its own column; the
+            // rest are a plain list, because "also on Shopee" is context, not a
+            // status you have to act on.
+            $elsewhere = [];
+            foreach (($otherOcLinks[$p->product_id] ?? []) as $oLink) {
+                $elsewhere[] = ($otherStoreNames[$oLink->opencart_setting_id] ?? 'Another OpenCart store')
+                    . ' ' . $oLink->oc_product_id;
             }
-            if (e && e.preventDefault) e.preventDefault();
-            var form = document.getElementById('push-form');
-            confirmModal('Push ' + selected + ' product(s) to {{ $setting->store_name }}?').then(function (ok) {
-                if (ok) { form._confirmed = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
-            });
-            return false;
-        };
+            if ($shopeeLinked->has($p->product_id)) {
+                $elsewhere[] = 'Shopee ' . $shopeeLinked[$p->product_id];
+            }
+            if ($lazadaLinked->has($p->product_id)) {
+                $elsewhere[] = 'Lazada ' . $lazadaLinked[$p->product_id];
+            }
+            if ($tiktokLinked->has($p->product_id)) {
+                $elsewhere[] = 'TikTok ' . $tiktokLinked[$p->product_id];
+            }
+        @endphp
+        <tr>
+            @if($canManageOpencart)
+            <td class="cc-col-check">
+                {{-- No name attribute: these boxes belong to no form. The bulk
+                     form injects the ticked ids on submit, which posts the same
+                     `ids[]` the old checkboxes posted through their form
+                     attribute. --}}
+                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $p->product_id }}"
+                       x-model="selected" aria-label="Select product {{ $p->product_id }}">
+            </td>
+            @endif
 
-        var searchInput = document.getElementById('manual-search');
-        var searchBtn = document.getElementById('manual-search-btn');
-        var resultsWrap = document.getElementById('manual-results-wrap');
-        var resultsBody = document.querySelector('#manual-results-table tbody');
-        var addBtn = document.getElementById('add-selected-btn');
-        var manualSelectAll = document.getElementById('manual-select-all');
-        var searchUrl = '{{ route("ext.opencart.product-groups.searchProducts", $setting->id) }}';
+            <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $p->product_id }}</span></td>
 
-        function doSearch() {
-            var q = (searchInput.value || '').trim();
-            if (q.length < 2) return;
+            <td data-label="Product">
+                <div class="co-item">
+                    <div class="cc-thumb">
+                        <span class="co-item__none">No image</span>
+                        @if($thumbSrc)
+                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                        @endif
+                    </div>
+                    <div class="co-item__body">
+                        <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
+                        <span class="co-item__meta">
+                            {{ $pSku !== '' ? $pSku : 'No SKU' }} / {{ $isManual ? 'added by hand' : 'matched by the group filter' }}
+                        </span>
+                    </div>
+                </div>
+            </td>
 
-            fetch(searchUrl + '?q=' + encodeURIComponent(q), {
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var items = data.items || [];
-                resultsBody.textContent = '';
+            <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format((int) $p->quantity) }}</span></td>
 
-                if (items.length === 0) {
-                    var emptyTr = document.createElement('tr');
-                    var emptyTd = document.createElement('td');
-                    emptyTd.setAttribute('colspan', '5');
-                    emptyTd.className = 'text-muted';
-                    emptyTd.textContent = 'No results.';
-                    emptyTr.appendChild(emptyTd);
-                    resultsBody.appendChild(emptyTr);
-                } else {
-                    items.forEach(function (item) {
-                        var tr = document.createElement('tr');
+            <td class="cc-col-price x-td-num" data-label="Price">
+                <x-money :php="(float) $p->price" />
+            </td>
 
-                        var td1 = document.createElement('td');
-                        var cb = document.createElement('input');
-                        cb.type = 'checkbox';
-                        cb.className = 'manual-row-check';
-                        cb.value = item.product_id;
-                        cb.setAttribute('form', 'add-products-form');
-                        cb.name = 'ids[]';
-                        td1.appendChild(cb);
-                        tr.appendChild(td1);
+            <td class="cc-col-stat" data-label="Catalogue">
+                @if((int) $p->status === 1)
+                    <span class="x-cell-strong">Enabled</span>
+                @else
+                    <span class="x-cell-muted">Disabled</span>
+                @endif
+            </td>
 
-                        var td2 = document.createElement('td');
-                        td2.textContent = item.product_id;
-                        tr.appendChild(td2);
+            <td class="cc-col-chanid" data-label="This store">
+                @if($link)
+                    <span class="x-num">{{ $link->oc_product_id }}</span>
+                @else
+                    <span class="x-cell-muted">Not pushed</span>
+                @endif
+            </td>
 
-                        var td3 = document.createElement('td');
-                        td3.textContent = item.name || '-';
-                        tr.appendChild(td3);
+            <td class="oc-col-elsewhere" data-label="Also listed on">
+                @if(empty($elsewhere))
+                    <span class="x-cell-muted">Nowhere else</span>
+                @else
+                    @foreach($elsewhere as $where)
+                        <span class="cc-sub cc-sub--mono">{{ $where }}</span>
+                    @endforeach
+                @endif
+            </td>
 
-                        var td4 = document.createElement('td');
-                        td4.textContent = item.sku || '-';
-                        tr.appendChild(td4);
+            <td class="x-td-actions">
+                @if($canManageOpencart)
+                {{-- The old row carried a standing Push button and, on manual
+                     rows, a solid red Remove beside it. Same routes, same
+                     confirms, in the overflow. --}}
+                <x-ui.menu label="Product {{ $p->product_id }} actions">
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+                    <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-slow-action
+                          data-confirm="Push this product to {{ $storeName }}? Anything already there is overwritten with the catalogue's version.">
+                        @csrf
+                        <button type="submit" class="x-menu__item">Push to {{ $storeName }}</button>
+                    </form>
+                    @if($isManual)
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.opencart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}"
+                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already on {{ $storeName }} is touched.">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
+                        </form>
+                    @endif
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
 
-                        var td5 = document.createElement('td');
-                        td5.textContent = item.price ? parseFloat(item.price).toFixed(2) : '0.00';
-                        tr.appendChild(td5);
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($products->firstItem() ?? 0) }} to {{ number_format($products->lastItem() ?? 0) }} of {{ number_format($products->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$products->previousPageUrl()" :disabled="!$products->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$products->nextPageUrl()" :disabled="!$products->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+    </div>
+</div>
+@endif
 
-                        resultsBody.appendChild(tr);
-                    });
-                }
+@if($canManageOpencart)
+{{-- Add one at a time. Same endpoints as before: a GET to search-products?q=
+     for the results, and one POST to addProducts carrying `ids[]`. The results
+     are built with createElement and textContent only. --}}
+<section class="fm-section cc-unmatched"
+         data-group-manual-add
+         data-search-url="{{ route('ext.opencart.product-groups.searchProducts', $setting->id) }}"
+         data-form="opencart-add-products">
+    <div class="fm-section__head">
+        <h2 class="fm-section__title">Add a product by name</h2>
+    </div>
+    <p class="fm-section__note">For a product the group's category and manufacturer filter does not pick up. Type at least two characters.</p>
 
-                resultsWrap.style.display = '';
-            })
-            .catch(function () {
-                resultsBody.textContent = '';
-                var errTr = document.createElement('tr');
-                var errTd = document.createElement('td');
-                errTd.setAttribute('colspan', '5');
-                errTd.className = 'text-muted';
-                errTd.textContent = 'Search failed.';
-                errTr.appendChild(errTd);
-                resultsBody.appendChild(errTr);
-                resultsWrap.style.display = '';
-            });
-        }
+    <form id="opencart-add-products" method="POST" action="{{ route('ext.opencart.product-groups.addProducts', [$setting->id, $group->id]) }}">
+        @csrf
+    </form>
 
-        if (searchBtn) searchBtn.addEventListener('click', doSearch);
-        if (searchInput) searchInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
-        });
+    <div class="cc-link">
+        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalogue to add a product"
+                    data-manual-search />
+        <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
+        <x-ui.button type="submit" variant="primary" form="opencart-add-products" data-manual-add disabled>Add selected</x-ui.button>
+    </div>
 
-        if (manualSelectAll) {
-            manualSelectAll.addEventListener('change', function () {
-                document.querySelectorAll('.manual-row-check').forEach(function (b) { b.checked = manualSelectAll.checked; });
-            });
-        }
+    <div data-manual-results></div>
+</section>
+@endif
 
-        if (addBtn) {
-            addBtn.addEventListener('click', function () {
-                var selected = document.querySelectorAll('.manual-row-check:checked');
-                if (selected.length === 0) {
-                    showFlashError('Select at least one product to add.');
-                    return;
-                }
-                document.getElementById('add-products-form').submit();
-            });
-        }
-    })();
-    </script>
+{{-- Work-in-progress overlay. A push to OpenCart is a multi-second round trip
+     and the page has to say so, or the operator clicks again. Rides
+     components/modals.css's .modal-backdrop show/hide mechanics. --}}
+<div id="opencart-group-progress" class="modal-backdrop">
+    <div class="modal co-modal co-modal--sm">
+        <div class="cc-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+            <div>
+                <div class="cc-progress__title" data-progress-title>Talking to OpenCart</div>
+                <div class="cc-progress__note">Please keep this tab open.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>{{-- /.cc-page --}}
 @endsection

@@ -1,0 +1,253 @@
+/* Product-group form pages: the `gf-` grammar.
+   -------------------------------------------------------------------
+   Round C Task 3. Two channels' product-group create/edit forms left
+   the .x-legacy boundary and moved onto the shared fm- form anatomy
+   (components/form-page.css). Nearly all of both pages is that anatomy
+   already: fm-page / fm-head / fm-body / fm-section / fm-fields /
+   x-ui.field / fm-bar. This file carries only the two controls that
+   anatomy has no equivalent for.
+
+   OpenCart's picker needed nothing new at all: it is .fm-tags + .fm-tag
+   + .fm-ta, the same typeahead-into-chips control the catalogue's
+   product form already uses, so it is not here.
+
+   What IS here:
+
+     1. .gf-count, the one figure on OpenCart's side column;
+     2. the whole of Venta's two-pane product picker, which is a set
+        builder and genuinely has no precedent in this system.
+
+   The three decisions carried in from the anatomies this builds on:
+
+     1. Colour has one job. The primary action is the only accent on
+        these pages. The picker is entirely neutral - a selected row is
+        marked by its checkbox, not by a tint.
+     2. Elevation is flat. One bordered pane per side, hairlines
+        between rows, no shadows and no card stack.
+     3. Every numeral is mono with tabular figures: product ids and
+        stock counts, which are read down a column.
+   ------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------
+   A single figure that is the point of its own card. Large enough to
+   be the thing the eye lands on, in mono because it is a count that
+   changes and gets compared against the last time you looked.
+   ------------------------------------------------------------------ */
+
+.gf-count {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+/* ==================================================================
+   Venta's two-pane product picker.
+
+   The control is a set you build by moving rows into it. Two panes
+   side by side with the move buttons between them is the shape that
+   says so; a single multi-select would hide what is already in the
+   group behind a scroll, which is the question this page exists to
+   answer.
+   ================================================================== */
+
+.gf-dual { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* ------------------------------------------------------------------
+   The search row above both panes. It searches the catalogue, not the
+   group, so it belongs above the pair rather than inside the left one.
+   ------------------------------------------------------------------ */
+
+.gf-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.gf-filters__search { flex: 1 1 220px; min-width: 0; }
+
+.gf-filters__select { flex: 0 1 190px; min-width: 0; }
+
+/* ------------------------------------------------------------------
+   The pair. Equal halves with a fixed gutter for the two move buttons;
+   below 900px the gutter stops being a column and the whole thing
+   stacks, because two 150px panes are two panes nobody can read.
+   ------------------------------------------------------------------ */
+
+.gf-panes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+}
+
+@media (min-width: 901px) {
+    .gf-panes { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+}
+
+.gf-pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.gf-pane__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+}
+
+.gf-pane__title { font-size: 12px; font-weight: 500; color: var(--text); }
+
+.gf-pane__count { font-size: 12px; color: var(--text-muted); }
+
+/* A fixed height, not a growing list: the two panes have to stay the
+   same height as each other for the move buttons between them to keep
+   meaning anything, and a search that returns 500 rows must not push
+   the Save bar off the bottom of the page. */
+.gf-pane__body {
+    height: 380px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* ------------------------------------------------------------------
+   The move buttons. Stacked, vertically centred against the panes, and
+   they say Add and Remove rather than being chevron glyphs whose
+   direction you have to work out.
+   ------------------------------------------------------------------ */
+
+.gf-move {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: var(--space-2);
+}
+
+@media (min-width: 901px) {
+    .gf-move {
+        flex-direction: column;
+        /* Level with the first rows rather than with the pane heads. */
+        padding-top: var(--space-8);
+    }
+}
+
+/* ------------------------------------------------------------------
+   The list inside a pane. Not <x-ui.table>: that component brings its
+   own wrapper, its own 640px restack and a fixed row height, none of
+   which are right inside a 380px scroll box that is already inside a
+   form. Hairlines only, no vertical rules, sticky head.
+   ------------------------------------------------------------------ */
+
+.gf-list {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+}
+
+/* components/tables.css carries BARE `th, td` element selectors with a
+   1px right border and an uppercased, letter-spaced `th`. Those used to be
+   contained by the .x-legacy boundary; this page has left it, so they now
+   reach any table on the canvas. Both are undone here rather than by editing
+   that file, which the pages still inside the boundary depend on. A vertical
+   rule between every cell is the spreadsheet-export look this design system
+   does not draw, and nothing in it shouts. Caught in the browser. */
+.gf-list th,
+.gf-list td { border-right: 0; border-left: 0; }
+
+.gf-list thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--space-2) var(--space-2);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.gf-list tbody td {
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text);
+}
+
+.gf-list tbody tr:last-child td { border-bottom: 0; }
+
+.gf-col-check { width: 34px; }
+.gf-col-id    { width: 62px; }
+.gf-col-qty   { width: 62px; text-align: right; }
+
+.gf-list td.gf-col-id,
+.gf-list td.gf-col-qty,
+.gf-list th.gf-col-qty {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.gf-list td.gf-col-qty { text-align: right; }
+
+/* The product cell: name on top, identifier underneath. Both clip
+   rather than wrap, because a wrapping name makes the two panes'
+   rows stop lining up with each other. */
+.gf-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gf-sku {
+    display: block;
+    margin-top: 1px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* An empty pane says which of the two empty states it is in: nothing
+   searched for yet, everything found already added, or nothing in the
+   group. The message is the JS's; this is only how it sits. */
+.gf-empty {
+    padding: var(--space-6) var(--space-3);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* ------------------------------------------------------------------
+   Phones. The panes are already stacked by the 901px breakpoint above;
+   this shortens them so both plus the move buttons plus the save bar
+   are reachable without a long scroll past an inner scroll.
+   ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+    .gf-pane__body { height: 260px; }
+    .gf-filters__search,
+    .gf-filters__select { flex: 1 1 100%; }
+    .gf-move .x-btn { flex: 1 1 auto; }
+    .gf-count { font-size: 24px; }
+}

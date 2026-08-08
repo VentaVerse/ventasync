@@ -92,6 +92,12 @@
 @import './pages/channel-catalog.css';
 @import './pages/channel-settings.css';
 
+/* The two channels' product-group create/edit forms (Round C Task 3). After
+   form-page.css, which it builds on: nearly all of both pages is the fm-
+   anatomy, and this file adds only the two controls that anatomy has no
+   equivalent for. */
+@import './pages/group-form.css';
+
 /* Utilities & Responsive */
 @import './utilities.css';
 @import './responsive.css';

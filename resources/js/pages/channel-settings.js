@@ -224,6 +224,12 @@ function initExplorer(root) {
     const shopBox = panel.querySelector('[data-cs-ex-shop]');
     const pathInput = panel.querySelector('[data-cs-ex-path]');
     const paramsBox = panel.querySelector('[data-cs-ex-params]');
+    // Optional second field. Shopee posts one textarea named `params_json` and
+    // has none of these; TikTok's controller validates `params_json` but the
+    // page shows the operator a readable `params_json_pretty` textarea, so the
+    // hidden field is kept in step with it. Absent on Shopee, so every write
+    // below is guarded.
+    const hiddenParams = panel.querySelector('[data-cs-ex-hidden]');
     const kvBody = panel.querySelector('[data-cs-ex-kv]');
     const nameEl = panel.querySelector('[data-cs-ex-name]');
     const descEl = panel.querySelector('[data-cs-ex-desc]');
@@ -256,6 +262,7 @@ function initExplorer(root) {
 
     function syncToJson() {
         paramsBox.value = JSON.stringify(tableToObject(), null, 2);
+        if (hiddenParams) hiddenParams.value = paramsBox.value;
     }
 
     function buildRow(key, value) {

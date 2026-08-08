@@ -1,171 +1,189 @@
 @extends('layouts.channel')
 @section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' ' . $setting->store_name . ' Product Group')
-@section('breadcrumb', ($mode === 'create' ? 'Add' : 'Edit') . ' Product Group')
+@section('breadcrumb', ($mode === 'create' ? 'New' : 'Edit') . ' Product Group')
+
+{{-- Leaves the .x-legacy content boundary, rebuilt on the fm- form anatomy.
+
+     OpenCart is multi-store: the form action, the back link and the products
+     link all carry the {store} segment this page arrived on, and the store is
+     named in the sub-line as well as in the breadcrumb. --}}
+@section('content-class', '')
 
 @section('content')
-    <div class="page-header">
-        <div>
-            <h2>{{ $mode === 'create' ? 'Add Product Group' : 'Edit Product Group' }}</h2>
-            <div class="text-muted text-sm">{{ $setting->store_name }} — filter products by category/manufacturer.</div>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">Back to Product Groups</a>
-        </div>
+@php
+    // The create GET is `manage_opencart`, but the EDIT GET is registered in
+    // the read group, so a `view_opencart` operator can open this page on an
+    // existing group. The store and update writes behind it are manage-only,
+    // so for that operator every control is disabled and the Save button is
+    // absent: a form you can fill in and never submit is worse than a form
+    // that says up front it is a read.
+    $canManageOpencart = auth()->user()?->hasPermission('manage_opencart') ?? false;
+
+    $storeName = $setting->store_name ?: 'Unnamed store';
+
+    // Same restore-from-old shape the pre-redesign view used, so a failed
+    // validation round trip keeps the operator's selections.
+    $selectedCatIds = array_map('intval', (array) (old('catalog_category_ids', $group->catalog_category_ids ?? []) ?? []));
+    $selectedMfgIds = array_map('intval', (array) (old('manufacturer_ids', $group->manufacturer_ids ?? []) ?? []));
+
+    $categoryOptions = $catalogCategories->map(fn ($c) => ['id' => (int) $c->category_id, 'name' => (string) $c->name])->values();
+    $manufacturerOptions = ($manufacturers ?? collect())->map(fn ($m) => ['id' => (int) $m->manufacturer_id, 'name' => (string) $m->name])->values();
+
+    $categoryNamesById = $categoryOptions->pluck('name', 'id');
+    $manufacturerNamesById = $manufacturerOptions->pluck('name', 'id');
+
+    // JSON_HEX_TAG is what makes a data island safe: it encodes < and > so a
+    // category literally named "</script>" cannot close the element. The rest
+    // of the flags keep quotes and ampersands out of the payload for the same
+    // reason. Data only, no behaviour: the picker lives in
+    // resources/js/pages/group-form.js.
+    $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+@endphp
+
+<form method="POST" class="fm-page"
+      action="{{ $mode === 'create'
+        ? route('ext.opencart.product-groups.store', $setting->id)
+        : route('ext.opencart.product-groups.update', [$setting->id, $group->id]) }}">
+    @csrf
+    @if($mode === 'edit')
+        @method('PUT')
+    @endif
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
     </div>
 
-
-    <div class="card">
-        <form method="POST" action="{{ $mode === 'create' ? route('ext.opencart.product-groups.store', $setting->id) : route('ext.opencart.product-groups.update', [$setting->id, $group->id]) }}">
-            @csrf
-            @if($mode === 'edit')
-                @method('PUT')
-            @endif
-
-            <div>
-                <label>Product Group Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="name" class="input" value="{{ old('name', $group->name) }}" placeholder="e.g. Guitar Pedals">
-            </div>
-
-            <h3 class="section-title" style="margin-top:20px;">Product Filter</h3>
-            <div class="hint" style="margin-bottom:8px;">Select categories and/or manufacturers to match products. You can also add individual products manually from the Products tab.</div>
-
-            @php
-                $selectedCatIds = old('catalog_category_ids', $group->catalog_category_ids ?? []) ?? [];
-                $selectedMfgIds = old('manufacturer_ids', $group->manufacturer_ids ?? []) ?? [];
-                $selectedCatIds = array_map('intval', (array)$selectedCatIds);
-                $selectedMfgIds = array_map('intval', (array)$selectedMfgIds);
-            @endphp
-
-            <div class="hint" style="margin-bottom:8px;">Type to search, click to add.</div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label>Categories</label>
-                    <div style="position:relative;">
-                        <input type="text" class="input" id="catSearch" placeholder="Search categories..." autocomplete="off">
-                        <div id="catDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
-                    </div>
-                    <div id="catSelected" style="border:1px solid var(--border); border-radius:var(--radius-md); min-height:40px; margin-top:8px; padding:4px;"></div>
-                </div>
-                <div>
-                    <label>Manufacturers</label>
-                    <div style="position:relative;">
-                        <input type="text" class="input" id="mfgSearch" placeholder="Search manufacturers..." autocomplete="off">
-                        <div id="mfgDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
-                    </div>
-                    <div id="mfgSelected" style="border:1px solid var(--border); border-radius:var(--radius-md); min-height:40px; margin-top:8px; padding:4px;"></div>
-                </div>
-            </div>
-            <div class="hint" style="margin-top:6px;">
-                Matching products: <strong>{{ $productCount }}</strong>
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">
+                <x-ui.icon name="chevron-left" size="14" /> Product Groups
+            </a>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Store</span>
+                    <span class="fm-stamp__v">{{ $storeName }}</span>
+                </span>
                 @if($mode === 'edit')
-                    &nbsp;—&nbsp;<a href="{{ route('ext.opencart.product-groups.products', [$setting->id, $group->id]) }}">View Products</a>
+                    <span class="fm-stamp">
+                        <span class="fm-stamp__k">Group</span>
+                        <span class="fm-stamp__v">{{ $group->id }}</span>
+                    </span>
                 @endif
             </div>
-
-            <div class="d-flex justify-end gap-8 mt-16">
-                <button class="btn" type="submit">
-                    {{ $mode === 'create' ? 'Create Product Group' : 'Save Product Group' }}
-                </button>
-            </div>
-        </form>
+        </div>
     </div>
-    <script>
-        function initListPicker(config) {
-            var items = config.items;
-            var selectedIds = config.selectedIds;
-            var searchEl = config.searchEl;
-            var dropdownEl = config.dropdownEl;
-            var listEl = config.listEl;
-            var fieldName = config.fieldName;
-            var selected = new Map();
 
-            selectedIds.forEach(function(id) {
-                var item = items.find(function(i) { return i.id === id; });
-                if (item) selected.set(id, item.name);
-            });
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
 
-            function render() {
-                listEl.textContent = '';
-                if (selected.size === 0) {
-                    var emptyDiv = document.createElement('div');
-                    emptyDiv.style.cssText = 'padding:8px; color:var(--text-muted); font-size:13px;';
-                    emptyDiv.textContent = 'None selected';
-                    listEl.appendChild(emptyDiv);
-                    return;
-                }
-                selected.forEach(function(name, id) {
-                    var row = document.createElement('div');
-                    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:4px 8px;';
-                    var span = document.createElement('span');
-                    span.textContent = name;
-                    row.appendChild(span);
-                    var btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.textContent = '\u00D7';
-                    btn.style.cssText = 'background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-muted); padding:0 4px; line-height:1;';
-                    btn.addEventListener('click', function() { selected.delete(id); render(); });
-                    row.appendChild(btn);
-                    var inp = document.createElement('input');
-                    inp.type = 'hidden';
-                    inp.name = fieldName;
-                    inp.value = id;
-                    row.appendChild(inp);
-                    listEl.appendChild(row);
-                });
-            }
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Name</h2>
+                </div>
 
-            function showDropdown(filter) {
-                var lower = filter.toLowerCase();
-                var filtered = items.filter(function(i) {
-                    return !selected.has(i.id) && i.name.toLowerCase().indexOf(lower) !== -1;
-                });
-                if (filtered.length === 0 || filter === '') {
-                    dropdownEl.style.display = 'none';
-                    return;
-                }
-                dropdownEl.textContent = '';
-                filtered.slice(0, 50).forEach(function(item) {
-                    var div = document.createElement('div');
-                    div.textContent = item.name;
-                    div.style.cssText = 'padding:6px 10px; cursor:pointer;';
-                    div.addEventListener('mouseenter', function() { div.style.background = 'var(--surface-hover)'; });
-                    div.addEventListener('mouseleave', function() { div.style.background = ''; });
-                    div.addEventListener('mousedown', function(e) {
-                        e.preventDefault();
-                        selected.set(item.id, item.name);
-                        searchEl.value = '';
-                        dropdownEl.style.display = 'none';
-                        render();
-                    });
-                    dropdownEl.appendChild(div);
-                });
-                dropdownEl.style.display = 'block';
-            }
+                <div class="fm-fields">
+                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
+                                hint="What this batch of products is, in the words your team uses. It is never sent to OpenCart.">
+                        <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}" placeholder="Guitar pedals" :disabled="!$canManageOpencart" />
+                    </x-ui.field>
+                </div>
+            </section>
 
-            searchEl.addEventListener('input', function() { showDropdown(searchEl.value.trim()); });
-            searchEl.addEventListener('focus', function() { if (searchEl.value.trim()) showDropdown(searchEl.value.trim()); });
-            searchEl.addEventListener('blur', function() { setTimeout(function() { dropdownEl.style.display = 'none'; }, 150); });
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Which products go in</h2>
+                </div>
+                <p class="fm-section__note">A product joins this group when it matches any category chosen here, or any manufacturer chosen here. Leave both empty and the group holds only the products you add by hand on the Products page.</p>
 
-            render();
-        }
+                {{-- The picker only binds for the manage tier: a read-tier
+                     operator gets the tags as they are stored, with no search
+                     box to add to them and no remove buttons that would edit a
+                     form they cannot save. --}}
+                <div class="fm-fields fm-fields--2" @if($canManageOpencart) data-group-filter-picker @endif>
+                    <x-ui.field label="Categories" for="pg-cat-search" name="catalog_category_ids" wide
+                                hint="Type to search, click to add. Removing one here removes its products from the group.">
+                        <div class="fm-tags" data-picker-tags="catalog_category_ids[]" data-picker-noun="category">
+                            @foreach($selectedCatIds as $catId)
+                                <span class="fm-tag" data-id="{{ $catId }}">
+                                    <span>{{ $categoryNamesById[$catId] ?? ('Category ' . $catId) }}</span>
+                                    <input type="hidden" name="catalog_category_ids[]" value="{{ $catId }}">
+                                    @if($canManageOpencart)
+                                        <button type="button" class="fm-tag__x"
+                                                aria-label="Remove {{ $categoryNamesById[$catId] ?? ('category ' . $catId) }}">&times;</button>
+                                    @endif
+                                </span>
+                            @endforeach
+                        </div>
+                        @if($canManageOpencart)
+                        <div class="fm-ta">
+                            <x-ui.input id="pg-cat-search" autocomplete="off" placeholder="Search categories" data-picker-search />
+                            <div class="fm-ta__list" data-picker-list></div>
+                        </div>
+                        <script type="application/json" data-picker-options>{!! json_encode($categoryOptions, $jsonFlags) !!}</script>
+                        @endif
+                    </x-ui.field>
 
-        initListPicker({
-            items: @json($catalogCategories->map(fn($c) => ['id' => (int)$c->category_id, 'name' => $c->name])),
-            selectedIds: @json($selectedCatIds),
-            searchEl: document.getElementById('catSearch'),
-            dropdownEl: document.getElementById('catDropdown'),
-            listEl: document.getElementById('catSelected'),
-            fieldName: 'catalog_category_ids[]'
-        });
+                    <x-ui.field label="Manufacturers" for="pg-mfg-search" name="manufacturer_ids" wide
+                                hint="Type to search, click to add.">
+                        <div class="fm-tags" data-picker-tags="manufacturer_ids[]" data-picker-noun="manufacturer">
+                            @foreach($selectedMfgIds as $mfgId)
+                                <span class="fm-tag" data-id="{{ $mfgId }}">
+                                    <span>{{ $manufacturerNamesById[$mfgId] ?? ('Manufacturer ' . $mfgId) }}</span>
+                                    <input type="hidden" name="manufacturer_ids[]" value="{{ $mfgId }}">
+                                    @if($canManageOpencart)
+                                        <button type="button" class="fm-tag__x"
+                                                aria-label="Remove {{ $manufacturerNamesById[$mfgId] ?? ('manufacturer ' . $mfgId) }}">&times;</button>
+                                    @endif
+                                </span>
+                            @endforeach
+                        </div>
+                        @if($canManageOpencart)
+                        <div class="fm-ta">
+                            <x-ui.input id="pg-mfg-search" autocomplete="off" placeholder="Search manufacturers" data-picker-search />
+                            <div class="fm-ta__list" data-picker-list></div>
+                        </div>
+                        <script type="application/json" data-picker-options>{!! json_encode($manufacturerOptions, $jsonFlags) !!}</script>
+                        @endif
+                    </x-ui.field>
+                </div>
+            </section>
+        </div>
 
-        initListPicker({
-            items: @json(($manufacturers ?? collect())->map(fn($m) => ['id' => (int)$m->manufacturer_id, 'name' => $m->name])),
-            selectedIds: @json($selectedMfgIds),
-            searchEl: document.getElementById('mfgSearch'),
-            dropdownEl: document.getElementById('mfgDropdown'),
-            listEl: document.getElementById('mfgSelected'),
-            fieldName: 'manufacturer_ids[]'
-        });
-    </script>
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Matching now</h2></div>
+                <div class="fm-card__body">
+                    {{-- The figure the old view printed at the bottom of the
+                         filter block. It is the count as the group is SAVED,
+                         not as the form currently stands, so the sentence
+                         underneath says so rather than leaving an operator to
+                         wonder why it did not move when they added a
+                         category. --}}
+                    <p class="gf-count">{{ number_format($productCount) }}</p>
+                    <p class="fm-section__note">{{ $productCount === 1 ? 'product' : 'products' }} match the filter as it is saved. Save to see this move.</p>
+                    @if($mode === 'edit')
+                        <x-ui.button size="sm" :href="route('ext.opencart.product-groups.products', [$setting->id, $group->id])">View products</x-ui.button>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fm-bar">
+        <span class="fm-bar__meta">{{ $canManageOpencart
+            ? ($mode === 'create' ? 'Nothing is saved until you create the group.' : 'Changes are saved to ' . $storeName . '.')
+            : 'You can read this group. Changing it needs the OpenCart manage permission.' }}</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('ext.opencart.product-groups.index', $setting->id) }}">{{ $canManageOpencart ? 'Cancel' : 'Back' }}</a>
+            @if($canManageOpencart)
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
+            @endif
+        </div>
+    </div>
+</form>
 @endsection

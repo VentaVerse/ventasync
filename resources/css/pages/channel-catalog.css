@@ -147,6 +147,24 @@
 }
 
 /* ------------------------------------------------------------------
+   TikTok-only and OpenCart-only columns (Round C Task 3). Same object as
+   the widths above, and here for the same reason the lz- pair is: a
+   column measured against the widest real value in it. Each takes its
+   own channel's established page prefix (pages/tiktok-orders.css,
+   pages/opencart.css) rather than a `cc-` name that would imply every
+   channel has the column.
+   ------------------------------------------------------------------ */
+
+/* A comma-joined list of TikTok's selling-permission codes. Wide enough
+   for two of them before it wraps, which is what the real rows carry. */
+.tt-col-perms { width: 190px; }
+
+/* "Also listed on" stacks one short line per other marketplace the
+   catalogue product is linked to. Measured against
+   "Another OpenCart store 12345", the longest real value. */
+.oc-col-elsewhere { width: 200px; }
+
+/* ------------------------------------------------------------------
    Category tree depth. The pre-redesign view drew depth by repeating an
    em dash per level, which is both a character this project does not
    use in anything a person reads and a value that has to be re-read to
@@ -383,7 +401,15 @@
    canvas, no box) and forking it would be two names for one picture.
    ------------------------------------------------------------------ */
 
-.cc-unmatched { margin-bottom: var(--space-5); }
+/* A titled section that sits above or below the table, separated from it.
+   The top margin was added in Round C Task 3: on the two product-group
+   Products pages this section follows the pager directly, and without it the
+   heading sat on the pager's baseline. */
+.cc-unmatched { margin-top: var(--space-6); margin-bottom: var(--space-5); }
+
+/* Except where it is the first thing after the list head, which is where the
+   listings pages put it. */
+.x-list-head + .cc-unmatched { margin-top: 0; }
 
 .cc-unmatched .x-table tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
 
