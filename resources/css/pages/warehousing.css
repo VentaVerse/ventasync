@@ -183,13 +183,19 @@
 .wh-step:last-child::before { display: none; }
 .wh-step.is-past::before { background: var(--accent); }
 
+/* Fix round, Minor 14: the idle ring was --border-strong on --surface,
+   1.54:1 light / 1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. Every
+   other state (past/now/stopped, below) already carries a token that
+   clears it (--accent or --danger); only the untouched-yet state was
+   under the line. --text-muted clears it at 5.13:1 light / 4.87:1 dark
+   against --surface (base/tokens.css's own audited matrix). */
 .wh-step__dot {
     width: 9px;
     height: 9px;
     margin-left: 1px;
     border-radius: 50%;
     background: var(--surface);
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--text-muted);
     position: relative;
     z-index: 1;
 }

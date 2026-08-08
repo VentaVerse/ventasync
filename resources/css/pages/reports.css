@@ -407,7 +407,14 @@
 .rp-key { display: flex; gap: var(--space-3); font-size: 11px; color: var(--text-muted); }
 .rp-key__item { display: inline-flex; align-items: center; gap: var(--space-1); }
 .rp-key__swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--text-muted); }
-.rp-key__swatch--cost   { background: var(--border-strong); }
+/* Fix round, Important 3: was --border-strong (1.54:1 light, 1.50:1 dark
+   against --surface), well under the 3:1 WCAG 1.4.11 floor for a
+   graphic that carries meaning on its own (the whole point of this chart
+   is the revenue/cost split). --text-muted clears it comfortably: 5.13:1
+   light, 4.87:1 dark against --surface (base/tokens.css's own audited
+   matrix, the "surface" column). Matches .rp-trend__cost below, so the
+   legend swatch and the bar segment it explains are the same colour. */
+.rp-key__swatch--cost   { background: var(--text-muted); }
 .rp-key__swatch--profit { background: var(--accent); }
 .rp-key__swatch--loss   { background: var(--danger); }
 
@@ -436,10 +443,21 @@
     max-width: 44px;
     height: 100%;
 }
-.rp-trend__cost   { fill: var(--border-strong); }
+/* Fix round, Important 3: resting fill was --border-strong, a border
+   token doing a fill's job at 1.54:1 light / 1.50:1 dark against
+   --surface, under the 3:1 WCAG 1.4.11 floor for an information-bearing
+   graphic (this segment IS the cost half of the revenue/cost split the
+   chart exists to show; the figures live in the table below too, but the
+   resting bar itself has to clear the bar on its own). --text-muted
+   clears it at 5.13:1 light / 4.87:1 dark against --surface
+   (base/tokens.css's own audited matrix). Hover moves one step further,
+   to --text-secondary (5.55 light / 6.64 dark against --surface), so the
+   segment still visibly darkens on hover rather than going flat now that
+   the resting state already passes on its own. */
+.rp-trend__cost   { fill: var(--text-muted); }
 .rp-trend__profit { fill: var(--accent); }
 .rp-trend__loss   { fill: var(--danger); }
-.rp-trend__col:hover .rp-trend__cost { fill: var(--text-muted); }
+.rp-trend__col:hover .rp-trend__cost { fill: var(--text-secondary); }
 
 .rp-trend__ticks {
     display: flex;

@@ -593,12 +593,16 @@
     position: relative;
 }
 
+/* Fix round, Minor 14: was --border-strong on --surface, 1.54:1 light /
+   1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. --text-muted clears it
+   at 5.13:1 light / 4.87:1 dark against --surface (base/tokens.css's
+   own audited matrix). */
 .po-time__dot {
     width: 7px;
     height: 7px;
     margin-top: 5px;
     border-radius: 50%;
-    background: var(--border-strong);
+    background: var(--text-muted);
 }
 
 /* The rail is drawn on the row, not between rows, so the last entry's tail
