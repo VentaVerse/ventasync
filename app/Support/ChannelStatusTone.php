@@ -3,7 +3,13 @@
 namespace App\Support;
 
 /**
- * Per-channel status tone and label maps for the marketplace order surfaces.
+ * Per-surface status tone and label maps.
+ *
+ * Started as the marketplace order surfaces and now also carries purchasing,
+ * whose purchase-order lifecycle is its own vocabulary with the same two
+ * decisions to make per status. The class name still says "Channel" because
+ * renaming it would touch every marketplace view for no behaviour change; read
+ * it as "surface".
  *
  * Every channel names its statuses differently (Shopee shouts in uppercase,
  * Lazada whispers in lowercase, TikTok has its own set again) and every one
@@ -152,6 +158,43 @@ class ChannelStatusTone
             'CANCELLED'          => 'danger',
             'CANCELED'           => 'danger',
         ],
+
+        // Purchase orders. Keys are exactly the seven constants on
+        // Extensions\purchasing\Models\PurchaseOrder::STATUSES, nothing
+        // invented, and the tones follow that model's own TRANSITIONS table
+        // rather than a guess at what the words mean.
+        //
+        // Not OrderStatusTone: that class matches on the words a sales
+        // `order_status` row carries (complete, shipped, pending) and knows
+        // none of these seven. Every purchasing status but "cancelled" would
+        // fall through it to neutral, which is a status column with no signal
+        // at all. This vocabulary is genuinely separate, so it gets its own
+        // surface here, which is also the class that already has the
+        // surface-keyed shape and the tone philosophy written down.
+        //
+        // Two statuses take the accent, and only two:
+        //   approved            nothing blocks you, go place the order with
+        //                       the vendor (or email it, which on this
+        //                       extension IS placing it).
+        //   partially_received  goods are physically on the desk and the job
+        //                       is half done. Finish receiving.
+        // draft is deliberately NOT accent. A draft is a scratchpad, not a
+        // commitment, and drafts accumulate: accenting them would put most of
+        // a busy list in the accent colour and leave the two states that
+        // genuinely need a hand indistinguishable from the noise.
+        // ordered is warning rather than info because the vendor owes you
+        // goods and a vendor is someone you can chase, which is exactly the
+        // line this file's philosophy draws between the two tones.
+        // received recedes; cancelled and voided both ended badly.
+        'purchasing.orders' => [
+            'DRAFT'              => 'neutral',
+            'APPROVED'           => 'success',
+            'ORDERED'            => 'warning',
+            'PARTIALLY_RECEIVED' => 'success',
+            'RECEIVED'           => 'neutral',
+            'CANCELLED'          => 'danger',
+            'VOIDED'             => 'danger',
+        ],
     ];
 
     /**
@@ -243,6 +286,21 @@ class ChannelStatusTone
             'REJECTED'            => 'Rejected',
             'CANCELLED'           => 'Cancelled',
             'CANCELED'            => 'Cancelled',
+        ],
+
+        // Said the way a buyer says them. The only constant that does not
+        // read as English on its own is partially_received, which the old
+        // views printed as "Partially Received" via a str_replace on the
+        // underscore. "Partly received" is what someone actually says, and
+        // it matches "Partly paid" on the sales order detail page.
+        'purchasing.orders' => [
+            'DRAFT'              => 'Draft',
+            'APPROVED'           => 'Approved',
+            'ORDERED'            => 'Ordered',
+            'PARTIALLY_RECEIVED' => 'Partly received',
+            'RECEIVED'           => 'Received',
+            'CANCELLED'          => 'Cancelled',
+            'VOIDED'             => 'Voided',
         ],
     ];
 
