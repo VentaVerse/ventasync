@@ -42,12 +42,10 @@
      which is what the •••••••• masks plus resources/js/credential-mask.js are
      for.
 
-     KNOWN, DELIBERATELY UNCHANGED: save() also validates `region` and, on a
-     live save, assigns `$setting->region = $data['region'] ?? null`. This form
-     has never carried a region field, so every production save clears the
-     region that getShops() wrote. That is the pre-redesign behaviour and this
-     task freezes behaviour at the wire, so no region control was added.
-     Recorded in the Round C Task 3 report for a controller-side fix. --}}
+     This form has never carried a region field - `region` is written by
+     getShops() instead. save() now leaves it untouched when the form does
+     not carry it, the same way it already leaves app_key/app_secret
+     untouched on the environment it is not saving. --}}
 @section('content-class', '')
 
 @section('content')

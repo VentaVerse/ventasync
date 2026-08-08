@@ -2149,6 +2149,23 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('live-app-secret', decrypt($setting->app_secret));
     }
 
+    /**
+     * I-5: the form has never carried a region field (getShops() writes it),
+     * so every production save used to null it out. save() now leaves it
+     * alone when the form does not carry it, the same as app_key/app_secret.
+     */
+    public function test_a_tiktok_production_save_preserves_the_stored_region(): void
+    {
+        $this->seedTiktokSetting(['region' => 'ph']);
+
+        $this->actingAs($this->tiktokManager())->post(route('ext.tiktok.save'), [
+            'env' => 'live',
+            'app_key' => 'still-here',
+        ])->assertRedirect();
+
+        $this->assertSame('ph', TikTokSetting::query()->first()->region);
+    }
+
     public function test_stored_tiktok_secrets_never_reach_the_page_source(): void
     {
         $this->seedTiktokSetting(['sandbox_app_secret' => encrypt('sandbox-app-secret')]);
@@ -2163,22 +2180,28 @@ class WorkspaceInteriorsTest extends TestCase
         }
     }
 
+    /**
+     * I-4: the shared switch (channel-settings.js) POSTs JSON on every
+     * channel, and TikTokController::toggleLogging() now answers in kind
+     * instead of a 302 the fetch would silently follow, re-rendering and
+     * discarding the whole settings page on every flip. Mirrors Shopee's
+     * and Lazada's identical assertion.
+     */
     public function test_the_tiktok_logging_switch_saves_without_a_page_reload(): void
     {
         $this->seedTiktokSetting(['api_logging' => true]);
 
-        // The wire the shared switch sends: a JSON body read through
-        // $request->input('api_logging'), which is the same accessor the old
-        // form-encoded field went through.
         $this->actingAs($this->tiktokManager())
             ->postJson(route('ext.tiktok.toggle_logging'), ['api_logging' => 0])
-            ->assertRedirect();
+            ->assertOk()
+            ->assertJson(['ok' => true, 'api_logging' => false]);
 
         $this->assertFalse((bool) TikTokSetting::query()->first()->api_logging);
 
         $this->actingAs($this->tiktokManager())
             ->postJson(route('ext.tiktok.toggle_logging'), ['api_logging' => 1])
-            ->assertRedirect();
+            ->assertOk()
+            ->assertJson(['ok' => true, 'api_logging' => true]);
 
         $this->assertTrue((bool) TikTokSetting::query()->first()->api_logging);
     }

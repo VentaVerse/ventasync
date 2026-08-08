@@ -133,7 +133,11 @@ class TikTokController extends Controller
         if ($env === 'live') {
             if (!empty($data['app_key']))    $setting->app_key = $data['app_key'];
             if (!empty($data['app_secret'])) $setting->app_secret = encrypt(trim($data['app_secret']));
-            $setting->region = $data['region'] ?? null;
+            // The form has never carried a region field (getShops() writes
+            // it instead), so an absent key here means "no opinion", not
+            // "clear it" - matching how app_key/app_secret above are left
+            // untouched when the form does not carry them.
+            if (!empty($data['region']))     $setting->region = $data['region'];
         } else {
             if (!empty($data['sandbox_app_key']))    $setting->sandbox_app_key = $data['sandbox_app_key'];
             if (!empty($data['sandbox_app_secret'])) $setting->sandbox_app_secret = encrypt(trim($data['sandbox_app_secret']));
@@ -680,6 +684,10 @@ class TikTokController extends Controller
         $setting->update([
             'api_logging' => (bool) $request->input('api_logging'),
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'api_logging' => $setting->api_logging]);
+        }
 
         $state = $setting->api_logging ? 'enabled' : 'disabled';
         return back()->with('status', "TikTok API logging {$state}.");
