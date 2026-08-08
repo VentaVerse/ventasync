@@ -196,22 +196,24 @@ function initManualAdd(section) {
    ------------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Both channels post `ids[]` and key on the catalogue product id, so the
-    // only per-channel values are the overlay element and the wording.
-    initChannelListings({
-        overlaySelector: '#venta-group-progress',
-        bulkField: 'ids[]',
-        slowTitle: 'Talking to Venta',
-        bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' product' : ' products'),
-        emptyMessage: 'Select at least one product first.',
-    });
-
-    initChannelListings({
-        overlaySelector: '#opencart-group-progress',
-        bulkField: 'ids[]',
-        slowTitle: 'Talking to OpenCart',
-        bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' product' : ' products'),
-        emptyMessage: 'Select at least one product first.',
+    // Every channel posts `ids[]` and keys on the catalogue product id, so
+    // the only per-channel values are the overlay element and the wording.
+    // Round F Task 1 added the last three; each is inert unless its own
+    // overlay is on the page, so this list costs nothing everywhere else.
+    [
+        ['#venta-group-progress', 'Venta'],
+        ['#opencart-group-progress', 'OpenCart'],
+        ['#shopee-group-progress', 'Shopee'],
+        ['#lazada-group-progress', 'Lazada'],
+        ['#tiktok-group-progress', 'TikTok Shop'],
+    ].forEach(function (channel) {
+        initChannelListings({
+            overlaySelector: channel[0],
+            bulkField: 'ids[]',
+            slowTitle: 'Talking to ' + channel[1],
+            bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' product' : ' products'),
+            emptyMessage: 'Select at least one product first.',
+        });
     });
 
     document.querySelectorAll('[data-group-manual-add]').forEach(initManualAdd);

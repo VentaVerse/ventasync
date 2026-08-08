@@ -17,6 +17,24 @@
      2. the whole of Venta's two-pane product picker, which is a set
         builder and genuinely has no precedent in this system.
 
+   Round F Task 1 brought Shopee's, Lazada's and TikTok's product-group
+   forms onto this same file. The picker above carried them unchanged
+   (identical wire: one hidden `product_ids[]` per row on the right,
+   the same search endpoint and the same three query parameters), so
+   what those three added is only the marketplace-mapping controls the
+   fm- anatomy has no equivalent for:
+
+     3. .gf-combo, the marketplace category combobox. Three channels,
+        one control: Shopee searches its leaf categories over AJAX,
+        TikTok filters a list already on the page, Lazada uses a plain
+        <select>. The first two share this popover.
+     4. .gf-checks, the logistics-channel picker (Shopee only). A flat
+        list of checkboxes, not a card each.
+     5. .gf-attrs, the category-attribute mapping rows. These are
+        rendered both inline by the form and, on a category change, by
+        an AJAX response that returns the same Blade partial, so the
+        markup has to look right in both places with no JS restyling.
+
    The three decisions carried in from the anatomies this builds on:
 
      1. Colour has one job. The primary action is the only accent on
@@ -238,6 +256,263 @@
     text-align: center;
 }
 
+/* ==================================================================
+   The marketplace category combobox (Shopee, TikTok).
+
+   A text input that filters a list of leaf categories and writes the
+   chosen id into a hidden input beside it. Shopee asks the server on
+   every keystroke; TikTok filters an array the page already carries.
+   Both end up with the same popover under the same field, so both use
+   this.
+
+   The popover is the only elevated thing on either page. Everything
+   else in this design system is flat and bordered, but a list that
+   covers the fields underneath has to read as floating or the eye
+   cannot tell what is on top of what.
+   ================================================================== */
+
+.gf-combo { display: flex; align-items: flex-start; gap: var(--space-2); }
+
+.gf-combo__field { position: relative; flex: 1 1 auto; min-width: 0; }
+
+.gf-combo__results {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    /* --shadow-menu, not the legacy --shadow-lg: the latter is defined in
+       base/variables.css, which is the legacy sheet Round F Task 4 deletes.
+       This is the same elevation <x-ui.menu> uses, which is what a popover
+       over the page should read as. */
+    box-shadow: var(--shadow-menu);
+}
+
+/* [hidden] is only a user-agent display:none rule and loses to any
+   class that sets display. The JS toggles this element's hidden
+   attribute, so the opt-out has to be re-stated at a weight that wins. */
+.gf-combo__results[hidden] { display: none; }
+
+.gf-combo__opt {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.gf-combo__opt:last-child { border-bottom: 0; }
+
+.gf-combo__opt:hover,
+.gf-combo__opt:focus-visible { background: var(--surface-hover); outline: none; }
+
+/* The marketplace's own id for the category, read down the list and
+   compared against what the marketplace's back office shows. */
+.gf-combo__id {
+    margin-left: var(--space-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.gf-combo__empty {
+    padding: var(--space-4) var(--space-3);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* ==================================================================
+   Logistics channels (Shopee).
+
+   Every channel Shopee will carry this product on. There are commonly
+   a dozen and the operator ticks several, so this is a plain list of
+   checkboxes in columns, not a card each. Two columns above 640px so
+   the list does not run off the bottom of the section.
+   ================================================================== */
+
+.gf-checks {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px var(--space-4);
+}
+
+@media (min-width: 641px) {
+    .gf-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.gf-check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: var(--space-2) 0;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.gf-check input[disabled] { cursor: default; }
+
+.gf-check__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gf-check__id {
+    flex: none;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ==================================================================
+   Category attributes.
+
+   One row per attribute the marketplace defines for the chosen
+   category: what it is called on the left, the control that sets it on
+   the right. Hairlines between rows, no box each, because there can be
+   forty of them and forty boxes is a wall.
+
+   These rows are also what the fetch-attributes endpoint returns, so
+   the classes live here rather than on the page: the AJAX response is
+   the same Blade partial and has to land looking identical.
+   ================================================================== */
+
+.gf-attrs { display: block; }
+
+.gf-attr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+@media (min-width: 769px) {
+    .gf-attr { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: var(--space-4); }
+}
+
+.gf-attr:last-child { border-bottom: 0; }
+
+.gf-attr__label { min-width: 0; }
+
+.gf-attr__name {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* The marketplace's own key for this attribute. It is what appears in
+   an API error message, so it is worth showing, but it is a machine
+   name and reads as one. */
+.gf-attr__key {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    word-break: break-all;
+}
+
+/* Mandatory is said in words at label weight, not as a red badge.
+   Twenty red badges down one column teaches the operator that red is
+   decoration. Deliberately identical to .fm-req, which is the marker
+   every other required field in this system carries: the same fact
+   should not be shouted here and murmured there. */
+.gf-attr__req {
+    margin-left: var(--space-2);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 400;
+}
+
+.gf-attr__control { min-width: 0; }
+
+/* .x-select-wrap is inline-flex, so a <select> in this column shrinks
+   to its widest option while the <input> beside it fills the row. Two
+   controls answering the same kind of question at two different widths
+   is the unconsidered look this system avoids; both fill the column.
+   Caught in the browser. */
+.gf-attr__control > .x-select-wrap,
+.gf-attr__value > .x-select-wrap { display: flex; width: 100%; }
+
+.gf-attr__control > .x-select-wrap > .x-input,
+.gf-attr__value > .x-select-wrap > .x-input { width: 100%; }
+
+/* The manual-value / product-field pair (Lazada). How the value is
+   filled in on the left, the control that fills it on the right. The
+   two value controls are alternatives to each other and share one
+   cell, so exactly one of them is visible and neither moves when the
+   other appears. */
+.gf-attr__mode {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: start;
+}
+
+@media (min-width: 561px) {
+    .gf-attr__mode { grid-template-columns: minmax(0, 180px) minmax(0, 1fr); }
+}
+
+.gf-attr__value { min-width: 0; }
+
+/* .x-select-wrap sets its own display, so the user agent's [hidden]
+   rule loses to it and a script toggling the attribute appears to do
+   nothing. Re-stated here at a weight that wins. Trap #2 of the shell
+   anatomy notes, and the reason this rule exists at all. */
+.gf-attr__mode [hidden],
+.gf-attr__value [hidden] { display: none; }
+
+/* The resolved-value preview belongs under both columns, not beside
+   the mode selector. */
+.gf-attr__mode > .gf-attr__resolved { grid-column: 1 / -1; }
+
+/* What the chosen product field currently resolves to. A quiet line
+   under the pair, not a tinted callout: it is a preview, not a state. */
+.gf-attr__resolved {
+    margin-top: var(--space-2);
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.gf-attr__resolved[hidden] { display: none; }
+
+.gf-attr__resolved strong { color: var(--text); font-weight: 500; }
+
+.gf-attr__note {
+    margin: var(--space-2) 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.gf-attr__error {
+    margin-top: var(--space-2);
+    color: var(--danger);
+    font-size: 12px;
+}
+
 /* ------------------------------------------------------------------
    Phones. The panes are already stacked by the 901px breakpoint above;
    this shortens them so both plus the move buttons plus the save bar
@@ -250,4 +525,9 @@
     .gf-filters__select { flex: 1 1 100%; }
     .gf-move .x-btn { flex: 1 1 auto; }
     .gf-count { font-size: 24px; }
+
+    /* The combobox's Refresh button drops under the field rather than
+       squeezing it to nothing beside it. */
+    .gf-combo { flex-wrap: wrap; }
+    .gf-combo__field { flex: 1 1 100%; }
 }

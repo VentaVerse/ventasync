@@ -18,6 +18,7 @@ import './pages/channel-settings';
 import './pages/store-settings';
 import './pages/group-form';
 import './pages/group-products';
+import './pages/channel-listing-form';
 import './pages/purchasing';
 import './pages/product-vendors';
 import './pages/warehousing';

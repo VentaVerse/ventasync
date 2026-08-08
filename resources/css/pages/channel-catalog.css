@@ -121,6 +121,10 @@
 .cc-col-leaf    { width: 108px; }
 .cc-col-flag    { width: 130px; }  /* "Cash on delivery" is the widest header here */
 .cc-col-flag--sm { width: 96px; }
+/* A full timestamp in mono, which is how the API-call logs on both channels'
+   category-attribute pages are read: down the column, against each other.
+   Round F Task 1. */
+.cc-col-when    { width: 168px; }
 .cc-col-limit   { width: 148px; }
 /* "plus 7.5% of price" on two lines, not four. */
 .cc-col-markup  { width: 156px; }

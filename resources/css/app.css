@@ -70,7 +70,6 @@
 @import './pages/opencart.css';
 @import './pages/timeline.css';
 @import './pages/toggle-switch.css';
-@import './pages/product-result.css';
 @import './pages/reviews.css';
 @import './pages/catalog.css';
 @import './pages/warehousing.css';
@@ -114,6 +113,16 @@
    all of those pages: this adds the line-item editor, its dual-currency
    cell, the product picker and the order history list. */
 @import './pages/order-form.css';
+
+/* The three "put one catalogue product on a marketplace" forms (`cl-`,
+   Round F Task 1). After form-page.css and group-form.css, which between
+   them carry nearly all of those pages: this adds only the image chooser,
+   the running price total, the read-only payload panes and the identity
+   strip. It replaces pages/product-result.css, which existed solely to
+   style the two innerHTML-built search dropdowns those pages no longer
+   have; that file is deleted and its last consumer converted in the same
+   commit. */
+@import './pages/channel-listing.css';
 
 /* Utilities & Responsive */
 @import './utilities.css';

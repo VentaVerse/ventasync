@@ -1,64 +1,113 @@
+{{-- Lazada category attributes: one row per attribute Lazada defines for the
+     chosen category.
+
+     Rendered twice over, exactly like Shopee's: inline by the group form, and
+     as the body of LazadaProductGroupController::fetchAttributesAjax()'s JSON
+     response when the operator changes the category. Its markup is part of
+     that endpoint's contract, so the row grammar lives in
+     resources/css/pages/group-form.css and nothing here needs a script to
+     restyle it after an injection.
+
+     What Lazada has and Shopee does not is the second way to fill a free-text
+     attribute: instead of typing a value, point it at a field on the
+     catalogue product and let every push read it from there. That is the
+     `__map:<field>` prefix on the stored value, and it is the wire, unchanged.
+
+     Attributes keyed `brand` are skipped, as before: the brand is its own
+     control on the form and Lazada would take two conflicting answers.
+
+     `$canManage` defaults to true because the AJAX path is manage-tier only
+     (perm:manage_lazada on the fetch-attributes route). --}}
+@php
+    $canManage = $canManage ?? true;
+@endphp
+
 @if(!empty($attributes))
-<h3 class="section-title mt-0">Category Attributes</h3>
-<div class="hint" style="margin-bottom:8px;">Map shared attribute values for this Lazada category.
     @if($template && $template->fetched_at)
-        Last synced: {{ $template->fetched_at->format('Y-m-d H:i') }}
+        <p class="fm-section__note">Last read from Lazada {{ $template->fetched_at->format('Y-m-d H:i') }}.</p>
     @endif
-</div>
-<div>
-    @foreach($attributes as $a)
-        @php
-            $key = (string)($a['key'] ?? '');
-            if (strtolower(trim($key)) === 'brand') { continue; }
-            $val = old('attributes.'.$key, $saved[$key] ?? '');
-            $options = $a['options'] ?? [];
-            $isSelect = is_array($options) && count($options) > 0;
-        @endphp
-        <div style="display:grid; grid-template-columns: 1fr 2fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); align-items:start;">
-            <div>
-                <div class="font-semibold">
-                    {{ $a['name'] }}
-                    @if(!empty($a['required']))
-                        <span class="badge badge-red" style="margin-left:6px;">MANDATORY</span>
+
+    <div class="gf-attrs">
+        @foreach($attributes as $attribute)
+            @php
+                $key = (string) ($attribute['key'] ?? '');
+            @endphp
+            @continue(strtolower(trim($key)) === 'brand')
+            @php
+                $value = old('attributes.' . $key, $saved[$key] ?? '');
+                $options = $attribute['options'] ?? [];
+                $isSelect = is_array($options) && count($options) > 0;
+                $controlId = 'attr-' . \Illuminate\Support\Str::slug($key, '-');
+
+                $isMapped = str_starts_with((string) $value, '__map:');
+                $mappedField = $isMapped ? substr((string) $value, 6) : '';
+                $typedValue = $isMapped ? '' : $value;
+            @endphp
+            <div class="gf-attr">
+                <div class="gf-attr__label">
+                    <label class="gf-attr__name" for="{{ $controlId }}">
+                        {{ $attribute['name'] }}
+                        @if(!empty($attribute['required']))<span class="gf-attr__req">Required</span>@endif
+                    </label>
+                    <span class="gf-attr__key">{{ $key }}</span>
+                </div>
+
+                <div class="gf-attr__control">
+                    @if($isSelect)
+                        <div class="x-select-wrap">
+                            <select id="{{ $controlId }}" name="attributes[{{ $key }}]" class="x-input" @disabled(!$canManage)>
+                                <option value="">Not set</option>
+                                @foreach($options as $option)
+                                    @php
+                                        $optionValue = is_array($option)
+                                            ? (string) ($option['name'] ?? $option['label'] ?? $option['value'] ?? '')
+                                            : (string) $option;
+                                    @endphp
+                                    <option value="{{ $optionValue }}" @selected((string) $value === $optionValue)>{{ $optionValue }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+                    @else
+                        <div class="gf-attr__mode" data-attr-row>
+                            <div class="x-select-wrap">
+                                <select class="x-input" data-attr-mode aria-label="How {{ $attribute['name'] }} is filled in" @disabled(!$canManage)>
+                                    <option value="manual" @selected(!$isMapped)>Type a value</option>
+                                    <option value="product_field" @selected($isMapped)>Read it off the product</option>
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
+
+                            {{-- The two ways to answer share one cell, so
+                                 swapping between them moves nothing else on
+                                 the row. --}}
+                            <div class="gf-attr__value">
+                                <input id="{{ $controlId }}" class="x-input" data-attr-manual data-attr-manual-box
+                                       value="{{ $typedValue }}" placeholder="Not set"
+                                       aria-label="{{ $attribute['name'] }}"
+                                       @disabled(!$canManage) @if($isMapped) hidden @endif>
+
+                                <div class="x-select-wrap" data-attr-field-box @unless($isMapped) hidden @endunless>
+                                    <select class="x-input" data-attr-field aria-label="Which product field {{ $attribute['name'] }} is read from" @disabled(!$canManage)>
+                                        <option value="">Pick a product field</option>
+                                        @foreach($erpSourceFields as $fieldKey => $fieldLabel)
+                                            <option value="{{ $fieldKey }}" @selected($isMapped && $mappedField === $fieldKey)>{{ $fieldLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                    <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                                </div>
+                            </div>
+
+                            {{-- The only control in this row that submits. --}}
+                            <input type="hidden" name="attributes[{{ $key }}]" data-attr-value value="{{ $value }}">
+                        </div>
+                    @endif
+
+                    @if($errors->has('attributes.' . $key))
+                        <div class="gf-attr__error">{{ $errors->first('attributes.' . $key) }}</div>
                     @endif
                 </div>
-                <div class="hint" style="margin-top:4px;">{{ $key }}</div>
             </div>
-            <div>
-                @if($isSelect)
-                    <select class="input" name="attributes[{{ $key }}]">
-                        <option value="">-- Select --</option>
-                        @foreach($options as $opt)
-                            @php
-                                $optLabel = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                                $optValue = is_array($opt) ? (string)($opt['name'] ?? $opt['label'] ?? $opt['value'] ?? '') : (string)$opt;
-                            @endphp
-                            <option value="{{ $optValue }}" {{ (string)$val === (string)$optValue ? 'selected' : '' }}>{{ $optLabel }}</option>
-                        @endforeach
-                    </select>
-                @else
-                    @php
-                        $isMapVal = str_starts_with((string)$val, '__map:');
-                        $mapField = $isMapVal ? substr((string)$val, 6) : '';
-                        $manualVal = $isMapVal ? '' : $val;
-                    @endphp
-                    <div class="attr-row" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <select class="input attr-mode-toggle">
-                            <option value="manual" {{ !$isMapVal ? 'selected' : '' }}>Manual Input</option>
-                            <option value="product_field" {{ $isMapVal ? 'selected' : '' }}>Product Field</option>
-                        </select>
-                        <input class="input attr-manual-input" value="{{ $manualVal }}" placeholder="Enter value" style="{{ $isMapVal ? 'display:none;' : '' }}">
-                        <select class="input attr-field-select" style="{{ !$isMapVal ? 'display:none;' : '' }}">
-                            <option value="">-- Select Product Field --</option>
-                            @foreach($erpSourceFields as $erpKey => $erpLabel)
-                                <option value="{{ $erpKey }}" {{ $isMapVal && $mapField === $erpKey ? 'selected' : '' }}>{{ $erpLabel }}</option>
-                            @endforeach
-                        </select>
-                        <input type="hidden" name="attributes[{{ $key }}]" class="attr-hidden-value" value="{{ $val }}">
-                    </div>
-                @endif
-            </div>
-        </div>
-    @endforeach
-</div>
+        @endforeach
+    </div>
 @endif

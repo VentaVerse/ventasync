@@ -144,6 +144,22 @@ class ShopeeProductGroupController extends Controller
                 ->get();
         }
 
+        // The brands already cached for whatever category this group is on.
+        // The picker lazy-loads the rest over AJAX when the category
+        // changes; this is only the set the <select> needs to be correct on
+        // first paint, so an edit page shows the saved brand's own name
+        // rather than an empty control until the fetch comes back.
+        //
+        // This query used to run inside the Blade. Round F Task 1 moved it
+        // here unchanged: same model, same where, same order, same columns.
+        // A view does not query.
+        $initialBrands = $group->shopee_category_id
+            ? ShopeeBrand::query()
+                ->where('category_id', (int) $group->shopee_category_id)
+                ->orderBy('name')
+                ->get(['brand_id', 'name'])
+            : collect();
+
         return view('ext-shopee::product-groups.form', [
             'group' => $group,
             'mode' => $mode,
@@ -155,6 +171,7 @@ class ShopeeProductGroupController extends Controller
             'attributes' => $attributes,
             'saved' => $saved,
             'groupProducts' => $groupProducts,
+            'initialBrands' => $initialBrands,
         ]);
     }
 
@@ -370,7 +387,7 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        // Option rows (variations) for display — combinations first, fallback
+        // Option rows (variations) for display, combinations first, fallback
         // to option values. Single-option products store SKU/qty/price on
         // product_option_value; multi-option products store them on
         // product_option_combinations. Mirrors the Lazada listing fix.
@@ -458,7 +475,7 @@ class ShopeeProductGroupController extends Controller
      * Build Shopee's tier_variation + per-combination model_list payload from
      * the ERP product's product_option_combinations rows. Single-option
      * products (whose data lives on product_option_value rather than
-     * combinations) fall through and return empty arrays — the caller keeps
+     * combinations) fall through and return empty arrays, the caller keeps
      * the existing flat add_item payload for those.
      *
      * Shape returned:
@@ -551,7 +568,7 @@ class ShopeeProductGroupController extends Controller
             foreach ($orderedOptionIds as $oid) {
                 $valueName = $valuesByCombo[$cid][$oid] ?? null;
                 if ($valueName === null) {
-                    // Combination missing a value for this option; skip — Shopee
+                    // Combination missing a value for this option; skip, Shopee
                     // would reject the tier_index anyway.
                     continue 2;
                 }
@@ -594,7 +611,7 @@ class ShopeeProductGroupController extends Controller
      *     option list, original_value_name omitted) or free-text (value_id=0,
      *     original_value_name carries the value).
      *
-     * Skips attributes whose value is blank — Shopee's validation flags the
+     * Skips attributes whose value is blank, Shopee's validation flags the
      * mandatory ones it actually needs and stays quiet about the optional ones.
      */
     private function buildAttributeList(int $groupId, int $categoryId): array
@@ -1032,7 +1049,7 @@ class ShopeeProductGroupController extends Controller
                 $items = $res['body']['response']['item'] ?? [];
                 if (empty($items)) break;
 
-                // Batch fetch details — get_item_base_info accepts up to 50 item_ids
+                // Batch fetch details, get_item_base_info accepts up to 50 item_ids
                 $itemIds = array_filter(array_map(fn($i) => $i['item_id'] ?? null, $items));
                 $detail = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
                     '/api/v2/product/get_item_base_info', [
@@ -1138,10 +1155,10 @@ class ShopeeProductGroupController extends Controller
 
             $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'synced']);
 
-            return redirect()->back()->with('status', "Shopee item ID {$itemId} synced — {$linked} variation(s) linked.");
+            return redirect()->back()->with('status', "Shopee item ID {$itemId} synced, {$linked} variation(s) linked.");
         }
 
-        // Simple product — parent link only
+        // Simple product, parent link only
         ShopeeProductLink::updateOrCreate(
             ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
             ['sku' => $skus[0] ?? '', 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
@@ -1343,7 +1360,7 @@ class ShopeeProductGroupController extends Controller
                 'brand' => $this->buildBrandPayload((int) $group->shopee_category_id, (int) ($group->shopee_brand_id ?? 0)),
             ];
 
-            // Shopee V2 does not honour tier_variation inside add_item — it
+            // Shopee V2 does not honour tier_variation inside add_item, it
             // silently creates a plain single-SKU item and a subsequent
             // add_model fails with "Item without tier_variation. Please use
             // init_tier_variation". The correct flow is:
@@ -1381,7 +1398,7 @@ class ShopeeProductGroupController extends Controller
             if ($itemId) {
                 // For multi-variant products, push per-combo models with
                 // tier_index + model_sku + stock + price BEFORE seeding the
-                // parent link — so refreshShopeeProductLinks below sees real
+                // parent link, so refreshShopeeProductLinks below sees real
                 // models and creates the per-model link rows the sync flow
                 // depends on.
                 if ($hasTierVariation && !empty($tierData['models'])) {
@@ -1433,7 +1450,7 @@ class ShopeeProductGroupController extends Controller
                     ]);
 
                 // For multi-variant products, the parent link alone isn't
-                // enough — Sync Qty/Price work per shopee_model_id. Fetch
+                // enough, Sync Qty/Price work per shopee_model_id. Fetch
                 // model_list and create per-model link rows now so the
                 // operator doesn't need to manually run "Sync ID" after a
                 // push.
@@ -2016,7 +2033,7 @@ class ShopeeProductGroupController extends Controller
                 ->with('error', 'Sync failed: ' . $msg);
         }
 
-        // Try multiple response keys — Shopee may use attribute_list or attribute_tree
+        // Try multiple response keys, Shopee may use attribute_list or attribute_tree
         $attrList = null;
         if (is_array($body)) {
             $response = $body['response'] ?? $body;

@@ -204,7 +204,18 @@ function buildResultButton(item, onPick) {
     return button;
 }
 
-function initUnmatchedLinker(form) {
+/**
+ * Bind a single-select catalogue picker.
+ *
+ * Round F Task 1 note: the root does not have to be a <form>. Shopee's
+ * "add a product to Shopee" page and Lazada's "create a listing" page
+ * carry the identical control (search the catalogue, pick one product,
+ * write its id into a hidden input) and one of them has no form at all,
+ * so this reads only getAttribute / querySelector / contains, all of
+ * which any element answers. The unmatched-item linker on the two
+ * listings pages is the same control on a <form>, unchanged.
+ */
+export function initCataloguePicker(form) {
     const searchUrl = form.getAttribute('data-search-url');
     const input = form.querySelector('[data-unmatched-search]');
     const list = form.querySelector('[data-unmatched-results]');
@@ -241,6 +252,10 @@ function initUnmatchedLinker(form) {
         input.value = (item.name || 'Unnamed product') + ' (ID ' + item.product_id + ')';
         clear();
         if (submit) submit.disabled = false;
+        // Anything that has to react to the choice (the Continue button on
+        // Shopee's add page) listens here rather than reaching into this
+        // module. Same event the group form's category combobox fires.
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     input.addEventListener('input', function () {
@@ -250,6 +265,7 @@ function initUnmatchedLinker(form) {
         // text, and link a product whose name is no longer in the box.
         hidden.value = '';
         if (submit) submit.disabled = true;
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
 
         const query = input.value.trim();
         if (query.length < 2) {
@@ -309,5 +325,5 @@ export function initChannelListings(config) {
 
     initBulkForms(config, showProgress);
     initSlowActions(config, showProgress);
-    document.querySelectorAll('form[data-unmatched-link]').forEach(initUnmatchedLinker);
+    document.querySelectorAll('form[data-unmatched-link]').forEach(initCataloguePicker);
 }

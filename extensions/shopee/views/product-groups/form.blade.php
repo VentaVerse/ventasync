@@ -1,675 +1,428 @@
-@extends('layouts.app')
-@section('breadcrumb', 'Integrations / Shopee / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@extends('layouts.channel')
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' Shopee Product Group')
+@section('breadcrumb', $mode === 'create' ? 'New Product Group' : $group->name)
 
-@section('title', $mode === 'create' ? 'Add Shopee Product Group' : 'Edit Shopee Product Group')
+{{-- Round F Task 1. The last of the channel deep pages: rebuilt on the shared
+     fm- form anatomy (components/form-page.css) and the gf- product picker
+     (pages/group-form.css) that Venta's identical form already used, with the
+     behaviour moved out of an inline <script> into resources/js/pages/
+     group-form.js.
 
+     The wire is unchanged in every particular, checked field by field against
+     ShopeeProductGroupController::store()/update():
+
+       name, shopee_category_id, shopee_brand_id, logistic_ids[],
+       markup_percent, markup_fixed, attributes[<key>], product_ids[]
+
+     and the five endpoints behind the page (search-categories, category
+     lookup, refresh-categories, brands-for-category, fetch-attributes,
+     search-products) are called with the same verbs, the same parameters and
+     the same headers. --}}
 @section('content')
-    <div class="page-header">
-        <div>
-            <h2>{{ $mode === 'create' ? 'Add Shopee Product Group' : 'Edit Shopee Product Group' }}</h2>
-            <div class="text-muted text-sm">Map products to a Shopee category and shared attributes.</div>
-        </div>
-        <div class="page-header-actions">
-            @if($mode === 'edit')
-                <a class="btn secondary" href="{{ route('ext.shopee.product-groups.products', $group->id) }}">View Products</a>
-            @endif
-            <a class="btn secondary" href="{{ route('ext.shopee.product-groups.index') }}">← Back to Product Groups</a>
-        </div>
+@php
+    // The CREATE render is manage-tier, but the EDIT render is registered in
+    // the read group (extensions/shopee/routes/web.php), so a view_shopee
+    // operator can open this page on an existing group. Every write behind it
+    // is manage-only. The route middleware is the real gate; this flag stops
+    // the page offering controls that would 403, which the previous version
+    // did not do at all: it hardcoded the manage tier on.
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+
+    $selectedCategoryId = (int) old('shopee_category_id', $group->shopee_category_id ?? 0);
+    $selectedBrandId = (int) old('shopee_brand_id', $group->shopee_brand_id ?? 0);
+
+    $selectedLogisticIds = old('logistic_ids', $group->logistic_ids ?? []) ?? [];
+    $selectedLogisticIds = array_map('intval', (array) $selectedLogisticIds);
+
+    // The right-hand panel's starting contents. The controller has already
+    // restored these from old('product_ids') when a validation round trip
+    // failed, so this is simply what the server says is in the group now.
+    $rightItems = $groupProducts->map(fn ($p) => [
+        'product_id' => (int) $p->product_id,
+        'name'       => (string) ($p->name ?? ''),
+        'sku'        => (string) ($p->sku ?: ($p->model ?: '')),
+        'quantity'   => (int) $p->quantity,
+    ])->values();
+
+    // JSON_HEX_TAG is what makes a data island safe: it encodes < and > so a
+    // product literally named "</script>" cannot close the element. Data
+    // only, no behaviour.
+    $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+
+    $hasAttributes = $template && !empty($attributes);
+@endphp
+
+<form method="POST" class="fm-page"
+      action="{{ $mode === 'create'
+        ? route('ext.shopee.product-groups.store')
+        : route('ext.shopee.product-groups.update', $group->id) }}">
+    @csrf
+    @if($mode === 'edit')
+        @method('PUT')
+    @endif
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
     </div>
 
-    <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('ext.shopee.product-groups.store') : route('ext.shopee.product-groups.update', $group->id) }}">
-        @csrf
-        @if($mode === 'edit') @method('PUT') @endif
-
-        <div class="card">
-            {{-- Row 1: Name --}}
-            <div>
-                <label>Product Group Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="name" class="input" value="{{ old('name', $group->name) }}" placeholder="e.g. Guitar Pedals">
-            </div>
-
-            {{-- Price Markup --}}
-            <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
-            <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label>Percentage (%)</label>
-                    <input type="number" name="markup_percent" class="input" step="0.01" min="0"
-                           value="{{ old('markup_percent', $group->markup_percent) }}"
-                           placeholder="e.g. 5">
-                    <div class="hint">% of product price applied first.</div>
-                </div>
-                <div>
-                    <label>Fixed Amount</label>
-                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
-                           value="{{ old('markup_fixed', $group->markup_fixed) }}"
-                           placeholder="e.g. 100">
-                    <div class="hint">Flat amount added after percentage.</div>
-                </div>
-            </div>
-
-            {{-- Shopee Mapping --}}
-            <h3 class="section-title" style="margin-top:20px;">Shopee Mapping</h3>
-
-            @php
-                $__selectedCatId = (int) old('shopee_category_id', $group->shopee_category_id ?? 0);
-            @endphp
-            <div>
-                <label>Shopee Category <span style="color:var(--danger);">*</span></label>
-                <div style="display:flex; gap:8px; align-items:start;">
-                    {{-- Hidden field is what the form actually submits. The
-                         visible text input is just the combobox display. JS keeps
-                         them in sync. --}}
-                    <input type="hidden" name="shopee_category_id" id="shopeeCategorySelect" value="{{ $__selectedCatId > 0 ? $__selectedCatId : '' }}">
-                    <div style="flex:1; position:relative;" id="shopeeCategoryBox">
-                        <input type="text" class="input" id="shopeeCategorySearchInput" autocomplete="off"
-                               placeholder="Type to search Shopee categories…" />
-                        <div id="shopeeCategoryResults" style="position:absolute; left:0; right:0; top:100%; z-index:30; background:#fff; border:1px solid var(--border); border-top:none; max-height:300px; overflow-y:auto; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
-                        <div class="hint" id="shopeeCategoryHint" style="margin-top:4px;">Only leaf categories are listed — Shopee only accepts leaves for product creation.</div>
-                    </div>
-                    <button type="button" class="btn small secondary" id="refreshCatsBtn" title="Refresh categories from Shopee API">Refresh</button>
-                </div>
-            </div>
-
-            @php
-                $selectedBrandId = (int) old('shopee_brand_id', $group->shopee_brand_id ?? 0);
-                $initialBrands = ($group->shopee_category_id ?? null)
-                    ? \Extensions\shopee\Models\ShopeeBrand::query()
-                        ->where('category_id', (int) $group->shopee_category_id)
-                        ->orderBy('name')
-                        ->get(['brand_id', 'name'])
-                    : collect();
-            @endphp
-            <div style="margin-top:12px;">
-                <label>Shopee Brand</label>
-                <select name="shopee_brand_id" id="shopeeBrandSelect" class="input">
-                    <option value="0" {{ $selectedBrandId === 0 ? 'selected' : '' }}>No Brand</option>
-                    @foreach($initialBrands as $b)
-                        <option value="{{ (int) $b->brand_id }}" {{ $selectedBrandId === (int) $b->brand_id ? 'selected' : '' }}>
-                            {{ $b->name }}
-                        </option>
-                    @endforeach
-                </select>
-                <div class="hint" id="shopeeBrandHint" style="margin-top:4px;">Brands load automatically when you pick a category. Defaults to No Brand.</div>
-            </div>
-
-            {{-- Logistics Channels --}}
-            <h3 class="section-title" style="margin-top:20px;">Logistics Channels <span style="color:var(--danger);">*</span></h3>
-            <div class="hint" style="margin-bottom:8px;">Select the logistics channels to use when pushing products from this product group.</div>
-
-            @php
-                $selectedLogIds = old('logistic_ids', $group->logistic_ids ?? []) ?? [];
-                $selectedLogIds = array_map('intval', (array)$selectedLogIds);
-            @endphp
-
-            @if(!empty($logistics))
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    @foreach($logistics as $ch)
-                        @php
-                            $lid = (int)($ch['logistic_id'] ?? 0);
-                            $lname = (string)($ch['logistic_name'] ?? 'Channel #' . $lid);
-                        @endphp
-                        <label style="display:flex; align-items:center; gap:8px; padding:6px 0;">
-                            <input type="checkbox" name="logistic_ids[]" value="{{ $lid }}"
-                                {{ in_array($lid, $selectedLogIds) ? 'checked' : '' }}>
-                            <span>{{ $lname }} <span class="text-muted text-xs">(ID: {{ $lid }})</span></span>
-                        </label>
-                    @endforeach
-                </div>
-            @else
-                <div class="text-muted">No logistics channels cached. <a href="{{ route('ext.shopee.logistics.index') }}">Fetch them from the Logistics page</a> first.</div>
-            @endif
-        </div>
-
-        {{-- Category Attributes (loaded via AJAX on category change, or from server on edit) --}}
-        <div class="card mt-16" id="shopee-attributes-card" style="{{ ($template && !empty($attributes)) ? '' : 'display:none;' }}">
-            <div id="shopee-attributes-container">
-                @if($template && !empty($attributes))
-                    @include('ext-shopee::product-groups._attributes', ['attributes' => $attributes, 'saved' => $saved, 'template' => $template])
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('ext.shopee.product-groups.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> Product Groups
+            </a>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Channel</span>
+                    <span class="fm-stamp__v">Shopee</span>
+                </span>
+                @if($mode === 'edit')
+                    <span class="fm-stamp">
+                        <span class="fm-stamp__k">Group</span>
+                        <span class="fm-stamp__v">{{ $group->id }}</span>
+                    </span>
                 @endif
             </div>
         </div>
-
-        {{-- Product Assignment (Dual Listbox) --}}
-        <div class="card mt-16">
-            <h3 class="section-title mt-0">Products</h3>
-            <div class="hint" style="margin-bottom:12px;">Use the filters to find products, then move them to the right panel to include in this group.</div>
-
-            {{-- Search Filters --}}
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end; margin-bottom:16px;">
-                <div>
-                    <label class="text-xs text-muted">Search</label>
-                    <input type="text" class="input" id="pl-search" placeholder="Name, SKU or model..." autocomplete="off">
-                </div>
-                <div>
-                    <label class="text-xs text-muted">Category</label>
-                    <select class="input" id="pl-category">
-                        <option value="">All Categories</option>
-                        @foreach($catalogCategories as $cat)
-                            <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="text-xs text-muted">Manufacturer</label>
-                    <select class="input" id="pl-manufacturer">
-                        <option value="">All Manufacturers</option>
-                        @foreach($manufacturers as $mfg)
-                            <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <button type="button" class="btn" id="pl-search-btn">Search</button>
+        @if($mode === 'edit')
+            <div class="fm-head__actions">
+                <x-ui.button size="sm" :href="route('ext.shopee.product-groups.products', $group->id)">View products</x-ui.button>
             </div>
+        @endif
+    </div>
 
-            {{-- Dual Listbox --}}
-            <div style="display:grid; grid-template-columns:1fr 48px 1fr; gap:0; align-items:start;">
-                {{-- Left Panel: Available --}}
-                <div>
-                    <div style="font-weight:600; font-size:13px; margin-bottom:6px;">
-                        Available <span id="pl-left-count" class="text-muted font-normal">(0)</span>
-                    </div>
-                    <div style="border:1px solid var(--border); border-radius:var(--radius-md); height:420px; overflow-y:auto; background:var(--surface);">
-                        <table class="table" style="margin:0;">
-                            <thead style="position:sticky; top:0; background:var(--surface); z-index:1;">
-                                <tr>
-                                    <th style="width:30px; padding:6px 4px;"><input type="checkbox" id="pl-left-check-all"></th>
-                                    <th style="width:50px; padding:6px 4px;">ID</th>
-                                    <th style="padding:6px 4px;">Name</th>
-                                    <th style="width:90px; padding:6px 4px;">SKU</th>
-                                    <th style="width:40px; padding:6px 4px;">Qty</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pl-left-body">
-                                <tr><td colspan="5" class="text-muted text-center" style="padding:40px 8px; font-size:13px;">Use the filters above and click Search</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Name</h2>
+                </div>
+                <div class="fm-fields">
+                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
+                                hint="What this batch of products is, in the words your team uses. It is never sent to Shopee.">
+                        <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}"
+                                    placeholder="Guitar pedals" :disabled="!$canManageShopee" />
+                    </x-ui.field>
+                </div>
+            </section>
+
+            {{-- ------------------------------------------------------------
+                 Shopee mapping.
+
+                 The category picker is a combobox over Shopee's own leaf
+                 categories, searched on the server because the cache holds
+                 tens of thousands of them. The hidden input beside it is what
+                 submits; the visible box is the display. Picking one fires a
+                 change on the hidden input, which is what the brand loader
+                 and the attribute fetch below listen for. That coupling is
+                 the pre-redesign behaviour, unchanged.
+                 ------------------------------------------------------------ --}}
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Shopee mapping</h2>
                 </div>
 
-                {{-- Middle: Add/Remove Buttons --}}
-                <div style="display:flex; flex-direction:column; gap:8px; align-items:center; padding-top:80px;">
-                    <button type="button" class="btn small" id="pl-add-btn" title="Add selected to group" style="padding:4px 10px; font-size:16px; font-weight:700; line-height:1;">&rsaquo;&rsaquo;</button>
-                    <button type="button" class="btn small secondary" id="pl-remove-btn" title="Remove selected from group" style="padding:4px 10px; font-size:16px; font-weight:700; line-height:1;">&lsaquo;&lsaquo;</button>
+                <div class="fm-fields">
+                    <x-ui.field label="Shopee category" for="pg-category" name="shopee_category_id" :required="true" wide
+                                hint="Only leaf categories are listed. Shopee accepts nothing else when it creates a product.">
+                        <div class="gf-combo"
+                             data-category-combo
+                             data-combo-mode="remote"
+                             data-combo-search-url="{{ route('ext.shopee.product-groups.searchCategories') }}"
+                             data-combo-lookup-url="{{ route('ext.shopee.product-groups.categoryLookup') }}"
+                             @if($canManageShopee) data-combo-refresh-url="{{ route('ext.shopee.product-groups.refreshCategories') }}" @endif>
+                            <div class="gf-combo__field">
+                                <input type="hidden" name="shopee_category_id" data-combo-value
+                                       value="{{ $selectedCategoryId > 0 ? $selectedCategoryId : '' }}">
+                                <x-ui.input id="pg-category" type="search" autocomplete="off"
+                                            data-combo-input
+                                            placeholder="Type to search Shopee categories"
+                                            :disabled="!$canManageShopee" />
+                                <div class="gf-combo__results" data-combo-results role="listbox"
+                                     aria-label="Shopee leaf categories" hidden></div>
+                            </div>
+                            @if($canManageShopee)
+                                <x-ui.button type="button" size="sm" data-combo-refresh>Refresh</x-ui.button>
+                            @endif
+                        </div>
+                    </x-ui.field>
+
+                    <x-ui.field label="Shopee brand" for="pg-brand" name="shopee_brand_id" wide>
+                        <div class="x-select-wrap">
+                            <select id="pg-brand" name="shopee_brand_id" class="x-input"
+                                    data-brand-select
+                                    data-brand-url="{{ route('ext.shopee.product-groups.brandsForCategory') }}"
+                                    data-brand-selected="{{ $selectedBrandId }}"
+                                    @disabled(!$canManageShopee)>
+                                <option value="0" @selected($selectedBrandId === 0)>No brand</option>
+                                @foreach($initialBrands as $brand)
+                                    <option value="{{ (int) $brand->brand_id }}" @selected($selectedBrandId === (int) $brand->brand_id)>{{ $brand->name }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+                        <div class="fm-hint" data-brand-hint>Brands load when you pick a category. It stays on No brand until you choose one.</div>
+                    </x-ui.field>
+                </div>
+            </section>
+
+            {{-- ------------------------------------------------------------
+                 Logistics channels. Required by the controller
+                 (logistic_ids is `required|array`), so the label says so.
+                 ------------------------------------------------------------ --}}
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Delivery options</h2>
+                </div>
+                <p class="fm-section__note">Which of Shopee's couriers a product from this group is offered on. Pick at least one.</p>
+
+                @if($errors->has('logistic_ids'))
+                    <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
+                @endif
+
+                @if(!empty($logistics))
+                    <div class="gf-checks">
+                        @foreach($logistics as $channel)
+                            @php
+                                $logisticId = (int) ($channel['logistic_id'] ?? 0);
+                                $logisticName = (string) ($channel['logistic_name'] ?? 'Channel ' . $logisticId);
+                            @endphp
+                            <label class="gf-check">
+                                <input type="checkbox" class="cc-check" name="logistic_ids[]" value="{{ $logisticId }}"
+                                       @checked(in_array($logisticId, $selectedLogisticIds, true))
+                                       @disabled(!$canManageShopee)>
+                                <span class="gf-check__name">{{ $logisticName }}</span>
+                                <span class="gf-check__id">{{ $logisticId }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                @else
+                    <x-ui.empty title="No delivery options cached"
+                                description="Fetch them from the Logistics page first, then come back.">
+                        <x-slot:action>
+                            <x-ui.button :href="route('ext.shopee.logistics.index')">Go to Logistics</x-ui.button>
+                        </x-slot:action>
+                    </x-ui.empty>
+                @endif
+            </section>
+
+            {{-- ------------------------------------------------------------
+                 Category attributes.
+
+                 Rendered inline when the group already has a category, and
+                 replaced wholesale when the category changes: the endpoint
+                 answers with the same Blade partial this @include renders, so
+                 both paths land looking identical.
+
+                 The section carries `hidden` rather than an inline
+                 display:none. resources/css/pages/group-form.css does not set
+                 a display on .fm-section, so the user agent's [hidden] rule
+                 wins here; the JS toggles the same attribute.
+                 ------------------------------------------------------------ --}}
+            <section class="fm-section"
+                     data-attributes-fetch
+                     data-attributes-url="{{ route('ext.shopee.product-groups.fetchAttributes') }}"
+                     data-attributes-field="shopee_category_id"
+                     @unless($hasAttributes) hidden @endunless>
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Category attributes</h2>
+                </div>
+                <p class="fm-section__note">Values Shopee asks for on every product in this category. They are saved with the group and used on every push.</p>
+                <div data-attributes-target>
+                    @if($hasAttributes)
+                        @include('ext-shopee::product-groups._attributes', [
+                            'attributes' => $attributes,
+                            'saved' => $saved,
+                            'template' => $template,
+                            'canManage' => $canManageShopee,
+                        ])
+                    @endif
+                </div>
+            </section>
+
+            {{-- ------------------------------------------------------------
+                 Products.
+
+                 The same two-panel set builder Venta's group form uses, and
+                 the same module drives it. The only thing that submits is the
+                 right-hand side, as `product_ids[]`, which is the wire this
+                 page always had.
+                 ------------------------------------------------------------ --}}
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Products in this group</h2>
                 </div>
 
-                {{-- Right Panel: In Group --}}
-                <div>
-                    <div style="font-weight:600; font-size:13px; margin-bottom:6px;">
-                        In Group <span id="pl-right-count" class="text-muted font-normal">({{ $groupProducts->count() }})</span>
-                    </div>
-                    <div style="border:1px solid var(--border); border-radius:var(--radius-md); height:420px; overflow-y:auto; background:var(--surface);">
-                        <table class="table" style="margin:0;">
-                            <thead style="position:sticky; top:0; background:var(--surface); z-index:1;">
-                                <tr>
-                                    <th style="width:30px; padding:6px 4px;"><input type="checkbox" id="pl-right-check-all"></th>
-                                    <th style="width:50px; padding:6px 4px;">ID</th>
-                                    <th style="padding:6px 4px;">Name</th>
-                                    <th style="width:90px; padding:6px 4px;">SKU</th>
-                                    <th style="width:40px; padding:6px 4px;">Qty</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pl-right-body">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+                @if($canManageShopee)
+                <p class="fm-section__note">Search the catalogue on the left, move what belongs into the group on the right. Only what is on the right is saved.</p>
 
-            {{-- Hidden inputs for product IDs --}}
-            <div id="pl-hidden-inputs"></div>
+                <div class="gf-dual"
+                     data-group-product-picker
+                     data-search-url="{{ route('ext.shopee.product-groups.searchProducts') }}">
+
+                    <div class="gf-filters">
+                        <x-ui.input type="search" class="gf-filters__search" data-gf-q
+                                    placeholder="Name, SKU or model" aria-label="Search the catalogue by name, SKU or model" />
+
+                        <div class="x-select-wrap gf-filters__select">
+                            <select class="x-input" data-gf-category aria-label="Filter by catalogue category">
+                                <option value="">All categories</option>
+                                @foreach($catalogCategories as $cat)
+                                    <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+
+                        <div class="x-select-wrap gf-filters__select">
+                            <select class="x-input" data-gf-manufacturer aria-label="Filter by manufacturer">
+                                <option value="">All manufacturers</option>
+                                @foreach($manufacturers as $mfg)
+                                    <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+
+                        <x-ui.button type="button" variant="secondary" data-gf-search>Search</x-ui.button>
+                    </div>
+
+                    <div class="gf-panes">
+                        <div class="gf-pane">
+                            <div class="gf-pane__head">
+                                <span class="gf-pane__title">Catalogue</span>
+                                <span class="gf-pane__count x-num" data-gf-left-count>0</span>
+                            </div>
+                            <div class="gf-pane__body">
+                                <table class="gf-list">
+                                    <thead>
+                                        <tr>
+                                            <th class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalogue result"></th>
+                                            <th class="gf-col-id">ID</th>
+                                            <th>Product</th>
+                                            <th class="gf-col-qty">Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-gf-left></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="gf-move">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalogue products to the group">
+                                Add <x-ui.icon name="chevron-right" size="14" />
+                            </x-ui.button>
+                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the group">
+                                <x-ui.icon name="chevron-left" size="14" /> Remove
+                            </x-ui.button>
+                        </div>
+
+                        <div class="gf-pane">
+                            <div class="gf-pane__head">
+                                <span class="gf-pane__title">In this group</span>
+                                <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
+                            </div>
+                            <div class="gf-pane__body">
+                                <table class="gf-list">
+                                    <thead>
+                                        <tr>
+                                            <th class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the group"></th>
+                                            <th class="gf-col-id">ID</th>
+                                            <th>Product</th>
+                                            <th class="gf-col-qty">Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-gf-right></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- The only part of this control that submits. Rewritten
+                         by the picker on every change; one hidden
+                         `product_ids[]` per row on the right. --}}
+                    <div data-gf-inputs></div>
+
+                    <script type="application/json" data-gf-initial>{!! json_encode($rightItems, $jsonFlags) !!}</script>
+                </div>
+                @else
+                {{-- Read tier. The two-pane control is a builder for this list
+                     and nothing else, so the list itself is what a reader is
+                     shown. Nothing here submits. --}}
+                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this group.</p>
+
+                @if($rightItems->isEmpty())
+                    <x-ui.empty title="No products in this group"
+                                description="Someone with the manage tier needs to add them." />
+                @else
+                    <x-ui.table>
+                        <x-slot:head>
+                            <tr>
+                                <th class="cc-col-id">ID</th>
+                                <th>Product</th>
+                                <th class="cc-col-qty x-td-num">Stock</th>
+                            </tr>
+                        </x-slot:head>
+                        @foreach($rightItems as $item)
+                            <tr>
+                                <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $item['product_id'] }}</span></td>
+                                <td data-label="Product">
+                                    <span class="co-item__name">{{ $item['name'] !== '' ? $item['name'] : 'Unnamed product' }}</span>
+                                    <span class="co-item__meta">{{ $item['sku'] !== '' ? $item['sku'] : 'No SKU' }}</span>
+                                </td>
+                                <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format($item['quantity']) }}</span></td>
+                            </tr>
+                        @endforeach
+                    </x-ui.table>
+                @endif
+                @endif
+            </section>
         </div>
 
-        <div class="d-flex justify-end gap-8 mt-16">
-            <button class="btn" type="submit">
-                {{ $mode === 'create' ? 'Create Product Group' : 'Save Product Group' }}
-            </button>
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
+                <div class="fm-card__body">
+                    <p class="fm-section__note">The percentage is taken off the catalogue price first, then the fixed amount is added on top. Leave both empty to push the catalogue price as it is.</p>
+
+                    <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
+                                hint="5 means the pushed price is 5% above the catalogue price.">
+                        <div class="cs-inline">
+                            <x-ui.input id="pg-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
+                                        class="fm-input--num cs-days"
+                                        value="{{ old('markup_percent', $group->markup_percent) }}" placeholder="0"
+                                        :disabled="!$canManageShopee" />
+                            <span class="cs-inline__unit">%</span>
+                        </div>
+                    </x-ui.field>
+
+                    <x-ui.field label="Fixed amount" for="pg-markup-fixed" name="markup_fixed"
+                                hint="Added after the percentage.">
+                        <x-ui.input id="pg-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
+                                    class="fm-input--num"
+                                    value="{{ old('markup_fixed', $group->markup_fixed) }}" placeholder="0.00"
+                                    :disabled="!$canManageShopee" />
+                    </x-ui.field>
+                </div>
+            </div>
         </div>
-    </form>
+    </div>
 
-@push('scripts')
-<script>
-(function() {
-    // ── Refresh Categories ──────────────────────────────────────
-    var refreshCatsBtn = document.getElementById('refreshCatsBtn');
-    var catSelect = document.getElementById('shopeeCategorySelect'); // hidden input now
-    var catSearchInput = document.getElementById('shopeeCategorySearchInput');
-    var catResultsBox = document.getElementById('shopeeCategoryResults');
-    var catBox = document.getElementById('shopeeCategoryBox');
-    var refreshCatsUrl = @json(route('ext.shopee.product-groups.refreshCategories'));
-    var searchCatsUrl = @json(route('ext.shopee.product-groups.searchCategories'));
-    var lookupCatUrl  = @json(route('ext.shopee.product-groups.categoryLookup'));
-    var fetchAttrsUrl = @json(route('ext.shopee.product-groups.fetchAttributes'));
-    var brandsUrl = @json(route('ext.shopee.product-groups.brandsForCategory'));
-    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    // ── Category combobox: AJAX search + select ─────────────────
-    var catSearchDebounceTimer = null;
-    function emitCategoryChange(){
-        if (catSelect) catSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    function renderCatResults(items){
-        if (!catResultsBox) return;
-        catResultsBox.textContent = '';
-        if (!items || items.length === 0) {
-            var empty = document.createElement('div');
-            empty.style.padding = '10px 12px';
-            empty.className = 'text-muted';
-            empty.textContent = 'No leaf categories match.';
-            catResultsBox.appendChild(empty);
-            catResultsBox.style.display = 'block';
-            return;
-        }
-        items.forEach(function(c){
-            var row = document.createElement('div');
-            row.style.padding = '8px 12px';
-            row.style.cursor = 'pointer';
-            row.style.borderBottom = '1px solid var(--border)';
-            row.textContent = c.name + ' (' + c.category_id + ')';
-            row.addEventListener('mouseenter', function(){ row.style.background = 'var(--surface, #f3f4f6)'; });
-            row.addEventListener('mouseleave', function(){ row.style.background = ''; });
-            row.addEventListener('click', function(){
-                catSelect.value = String(c.category_id);
-                catSearchInput.value = c.name + ' (' + c.category_id + ')';
-                catResultsBox.style.display = 'none';
-                emitCategoryChange();
-            });
-            catResultsBox.appendChild(row);
-        });
-        catResultsBox.style.display = 'block';
-    }
-    function doCatSearch(q){
-        var u = new URL(searchCatsUrl, window.location.origin);
-        u.searchParams.set('q', q);
-        u.searchParams.set('limit', '25');
-        fetch(u.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function(r){ return r.json(); })
-            .then(function(data){
-                if (data && data.ok) renderCatResults(data.categories || []);
-            })
-            .catch(function(){});
-    }
-    if (catSearchInput && catResultsBox && catSelect) {
-        catSearchInput.addEventListener('input', function(){
-            // User typed — invalidate the saved category_id until they pick one.
-            catSelect.value = '';
-            if (catSearchDebounceTimer) clearTimeout(catSearchDebounceTimer);
-            var q = catSearchInput.value.trim();
-            catSearchDebounceTimer = setTimeout(function(){ doCatSearch(q); }, 200);
-        });
-        catSearchInput.addEventListener('focus', function(){ doCatSearch(catSearchInput.value.trim()); });
-        document.addEventListener('click', function(e){
-            if (catBox && !catBox.contains(e.target)) catResultsBox.style.display = 'none';
-        });
-        // Restore the pre-selected category's name on edit-page load.
-        if (catSelect.value) {
-            var u = new URL(lookupCatUrl, window.location.origin);
-            u.searchParams.set('category_id', catSelect.value);
-            fetch(u.toString(), { headers: { 'Accept': 'application/json' } })
-                .then(function(r){ return r.json(); })
-                .then(function(data){
-                    if (data && data.ok && data.category) {
-                        catSearchInput.value = data.category.name + ' (' + data.category.category_id + ')';
-                    }
-                })
-                .catch(function(){});
-        }
-    }
-
-    // ── Brand Picker: lazy-load on category change ──────────────
-    var brandSelect = document.getElementById('shopeeBrandSelect');
-    var brandHint = document.getElementById('shopeeBrandHint');
-    var savedBrandId = @json($selectedBrandId ?? 0);
-
-    function setBrandHint(text) {
-        if (brandHint) brandHint.textContent = text;
-    }
-
-    function loadBrandsFor(catId, opts) {
-        opts = opts || {};
-        if (!brandSelect) return;
-        if (!catId) {
-            brandSelect.innerHTML = '<option value="0">No Brand</option>';
-            setBrandHint('Brands load automatically when you pick a category. Defaults to No Brand.');
-            return;
-        }
-        setBrandHint('Loading brands for this category…');
-        var u = new URL(brandsUrl, window.location.origin);
-        u.searchParams.set('category_id', catId);
-        fetch(u.toString(), {
-            method: 'GET',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.ok) {
-                setBrandHint(data.message || 'Failed to load brands for this category.');
-                return;
-            }
-            var prev = opts.keepSelected ? String(savedBrandId) : '0';
-            brandSelect.innerHTML = '';
-            var none = document.createElement('option');
-            none.value = '0';
-            none.textContent = 'No Brand';
-            if (prev === '0') none.selected = true;
-            brandSelect.appendChild(none);
-            (data.brands || []).forEach(function (b) {
-                var opt = document.createElement('option');
-                opt.value = String(b.brand_id);
-                opt.textContent = b.name;
-                if (String(b.brand_id) === prev) opt.selected = true;
-                brandSelect.appendChild(opt);
-            });
-            var n = (data.brands || []).length;
-            var src = data.cached ? 'cached' : 'fetched from Shopee';
-            setBrandHint(n + ' brand(s) ' + src + ' for this category. Defaults to No Brand if unsure.');
-        })
-        .catch(function () { setBrandHint('Network error loading brands.'); });
-    }
-
-    if (refreshCatsBtn) {
-        refreshCatsBtn.addEventListener('click', function() {
-            refreshCatsBtn.disabled = true;
-            refreshCatsBtn.textContent = 'Refreshing...';
-
-            fetch(refreshCatsUrl, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.ok) {
-                    // The cache is now refreshed — re-trigger a search so
-                    // any newly-added leaves surface.
-                    if (catSearchInput) doCatSearch(catSearchInput.value.trim());
-                    showFlashSuccess(data.count + ' categories refreshed.');
-                } else {
-                    showFlashError(data.message || 'Failed to refresh categories.');
-                }
-            })
-            .catch(function() { showFlashError('Network error refreshing categories.'); })
-            .finally(function() { refreshCatsBtn.disabled = false; refreshCatsBtn.textContent = 'Refresh'; });
-        });
-    }
-
-    // ── Brand fetch (independent of attributes card — must fire even
-    //    when the attributes UI isn't on the page).
-    if (catSelect) {
-        if (catSelect.value) {
-            loadBrandsFor(catSelect.value, { keepSelected: true });
-        }
-        catSelect.addEventListener('change', function () {
-            savedBrandId = 0;
-            loadBrandsFor(catSelect.value, { keepSelected: false });
-        });
-    }
-
-    // ── Proactive Attribute Fetch on Category Change ──────────
-    var attrsCard = document.getElementById('shopee-attributes-card');
-    var attrsContainer = document.getElementById('shopee-attributes-container');
-
-    if (catSelect && attrsCard && attrsContainer) {
-        catSelect.addEventListener('change', function() {
-            var catId = catSelect.value;
-            if (!catId) {
-                attrsCard.style.display = 'none';
-                attrsContainer.textContent = '';
-                return;
-            }
-
-            attrsContainer.textContent = '';
-            var loading = document.createElement('div');
-            loading.className = 'text-muted';
-            loading.style.padding = '12px';
-            loading.textContent = 'Fetching attributes...';
-            attrsContainer.appendChild(loading);
-            attrsCard.style.display = '';
-
-            var formData = new FormData();
-            formData.append('shopee_category_id', catId);
-
-            fetch(fetchAttrsUrl, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-                body: formData
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.ok && data.html) {
-                    attrsContainer.insertAdjacentHTML('afterbegin', data.html);
-                } else {
-                    attrsContainer.textContent = '';
-                    var msg = document.createElement('div');
-                    msg.className = 'text-muted';
-                    msg.style.padding = '12px';
-                    msg.textContent = 'No attributes found for this category.';
-                    attrsContainer.appendChild(msg);
-                }
-            })
-            .catch(function() {
-                attrsContainer.textContent = '';
-                var msg = document.createElement('div');
-                msg.className = 'text-muted';
-                msg.style.padding = '12px';
-                msg.textContent = 'Failed to fetch attributes.';
-                attrsContainer.appendChild(msg);
-            });
-        });
-    }
-
-    // ── Dual Listbox ────────────────────────────────────────────
-    var searchUrl = @json(route('ext.shopee.product-groups.searchProducts'));
-    @php
-        $rightItemsJson = $groupProducts->map(fn($p) => [
-            'product_id' => (int) $p->product_id,
-            'name'       => $p->name,
-            'sku'        => $p->sku ?: ($p->model ?: ''),
-            'quantity'   => (int) $p->quantity,
-        ]);
-    @endphp
-    var rightItems = @json($rightItemsJson);
-
-    var leftItems = [];
-    var rightSet = {};
-    rightItems.forEach(function(item) { rightSet[item.product_id] = true; });
-
-    var leftBody = document.getElementById('pl-left-body');
-    var rightBody = document.getElementById('pl-right-body');
-    var leftCount = document.getElementById('pl-left-count');
-    var rightCount = document.getElementById('pl-right-count');
-    var hiddenDiv = document.getElementById('pl-hidden-inputs');
-    var leftCheckAll = document.getElementById('pl-left-check-all');
-    var rightCheckAll = document.getElementById('pl-right-check-all');
-
-    function makeRow(item, side) {
-        var tr = document.createElement('tr');
-
-        var tdCb = document.createElement('td');
-        tdCb.style.cssText = 'padding:4px;';
-        var cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.className = side === 'left' ? 'pl-left-check' : 'pl-right-check';
-        cb.value = item.product_id;
-        tdCb.appendChild(cb);
-        tr.appendChild(tdCb);
-
-        var tdId = document.createElement('td');
-        tdId.style.cssText = 'padding:4px; font-size:12px;';
-        tdId.textContent = item.product_id;
-        tr.appendChild(tdId);
-
-        var tdName = document.createElement('td');
-        tdName.style.cssText = 'padding:4px; font-size:12px;';
-        tdName.textContent = item.name || '-';
-        tr.appendChild(tdName);
-
-        var tdSku = document.createElement('td');
-        tdSku.style.cssText = 'padding:4px; font-size:12px;';
-        var code = document.createElement('code');
-        code.textContent = item.sku || '-';
-        tdSku.appendChild(code);
-        tr.appendChild(tdSku);
-
-        var tdQty = document.createElement('td');
-        tdQty.style.cssText = 'padding:4px; font-size:12px;';
-        tdQty.textContent = item.quantity;
-        tr.appendChild(tdQty);
-
-        return tr;
-    }
-
-    function makeEmptyRow(msg, colspan) {
-        var tr = document.createElement('tr');
-        var td = document.createElement('td');
-        td.setAttribute('colspan', colspan);
-        td.className = 'text-muted text-center';
-        td.style.cssText = 'padding:40px 8px; font-size:13px;';
-        td.textContent = msg;
-        tr.appendChild(td);
-        return tr;
-    }
-
-    function renderLeft() {
-        var visible = leftItems.filter(function(item) { return !rightSet[item.product_id]; });
-        leftCount.textContent = '(' + visible.length + ')';
-        if (leftCheckAll) leftCheckAll.checked = false;
-        leftBody.textContent = '';
-
-        if (visible.length === 0) {
-            leftBody.appendChild(makeEmptyRow(leftItems.length > 0 ? 'All results already in group' : 'No results', 5));
-            return;
-        }
-
-        visible.forEach(function(item) {
-            leftBody.appendChild(makeRow(item, 'left'));
-        });
-    }
-
-    function renderRight() {
-        rightCount.textContent = '(' + rightItems.length + ')';
-        if (rightCheckAll) rightCheckAll.checked = false;
-        syncHiddenInputs();
-        rightBody.textContent = '';
-
-        if (rightItems.length === 0) {
-            rightBody.appendChild(makeEmptyRow('No products added', 5));
-            return;
-        }
-
-        rightItems.forEach(function(item) {
-            rightBody.appendChild(makeRow(item, 'right'));
-        });
-    }
-
-    function syncHiddenInputs() {
-        hiddenDiv.textContent = '';
-        rightItems.forEach(function(item) {
-            var inp = document.createElement('input');
-            inp.type = 'hidden';
-            inp.name = 'product_ids[]';
-            inp.value = item.product_id;
-            hiddenDiv.appendChild(inp);
-        });
-    }
-
-    function doSearch() {
-        var q = document.getElementById('pl-search').value.trim();
-        var catId = document.getElementById('pl-category').value;
-        var mfgId = document.getElementById('pl-manufacturer').value;
-
-        var params = [];
-        if (q) params.push('q=' + encodeURIComponent(q));
-        if (catId) params.push('category_id=' + catId);
-        if (mfgId) params.push('manufacturer_id=' + mfgId);
-
-        var btn = document.getElementById('pl-search-btn');
-        btn.disabled = true;
-        btn.textContent = 'Searching...';
-
-        fetch(searchUrl + '?' + params.join('&'), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            leftItems = (data.items || []).map(function(item) {
-                return {
-                    product_id: parseInt(item.product_id),
-                    name: item.name || '',
-                    sku: item.sku || item.model || '',
-                    quantity: parseInt(item.quantity) || 0
-                };
-            });
-            renderLeft();
-        })
-        .catch(function() {
-            leftItems = [];
-            leftBody.textContent = '';
-            leftBody.appendChild(makeEmptyRow('Search failed', 5));
-        })
-        .finally(function() {
-            btn.disabled = false;
-            btn.textContent = 'Search';
-        });
-    }
-
-    // Add selected left items to right
-    document.getElementById('pl-add-btn').addEventListener('click', function() {
-        var checked = leftBody.querySelectorAll('.pl-left-check:checked');
-        if (checked.length === 0) return;
-
-        checked.forEach(function(cb) {
-            var pid = parseInt(cb.value);
-            if (rightSet[pid]) return;
-            var item = leftItems.find(function(i) { return i.product_id === pid; });
-            if (item) {
-                rightItems.push(item);
-                rightSet[pid] = true;
-            }
-        });
-
-        renderLeft();
-        renderRight();
-    });
-
-    // Remove selected right items
-    document.getElementById('pl-remove-btn').addEventListener('click', function() {
-        var checked = rightBody.querySelectorAll('.pl-right-check:checked');
-        if (checked.length === 0) return;
-
-        var removeIds = {};
-        checked.forEach(function(cb) { removeIds[parseInt(cb.value)] = true; });
-
-        rightItems = rightItems.filter(function(item) { return !removeIds[item.product_id]; });
-
-        rightSet = {};
-        rightItems.forEach(function(item) { rightSet[item.product_id] = true; });
-
-        renderLeft();
-        renderRight();
-    });
-
-    // Search button + Enter key
-    document.getElementById('pl-search-btn').addEventListener('click', doSearch);
-    document.getElementById('pl-search').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
-    });
-
-    // Check-all toggles
-    if (leftCheckAll) {
-        leftCheckAll.addEventListener('change', function() {
-            leftBody.querySelectorAll('.pl-left-check').forEach(function(cb) { cb.checked = leftCheckAll.checked; });
-        });
-    }
-    if (rightCheckAll) {
-        rightCheckAll.addEventListener('change', function() {
-            rightBody.querySelectorAll('.pl-right-check').forEach(function(cb) { cb.checked = rightCheckAll.checked; });
-        });
-    }
-
-    // Initial render
-    renderRight();
-})();
-</script>
-@endpush
+    <div class="fm-bar">
+        <span class="fm-bar__meta">{{ $canManageShopee
+            ? ($mode === 'create' ? 'Nothing is saved until you create the group.' : 'Changes are saved to this group, not pushed to Shopee.')
+            : 'You can read this group. Changing it needs the Shopee manage permission.' }}</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('ext.shopee.product-groups.index') }}">{{ $canManageShopee ? 'Cancel' : 'Back' }}</a>
+            @if($canManageShopee)
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
+            @endif
+        </div>
+    </div>
+</form>
 @endsection

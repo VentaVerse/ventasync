@@ -1,595 +1,441 @@
-@extends('layouts.app')
-@section('title', $group->name . ' — TikTok Products')
-@section('breadcrumb', 'Integrations / TikTok Shop / ' . $group->name . ' / Products')
+@extends('layouts.channel')
+@section('title', $group->name . ' Products, TikTok Shop')
+@section('breadcrumb', $group->name . ' Products')
 
+{{-- Round F Task 1. Rebuilt on the shared cc- list anatomy
+     (pages/channel-catalog.css), the same one Venta's and OpenCart's identical
+     pages already use, with the behaviour moved out of an inline <script> into
+     resources/js/pages/group-products.js.
+
+     What changed and why, beyond the drawing:
+
+       - the per-row dropdown of up to seven controls was a hand-rolled popup
+         built from inline styles with its own outside-click handler. It is
+         <x-ui.menu> now, which Alpine drives, and the row itself is clickable
+         through to the catalogue product;
+       - the standing accent-tinted strip of five buttons is a bulk bar that
+         does not exist until at least one row is ticked;
+       - Delete from TikTok Shop was a solid red button standing on the page. It is
+         in the bulk bar, at transparent danger weight, behind a confirmation;
+       - the `_return` field used to be injected into every POST form by a
+         script at load. It is a real hidden input now, the same value, without
+         depending on JavaScript having run;
+       - `$canManageTiktok` was hardcoded true, so a view_tiktok operator was
+         shown a dozen controls the routes would refuse.
+
+     The wire is unchanged: the same `ids[]`, the same `_return`, the same
+     routes, the same GET filter parameters, the same search endpoint and the
+     same two-character minimum. --}}
 @section('content')
 @php
-    $canManageTiktok = true;
+    // Read tier on this route is `view_tiktok|manage_tiktok`; every push,
+    // sync, link, unlink and remove below is `manage_tiktok`.
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+
+    $returnTo = request()->getRequestUri();
+
+    $q = (string) ($q ?? '');
+    $erpStatus = (string) ($erpStatus ?? 'all');
+    $syncStatus = (string) ($syncStatus ?? 'all');
+    $hasFilters = $q !== '' || $erpStatus !== 'all' || $syncStatus !== 'all';
+
+    $listUrl = route('ext.tiktok.product-groups.products', $group->id);
 @endphp
-    <div class="page-header">
-        <div>
-            <h2>{{ $group->name }} — Products</h2>
-            <div class="text-muted text-sm">TikTok Shop — push catalog products, sync stock &amp; price.</div>
-        </div>
-        <div class="page-header-actions">
-            @if($canManageTiktok)
-            <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.edit', $group->id) }}">Edit Group</a>
-            @endif
-            <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.index') }}">← Back to Product Groups</a>
-        </div>
+
+<div class="cc-page"
+     x-data="{
+        selected: [],
+        ids: {{ \Illuminate\Support\Js::from(collect($products->items())->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
+     }">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">{{ $group->name }}</h1>
+        <p class="x-page-sub">
+            {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on TikTok Shop
+        </p>
     </div>
-
-    {{-- Filter toolbar --}}
-    <div class="card mb-12">
-        <form method="GET" action="{{ route('ext.tiktok.product-groups.products', $group->id) }}" style="display:grid; grid-template-columns:1fr auto auto auto; gap:10px; align-items:end;">
-            <div>
-                <label class="text-xs text-muted">Search</label>
-                <input type="text" name="q" class="input" value="{{ $q ?? '' }}" placeholder="Name, model or SKU...">
-            </div>
-            <div>
-                <label class="text-xs text-muted">ERP Status</label>
-                <select name="erp_status" class="input">
-                    <option value="all" {{ ($erpStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
-                    <option value="enabled" {{ ($erpStatus ?? '') === 'enabled' ? 'selected' : '' }}>Enabled</option>
-                    <option value="disabled" {{ ($erpStatus ?? '') === 'disabled' ? 'selected' : '' }}>Disabled</option>
-                </select>
-            </div>
-            <div>
-                <label class="text-xs text-muted">Sync Status</label>
-                <select name="sync_status" class="input">
-                    <option value="all" {{ ($syncStatus ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
-                    <option value="pushed" {{ ($syncStatus ?? '') === 'pushed' ? 'selected' : '' }}>Pushed</option>
-                    <option value="pending" {{ ($syncStatus ?? '') === 'pending' ? 'selected' : '' }}>Pending</option>
-                    <option value="error" {{ ($syncStatus ?? '') === 'error' ? 'selected' : '' }}>Error</option>
-                </select>
-            </div>
-            <div class="d-flex gap-6">
-                <button type="submit" class="btn small">Filter</button>
-                @if(($q ?? '') !== '' || ($syncStatus ?? 'all') !== 'all' || ($erpStatus ?? 'all') !== 'all')
-                    <a href="{{ route('ext.tiktok.product-groups.products', $group->id) }}" class="btn small secondary">Clear</a>
-                @endif
-            </div>
-        </form>
-    </div>
-
-    <div class="card">
-        {{-- Bulk action bar (hidden until items selected) --}}
-        @if($canManageTiktok)
-        <div id="bulk-bar" style="display:none; padding:10px 16px; margin-bottom:12px; background:var(--accent-light); border:1px solid rgba(59,130,246,.2); border-radius:var(--radius-md); align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-            <span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="bulk-count">0</span> selected</span>
-            <div class="d-flex gap-6 flex-wrap">
-                <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" class="bulk-action-form bulk-push-form" style="margin:0;">
-                    @csrf
-                    <button type="submit" class="btn small">Push to TikTok</button>
-                </form>
-                <form method="POST" action="{{ route('ext.tiktok.product-groups.pushPrices', $group->id) }}" class="bulk-action-form" style="margin:0;">
-                    @csrf
-                    <button type="submit" class="btn small">Sync Price</button>
-                </form>
-                <form method="POST" action="{{ route('ext.tiktok.product-groups.pushStock', $group->id) }}" class="bulk-action-form" style="margin:0;">
-                    @csrf
-                    <button type="submit" class="btn small">Sync Qty</button>
-                </form>
-                <form method="POST" action="{{ route('ext.tiktok.product-groups.massRemove', $group->id) }}" class="bulk-action-form" style="margin:0;">
-                    @csrf
-                    <button type="submit" class="btn small secondary">Remove from Group</button>
-                </form>
-                <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" class="bulk-action-form bulk-delete-form" data-confirm="Delete selected product(s) from TikTok Shop? This cannot be undone." style="margin:0;">
-                    @csrf
-                    <button type="submit" class="btn small danger">Delete from TikTok</button>
-                </form>
-            </div>
-        </div>
-        @endif
-
-        <div class="table-wrap">
-            <table class="table" id="tiktokProductsTable">
-                <thead>
-                <tr>
-                    <th style="width:36px;">@if($canManageTiktok)<input type="checkbox" id="checkAll" title="Select all">@endif</th>
-                    <th style="width:60px;">ID</th>
-                    <th style="width:56px;">Image</th>
-                    <th>Product Name</th>
-                    <th>SKU</th>
-                    <th>Manufacturer</th>
-                    <th style="width:60px;">Stock</th>
-                    <th style="width:80px;">Price</th>
-                    <th style="width:130px;">TikTok ID</th>
-                    <th style="width:90px;">ERP Status</th>
-                    <th style="width:100px;">Sync Status</th>
-                    <th style="width:160px;">Error</th>
-                    <th style="width:50px;"></th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($products as $p)
-                    @php
-                        $pivot = $pivotMap->get($p->product_id);
-                        $img = trim((string)($p->image ?? ''));
-                        $src = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-                        $syncState = $pivot->sync_status ?? 'pending';
-                        $isUnlinked = $syncState === 'unlinked';
-                        $hasTikTokId = $pivot && $pivot->tiktok_product_id && !$isUnlinked;
-                        $hasError = $syncState === 'error' && ($pivot->push_error ?? null);
-                        $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
-                    @endphp
-                    <tr>
-                        <td>@if($canManageTiktok)<input type="checkbox" class="row-check" value="{{ $p->product_id }}">@endif</td>
-                        <td>{{ $p->product_id }}</td>
-                        <td>
-                            @if($src)
-                                <span class="thumb-magnify">
-                                    <img src="{{ $src }}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px;" loading="lazy" onerror="this.closest('.thumb-magnify').style.display='none';">
-                                    <img src="{{ $src }}" alt="" class="thumb-preview">
-                                </span>
-                            @else
-                                <span class="text-muted text-xs">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            <div class="font-bold">{{ $p->name ?? '-' }}</div>
-                            @if($optRows && count($optRows) > 0)
-                                <div style="margin-top:4px;">
-                                    @foreach($optRows as $or)
-                                        @php
-                                            $ovn = (string)($or->option_value_name ?? '');
-                                            $osku = (string)($or->option_sku ?? '');
-                                            $oqty = (int)($or->option_quantity ?? 0);
-                                        @endphp
-                                        <div class="text-xs" style="color:var(--text-secondary); line-height:1.6;">
-                                            {{ $ovn ?: '-' }}@if($osku) <span class="text-muted">— {{ $osku }}</span>@endif
-                                            <span class="text-muted">({{ $oqty }})</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </td>
-                        <td><code>{{ $p->sku ?: ($p->model ?: '-') }}</code></td>
-                        <td>{{ $p->manufacturer_name ?? '-' }}</td>
-                        <td>
-                            <div>{{ (int)$p->quantity }}</div>
-                            @if($optRows && count($optRows) > 0)
-                                @foreach($optRows as $or)
-                                    <div class="text-xs text-muted">{{ (int)($or->option_quantity ?? 0) }}</div>
-                                @endforeach
-                            @endif
-                        </td>
-                        <td>
-                            <div>{{ number_format((float)$p->price, 2) }}</div>
-                            @if($optRows && count($optRows) > 0)
-                                @foreach($optRows as $or)
-                                    <div class="text-xs text-muted">{{ number_format((float)($or->option_absolute_price ?? 0), 2) }}</div>
-                                @endforeach
-                            @endif
-                        </td>
-                        <td>
-                            @if($hasTikTokId)
-                                <span style="font-size:12px; font-family:monospace;">{{ $pivot->tiktok_product_id }}</span>
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if((int)$p->status === 1)
-                                <span class="badge badge-green">Enabled</span>
-                            @else
-                                <span class="badge badge-red">Disabled</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if($isUnlinked)
-                                <span class="badge">Unlinked</span>
-                            @elseif($hasTikTokId && $syncState === 'synced')
-                                <span class="badge badge-green">Synced</span>
-                            @elseif($hasTikTokId)
-                                <span class="badge badge-green">Pushed</span>
-                            @elseif($syncState === 'error')
-                                <span class="badge badge-red">Error</span>
-                            @else
-                                <span class="badge badge-yellow">Pending</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if($hasError)
-                                <div class="text-xs" style="color:var(--danger); word-break:break-word; line-height:1.4;">
-                                    {{ \Illuminate\Support\Str::limit($pivot->push_error, 80) }}
-                                </div>
-                                @if($pivot->last_pushed_at)
-                                    <div class="text-xs text-muted" style="margin-top:2px;">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</div>
-                                @endif
-                            @elseif($hasTikTokId && $pivot->last_pushed_at)
-                                <span class="badge badge-green">OK</span>
-                                <div class="text-xs text-muted" style="margin-top:2px;">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</div>
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if($canManageTiktok)
-                            <div style="position:relative;" class="row-actions">
-                                <button type="button" class="btn small secondary action-toggle" style="padding:0 8px; min-width:32px;" title="Actions">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                                </button>
-                                <div class="action-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); min-width:170px; padding:4px 0;">
-                                    <a href="{{ route('products.edit', $p->product_id) }}" class="action-item">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                        Edit Product
-                                    </a>
-                                    @if(!$hasTikTokId)
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
-                                            @csrf
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                                                Sync TikTok ID
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" style="margin:0;" class="single-action-form" data-pid="{{ $p->product_id }}">
-                                            @csrf
-                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                                                Push to TikTok
-                                            </button>
-                                        </form>
-                                    @endif
-                                    @if($hasTikTokId)
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.updateProduct', $group->id) }}" style="margin:0;" class="single-action-form">
-                                            @csrf
-                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                                Update on TikTok
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushStock', $group->id) }}" style="margin:0;" class="single-action-form">
-                                            @csrf
-                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                                Sync Qty
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushPrices', $group->id) }}" style="margin:0;" class="single-action-form">
-                                            @csrf
-                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                                                Sync Price
-                                            </button>
-                                        </form>
-                                        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" style="margin:0;" class="single-action-form" data-confirm="Delete this product from TikTok Shop? This cannot be undone.">
-                                            @csrf
-                                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                                            <button type="submit" class="action-item" style="color:var(--danger);">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                                Delete from TikTok
-                                            </button>
-                                        </form>
-                                    @endif
-                                    @if($hasTikTokId)
-                                        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form" data-confirm="Unlink this product from TikTok? The product stays in the group but sync will stop.">
-                                            @csrf
-                                            <button type="submit" class="action-item" style="color:var(--warning);">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-                                                Unlink from TikTok
-                                            </button>
-                                        </form>
-                                    @endif
-                                    @if($isUnlinked)
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]) }}" style="margin:0;" class="single-action-form">
-                                            @csrf
-                                            <button type="submit" class="action-item">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                                                Link to TikTok
-                                            </button>
-                                        </form>
-                                    @endif
-                                    @if(in_array((int)$p->product_id, $manualIds))
-                                        <div style="border-top:1px solid var(--border); margin:4px 0;"></div>
-                                        <form method="POST" action="{{ route('ext.tiktok.product-groups.removeProduct', [$group->id, $p->product_id]) }}" style="margin:0;" data-confirm="Remove this product from the group?">
-                                            @csrf @method('DELETE')
-                                            <button type="submit" class="action-item" style="color:var(--danger);">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-                                                Remove from Group
-                                            </button>
-                                        </form>
-                                    @endif
-                                </div>
-                            </div>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="13" class="text-muted">No products found. Edit the group filters or add products manually below.</td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <div class="d-flex justify-between items-center mt-12">
-            <div class="text-muted text-xs">
-                Showing {{ $products->firstItem() ?? 0 }} to {{ $products->lastItem() ?? 0 }} of {{ $products->total() }}
-            </div>
-            <div>
-                {{ $products->onEachSide(1)->links('vendor.pagination.simple') }}
-            </div>
-        </div>
-    </div>
-
-    {{-- Add Individual Products --}}
     @if($canManageTiktok)
-    <div class="card mt-16">
-        <h3 class="section-title mt-0">Add Products Manually</h3>
-        <div class="hint" style="margin-bottom:10px;">Search for products to add individually to this product group.</div>
-
-        <form id="add-products-form" method="POST" action="{{ route('ext.tiktok.product-groups.addProducts', $group->id) }}">
-            @csrf
-        </form>
-
-        <div class="d-flex gap-8 items-center flex-wrap">
-            <input type="text" class="input" id="manual-search" placeholder="Search by name or SKU..." style="min-width:260px;">
-            <button type="button" class="btn" id="manual-search-btn">Search</button>
-            <button type="button" class="btn" id="add-selected-btn">Add Selected</button>
-        </div>
-
-        <div class="table-wrap mt-10" id="manual-results-wrap" style="display:none;">
-            <table class="table" id="manual-results-table">
-                <thead>
-                <tr>
-                    <th style="width:36px;"><input type="checkbox" id="manual-select-all"></th>
-                    <th style="width:70px;">ID</th>
-                    <th>Name</th>
-                    <th style="width:130px;">SKU</th>
-                    <th style="width:100px;">Price</th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
+        <x-ui.button :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit group</x-ui.button>
     @endif
+</div>
 
-<div class="bulk-loading-overlay" id="loadingOverlay">
-    <div class="bulk-loading-box">
-        <div class="spinner"></div>
-        <div class="msg" id="loadingMsg">Processing...</div>
+{{-- One filter row. The two selects submit on change (data-autosubmit,
+     resources/js/list-filters.js) and Clear is a link, because it is
+     navigation and not an action. Every parameter name is unchanged. --}}
+<form method="GET" action="{{ $listUrl }}" class="x-filters">
+    <x-ui.input type="search" name="q" class="x-filters__search"
+                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this group" />
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
+            <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
+            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="sync_status" class="x-input" data-autosubmit aria-label="Filter by push status">
+            <option value="all" @selected($syncStatus === 'all')>Pushed or not</option>
+            <option value="pushed" @selected($syncStatus === 'pushed')>Pushed</option>
+            <option value="pending" @selected($syncStatus === 'pending')>Not pushed yet</option>
+            <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
+
+    <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
+
+    @if($hasFilters)
+        <a class="x-filters__reset" href="{{ $listUrl }}">Clear</a>
+    @endif
+</form>
+
+@if($canManageTiktok)
+{{-- Bulk bar. It exists only once at least one row is ticked. Each action is
+     still its own form posting `ids[]` to its own route; the module injects
+     the ticked ids into whichever form is submitted.
+
+     Delete from TikTok Shop carries data-bulk-confirm rather than data-confirm.
+     The old page carried both a data-confirm attribute AND a confirmModal()
+     call in its own submit handler, so the operator could be asked twice for
+     the same deletion. One mechanism, one question. --}}
+<div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
+    <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
+    <div class="cc-bulkbar__actions">
+        <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" data-bulk-form
+              data-bulk-confirm="Push the selected products to TikTok Shop? Anything already pushed is skipped.">
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" size="sm">Push to TikTok Shop</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushPrices', $group->id) }}" data-bulk-form>
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" size="sm">Push prices</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushStock', $group->id) }}" data-bulk-form>
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.tiktok.product-groups.massRemove', $group->id) }}" data-bulk-form
+              data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalogue, and nothing already live on TikTok Shop is touched.">
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" size="sm">Remove from group</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" data-bulk-form
+              data-bulk-confirm="Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.">
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" variant="danger" size="sm">Delete from TikTok Shop</x-ui.button>
+        </form>
+    </div>
+</div>
+@endif
+
+@if($products->count() === 0)
+    <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this group' }}"
+                :description="$hasFilters
+                    ? 'Try clearing the search, or widening the catalogue and push filters.'
+                    : 'Edit the group to pick products from the catalogue, or add them one at a time below.'">
+        @if($canManageTiktok && !$hasFilters)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('ext.tiktok.product-groups.edit', $group->id)">Edit group</x-ui.button>
+        </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            @if($canManageTiktok)
+            <th class="cc-col-check">
+                <input type="checkbox" class="cc-check"
+                       :checked="ids.length > 0 && selected.length === ids.length"
+                       x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
+                       @change="selected = $event.target.checked ? ids.slice() : []"
+                       aria-label="Select every product on this page">
+            </th>
+            @endif
+            <th class="cc-col-id">ID</th>
+            <th>Product</th>
+            <th class="cc-col-qty x-td-num">Stock</th>
+            <th class="cc-col-price x-td-num">Price</th>
+            <th class="cc-col-chanid">TikTok ID</th>
+            <th class="cc-col-stat">Catalogue</th>
+            <th class="cc-col-sync">Push</th>
+            <th class="cc-col-err">Last push</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($products as $p)
+        @php
+            $pivot = $pivotMap->get($p->product_id);
+
+            $img = trim((string) ($p->image ?? ''));
+            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : null;
+
+            $syncState = $pivot->sync_status ?? 'pending';
+            $isUnlinked = $syncState === 'unlinked';
+            $hasTikTokId = $pivot && $pivot->tiktok_product_id && !$isUnlinked;
+            $failed = $syncState === 'error';
+            $hasError = $failed && ($pivot->push_error ?? null);
+
+            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
+            $variationCount = $optRows ? count($optRows) : 0;
+
+            $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $pSku = (string) ($p->sku ?: ($p->model ?: ''));
+            $isManual = in_array((int) $p->product_id, $manualIds, true);
+
+            // Built here rather than as a run of adjacent @if directives in
+            // the markup: Blade's directive pattern needs a non-word character
+            // before an @, so `@endif@if(` would leave the second directive as
+            // literal text in the page.
+            $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
+            if (!empty($p->manufacturer_name)) {
+                $metaParts[] = (string) $p->manufacturer_name;
+            }
+            $metaParts[] = $isManual ? 'added by hand' : 'matched by the group filter';
+            $meta = implode(' / ', $metaParts);
+        @endphp
+        <tr>
+            @if($canManageTiktok)
+            <td class="cc-col-check">
+                {{-- No name attribute: these boxes belong to no form. Each
+                     action is its own form and the module injects the ticked
+                     ids into whichever one is submitted, which is the
+                     pre-redesign wire unchanged. --}}
+                <input type="checkbox" class="cc-check" data-row-check value="{{ (string) $p->product_id }}"
+                       x-model="selected" aria-label="Select product {{ $p->product_id }}">
+            </td>
+            @endif
+
+            <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $p->product_id }}</span></td>
+
+            <td data-label="Product">
+                <div class="co-item">
+                    <div class="cc-thumb">
+                        <span class="co-item__none">No image</span>
+                        @if($thumbSrc)
+                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async">
+                        @endif
+                    </div>
+                    <div class="co-item__body">
+                        <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
+                        {{-- SKU and manufacturer sit here rather than in
+                             columns of their own: thirteen fixed columns left
+                             the product name unreadable at 1440. --}}
+                        <span class="co-item__meta">{{ $meta }}</span>
+
+                        @if($variationCount > 0)
+                            <div class="cc-vars">
+                                @foreach($optRows as $or)
+                                    @php
+                                        $ovn = (string) ($or->option_value_name ?? '');
+                                        $osku = (string) ($or->option_sku ?? '');
+                                        $oqty = (int) ($or->option_quantity ?? 0);
+                                        $oprice = (float) ($or->option_absolute_price ?? 0);
+                                    @endphp
+                                    <div class="cc-var">
+                                        <span class="cc-var__name">{{ $ovn !== '' ? $ovn : 'Unnamed variation' }}</span>
+                                        <span class="cc-var__sku">{{ $osku }}</span>
+                                        <span class="cc-var__qty">{{ $oqty }} in stock</span>
+                                        {{-- Never a hardcoded symbol: App\Support\Money reads the
+                                             default currency off the currencies table. --}}
+                                        <span class="cc-var__price">{{ $oprice > 0 ? \App\Support\Money::base($oprice) : '' }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </td>
+
+            <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format((int) $p->quantity) }}</span></td>
+
+            <td class="cc-col-price x-td-num" data-label="Price">
+                <x-money :php="(float) $p->price" />
+            </td>
+
+            <td class="cc-col-chanid" data-label="TikTok ID">
+                @if($hasTikTokId)
+                    <span class="x-num">{{ $pivot->tiktok_product_id }}</span>
+                @else
+                    <span class="x-cell-muted">Not pushed</span>
+                @endif
+            </td>
+
+            <td class="cc-col-stat" data-label="Catalogue">
+                @if((int) $p->status === 1)
+                    <span class="x-cell-strong">Enabled</span>
+                @else
+                    <span class="x-cell-muted">Disabled</span>
+                @endif
+            </td>
+
+            <td class="cc-col-sync" data-label="Push">
+                @if($isUnlinked)
+                    <span class="x-cell-muted">Unlinked</span>
+                @elseif($hasTikTokId)
+                    <x-ui.badge tone="success">Pushed</x-ui.badge>
+                @elseif($failed)
+                    <x-ui.badge tone="danger">Failed</x-ui.badge>
+                @else
+                    <span class="x-cell-muted">Not yet</span>
+                @endif
+            </td>
+
+            <td class="cc-col-err" data-label="Last push">
+                @if($hasError)
+                    <span class="cc-err">{{ \Illuminate\Support\Str::limit($pivot->push_error, 120) }}</span>
+                    @if($pivot->last_pushed_at)
+                        <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
+                    @endif
+                @elseif($hasTikTokId && ($pivot->last_pushed_at ?? null))
+                    <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
+                @else
+                    <span class="x-cell-muted">Never</span>
+                @endif
+            </td>
+
+            <td class="x-td-actions">
+                @if($canManageTiktok)
+                <x-ui.menu label="Product {{ $p->product_id }} actions">
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+
+                    @if(!$hasTikTokId)
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item">Match TikTok ID</button>
+                        </form>
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.push', $group->id) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                            <button type="submit" class="x-menu__item">Push to TikTok Shop</button>
+                        </form>
+                    @endif
+
+                    @if($hasTikTokId)
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.updateProduct', $group->id) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                            <button type="submit" class="x-menu__item">Update on TikTok Shop</button>
+                        </form>
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushStock', $group->id) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                            <button type="submit" class="x-menu__item">Push stock</button>
+                        </form>
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.pushPrices', $group->id) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                            <button type="submit" class="x-menu__item">Push price</button>
+                        </form>
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
+                              data-confirm="Unlink this product from TikTok Shop? The product stays in the group but sync will stop.">
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from TikTok Shop</button>
+                        </form>
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.deleteFromTikTok', $group->id) }}" data-slow-action
+                              data-confirm="Delete this product from TikTok Shop? It is removed at the marketplace and this cannot be undone.">
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Delete from TikTok Shop</button>
+                        </form>
+                    @endif
+
+                    @if($isUnlinked)
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item">Link to TikTok Shop again</button>
+                        </form>
+                    @endif
+
+                    @if($isManual)
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.tiktok.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
+                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already live on TikTok Shop is touched.">
+                            @csrf
+                            @method('DELETE')
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
+                        </form>
+                    @endif
+                </x-ui.menu>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+
+<div class="x-pager">
+    <span class="x-pager__count x-num">{{ number_format($products->firstItem() ?? 0) }} to {{ number_format($products->lastItem() ?? 0) }} of {{ number_format($products->total()) }}</span>
+    <div class="x-pager__nav">
+        <x-ui.button size="sm" :href="$products->previousPageUrl()" :disabled="!$products->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
+        <x-ui.button size="sm" :href="$products->nextPageUrl()" :disabled="!$products->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+    </div>
+</div>
+@endif
+
+@if($canManageTiktok)
+{{-- Add one at a time. Same endpoints as before: a GET to search-products?q=
+     for the results, and one POST to addProducts carrying `ids[]`. The results
+     are built with createElement and textContent only. --}}
+<section class="fm-section cc-unmatched"
+         data-group-manual-add
+         data-search-url="{{ route('ext.tiktok.product-groups.searchProducts') }}"
+         data-form="tiktok-add-products">
+    <div class="fm-section__head">
+        <h2 class="fm-section__title">Add a product by name</h2>
+    </div>
+    <p class="fm-section__note">For a product the group's filter does not pick up. Type at least two characters.</p>
+
+    <form id="tiktok-add-products" method="POST" action="{{ route('ext.tiktok.product-groups.addProducts', $group->id) }}">
+        @csrf
+        <input type="hidden" name="_return" value="{{ $returnTo }}">
+    </form>
+
+    <div class="cc-link">
+        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalogue to add a product"
+                    data-manual-search />
+        <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
+        <x-ui.button type="submit" variant="primary" form="tiktok-add-products" data-manual-add disabled>Add selected</x-ui.button>
+    </div>
+
+    <div data-manual-results></div>
+</section>
+@endif
+
+{{-- Work-in-progress overlay. A push to TikTok Shop is a multi-second round trip
+     and the page has to say so, or the operator clicks again. Rides
+     components/modals.css's .modal-backdrop show/hide mechanics, the same
+     single `.active` class the confirm dialog and the orders pages use. --}}
+<div id="tiktok-group-progress" class="modal-backdrop">
+    <div class="modal co-modal co-modal--sm">
+        <div class="cc-progress">
+            <span class="co-spinner co-spinner--lg" aria-hidden="true"></span>
+            <div>
+                <div class="cc-progress__title" data-progress-title>Talking to TikTok Shop</div>
+                <div class="cc-progress__note">Please keep this tab open.</div>
+            </div>
+        </div>
     </div>
 </div>
 
-@push('scripts')
-<script>
-(function(){
-    var table = document.getElementById('tiktokProductsTable');
-    if (!table) return;
-
-    var checkAll = document.getElementById('checkAll');
-    var bulkBar = document.getElementById('bulk-bar');
-    var bulkCount = document.getElementById('bulk-count');
-
-    function rowChecks() { return Array.from(table.querySelectorAll('.row-check')); }
-
-    function updateState() {
-        var boxes = rowChecks();
-        var checked = boxes.filter(function(b){ return b.checked; }).length;
-
-        if (checkAll) {
-            if (checked === 0) {
-                checkAll.indeterminate = false;
-                checkAll.checked = false;
-            } else if (checked === boxes.length) {
-                checkAll.indeterminate = false;
-                checkAll.checked = true;
-            } else {
-                checkAll.indeterminate = true;
-                checkAll.checked = false;
-            }
-        }
-
-        if (bulkBar) bulkBar.style.display = checked > 0 ? 'flex' : 'none';
-        if (bulkCount) bulkCount.textContent = checked;
-    }
-
-    if (checkAll) {
-        checkAll.addEventListener('change', function(){
-            rowChecks().forEach(function(b){ b.checked = checkAll.checked; });
-            updateState();
-        });
-    }
-
-    rowChecks().forEach(function(b){ b.addEventListener('change', updateState); });
-
-    // Helper: inject ids[] into a bulk form
-    function injectBulkIds(form, ids) {
-        form.querySelectorAll('input[name="ids[]"]').forEach(function(n){ n.remove(); });
-        ids.forEach(function(id){
-            var inp = document.createElement('input');
-            inp.type = 'hidden';
-            inp.name = 'ids[]';
-            inp.value = id;
-            form.appendChild(inp);
-        });
-    }
-
-    function submitBulkForm(form, ids) {
-        injectBulkIds(form, ids);
-        var overlay = document.getElementById('loadingOverlay');
-        var msg = document.getElementById('loadingMsg');
-        if (overlay) {
-            if (msg) msg.textContent = 'Processing ' + ids.length + ' item(s)...';
-            overlay.classList.add('active');
-        }
-        var btn = form.querySelector('button[type="submit"]');
-        if (btn) btn.disabled = true;
-        form.submit();
-    }
-
-    // Bulk action forms
-    document.querySelectorAll('form.bulk-action-form').forEach(function(form){
-        form.addEventListener('submit', function(e){
-            e.preventDefault();
-
-            var ids = rowChecks().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
-            if (!ids.length) {
-                showFlashError('Please select at least 1 product.');
-                return;
-            }
-
-            if (form.classList.contains('bulk-push-form')) {
-                confirmModal('Push ' + ids.length + ' selected product(s) to TikTok Shop? Already-synced products will be skipped.').then(function(ok) {
-                    if (ok) submitBulkForm(form, ids);
-                });
-                return;
-            }
-
-            if (form.classList.contains('bulk-delete-form')) {
-                confirmModal('Delete ' + ids.length + ' selected product(s) from TikTok? This cannot be undone.').then(function(ok) {
-                    if (ok) submitBulkForm(form, ids);
-                });
-                return;
-            }
-
-            // No confirm needed — submit directly
-            submitBulkForm(form, ids);
-        });
-    });
-
-    // Loading overlay for single action forms (in action dropdown)
-    document.querySelectorAll('.action-menu form.single-action-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            if (e.defaultPrevented) return;
-            var overlay = document.getElementById('loadingOverlay');
-            var msg = document.getElementById('loadingMsg');
-            if (overlay) {
-                if (msg) msg.textContent = 'Processing...';
-                overlay.classList.add('active');
-            }
-        });
-    });
-
-    // Action dropdown toggle
-    var openMenu = null;
-    var tableWrap = table ? table.closest('.table-wrap') : null;
-
-    function closeMenu() {
-        if (openMenu) {
-            openMenu.style.display = 'none';
-            openMenu = null;
-        }
-        if (tableWrap) tableWrap.classList.remove('menu-open');
-    }
-
-    document.addEventListener('click', function(e) {
-        var toggle = e.target.closest('.action-toggle');
-        if (toggle) {
-            e.stopPropagation();
-            var menu = toggle.nextElementSibling;
-            if (!menu) return;
-
-            if (openMenu && openMenu !== menu) {
-                openMenu.style.display = 'none';
-            }
-
-            if (menu.style.display === 'none') {
-                menu.style.display = 'block';
-                openMenu = menu;
-                if (tableWrap) tableWrap.classList.add('menu-open');
-            } else {
-                closeMenu();
-            }
-            return;
-        }
-
-        if (openMenu && !e.target.closest('.action-menu')) {
-            closeMenu();
-        }
-    });
-
-    // ── Manual Product Search ──────────────────────────────────
-    var searchInput = document.getElementById('manual-search');
-    var searchBtn = document.getElementById('manual-search-btn');
-    var resultsWrap = document.getElementById('manual-results-wrap');
-    var resultsBody = document.querySelector('#manual-results-table tbody');
-    var addBtn = document.getElementById('add-selected-btn');
-    var manualSelectAll = document.getElementById('manual-select-all');
-    var searchUrl = @json(route('ext.tiktok.product-groups.searchProducts'));
-
-    function doSearch() {
-        var q = (searchInput.value || '').trim();
-        if (q.length < 2) return;
-        fetch(searchUrl + '?q=' + encodeURIComponent(q), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            var items = data.items || [];
-            resultsBody.textContent = '';
-            if (items.length === 0) {
-                var tr = document.createElement('tr');
-                var td = document.createElement('td');
-                td.setAttribute('colspan', '5'); td.className = 'text-muted'; td.textContent = 'No results.';
-                tr.appendChild(td); resultsBody.appendChild(tr);
-            } else {
-                items.forEach(function (item) {
-                    var tr = document.createElement('tr');
-                    var td1 = document.createElement('td');
-                    var cb = document.createElement('input');
-                    cb.type = 'checkbox'; cb.className = 'manual-row-check'; cb.value = item.product_id;
-                    cb.setAttribute('form', 'add-products-form'); cb.name = 'ids[]';
-                    td1.appendChild(cb); tr.appendChild(td1);
-
-                    var td2 = document.createElement('td'); td2.textContent = item.product_id; tr.appendChild(td2);
-                    var td3 = document.createElement('td'); td3.textContent = item.name || '-'; tr.appendChild(td3);
-                    var td4 = document.createElement('td'); td4.textContent = item.sku || '-'; tr.appendChild(td4);
-                    var td5 = document.createElement('td'); td5.textContent = item.price ? parseFloat(item.price).toFixed(2) : '0.00'; tr.appendChild(td5);
-                    resultsBody.appendChild(tr);
-                });
-            }
-            resultsWrap.style.display = '';
-        })
-        .catch(function () {
-            resultsBody.textContent = '';
-            var tr = document.createElement('tr');
-            var td = document.createElement('td');
-            td.setAttribute('colspan', '5'); td.className = 'text-muted'; td.textContent = 'Search failed.';
-            tr.appendChild(td); resultsBody.appendChild(tr);
-            resultsWrap.style.display = '';
-        });
-    }
-
-    if (searchBtn) searchBtn.addEventListener('click', doSearch);
-    if (searchInput) searchInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
-    if (manualSelectAll) {
-        manualSelectAll.addEventListener('change', function () {
-            document.querySelectorAll('.manual-row-check').forEach(function (b) { b.checked = manualSelectAll.checked; });
-        });
-    }
-    if (addBtn) {
-        addBtn.addEventListener('click', function () {
-            var selected = document.querySelectorAll('.manual-row-check:checked');
-            if (selected.length === 0) { showFlashError('Select at least one product to add.'); return; }
-            document.getElementById('add-products-form').submit();
-        });
-    }
-    // Inject _return field into all POST forms so redirects preserve query string
-    var returnUrl = location.pathname + location.search;
-    document.querySelectorAll('form[method="POST"]').forEach(function(form) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = '_return'; inp.value = returnUrl;
-        form.appendChild(inp);
-    });
-
-    // Dismiss loading overlay when page is restored from bfcache
-    window.addEventListener('pageshow', function(e) {
-        if (e.persisted) {
-            var overlay = document.getElementById('loadingOverlay');
-            if (overlay) overlay.classList.remove('active');
-        }
-    });
-})();
-</script>
-@endpush
+</div>{{-- /.cc-page --}}
 @endsection

@@ -154,6 +154,47 @@
    narrower, like the settings hub, just sit centered inside this. */
 .x-content { flex: 1; width: 100%; max-width: 1400px; margin-inline: auto; padding: var(--space-5); }
 
+/* ------------------------------------------------------------------
+   Standalone surface (layouts/standalone.blade.php).
+
+   A page reached from outside the application, with no sidebar and no
+   assumption of a session: currently the Lazada OAuth callback, which
+   is registered outside the ext.* namespace and outside `auth` for
+   reasons neither this project nor Lazada can change. Round F Task 1.
+
+   Narrower than .x-content's 1400px on purpose. Nothing lands here
+   with a table to read; it is one column of facts about what just
+   happened, and 1400px of it would be a line the eye loses.
+   ------------------------------------------------------------------ */
+
+/* No background of its own: body.x-app already paints --canvas, and the
+   token set has no --bg at all. Naming one here resolved to the legacy
+   value in base/variables.css, which is dark, so the page rendered
+   light-theme cards and dark text on a near-black ground and was
+   unreadable. Caught in the browser; it would have become a 500-level
+   defect the day Round F Task 4 deletes that legacy sheet. */
+.x-standalone {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.x-standalone__head {
+    display: flex;
+    align-items: center;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.x-standalone__brand {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
+.x-standalone__body { max-width: 880px; padding-block: var(--space-6); }
+
 .x-page-title { margin: 0 0 var(--space-1); font-size: 20px; line-height: 28px; font-weight: 600; color: var(--text); }
 .x-page-sub { margin: 0 0 var(--space-5); font-size: 13px; color: var(--text-muted); }
 

@@ -1,439 +1,315 @@
-@extends('layouts.app')
-@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Product Group')
-@section('breadcrumb', 'Integrations / TikTok Shop / Product Groups / ' . ($mode === 'create' ? 'Add' : 'Edit'))
+@extends('layouts.channel')
+@section('title', ($mode === 'create' ? 'Add' : 'Edit') . ' TikTok Shop Product Group')
+@section('breadcrumb', $mode === 'create' ? 'New Product Group' : $group->name)
 
+{{-- Round F Task 1. Rebuilt on the shared fm- form anatomy
+     (components/form-page.css) and the gf- product picker
+     (pages/group-form.css), with the behaviour moved out of an inline
+     <script> into resources/js/pages/group-form.js.
+
+     The wire is unchanged, checked against
+     TikTokProductGroupController::store()/update():
+
+       name, tiktok_category_id, markup_percent, markup_fixed, product_ids[]
+
+     TikTok is the simplest of the three: no brand, no delivery options and no
+     category attributes. Its category picker filters a list the controller
+     already loaded rather than searching the server, which is the
+     `data-combo-mode="local"` half of the shared combobox. --}}
 @section('content')
-    <div class="page-header">
-        <div>
-            <h2>{{ $mode === 'create' ? 'Add TikTok Product Group' : 'Edit TikTok Product Group' }}</h2>
-            <div class="text-muted text-sm">TikTok Shop — map ERP products to a TikTok category.</div>
+@php
+    // The CREATE render is manage-tier, the EDIT render is in the read group
+    // (extensions/tiktok/routes/web.php), so a view_tiktok operator can open
+    // this page on an existing group. The previous version hardcoded the
+    // manage tier on and offered a Save button that would 403.
+    $canManageTiktok = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+
+    $selectedCategoryId = (string) old('tiktok_category_id', $group->tiktok_category_id ?? '');
+    $selectedCategory = $selectedCategoryId !== ''
+        ? $tiktokCategories->firstWhere('id', $selectedCategoryId)
+        : null;
+
+    // The combobox filters this locally. Ids are strings on TikTok's side
+    // (tiktok_category_id is `required|string|exists:...`), so they are kept
+    // as strings all the way through rather than cast to int anywhere.
+    $categoryOptions = $tiktokCategories->map(fn ($c) => [
+        'id'   => (string) $c->id,
+        'name' => (string) $c->name,
+    ])->values();
+
+    $rightItems = $groupProducts->map(fn ($p) => [
+        'product_id' => (int) $p->product_id,
+        'name'       => (string) ($p->name ?? ''),
+        'sku'        => (string) ($p->sku ?: ($p->model ?: '')),
+        'quantity'   => (int) $p->quantity,
+    ])->values();
+
+    // JSON_HEX_TAG encodes < and >, so a category or product literally named
+    // "</script>" cannot close its data island.
+    $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+@endphp
+
+<form method="POST" class="fm-page"
+      action="{{ $mode === 'create'
+        ? route('ext.tiktok.product-groups.store')
+        : route('ext.tiktok.product-groups.update', $group->id) }}">
+    @csrf
+    @if($mode === 'edit')
+        @method('PUT')
+    @endif
+
+    <div class="fm-flash" role="status" aria-live="polite">
+        @if($errors->any())
+            <div class="fm-note fm-note--fail">
+                <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
+            </div>
+        @endif
+    </div>
+
+    <div class="fm-head">
+        <div class="fm-head__main">
+            <a class="fm-back" href="{{ route('ext.tiktok.product-groups.index') }}">
+                <x-ui.icon name="chevron-left" size="14" /> Product Groups
+            </a>
+            <h1 class="fm-title">{{ $mode === 'create' ? 'New product group' : $group->name }}</h1>
+            <div class="fm-stamps">
+                <span class="fm-stamp">
+                    <span class="fm-stamp__k">Channel</span>
+                    <span class="fm-stamp__v">TikTok Shop</span>
+                </span>
+                @if($mode === 'edit')
+                    <span class="fm-stamp">
+                        <span class="fm-stamp__k">Group</span>
+                        <span class="fm-stamp__v">{{ $group->id }}</span>
+                    </span>
+                @endif
+            </div>
         </div>
-        <div class="page-header-actions">
-            @if($mode === 'edit')
-                <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.products', $group->id) }}">View Products</a>
-            @endif
-            <a class="btn secondary" href="{{ route('ext.tiktok.product-groups.index') }}">← Back to Product Groups</a>
+        @if($mode === 'edit')
+            <div class="fm-head__actions">
+                <x-ui.button size="sm" :href="route('ext.tiktok.product-groups.products', $group->id)">View products</x-ui.button>
+            </div>
+        @endif
+    </div>
+
+    <div class="fm-body">
+        <div class="fm-col fm-col--main">
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Name</h2>
+                </div>
+                <div class="fm-fields">
+                    <x-ui.field label="Product group name" for="pg-name" name="name" :required="true" wide
+                                hint="What this batch of products is, in the words your team uses. It is never sent to TikTok Shop.">
+                        <x-ui.input id="pg-name" name="name" value="{{ old('name', $group->name) }}"
+                                    placeholder="Guitar pedals" :disabled="!$canManageTiktok" />
+                    </x-ui.field>
+                </div>
+            </section>
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">TikTok Shop mapping</h2>
+                </div>
+
+                <div class="fm-fields">
+                    <x-ui.field label="TikTok category" for="pg-category" name="tiktok_category_id" :required="true" wide
+                                hint="Only leaf categories are listed. TikTok Shop accepts nothing else when it creates a product.">
+                        <div class="gf-combo"
+                             data-category-combo
+                             data-combo-mode="local"
+                             @if($canManageTiktok) data-combo-refresh-url="{{ route('ext.tiktok.categories.sync') }}" @endif>
+                            <div class="gf-combo__field">
+                                <input type="hidden" name="tiktok_category_id" data-combo-value value="{{ $selectedCategoryId }}">
+                                <x-ui.input id="pg-category" type="search" autocomplete="off"
+                                            data-combo-input
+                                            value="{{ $selectedCategory
+                                                ? $selectedCategory->name . ' (' . $selectedCategory->id . ')'
+                                                : '' }}"
+                                            placeholder="Type to search TikTok categories"
+                                            :disabled="!$canManageTiktok" />
+                                <div class="gf-combo__results" data-combo-results role="listbox"
+                                     aria-label="TikTok leaf categories" hidden></div>
+                            </div>
+                            @if($canManageTiktok)
+                                <x-ui.button type="button" size="sm" data-combo-refresh>Refresh</x-ui.button>
+                            @endif
+
+                            {{-- Data only, no behaviour. JSON_HEX_TAG means a
+                                 category named "</script>" cannot close this
+                                 element, and the picker reads every name into
+                                 textContent. --}}
+                            <script type="application/json" data-combo-options>{!! json_encode($categoryOptions, $jsonFlags) !!}</script>
+                        </div>
+                    </x-ui.field>
+                </div>
+            </section>
+
+            <section class="fm-section">
+                <div class="fm-section__head">
+                    <h2 class="fm-section__title">Products in this group</h2>
+                </div>
+
+                @if($canManageTiktok)
+                <p class="fm-section__note">Search the catalogue on the left, move what belongs into the group on the right. Only what is on the right is saved.</p>
+
+                <div class="gf-dual"
+                     data-group-product-picker
+                     data-search-url="{{ route('ext.tiktok.product-groups.searchProducts') }}">
+
+                    <div class="gf-filters">
+                        <x-ui.input type="search" class="gf-filters__search" data-gf-q
+                                    placeholder="Name, SKU or model" aria-label="Search the catalogue by name, SKU or model" />
+
+                        <div class="x-select-wrap gf-filters__select">
+                            <select class="x-input" data-gf-category aria-label="Filter by catalogue category">
+                                <option value="">All categories</option>
+                                @foreach($catalogCategories as $cat)
+                                    <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+
+                        <div class="x-select-wrap gf-filters__select">
+                            <select class="x-input" data-gf-manufacturer aria-label="Filter by manufacturer">
+                                <option value="">All manufacturers</option>
+                                @foreach($manufacturers as $mfg)
+                                    <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
+                                @endforeach
+                            </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                        </div>
+
+                        <x-ui.button type="button" variant="secondary" data-gf-search>Search</x-ui.button>
+                    </div>
+
+                    <div class="gf-panes">
+                        <div class="gf-pane">
+                            <div class="gf-pane__head">
+                                <span class="gf-pane__title">Catalogue</span>
+                                <span class="gf-pane__count x-num" data-gf-left-count>0</span>
+                            </div>
+                            <div class="gf-pane__body">
+                                <table class="gf-list">
+                                    <thead>
+                                        <tr>
+                                            <th class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalogue result"></th>
+                                            <th class="gf-col-id">ID</th>
+                                            <th>Product</th>
+                                            <th class="gf-col-qty">Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-gf-left></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="gf-move">
+                            <x-ui.button type="button" size="sm" data-gf-add aria-label="Add the selected catalogue products to the group">
+                                Add <x-ui.icon name="chevron-right" size="14" />
+                            </x-ui.button>
+                            <x-ui.button type="button" size="sm" data-gf-remove aria-label="Take the selected products out of the group">
+                                <x-ui.icon name="chevron-left" size="14" /> Remove
+                            </x-ui.button>
+                        </div>
+
+                        <div class="gf-pane">
+                            <div class="gf-pane__head">
+                                <span class="gf-pane__title">In this group</span>
+                                <span class="gf-pane__count x-num" data-gf-right-count>{{ $rightItems->count() }}</span>
+                            </div>
+                            <div class="gf-pane__body">
+                                <table class="gf-list">
+                                    <thead>
+                                        <tr>
+                                            <th class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the group"></th>
+                                            <th class="gf-col-id">ID</th>
+                                            <th>Product</th>
+                                            <th class="gf-col-qty">Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-gf-right></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div data-gf-inputs></div>
+
+                    <script type="application/json" data-gf-initial>{!! json_encode($rightItems, $jsonFlags) !!}</script>
+                </div>
+                @else
+                <p class="fm-section__note">{{ $rightItems->count() }} {{ $rightItems->count() === 1 ? 'product is' : 'products are' }} in this group.</p>
+
+                @if($rightItems->isEmpty())
+                    <x-ui.empty title="No products in this group"
+                                description="Someone with the manage tier needs to add them." />
+                @else
+                    <x-ui.table>
+                        <x-slot:head>
+                            <tr>
+                                <th class="cc-col-id">ID</th>
+                                <th>Product</th>
+                                <th class="cc-col-qty x-td-num">Stock</th>
+                            </tr>
+                        </x-slot:head>
+                        @foreach($rightItems as $item)
+                            <tr>
+                                <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $item['product_id'] }}</span></td>
+                                <td data-label="Product">
+                                    <span class="co-item__name">{{ $item['name'] !== '' ? $item['name'] : 'Unnamed product' }}</span>
+                                    <span class="co-item__meta">{{ $item['sku'] !== '' ? $item['sku'] : 'No SKU' }}</span>
+                                </td>
+                                <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ number_format($item['quantity']) }}</span></td>
+                            </tr>
+                        @endforeach
+                    </x-ui.table>
+                @endif
+                @endif
+            </section>
+        </div>
+
+        <div class="fm-col fm-col--side">
+            <div class="fm-card">
+                <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
+                <div class="fm-card__body">
+                    <p class="fm-section__note">The percentage is taken off the catalogue price first, then the fixed amount is added on top. Leave both empty to push the catalogue price as it is.</p>
+
+                    <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
+                                hint="5 means the pushed price is 5% above the catalogue price.">
+                        <div class="cs-inline">
+                            <x-ui.input id="pg-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
+                                        class="fm-input--num cs-days"
+                                        value="{{ old('markup_percent', $group->markup_percent) }}" placeholder="0"
+                                        :disabled="!$canManageTiktok" />
+                            <span class="cs-inline__unit">%</span>
+                        </div>
+                    </x-ui.field>
+
+                    <x-ui.field label="Fixed amount" for="pg-markup-fixed" name="markup_fixed"
+                                hint="Added after the percentage.">
+                        <x-ui.input id="pg-markup-fixed" name="markup_fixed" type="number" step="0.01" min="0"
+                                    class="fm-input--num"
+                                    value="{{ old('markup_fixed', $group->markup_fixed) }}" placeholder="0.00"
+                                    :disabled="!$canManageTiktok" />
+                    </x-ui.field>
+                </div>
+            </div>
         </div>
     </div>
 
-    <form id="group-form" method="POST" action="{{ $mode === 'create' ? route('ext.tiktok.product-groups.store') : route('ext.tiktok.product-groups.update', $group->id) }}">
-        @csrf
-        @if($mode === 'edit') @method('PUT') @endif
-
-        <div class="card">
-            <div>
-                <label>Product Group Name <span style="color:#d11;">*</span></label>
-                <input type="text" name="name" class="input" value="{{ old('name', $group->name) }}" placeholder="e.g. Guitar Pedals">
-            </div>
-
-            {{-- TikTok Category --}}
-            <h3 class="section-title" style="margin-top:20px;">TikTok Category <span style="color:#d11;">*</span></h3>
-            <div class="hint" style="margin-bottom:8px;">Select a leaf category from TikTok's catalog.</div>
-
-            <div style="display:flex; gap:8px; align-items:start; max-width:560px;">
-                <div style="position:relative; flex:1;">
-                    <input type="text" class="input" id="ttCatSearch" placeholder="Search TikTok categories..." autocomplete="off"
-                           value="{{ old('tiktok_category_id', $group->tiktok_category_id) ? ($tiktokCategories->firstWhere('id', old('tiktok_category_id', $group->tiktok_category_id))->name ?? '') : '' }}">
-                    <input type="hidden" name="tiktok_category_id" id="ttCatId" value="{{ old('tiktok_category_id', $group->tiktok_category_id) }}">
-                    <div id="ttCatDropdown" style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:250px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); margin-top:2px;"></div>
-                </div>
-                <button type="button" class="btn small secondary" id="ttRefreshCatsBtn" title="Refresh categories from TikTok API">Refresh</button>
-            </div>
-
-            {{-- Price Markup --}}
-            <h3 class="section-title" style="margin-top:20px;">Price Markup</h3>
-            <div class="hint" style="margin-bottom:8px;">Formula: <strong>(Product Price &times; %) + Product Price + Fixed Amount</strong></div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label>Percentage (%)</label>
-                    <input type="number" name="markup_percent" class="input" step="0.01" min="0"
-                           value="{{ old('markup_percent', $group->markup_percent) }}"
-                           placeholder="e.g. 5">
-                    <div class="hint">% of product price applied first.</div>
-                </div>
-                <div>
-                    <label>Fixed Amount</label>
-                    <input type="number" name="markup_fixed" class="input" step="0.01" min="0"
-                           value="{{ old('markup_fixed', $group->markup_fixed) }}"
-                           placeholder="e.g. 100">
-                    <div class="hint">Flat amount added after percentage.</div>
-                </div>
-            </div>
+    <div class="fm-bar">
+        <span class="fm-bar__meta">{{ $canManageTiktok
+            ? ($mode === 'create' ? 'Nothing is saved until you create the group.' : 'Changes are saved to this group, not pushed to TikTok Shop.')
+            : 'You can read this group. Changing it needs the TikTok manage permission.' }}</span>
+        <div class="fm-bar__actions">
+            <a class="fm-cancel" href="{{ route('ext.tiktok.product-groups.index') }}">{{ $canManageTiktok ? 'Cancel' : 'Back' }}</a>
+            @if($canManageTiktok)
+                <x-ui.button type="submit" variant="primary">{{ $mode === 'create' ? 'Create product group' : 'Save product group' }}</x-ui.button>
+            @endif
         </div>
-
-        {{-- Product Assignment (Dual Listbox) --}}
-        <div class="card mt-16">
-            <h3 class="section-title mt-0">Products</h3>
-            <div class="hint" style="margin-bottom:12px;">Use the filters to find products, then move them to the right panel to include in this group.</div>
-
-            {{-- Search Filters --}}
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end; margin-bottom:16px;">
-                <div>
-                    <label class="text-xs text-muted">Search</label>
-                    <input type="text" class="input" id="pl-search" placeholder="Name, SKU or model..." autocomplete="off">
-                </div>
-                <div>
-                    <label class="text-xs text-muted">Category</label>
-                    <select class="input" id="pl-category">
-                        <option value="">All Categories</option>
-                        @foreach($catalogCategories as $cat)
-                            <option value="{{ $cat->category_id }}">{{ $cat->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="text-xs text-muted">Manufacturer</label>
-                    <select class="input" id="pl-manufacturer">
-                        <option value="">All Manufacturers</option>
-                        @foreach($manufacturers as $mfg)
-                            <option value="{{ $mfg->manufacturer_id }}">{{ $mfg->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <button type="button" class="btn" id="pl-search-btn">Search</button>
-            </div>
-
-            {{-- Dual Listbox --}}
-            <div style="display:grid; grid-template-columns:1fr 48px 1fr; gap:0; align-items:start;">
-                {{-- Left Panel: Available --}}
-                <div>
-                    <div style="font-weight:600; font-size:13px; margin-bottom:6px;">
-                        Available <span id="pl-left-count" class="text-muted font-normal">(0)</span>
-                    </div>
-                    <div style="border:1px solid var(--border); border-radius:var(--radius-md); height:420px; overflow-y:auto; background:var(--surface);">
-                        <table class="table" style="margin:0;">
-                            <thead style="position:sticky; top:0; background:var(--surface); z-index:1;">
-                                <tr>
-                                    <th style="width:30px; padding:6px 4px;"><input type="checkbox" id="pl-left-check-all"></th>
-                                    <th style="width:50px; padding:6px 4px;">ID</th>
-                                    <th style="padding:6px 4px;">Name</th>
-                                    <th style="width:90px; padding:6px 4px;">SKU</th>
-                                    <th style="width:40px; padding:6px 4px;">Qty</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pl-left-body">
-                                <tr><td colspan="5" class="text-muted text-center" style="padding:40px 8px; font-size:13px;">Use the filters above and click Search</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {{-- Middle: Add/Remove Buttons --}}
-                <div style="display:flex; flex-direction:column; gap:8px; align-items:center; padding-top:80px;">
-                    <button type="button" class="btn small" id="pl-add-btn" title="Add selected to group" style="padding:4px 10px; font-size:16px; font-weight:700; line-height:1;">&rsaquo;&rsaquo;</button>
-                    <button type="button" class="btn small secondary" id="pl-remove-btn" title="Remove selected from group" style="padding:4px 10px; font-size:16px; font-weight:700; line-height:1;">&lsaquo;&lsaquo;</button>
-                </div>
-
-                {{-- Right Panel: In Group --}}
-                <div>
-                    <div style="font-weight:600; font-size:13px; margin-bottom:6px;">
-                        In Group <span id="pl-right-count" class="text-muted font-normal">({{ $groupProducts->count() }})</span>
-                    </div>
-                    <div style="border:1px solid var(--border); border-radius:var(--radius-md); height:420px; overflow-y:auto; background:var(--surface);">
-                        <table class="table" style="margin:0;">
-                            <thead style="position:sticky; top:0; background:var(--surface); z-index:1;">
-                                <tr>
-                                    <th style="width:30px; padding:6px 4px;"><input type="checkbox" id="pl-right-check-all"></th>
-                                    <th style="width:50px; padding:6px 4px;">ID</th>
-                                    <th style="padding:6px 4px;">Name</th>
-                                    <th style="width:90px; padding:6px 4px;">SKU</th>
-                                    <th style="width:40px; padding:6px 4px;">Qty</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pl-right-body">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Hidden inputs for product IDs --}}
-            <div id="pl-hidden-inputs"></div>
-        </div>
-
-        <div class="d-flex justify-end gap-8 mt-16">
-            <button class="btn" type="submit">
-                {{ $mode === 'create' ? 'Create Product Group' : 'Save Product Group' }}
-            </button>
-        </div>
-    </form>
-
-@push('scripts')
-<script>
-(function() {
-    // ── TikTok Category Picker ──────────────────────────────────
-    var cats = @json($tiktokCategories->map(fn($c) => ['id' => $c->id, 'name' => $c->name]));
-    var catSearchEl = document.getElementById('ttCatSearch');
-    var catDropdown = document.getElementById('ttCatDropdown');
-    var catHiddenId = document.getElementById('ttCatId');
-
-    function showCatDropdown(filter) {
-        var lower = filter.toLowerCase();
-        var filtered = cats.filter(function(c) { return c.name.toLowerCase().indexOf(lower) !== -1; });
-        if (filtered.length === 0 || filter === '') { catDropdown.style.display = 'none'; return; }
-        catDropdown.textContent = '';
-        filtered.slice(0, 50).forEach(function(cat) {
-            var div = document.createElement('div');
-            div.textContent = cat.name;
-            div.style.cssText = 'padding:6px 10px; cursor:pointer; font-size:13px;';
-            div.addEventListener('mouseenter', function() { div.style.background = 'var(--surface-hover)'; });
-            div.addEventListener('mouseleave', function() { div.style.background = ''; });
-            div.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                catSearchEl.value = cat.name;
-                catHiddenId.value = cat.id;
-                catDropdown.style.display = 'none';
-            });
-            catDropdown.appendChild(div);
-        });
-        catDropdown.style.display = 'block';
-    }
-
-    catSearchEl.addEventListener('input', function() { showCatDropdown(catSearchEl.value.trim()); });
-    catSearchEl.addEventListener('focus', function() { if (catSearchEl.value.trim()) showCatDropdown(catSearchEl.value.trim()); });
-    catSearchEl.addEventListener('blur', function() { setTimeout(function() { catDropdown.style.display = 'none'; }, 150); });
-
-    // ── Refresh Categories from TikTok API ──────────────────────
-    var ttRefreshBtn = document.getElementById('ttRefreshCatsBtn');
-    var ttSyncUrl = @json(route('ext.tiktok.categories.sync'));
-    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    if (ttRefreshBtn) {
-        ttRefreshBtn.addEventListener('click', function() {
-            ttRefreshBtn.disabled = true;
-            ttRefreshBtn.textContent = 'Refreshing...';
-
-            fetch(ttSyncUrl, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.ok && data.categories) {
-                    cats = data.categories.map(function(c) { return { id: c.id, name: c.name }; });
-                    showFlashSuccess(data.count + ' categories refreshed.');
-                } else {
-                    showFlashError(data.message || 'Failed to refresh categories.');
-                }
-            })
-            .catch(function() { showFlashError('Network error refreshing categories.'); })
-            .finally(function() { ttRefreshBtn.disabled = false; ttRefreshBtn.textContent = 'Refresh'; });
-        });
-    }
-
-    // ── Dual Listbox ────────────────────────────────────────────
-    var searchUrl = @json(route('ext.tiktok.product-groups.searchProducts'));
-    @php
-        $rightItemsJson = $groupProducts->map(fn($p) => [
-            'product_id' => (int) $p->product_id,
-            'name'       => $p->name,
-            'sku'        => $p->sku ?: ($p->model ?: ''),
-            'quantity'   => (int) $p->quantity,
-        ]);
-    @endphp
-    var rightItems = @json($rightItemsJson);
-
-    var leftItems = [];
-    var rightSet = {};
-    rightItems.forEach(function(item) { rightSet[item.product_id] = true; });
-
-    var leftBody = document.getElementById('pl-left-body');
-    var rightBody = document.getElementById('pl-right-body');
-    var leftCount = document.getElementById('pl-left-count');
-    var rightCount = document.getElementById('pl-right-count');
-    var hiddenDiv = document.getElementById('pl-hidden-inputs');
-    var leftCheckAll = document.getElementById('pl-left-check-all');
-    var rightCheckAll = document.getElementById('pl-right-check-all');
-
-    function makeRow(item, side) {
-        var tr = document.createElement('tr');
-
-        var tdCb = document.createElement('td');
-        tdCb.style.cssText = 'padding:4px;';
-        var cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.className = side === 'left' ? 'pl-left-check' : 'pl-right-check';
-        cb.value = item.product_id;
-        tdCb.appendChild(cb);
-        tr.appendChild(tdCb);
-
-        var tdId = document.createElement('td');
-        tdId.style.cssText = 'padding:4px; font-size:12px;';
-        tdId.textContent = item.product_id;
-        tr.appendChild(tdId);
-
-        var tdName = document.createElement('td');
-        tdName.style.cssText = 'padding:4px; font-size:12px;';
-        tdName.textContent = item.name || '-';
-        tr.appendChild(tdName);
-
-        var tdSku = document.createElement('td');
-        tdSku.style.cssText = 'padding:4px; font-size:12px;';
-        var code = document.createElement('code');
-        code.textContent = item.sku || '-';
-        tdSku.appendChild(code);
-        tr.appendChild(tdSku);
-
-        var tdQty = document.createElement('td');
-        tdQty.style.cssText = 'padding:4px; font-size:12px;';
-        tdQty.textContent = item.quantity;
-        tr.appendChild(tdQty);
-
-        return tr;
-    }
-
-    function makeEmptyRow(msg, colspan) {
-        var tr = document.createElement('tr');
-        var td = document.createElement('td');
-        td.setAttribute('colspan', colspan);
-        td.className = 'text-muted text-center';
-        td.style.cssText = 'padding:40px 8px; font-size:13px;';
-        td.textContent = msg;
-        tr.appendChild(td);
-        return tr;
-    }
-
-    function renderLeft() {
-        var visible = leftItems.filter(function(item) { return !rightSet[item.product_id]; });
-        leftCount.textContent = '(' + visible.length + ')';
-        if (leftCheckAll) leftCheckAll.checked = false;
-        leftBody.textContent = '';
-
-        if (visible.length === 0) {
-            leftBody.appendChild(makeEmptyRow(leftItems.length > 0 ? 'All results already in group' : 'No results', 5));
-            return;
-        }
-
-        visible.forEach(function(item) {
-            leftBody.appendChild(makeRow(item, 'left'));
-        });
-    }
-
-    function renderRight() {
-        rightCount.textContent = '(' + rightItems.length + ')';
-        if (rightCheckAll) rightCheckAll.checked = false;
-        syncHiddenInputs();
-        rightBody.textContent = '';
-
-        if (rightItems.length === 0) {
-            rightBody.appendChild(makeEmptyRow('No products added', 5));
-            return;
-        }
-
-        rightItems.forEach(function(item) {
-            rightBody.appendChild(makeRow(item, 'right'));
-        });
-    }
-
-    function syncHiddenInputs() {
-        hiddenDiv.textContent = '';
-        rightItems.forEach(function(item) {
-            var inp = document.createElement('input');
-            inp.type = 'hidden';
-            inp.name = 'product_ids[]';
-            inp.value = item.product_id;
-            hiddenDiv.appendChild(inp);
-        });
-    }
-
-    function doSearch() {
-        var q = document.getElementById('pl-search').value.trim();
-        var catId = document.getElementById('pl-category').value;
-        var mfgId = document.getElementById('pl-manufacturer').value;
-
-        var params = [];
-        if (q) params.push('q=' + encodeURIComponent(q));
-        if (catId) params.push('category_id=' + catId);
-        if (mfgId) params.push('manufacturer_id=' + mfgId);
-
-        var btn = document.getElementById('pl-search-btn');
-        btn.disabled = true;
-        btn.textContent = 'Searching...';
-
-        fetch(searchUrl + '?' + params.join('&'), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            leftItems = (data.items || []).map(function(item) {
-                return {
-                    product_id: parseInt(item.product_id),
-                    name: item.name || '',
-                    sku: item.sku || item.model || '',
-                    quantity: parseInt(item.quantity) || 0
-                };
-            });
-            renderLeft();
-        })
-        .catch(function() {
-            leftItems = [];
-            leftBody.textContent = '';
-            leftBody.appendChild(makeEmptyRow('Search failed', 5));
-        })
-        .finally(function() {
-            btn.disabled = false;
-            btn.textContent = 'Search';
-        });
-    }
-
-    // Add selected left items to right
-    document.getElementById('pl-add-btn').addEventListener('click', function() {
-        var checked = leftBody.querySelectorAll('.pl-left-check:checked');
-        if (checked.length === 0) return;
-
-        checked.forEach(function(cb) {
-            var pid = parseInt(cb.value);
-            if (rightSet[pid]) return;
-            var item = leftItems.find(function(i) { return i.product_id === pid; });
-            if (item) {
-                rightItems.push(item);
-                rightSet[pid] = true;
-            }
-        });
-
-        renderLeft();
-        renderRight();
-    });
-
-    // Remove selected right items
-    document.getElementById('pl-remove-btn').addEventListener('click', function() {
-        var checked = rightBody.querySelectorAll('.pl-right-check:checked');
-        if (checked.length === 0) return;
-
-        var removeIds = {};
-        checked.forEach(function(cb) { removeIds[parseInt(cb.value)] = true; });
-
-        rightItems = rightItems.filter(function(item) { return !removeIds[item.product_id]; });
-
-        rightSet = {};
-        rightItems.forEach(function(item) { rightSet[item.product_id] = true; });
-
-        renderLeft();
-        renderRight();
-    });
-
-    // Search button + Enter key
-    document.getElementById('pl-search-btn').addEventListener('click', doSearch);
-    document.getElementById('pl-search').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
-    });
-
-    // Check-all toggles
-    if (leftCheckAll) {
-        leftCheckAll.addEventListener('change', function() {
-            leftBody.querySelectorAll('.pl-left-check').forEach(function(cb) { cb.checked = leftCheckAll.checked; });
-        });
-    }
-    if (rightCheckAll) {
-        rightCheckAll.addEventListener('change', function() {
-            rightBody.querySelectorAll('.pl-right-check').forEach(function(cb) { cb.checked = rightCheckAll.checked; });
-        });
-    }
-
-    // Initial render
-    renderRight();
-})();
-</script>
-@endpush
+    </div>
+</form>
 @endsection

@@ -217,6 +217,16 @@
 
 @media (min-width: 1001px) {
     .fm-body { grid-template-columns: minmax(0, 1fr) 320px; }
+
+    /* A form with no side rail must not reserve the track for one. Without
+       this, a single-.fm-col page strands ~350px of empty canvas to the
+       right of every field, which is what pages/settings.css's own
+       .st-form--wide was written to undo. Stated here so any form can say
+       it, rather than each page inventing its own name for the same fix.
+       Round F Task 1; the registered debt on
+       extensions/warehousing/views/locations/form.blade.php is the same
+       shape and is now one class away. */
+    .fm-body--single { grid-template-columns: minmax(0, 1fr); }
 }
 
 .fm-col {
