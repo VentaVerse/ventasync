@@ -31,12 +31,21 @@ class SettingController extends Controller
     }
 
     /**
-     * The pre-split settings URI. Kept, not deleted, because
-     * layouts/app.blade.php (protected, byte-identical to the session
-     * baseline) still calls route('settings.edit') for the sidebar link and
-     * the legacy $__bcRoutes breadcrumb table, and route NAMES are frozen
-     * for the duration of this migration. 301s a bare visit to the first
-     * tab, and an old ?tab=… link to that same tab's new route.
+     * The pre-split settings URI, and nothing but its 301.
+     *
+     * It was originally kept because layouts/app.blade.php (protected and
+     * byte-frozen at the time) called route('settings.edit') for its sidebar
+     * link and its $__bcRoutes breadcrumb table. Round F Task 4 deleted that
+     * layout, so no route('settings.edit') call site remains anywhere in the
+     * application. The redirect stays regardless: /settings/edit was a real
+     * URI for years and may be bookmarked or linked from outside, and this is
+     * cheaper than a 404. 301s a bare visit to the first tab, and an old
+     * ?tab=… link to that same tab's new route.
+     *
+     * The route keeps its name. Dropping it would change the route table,
+     * which IaMigrationTest::test_route_list_unchanged_by_the_split() pins
+     * against a fixture, and would buy nothing: an unnamed 301 shim behaves
+     * identically.
      */
     public function redirectLegacyEdit(Request $request)
     {

@@ -36,11 +36,14 @@ Route::prefix('settings')->group(function () {
         Route::get('/mail', [SettingController::class, 'edit'])->name('settings.mail')->defaults('tab', 'mail');
         Route::get('/maintenance', [SettingController::class, 'edit'])->name('settings.maintenance')->defaults('tab', 'maintenance');
 
-        // The pre-split URI. Its name stays resolvable, layouts/app.blade.php
-        // (protected) still calls route('settings.edit') for the sidebar link
-        // and the legacy breadcrumb table, but the URI itself now just 301s
-        // to whichever tab a stale ?tab= link asked for, or the first tab for
-        // a bare visit. See SettingController::redirectLegacyEdit().
+        // The pre-split URI, now a pure 301 shim. It was kept named because
+        // layouts/app.blade.php called route('settings.edit') for its sidebar
+        // link and its breadcrumb table; Round F Task 4 deleted that layout,
+        // and with it the last route('settings.edit') call site in the
+        // application. What survives is the redirect itself, which is all the
+        // shim is for now: a bookmarked or externally linked /settings/edit,
+        // with or without a stale ?tab=, still lands on the right tab instead
+        // of 404ing. See SettingController::redirectLegacyEdit().
         Route::get('/edit', [SettingController::class, 'redirectLegacyEdit'])->name('settings.edit');
         Route::get('/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
         // Extensions browse, list of installed extensions (read).

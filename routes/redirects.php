@@ -179,11 +179,12 @@ Route::get('/integrations/{key}', fn (string $key) => redirect($withQuery('/inte
 //  Spec decision 2, /sales/order-statuses is Settings, not Sales.
 //
 //  The settings ?tab= split (spec decision 4) needs NO entry here: the old
-//  URI, /settings/edit, still exists as a real named route (settings.edit,
-//  frozen because layouts/app.blade.php, protected, still calls it) and
-//  now redirects from inside SettingController::redirectLegacyEdit() rather
-//  than as a path shim, since the mapping depends on a query value, not
-//  just the path.
+//  URI, /settings/edit, still exists as a real named route (settings.edit -
+//  named originally because the protected layouts/app.blade.php called it,
+//  and kept named after Round F Task 4 deleted that layout only because the
+//  route-table fixture pins it) and redirects from inside
+//  SettingController::redirectLegacyEdit() rather than as a path shim, since
+//  the mapping depends on a query value, not just the path.
 // ─────────────────────────────────────────────────────────────────────────
 
 Route::get('/sales/order-statuses/{any?}', fn (?string $any = null) => redirect($withQuery('/settings/order-statuses'.($any ? '/'.$any : '')), 301))
