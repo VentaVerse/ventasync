@@ -22,6 +22,8 @@
     @endif
 </div>
 
+@include('partials.flash')
+
 <form method="GET" action="{{ route('order_statuses.index') }}" class="x-filters">
     <label class="x-sr" for="st-os-q">Search order statuses</label>
     <x-ui.input type="search" id="st-os-q" name="q" value="{{ $q ?? '' }}"

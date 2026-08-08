@@ -22,11 +22,7 @@
     @endif
 </div>
 
-@if(session('error'))
-    <div class="fm-flash" role="status" aria-live="polite">
-        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
-    </div>
-@endif
+@include('partials.flash')
 
 <form method="GET" action="{{ route('user_groups.index') }}" class="x-filters">
     <label class="x-sr" for="st-groups-q">Search groups</label>

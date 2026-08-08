@@ -47,16 +47,7 @@
     </div>
 @endif
 
-@if(session('status') || session('error'))
-<div class="fm-flash" role="status" aria-live="polite">
-    @if(session('status'))
-        <div class="fm-note fm-note--ok"><div class="fm-note__body">{{ session('status') }}</div></div>
-    @endif
-    @if(session('error'))
-        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
-    @endif
-</div>
-@endif
+@include('partials.flash')
 
 @if($clients->isEmpty())
     <x-ui.empty

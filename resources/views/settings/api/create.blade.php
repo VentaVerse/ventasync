@@ -11,16 +11,15 @@
 <form method="POST" action="{{ route('api_clients.store') }}" class="fm-page">
     @csrf
 
-    <div class="fm-flash" role="status" aria-live="polite">
-        @if(session('error'))
-            <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ session('error') }}</div></div>
-        @endif
-        @if($errors->any())
+    @include('partials.flash')
+
+    @if($errors->any())
+        <div class="fm-flash" role="status" aria-live="polite">
             <div class="fm-note fm-note--fail">
                 <div class="fm-note__body">Nothing was saved. Check the fields marked below.</div>
             </div>
-        @endif
-    </div>
+        </div>
+    @endif
 
     <div class="fm-head">
         <div class="fm-head__main">
