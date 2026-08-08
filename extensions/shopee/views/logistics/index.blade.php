@@ -3,100 +3,134 @@
 
 @section('title', 'Shopee Logistics Channels')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    $canManageShopee = true;
-@endphp
-    <div class="page-header">
-        <div>
-            <h2>Shopee Logistics Channels</h2>
-            <div class="text-muted text-sm">Fetch and view available logistics channels from your Shopee shop.</div>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
-            @if($canManageShopee)
-            <form method="POST" action="{{ route('ext.shopee.logistics.fetch') }}" style="display:inline;">
-                @csrf
-                <button class="btn" type="submit">Fetch from Shopee</button>
-            </form>
-            @endif
-        </div>
-    </div>
+    // Read tier is `view_shopee|manage_shopee`; the fetch POST is
+    // `manage_shopee` only. Replaces a hardcoded `true` that offered every
+    // read-only operator a button the route would 403.
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
 
-    <div class="card">
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                <tr>
-                    <th style="width:80px;">Channel ID</th>
-                    <th>Name</th>
-                    <th style="width:80px;">Status</th>
-                    <th style="width:60px;">COD</th>
-                    <th>Weight Limit</th>
-                    <th>Max Dimensions</th>
-                    <th style="width:60px;">Pre-order</th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($channels as $ch)
-                    <tr>
-                        <td class="font-mono text-sm">{{ $ch->logistics_channel_id }}</td>
-                        <td>
-                            <div class="font-bold">{{ $ch->logistics_channel_name }}</div>
-                            @if($ch->mask_channel_id > 0)
-                                <div class="text-muted text-xs">Masks channel: {{ $ch->mask_channel_id }}</div>
-                            @endif
-                        </td>
-                        <td>
-                            @if($ch->force_enable)
-                                <span class="badge badge-blue">Force On</span>
-                            @elseif($ch->enabled)
-                                <span class="badge badge-green">Enabled</span>
-                            @else
-                                <span class="badge badge-gray">Disabled</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if($ch->cod_enabled)
-                                <span class="badge badge-green">Yes</span>
-                            @else
-                                <span class="text-muted">No</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php $wl = $ch->weight_limit; @endphp
-                            @if(!empty($wl) && ($wl['item_max_weight'] ?? 0) > 0)
-                                {{ $wl['item_min_weight'] ?? 0 }} &ndash; {{ $wl['item_max_weight'] }} kg
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php $dim = $ch->item_max_dimension; @endphp
-                            @if(!empty($dim) && ($dim['length'] ?? 0) > 0)
-                                {{ $dim['length'] }} &times; {{ $dim['width'] }} &times; {{ $dim['height'] }} {{ $dim['unit'] ?? 'cm' }}
-                                @if(($dim['dimension_sum'] ?? 0) > 0)
-                                    <span class="text-muted text-xs">(sum: {{ $dim['dimension_sum'] }})</span>
-                                @endif
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            @if($ch->support_pre_order)
-                                <span class="text-muted">Yes</span>
-                            @else
-                                <span class="text-muted">No</span>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="text-muted">No logistics channels cached yet. Click <strong>Fetch from Shopee</strong> to load them.</td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
+    $enabledCount = $channels->filter(fn ($c) => $c->enabled || $c->force_enable)->count();
+@endphp
+
+<div class="cc-page">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Logistics</h1>
+        <p class="x-page-sub">
+            @if($channels->count() === 0)
+                No couriers cached yet
+            @else
+                {{ number_format($channels->count()) }} {{ $channels->count() === 1 ? 'courier' : 'couriers' }} on file, {{ number_format($enabledCount) }} switched on for this shop
+            @endif
+        </p>
     </div>
+</div>
+
+@if($canManageShopee)
+<div class="x-cmdbar">
+    <form method="POST" action="{{ route('ext.shopee.logistics.fetch') }}" class="x-cmdbar__row">
+        @csrf
+        <p class="x-cmdbar__hint x-cmdbar__hint--inline">Reads the courier list Shopee has switched on for your shop. Product Groups pick their couriers from this list, so refresh it after changing anything in Seller Centre.</p>
+        <div class="x-cmdbar__actions">
+            <x-ui.button type="submit" variant="primary">Fetch couriers</x-ui.button>
+        </div>
+    </form>
+</div>
+@endif
+
+@if($channels->count() === 0)
+    <x-ui.empty title="No couriers here"
+                :description="$canManageShopee
+                    ? 'Nothing has been cached yet. Click Fetch couriers to read the list from Shopee.'
+                    : 'Nothing has been cached yet. Someone with the manage tier needs to read the list from Shopee.'" />
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="cc-col-chanid">Channel ID</th>
+            <th>Courier</th>
+            <th class="cc-col-stat">Status</th>
+            <th class="cc-col-flag">Cash on delivery</th>
+            <th class="cc-col-limit">Weight limit</th>
+            <th class="cc-col-limit">Size limit</th>
+            <th class="cc-col-flag cc-col-flag--sm">Pre-order</th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($channels as $ch)
+        @php
+            $wl = $ch->weight_limit;
+            $dim = $ch->item_max_dimension;
+            $hasWeight = !empty($wl) && ($wl['item_max_weight'] ?? 0) > 0;
+            $hasDim = !empty($dim) && ($dim['length'] ?? 0) > 0;
+
+            // Three states, one tone each. Accent is spent on "Shopee is
+            // forcing this one on" and on plain Enabled because those are
+            // the couriers an order can actually ship with; Disabled is
+            // neutral, not danger - a switched-off courier is a setting,
+            // not a fault.
+            if ($ch->force_enable) {
+                $statusTone = 'info';
+                $statusLabel = 'Always on';
+            } elseif ($ch->enabled) {
+                $statusTone = 'success';
+                $statusLabel = 'Enabled';
+            } else {
+                $statusTone = 'neutral';
+                $statusLabel = 'Disabled';
+            }
+        @endphp
+        <tr>
+            <td class="cc-col-chanid" data-label="Channel ID"><span class="x-num">{{ $ch->logistics_channel_id }}</span></td>
+            <td data-label="Courier">
+                <span class="x-cell-strong">{{ $ch->logistics_channel_name }}</span>
+                @if($ch->mask_channel_id > 0)
+                    <span class="cc-sub cc-sub--mono">Stands in for channel {{ $ch->mask_channel_id }}</span>
+                @endif
+            </td>
+            <td class="cc-col-stat" data-label="Status">
+                <x-ui.badge :tone="$statusTone">{{ $statusLabel }}</x-ui.badge>
+            </td>
+            <td class="cc-col-flag" data-label="Cash on delivery">
+                @if($ch->cod_enabled)
+                    <span class="x-cell-strong">Yes</span>
+                @else
+                    <span class="x-cell-muted">No</span>
+                @endif
+            </td>
+            <td class="cc-col-limit" data-label="Weight limit">
+                @if($hasWeight)
+                    <span class="x-num">{{ $wl['item_min_weight'] ?? 0 }} to {{ $wl['item_max_weight'] }} kg</span>
+                @else
+                    <span class="x-cell-muted">Not stated</span>
+                @endif
+            </td>
+            <td class="cc-col-limit" data-label="Size limit">
+                @if($hasDim)
+                    <span class="x-num">{{ $dim['length'] }} &times; {{ $dim['width'] }} &times; {{ $dim['height'] }} {{ $dim['unit'] ?? 'cm' }}</span>
+                    @if(($dim['dimension_sum'] ?? 0) > 0)
+                        <span class="cc-sub cc-sub--mono">{{ $dim['dimension_sum'] }} {{ $dim['unit'] ?? 'cm' }} total of all three sides</span>
+                    @endif
+                @else
+                    <span class="x-cell-muted">Not stated</span>
+                @endif
+            </td>
+            <td class="cc-col-flag cc-col-flag--sm" data-label="Pre-order">
+                @if($ch->support_pre_order)
+                    <span class="x-cell-strong">Yes</span>
+                @else
+                    <span class="x-cell-muted">No</span>
+                @endif
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+@endif
+
+</div>{{-- /.cc-page --}}
 @endsection

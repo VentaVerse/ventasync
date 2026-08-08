@@ -12,6 +12,8 @@ import './pages/tiktok-orders';
 import './pages/venta-orders';
 import './pages/order-detail';
 import './pages/product-form';
+import './pages/shopee-listings';
+import './pages/channel-settings';
 
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';

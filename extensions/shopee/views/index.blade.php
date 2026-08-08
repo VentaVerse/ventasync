@@ -1,15 +1,42 @@
 @extends('layouts.channel')
 @section('breadcrumb', 'Settings')
 
-@section('content')
-<div class="page-header">
-    <h2>Shopee Settings</h2>
-    <div class="page-header-actions">
-        <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
-    </div>
-</div>
+@section('title', 'Shopee Settings')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set.
+
+     READ THIS BEFORE EDITING ANY FORM BELOW.
+
+     This URL is Shopee's OAuth callback landing. `route('ext.shopee.index')`
+     is the exact string registered as the redirect URI in the Shopee Open
+     Platform console, and ShopeeController::index() reads ?code= and
+     ?shop_id= off this request and exchanges them for a token BEFORE this
+     view is ever rendered. Nothing in this file participates in that
+     exchange, and nothing in this file may change these four surfaces:
+
+       - the authorize link         route('ext.shopee.authorize'), a GET in a
+                                    new tab, rel="noopener"
+       - the auth-code exchange     POST route('ext.shopee.token_get'),
+                                    one field named `code`
+       - the token refresh          POST route('ext.shopee.token_refresh')
+       - the redirect URI display   a readonly input with NO name attribute,
+                                    so it is shown and never submitted
+
+     The credential save (POST route('ext.shopee.save')) carries a hidden
+     `env` plus exactly the ten field names ShopeeController::save()
+     validates. Blank means "keep the stored value", which is what the
+     •••••••• masks plus resources/js/credential-mask.js are for. --}}
+@section('content-class', '')
+
+@section('content')
 @php
+    // Read tier is `view_shopee|manage_shopee` on this route; every write
+    // below (save, toggle mode, token get/refresh, explorer, packs, status
+    // maps, logging, log delete, purge) is `manage_shopee`. Replaces a
+    // hardcoded `true`, which offered a read-only operator every one of
+    // those controls and let each of them 403.
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
+
     $currentMode = $setting->mode ?? 'sandbox';
     $isSandbox = $currentMode === 'sandbox';
 
@@ -25,1001 +52,774 @@
     $logCount = count($logs);
     $hasResult = !empty($result);
 
-    // Phase 4 (view/manage tier split): operators with only `view_shopee` get
-    // here through the read-tier route gate. Action triggers (Save, Authorize,
-    // Token, API Explorer, Mapping save, log delete/toggle) are hidden for
-    // them — the routes still 403 if probed directly, but the UI surface
-    // should match the operator's capability set.
-    $canManageShopee = true;
+    $apiLogging = (bool) ($setting->api_logging ?? true);
+
+    $regions = [
+        'sg' => 'Singapore', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam',
+        'id' => 'Indonesia', 'ph' => 'Philippines', 'tw' => 'Taiwan', 'br' => 'Brazil',
+        'mx' => 'Mexico', 'co' => 'Colombia', 'cl' => 'Chile', 'pl' => 'Poland',
+    ];
 @endphp
 
+<div class="cs-page"
+     data-channel-settings
+     data-tab-prefix="sp-tab-"
+     data-tab-storage-key="sp-active-tab"
+     data-default-tab="{{ $hasResult ? 'sp-tab-logs' : '' }}">
+
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Settings</h1>
+        <p class="x-page-sub">Credentials, status mapping and the API record for this Shopee shop.</p>
+    </div>
+</div>
+
 @unless($canManageShopee)
-<div class="alert" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:10px 14px; border-radius:var(--radius-md); margin-bottom:16px; font-size:13px;">
-    <strong>Read-only view.</strong> You can browse Shopee settings, mappings, and logs. To edit credentials, run syncs, or trigger marketplace actions, your user group needs the <code>manage_shopee</code> permission tier.
+<div class="cs-readonly">
+    <div>
+        <strong>You can look, not change.</strong>
+        Settings, status mapping and the API record are readable with the Shopee view permission. Editing credentials, running syncs and clearing logs need the manage tier.
+    </div>
 </div>
 @endunless
 
-{{-- ═══ Tabs ═══ --}}
-{{-- API Explorer + Automations tabs are write-only tools (they invoke the
-     Shopee API directly and configure the cron schedule). Read-only operators
-     don't see them; the Status Mapping and API Logs tabs render the data
-     they hold without exposing write actions. --}}
-<div class="tabs mb-12" style="justify-content:flex-start;">
-    <button class="tab active" data-tab="sp-tab-settings" type="button">Settings</button>
-    <button class="tab" data-tab="sp-tab-status" type="button">Status Mapping</button>
-    @if($canManageShopee)
-    <button class="tab" data-tab="sp-tab-explorer" type="button">API Explorer</button>
-    @endif
-    <button class="tab" data-tab="sp-tab-logs" type="button">
-        API Logs
-        @if($logCount > 0)
-            <span style="margin-left:6px; background:var(--surface); color:var(--text-secondary); font-size:11px; padding:1px 7px; border-radius:99px; font-weight:600;">{{ $logCount }}</span>
-        @endif
-    </button>
-    @if($canManageShopee)
-    <button class="tab" data-tab="sp-tab-automations" type="button">Automations</button>
-    @endif
-</div>
-
-{{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  TAB 1 — SETTINGS                                              ║
-     ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-settings">
-
-    {{-- Environment Toggle --}}
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);">
-        <span class="font-semibold text-sm">Environment:</span>
+{{-- Five views of one subject, so this is the same segmented control the
+     orders pages use for their status filters rather than a second tab
+     grammar. API Explorer and Automations are write-only tools (they call
+     Shopee directly and set the cron schedule) so a read-only operator does
+     not see them; Status Mapping and API Logs show their data with the write
+     controls removed. --}}
+<div class="x-segment-bar">
+    <div class="x-segment" role="tablist" aria-label="Settings sections">
+        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="sp-tab-settings-tab" aria-controls="sp-tab-settings" data-cs-tab="sp-tab-settings">Connection</button>
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-status-tab" aria-controls="sp-tab-status" data-cs-tab="sp-tab-status">Status mapping</button>
         @if($canManageShopee)
-        <form method="POST" action="{{ route('ext.shopee.toggle_mode') }}" id="sp-mode-form" style="display:flex; align-items:center; gap:10px;">
-            @csrf
-            <input type="hidden" name="mode" id="sp-mode-value" value="{{ $currentMode }}">
-            <button type="button" id="sp-mode-toggle" style="
-                position:relative; display:inline-flex; align-items:center; width:48px; height:26px;
-                border-radius:13px; border:none; cursor:pointer; transition:background 0.2s;
-                background:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};
-            ">
-                <span id="sp-mode-knob" style="
-                    position:absolute; top:3px; {{ $isSandbox ? 'left:3px' : 'left:25px' }};
-                    width:20px; height:20px; background:#fff; border-radius:50%;
-                    transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);
-                "></span>
-            </button>
-            <span id="sp-mode-label" class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
-                {{ $isSandbox ? 'Sandbox' : 'Production' }}
-            </span>
-        </form>
-        @else
-        <span class="text-sm" style="font-weight:600; color:{{ $isSandbox ? '#9ca3af' : '#22c55e' }};">
-            {{ $isSandbox ? 'Sandbox' : 'Production' }}
-        </span>
+            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-explorer-tab" aria-controls="sp-tab-explorer" data-cs-tab="sp-tab-explorer">API explorer</button>
+        @endif
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-logs-tab" aria-controls="sp-tab-logs" data-cs-tab="sp-tab-logs">
+            <span>API log</span>
+            @if($logCount > 0)<span class="x-segment__count">{{ number_format($logCount) }}</span>@endif
+        </button>
+        @if($canManageShopee)
+            <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-automations-tab" aria-controls="sp-tab-automations" data-cs-tab="sp-tab-automations">Automations</button>
         @endif
     </div>
+</div>
 
-    {{-- Connection + Auth side-by-side on wide screens --}}
-    {{-- ═══ PRODUCTION fields ═══ --}}
-    <div id="sp-env-live" class="{{ $isSandbox ? 'hidden' : '' }}">
-    <div class="marketplace-settings-grid">
+{{-- ================================================================
+     CONNECTION
+     ================================================================ --}}
+<div id="sp-tab-settings" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-settings-tab">
 
-        {{-- Connection (Live) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Connection <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Environment</h2>
+        </div>
+
+        <div class="cs-env">
+            @if($canManageShopee)
+                {{-- Wire unchanged: one hidden `mode` field posted to
+                     toggle-mode, exactly as the old knob did. What changed is
+                     that the control now names both environments instead of
+                     being an on/off switch you had to read the label to
+                     decode, and it no longer paints itself green and grey
+                     with inline styles. --}}
+                <form method="POST" action="{{ route('ext.shopee.toggle_mode') }}" data-cs-env-form>
+                    @csrf
+                    <input type="hidden" name="mode" value="{{ $currentMode }}" data-cs-env-input>
+                    <div class="x-segment" role="tablist" aria-label="Shopee environment">
+                        <button type="button" class="x-segment__item {{ $isSandbox ? '' : 'is-active' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'false' : 'true' }}"
+                                data-cs-env-option="live">Production</button>
+                        <button type="button" class="x-segment__item {{ $isSandbox ? 'is-active' : '' }}"
+                                role="tab" aria-selected="{{ $isSandbox ? 'true' : 'false' }}"
+                                data-cs-env-option="sandbox">Sandbox</button>
+                    </div>
+                </form>
+            @else
+                <span class="cs-env__label">{{ $isSandbox ? 'Sandbox' : 'Production' }}</span>
+            @endif
+
+            <p class="cs-env__note">
+                Every sync, push and order fetch uses the credentials of the environment selected here. Production and sandbox keep separate credentials and separate tokens.
+            </p>
+        </div>
+    </section>
+
+    {{-- ---- PRODUCTION ---------------------------------------------- --}}
+    <div class="cs-grid" data-cs-env-panel="live" @if($isSandbox) hidden @endif>
+
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Production credentials</h2>
+            </div>
 
             <form method="POST" action="{{ route('ext.shopee.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="live">
-                <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div>
-                        <label>Partner ID</label>
-                        {{-- Numeric app identifier, not a secret — shown in full.
-                             Only Partner Key / Access Token stay masked. --}}
-                        <input class="input" name="partner_id" type="text" autocomplete="off"
-                               value="{{ $setting->partner_id ?? '' }}">
-                    </div>
-                    <div>
-                        <label>Partner Key</label>
-                        <input class="input" name="partner_key" type="password" autocomplete="off"
-                               value="{{ !empty($setting->partner_key) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->partner_key) ? '1' : '0' }}">
-                        <div class="hint">Stored encrypted.</div>
-                    </div>
-                    <div>
-                        <label>Shop ID</label>
-                        <input class="input" name="shop_id" type="text" autocomplete="off"
-                               value="{{ $setting->shop_id ?? '' }}">
-                    </div>
-                    <div>
-                        <label>Access Token</label>
-                        <input class="input" type="password" autocomplete="off" name="access_token"
-                               value="{{ !empty($setting->access_token) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->access_token) ? '1' : '0' }}">
-                        <div class="hint">Stored encrypted.</div>
-                    </div>
-                    <div class="form-grid">
-                        <div>
-                            <label>Redirect URI</label>
-                            <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
-                            <div class="hint">Register this exact URL in your Shopee Open Platform live app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
-                        </div>
-                        <div>
-                            <label>Region</label>
-                            <select name="region" class="input">
-                                <option value="">(not set)</option>
-                                @foreach(['sg' => 'Singapore', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam', 'id' => 'Indonesia', 'ph' => 'Philippines', 'tw' => 'Taiwan', 'br' => 'Brazil', 'mx' => 'Mexico', 'co' => 'Colombia', 'cl' => 'Chile', 'pl' => 'Poland'] as $code => $name)
-                                    <option value="{{ $code }}" {{ strtolower((string)($setting->region ?? '')) === $code ? 'selected' : '' }}>{{ $name }} ({{ strtoupper($code) }})</option>
+
+                <div class="fm-fields">
+                    <x-ui.field label="Partner ID" for="sp-partner-id" name="partner_id" wide
+                                hint="The numeric app identifier from your Shopee Open Platform app. Not a secret, so it is shown in full.">
+                        <x-ui.input id="sp-partner-id" name="partner_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ $setting->partner_id ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Partner Key" for="sp-partner-key" name="partner_key" wide
+                                hint="Stored encrypted. Leave it as it is to keep the saved key.">
+                        <x-ui.input id="sp-partner-key" name="partner_key" type="password" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ !empty($setting->partner_key) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->partner_key) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Shop ID" for="sp-shop-id" name="shop_id" wide>
+                        <x-ui.input id="sp-shop-id" name="shop_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ $setting->shop_id ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Access Token" for="sp-access-token" name="access_token" wide
+                                hint="Stored encrypted. Normally filled in for you by the authorisation steps beside this.">
+                        <x-ui.input id="sp-access-token" name="access_token" type="password" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ !empty($setting->access_token) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->access_token) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    {{-- No name attribute, deliberately: this is shown so it
+                         can be copied into the Shopee console, and it must
+                         never be posted back as a settable field. --}}
+                    <x-ui.field label="Redirect URI" for="sp-redirect" wide
+                                hint="Register this exact URL in your Shopee Open Platform production app. To change it, edit APP_URL in the environment file.">
+                        <x-ui.input id="sp-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
+                    </x-ui.field>
+
+                    <x-ui.field label="Region" for="sp-region" name="region" wide>
+                        <div class="x-select-wrap">
+                            <select id="sp-region" name="region" class="x-input" @disabled(!$canManageShopee)>
+                                <option value="">Not set</option>
+                                @foreach($regions as $code => $name)
+                                    <option value="{{ $code }}" @selected(strtolower((string) ($setting->region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
                                 @endforeach
                             </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
                         </div>
-                    </div>
+                    </x-ui.field>
                 </div>
+
                 @if($canManageShopee)
-                <div style="margin-top:14px;">
-                    <button class="btn" type="submit">Save Settings</button>
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save production settings</x-ui.button>
+                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored.</span>
                 </div>
                 @endif
             </form>
-        </div>
+        </section>
 
-        {{-- Authentication (Live) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Authentication <span class="badge badge-green" style="font-size:10px; vertical-align:middle; margin-left:6px;">Production</span></h3>
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Production authorisation</h2>
+            </div>
 
-            @if($__hasToken && !$__tokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Token Active</span>
+            <div class="cs-state">
+                @if($__hasToken && !$__tokenExpired)
+                    <x-ui.badge tone="success">Token active</x-ui.badge>
                     @if($setting->expires_at ?? null)
-                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
+                        <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->expires_at)->diffForHumans() }}</span>
                     @endif
-                </div>
-            @elseif($__hasToken && $__tokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-red">Token Expired</span>
-                    <span class="text-xs text-muted">Use "Refresh Token" below to renew.</span>
-                </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-yellow">No Token</span>
-                    <span class="text-xs text-muted">Follow steps below to authorize.</span>
-                </div>
-            @endif
+                @elseif($__hasToken && $__tokenExpired)
+                    <x-ui.badge tone="danger">Token expired</x-ui.badge>
+                    <span class="cs-state__note">Use step 3 to renew it without authorising again.</span>
+                @else
+                    <x-ui.badge tone="warning">No token</x-ui.badge>
+                    <span class="cs-state__note">Work through the three steps below.</span>
+                @endif
+            </div>
 
             @if($canManageShopee)
-            <div style="display:flex; flex-direction:column; gap:16px;">
-                {{-- Step 1 --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
-                        <span class="font-semibold text-sm">Authorize with Shopee</span>
-                    </div>
-                    <a class="btn small" href="{{ route('ext.shopee.authorize') }}" target="_blank" rel="noopener">Authorize with Shopee</a>
-                    <div class="hint" style="margin-top:6px;">Opens Shopee login in a new tab. After granting access, you'll be redirected back with an auth code.</div>
-                </div>
-
-                {{-- Step 2 --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
-                        <span class="font-semibold text-sm">Exchange auth code for token</span>
-                    </div>
-                    <form method="POST" action="{{ route('ext.shopee.token_get') }}">
-                        @csrf
-                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width:200px;">
-                                <label class="text-xs text-muted">Auth Code</label>
-                                <input class="input" name="code" value="{{ old('code', '') }}" placeholder="Paste code=... here">
-                            </div>
-                            <button class="btn small" type="submit">Exchange Token</button>
+            <div class="cs-steps">
+                <div class="cs-step">
+                    <span class="cs-step__n">1</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Authorise with Shopee</span>
+                        <div>
+                            <x-ui.button size="sm" :href="route('ext.shopee.authorize')" target="_blank" rel="noopener">Open Shopee authorisation</x-ui.button>
                         </div>
-                    </form>
+                        <p class="cs-step__note">Opens Shopee sign-in in a new tab. After you grant access Shopee sends you back here with an auth code, and the code is exchanged for a token automatically.</p>
+                    </div>
                 </div>
 
-                {{-- Step 3 --}}
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
-                        <span class="font-semibold text-sm">Refresh token (when expired)</span>
+                <div class="cs-step">
+                    <span class="cs-step__n">2</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Exchange an auth code by hand</span>
+                        <form method="POST" action="{{ route('ext.shopee.token_get') }}" class="cs-exchange">
+                            @csrf
+                            <x-ui.field label="Auth code" for="sp-code" name="code">
+                                <x-ui.input id="sp-code" name="code" value="{{ old('code', '') }}" placeholder="Paste the code= value here" />
+                            </x-ui.field>
+                            <x-ui.button type="submit" size="sm">Exchange</x-ui.button>
+                        </form>
+                        <p class="cs-step__note">Only needed when the automatic exchange did not run, for example if you copied the redirect URL out of the address bar.</p>
                     </div>
-                    <form method="POST" action="{{ route('ext.shopee.token_refresh') }}" style="display:inline;">
-                        @csrf
-                        <button class="btn small secondary" type="submit">Refresh Access Token</button>
-                    </form>
-                    <div class="hint" style="margin-top:6px;">Shopee tokens expire every ~4 hours. Use this to renew without re-authorizing.</div>
+                </div>
+
+                <div class="cs-step">
+                    <span class="cs-step__n">3</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Refresh an expired token</span>
+                        <form method="POST" action="{{ route('ext.shopee.token_refresh') }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Refresh access token</x-ui.button>
+                        </form>
+                        <p class="cs-step__note">Shopee access tokens last about four hours. The scheduled job renews them every two hours, so this is here for when that job has not run.</p>
+                    </div>
                 </div>
             </div>
             @else
-            <div class="hint">Token-related actions require the <code>manage_shopee</code> permission tier.</div>
+            <p class="cs-step__note">Authorising and refreshing tokens need the Shopee manage permission.</p>
             @endif
-        </div>
+        </section>
     </div>
-    </div>
 
-    {{-- ═══ SANDBOX fields ═══ --}}
-    <div id="sp-env-sandbox" class="{{ !$isSandbox ? 'hidden' : '' }}">
-    <div class="marketplace-settings-grid">
+    {{-- ---- SANDBOX ------------------------------------------------- --}}
+    <div class="cs-grid" data-cs-env-panel="sandbox" @unless($isSandbox) hidden @endunless>
 
-        {{-- Connection (Sandbox) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Connection <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
-
-            @if($__hasSandboxCredentials)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Connected</span>
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Sandbox credentials</h2>
+                <div class="fm-section__aside">
+                    @if($__hasSandboxCredentials)
+                        <x-ui.badge tone="success">Configured</x-ui.badge>
+                    @else
+                        <x-ui.badge tone="neutral">Not configured</x-ui.badge>
+                    @endif
                 </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-gray">Not configured</span>
-                </div>
-            @endif
+            </div>
 
             <form method="POST" action="{{ route('ext.shopee.save') }}">
                 @csrf
                 <input type="hidden" name="env" value="sandbox">
-                <div style="display:flex; flex-direction:column; gap:14px;">
-                    <div>
-                        <label>Sandbox Partner ID</label>
-                        <input class="input" name="sandbox_partner_id" type="text" autocomplete="off"
-                               value="{{ $setting->sandbox_partner_id ?? '' }}">
-                    </div>
-                    <div>
-                        <label>Sandbox Partner Key</label>
-                        <input class="input" name="sandbox_partner_key" type="password" autocomplete="off"
-                               value="{{ !empty($setting->sandbox_partner_key) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_partner_key) ? '1' : '0' }}">
-                        <div class="hint">Stored encrypted.</div>
-                    </div>
-                    <div>
-                        <label>Sandbox Shop ID</label>
-                        <input class="input" name="sandbox_shop_id" type="password" autocomplete="off"
-                               value="{{ !empty($setting->sandbox_shop_id) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_shop_id) ? '1' : '0' }}">
-                    </div>
-                    <div>
-                        <label>Sandbox Access Token</label>
-                        <input class="input" type="password" autocomplete="off" name="sandbox_access_token"
-                               value="{{ !empty($setting->sandbox_access_token) ? '••••••••' : '' }}"
-                               data-credential-mask="{{ !empty($setting->sandbox_access_token) ? '1' : '0' }}">
-                        <div class="hint">Stored encrypted.</div>
-                    </div>
-                    <div class="form-grid">
-                        <div>
-                            <label>Redirect URI</label>
-                            <input class="input" value="{{ $defaultRedirect }}" readonly onclick="this.select()" style="background:#f3f4f6; cursor:text;">
-                            <div class="hint">Register this exact URL in your Shopee Open Platform sandbox app. Read-only — edit <code>APP_URL</code> in <code>.env</code> to change.</div>
-                        </div>
-                        <div>
-                            <label>Region</label>
-                            <select name="sandbox_region" class="input">
-                                <option value="">(not set)</option>
-                                @foreach(['sg' => 'Singapore', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam', 'id' => 'Indonesia', 'ph' => 'Philippines', 'tw' => 'Taiwan', 'br' => 'Brazil', 'mx' => 'Mexico', 'co' => 'Colombia', 'cl' => 'Chile', 'pl' => 'Poland'] as $code => $name)
-                                    <option value="{{ $code }}" {{ strtolower((string)($setting->sandbox_region ?? '')) === $code ? 'selected' : '' }}>{{ $name }} ({{ strtoupper($code) }})</option>
+
+                <div class="fm-fields">
+                    <x-ui.field label="Sandbox Partner ID" for="sp-sb-partner-id" name="sandbox_partner_id" wide>
+                        <x-ui.input id="sp-sb-partner-id" name="sandbox_partner_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ $setting->sandbox_partner_id ?? '' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Sandbox Partner Key" for="sp-sb-partner-key" name="sandbox_partner_key" wide
+                                hint="Stored encrypted. Leave it as it is to keep the saved key.">
+                        <x-ui.input id="sp-sb-partner-key" name="sandbox_partner_key" type="password" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ !empty($setting->sandbox_partner_key) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->sandbox_partner_key) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Sandbox Shop ID" for="sp-sb-shop-id" name="sandbox_shop_id" wide>
+                        <x-ui.input id="sp-sb-shop-id" name="sandbox_shop_id" type="password" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ !empty($setting->sandbox_shop_id) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->sandbox_shop_id) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    <x-ui.field label="Sandbox Access Token" for="sp-sb-access-token" name="sandbox_access_token" wide
+                                hint="Stored encrypted.">
+                        <x-ui.input id="sp-sb-access-token" name="sandbox_access_token" type="password" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ !empty($setting->sandbox_access_token) ? '••••••••' : '' }}"
+                                    data-credential-mask="{{ !empty($setting->sandbox_access_token) ? '1' : '0' }}" />
+                    </x-ui.field>
+
+                    {{-- No name attribute, same as the production copy. --}}
+                    <x-ui.field label="Redirect URI" for="sp-sb-redirect" wide
+                                hint="Register this exact URL in your Shopee Open Platform sandbox app. To change it, edit APP_URL in the environment file.">
+                        <x-ui.input id="sp-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
+                    </x-ui.field>
+
+                    <x-ui.field label="Region" for="sp-sb-region" name="sandbox_region" wide>
+                        <div class="x-select-wrap">
+                            <select id="sp-sb-region" name="sandbox_region" class="x-input" @disabled(!$canManageShopee)>
+                                <option value="">Not set</option>
+                                @foreach($regions as $code => $name)
+                                    <option value="{{ $code }}" @selected(strtolower((string) ($setting->sandbox_region ?? '')) === $code)>{{ $name }} ({{ strtoupper($code) }})</option>
                                 @endforeach
                             </select>
+                            <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
                         </div>
-                    </div>
+                    </x-ui.field>
                 </div>
+
                 @if($canManageShopee)
-                <div style="margin-top:14px;">
-                    <button class="btn" type="submit">Save Sandbox Settings</button>
+                <div class="cs-actions">
+                    <x-ui.button type="submit" variant="primary">Save sandbox settings</x-ui.button>
+                    <span class="cs-actions__note">Leave a masked field untouched to keep what is already stored.</span>
                 </div>
                 @endif
             </form>
-        </div>
+        </section>
 
-        {{-- Authentication (Sandbox) --}}
-        <div class="card" style="margin-bottom:0;">
-            <h3 class="section-title mt-0">Authentication <span class="badge badge-gray" style="font-size:10px; vertical-align:middle; margin-left:6px;">Sandbox</span></h3>
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Sandbox authorisation</h2>
+            </div>
 
-            @if($__hasSandboxToken && !$__sandboxTokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-green">Token Active</span>
+            <div class="cs-state">
+                @if($__hasSandboxToken && !$__sandboxTokenExpired)
+                    <x-ui.badge tone="success">Token active</x-ui.badge>
                     @if($setting->sandbox_expires_at ?? null)
-                        <span class="text-xs text-muted">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
+                        <span class="cs-state__when">Expires {{ \Carbon\Carbon::parse($setting->sandbox_expires_at)->diffForHumans() }}</span>
                     @endif
-                </div>
-            @elseif($__hasSandboxToken && $__sandboxTokenExpired)
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-red">Token Expired</span>
-                </div>
-            @else
-                <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;">
-                    <span class="badge badge-yellow">No Token</span>
-                    <span class="text-xs text-muted">Configure sandbox credentials, then authorize.</span>
-                </div>
-            @endif
+                @elseif($__hasSandboxToken && $__sandboxTokenExpired)
+                    <x-ui.badge tone="danger">Token expired</x-ui.badge>
+                @else
+                    <x-ui.badge tone="warning">No token</x-ui.badge>
+                    <span class="cs-state__note">Fill in the sandbox credentials first, then authorise.</span>
+                @endif
+            </div>
 
             @if($canManageShopee)
-            <div style="display:flex; flex-direction:column; gap:16px;">
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">1</span>
-                        <span class="font-semibold text-sm">Authorize with Shopee Sandbox</span>
-                    </div>
-                    <a class="btn small" href="{{ route('ext.shopee.authorize') }}" target="_blank" rel="noopener">Authorize Sandbox</a>
-                    <div class="hint" style="margin-top:6px;">Opens Shopee sandbox login in a new tab. Uses sandbox credentials to authorize with the Shopee test environment.</div>
-                </div>
-
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#9ca3af; color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">2</span>
-                        <span class="font-semibold text-sm">Exchange auth code for sandbox token</span>
-                    </div>
-                    <form method="POST" action="{{ route('ext.shopee.token_get') }}">
-                        @csrf
-                        <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width:200px;">
-                                <label class="text-xs text-muted">Auth Code</label>
-                                <input class="input" name="code" value="{{ old('code', '') }}" placeholder="Paste sandbox code here">
-                            </div>
-                            <button class="btn small" type="submit">Exchange Token</button>
+            <div class="cs-steps">
+                <div class="cs-step">
+                    <span class="cs-step__n">1</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Authorise with Shopee sandbox</span>
+                        <div>
+                            <x-ui.button size="sm" :href="route('ext.shopee.authorize')" target="_blank" rel="noopener">Open sandbox authorisation</x-ui.button>
                         </div>
-                    </form>
+                        <p class="cs-step__note">Opens the Shopee test environment in a new tab, using the sandbox credentials above.</p>
+                    </div>
                 </div>
 
-                <div class="detail-section">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                        <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--bg3, #475569); color:#fff; font-size:12px; font-weight:700; flex-shrink:0;">3</span>
-                        <span class="font-semibold text-sm">Refresh sandbox token</span>
+                <div class="cs-step">
+                    <span class="cs-step__n">2</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Exchange an auth code by hand</span>
+                        <form method="POST" action="{{ route('ext.shopee.token_get') }}" class="cs-exchange">
+                            @csrf
+                            <x-ui.field label="Auth code" for="sp-sb-code" name="code">
+                                <x-ui.input id="sp-sb-code" name="code" value="{{ old('code', '') }}" placeholder="Paste the sandbox code here" />
+                            </x-ui.field>
+                            <x-ui.button type="submit" size="sm">Exchange</x-ui.button>
+                        </form>
                     </div>
-                    <form method="POST" action="{{ route('ext.shopee.token_refresh') }}" style="display:inline;">
-                        @csrf
-                        <button class="btn small secondary" type="submit">Refresh Sandbox Token</button>
-                    </form>
+                </div>
+
+                <div class="cs-step">
+                    <span class="cs-step__n">3</span>
+                    <div class="cs-step__body">
+                        <span class="cs-step__title">Refresh an expired token</span>
+                        <form method="POST" action="{{ route('ext.shopee.token_refresh') }}">
+                            @csrf
+                            <x-ui.button type="submit" size="sm">Refresh sandbox token</x-ui.button>
+                        </form>
+                    </div>
                 </div>
             </div>
             @else
-            <div class="hint">Sandbox token actions require the <code>manage_shopee</code> permission tier.</div>
+            <p class="cs-step__note">Authorising and refreshing tokens need the Shopee manage permission.</p>
             @endif
-        </div>
-    </div>
+        </section>
     </div>
 
-    {{-- Logistics Channels --}}
     @if($canManageShopee)
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Logistics Channels</h3>
-        <div class="hint" style="margin-bottom:12px;">
-            Fetch available logistics channels from Shopee to see which are enabled for your shop.
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Couriers</h2>
         </div>
-        <form method="POST" action="{{ route('ext.shopee.logistics_channels') }}" style="display:inline;">
-            @csrf
-            <button class="btn" type="submit">Fetch Logistics Channels</button>
-        </form>
-    </div>
-    @endif
-
-    {{-- Order sync window + cron-command catalog were here; replaced by the
-         Automations tab (universal admin scheduler). See the Automations tab
-         to edit cadence / sync window / per-job options. --}}
-</div>
-
-{{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  AUTOMATIONS TAB — universal admin scheduler                    ║
-     ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-automations" class="hidden">
-    @include('partials._automations_tab', ['integration' => 'shopee', 'storeId' => null])
-</div>
-
-{{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  TAB 2 — API EXPLORER                                          ║
-     ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-explorer" class="hidden">
-<div class="card">
-    <h3 class="section-title mt-0">API Explorer</h3>
-    <div class="hint" style="margin-bottom:10px;">
-        Pick an endpoint, fill parameters, and run. Signing fields are generated automatically.
-    </div>
-
-    <div class="api-explorer">
-        <div class="api-panel">
-            <div class="api-search">
-                <input class="input" id="api-endpoint-search" placeholder="Search endpoints...">
-            </div>
-            <div class="api-hint">Click an endpoint to auto-fill method, auth, path and parameters.</div>
-
-            <div class="api-list" id="api-endpoint-list">
-                <div class="api-cat">Shop</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shop Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_shop_info","desc":"Fetch shop info.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/shop/get_shop_info</span><div class="api-hint">Shop info</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Profile","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_profile","desc":"Fetch shop profile.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/shop/get_profile</span><div class="api-hint">Shop profile</div></button>
-
-                <div class="api-cat">Product</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Item List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_list","desc":"List products. Requires update_time_from and update_time_to (Unix timestamps).","params":[{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"},{"k":"update_time_from","req":true,"ph":""},{"k":"update_time_to","req":true,"ph":""},{"k":"item_status","req":false,"ph":"NORMAL"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_item_list</span><div class="api-hint">offset, page_size, update_time_from/to, item_status</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Item Base Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_base_info","desc":"Get base info for item(s).","params":[{"k":"item_id_list","req":true,"ph":"123,456"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_item_base_info</span><div class="api-hint">item_id_list (comma-separated)</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Model List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_model_list","desc":"Get model/variant list for an item.","params":[{"k":"item_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_model_list</span><div class="api-hint">item_id</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Category","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_category","desc":"Fetch category tree.","params":[{"k":"language","req":false,"ph":"en"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_category</span><div class="api-hint">language</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Attributes","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_attribute_tree","desc":"Get attributes for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"language","req":false,"ph":"en"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_attribute_tree</span><div class="api-hint">category_id</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Brand List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_brand_list","desc":"Get brands for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"100"},{"k":"status","req":false,"ph":"1"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_brand_list</span><div class="api-hint">category_id, offset, page_size</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Update Stock","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_stock","desc":"Update stock for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"stock_list","req":true,"ph":"[{\"model_id\":0,\"normal_stock\":10}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/product/update_stock</span><div class="api-hint">item_id, stock_list</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Update Price","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_price","desc":"Update price for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"price_list","req":true,"ph":"[{\"model_id\":0,\"original_price\":100}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/product/update_price</span><div class="api-hint">item_id, price_list</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Category Recommend","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/category_recommend","desc":"Get recommended categories for an item name.","params":[{"k":"item_name","req":true,"ph":"Guitar Pedal"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/category_recommend</span><div class="api-hint">item_name</div></button>
-
-                <div class="api-cat">Order</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Order List","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_list","desc":"List orders.","params":[{"k":"order_status","req":false,"ph":"READY_TO_SHIP"},{"k":"time_range_field","req":true,"ph":"create_time"},{"k":"time_from","req":true,"ph":""},{"k":"time_to","req":true,"ph":""},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/order/get_order_list</span><div class="api-hint">order_status, time range</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Order Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_detail","desc":"Get order details.","params":[{"k":"order_sn_list","req":true,"ph":"2502011234ABCD"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/order/get_order_detail</span><div class="api-hint">order_sn_list</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Cancel Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/order/cancel_order","desc":"Cancel an order.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"cancel_reason","req":true,"ph":"OUT_OF_STOCK"},{"k":"item_list","req":false,"ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/order/cancel_order</span><div class="api-hint">order_sn, cancel_reason</div></button>
-
-                <div class="api-cat">Logistics</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Channel List","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_channel_list","desc":"Fetch available logistics channels.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_channel_list</span><div class="api-hint">Logistics channels</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Parameter","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_parameter","desc":"Get shipping parameter for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_shipping_parameter</span><div class="api-hint">order_sn</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Ship Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/ship_order","desc":"Ship an order. Use pickup with address_id from get_shipping_parameter, or dropoff with empty object.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"pickup","req":false,"ph":"{\"address_id\":0}"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/ship_order</span><div class="api-hint">order_sn, pickup/dropoff</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Tracking Number","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_number","desc":"Get tracking number.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_tracking_number</span><div class="api-hint">order_sn</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Tracking Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_info","desc":"Get tracking info for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_tracking_info</span><div class="api-hint">order_sn</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Doc Parameter","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_parameter","desc":"Get shipping document parameter (doc type, package number).","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/get_shipping_document_parameter</span><div class="api-hint">order_list</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Create Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/create_shipping_document","desc":"Create shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\",\"shipping_document_type\":\"THERMAL_AIR_WAYBILL\",\"tracking_number\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/create_shipping_document</span><div class="api-hint">order_list</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Doc Result","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_result","desc":"Poll document creation status. Status: READY, FAILED, or PROCESSING.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/get_shipping_document_result</span><div class="api-hint">order_list — check READY/FAILED</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Download Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/download_shipping_document","desc":"Download shipping document as PDF. Response is binary — will show as raw data in explorer.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"},{"k":"shipping_document_type","req":false,"ph":"THERMAL_AIR_WAYBILL"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/download_shipping_document</span><div class="api-hint">order_list — returns binary PDF</div></button>
-
-                <div class="api-cat">Media</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Upload Image","method":"POST","auth":true,"shop":true,"path":"/api/v2/media_space/upload_image","desc":"Upload an image.","params":[]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/media_space/upload_image</span><div class="api-hint">Multipart upload</div></button>
-
-                <div class="api-cat">Reviews</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Item Comments","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_comment","desc":"Get reviews/comments for a specific item. Uses cursor-based pagination via comment_id.","params":[{"k":"item_id","req":true,"ph":"10076385934"},{"k":"comment_id","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_comment</span><div class="api-hint">item_id, comment_id, page_size</div></button>
-
-                <div class="api-cat">Returns</div>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Return List","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_list","desc":"List returns.","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_list</span><div class="api-hint">page_no, page_size</div></button>
-                <button type="button" class="api-endpoint" data-ep='{"name":"Get Return Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_detail","desc":"Get return details.","params":[{"k":"return_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_detail</span><div class="api-hint">return_sn</div></button>
-            </div>
-        </div>
-
-        <div class="api-panel">
-            <div class="api-split" style="margin-bottom:10px;">
-                <div>
-                    <label>Selected Endpoint</label>
-                    <div class="api-mini" id="sp-ep-name">None selected</div>
-                    <div class="api-hint" id="sp-ep-desc"></div>
-                </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:start;">
-                    <form method="POST" action="{{ route('ext.shopee.packs_run') }}" style="display:inline;">@csrf<input type="hidden" name="pack" value="shop_info"><button class="btn small secondary" type="submit">Shop Info</button></form>
-                    <form method="POST" action="{{ route('ext.shopee.packs_run') }}" style="display:inline;">@csrf<input type="hidden" name="pack" value="catalog"><button class="btn small secondary" type="submit">Catalog</button></form>
-                    <form method="POST" action="{{ route('ext.shopee.packs_run') }}" style="display:inline;">@csrf<input type="hidden" name="pack" value="orders"><button class="btn small secondary" type="submit">Orders</button></form>
-                    <form method="POST" action="{{ route('ext.shopee.packs_run') }}" style="display:inline;">@csrf<input type="hidden" name="pack" value="logistics"><button class="btn small secondary" type="submit">Logistics</button></form>
-                    <form method="POST" action="{{ route('ext.shopee.packs_run') }}" style="display:inline;">@csrf<input type="hidden" name="pack" value="full"><button class="btn small" type="submit">Full</button></form>
-                </div>
-            </div>
-
-            <form id="api-explorer-form" method="POST" action="{{ route('ext.shopee.explorer_run') }}">
+        <p class="fm-section__note">Reads the courier list Shopee has switched on for this shop and caches it. The full list, with weight and size limits, is on the Logistics page.</p>
+        <div class="cs-actions">
+            <form method="POST" action="{{ route('ext.shopee.logistics_channels') }}">
                 @csrf
-
-                <div class="form-grid">
-                    <div>
-                        <label>Method</label>
-                        <select name="method" class="input" id="api-explorer-method">
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Options</label>
-                        <label class="d-flex items-center gap-8" style="margin-top:6px;">
-                            <input type="checkbox" name="use_access_token" value="1" id="api-explorer-auth" checked>
-                            Access Token
-                        </label>
-                        <label class="d-flex items-center gap-8" style="margin-top:4px;">
-                            <input type="checkbox" name="use_shop_id" value="1" id="api-explorer-shop" checked>
-                            Shop ID
-                        </label>
-                    </div>
-                </div>
-
-                <div style="margin-top:12px;">
-                    <label>API Path</label>
-                    <input class="input" name="api_path" id="api-explorer-path" value="/api/v2/shop/get_shop_info" placeholder="/api/v2/shop/get_shop_info">
-                </div>
-
-                <div style="margin-top:12px;">
-                    <label>Parameters</label>
-                    <div class="api-mini" style="margin-bottom:8px;">Use this table for most calls. JSON is generated automatically.</div>
-                    <table class="api-kv" id="api-kv-table">
-                        <thead>
-                            <tr>
-                                <th style="width:34%;">Key</th>
-                                <th>Value</th>
-                                <th style="width:70px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="api-kv-body"></tbody>
-                    </table>
-                    <div class="api-row-actions" style="margin-top:10px;">
-                        <button class="btn small" type="button" id="sp-add-row">Add Param</button>
-                        <button class="btn small" type="button" id="sp-sync-to-json">Update JSON</button>
-                        <button class="btn small secondary" type="button" id="sp-sample-data">Sample Data</button>
-                    </div>
-                </div>
-
-                <div style="margin-top:12px;">
-                    <label>Params JSON</label>
-                    <textarea class="input api-code" name="params_json" id="api-explorer-params" rows="6" placeholder='{"page_size":10}'>{}</textarea>
-                </div>
-
-                <div class="d-flex gap-8 mt-12">
-                    <button class="btn" type="submit">Run</button>
-                </div>
+                <x-ui.button type="submit">Fetch couriers</x-ui.button>
             </form>
+            <a class="fm-cancel" href="{{ route('ext.shopee.logistics.index') }}">Open Logistics</a>
         </div>
-    </div>
-</div>
+    </section>
+    @endif
 </div>
 
-{{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  TAB 3 — STATUS MAPPING                                        ║
-     ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-status" class="hidden">
+{{-- ================================================================
+     STATUS MAPPING
+     ================================================================ --}}
+<div id="sp-tab-status" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-status-tab" hidden>
 
-    {{-- Order Status Mapping --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Order Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            When Shopee orders are synced, each Shopee status is mapped to an ERP order status below.
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Order status mapping</h2>
         </div>
+        <p class="fm-section__note">When a Shopee order is synced, its Shopee status becomes the sales order status chosen here.</p>
 
         <form method="POST" action="{{ route('ext.shopee.order_status_map') }}">
             @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
+            <x-ui.table>
+                <x-slot:head>
                     <tr>
-                        <th style="width:45%;">Shopee Status</th>
-                        <th>ERP Order Status</th>
+                        <th class="cs-col-src">Shopee status</th>
+                        <th>Sales order status</th>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach($shopeeStatuses as $key => $label)
+                </x-slot:head>
+                @foreach($shopeeStatuses as $key => $label)
                     <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        <td class="cs-col-src" data-label="Shopee status">
+                            <span class="cs-code">{{ $key }}</span>
+                            <span class="cs-map-label">{{ $label }}</span>
                         </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageShopee ? '' : 'disabled' }}>
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($orderStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        <td data-label="Sales order status">
+                            <div class="x-select-wrap cs-map-select">
+                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $label }}" @disabled(!$canManageShopee)>
+                                    @foreach($erpOrderStatuses as $os)
+                                        <option value="{{ $os->order_status_id }}" @selected((int) ($orderStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
+                                    @endforeach
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
                         </td>
                     </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
+                @endforeach
+            </x-ui.table>
+
             @if($canManageShopee)
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
+            <div class="cs-actions">
+                <x-ui.button type="submit" variant="primary">Save order mapping</x-ui.button>
             </div>
             @endif
         </form>
-    </div>
+    </section>
 
-    {{-- Return Status Mapping --}}
-    <div class="card mb-16">
-        <h3 class="section-title mt-0">Return Status Mapping</h3>
-        <div class="hint" style="margin-bottom:14px;">
-            When Shopee returns are synced, each return status is mapped to an ERP order status below.
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Return status mapping</h2>
         </div>
+        <p class="fm-section__note">When a Shopee return is synced, its status becomes the sales order status chosen here. Leave a row unmapped to make it change nothing.</p>
 
         <form method="POST" action="{{ route('ext.shopee.return_status_map') }}">
             @csrf
-            <div class="table-wrap">
-            <table>
-                <thead>
+            <x-ui.table>
+                <x-slot:head>
                     <tr>
-                        <th style="width:45%;">Shopee Return Status</th>
-                        <th>ERP Order Status</th>
+                        <th class="cs-col-src">Shopee return status</th>
+                        <th>Sales order status</th>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach($shopeeReturnStatuses as $key => $label)
+                </x-slot:head>
+                @foreach($shopeeReturnStatuses as $key => $label)
                     <tr>
-                        <td style="vertical-align:middle;">
-                            <code style="font-size:11.5px; background:var(--surface-alt); padding:2px 8px; border-radius:4px; border:1px solid var(--border-light);">{{ $key }}</code>
-                            <span class="text-muted" style="margin-left:6px;">{{ $label }}</span>
+                        <td class="cs-col-src" data-label="Shopee return status">
+                            <span class="cs-code">{{ $key }}</span>
+                            <span class="cs-map-label">{{ $label }}</span>
                         </td>
-                        <td>
-                            <select name="map[{{ $key }}]" class="input" style="max-width:260px;" {{ $canManageShopee ? '' : 'disabled' }}>
-                                <option value="">(not mapped)</option>
-                                @foreach($erpOrderStatuses as $os)
-                                    <option value="{{ $os->order_status_id }}" {{ (int)($returnStatusMap[$key] ?? 0) === (int)$os->order_status_id ? 'selected' : '' }}>
-                                        {{ $os->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        <td data-label="Sales order status">
+                            <div class="x-select-wrap cs-map-select">
+                                <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $label }}" @disabled(!$canManageShopee)>
+                                    <option value="">Not mapped</option>
+                                    @foreach($erpOrderStatuses as $os)
+                                        <option value="{{ $os->order_status_id }}" @selected((int) ($returnStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
+                                    @endforeach
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
                         </td>
                     </tr>
-                    @endforeach
-                </tbody>
-            </table>
-            </div>
+                @endforeach
+            </x-ui.table>
+
             @if($canManageShopee)
-            <div style="margin-top:14px;">
-                <button class="btn" type="submit">Save Mapping</button>
+            <div class="cs-actions">
+                <x-ui.button type="submit" variant="primary">Save return mapping</x-ui.button>
             </div>
             @endif
         </form>
-    </div>
-
+    </section>
 </div>
 
-{{-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  TAB 4 — API LOGS                                              ║
-     ╚══════════════════════════════════════════════════════════════════╝ --}}
-<div id="sp-tab-logs" class="hidden">
-
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-        <div>
-            <span class="font-semibold text-sm">API Logging</span>
-            <span class="hint" style="margin-left:8px;">Save API requests & responses for debugging.</span>
+{{-- ================================================================
+     API EXPLORER
+     ================================================================ --}}
+@if($canManageShopee)
+<div id="sp-tab-explorer" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-explorer-tab" hidden>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">API explorer</h2>
         </div>
-        @if($canManageShopee)
-        <label class="d-flex items-center gap-10" style="cursor:pointer;" id="sp-log-toggle">
-            <span style="position:relative; display:inline-block; width:44px; height:24px;">
-                <input type="checkbox" id="sp-log-cb" value="1"
-                       {{ ($setting->api_logging ?? true) ? 'checked' : '' }}
-                       style="position:absolute; opacity:0; width:0; height:0;">
-                <span id="sp-log-track" style="position:absolute; inset:0; background:{{ ($setting->api_logging ?? true) ? 'var(--accent)' : 'var(--border)' }}; border-radius:12px; transition:background 0.2s;"></span>
-                <span id="sp-log-knob" style="position:absolute; top:2px; left:{{ ($setting->api_logging ?? true) ? '22px' : '2px' }}; width:20px; height:20px; background:#fff; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
-            </span>
-            <span id="sp-log-label" class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
-                {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
-            </span>
-        </label>
-        @else
-        <span class="text-sm {{ ($setting->api_logging ?? true) ? 'font-bold' : 'text-muted' }}">
-            API Logging: {{ ($setting->api_logging ?? true) ? 'Enabled' : 'Disabled' }}
-        </span>
-        @endif
-    </div>
+        <p class="fm-section__note">Calls the Shopee API directly with this shop's credentials. Signing and timestamps are generated for you. Anything you run here is recorded in the API log.</p>
+
+        <div class="api-explorer" data-cs-explorer>
+            <div class="api-panel">
+                <div class="api-search">
+                    <x-ui.input id="api-endpoint-search" data-cs-ex-search placeholder="Search endpoints" aria-label="Search endpoints" />
+                </div>
+
+                <div class="api-list" id="api-endpoint-list">
+                    <div class="api-cat">Shop</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Shop Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_shop_info","desc":"Fetch shop info.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/shop/get_shop_info</span><div class="api-hint">Shop info</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Profile","method":"GET","auth":true,"shop":true,"path":"/api/v2/shop/get_profile","desc":"Fetch shop profile.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/shop/get_profile</span><div class="api-hint">Shop profile</div></button>
+
+                    <div class="api-cat">Product</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Item List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_list","desc":"List products. Requires update_time_from and update_time_to (Unix timestamps).","params":[{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"},{"k":"update_time_from","req":true,"ph":""},{"k":"update_time_to","req":true,"ph":""},{"k":"item_status","req":false,"ph":"NORMAL"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_item_list</span><div class="api-hint">offset, page_size, update_time_from/to, item_status</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Item Base Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_item_base_info","desc":"Get base info for item(s).","params":[{"k":"item_id_list","req":true,"ph":"123,456"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_item_base_info</span><div class="api-hint">item_id_list (comma-separated)</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Model List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_model_list","desc":"Get model/variant list for an item.","params":[{"k":"item_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_model_list</span><div class="api-hint">item_id</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Category","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_category","desc":"Fetch category tree.","params":[{"k":"language","req":false,"ph":"en"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_category</span><div class="api-hint">language</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Attributes","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_attribute_tree","desc":"Get attributes for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"language","req":false,"ph":"en"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_attribute_tree</span><div class="api-hint">category_id</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Brand List","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_brand_list","desc":"Get brands for a category.","params":[{"k":"category_id","req":true,"ph":"100001"},{"k":"offset","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"100"},{"k":"status","req":false,"ph":"1"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_brand_list</span><div class="api-hint">category_id, offset, page_size</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Update Stock","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_stock","desc":"Update stock for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"stock_list","req":true,"ph":"[{\"model_id\":0,\"normal_stock\":10}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/product/update_stock</span><div class="api-hint">item_id, stock_list</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Update Price","method":"POST","auth":true,"shop":true,"path":"/api/v2/product/update_price","desc":"Update price for an item.","params":[{"k":"item_id","req":true,"ph":"123"},{"k":"price_list","req":true,"ph":"[{\"model_id\":0,\"original_price\":100}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/product/update_price</span><div class="api-hint">item_id, price_list</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Category Recommend","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/category_recommend","desc":"Get recommended categories for an item name.","params":[{"k":"item_name","req":true,"ph":"Guitar Pedal"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/category_recommend</span><div class="api-hint">item_name</div></button>
+
+                    <div class="api-cat">Order</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Order List","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_list","desc":"List orders.","params":[{"k":"order_status","req":false,"ph":"READY_TO_SHIP"},{"k":"time_range_field","req":true,"ph":"create_time"},{"k":"time_from","req":true,"ph":""},{"k":"time_to","req":true,"ph":""},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/order/get_order_list</span><div class="api-hint">order_status, time range</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Order Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/order/get_order_detail","desc":"Get order details.","params":[{"k":"order_sn_list","req":true,"ph":"2502011234ABCD"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/order/get_order_detail</span><div class="api-hint">order_sn_list</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Cancel Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/order/cancel_order","desc":"Cancel an order.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"cancel_reason","req":true,"ph":"OUT_OF_STOCK"},{"k":"item_list","req":false,"ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/order/cancel_order</span><div class="api-hint">order_sn, cancel_reason</div></button>
+
+                    <div class="api-cat">Logistics</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Channel List","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_channel_list","desc":"Fetch available logistics channels.","params":[]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_channel_list</span><div class="api-hint">Logistics channels</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Parameter","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_parameter","desc":"Get shipping parameter for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_shipping_parameter</span><div class="api-hint">order_sn</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Ship Order","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/ship_order","desc":"Ship an order. Use pickup with address_id from get_shipping_parameter, or dropoff with empty object.","params":[{"k":"order_sn","req":true,"ph":""},{"k":"pickup","req":false,"ph":"{\"address_id\":0}"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/ship_order</span><div class="api-hint">order_sn, pickup/dropoff</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Tracking Number","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_number","desc":"Get tracking number.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_tracking_number</span><div class="api-hint">order_sn</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Tracking Info","method":"GET","auth":true,"shop":true,"path":"/api/v2/logistics/get_tracking_info","desc":"Get tracking info for an order.","params":[{"k":"order_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/logistics/get_tracking_info</span><div class="api-hint">order_sn</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Doc Parameter","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_parameter","desc":"Get shipping document parameter (doc type, package number).","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/get_shipping_document_parameter</span><div class="api-hint">order_list</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Create Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/create_shipping_document","desc":"Create shipping document.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\",\"shipping_document_type\":\"THERMAL_AIR_WAYBILL\",\"tracking_number\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/create_shipping_document</span><div class="api-hint">order_list</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Doc Result","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/get_shipping_document_result","desc":"Poll document creation status. Status: READY, FAILED, or PROCESSING.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/get_shipping_document_result</span><div class="api-hint">order_list, check READY or FAILED</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Download Shipping Document","method":"POST","auth":true,"shop":true,"path":"/api/v2/logistics/download_shipping_document","desc":"Download shipping document as PDF. Response is binary and shows as raw data in the explorer.","params":[{"k":"order_list","req":true,"ph":"[{\"order_sn\":\"\"}]"},{"k":"shipping_document_type","req":false,"ph":"THERMAL_AIR_WAYBILL"}]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/logistics/download_shipping_document</span><div class="api-hint">order_list, returns a binary PDF</div></button>
+
+                    <div class="api-cat">Media</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Upload Image","method":"POST","auth":true,"shop":true,"path":"/api/v2/media_space/upload_image","desc":"Upload an image.","params":[]}'><span class="api-badge post">POST</span><span class="api-code">/api/v2/media_space/upload_image</span><div class="api-hint">Multipart upload</div></button>
+
+                    <div class="api-cat">Reviews</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Item Comments","method":"GET","auth":true,"shop":true,"path":"/api/v2/product/get_comment","desc":"Get reviews/comments for a specific item. Uses cursor-based pagination via comment_id.","params":[{"k":"item_id","req":true,"ph":"10076385934"},{"k":"comment_id","req":false,"ph":"0"},{"k":"page_size","req":false,"ph":"50"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/product/get_comment</span><div class="api-hint">item_id, comment_id, page_size</div></button>
+
+                    <div class="api-cat">Returns</div>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Return List","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_list","desc":"List returns.","params":[{"k":"page_no","req":false,"ph":"1"},{"k":"page_size","req":false,"ph":"20"}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_list</span><div class="api-hint">page_no, page_size</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Get Return Detail","method":"GET","auth":true,"shop":true,"path":"/api/v2/returns/get_return_detail","desc":"Get return details.","params":[{"k":"return_sn","req":true,"ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/api/v2/returns/get_return_detail</span><div class="api-hint">return_sn</div></button>
+                </div>
+            </div>
+
+            <div class="api-panel">
+                <div class="api-split">
+                    <div>
+                        <span class="fm-label">Selected endpoint</span>
+                        <div class="api-mini" data-cs-ex-name>None selected</div>
+                        <div class="api-hint" data-cs-ex-desc></div>
+                    </div>
+                    <div>
+                        <span class="fm-label">Run a preset</span>
+                        <div class="api-row-actions">
+                            @foreach(['shop_info' => 'Shop info', 'catalog' => 'Catalogue', 'orders' => 'Orders', 'logistics' => 'Logistics', 'full' => 'Everything'] as $pack => $packLabel)
+                                <form method="POST" action="{{ route('ext.shopee.packs_run') }}">
+                                    @csrf
+                                    <input type="hidden" name="pack" value="{{ $pack }}">
+                                    <x-ui.button type="submit" size="sm">{{ $packLabel }}</x-ui.button>
+                                </form>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ route('ext.shopee.explorer_run') }}" data-cs-ex-form>
+                    @csrf
+
+                    <div class="fm-fields fm-fields--2">
+                        <x-ui.field label="Method" for="api-explorer-method" name="method">
+                            <div class="x-select-wrap">
+                                <select id="api-explorer-method" name="method" class="x-input" data-cs-ex-method>
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                </select>
+                                <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+                            </div>
+                        </x-ui.field>
+
+                        <div class="fm-field">
+                            <span class="fm-label">Send with the request</span>
+                            <label class="cs-check">
+                                <input type="checkbox" name="use_access_token" value="1" checked data-cs-ex-auth>
+                                Access token
+                            </label>
+                            <label class="cs-check">
+                                <input type="checkbox" name="use_shop_id" value="1" checked data-cs-ex-shop>
+                                Shop ID
+                            </label>
+                        </div>
+
+                        <x-ui.field label="API path" for="api-explorer-path" name="api_path" wide>
+                            <x-ui.input id="api-explorer-path" name="api_path" class="api-code" data-cs-ex-path
+                                        value="/api/v2/shop/get_shop_info" placeholder="/api/v2/shop/get_shop_info" />
+                        </x-ui.field>
+
+                        <div class="fm-field fm-field--wide">
+                            <span class="fm-label">Parameters</span>
+                            <div class="api-mini">Fill the table and the JSON below is written for you. A value that parses as JSON is sent as JSON.</div>
+                            <table class="api-kv">
+                                <thead>
+                                    <tr>
+                                        <th class="cs-kv-name">Name</th>
+                                        <th>Value</th>
+                                        <th class="cs-kv-act"><span class="x-sr">Remove</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody data-cs-ex-kv></tbody>
+                            </table>
+                            <div class="api-row-actions">
+                                <x-ui.button type="button" size="sm" data-cs-ex-add>Add parameter</x-ui.button>
+                                <x-ui.button type="button" size="sm" data-cs-ex-sync>Read from JSON</x-ui.button>
+                                <x-ui.button type="button" size="sm" data-cs-ex-sample>Fill sample values</x-ui.button>
+                            </div>
+                        </div>
+
+                        <x-ui.field label="Parameters as JSON" for="api-explorer-params" name="params_json" wide>
+                            <x-ui.textarea id="api-explorer-params" name="params_json" rows="6" class="api-code" data-cs-ex-params placeholder='{"page_size":10}'>{}</x-ui.textarea>
+                        </x-ui.field>
+                    </div>
+
+                    <div class="cs-actions">
+                        <x-ui.button type="submit" variant="primary">Run request</x-ui.button>
+                        <span class="cs-actions__note">The response lands on the API log tab.</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+@endif
+
+{{-- ================================================================
+     API LOG
+     ================================================================ --}}
+<div id="sp-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-logs-tab" hidden>
+
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Recording</h2>
+            <div class="fm-section__aside">
+                @if($canManageShopee)
+                    <label class="fm-switch">
+                        {{-- No hidden companion field: this switch does not
+                             post with a form. Its change handler sends
+                             {"api_logging": 0|1} to toggle-logging, which is
+                             the pre-redesign wire unchanged. --}}
+                        <input type="checkbox" class="fm-switch__input" value="1" @checked($apiLogging)
+                               data-cs-logging data-url="{{ route('ext.shopee.toggle_logging') }}"
+                               aria-label="Record Shopee API requests and responses">
+                        <span class="fm-switch__track"></span>
+                        <span class="fm-switch__text">
+                            <span class="fm-switch__label" data-cs-logging-label>{{ $apiLogging ? 'Recording' : 'Not recording' }}</span>
+                        </span>
+                    </label>
+                @else
+                    <x-ui.badge :tone="$apiLogging ? 'success' : 'neutral'">{{ $apiLogging ? 'Recording' : 'Not recording' }}</x-ui.badge>
+                @endif
+            </div>
+        </div>
+        <p class="fm-section__note">Keeps a copy of every request sent to Shopee and the response that came back. Useful while setting a shop up, and worth switching off once it is running.</p>
+    </section>
 
     @if($result)
-        <div class="card mb-16">
-            <h3 class="section-title mt-0">Last Result</h3>
-            @php $ok = (bool)($result['ok'] ?? false); @endphp
-            <div class="alert {{ $ok ? 'success' : 'danger' }}">
-                <strong>{{ $result['title'] ?? 'Result' }}</strong>
+        @php $ok = (bool) ($result['ok'] ?? false); @endphp
+        <section class="fm-section">
+            <div class="fm-section__head">
+                <h2 class="fm-section__title">Last result</h2>
+                <div class="fm-section__aside">
+                    <x-ui.badge :tone="$ok ? 'success' : 'danger'">{{ $ok ? 'Succeeded' : 'Failed' }}</x-ui.badge>
+                </div>
             </div>
-            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:400px;">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-        </div>
+            <p class="fm-section__note">{{ $result['title'] ?? 'Result' }}</p>
+            <pre class="cs-pre">{{ json_encode($result['data'] ?? $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+        </section>
     @endif
 
-    <div class="card">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">API Logs</h3>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Recent calls</h2>
             @if($logCount > 0 && $canManageShopee)
-                <form method="POST" action="{{ route('ext.shopee.clear_api_logs') }}" data-confirm="Delete all Shopee API logs?">
+            <div class="fm-section__aside">
+                <form method="POST" action="{{ route('ext.shopee.clear_api_logs') }}"
+                      data-confirm="Delete every recorded Shopee API call? This cannot be undone.">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn small danger">Delete All Logs</button>
+                    <x-ui.button type="submit" variant="danger" size="sm">Delete all</x-ui.button>
                 </form>
+            </div>
             @endif
         </div>
 
-        @if($logCount > 0)
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th style="width:140px;">Time</th>
-                            <th style="width:80px;">Method</th>
-                            <th>API Path</th>
-                            <th style="width:90px;">Auth</th>
-                            <th style="width:90px;">Status</th>
-                            <th style="width:70px;">OK</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($logs as $log)
-                            <tr>
-                                <td>{{ $log->created_at }}</td>
-                                <td><span class="badge {{ $log->ok ? 'badge-green' : 'badge-red' }}">{{ $log->method }}</span></td>
-                                <td>
-                                    @if(!empty($log->pack))
-                                        <div class="hint" style="margin-bottom:2px;">Pack: <strong>{{ strtoupper($log->pack) }}</strong></div>
-                                    @endif
-                                    <div><code>{{ $log->api_path }}</code></div>
-                                    <details style="margin-top:6px;">
-                                        <summary>View</summary>
-                                        <div style="margin-top:8px;">
-                                            <div class="hint" style="margin-bottom:6px;">Request Params</div>
-                                            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:220px;">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                            <div class="hint" style="margin:10px 0 6px;">Response</div>
-                                            <pre style="background:#0b1220; color:#e2e8f0; padding:12px; border-radius:var(--radius-md); overflow:auto; font-size:13px; max-height:220px;">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                        </div>
-                                    </details>
-                                </td>
-                                <td>{{ $log->auth_required ? 'Yes' : 'No' }}</td>
-                                <td>{{ $log->response_status ?? '-' }}</td>
-                                <td>{{ $log->ok ? 'Yes' : 'No' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+        @if($logCount === 0)
+            <x-ui.empty title="Nothing recorded yet"
+                        description="Calls appear here as soon as a sync runs or you run something from the API explorer." />
         @else
-            <div class="text-center text-muted" style="padding:32px 0;">No API logs yet.</div>
-        @endif
-    </div>
+            <x-ui.table>
+                <x-slot:head>
+                    <tr>
+                        <th class="cs-col-when">When</th>
+                        <th class="cs-col-method">Method</th>
+                        <th>Path</th>
+                        <th class="cs-col-auth">Signed</th>
+                        <th class="cs-col-status x-td-num">Status</th>
+                    </tr>
+                </x-slot:head>
 
-    {{-- Data Maintenance — clears the verbose `raw` API payload column
-         on Shopee order rows older than N days. Synced order data is
-         left intact; only the raw blob is nulled. --}}
-    <div class="card mt-16">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 class="section-title mt-0" style="margin-bottom:0; border:none; padding:0;">Data Maintenance</h3>
+                @foreach($logs as $log)
+                    <tr>
+                        <td class="cs-col-when" data-label="When">{{ $log->created_at }}</td>
+                        <td class="cs-col-method" data-label="Method">
+                            <x-ui.badge :tone="$log->ok ? 'success' : 'danger'">{{ $log->method }}</x-ui.badge>
+                        </td>
+                        <td data-label="Path">
+                            @if(!empty($log->pack))
+                                <span class="cs-map-label">Preset {{ strtoupper($log->pack) }}</span>
+                            @endif
+                            <div class="cs-code">{{ $log->api_path }}</div>
+
+                            <details class="cs-disclosure">
+                                <summary>Request and response</summary>
+                                <div class="cs-disclosure__body">
+                                    <span class="cs-disclosure__label">Request parameters</span>
+                                    <pre class="cs-pre">{{ json_encode($log->request_params, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <span class="cs-disclosure__label">Response</span>
+                                    <pre class="cs-pre">{{ json_encode($log->response_body, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                            </details>
+                        </td>
+                        <td class="cs-col-auth" data-label="Signed">{{ $log->auth_required ? 'Yes' : 'No' }}</td>
+                        <td class="cs-col-status x-td-num" data-label="Status">{{ $log->response_status ?? '-' }}</td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        @endif
+    </section>
+
+    @if($canManageShopee)
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Free up space</h2>
         </div>
-        <div class="hint" style="margin-bottom:12px;">
-            Clears the raw API response payloads from Shopee order tables for rows older than the specified number of days. Frees database space without affecting any synced order data.
-        </div>
+        <p class="fm-section__note">Every synced Shopee order and return keeps the full API response it came from. Clearing those payloads on older rows frees database space and changes nothing about the orders themselves.</p>
+
         <form method="POST" action="{{ route('ext.shopee.purge_raw') }}"
-              data-confirm="Permanently null the raw payloads on Shopee rows older than the specified days? This cannot be undone.">
+              data-confirm="Clear the stored API payloads on Shopee rows older than the number of days given? The orders and returns stay, only the raw payloads go, and this cannot be undone.">
             @csrf
-            <div class="d-flex items-center gap-12">
-                <input class="input" type="number" name="days" value="30" min="1" max="3650" required style="width:120px;">
-                <span class="text-secondary">days</span>
-                <button type="submit" class="btn small danger">Purge Raw Data</button>
+            <div class="fm-field">
+                <label class="fm-label" for="sp-purge-days">Clear payloads older than</label>
+                <div class="cs-inline">
+                    <x-ui.input id="sp-purge-days" name="days" type="number" value="30" min="1" max="3650" required
+                                class="fm-input--num cs-days" aria-describedby="sp-purge-hint" />
+                    <span class="cs-inline__unit">days</span>
+                    <x-ui.button type="submit" variant="danger">Clear stored payloads</x-ui.button>
+                </div>
+                <div class="fm-hint" id="sp-purge-hint">Anything from 1 to 3650 days.</div>
+                @error('days')<div class="fm-error">{{ $message }}</div>@enderror
             </div>
         </form>
-    </div>
+    </section>
+    @endif
 </div>
 
-@push('scripts')
-<script>
-// Environment toggle
-(function(){
-    var toggle = document.getElementById('sp-mode-toggle');
-    var knob = document.getElementById('sp-mode-knob');
-    var label = document.getElementById('sp-mode-label');
-    var input = document.getElementById('sp-mode-value');
-    var form = document.getElementById('sp-mode-form');
-    var envLive = document.getElementById('sp-env-live');
-    var envSandbox = document.getElementById('sp-env-sandbox');
-    if (!toggle) return;
+{{-- ================================================================
+     AUTOMATIONS
+     ================================================================ --}}
+@if($canManageShopee)
+<div id="sp-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-automations-tab" hidden>
+    <section class="fm-section">
+        <div class="fm-section__head">
+            <h2 class="fm-section__title">Scheduled jobs</h2>
+        </div>
+        <p class="fm-section__note">How often each Shopee sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</p>
+        @include('partials._automations_tab', ['integration' => 'shopee', 'storeId' => null])
+    </section>
+</div>
+@endif
 
-    toggle.addEventListener('click', function(){
-        var isNowSandbox = input.value === 'live';
-        input.value = isNowSandbox ? 'sandbox' : 'live';
-        toggle.style.background = isNowSandbox ? '#9ca3af' : '#22c55e';
-        knob.style.left = isNowSandbox ? '3px' : '25px';
-        label.textContent = isNowSandbox ? 'Sandbox' : 'Production';
-        label.style.color = isNowSandbox ? '#9ca3af' : '#22c55e';
-        if (envLive) envLive.classList.toggle('hidden', isNowSandbox);
-        if (envSandbox) envSandbox.classList.toggle('hidden', !isNowSandbox);
-        form.submit();
-    });
-})();
-
-// API Logging toggle (no refresh)
-(function(){
-    var cb = document.getElementById('sp-log-cb');
-    if (!cb) return;
-    var track = document.getElementById('sp-log-track');
-    var knob = document.getElementById('sp-log-knob');
-    var label = document.getElementById('sp-log-label');
-
-    cb.addEventListener('change', function(){
-        var enabled = cb.checked;
-        track.style.background = enabled ? 'var(--accent)' : 'var(--border)';
-        knob.style.left = enabled ? '22px' : '2px';
-        label.textContent = enabled ? 'Enabled' : 'Disabled';
-        label.className = 'text-sm ' + (enabled ? 'font-bold' : 'text-muted');
-
-        fetch('{{ route("ext.shopee.toggle_logging") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ api_logging: enabled ? 1 : 0 })
-        }).catch(function(){
-            cb.checked = !enabled;
-            track.style.background = !enabled ? 'var(--accent)' : 'var(--border)';
-            knob.style.left = !enabled ? '22px' : '2px';
-            label.textContent = !enabled ? 'Enabled' : 'Disabled';
-            label.className = 'text-sm ' + (!enabled ? 'font-bold' : 'text-muted');
-        });
-    });
-})();
-
-function spCopy(id, btn) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    var text = el.textContent || el.innerText;
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(function () {
-            btn.textContent = 'Copied!';
-            setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
-        });
-    }
-}
-
-// Tab switching
-(function(){
-    var ids = ['sp-tab-settings', 'sp-tab-automations', 'sp-tab-explorer', 'sp-tab-status', 'sp-tab-logs'];
-    var tabs = document.querySelectorAll('[data-tab^="sp-tab-"]');
-    var storageKey = 'sp-active-tab';
-
-    function switchTab(tabId) {
-        tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.tab === tabId); });
-        ids.forEach(function(id){
-            var el = document.getElementById(id);
-            if (el) el.classList.toggle('hidden', id !== tabId);
-        });
-    }
-
-    tabs.forEach(function(btn){
-        btn.addEventListener('click', function(){
-            switchTab(btn.dataset.tab);
-            localStorage.setItem(storageKey, btn.dataset.tab);
-        });
-    });
-
-    // Restore tab: URL param > localStorage > $hasResult default
-    var urlTab = new URLSearchParams(window.location.search).get('tab');
-    var saved = urlTab ? ('sp-tab-' + urlTab) : localStorage.getItem(storageKey);
-    if (!saved && {{ $hasResult ? 'true' : 'false' }}) saved = 'sp-tab-logs';
-    if (saved && ids.indexOf(saved) !== -1) switchTab(saved);
-})();
-
-// Explorer JS
-(function(){
-    function qs(sel){ return document.querySelector(sel); }
-    function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
-
-    var methodSel = qs('#api-explorer-method');
-    var authChk   = qs('#api-explorer-auth');
-    var shopChk   = qs('#api-explorer-shop');
-    var pathInp   = qs('#api-explorer-path');
-    var paramsTa  = qs('#api-explorer-params');
-    var kvBody    = qs('#api-kv-body');
-    var epName    = qs('#sp-ep-name');
-    var epDesc    = qs('#sp-ep-desc');
-    var epSearch  = qs('#api-endpoint-search');
-    var btnAddRow = qs('#sp-add-row');
-    var btnSync   = qs('#sp-sync-to-json');
-
-    function safeJsonParse(str){
-        try { return JSON.parse(str); } catch(e){ return null; }
-    }
-
-    function buildRow(key, value){
-        var tr = document.createElement('tr');
-        var tdK = document.createElement('td');
-        var tdV = document.createElement('td');
-        var tdA = document.createElement('td');
-        var k = document.createElement('input');
-        k.className = 'input';
-        k.placeholder = 'key';
-        k.value = key || '';
-        var v = document.createElement('input');
-        v.className = 'input';
-        v.placeholder = 'value';
-        v.value = (value === null || typeof value === 'undefined') ? '' : String(value);
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'btn small';
-        del.textContent = 'Remove';
-        del.addEventListener('click', function(){
-            tr.remove();
-            syncToJson();
-        });
-        tdK.appendChild(k);
-        tdV.appendChild(v);
-        tdA.appendChild(del);
-        tr.appendChild(tdK);
-        tr.appendChild(tdV);
-        tr.appendChild(tdA);
-        kvBody.appendChild(tr);
-    }
-
-    function clearRows(){
-        while(kvBody.firstChild){ kvBody.removeChild(kvBody.firstChild); }
-    }
-
-    function tableToObject(){
-        var obj = {};
-        qsa('#api-kv-body tr').forEach(function(tr){
-            var keyEl = tr.querySelector('td:nth-child(1) .input');
-            var valEl = tr.querySelector('td:nth-child(2) .input');
-            var k = keyEl ? String(keyEl.value || '').trim() : '';
-            if(!k) return;
-            var vRaw = valEl ? valEl.value : '';
-            var parsed = safeJsonParse(vRaw);
-            obj[k] = parsed !== null ? parsed : vRaw;
-        });
-        return obj;
-    }
-
-    function syncToJson(){
-        if(!paramsTa) return;
-        var obj = tableToObject();
-        paramsTa.value = JSON.stringify(obj, null, 2);
-    }
-
-    function rebuildTableFromJson(){
-        if(!paramsTa) return;
-        var obj = safeJsonParse(paramsTa.value || '');
-        if(!obj || typeof obj !== 'object') return;
-        clearRows();
-        Object.keys(obj).forEach(function(k){
-            var v = obj[k];
-            buildRow(k, typeof v === 'object' ? JSON.stringify(v) : v);
-        });
-    }
-
-    function selectEndpoint(ep){
-        if (methodSel) methodSel.value = (ep.method || 'GET').toUpperCase();
-        if (authChk) authChk.checked = ep.auth !== false;
-        if (shopChk) shopChk.checked = ep.shop !== false;
-        if (pathInp) pathInp.value = ep.path || '';
-        if (epName) epName.textContent = ep.name || 'Selected';
-        if (epDesc) epDesc.textContent = ep.desc || '';
-        clearRows();
-        (ep.params || []).forEach(function(p){ buildRow(p.k, p.ph || ''); });
-        syncToJson();
-    }
-
-    qsa('.api-endpoint').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            var ep = safeJsonParse(btn.getAttribute('data-ep') || '{}') || {};
-            selectEndpoint(ep);
-        });
-    });
-
-    if (epSearch) {
-        epSearch.addEventListener('input', function(){
-            var q = String(epSearch.value || '').toLowerCase();
-            qsa('.api-endpoint').forEach(function(btn){
-                var raw = (btn.getAttribute('data-ep') || '').toLowerCase();
-                var t = (btn.textContent || '').toLowerCase() + ' ' + raw;
-                btn.style.display = t.indexOf(q) >= 0 ? '' : 'none';
-            });
-        });
-    }
-
-    var sampleData = {
-        '/api/v2/product/get_item_list': function(){
-            var now = Math.floor(Date.now() / 1000);
-            var ago = now - (15 * 86400);
-            return {offset: '0', page_size: '50', update_time_from: String(ago), update_time_to: String(now), item_status: 'NORMAL'};
-        },
-        '/api/v2/order/get_order_list': function(){
-            var now = Math.floor(Date.now() / 1000);
-            var ago = now - (15 * 86400);
-            return {order_status: 'READY_TO_SHIP', time_range_field: 'create_time', time_from: String(ago), time_to: String(now), page_size: '20'};
-        },
-        '/api/v2/product/get_item_base_info': function(){ return {item_id_list: '123456'}; },
-        '/api/v2/product/get_model_list': function(){ return {item_id: '123456'}; },
-        '/api/v2/product/get_category': function(){ return {language: 'en'}; },
-        '/api/v2/product/get_brand_list': function(){ return {category_id: '100001', offset: '0', page_size: '100', status: '1'}; },
-        '/api/v2/product/get_attribute_tree': function(){ return {category_id: '100001', language: 'en'}; },
-        '/api/v2/product/category_recommend': function(){ return {item_name: 'Guitar Pedal'}; },
-        '/api/v2/returns/get_return_list': function(){ return {page_no: '1', page_size: '20'}; }
-    };
-
-    var btnSample = qs('#sp-sample-data');
-    if (btnSample) btnSample.addEventListener('click', function(){
-        var path = pathInp ? pathInp.value.trim() : '';
-        var fn = sampleData[path];
-        if (fn) {
-            var data = fn();
-            clearRows();
-            Object.keys(data).forEach(function(k){ buildRow(k, data[k]); });
-            syncToJson();
-        } else {
-            showFlashError('No sample data for: ' + path + '. Select an endpoint first.');
-        }
-    });
-
-    if (btnAddRow) btnAddRow.addEventListener('click', function(){ buildRow('', ''); });
-    if (btnSync) btnSync.addEventListener('click', function(){ rebuildTableFromJson(); syncToJson(); });
-
-    if (kvBody) {
-        kvBody.addEventListener('input', function(){ try { syncToJson(); } catch(e){} });
-    }
-
-    var form = qs('#api-explorer-form');
-    if (form) form.addEventListener('submit', function(){
-        try { syncToJson(); } catch(e) {}
-    });
-})();
-</script>
-@endpush
+</div>{{-- /.cs-page --}}
 @endsection

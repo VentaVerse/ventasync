@@ -1,0 +1,612 @@
+/* Channel settings: the shared `cs-` grammar.
+   -------------------------------------------------------------------
+   The settings page every marketplace channel carries. Shopee is the
+   first onto this file; Lazada and TikTok have the same five-tab
+   shape (credentials, status mapping, API explorer, API logs,
+   automations) and follow into the same pieces, which is why the
+   prefix names the surface rather than the channel.
+
+   This page is a form page that happens to hold five of them, so it
+   is built on the `fm-` anatomy (components/form-page.css) rather
+   than inventing a second way to draw a labelled control:
+
+     - a section is a heading on a hairline with fields on the canvas
+       (.fm-section), not a stack of identical boxed cards;
+     - fields are .fm-fields / <x-ui.field> / <x-ui.input>;
+     - a switch is .fm-switch;
+     - colour has one job, the primary action, plus --danger for a
+       failure and nothing else.
+
+   What this file adds is only what a settings page has and a record
+   form does not:
+
+     1. a tab strip, which is the existing .x-segment control (this
+        page has five views of one subject, which is exactly what that
+        control is for) with the page's own JS switching panels;
+     2. a two-column split for credentials beside authentication;
+     3. a per-section action row, because five forms on one page
+        cannot each have the sticky .fm-bar that a single-form page
+        uses;
+     4. a numbered sequence for the three OAuth steps, which genuinely
+        are ordered and where a plain list would lose that;
+     5. token-built re-faces of two legacy sheets this page embeds
+        (pages/api-explorer.css and pages/automations.css). Those two
+        are still rendered inside the .x-legacy boundary by the
+        channels whose settings pages have not been rebuilt yet, so
+        they are re-faced HERE, scoped under .cs-page, rather than
+        edited in place. Same technique components/form-page.css uses
+        to put Summernote in the design system's clothes without
+        forking the vendor sheet.
+   ------------------------------------------------------------------- */
+
+.cs-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* ------------------------------------------------------------------
+   Read-only notice. An operator holding only view_shopee can browse
+   this page; every control that writes is absent for them, so the page
+   says why once at the top rather than leaving them to wonder where
+   the Save button went.
+   ------------------------------------------------------------------ */
+
+.cs-readonly {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warning);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-size: 13px;
+    color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   Tab panels. Hidden with the attribute, not a utility class: `hidden`
+   is what a panel that is not the current one actually is, and it takes
+   the accessibility tree with it.
+   ------------------------------------------------------------------ */
+
+.cs-panel { display: flex; flex-direction: column; gap: var(--space-6); }
+
+/* `hidden` is a UA-stylesheet `display: none`, which ANY explicit display
+   declaration outranks - and both the panels and the environment blocks
+   below set one (flex and grid respectively). Without this the attribute
+   silently does nothing and every hidden panel renders. Caught in the
+   browser: the sandbox credentials block was on screen underneath the
+   production one. Declared once for the whole page so a future block that
+   sets a display value cannot reintroduce the same bug. */
+.cs-page [hidden] { display: none; }
+
+/* components/segment.css was written for a row of links (a status filter is
+   navigation). Here the same control switches panels and posts a mode, so
+   its items are <button>s, and a button brings its own background, border,
+   font and cursor that the link never had. Restated here rather than in the
+   shared sheet so the orders pages stay untouched. The active rule is
+   repeated at a higher specificity so the reset above cannot swallow it. */
+.cs-page button.x-segment__item {
+    background: transparent;
+    border: 0;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.cs-page button.x-segment__item.is-active {
+    background: var(--surface);
+    box-shadow: 0 0 0 1px var(--border-strong), 0 1px 2px rgba(0, 0, 0, .05);
+}
+
+.cs-page button.x-segment__item:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-weak), 0 0 0 1px var(--accent);
+}
+
+/* ------------------------------------------------------------------
+   Environment switch. Production and Sandbox are two named
+   environments, not an on/off state, so this is a two-option segmented
+   control rather than a toggle whose "off" position would have to be
+   read as one of them.
+
+   No colour: the old control painted the track green for production
+   and grey for sandbox, which spent the page's one accent on a fact
+   the label already states, and left a red-green pair as the only
+   signal on a screen that also has a Save button.
+   ------------------------------------------------------------------ */
+
+.cs-env {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+}
+
+.cs-env__label { font-size: 13px; font-weight: 500; color: var(--text); }
+
+.cs-env__note { font-size: 12px; color: var(--text-muted); max-width: 52ch; }
+
+/* ------------------------------------------------------------------
+   A checkbox that is a control, so it sits in a control-height box
+   beside its neighbours rather than on its own text baseline.
+   components/forms.css carries a bare `label` element selector with a
+   6px bottom margin that every page in this bundle inherits, and a
+   <label> is still a <label> whatever class it wears, so the margin is
+   restated here rather than by editing that file.
+   ------------------------------------------------------------------ */
+
+.cs-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: 0;
+    height: var(--control-h-sm);
+    color: var(--text-secondary);
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.cs-check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.cs-check:hover { color: var(--text); }
+
+/* ------------------------------------------------------------------
+   Two-column split: what identifies the connection on the left, what
+   authorises it on the right. Stacks at the same 1000px .fm-body does,
+   so a phone reads credentials then authentication in the order the
+   operator fills them.
+   ------------------------------------------------------------------ */
+
+.cs-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+    align-items: start;
+}
+
+@media (min-width: 1001px) {
+    .cs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ------------------------------------------------------------------
+   Per-section action row. One solid primary, aligned to the start of
+   the section it saves so it is unmistakably that form's button and not
+   the page's. Never a second button of a different weight beside it.
+   ------------------------------------------------------------------ */
+
+.cs-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.cs-actions__note { font-size: 12px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------------
+   OAuth steps. Three genuinely ordered actions, so they are numbered.
+   The numeral is a quiet mono figure on a sunken disc rather than a
+   filled accent circle: the steps are the subject here, and three
+   accent discs on a page whose only accent is meant to be the Save
+   button would be three false primaries.
+   ------------------------------------------------------------------ */
+
+.cs-steps { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.cs-step { display: flex; gap: var(--space-3); min-width: 0; }
+
+.cs-step__n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.cs-step__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.cs-step__title { font-size: 13px; font-weight: 500; color: var(--text); }
+
+.cs-step__note { font-size: 12px; color: var(--text-muted); max-width: 56ch; }
+
+/* The auth-code exchange: a field and its button on one baseline. */
+.cs-exchange {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.cs-exchange .fm-field { flex: 1 1 200px; min-width: 0; }
+
+/* ------------------------------------------------------------------
+   Token state. A badge and the expiry beside it, on one line.
+   ------------------------------------------------------------------ */
+
+.cs-state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-3);
+}
+
+.cs-state__note { font-size: 12px; color: var(--text-muted); }
+
+.cs-state__when {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   Status mapping. Two columns: the marketplace's own status code and
+   the ERP status it becomes. The code is an identifier, so it is mono.
+   ------------------------------------------------------------------ */
+
+.cs-col-src { width: 45%; }
+
+.cs-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.cs-map-label { margin-left: var(--space-2); font-size: 12px; color: var(--text-muted); }
+
+.cs-page .x-table tbody td { white-space: normal; }
+
+.cs-page .x-table tbody tr { height: auto; }
+
+.cs-page .x-table tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+
+/* The select inside a mapping row should not stretch to the column. */
+.cs-map-select { max-width: 260px; width: 100%; }
+
+/* ------------------------------------------------------------------
+   Payload viewer. A raw JSON response is code, so it is set as code:
+   sunken surface, mono, its own scroll box, and it never widens the
+   page. The old page painted these panes a fixed near-black with light
+   text in both themes, which is a dark widget parked on a light page.
+   ------------------------------------------------------------------ */
+
+.cs-pre {
+    margin: 0;
+    max-height: 380px;
+    padding: var(--space-3);
+    overflow: auto;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre;
+    tab-size: 2;
+}
+
+.cs-disclosure { margin-top: var(--space-2); }
+
+.cs-disclosure > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.cs-disclosure > summary::-webkit-details-marker { display: none; }
+
+/* A caret that turns, so the row reads as something you can open. The
+   native marker is dropped because it inherits the browser's own triangle
+   at the browser's own size and colour. */
+.cs-disclosure > summary::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid currentColor;
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    transition: transform var(--motion-fast);
+}
+
+.cs-disclosure[open] > summary::before { transform: rotate(90deg); }
+
+.cs-disclosure > summary:hover { color: var(--text); text-decoration: underline; }
+
+.cs-disclosure > summary:focus-visible {
+    outline: none;
+    color: var(--text);
+    text-decoration: underline;
+}
+
+.cs-disclosure[open] > summary { color: var(--text); }
+
+.cs-disclosure__body { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+
+.cs-disclosure__label { font-size: 11px; color: var(--text-muted); }
+
+/* Log-table column widths. */
+.cs-col-when   { width: 150px; }
+.cs-col-method { width: 84px; }
+.cs-col-auth   { width: 84px; }
+.cs-col-status { width: 92px; }
+
+.cs-page .x-table td.cs-col-when,
+.cs-page .x-table td.cs-col-status {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+   Data maintenance. A number of days and a destructive button. The
+   button keeps the transparent .x-btn--danger treatment; nothing on
+   this page is a solid red fill.
+   ------------------------------------------------------------------ */
+
+.cs-inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+}
+
+.cs-inline__unit { color: var(--text-secondary); font-size: 13px; }
+
+.cs-days { width: 110px; }
+
+/* ------------------------------------------------------------------
+   API explorer, re-faced. pages/api-explorer.css is shared with the
+   Lazada and TikTok settings pages, which still render inside the
+   .x-legacy boundary, so it is not edited. Everything below only
+   applies under .cs-page.
+
+   What needed changing: three raw light-mode hex values (a near-black
+   category heading, and blue/green method chips) that are invisible or
+   off-palette in dark theme, the vendor mono stack, and the uppercase
+   micro-label convention this design system does not use.
+   ------------------------------------------------------------------ */
+
+.cs-page .api-explorer { gap: var(--space-4); margin-top: 0; }
+
+.cs-page .api-panel {
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.cs-page .api-cat {
+    margin: var(--space-4) 0 var(--space-2);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    text-transform: none;
+}
+
+.cs-page .api-cat:first-child { margin-top: 0; }
+
+.cs-page .api-endpoint {
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-1);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.cs-page .api-endpoint:hover,
+.cs-page .api-endpoint:focus-visible {
+    background: var(--surface-hover);
+    border-color: var(--border);
+    outline: none;
+}
+
+.cs-page .api-endpoint.is-selected { background: var(--surface-hover); border-color: var(--accent); }
+
+/* GET and POST are the two shapes of request, not two statuses. Neutral
+   for the read, accent for the one that changes something at the
+   marketplace - the same rule the rest of this system follows, where
+   colour marks what you have to think about. */
+.cs-page .api-badge {
+    padding: 1px var(--space-2);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .02em;
+}
+
+.cs-page .api-badge.get  { background: var(--surface-sunken); border-color: var(--border); color: var(--text-muted); }
+.cs-page .api-badge.post { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); }
+
+.cs-page .api-code { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+
+.cs-page .api-hint { color: var(--text-muted); font-size: 11px; }
+
+.cs-page .api-mini { color: var(--text-secondary); font-size: 12px; }
+
+.cs-page .api-list { max-height: 460px; margin-top: var(--space-3); }
+
+.cs-page .api-kv th {
+    padding: 0 var(--space-2) var(--space-2);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    text-transform: none;
+    text-align: left;
+}
+
+.cs-page .api-kv td {
+    padding: var(--space-2) var(--space-2) var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.cs-page .api-kv td:not(:first-child) { padding-left: var(--space-2); }
+
+.cs-page .api-kv .x-input { height: var(--control-h-sm); font-size: 12px; }
+
+/* Parameter-table column widths. Declared here rather than as inline
+   width attributes in the Blade, which is where they used to live. */
+.cs-page .api-kv { table-layout: fixed; }
+.cs-kv-name { width: 34%; }
+.cs-kv-act  { width: 88px; }
+
+.cs-page .api-row-actions { gap: var(--space-2); }
+
+.cs-page .api-split { gap: var(--space-4); }
+
+/* ------------------------------------------------------------------
+   Automations tab, re-faced. Same reasoning as the explorer above:
+   pages/automations.css is shared with two settings pages that are
+   still inside the legacy boundary, so it is not edited. Only the
+   declarations that carry raw light-mode colour or the old control
+   metrics are restated here.
+   ------------------------------------------------------------------ */
+
+.cs-page .automations-tab { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.cs-page .automations-windows,
+.cs-page .automation-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.cs-page .automations-windows-head h4,
+.cs-page .automations-empty h4 {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cs-page .automations-windows-head p,
+.cs-page .automations-empty p { color: var(--text-secondary); font-size: 12px; }
+
+.cs-page .automation-name { color: var(--text); font-size: 13px; font-weight: 500; }
+
+.cs-page .automation-window-prefix,
+.cs-page .automation-window-suffix,
+.cs-page .automation-cadence-prefix,
+.cs-page .automation-lastrun-prefix {
+    color: var(--text-secondary);
+    font-size: 12px;
+    /* The shared sheet sets these micro-labels in uppercase with tracking.
+       Nothing else in this design system shouts, so they are returned to
+       sentence case here without touching the sheet the legacy settings
+       pages still render against. */
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 400;
+}
+
+.cs-page .automation-lastrun,
+.cs-page .automation-lastrun time {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.cs-page .automation-lastrun-never { color: var(--text-muted); font-style: italic; }
+
+.cs-page .automation-window-value,
+.cs-page .automation-cadence-value,
+.cs-page .automation-cadence-unit {
+    height: var(--control-h-sm);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+
+.cs-page .automation-dot[data-state="ok"]      { background: var(--accent); }
+.cs-page .automation-dot[data-state="fail"]    { background: var(--danger); }
+.cs-page .automation-dot[data-state="pending"] { background: var(--warning); }
+.cs-page .automation-dot[data-state="never"]   { background: var(--border-strong); }
+
+.cs-page .automation-toggle-track { background: var(--surface-hover); border: 1px solid var(--border-strong); }
+.cs-page .automation-toggle input:checked + .automation-toggle-track { background: var(--accent); border-color: var(--accent); }
+.cs-page .automation-toggle-thumb { background: var(--text-muted); }
+.cs-page .automation-toggle input:checked + .automation-toggle-track .automation-toggle-thumb { background: var(--accent-text); }
+
+.cs-page .automations-empty-icon { color: var(--text-muted); }
+
+/* The partial's own Save All button is a legacy `.btn`. Give it the
+   system's primary treatment without editing the shared partial. */
+.cs-page .automation-btn-save-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--control-h);
+    padding: 0 var(--space-4);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    color: var(--accent-text);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.cs-page .automation-btn-save-all:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* The partial marks last-run outcome with the legacy badge classes,
+   whose light-only greens and reds do not survive the dark theme. */
+.cs-page .automation-lastrun .badge {
+    padding: 0;
+    background: none;
+    border: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.cs-page .automation-lastrun .badge-green { color: var(--accent); }
+.cs-page .automation-lastrun .badge-red   { color: var(--danger); }
+
+/* ------------------------------------------------------------------
+   Phones. The credential/authentication split has already merged by
+   1000px; what is left is to stop the explorer's two panels and the
+   inline day field from squeezing.
+   ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+    .cs-page .api-explorer { grid-template-columns: minmax(0, 1fr); }
+    .cs-page .api-split { grid-template-columns: minmax(0, 1fr); }
+    .cs-inline { align-items: stretch; }
+    .cs-days { flex: 1 1 100px; width: auto; }
+    .cs-exchange .fm-field { flex: 1 1 100%; }
+}

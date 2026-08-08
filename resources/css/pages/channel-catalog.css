@@ -1,0 +1,479 @@
+/* Channel catalogue surfaces: the shared `cc-` grammar.
+   -------------------------------------------------------------------
+   The four workspace pages every marketplace channel carries that are
+   not orders and not settings: Listings, Product Groups, Categories,
+   and Logistics (Brands on Lazada). Shopee is the first channel onto
+   this file; Lazada and TikTok follow into the same pieces, which is
+   why the prefix names the surface (`cc-`, channel catalogue) rather
+   than the channel, the same call components/channel-orders.css made
+   when Lazada became the second consumer of Shopee's `sp-` rules.
+
+   Almost nothing here is new. These pages are lists, so they are built
+   on the shared list anatomy already proven by the orders pages and the
+   catalogue index: x-list-head / x-filters / x-cmdbar / x-ui.table /
+   x-pager / x-ui.empty / x-ui.menu. This file carries only the three
+   things that anatomy genuinely does not cover:
+
+     1. column widths, which are per page and cannot be shared;
+     2. media rows (a 96px product photo and a stack of variation
+        lines) which need the table's default one-line-per-row
+        assumption relaxed;
+     3. two controls with no shared equivalent yet: the bulk-selection
+        bar and the unmatched-item linker.
+
+   Three decisions carried in from the anatomies this builds on:
+
+   1. Colour has one job. Accent marks the primary action and the one
+      status that means "this is live on the marketplace". A sync error
+      is --danger. Nothing else on these pages is coloured, and there is
+      no channel identity colour anywhere - the sidebar and the
+      breadcrumb say which channel you are standing in.
+
+   2. Elevation is flat. Hairlines between rows, one bordered strip for
+      the command bar. No card stacks.
+
+   3. Every numeral is mono with tabular figures. Marketplace item ids,
+      catalogue ids, prices, quantities, channel ids, weight limits.
+      Applied per column by the caller (.x-num or a column class), never
+      baked into the shared table, for the reason
+      components/ui-table.css already states about .x-td-num.
+   ------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------
+   Page frame. Same three declarations pages/catalog.css writes under
+   .cat-page, and for the same reason: components/ui-table.css sets a
+   fixed row height and `white-space: nowrap` on every cell, which is
+   right for a list of short known-width values and wrong for a row
+   carrying a photo, a name that wraps, and a stack of variation lines.
+
+   Deliberately NOT reusing .co-page (components/channel-orders.css) or
+   .cat-page (pages/catalog.css) even though the declarations match.
+   channel-orders.css documents .co-page as the hook for fulfilment
+   surfaces specifically, and .cat-page is the core catalogue's. A
+   channel's Listings page is neither, and borrowing either name would
+   couple three unrelated surfaces to one selector - the same reasoning
+   pages/catalog.css itself gave for not reusing .co-page.
+   ------------------------------------------------------------------ */
+
+.cc-page .x-table tbody td {
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
+    vertical-align: top;
+    white-space: normal;
+}
+
+.cc-page .x-table tbody tr { height: auto; }
+
+/* Numerals stay on one line so a column of them still compares by eye
+   even though the cells around them now wrap. */
+.cc-page .x-table .x-num { white-space: nowrap; }
+
+/* Mono at the cell, not on the shared component - same convention
+   components/ui-table.css uses for .x-table td.x-col-total. */
+.cc-page .x-table td.cc-col-price,
+.cc-page .x-table td.cc-col-qty,
+.cc-page .x-table td.cc-col-id,
+.cc-page .x-table td.cc-col-chanid {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+   Command bar with a single action. The orders pages' bar carries a row
+   of date fields and filters with the hint underneath, which is right
+   when the row is full. These four pages have exactly one button, so
+   that shape rendered an empty 1100px row above a sentence and read as
+   a layout fault. This modifier puts the sentence in the row, where the
+   spacer would otherwise be, and keeps the button on the far end.
+   ------------------------------------------------------------------ */
+
+.x-cmdbar__hint--inline {
+    flex: 1 1 320px;
+    min-width: 0;
+    margin: 0;
+    align-self: center;
+    max-width: 78ch;
+}
+
+/* ------------------------------------------------------------------
+   Column widths. Sized to the widest real value in each column, per
+   page. table-layout: fixed means a column narrower than its content
+   clips rather than widening the table, so these are measured, not
+   guessed. Columns with no width here take the remainder.
+   ------------------------------------------------------------------ */
+
+.cc-col-check   { width: 36px; }
+.cc-col-id      { width: 72px; }   /* catalogue product_id, 6 digits + air */
+.cc-col-chanid  { width: 112px; }  /* a Shopee item id is 11 digits in mono */
+.cc-col-sku     { width: 148px; }
+.cc-col-qty     { width: 78px; }
+.cc-col-price   { width: 104px; }
+.cc-col-stat    { width: 104px; }
+.cc-col-sync    { width: 112px; }
+.cc-col-group   { width: 132px; }
+.cc-col-err     { width: 180px; }
+.cc-col-count   { width: 88px; }
+.cc-col-lvl     { width: 72px; }
+.cc-col-leaf    { width: 80px; }
+.cc-col-flag    { width: 130px; }  /* "Cash on delivery" is the widest header here */
+.cc-col-flag--sm { width: 96px; }
+.cc-col-limit   { width: 148px; }
+/* "plus 7.5% of price" on two lines, not four. */
+.cc-col-markup  { width: 156px; }
+
+/* ------------------------------------------------------------------
+   Category tree depth. The pre-redesign view drew depth by repeating an
+   em dash per level, which is both a character this project does not
+   use in anything a person reads and a value that has to be re-read to
+   be counted. Indentation is the thing itself: the row's name starts
+   further in the deeper it sits, and the level is still printed as a
+   figure in its own column for anyone who needs the number.
+   ------------------------------------------------------------------ */
+
+.cc-tree { display: block; min-width: 0; }
+
+.cc-tree[data-level="1"] { padding-left: var(--space-4); }
+.cc-tree[data-level="2"] { padding-left: var(--space-6); }
+.cc-tree[data-level="3"] { padding-left: calc(var(--space-6) + var(--space-4)); }
+.cc-tree[data-level="4"] { padding-left: calc(var(--space-6) * 2); }
+/* Shopee's tree is four deep in practice; anything deeper stops
+   indenting rather than pushing the name off the row. */
+.cc-tree[data-level="5"] { padding-left: calc(var(--space-6) * 2 + var(--space-4)); }
+
+/* <x-money> is shared with the legacy order pages, so its own file
+   (components/currency-dual.css) cannot assume the mono face. Here every
+   numeral is mono, so the two lines are re-faced rather than
+   reimplemented - the same two rules components/order-detail.css and
+   components/form-page.css already write for their own pages. */
+.cc-page .money-primary {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: inherit;
+    font-weight: 600;
+}
+
+.cc-page .money-secondary {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* A price markup expressed as a share of the selling price rather than a
+   fixed amount. It is a figure in its own right, not a footnote to the
+   fixed amount above it, so it keeps a readable size instead of dropping
+   to the .cc-sub caption weight. */
+.cc-markup__pct {
+    display: block;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* A parent's own line, under a name that has children. */
+.cc-sub {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.cc-sub--mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+   Product thumbnail. Same 96px verification scale
+   components/channel-orders.css and pages/catalog.css both settled on,
+   and the same construction: a "No image" label always in the DOM
+   underneath, so a photo that 404s reveals it by hiding itself rather
+   than by rewriting markup.
+
+   Not reusing .order-img-wrap / img.order-img: those two names are
+   load-bearing for the hover zoom-preview bound by pages/*-orders.js
+   with delegated document listeners, so a listing thumbnail carrying
+   them would silently opt into order-verification zoom behaviour.
+   ------------------------------------------------------------------ */
+
+.cc-thumb {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    align-self: flex-start;
+    width: 96px;
+    height: 96px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.cc-thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* The small copy used inside the unmatched linker, where the row is a
+   dropdown result rather than a table row. */
+.cc-thumb--sm { width: 36px; height: 36px; }
+
+/* ------------------------------------------------------------------
+   Variation lines under a listing name. One line per variation:
+   value name, sku, quantity. Reuses the co-item__* type grammar from
+   components/channel-orders.css (pure typography, no coupling, same
+   reuse pages/catalog.css already makes) and adds only the stack.
+   ------------------------------------------------------------------ */
+
+.cc-vars {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+}
+
+.cc-var {
+    /* A grid, not a wrapping flex row: these are three or four figures
+       repeated per variation, and the whole point of mono tabular
+       numerals is lost if the stock column starts at a different x on
+       every line. Value name takes the remainder; the rest are fixed and
+       right-aligned so they compare by eye. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.cc-var__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cc-var__sku,
+.cc-var__qty,
+.cc-var__price {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.cc-var__qty,
+.cc-var__price { text-align: right; }
+
+/* ------------------------------------------------------------------
+   Sync error cell. The one place on these pages where --danger is
+   spent, because a failed push is the only thing on the row an
+   operator has to act on.
+   ------------------------------------------------------------------ */
+
+.cc-err {
+    display: block;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--danger);
+    overflow-wrap: anywhere;
+}
+
+.cc-err__code {
+    font-family: var(--font-mono);
+    font-weight: 500;
+}
+
+.cc-when {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   Selection checkbox. Needs its own stacking context for the reason
+   pages/catalog.css states for .cat-check: the row is a stretched link
+   (.x-row-link::after, inset: 0 against the positioned <tr>) and an
+   un-layered control sits underneath that overlay and never receives a
+   click.
+   ------------------------------------------------------------------ */
+
+.cc-check {
+    position: relative;
+    z-index: 1;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* ------------------------------------------------------------------
+   Bulk bar. Appears only once at least one row is selected. There is no
+   standing row of five marketplace-write buttons above the table the
+   way the pre-redesign page had, and Delete-from-Shopee keeps the
+   transparent .x-btn--danger treatment every destructive control in
+   this system uses rather than a solid red fill.
+
+   Same shape as pages/catalog.css's .cat-bulkbar, deliberately declared
+   here rather than borrowed: that class belongs to the core catalogue's
+   own sheet, and a channel page reaching into it would tie two surfaces
+   that have no other relationship to one selector.
+   ------------------------------------------------------------------ */
+
+.cc-bulkbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.cc-bulkbar__count { font-size: 13px; color: var(--text-secondary); }
+
+.cc-bulkbar__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+/* ------------------------------------------------------------------
+   Unmatched items. Shopee listings that no catalogue SKU matched. This
+   is a work queue, not part of the list, so it sits above the table as
+   its own section under a hairline heading - the same .fm-section
+   construction the form pages use, reused here because it is exactly
+   the same object (a titled group of controls sitting directly on the
+   canvas, no box) and forking it would be two names for one picture.
+   ------------------------------------------------------------------ */
+
+.cc-unmatched { margin-bottom: var(--space-5); }
+
+.cc-unmatched .x-table tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+
+.cc-col-link { width: 340px; }
+
+/* The linker: a search box and its Link button on one baseline, with
+   the results list positioned against the pair.
+
+   .fm-ta / .fm-ta__list / .fm-ta__empty (components/form-page.css) are
+   reused verbatim for the dropdown. They are pure positioning and
+   surface - no form-page coupling - and the alternative was a second
+   token-built dropdown with the same twenty declarations. */
+.cc-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.cc-link .fm-ta { flex: 1; min-width: 0; }
+
+.cc-link .x-input { width: 100%; }
+
+/* A result row inside the dropdown: thumbnail, name, identifiers. The
+   button itself is .fm-ta__list button; this is only its contents. */
+.cc-ta__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.cc-ta__body { min-width: 0; }
+
+.cc-ta__name {
+    display: block;
+    font-size: 13px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cc-ta__meta {
+    display: block;
+    margin-top: 1px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cc-ta__var {
+    display: block;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   Work-in-progress overlay. A bulk push to a marketplace is a
+   multi-second round trip, and the page has to say so or the operator
+   clicks again. Rides components/modals.css's .modal-backdrop show/hide
+   mechanics (one `.active` class) exactly as the orders pages'
+   #spLoadingOverlay does, so there is one such mechanism, not two.
+   ------------------------------------------------------------------ */
+
+.cc-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5);
+}
+
+.cc-progress__title { font-size: 14px; font-weight: 500; color: var(--text); }
+
+.cc-progress__note { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------------
+   Phones. The generic 640px restack in components/ui-table.css puts
+   every row on a 1fr/auto two-column grid, which crowds a checkbox and
+   a 96px photo into one narrow column. One cell per line instead, the
+   same fix pages/catalog.css and components/channel-orders.css both
+   apply to their own media rows.
+   ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+    .cc-page .x-table tbody tr { grid-template-columns: 1fr; }
+    .cc-page .x-table tbody td { width: auto; padding-top: 3px; padding-bottom: 3px; }
+    .cc-page .x-table tbody td:first-child { padding-top: var(--space-2); }
+    .cc-page .x-table tbody td:last-child  { padding-bottom: var(--space-2); }
+
+    /* The single-action bar stacks: the sentence above, the button below
+       it, both full width. */
+    .x-cmdbar__hint--inline { flex: 1 1 100%; align-self: flex-start; }
+
+    /* Right-aligned numerals read as a column; stranded alone above a
+       left-aligned stacked label they just look misaligned. Same call
+       pages/catalog.css makes for its own numeric columns. */
+    .cc-page .x-table td.cc-col-qty,
+    .cc-page .x-table td.cc-col-price,
+    .cc-page .x-table td.cc-col-count,
+    .cc-page .x-table td.cc-col-lvl { text-align: left; }
+
+    .cc-bulkbar { flex-wrap: wrap; }
+    .cc-bulkbar__actions { width: 100%; }
+    .cc-bulkbar__actions .x-btn { flex: 1 1 auto; }
+
+    /* The linker is a text field and a button; stacked they each get the
+       full width rather than squeezing a 320px column onto a 358px
+       screen. */
+    .cc-link { flex-wrap: wrap; }
+    .cc-link .fm-ta { flex: 1 1 100%; }
+}

@@ -3,95 +3,129 @@
 
 @section('title', 'Shopee Product Groups')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
+@section('content-class', '')
+
 @section('content')
 @php
-    $canManageShopee = true;
+    // Read tier is `view_shopee|manage_shopee`; create, edit and destroy are
+    // all `manage_shopee`. Replaces a hardcoded `true`.
+    $canManageShopee = auth()->user()?->hasPermission('manage_shopee') ?? false;
 @endphp
-    <div class="page-header">
-        <div>
-            <h2>Shopee Product Groups</h2>
-            <div class="text-muted text-sm">Group products and mass-map to Shopee category &amp; attributes.</div>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
-            @if($canManageShopee)
-            <a class="btn" href="{{ route('ext.shopee.product-groups.create') }}">Add Product Group</a>
-            @endif
-        </div>
-    </div>
 
-    <div class="card">
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                <tr>
-                    <th style="width:50px;">ID</th>
-                    <th>Product Group</th>
-                    <th style="width:80px;">Products</th>
-                    <th>Shopee Category</th>
-                    <th>Logistics</th>
-                    <th style="width:100px;">Markup</th>
-                    <th style="width:220px;">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($groups as $p)
-                    @php $pCount = $productCounts->get($p->id, 0); @endphp
-                    <tr>
-                        <td>{{ $p->id }}</td>
-                        <td class="font-bold">{{ $p->name }}</td>
-                        <td>
-                            <a href="{{ route('ext.shopee.product-groups.products', $p->id) }}">{{ $pCount }}</a>
-                        </td>
-                        <td>
-                            @if($p->shopee_category_id)
-                                {{ $shopeeCategoryNames->get($p->shopee_category_id, $p->shopee_category_id) }}
-                            @else
-                                <span class="text-muted">Not set</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php $logCount = count($p->logistic_ids ?? []); @endphp
-                            @if($logCount > 0)
-                                <span class="badge badge-green">{{ $logCount }} channel{{ $logCount > 1 ? 's' : '' }}</span>
-                            @else
-                                <span class="text-muted">Not set</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php
-                                $parts = [];
-                                if (!empty($p->markup_fixed)) $parts[] = '+' . number_format((float)$p->markup_fixed, 2);
-                                if (!empty($p->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$p->markup_percent, 2), '0'), '.') . '%';
-                            @endphp
-                            @if(!empty($parts))
-                                {{ implode(' & ', $parts) }}
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            <div class="d-flex gap-6 items-center text-nowrap">
-                                <a class="btn small" href="{{ route('ext.shopee.product-groups.products', $p->id) }}">Products</a>
-                                @if($canManageShopee)
-                                <a class="btn small secondary" href="{{ route('ext.shopee.product-groups.edit', $p->id) }}">Edit</a>
+<div class="cc-page">
 
-                                <form method="POST" action="{{ route('ext.shopee.product-groups.destroy', $p->id) }}" style="margin:0;" data-confirm="Delete this product group?">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn small danger">Delete</button>
-                                </form>
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="text-muted">No product groups yet. Click <strong>Add Product Group</strong> to create one.</td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Product Groups</h1>
+        <p class="x-page-sub">
+            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}. A group maps a set of catalogue products to one Shopee category, its attributes and its couriers.
+        </p>
     </div>
+    @if($canManageShopee)
+        <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.create')">New group</x-ui.button>
+    @endif
+</div>
+
+@if($groups->count() === 0)
+    <x-ui.empty title="No product groups yet"
+                description="A group is how a batch of catalogue products gets its Shopee category, attributes, couriers and price markup in one place, instead of setting them per listing.">
+        @if($canManageShopee)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('ext.shopee.product-groups.create')">New group</x-ui.button>
+        </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="cc-col-id">ID</th>
+            <th>Group</th>
+            <th class="cc-col-count x-td-num">Products</th>
+            <th>Shopee category</th>
+            <th class="cc-col-group">Couriers</th>
+            <th class="cc-col-markup">Markup</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($groups as $p)
+        @php
+            $pCount = $productCounts->get($p->id, 0);
+            $logCount = count($p->logistic_ids ?? []);
+            $productsUrl = route('ext.shopee.product-groups.products', $p->id);
+
+            // Same two figures the old view printed, kept as separate lines
+            // rather than joined with an ampersand: they are a fixed amount
+            // and a percentage of the selling price, which are different
+            // units and do not belong on one line reading as a sum.
+            $markupFixed = !empty($p->markup_fixed) ? (float) $p->markup_fixed : null;
+            $markupPercent = !empty($p->markup_percent) ? (float) $p->markup_percent : null;
+        @endphp
+        <tr>
+            <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $p->id }}</span></td>
+            <td data-label="Group">
+                <a class="x-row-link" href="{{ $productsUrl }}">{{ $p->name }}</a>
+            </td>
+            <td class="cc-col-count x-td-num" data-label="Products"><span class="x-num">{{ number_format($pCount) }}</span></td>
+            <td data-label="Shopee category">
+                @if($p->shopee_category_id)
+                    <span class="x-cell-strong">{{ $shopeeCategoryNames->get($p->shopee_category_id, $p->shopee_category_id) }}</span>
+                    <span class="cc-sub cc-sub--mono">{{ $p->shopee_category_id }}</span>
+                @else
+                    <span class="x-cell-muted">Not set</span>
+                @endif
+            </td>
+            <td class="cc-col-group" data-label="Couriers">
+                @if($logCount > 0)
+                    <span class="x-num">{{ $logCount }}</span> {{ $logCount === 1 ? 'courier' : 'couriers' }}
+                @else
+                    <span class="x-cell-muted">Not set</span>
+                @endif
+            </td>
+            <td class="cc-col-markup" data-label="Markup">
+                @if($markupFixed !== null || $markupPercent !== null)
+                    @if($markupFixed !== null)
+                        <x-money :php="$markupFixed" />
+                    @endif
+                    @if($markupPercent !== null)
+                        <span class="cc-markup__pct">{{ $markupFixed !== null ? 'plus ' : '' }}{{ rtrim(rtrim(number_format($markupPercent, 2), '0'), '.') }}% of price</span>
+                    @endif
+                @else
+                    <span class="x-cell-muted">None</span>
+                @endif
+            </td>
+            <td class="x-td-actions">
+                <x-ui.menu label="Group {{ $p->name }} actions">
+                    <a class="x-menu__item" href="{{ $productsUrl }}">Products in this group</a>
+                    @if($canManageShopee)
+                        <a class="x-menu__item" href="{{ route('ext.shopee.product-groups.edit', $p->id) }}">Edit group</a>
+                        <div class="x-menu__sep"></div>
+                        {{-- Destroy is never a standing control: it sits in the
+                             overflow menu behind the shared confirm dialog and
+                             drives a form outside this table, because a form
+                             cannot be nested inside a row that is itself a
+                             stretched link. --}}
+                        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete the group {{ $p->name }}? Its products stay in the catalogue and stay listed on Shopee. Only the grouping is removed."
+                                data-confirm-submit="spg-del-{{ $p->id }}">Delete group</button>
+                    @endif
+                </x-ui.menu>
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+@endif
+
+@if($canManageShopee)
+    @foreach($groups as $p)
+        <form id="spg-del-{{ $p->id }}" method="POST" action="{{ route('ext.shopee.product-groups.destroy', $p->id) }}" class="x-sr">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endforeach
+@endif
+
+</div>{{-- /.cc-page --}}
 @endsection

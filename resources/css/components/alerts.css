@@ -71,3 +71,52 @@
 .toast-container .alert.toast-out {
     animation: toastOut .35s ease forwards;
 }
+
+/* ------------------------------------------------------------------
+   Alerts on a page that has LEFT the .x-legacy boundary.
+
+   The three tone rules above are raw light-mode hex (#fef2f2 on #991b1b
+   and friends). That is correct inside .x-legacy, which pins itself to a
+   light surface in both themes and has no dark mode at all. It is wrong
+   on a rebuilt page: layouts/channel.blade.php and layouts/shell.blade.php
+   both render partials/legacy-page-contract.blade.php - the session flash,
+   the validation errors and the integration banners - INSIDE .x-content,
+   so a migrated page in dark theme got a pale pink slab across the top of
+   an otherwise dark canvas. Measured in the browser on the Shopee
+   workspace pages; it affects every already-migrated page too (Orders,
+   Returns, the order detail, the catalogue) wherever a flash appears.
+
+   Re-toned here rather than by editing the rules above, so legacy pages
+   render exactly as they always have. The shape deliberately matches
+   .fm-note (components/form-page.css): one hairline box, the tone carried
+   by a left rule and the icon, never by a tinted fill. Colour keeps its
+   one job.
+   ------------------------------------------------------------------ */
+
+.x-app .x-content:not(.x-legacy) .alert {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.x-app .x-content:not(.x-legacy) .alert.success { border-left-color: var(--accent); }
+.x-app .x-content:not(.x-legacy) .alert.danger  { border-left-color: var(--danger); }
+.x-app .x-content:not(.x-legacy) .alert.warning { border-left-color: var(--warning); }
+.x-app .x-content:not(.x-legacy) .alert.info    { border-left-color: var(--info); }
+
+.x-app .x-content:not(.x-legacy) .alert__icon           { color: var(--text-muted); }
+.x-app .x-content:not(.x-legacy) .alert.success .alert__icon { color: var(--accent); }
+.x-app .x-content:not(.x-legacy) .alert.danger  .alert__icon { color: var(--danger); }
+.x-app .x-content:not(.x-legacy) .alert.warning .alert__icon { color: var(--warning); }
+.x-app .x-content:not(.x-legacy) .alert.info    .alert__icon { color: var(--info); }
+
+.x-app .x-content:not(.x-legacy) .alert a { color: var(--accent); }
+
+.x-app .x-content:not(.x-legacy) .alert .alert-close { color: var(--text-muted); }
+.x-app .x-content:not(.x-legacy) .alert .alert-close:hover { color: var(--text); }
