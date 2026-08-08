@@ -20,12 +20,14 @@
  * Two things this module exists to replace, both of which would fail
  * silently after the move to layouts.shell:
  *
- *   1. window.showFlashError. It writes into a #js-flash-container that
- *      only layouts.app renders, so on the shell every client-side
- *      guard on these forms (no lines added, source equals destination,
- *      quantity over stock) called a function that did nothing and let
- *      the submit proceed. The guards now write into the page's own
- *      .wh-flash region with textContent.
+ *   1. window.showFlashError. It writes into a #js-flash-container, which
+ *      layouts.app was the only layout to render (it was deleted in Round F
+ *      Task 4; partials/legacy-page-contract renders the container on
+ *      layouts.channel now, and layouts.shell still has none). On the shell
+ *      every client-side guard on these forms (no lines added, source equals
+ *      destination, quantity over stock) therefore called a function that did
+ *      nothing and let the submit proceed. The guards now write into the
+ *      page's own .wh-flash region with textContent.
  *
  *   2. The inline <script> blocks the old views carried, with the
  *      search endpoint written into them by Blade. The endpoint now

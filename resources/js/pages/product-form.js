@@ -5,15 +5,18 @@
  *
  * Why this file exists at all. All of this behaviour used to live in an
  * inline <script> at the bottom of resources/views/layouts/app.blade.php,
- * which is a protected file and, more to the point, is not the layout these
- * pages use any more. Moving catalog/products/create + edit onto
- * layouts.shell would have silently dropped the manufacturer lookup, the
- * category picker and the submit guard, so the behaviour is ported here as a
- * real module bundled through app.js (which both layouts load).
+ * which was a protected file and, more to the point, stopped being the layout
+ * these pages use. Moving catalog/products/create + edit onto layouts.shell
+ * would have silently dropped the manufacturer lookup, the category picker
+ * and the submit guard, so the behaviour was ported here as a real module
+ * bundled through app.js (which every layout loads). layouts/app.blade.php
+ * has since been deleted outright (Round F Task 4), so this module is now the
+ * only definition of any of it.
  *
- * It is scoped to [data-product-form], so it binds on the new pages only and
- * cannot double-bind against layouts.app's own inline copy on any legacy page
- * that still carries the same element ids.
+ * It is scoped to [data-product-form], which originally also kept it from
+ * double-binding against layouts.app's inline copy on a legacy page carrying
+ * the same element ids. No such page exists any more; the scoping stays
+ * because it is still what keeps the module inert on every other page.
  *
  * Three deliberate changes from the inline original, all noted in the task
  * report:

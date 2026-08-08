@@ -100,9 +100,13 @@ class ExtensionServiceProvider extends ServiceProvider
             }
         }
 
-        $this->app['view']->composer('layouts.app', function ($view) {
-            $manager = $this->app->make(ExtensionManager::class);
-            $view->with('extensionNavGroups', $manager->getNavItems());
-        });
+        // No view composer here any more. This used to bind
+        // $extensionNavGroups onto layouts.app, which was the only view that
+        // ever read it: that layout walked the array itself to print its
+        // "Extension Nav Groups" sidebar section. layouts.app was deleted in
+        // Round F Task 4, and the surviving nav reads the same source through
+        // Navigation::extensionEntries(), which calls
+        // ExtensionManager::getNavItems() directly at render time. Leaving the
+        // composer would have bound a variable no template consumes.
     }
 }

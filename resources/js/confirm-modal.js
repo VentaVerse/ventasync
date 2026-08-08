@@ -1,14 +1,17 @@
 /**
  * Global confirm modal for the new shell layout (layouts.shell).
  *
- * Ports the [data-confirm] convention that layouts.app wires up inline for
- * itself. This module is bundled into the shared app.js, which both layouts
- * load, so it guards on the presence of #x-confirm-modal: that element only
- * exists on pages built on the new shell (see partials/confirm-modal.blade.php).
- * On legacy-layout pages the guard returns immediately, leaving layouts.app's
- * own inline modal and listeners as the only ones active there.
+ * Ports the [data-confirm] convention that the legacy layouts.app used to
+ * wire up inline for itself. This module is bundled into the shared app.js,
+ * which every layout loads, so it guards on the presence of #x-confirm-modal:
+ * that element only exists on pages that include
+ * partials/confirm-modal.blade.php. The guard was originally there so this
+ * module stayed inert on legacy-layout pages, where layouts.app's own inline
+ * modal was active; that layout was deleted in Round F Task 4, and the guard
+ * is kept because it is still what makes the module safe on a page (a print
+ * view, a callback page) that includes no confirm modal at all.
  *
- * Convention (matches layouts.app exactly, just on distinct element ids):
+ * Convention (carried over from layouts.app, on distinct element ids):
  *   - A <form data-confirm="message"> is intercepted on submit.
  *   - Any other element with data-confirm is intercepted on click; if it
  *     also carries data-confirm-submit="<form id>", that form is submitted
@@ -94,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return new Promise(function (resolve) { resolver = resolve; });
     }
 
-    // Same global contract layouts.app publishes for legacy pages
+    // The same global contract layouts.app used to publish for legacy pages
     // (window.confirmModal(message) -> Promise<boolean>), so a page script can
     // ask for a confirmation without reaching for confirm(). The catalogue
     // form pages use it for the cost-override unlock and for deleting an image

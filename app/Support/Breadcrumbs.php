@@ -23,9 +23,12 @@ use Illuminate\Support\Facades\View;
  *                             seller center, not a nav section
  *   - the leaf             -> the page's own @section('breadcrumb'), unchanged
  *
- * The legacy layouts/app.blade.php and its 29-entry $__bcRoutes table are
- * PROTECTED and untouched: that table dies with the pages that still render
- * it (board card #5), not here.
+ * The legacy layouts/app.blade.php and its 29-entry $__bcRoutes table were
+ * PROTECTED and untouched when this class was written; both were deleted in
+ * Round F Task 4 once the last view left that layout. This is now the only
+ * breadcrumb source in the app, and it still holds no route-name map of its
+ * own - which is why the one defect that table carried (an 'Activity Log'
+ * entry naming a route that does not exist) did not have to be carried over.
  */
 class Breadcrumbs
 {

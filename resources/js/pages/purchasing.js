@@ -9,10 +9,11 @@
  *
  * Two things this module exists to replace:
  *
- *   1. window.setupTypeahead. That function is defined by an inline script
- *      inside layouts/app.blade.php, which is a protected file. Nothing
- *      defines it on layouts.shell, so the vendor pickers on these pages
- *      would silently do nothing after the move. The implementation below is
+ *   1. window.setupTypeahead. That function was defined by an inline script
+ *      inside layouts/app.blade.php (a protected file at the time, deleted
+ *      in Round F Task 4). Nothing defines it on layouts.shell, so the vendor
+ *      pickers on these pages would silently do nothing after the move, and
+ *      nothing defines it anywhere now. The implementation below is
  *      the same contract (debounced fetch, hidden id input, mousedown
  *      selection) rendered into the `po-ta` markup this design system uses.
  *

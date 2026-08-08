@@ -1,13 +1,16 @@
 {{--
     Global confirm modal for pages on the new shell layout (layouts.shell).
 
-    layouts.app (the legacy layout) already ships its own inline confirm
-    modal and [data-confirm] click/submit interceptors, keyed to the DOM ids
-    "confirm-modal" etc. This partial is the same pattern ported to the new
-    design system, but on its own "x-confirm-modal" ids so the two never
-    collide: resources/js/confirm-modal.js only wires itself up when it
-    finds this element, which only exists on pages that include this
-    partial. Legacy pages are untouched.
+    This began as a port of the inline confirm modal and [data-confirm]
+    click/submit interceptors that layouts.app (the legacy layout) shipped on
+    the DOM ids "confirm-modal" etc. It was given its own "x-confirm-modal"
+    ids so the two could never collide while both layouts were live:
+    resources/js/confirm-modal.js only wires itself up when it finds this
+    element. layouts.app was deleted in Round F Task 4, so this is the only
+    confirm modal left in the app and the id split no longer separates
+    anything - it is kept because every trigger, every stylesheet rule and
+    confirm-modal.js all name the x- ids, and renaming them app-wide would be
+    churn with no behaviour change.
 
     The Confirm button defaults to the danger fill, because nearly every
     data-confirm in this application guards a deletion. A trigger that is

@@ -15,8 +15,8 @@
          login redirect. Neither of those can change.
        - layouts/shell.blade.php draws the application sidebar, which is a set
          of destinations a signed-out visitor cannot reach.
-       - layouts/app.blade.php is what this page used to extend and is what
-         Round F Task 4 deletes.
+       - layouts/app.blade.php is what this page used to extend, and Round F
+         Task 4 deleted it.
 
      So: the same tokens, the same fonts, the same theme boot and the same
      bundle as everything else, in a single centred column with nothing in the

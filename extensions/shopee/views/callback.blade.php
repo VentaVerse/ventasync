@@ -13,8 +13,8 @@
      values, the same link back.
 
      Its chrome had to change regardless of that, because it extended
-     layouts/app.blade.php, which Round F Task 4 deletes. Left alone, this page
-     would 500 the moment the layout went. So it moves onto layouts.channel
+     layouts/app.blade.php, which Round F Task 4 deleted. Left alone, this page
+     would have 500'd the moment the layout went. So it moves onto layouts.channel
      with the rest of the workspace and is drawn on the fm- anatomy, and the
      two values are read-only fields in mono with a plain instruction above
      them instead of unlabelled boxes. --}}

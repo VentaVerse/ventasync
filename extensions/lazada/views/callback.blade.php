@@ -12,8 +12,8 @@
      the same seven controller variables read the same way.
 
      Its chrome had to change regardless, because it extended
-     layouts/app.blade.php, which Round F Task 4 deletes; left alone this page
-     would 500 the moment the layout went.
+     layouts/app.blade.php, which Round F Task 4 deleted; left alone this page
+     would have 500'd the moment the layout went.
 
      It does NOT go onto layouts.channel with the rest of the Lazada
      workspace, and that is deliberate. The route is `lazada.callback`, not

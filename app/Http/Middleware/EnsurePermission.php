@@ -39,8 +39,13 @@ class EnsurePermission
      * Build a permission-denied response shaped to match the caller.
      *
      * - JSON / AJAX callers: 403 with a stable error envelope.
-     * - HTML callers: redirect back with a flashed error message that
-     *   `layouts/app.blade.php` already renders via `session('error')`.
+     * - HTML callers: redirect back with a flashed error message rendered
+     *   from `session('error')`. layouts.channel renders it for every page it
+     *   hosts (partials/legacy-page-contract); on layouts.shell it is the
+     *   landing page's own @include('partials.flash') that prints it, so a
+     *   shell page without that include swallows the message. Pre-existing
+     *   and unrelated to this middleware. (The layout originally named here,
+     *   layouts/app.blade.php, was deleted in Round F Task 4.)
      *   If `back()` would loop (no Referer, or Referer is the current
      *   URL), fall back to `/dashboard` so the user isn't stranded.
      */
