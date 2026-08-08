@@ -43,7 +43,7 @@
     gap: 12px;
     align-items: center;
     padding: 8px 0;
-    border-bottom: 1px solid var(--border-light, #e2e8f0);
+    border-bottom: 1px solid var(--border);
 }
 .inv-row:last-child { border-bottom: none; }
 .inv-row__label {
@@ -55,7 +55,7 @@
 }
 .inv-row__value {
     font-size: 14px;
-    color: var(--text-primary);
+    color: var(--text);
     word-break: break-word;
 }
 .inv-row__value--mono {
@@ -79,8 +79,8 @@
     white-space: nowrap;
 }
 .inv-copy-btn:hover {
-    background: var(--surface-alt, #f1f5f9);
-    color: var(--text-primary);
+    background: var(--surface-sunken);
+    color: var(--text);
 }
 .inv-copy-btn.is-copied {
     background: #dcfce7;

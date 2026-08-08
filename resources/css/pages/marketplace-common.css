@@ -18,7 +18,12 @@
     position: relative; cursor: zoom-in; z-index: 1;
     width: 86px; min-height: 56px; flex-shrink: 0;
     align-self: stretch; border-radius: 8px; overflow: hidden;
-    background: var(--surface-alt);
+    /* The empty state behind a product thumbnail that has not loaded, or has
+       no image at all. Was --surface-alt, defined only by base/variables.css
+       (deleted in Round F Task 4) and light-only; --surface-sunken is the
+       token equivalent and follows the theme, so the placeholder stops being
+       a pale slab on a dark order panel. */
+    background: var(--surface-sunken);
 }
 .order-img-wrap img.order-img {
     width: 100%; height: 100%; object-fit: cover; display: block;

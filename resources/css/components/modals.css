@@ -15,7 +15,7 @@
 .modal {
     background: var(--surface);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-modal);
     padding: 24px;
     max-width: 600px;
     width: 100%;
@@ -33,9 +33,9 @@
     font-size: 20px;
     padding: 4px;
     line-height: 1;
-    transition: color var(--transition-fast);
+    transition: color var(--motion-fast);
 }
-.modal-close:hover { color: var(--text-primary); }
+.modal-close:hover { color: var(--text); }
 
 /* Confirm dialog: a smaller, fixed-width variant of the base modal - see
    partials/confirm-modal.blade.php (new shell layout). */

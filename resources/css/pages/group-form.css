@@ -176,15 +176,28 @@
     font-size: 12px;
 }
 
-/* components/tables.css carries BARE `th, td` element selectors with a
-   1px right border and an uppercased, letter-spaced `th`. That file is
-   protected and out of scope to edit here, and its bare selectors now
-   reach every table on the canvas since the .x-legacy boundary that used
-   to contain them was retired in fix round 5. A vertical rule between
-   every cell is the spreadsheet-export look this design system does not
-   draw, and nothing in it shouts. Caught in the browser. */
+/* components/tables.css carried BARE `th, td` element selectors with a 1px
+   right border and an uppercased, letter-spaced `th`, and its bare selectors
+   reached every table on the canvas once the .x-legacy boundary that used to
+   contain them was retired in fix round 5. A vertical rule between every cell
+   is the spreadsheet-export look this design system does not draw, and nothing
+   in it shouts. Caught in the browser, and the two declarations below existed
+   only to out-specify it.
+
+   Round F Task 4 deleted components/tables.css. These are kept rather than
+   dropped: `border-right: 0` is now simply this table's own statement that it
+   draws horizontal hairlines only, which is what every other list in the
+   system says too, and it costs nothing to keep saying it explicitly. */
 .gf-list th,
 .gf-list td { border-right: 0; border-left: 0; }
+
+/* Row hover. This used to arrive from components/tables.css as a hardcoded
+   rgba(59,130,246,.045) blue - which was wrong in dark theme anyway - so
+   deleting that file took the only hover feedback these rows had with it.
+   The picker is a list you point at before you click, so the feedback is
+   restored here on the theme's own token. */
+.gf-list tbody tr { transition: background var(--motion-fast); }
+.gf-list tbody tr:hover { background: var(--surface-hover); }
 
 .gf-list thead th {
     position: sticky;

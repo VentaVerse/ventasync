@@ -6,16 +6,23 @@
  * background the token can render on (canvas, surface, surface-sunken,
  * surface-hover), in this theme, not just canvas.
  *
- * Scoped to .x-app rather than :root: the old layout (layouts/app.blade.php)
- * and the new shell (layouts/shell.blade.php) share one CSS bundle, and
- * :root has equal specificity to base/variables.css's own :root block, so
- * whichever import ran last would win globally and repaint every legacy
- * page. .x-app is the class layouts/shell.blade.php puts on <body>; nothing
- * in the old layout carries it, so these tokens only take effect inside the
- * new shell's subtree. Dark mode is applied as data-theme="dark" on <html>
- * by theme-boot, one level above <body>, so the dark block below has to
- * combine both: an ancestor attribute selector on the root plus the
- * descendant class on body.
+ * Scoped to .x-app rather than :root. The original reason was a collision:
+ * the old layout (layouts/app.blade.php) and the new shell shared one CSS
+ * bundle, and :root here had equal specificity to base/variables.css's own
+ * :root block, so whichever import ran last would win globally and repaint
+ * every legacy page. Round F Task 4 deleted both of those files, so that
+ * collision cannot happen again - but the scoping stays, and now earns its
+ * place for a different reason: layouts/guest.blade.php loads this same
+ * bundle and does NOT carry .x-app, so :root here would restyle the auth
+ * pages, which are not on this design system. .x-app is the class the three
+ * application layouts (shell, channel, standalone) put on <body>.
+ *
+ * The one rule that must serve both worlds is body in base/reset.css; it
+ * writes each token with a literal fallback for exactly this reason.
+ *
+ * Dark mode is applied as data-theme="dark" on <html> by theme-boot, one
+ * level above <body>, so the dark block below has to combine both: an
+ * ancestor attribute selector on the root plus the descendant class on body.
  */
 
 @font-face {
@@ -49,6 +56,7 @@
     --accent-text:     #FFFFFF;   /*  5.35:1 on accent */
 
     --danger:          #B4342A;   /* worst  5.40:1 (surface-hover) */
+    --danger-hover:    #962B22;
     --warning:         #926500;   /* worst  4.58:1 (surface-hover) - retuned, see I3 note below */
     --info:            #2A5FA8;   /* worst  5.67:1 (surface-hover) */
 
@@ -62,6 +70,13 @@
     --radius-md: 6px;
     --radius-lg: 10px;
 
+    /* The smallest elevation: a resting card that already carries its own
+       hairline border, so this only has to lift it off the canvas. Added in
+       Round F Task 4 when base/variables.css was deleted - its --shadow-sm
+       was the last definition of this step and components/cards.css still
+       needs one. Kept as a real token, per this file's own rule, rather than
+       left as a raw value in the component. */
+    --shadow-sm:    0 1px 3px rgba(0,0,0,.06);
     --shadow-menu:  0 4px 12px rgba(0,0,0,.10), 0 0 0 1px var(--border);
     --shadow-modal: 0 16px 48px rgba(0,0,0,.18), 0 0 0 1px var(--border);
 
@@ -96,9 +111,16 @@
     --accent-text:     #06231A;   /*  7.17:1 on accent */
 
     --danger:          #E5675C;   /* worst  5.31:1 (surface-hover) */
+    /* Lighter than --danger, not darker: the same direction --accent-hover
+       moves in this theme, because a hover state has to advance toward the
+       viewer on a near-black ground. */
+    --danger-hover:    #EC8279;
     --warning:         #E0A73B;   /* worst  8.07:1 (surface-hover) */
     --info:            #6C9BE0;   /* worst  6.12:1 (surface-hover) */
 
+    /* Deeper than the light step: the same 1px lift has to register against
+       a near-black canvas. */
+    --shadow-sm:    0 1px 3px rgba(0,0,0,.35);
     --shadow-menu:  0 4px 12px rgba(0,0,0,.40), 0 0 0 1px var(--border);
     --shadow-modal: 0 16px 48px rgba(0,0,0,.55), 0 0 0 1px var(--border);
 

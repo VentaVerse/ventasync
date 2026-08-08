@@ -13,7 +13,7 @@
     width: 100%; text-align: left;
     border: 1px solid var(--border); border-radius: var(--radius-md);
     padding: 10px 10px; margin-bottom: 8px;
-    background: var(--surface-alt); cursor: pointer;
+    background: var(--surface-sunken); cursor: pointer;
 }
 .api-endpoint:hover { background: var(--surface-hover); }
 .api-badge {
@@ -24,9 +24,22 @@
 .api-badge.get { border-color: #bfdbfe; background: #eff6ff; }
 .api-badge.post { border-color: #bbf7d0; background: #f0fdf4; }
 .api-hint { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+/* This table used to lean on components/tables.css, which styled the bare
+   `table`/`th`/`td` elements globally and unscoped, and so reached every table
+   in the bundle whether or not it asked. That file was deleted in Round F Task
+   4, and the properties .api-kv was silently inheriting from it are restated
+   here so the table stands on its own classes.
+
+   Only `text-align` is a genuine restatement: a <th> centres by UA default and
+   the legacy rule was the only thing making these row labels left-aligned.
+   The other three inherited properties are deliberately NOT carried over -
+   this is a two-column key/value table, and a shouting --surface-alt header
+   band, a sticky header in a table that never scrolls, and a vertical rule
+   between the key and the value were all wrong for it. Losing them is the
+   improvement half of that deletion, not a regression. */
 .api-kv { width: 100%; border-collapse: collapse; }
-.api-kv th, .api-kv td { border-bottom: 1px solid var(--border-light); padding: 8px 6px; vertical-align: top; }
-.api-kv th { color: var(--text-primary); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+.api-kv th, .api-kv td { border-bottom: 1px solid var(--border); padding: 8px 6px; vertical-align: top; text-align: left; }
+.api-kv th { color: var(--text); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
 .api-row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .api-mini { font-size: 12px; color: var(--text-secondary); }
 .api-note { margin-top: 10px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 12.5px; color: #92400e; }

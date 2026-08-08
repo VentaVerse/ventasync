@@ -6,5 +6,16 @@
     padding: 24px;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border);
 }
+
+/* The card's padding ramp, moved here from resources/css/responsive.css when
+   Round F Task 4 deleted that file. Everything else in it addressed the
+   legacy layout's own chrome (.sidebar, .content, .topbar, #global-search)
+   and died with the layout; .card is one of the four selectors in it that
+   still had a live consumer, so its rules move to the component they belong
+   to rather than keeping a whole breakpoints sheet alive for them. Values
+   unchanged. */
+@media (max-width: 1024px) { .card { padding: 20px; } }
+@media (max-width: 768px)  { .card { padding: 16px; border-radius: var(--radius-md); } }
+@media (max-width: 480px)  { .card { padding: 14px; } }

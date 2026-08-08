@@ -24,7 +24,7 @@
     font-size: 16px;
     line-height: 1;
     padding: 0;
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--motion-fast);
 }
 .alert .alert-close:hover { opacity: 1; }
 /* The leading status icon and the validation-error list inside an alert.

@@ -3,16 +3,24 @@
    Bundled via Laravel Vite
    ============================================================ */
 
-/* Base */
-@import './base/variables.css';
+/* Base
+   base/variables.css is gone (Round F Task 4). It defined the legacy :root
+   custom properties - --bg, --surface-alt, --text-primary, --transition-fast
+   and the rest - that the whole pre-rebuild design ran on. Every one of its
+   tokens that still had a live consumer was repointed at base/tokens.css in
+   the same commit; the two steps tokens.css had no equivalent for
+   (--shadow-sm, --danger-hover) were added to it as real tokens in both
+   themes rather than left as raw values in a component. */
 @import './base/reset.css';
 @import './base/animations.css';
 @import './base/tokens.css';
 @import './base/theme.css';
 
-/* Layout */
-@import './layout/sidebar.css';
-@import './layout/content.css';
+/* Layout
+   layout/sidebar.css and layout/content.css are gone with the same task.
+   They drew layouts/app.blade.php's own chrome - .sidebar, .content,
+   .topbar, .page-header - and nothing else ever wore those classes; the
+   shell and the channel layouts have always had their own files below. */
 @import './layout/shell.css';
 @import './layout/channel.css';
 
@@ -20,7 +28,13 @@
 @import './components/alerts.css';
 @import './components/cards.css';
 @import './components/buttons.css';
-@import './components/tables.css';
+/* components/tables.css is gone (Round F Task 4). It styled the bare
+   table/th/td ELEMENTS globally and unscoped, so every table in the bundle
+   inherited it whether it asked or not - which is why .x-table, .gf-list and
+   .fm-vars__table each carried defensive declarations written only to
+   out-specify it. Those are now simply each table's own statement of intent.
+   The one table that was genuinely leaning on it, .api-kv, restates what it
+   needs in pages/api-explorer.css. */
 @import './components/toolbar.css';
 @import './components/forms.css';
 @import './components/order-totals.css';
@@ -126,6 +140,12 @@
    commit. */
 @import './pages/channel-listing.css';
 
-/* Utilities & Responsive */
+/* Utilities
+   responsive.css is gone (Round F Task 4). Almost all of it restacked the
+   legacy layout's chrome at each breakpoint and had nothing left to match.
+   The four selectors in it that still had a live consumer (.card, .btn,
+   .btn.small, .input) moved into the component sheets that own them, values
+   unchanged; its generic `table th, table td` sizing went with
+   components/tables.css, which is what made a bare table a styled table in
+   the first place. */
 @import './utilities.css';
-@import './responsive.css';

@@ -7,11 +7,11 @@
     border: 1px solid #cbd5e1;
     border-radius: var(--radius-md);
     background: var(--surface);
-    color: var(--text-primary);
+    color: var(--text);
     font-family: inherit;
     font-size: 14px;
     width: 100%;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .input:focus {
     outline: none;
@@ -58,7 +58,7 @@ label.required::after { content: ' *'; color: var(--danger); font-weight: 700; }
     margin: 24px 0 12px;
     font-size: 15px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text);
     padding-bottom: 8px;
     border-bottom: 2px solid var(--border);
 }
@@ -119,4 +119,10 @@ label.required::after { content: ' *'; color: var(--danger); font-weight: 700; }
     color: var(--text-secondary);
     font-weight: 600;
     margin-bottom: 4px;
+}
+
+/* Phone sizing, moved here from resources/css/responsive.css when Round F
+   Task 4 deleted that file. Values unchanged. */
+@media (max-width: 480px) {
+    .input { height: 38px; font-size: 13px; }
 }
