@@ -41,7 +41,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     if (!window.jQuery || !jQuery.fn || !jQuery.fn.summernote) return;
     jQuery('textarea.wysiwyg').summernote({
-        height: 320,
+        height: 260,
         toolbar: [
             ['style', ['style']],
             ['font', ['bold', 'italic', 'underline', 'clear']],

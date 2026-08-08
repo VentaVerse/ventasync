@@ -366,7 +366,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const c = parseFloat(pctEl.value) || 0;
             const d = parseFloat(addEl.value) || 0;
             const cost = a + (c / 100 * p) + d;
-            outEl.value = cost.toFixed(4);
+            // Four decimals is the column's storage scale, not something a
+            // person reads: 159.9500 in a box beside 120 and 15 reads as a
+            // different kind of number. Trailing zeros go.
+            outEl.value = cost.toFixed(4).replace(/\.?0+$/, '') || '0';
 
             const profit = p - cost;
             const negative = profit < 0;

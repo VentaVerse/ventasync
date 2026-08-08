@@ -6,6 +6,19 @@
 @php
     $backUrl = $returnUrl ?? route('products.index');
 
+    // Decimal columns come back at full scale (weight 0.25000000, price
+    // 499.0000). That is storage precision, not a figure a person reads, and
+    // it makes every numeric field on the page look like noise. Trailing
+    // zeros are dropped for display only; the value posted is numerically
+    // identical and every one of these validates as `nullable|numeric`.
+    $trim = function ($v) {
+        $s = (string) ($v ?? '0');
+        if (!str_contains($s, '.')) return $s === '' ? '0' : $s;
+        $s = rtrim(rtrim($s, '0'), '.');
+        return ($s === '' || $s === '-') ? '0' : $s;
+    };
+
+
     // Related actions contributed by installed extensions. Core knows nothing
     // about which extensions are installed; IntegrationRegistry walks the
     // ProductActionContributor implementations and aggregates their lists.
@@ -183,7 +196,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Selling price" for="product_price" name="price" :required="true">
-                        <x-ui.input id="product_price" name="price" class="fm-input--num" value="{{ old('price', $product->price) }}" />
+                        <x-ui.input id="product_price" name="price" class="fm-input--num" value="{{ old('price', $trim($product->price)) }}" />
                     </x-ui.field>
                 </div>
 
@@ -191,28 +204,28 @@
                     <div class="fm-cost__cell">
                         <x-ui.field label="Cost" for="cost_amount" name="cost_amount" hint="A fixed amount per unit.">
                             <x-ui.input id="cost_amount" name="cost_amount" class="fm-input--num"
-                                        value="{{ old('cost_amount', $product->cost_amount ?? 0) }}" readonly tabindex="-1" />
+                                        value="{{ old('cost_amount', $trim($product->cost_amount ?? 0)) }}" readonly tabindex="-1" />
                         </x-ui.field>
                     </div>
                     <div class="fm-cost__op">plus</div>
                     <div class="fm-cost__cell">
                         <x-ui.field label="Cost %" for="cost_percentage" name="cost_percentage" hint="Share of the selling price.">
                             <x-ui.input id="cost_percentage" name="cost_percentage" class="fm-input--num"
-                                        value="{{ old('cost_percentage', $product->cost_percentage ?? 0) }}" readonly tabindex="-1" />
+                                        value="{{ old('cost_percentage', $trim($product->cost_percentage ?? 0)) }}" readonly tabindex="-1" />
                         </x-ui.field>
                     </div>
                     <div class="fm-cost__op">plus</div>
                     <div class="fm-cost__cell">
                         <x-ui.field label="Additional cost" for="cost_additional" name="cost_additional" hint="Supplier shipping and the like.">
                             <x-ui.input id="cost_additional" name="cost_additional" class="fm-input--num"
-                                        value="{{ old('cost_additional', $product->cost_additional ?? 0) }}" readonly tabindex="-1" />
+                                        value="{{ old('cost_additional', $trim($product->cost_additional ?? 0)) }}" readonly tabindex="-1" />
                         </x-ui.field>
                     </div>
                     <div class="fm-cost__op">equals</div>
                     <div class="fm-cost__cell">
                         <x-ui.field label="Unit cost" for="product_cost" name="cost" hint="Worked out for you when you save.">
                             <x-ui.input id="product_cost" name="cost" class="fm-input--num"
-                                        value="{{ old('cost', $product->cost ?? 0) }}" readonly tabindex="-1" />
+                                        value="{{ old('cost', $trim($product->cost ?? 0)) }}" readonly tabindex="-1" />
                         </x-ui.field>
                     </div>
                 </div>
@@ -306,16 +319,16 @@
                 <div class="fm-card__body">
                     <div class="fm-fields fm-fields--2">
                         <x-ui.field label="Weight" name="weight">
-                            <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight', $product->weight ?? '0') }}" placeholder="0.5" />
+                            <x-ui.input id="f-weight" name="weight" class="fm-input--num" value="{{ old('weight', $trim($product->weight ?? '0')) }}" placeholder="0.5" />
                         </x-ui.field>
                         <x-ui.field label="Length" name="length">
-                            <x-ui.input id="f-length" name="length" class="fm-input--num" value="{{ old('length', $product->length ?? '0') }}" placeholder="10" />
+                            <x-ui.input id="f-length" name="length" class="fm-input--num" value="{{ old('length', $trim($product->length ?? '0')) }}" placeholder="10" />
                         </x-ui.field>
                         <x-ui.field label="Width" name="width">
-                            <x-ui.input id="f-width" name="width" class="fm-input--num" value="{{ old('width', $product->width ?? '0') }}" placeholder="5" />
+                            <x-ui.input id="f-width" name="width" class="fm-input--num" value="{{ old('width', $trim($product->width ?? '0')) }}" placeholder="5" />
                         </x-ui.field>
                         <x-ui.field label="Height" name="height">
-                            <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', $product->height ?? '0') }}" placeholder="3" />
+                            <x-ui.input id="f-height" name="height" class="fm-input--num" value="{{ old('height', $trim($product->height ?? '0')) }}" placeholder="3" />
                         </x-ui.field>
                     </div>
                     <div class="fm-hint">Used to build marketplace listings.</div>

@@ -132,6 +132,14 @@
     flex-wrap: wrap;
 }
 
+/* <x-ui.menu>'s trigger rests at opacity 0 and is revealed by
+   `.x-table tbody tr:hover` (components/ui-table.css) - it was written for a
+   row overflow menu. There is no row to hover here, so without this the
+   page's only route to Delete is an invisible button. Same override
+   components/order-detail.css writes for .od-card__head, same reason. */
+.fm-head__actions .x-menu__trigger,
+.fm-card__head .x-menu__trigger { opacity: 1; }
+
 /* ------------------------------------------------------------------
    Flash region. layouts.shell renders no flash area of its own, and a
    save on this page redirects back to the list or re-renders here with
@@ -891,6 +899,11 @@ textarea.x-input {
     color: var(--text-muted);
 }
 
+/* A "Folders" heading over nothing is worse than no heading: it reads as a
+   folder list that failed to load. The grid below already hides itself when
+   empty; this hides the label with it. */
+.fm-pick__label:has(+ .fm-pick__grid:empty) { display: none; }
+
 .fm-pick__grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -1039,7 +1052,7 @@ textarea.x-input {
    inside its own box rather than pushing the page sideways. */
 .fm-vars__scroll { overflow-x: auto; }
 
-.fm-vars__table { width: 100%; min-width: 720px; border-collapse: collapse; }
+.fm-vars__table { width: 100%; min-width: 760px; border-collapse: collapse; }
 
 .fm-vars__table th {
     padding: 0 var(--space-2) var(--space-2);
@@ -1067,7 +1080,9 @@ textarea.x-input {
 
 .fm-vcol-name  { min-width: 160px; }
 .fm-vcol-opt   { min-width: 120px; }
-.fm-vcol-sku   { width: 130px; }
+/* Wide enough for a real variation SKU (ACM-2M-BLK and longer) in the mono
+   face without the value scrolling out of sight inside its own input. */
+.fm-vcol-sku   { width: 160px; }
 .fm-vcol-qty   { width: 88px; }
 .fm-vcol-price { width: 110px; }
 .fm-vcol-cost  { width: 110px; }
@@ -1232,6 +1247,29 @@ textarea.x-input {
     letter-spacing: -0.01em;
 }
 
+/* components/ui-table.css sets `white-space: nowrap` on every cell, which is
+   right for a list of short, known-width values and wrong here: these two
+   satellites carry a free-text Note column and a person's name, and a
+   nowrap cell does not wrap, it overlaps its neighbour (measured: the
+   stock-history note ran straight through the By column). Text wraps,
+   numerals still do not - .x-num keeps a figure on one line so the columns
+   stay comparable. Same call components/../pages/catalog.css already made
+   for the products index's media rows. */
+.fm-page .x-table tbody td {
+    white-space: normal;
+    vertical-align: top;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+}
+
+.fm-page .x-table tbody tr { height: auto; }
+
+.fm-page .x-table .x-num { white-space: nowrap; }
+
+/* The last two columns are a name and a note. Bounding the name stops the
+   note from being squeezed to one word per line on a narrow window. */
+.fm-col-who { width: 130px; }
+
 /* ------------------------------------------------------------------
    Phones and small tablets. The two columns have already merged by
    here (1000px); what is left is to stop the save bar and the
@@ -1256,7 +1294,10 @@ textarea.x-input {
 @media (max-width: 560px) {
     .fm-bar__meta { display: none; }
     .fm-bar__actions { width: 100%; justify-content: space-between; }
-    .fm-fields--2 { grid-template-columns: minmax(0, 1fr); }
+    /* .fm-fields--2 deliberately stays two-up here. At 390px the content
+       column is 358px, so each cell is ~171px - more than enough for "0.25"
+       and "Reorder level", and stacking them turned the side column into
+       eight full-width rows of almost nothing. */
     .fm-cost { display: grid; grid-template-columns: minmax(0, 1fr); }
     /* The operators only mean something between two side-by-side cells;
        stacked, they are three orphan glyphs. */

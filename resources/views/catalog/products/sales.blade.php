@@ -80,7 +80,7 @@
         <x-slot:head>
             <tr>
                 <th class="fm-vcol-qty">Order</th>
-                <th class="fm-vcol-sku">Date</th>
+                <th class="fm-vcol-price">Date</th>
                 <th>Product</th>
                 <th class="x-td-num fm-vcol-qty">Qty</th>
                 <th class="x-td-num fm-vcol-price">Sales</th>

@@ -87,7 +87,7 @@
                 <th class="fm-vcol-qty">Order</th>
                 <th class="fm-vcol-sku">Source</th>
                 <th>Note</th>
-                <th class="fm-vcol-sku">By</th>
+                <th class="fm-col-who">By</th>
             </tr>
         </x-slot:head>
 
@@ -121,7 +121,7 @@
                 </td>
                 <td data-label="Source">{{ $sourceLabel((string) $h->source) }}</td>
                 <td data-label="Note">{{ $h->note ?? '' }}</td>
-                <td data-label="By">{{ $h->user_name ?? 'System' }}</td>
+                <td class="fm-col-who" data-label="By">{{ $h->user_name ?? 'System' }}</td>
             </tr>
         @endforeach
     </x-ui.table>
