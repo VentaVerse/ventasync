@@ -1,5 +1,5 @@
 /* ============================================================
-   Integrations hub — module cards for marketplace integrations
+   Integrations hub: module cards for marketplace integrations
    Bundled via Laravel Vite
    ============================================================ */
 
@@ -227,7 +227,7 @@
 }
 
 /* ============================================================
-   Card-style tab strip — every Orders page renders this as the
+   Card-style tab strip. Every Orders page renders this as the
    stable navigation surface. Each card carries its marketplace's
    accent color so tabs are visually distinct at a glance.
    The active card fills with its accent.
@@ -379,7 +379,7 @@
     }
 }
 
-/* Compact mode — kicks in when the strip has 7+ marketplace tabs.
+/* Compact mode, which kicks in when the strip has 7+ marketplace tabs.
    Drops the stat grid (Today/Revenue go to the Summary page) and
    surfaces the unprocessed count as an inline pip in the head. The
    strip becomes a denser navigation surface, not a dashboard. */
@@ -530,7 +530,7 @@
 .int-mod__count { margin-top: calc(var(--space-2) * -1); }
 
 /* ============================================================
-   Orders summary page — leaderboard + activity feed grid
+   Orders summary page: leaderboard + activity feed grid
    (status cards are rendered by the .ord-tab-strip above)
    ============================================================ */
 
