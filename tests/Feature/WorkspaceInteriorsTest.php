@@ -319,18 +319,31 @@ class WorkspaceInteriorsTest extends TestCase
 
         ShopeeProductGroup::create(['name' => '<b>bold group</b>']);
 
+        // M-5: Listings and Settings (log-row) previously had no payload
+        // seeded at all, so they proved nothing either way.
+        $this->seedCatalogueProduct('<svg onload=alert(4)>', 'CS-XSS-1');
+        ShopeeApiLog::create([
+            'method' => 'GET', 'api_path' => '/api/v2/<i>alert(5)</i>',
+            'auth_required' => true, 'status_code' => 200, 'response_time_ms' => 10,
+            'ok' => true, 'request_body' => null, 'response_body' => [],
+        ]);
+
         $user = $this->manager();
 
         foreach ([
-            route('ext.shopee.categories.index'),
-            route('ext.shopee.logistics.index'),
-            route('ext.shopee.product-groups.index'),
-        ] as $url) {
+            route('ext.shopee.categories.index') => ['<script>alert(1)</script>', '&lt;script&gt;alert(1)&lt;/script&gt;'],
+            route('ext.shopee.logistics.index') => ['<img src=x onerror=alert(2)>', '&lt;img src=x onerror=alert(2)&gt;'],
+            route('ext.shopee.product-groups.index') => ['<b>bold group</b>', '&lt;b&gt;bold group&lt;/b&gt;'],
+            route('ext.shopee.products.index') => ['<svg onload=alert(4)>', '&lt;svg onload=alert(4)&gt;'],
+            route('ext.shopee.index') => ['<i>alert(5)</i>', '&lt;i&gt;alert(5)&lt;/i&gt;'],
+        ] as $url => [$raw, $escaped]) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
 
-            $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
-            $this->assertStringNotContainsString('<img src=x onerror=alert(2)>', $html);
-            $this->assertStringNotContainsString('<b>bold group</b>', $html);
+            // Never as raw markup...
+            $this->assertStringNotContainsString($raw, $html, "Unescaped output on {$url}");
+            // ...but genuinely rendered as text, not merely absent from the
+            // page entirely (which would also satisfy the check above).
+            $this->assertStringContainsString($escaped, $html, "Payload never reached {$url} at all");
         }
     }
 
@@ -362,6 +375,16 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_read_tier_is_not_offered_write_controls(): void
     {
         $this->seedSetting();
+        // M-2: the Delete-all-logs form only renders when there is something
+        // to delete, so without a seeded log the assertDontSee() below on
+        // clear_api_logs would pass for a manager too - proving nothing
+        // about the read tier specifically. A row makes the control exist
+        // for whoever is allowed to see it.
+        ShopeeApiLog::create([
+            'method' => 'GET', 'api_path' => '/api/v2/shop/get_shop_info',
+            'auth_required' => true, 'status_code' => 200, 'response_time_ms' => 10,
+            'ok' => true, 'request_body' => null, 'response_body' => [],
+        ]);
         $user = $this->viewer();
 
         $categories = $this->actingAs($user)->get(route('ext.shopee.categories.index'))->assertOk();
@@ -756,6 +779,13 @@ class WorkspaceInteriorsTest extends TestCase
      * silently ignore it, leaving an operator who edited the box believing
      * they had changed something.
      */
+    /**
+     * M-1: the original version of this test asserted the redirect URI
+     * appeared ANYWHERE on the page, which the sidebar's own link to
+     * ext.shopee.index also satisfies - deleting the actual display left it
+     * green. Mirrors TikTok's shape: pins the exact readonly, nameless
+     * input(s) that carry it, both the live and sandbox copies.
+     */
     public function test_the_redirect_uri_is_shown_but_not_submittable(): void
     {
         $this->seedSetting();
@@ -763,7 +793,19 @@ class WorkspaceInteriorsTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.index'))->assertOk()->getContent();
 
-        $this->assertStringContainsString(e(route('ext.shopee.index')), $html);
+        $redirect = preg_replace('/^http:/i', 'https:', route('ext.shopee.index'));
+
+        $this->assertStringContainsString(e($redirect), $html);
+        $this->assertSame(2, substr_count($html, 'value="'.e($redirect).'"'));
+
+        // Every element carrying that value is readonly and has no name.
+        preg_match_all('/<input[^>]*value="'.preg_quote(e($redirect), '/').'"[^>]*>/', $html, $matches);
+        $this->assertCount(2, $matches[0]);
+        foreach ($matches[0] as $tag) {
+            $this->assertStringContainsString('readonly', $tag);
+            $this->assertStringNotContainsString('name=', $tag);
+        }
+
         $this->assertStringNotContainsString('name="redirect_uri"', $html);
         $this->assertStringNotContainsString('name="sandbox_redirect_uri"', $html);
     }

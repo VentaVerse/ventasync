@@ -30,13 +30,10 @@
      4. a numbered sequence for the three OAuth steps, which genuinely
         are ordered and where a plain list would lose that;
      5. token-built re-faces of two legacy sheets this page embeds
-        (pages/api-explorer.css and pages/automations.css). Those two
-        are still rendered inside the .x-legacy boundary by the
-        channels whose settings pages have not been rebuilt yet, so
-        they are re-faced HERE, scoped under .cs-page, rather than
-        edited in place. Same technique components/form-page.css uses
-        to put Summernote in the design system's clothes without
-        forking the vendor sheet.
+        (pages/api-explorer.css and pages/automations.css), scoped
+        under .cs-page rather than edited in place. Same technique
+        components/form-page.css uses to put Summernote in the design
+        system's clothes without forking the vendor sheet.
    ------------------------------------------------------------------- */
 
 .cs-page {
@@ -392,9 +389,8 @@
 
 /* ------------------------------------------------------------------
    API explorer, re-faced. pages/api-explorer.css is shared with the
-   Lazada and TikTok settings pages, which still render inside the
-   .x-legacy boundary, so it is not edited. Everything below only
-   applies under .cs-page.
+   Lazada and TikTok settings pages, so it is re-faced here rather
+   than edited in place. Everything below only applies under .cs-page.
 
    What needed changing: three raw light-mode hex values (a near-black
    category heading, and blue/green method chips) that are invisible or
@@ -514,8 +510,8 @@
 
 /* ------------------------------------------------------------------
    Automations tab, re-faced. Same reasoning as the explorer above:
-   pages/automations.css is shared with two settings pages that are
-   still inside the legacy boundary, so it is not edited. Only the
+   pages/automations.css is shared with the other settings pages, so
+   it is re-faced here rather than edited in place. Only the
    declarations that carry raw light-mode colour or the old control
    metrics are restated here.
    ------------------------------------------------------------------ */

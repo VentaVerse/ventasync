@@ -87,8 +87,7 @@
    anatomies they build on (ui-table.css, channel-orders.css, form-page.css)
    and after api-explorer.css and automations.css, because the settings sheet
    re-faces those two legacy sheets inside its own page scope rather than
-   editing them - they are still rendered inside the .x-legacy boundary by
-   the channels whose settings pages have not been rebuilt yet. */
+   editing them directly. */
 @import './pages/channel-catalog.css';
 @import './pages/channel-settings.css';
 
