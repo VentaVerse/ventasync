@@ -4,7 +4,7 @@ import './invoice-copy';
 import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
-import './orders-filter';
+import './list-filters';
 import './legacy-flash';
 import './pages/shopee-orders';
 import './pages/lazada-orders';
