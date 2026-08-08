@@ -114,12 +114,37 @@
 .cc-col-err     { width: 180px; }
 .cc-col-count   { width: 88px; }
 .cc-col-lvl     { width: 72px; }
-.cc-col-leaf    { width: 80px; }
+/* Wide enough for the header, not the value: "Can list here" is 13 characters
+   and clipped to "Can list ..." at the 80px this started at, on both channels'
+   Categories pages. Measured against the header, which is the widest string in
+   the column. */
+.cc-col-leaf    { width: 108px; }
 .cc-col-flag    { width: 130px; }  /* "Cash on delivery" is the widest header here */
 .cc-col-flag--sm { width: 96px; }
 .cc-col-limit   { width: 148px; }
 /* "plus 7.5% of price" on two lines, not four. */
 .cc-col-markup  { width: 156px; }
+
+/* ------------------------------------------------------------------
+   Lazada-only columns. Three widths that exist because Lazada's pages
+   carry a column Shopee's do not, so they take the channel's own
+   established `lz-` prefix (pages/lazada-orders.css) rather than a
+   `cc-` name that would imply every channel has them.
+
+   They live in this file rather than a fourth stylesheet because they
+   are the same object as the widths above - a column measured against
+   the widest real value in it - and a 3-rule file imported for that
+   would be a file to remember rather than a boundary that means
+   anything.
+   ------------------------------------------------------------------ */
+
+.lz-col-region { width: 88px; }   /* a two-letter code, uppercased */
+.lz-col-var    { width: 118px; }  /* "Has variations" is the widest header */
+
+.cc-page .x-table td.lz-col-region {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
 
 /* ------------------------------------------------------------------
    Category tree depth. The pre-redesign view drew depth by repeating an

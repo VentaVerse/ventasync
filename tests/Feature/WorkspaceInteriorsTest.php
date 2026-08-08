@@ -13,6 +13,14 @@ use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeSetting;
 use Extensions\shopee\Models\ShopeeUnmatchedItem;
 use Extensions\shopee\ShopeeExtension;
+use Extensions\lazada\LazadaExtension;
+use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\lazada\Models\LazadaBrand;
+use Extensions\lazada\Models\LazadaCategory;
+use Extensions\lazada\Models\LazadaProduct;
+use Extensions\lazada\Models\LazadaProductGroup;
+use Extensions\lazada\Models\LazadaSetting;
+use Extensions\lazada\Models\LazadaUnmatchedItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -63,8 +71,14 @@ class WorkspaceInteriorsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
+        // Task 2 brought Lazada's five interiors onto the same anatomies, so
+        // both extensions are booted here and the name lookups are rebuilt
+        // once, after both have loaded their routes.
+        $manager->install('lazada');
+        $manager->enable('lazada');
 
         $this->app->register(ShopeeExtension::class);
+        $this->app->register(LazadaExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
@@ -819,5 +833,720 @@ class WorkspaceInteriorsTest extends TestCase
             ->assertOk()
             ->assertSee('/api/v2/shop/get_shop_info')
             ->assertSee('action="'.e(route('ext.shopee.clear_api_logs')).'"', false);
+    }
+
+    /* =================================================================
+       5. LAZADA (Round C, Task 2)
+
+       The same five interiors, one channel over: Listings, Product Groups,
+       Categories, Brands (where Shopee has Logistics) and Settings.
+
+       The OAuth story differs, and the difference is the reason this block
+       does not simply mirror the Shopee one. Shopee's settings page IS its
+       registered redirect URI, so its guard has to drive ?code= through the
+       page itself. Lazada redirects to a separate, permanently exempt
+       /lazada/callback route that this task did not touch. What the settings
+       view CAN break is the set of controls that reach those surfaces: the
+       readonly redirect display (which must name the callback route and must
+       never be submittable), the two authorize links (the sandbox one
+       carrying ?sandbox=1, which is what picks the sandbox app key), and the
+       hidden `sandbox` flags on the exchange and refresh forms. Those are
+       what is pinned here.
+       ================================================================= */
+
+    private function lazadaViewer(): User
+    {
+        $group = UserGroup::create(['name' => 'Lazada Interiors Viewer']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['view_lazada'])->pluck('id')->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    private function lazadaManager(): User
+    {
+        $group = UserGroup::create(['name' => 'Lazada Interiors Manager']);
+        $group->permissions()->attach(
+            Permission::whereIn('key', ['manage_lazada'])->pluck('id')->all()
+        );
+
+        return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    /** @return array<string, string> label => url */
+    private function lazadaInteriorUrls(): array
+    {
+        return [
+            'settings'       => route('ext.lazada.index'),
+            'listings'       => route('ext.lazada.products.index'),
+            'product-groups' => route('ext.lazada.product-groups.index'),
+            'categories'     => route('ext.lazada.categories.index'),
+            'brands'         => route('ext.lazada.brands.index'),
+        ];
+    }
+
+    /**
+     * Enough of a settings row that the Connection tab renders every branch:
+     * live mode with credentials present, so the masked-field and token-state
+     * paths are exercised rather than skipped.
+     */
+    private function seedLazadaSetting(array $overrides = []): LazadaSetting
+    {
+        return LazadaSetting::create(array_merge([
+            'mode' => 'live',
+            'region' => 'ph',
+            'app_key' => '100123',
+            'app_secret' => encrypt('live-app-secret'),
+            'access_token' => encrypt('live-access-token'),
+            'api_logging' => true,
+        ], $overrides));
+    }
+
+    /* ---- render ---------------------------------------------------- */
+
+    public function test_every_lazada_interior_renders_for_the_manage_tier(): void
+    {
+        $this->seedLazadaSetting();
+        $user = $this->lazadaManager();
+
+        foreach ($this->lazadaInteriorUrls() as $label => $url) {
+            $this->actingAs($user)->get($url)->assertOk();
+        }
+    }
+
+    public function test_every_lazada_interior_renders_for_the_read_tier(): void
+    {
+        $this->seedLazadaSetting();
+        $user = $this->lazadaViewer();
+
+        foreach ($this->lazadaInteriorUrls() as $label => $url) {
+            $this->actingAs($user)->get($url)->assertOk();
+        }
+    }
+
+    /**
+     * The point of the whole task, Lazada's half. `.x-legacy` is applied by
+     * layouts/channel.blade.php as the DEFAULT of @yield('content-class'), so
+     * a page that has not opted out carries it on its <main>. Each of these
+     * five now sets @section('content-class', ''), and this asserts the
+     * rendered <main> really lost the class rather than the section merely
+     * being present in the file.
+     */
+    public function test_no_lazada_interior_still_carries_the_legacy_boundary(): void
+    {
+        $this->seedLazadaSetting();
+        $user = $this->lazadaManager();
+
+        foreach ($this->lazadaInteriorUrls() as $label => $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+
+            $this->assertStringNotContainsString(
+                'class="x-content x-legacy"',
+                $html,
+                "Lazada {$label} is still inside the .x-legacy content boundary."
+            );
+            $this->assertStringContainsString(
+                'class="x-content "',
+                $html,
+                "Lazada {$label} did not render the opted-out content class."
+            );
+        }
+    }
+
+    public function test_lazada_interiors_render_their_seeded_records(): void
+    {
+        $this->seedLazadaSetting();
+
+        LazadaCategory::create([
+            'category_id' => 9257,
+            'parent_id' => null,
+            'name' => 'Guitars & Amplifiers',
+            'level' => 0,
+            'leaf' => false,
+            'var' => true,
+        ]);
+
+        LazadaBrand::create([
+            'region' => 'ph',
+            'brand_id' => 4021,
+            'name' => 'Morley & Sons',
+        ]);
+
+        LazadaProductGroup::create([
+            'name' => 'Pedals & Effects',
+            'lazada_category_id' => 9257,
+            'markup_fixed' => 25,
+            'markup_percent' => 7.5,
+        ]);
+
+        $listing = LazadaProduct::create([
+            'product_id' => 4242,
+            'primary_category_id' => 9257,
+            'lazada_item_id' => '778899',
+        ]);
+
+        $user = $this->lazadaManager();
+
+        $this->actingAs($user)->get(route('ext.lazada.categories.index'))
+            ->assertOk()
+            ->assertSee('Guitars &amp; Amplifiers', false)
+            ->assertSee('9257');
+
+        $this->actingAs($user)->get(route('ext.lazada.brands.index'))
+            ->assertOk()
+            ->assertSee('Morley &amp; Sons', false)
+            ->assertSee('4021');
+
+        $this->actingAs($user)->get(route('ext.lazada.product-groups.index'))
+            ->assertOk()
+            ->assertSee('Pedals &amp; Effects', false);
+
+        // The listing's catalogue product does not exist, which is a real
+        // state on this page (a Lazada row whose ERP product was deleted) and
+        // the branch the rebuilt cells fall through to. It DOES carry a Lazada
+        // item id, so the row's overflow offers the uploaded-listing actions
+        // and not Upload, exactly as the old menu branched.
+        $this->actingAs($user)->get(route('ext.lazada.products.index'))
+            ->assertOk()
+            ->assertSee('778899')
+            ->assertSee('No product')
+            ->assertSee('action="'.e(route('ext.lazada.products.sync_quantity', $listing->id)).'"', false)
+            ->assertSee('action="'.e(route('ext.lazada.products.delete_lazada', $listing->id)).'"', false)
+            ->assertDontSee('action="'.e(route('ext.lazada.products.upload', $listing->id)).'"', false);
+    }
+
+    /**
+     * Channel-sourced strings reach these pages straight from the marketplace
+     * and from the catalogue. Blade escapes them; this proves it, because the
+     * redesign moved every one of these values into new markup and an
+     * unescaped slip anywhere would be a stored XSS.
+     */
+    public function test_lazada_channel_sourced_names_are_escaped(): void
+    {
+        $this->seedLazadaSetting();
+
+        LazadaCategory::create([
+            'category_id' => 9258,
+            'parent_id' => null,
+            'name' => '<script>alert(1)</script>',
+            'level' => 0,
+            'leaf' => true,
+        ]);
+
+        LazadaBrand::create([
+            'region' => 'ph',
+            'brand_id' => 4022,
+            'name' => '<img src=x onerror=alert(2)>',
+        ]);
+
+        LazadaProductGroup::create(['name' => '<b>bold group</b>']);
+
+        LazadaUnmatchedItem::create([
+            'lazada_item_id' => '990011',
+            'item_name' => '<svg onload=alert(3)>',
+            'sku' => 'UNM-LZ-1',
+            'status' => 'unmatched',
+        ]);
+
+        $user = $this->lazadaManager();
+
+        foreach ([
+            route('ext.lazada.categories.index'),
+            route('ext.lazada.brands.index'),
+            route('ext.lazada.product-groups.index'),
+            route('ext.lazada.products.index'),
+        ] as $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+
+            $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+            $this->assertStringNotContainsString('<img src=x onerror=alert(2)>', $html);
+            $this->assertStringNotContainsString('<b>bold group</b>', $html);
+            $this->assertStringNotContainsString('<svg onload=alert(3)>', $html);
+        }
+    }
+
+    /* ---- gating, both directions ----------------------------------- */
+
+    public function test_an_operator_with_no_lazada_permission_is_refused_every_interior(): void
+    {
+        $user = $this->outsider();
+
+        foreach ($this->lazadaInteriorUrls() as $label => $url) {
+            $this->assertDenied($this->actingAs($user)->get($url), 'lazada '.$label);
+        }
+    }
+
+    public function test_guests_are_redirected_away_from_every_lazada_interior(): void
+    {
+        foreach ($this->lazadaInteriorUrls() as $label => $url) {
+            $this->get($url)->assertRedirect();
+        }
+    }
+
+    /**
+     * A Shopee viewer is an outsider to Lazada and the other way round. The
+     * five views ask for their own channel's permission, so holding the wrong
+     * channel's manage tier must not open these pages.
+     */
+    public function test_the_other_channels_manage_tier_opens_nothing_here(): void
+    {
+        $this->seedLazadaSetting();
+        $this->seedSetting();
+
+        // One user each, created outside the loops: UserGroup names are
+        // unique, so building a fresh manager per iteration collides.
+        $shopeeManager = $this->manager();
+        $lazadaManager = $this->lazadaManager();
+
+        // Shopee's manager, on Lazada's pages.
+        foreach ($this->lazadaInteriorUrls() as $label => $url) {
+            $this->assertDenied($this->actingAs($shopeeManager)->get($url), 'shopee manager on lazada '.$label);
+        }
+
+        // And the reverse, so this is not asserting a one-way accident.
+        foreach ($this->interiorUrls() as $label => $url) {
+            $this->assertDenied($this->actingAs($lazadaManager)->get($url), 'lazada manager on shopee '.$label);
+        }
+    }
+
+    public function test_the_lazada_read_tier_is_not_offered_write_controls(): void
+    {
+        $this->seedLazadaSetting();
+        $user = $this->lazadaViewer();
+
+        $categories = $this->actingAs($user)->get(route('ext.lazada.categories.index'))->assertOk();
+        $categories->assertDontSee(route('ext.lazada.categories.fetch'), false);
+
+        $brands = $this->actingAs($user)->get(route('ext.lazada.brands.index'))->assertOk();
+        $brands->assertDontSee(route('ext.lazada.brands.fetch'), false);
+
+        $groups = $this->actingAs($user)->get(route('ext.lazada.product-groups.index'))->assertOk();
+        $groups->assertDontSee(route('ext.lazada.product-groups.create'), false);
+        $groups->assertDontSee('Delete group');
+
+        $listings = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk();
+        $listings->assertDontSee(route('ext.lazada.products.bulk_upload'), false);
+        $listings->assertDontSee(route('ext.lazada.products.bulk_delete'), false);
+        $listings->assertDontSee(route('ext.lazada.products.create'), false);
+        $listings->assertDontSee(route('ext.lazada.products.sync_unmatched'), false);
+
+        // The settings page is deliberately different from the four lists. A
+        // read-tier operator is meant to be able to READ the credentials page,
+        // so the fields still render, every one of them disabled. What
+        // disappears is every control that writes.
+        $settings = $this->actingAs($user)->get(route('ext.lazada.index'))->assertOk();
+        $settings->assertDontSee(route('ext.lazada.toggle_mode'), false);
+        $settings->assertDontSee(route('ext.lazada.token_create'), false);
+        $settings->assertDontSee(route('ext.lazada.token_refresh'), false);
+        $settings->assertDontSee(route('ext.lazada.sandbox_token_save'), false);
+        $settings->assertDontSee(route('ext.lazada.authorize'), false);
+        $settings->assertDontSee(route('ext.lazada.purge_raw'), false);
+        $settings->assertDontSee(route('ext.lazada.explorer_run'), false);
+        $settings->assertDontSee(route('ext.lazada.clear_api_logs'), false);
+        $settings->assertDontSee('Save production settings');
+        $settings->assertDontSee('Save order mapping');
+
+        $html = $settings->getContent();
+        $this->assertStringContainsString('name="app_secret"', $html, 'The read tier lost the credential field entirely.');
+        foreach (['region', 'app_key', 'app_secret', 'sandbox_app_key', 'sandbox_app_secret'] as $field) {
+            $this->assertMatchesRegularExpression(
+                '/name="'.preg_quote($field, '/').'"[^>]*\bdisabled\b/',
+                $html,
+                "The {$field} control is editable for an operator who cannot save it."
+            );
+        }
+    }
+
+    public function test_the_lazada_manage_tier_is_offered_those_same_controls(): void
+    {
+        $this->seedLazadaSetting();
+        // The catalogue typeahead only exists where there is something to
+        // link, so the queue needs an entry for that assertion to mean
+        // anything.
+        LazadaUnmatchedItem::create([
+            'lazada_item_id' => '10076385934',
+            'item_name' => 'Unmatched pedal',
+            'sku' => 'UNM-LZ-2',
+            'status' => 'unmatched',
+        ]);
+        $user = $this->lazadaManager();
+
+        $this->actingAs($user)->get(route('ext.lazada.categories.index'))
+            ->assertOk()->assertSee(route('ext.lazada.categories.fetch'), false);
+
+        $this->actingAs($user)->get(route('ext.lazada.brands.index'))
+            ->assertOk()->assertSee(route('ext.lazada.brands.fetch'), false);
+
+        $this->actingAs($user)->get(route('ext.lazada.product-groups.index'))
+            ->assertOk()->assertSee(route('ext.lazada.product-groups.create'), false);
+
+        $this->actingAs($user)->get(route('ext.lazada.products.index'))
+            ->assertOk()
+            ->assertSee(route('ext.lazada.products.bulk_upload'), false)
+            ->assertSee(route('ext.lazada.products.search_catalog'), false);
+
+        $this->actingAs($user)->get(route('ext.lazada.index'))
+            ->assertOk()
+            ->assertSee(route('ext.lazada.save'), false)
+            ->assertSee(route('ext.lazada.token_create'), false);
+    }
+
+    /**
+     * The UI hiding a control is a courtesy; the middleware is the gate. Every
+     * write route the five Lazada views drive must refuse a read-tier operator
+     * on its own.
+     */
+    public function test_the_lazada_write_routes_refuse_the_read_tier_on_their_own(): void
+    {
+        $this->seedLazadaSetting();
+        $user = $this->lazadaViewer();
+
+        $posts = [
+            route('ext.lazada.save'),
+            route('ext.lazada.toggle_mode'),
+            route('ext.lazada.token_create'),
+            route('ext.lazada.token_refresh'),
+            route('ext.lazada.sandbox_token_save'),
+            route('ext.lazada.order_status_map'),
+            route('ext.lazada.reverse_status_map'),
+            route('ext.lazada.toggle_logging'),
+            route('ext.lazada.purge_raw'),
+            route('ext.lazada.explorer_run'),
+            route('ext.lazada.categories.fetch'),
+            route('ext.lazada.brands.fetch'),
+            route('ext.lazada.products.bulk_upload'),
+            route('ext.lazada.products.bulk_delete'),
+            route('ext.lazada.products.sync_unmatched'),
+        ];
+
+        foreach ($posts as $url) {
+            $this->assertDenied($this->actingAs($user)->post($url, []), $url);
+        }
+
+        $this->assertDenied($this->actingAs($user)->delete(route('ext.lazada.clear_api_logs')), 'clear logs');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.product-groups.create')), 'group create');
+        $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.products.create')), 'listing create');
+        // The authorize link is the one write surface that lives outside the
+        // /integrations prefix, so it is asserted separately.
+        $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.authorize')), 'authorize');
+
+        // Nothing was written by any of the refused calls.
+        $this->assertSame('live', LazadaSetting::query()->first()->mode);
+    }
+
+    /**
+     * Mutation proof for one gate. If the read tier were silently sufficient
+     * for a write, which is exactly what a copy-paste of the wrong middleware
+     * string produces, this would pass on the denial half alone; it is only
+     * meaningful because the manage tier is separately shown to succeed on the
+     * SAME route with the SAME payload and change the SAME column.
+     *
+     * Proven by mutation: relaxing /lazada/save to
+     * `perm:view_lazada|manage_lazada` makes this fail on the viewer half, and
+     * the mutation was reverted.
+     */
+    public function test_the_lazada_save_gate_separates_the_two_tiers_on_one_route(): void
+    {
+        $this->seedLazadaSetting();
+
+        $payload = ['env' => 'live', 'region' => 'sg', 'app_key' => '100999'];
+
+        $this->assertDenied(
+            $this->actingAs($this->lazadaViewer())->post(route('ext.lazada.save'), $payload),
+            'save as viewer'
+        );
+
+        $this->assertSame('100123', (string) LazadaSetting::query()->first()->app_key);
+        $this->assertSame('ph', LazadaSetting::query()->first()->region);
+
+        $this->actingAs($this->lazadaManager())
+            ->post(route('ext.lazada.save'), $payload)
+            ->assertRedirect(route('ext.lazada.index'));
+
+        $this->assertSame('100999', (string) LazadaSetting::query()->first()->app_key);
+        $this->assertSame('sg', LazadaSetting::query()->first()->region);
+    }
+
+    /* ---- settings save round trip ---------------------------------- */
+
+    /**
+     * The riskiest form on the riskiest page. LazadaController::save()
+     * validates exactly six names: env, the shared region, and two credentials
+     * per environment. Both halves are posted here, each with the env that
+     * selects it, and every column is read back.
+     *
+     * The two things that would be silently wrong if the rebuilt form got them
+     * wrong, and that this pins:
+     *
+     *   - `region` is ONE field name in both forms, because the controller
+     *     writes one shared column. A sandbox form posting `sandbox_region`
+     *     would validate fine and save nothing.
+     *   - the hidden `env` is what stops a sandbox save from wiping the live
+     *     credentials, and it also sets `mode`.
+     */
+    public function test_the_lazada_settings_save_round_trips_every_validated_field(): void
+    {
+        $this->seedLazadaSetting([
+            'mode' => 'sandbox', 'region' => null, 'app_key' => null, 'app_secret' => null, 'access_token' => null,
+        ]);
+        $user = $this->lazadaManager();
+
+        $this->actingAs($user)->post(route('ext.lazada.save'), [
+            'env' => 'live',
+            'region' => 'ph',
+            'app_key' => '100777',
+            'app_secret' => 'the-live-app-secret',
+        ])->assertRedirect(route('ext.lazada.index'))->assertSessionHas('status');
+
+        $row = LazadaSetting::query()->first();
+        $this->assertSame('live', $row->mode);
+        $this->assertSame('ph', $row->region);
+        $this->assertSame('100777', (string) $row->app_key);
+        $this->assertSame('the-live-app-secret', decrypt($row->app_secret));
+
+        $this->actingAs($user)->post(route('ext.lazada.save'), [
+            'env' => 'sandbox',
+            'region' => 'sg',
+            'sandbox_app_key' => '200777',
+            'sandbox_app_secret' => 'the-sandbox-app-secret',
+        ])->assertRedirect(route('ext.lazada.index'));
+
+        $row->refresh();
+        $this->assertSame('sandbox', $row->mode);
+        $this->assertSame('200777', (string) $row->sandbox_app_key);
+        $this->assertSame('the-sandbox-app-secret', decrypt($row->sandbox_app_secret));
+
+        // Region is shared, so the sandbox save moved it. That is the
+        // documented behaviour and the reason the sandbox form's hint says so.
+        $this->assertSame('sg', $row->region);
+
+        // The live credentials survived the sandbox save untouched. This is
+        // the whole reason the form carries a hidden `env`.
+        $this->assertSame('100777', (string) $row->app_key);
+        $this->assertSame('the-live-app-secret', decrypt($row->app_secret));
+    }
+
+    /**
+     * The masked-credential contract. resources/js/credential-mask.js blanks
+     * an untouched •••••••• field before the form posts, and the controller
+     * reads a blank as "keep what is stored". A save that omits the secret
+     * must therefore leave it exactly as it was, or every operator who changes
+     * only the region wipes their own app secret.
+     */
+    public function test_a_lazada_save_that_omits_the_masked_secret_keeps_it(): void
+    {
+        $this->seedLazadaSetting();
+        $user = $this->lazadaManager();
+
+        $this->actingAs($user)->post(route('ext.lazada.save'), [
+            'env' => 'live',
+            'region' => 'vn',
+            'app_key' => '',
+            'app_secret' => '',
+        ])->assertRedirect(route('ext.lazada.index'));
+
+        $row = LazadaSetting::query()->first();
+        $this->assertSame('live-app-secret', decrypt($row->app_secret));
+        $this->assertSame('100123', (string) $row->app_key);
+        // Region is a dropdown, so a blank there is the explicit "Not set"
+        // choice and DOES overwrite. This asserts the chosen value landed.
+        $this->assertSame('vn', $row->region);
+    }
+
+    public function test_the_lazada_environment_switch_posts_the_mode_it_names(): void
+    {
+        $this->seedLazadaSetting(['mode' => 'live']);
+        $user = $this->lazadaManager();
+
+        $this->actingAs($user)->post(route('ext.lazada.toggle_mode'), ['mode' => 'sandbox'])
+            ->assertRedirect(route('ext.lazada.index'));
+
+        $this->assertSame('sandbox', LazadaSetting::query()->first()->mode);
+
+        $this->actingAs($user)->post(route('ext.lazada.toggle_mode'), ['mode' => 'live'])
+            ->assertRedirect(route('ext.lazada.index'));
+
+        $this->assertSame('live', LazadaSetting::query()->first()->mode);
+    }
+
+    public function test_the_lazada_logging_switch_saves_without_a_page_reload(): void
+    {
+        $this->seedLazadaSetting(['api_logging' => true]);
+        $user = $this->lazadaManager();
+
+        $this->actingAs($user)
+            ->postJson(route('ext.lazada.toggle_logging'), ['api_logging' => 0])
+            ->assertOk()
+            ->assertJson(['ok' => true, 'api_logging' => false]);
+
+        $this->assertFalse((bool) LazadaSetting::query()->first()->api_logging);
+    }
+
+    /* ---- the OAuth surfaces this view is not allowed to change ------ */
+
+    /**
+     * The redirect URI is displayed so it can be copied into the Lazada
+     * console. Two claims, both of which a redesign could break silently:
+     *
+     *   - it is the CALLBACK route, not this page. Lazada compares the string
+     *     byte for byte, and pointing the box at the settings URL would send
+     *     an operator to register a URL that never receives a code.
+     *   - it has no `name`, so it is never posted. save() does not validate a
+     *     redirect field and would ignore it, leaving an operator who edited
+     *     the box believing they had changed something.
+     */
+    public function test_the_lazada_redirect_uri_is_the_callback_and_is_not_submittable(): void
+    {
+        $this->seedLazadaSetting();
+
+        $html = $this->actingAs($this->lazadaManager())
+            ->get(route('ext.lazada.index'))->assertOk()->getContent();
+
+        $expected = preg_replace('/^http:/i', 'https:', route('lazada.callback'));
+        $this->assertStringContainsString(e($expected), $html);
+
+        $this->assertStringNotContainsString('name="redirect_uri"', $html);
+        $this->assertStringNotContainsString('name="sandbox_redirect_uri"', $html);
+    }
+
+    /**
+     * The OAuth controls the settings view is not allowed to change, asserted
+     * as markup, because "the route exists" is not the same claim as "the page
+     * still offers it".
+     *
+     * The sandbox authorize link is the sharp one. redirectToAuth() reads
+     * ?sandbox=1 off the query to decide which app key it sends, so a rebuilt
+     * link that dropped the parameter would quietly authorise the PRODUCTION
+     * app from a button labelled sandbox, and nothing would look wrong until a
+     * live shop started answering test calls.
+     */
+    public function test_the_lazada_settings_page_still_carries_every_oauth_control(): void
+    {
+        $this->seedLazadaSetting();
+
+        $html = $this->actingAs($this->lazadaManager())
+            ->get(route('ext.lazada.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize')).'"', $html);
+        $this->assertStringContainsString('href="'.e(route('ext.lazada.authorize').'?sandbox=1').'"', $html);
+        $this->assertStringContainsString('rel="noopener"', $html);
+        $this->assertStringContainsString('action="'.e(route('ext.lazada.token_create')).'"', $html);
+        $this->assertStringContainsString('action="'.e(route('ext.lazada.token_refresh')).'"', $html);
+        $this->assertStringContainsString('action="'.e(route('ext.lazada.sandbox_token_save')).'"', $html);
+        $this->assertStringContainsString('name="code"', $html);
+
+        // Both sandbox forms carry the hidden flag the controller branches on.
+        $this->assertSame(
+            2,
+            substr_count($html, '<input type="hidden" name="sandbox" value="1">'),
+            'The sandbox exchange and refresh forms must each carry the hidden sandbox flag.'
+        );
+    }
+
+    /**
+     * Every field name a Lazada settings write validates has to exist in the
+     * markup, or the redesign has quietly dropped something an operator can no
+     * longer set. Both environments, because only one is visible at a time but
+     * both are rendered.
+     */
+    public function test_the_lazada_settings_page_carries_the_whole_field_census(): void
+    {
+        $this->seedLazadaSetting();
+
+        $html = $this->actingAs($this->lazadaManager())
+            ->get(route('ext.lazada.index'))->assertOk()->getContent();
+
+        foreach ([
+            // save()
+            'env', 'region', 'app_key', 'app_secret', 'sandbox_app_key', 'sandbox_app_secret',
+            // toggleMode(), tokenCreate(), saveSandboxToken(), purgeRaw()
+            'mode', 'code', 'sandbox', 'sandbox_access_token', 'expires_in_days', 'days',
+            // explorerRun()
+            'method', 'api_path', 'auth_required', 'params_json', 'params_json_pretty',
+        ] as $field) {
+            $this->assertStringContainsString(
+                'name="'.$field.'"',
+                $html,
+                "The Lazada settings page no longer carries a field named {$field}."
+            );
+        }
+
+        // `region` is deliberately the same name in both environment forms.
+        $this->assertSame(2, substr_count($html, 'name="region"'), 'Both environment forms must post the shared region field.');
+
+        // Both status-map surfaces, one key from each.
+        $this->assertStringContainsString('name="map[ready_to_ship]"', $html);
+        $this->assertStringContainsString('name="map[refund_paid]"', $html);
+    }
+
+    /**
+     * Stored credentials render as a mask, never as the secret itself. The
+     * redesign moved all four of these inputs, so this is worth pinning: a
+     * value="{{ $setting->app_secret }}" typo would put an encrypted, or worse
+     * a decrypted, secret into the HTML source.
+     */
+    public function test_stored_lazada_secrets_never_reach_the_page_source(): void
+    {
+        $this->seedLazadaSetting([
+            'sandbox_app_secret' => encrypt('sandbox-app-secret'),
+            'sandbox_access_token' => encrypt('sandbox-access-token'),
+        ]);
+
+        $html = $this->actingAs($this->lazadaManager())
+            ->get(route('ext.lazada.index'))->assertOk()->getContent();
+
+        foreach ([
+            'live-app-secret', 'live-access-token',
+            'sandbox-app-secret', 'sandbox-access-token',
+        ] as $secret) {
+            $this->assertStringNotContainsString($secret, $html);
+        }
+
+        $this->assertStringContainsString('data-credential-mask="1"', $html);
+    }
+
+    public function test_the_lazada_api_log_tab_renders_a_recorded_call(): void
+    {
+        $this->seedLazadaSetting();
+
+        LazadaApiLog::create([
+            'method' => 'GET',
+            'api_path' => '/seller/get',
+            'auth_required' => true,
+            'request_params' => ['limit' => 10],
+            'response_status' => 200,
+            'ok' => true,
+            'response_body' => ['data' => ['name' => 'Test & Co']],
+        ]);
+
+        $this->actingAs($this->lazadaManager())->get(route('ext.lazada.index'))
+            ->assertOk()
+            ->assertSee('/seller/get')
+            ->assertSee('action="'.e(route('ext.lazada.clear_api_logs')).'"', false);
+    }
+
+    /**
+     * The listings page kept its sortable header, which the old view drove
+     * with the same sort/dir pair. Two things are pinned: the header link
+     * carries both parameters, and the filter form carries them as hidden
+     * fields so submitting a filter does not silently reset the sort.
+     */
+    public function test_the_lazada_listings_page_keeps_its_sort_contract(): void
+    {
+        $this->seedLazadaSetting();
+        // The sortable header only exists when there are rows to sort; an
+        // empty list renders the empty state and no <thead> at all.
+        LazadaProduct::create(['product_id' => 4243, 'lazada_item_id' => '551122']);
+        $user = $this->lazadaManager();
+
+        $html = $this->actingAs($user)
+            ->get(route('ext.lazada.products.index', ['sort' => 'quantity', 'dir' => 'asc']))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('name="sort" value="quantity"', $html);
+        $this->assertStringContainsString('name="dir" value="asc"', $html);
+        // Clicking the column already sorted ascending flips it to descending.
+        $this->assertStringContainsString('sort=quantity&amp;dir=desc', $html);
     }
 }

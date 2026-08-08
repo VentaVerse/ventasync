@@ -1,293 +1,32 @@
 /*
  * Shopee Listings (/integrations/shopee/products).
  *
- * Why this file exists. All of this behaviour used to be an inline <script>
- * at the bottom of extensions/shopee/views/products/index.blade.php. That
- * view has been rebuilt on the design tokens and no longer lives inside the
- * .x-legacy boundary, and this project does not put behaviour in Blade, so
- * the script is ported here as a real module bundled through app.js (which
- * every layout loads).
+ * All of this behaviour used to be an inline <script> at the bottom of
+ * extensions/shopee/views/products/index.blade.php. That view was rebuilt on
+ * the design tokens in Round C Task 1 and no longer lives inside the
+ * .x-legacy boundary, and this project does not put behaviour in Blade.
  *
- * Everything binds off data- attributes and every entry point guards on the
- * page's own root, so the module is inert on all other pages.
+ * Round C Task 2 brought Lazada's listings page onto the same anatomy, which
+ * needs the same overlay, bulk-id injection, slow-action overlay and
+ * catalogue typeahead. Rather than a second copy of ~250 lines, the shared
+ * work moved to ./channel-listings.js and this file is what remains: the
+ * three values that are genuinely Shopee's. Shopee's DOM contract is
+ * unchanged, so the view was not touched.
  *
- * Three deliberate changes from the inline original, all reported:
- *
- *   1. The unmatched-item result list is built with createElement and
- *      textContent. The original did `resultsDiv.innerHTML = items.map(...)`
- *      with a product name, model and SKU taken straight off the search
- *      endpoint's JSON, which is raw innerHTML with database-controlled
- *      strings. A product named `<img src=x onerror=...>` executed.
- *   2. Select-all, the selected count and the bulk bar's visibility are
- *      Alpine's job now (x-model / x-show in the view). This module only
- *      does the part Alpine cannot: injecting the ticked ids into whichever
- *      of the five bulk forms was submitted. It reads the checkboxes from
- *      the DOM rather than Alpine's state so the two can never disagree.
- *   3. The endpoint URL comes off a data- attribute on the form rather than
- *      being Blade-interpolated into a script literal.
- *
- * The wire is unchanged: the same `product_ids[]` hidden inputs, the same
- * `product_id` on the link form, the same GET to search-catalog?q=, the same
- * 300ms debounce and the same two-character minimum.
+ * The wire is unchanged from the inline original: the same `product_ids[]`
+ * hidden inputs, the same `product_id` on the link form, the same GET to
+ * search-catalog?q=, the same 300ms debounce and the same two-character
+ * minimum.
  */
 
-const ROOT_SELECTOR = '#shopee-listings-progress';
-
-/* ------------------------------------------------------------------
-   Work-in-progress overlay. Rides components/modals.css's .modal-backdrop
-   show/hide mechanics: one `.active` class, the same mechanism
-   partials/confirm-modal.blade.php and the orders pages already use.
-   ------------------------------------------------------------------ */
-
-function showProgress(title) {
-    const overlay = document.querySelector(ROOT_SELECTOR);
-    if (!overlay) return;
-    const titleEl = overlay.querySelector('[data-progress-title]');
-    if (titleEl && title) titleEl.textContent = title;
-    overlay.classList.add('active');
-}
-
-/* ------------------------------------------------------------------
-   Bulk actions.
-   ------------------------------------------------------------------ */
-
-function tickedIds() {
-    return Array.from(document.querySelectorAll('[data-row-check]'))
-        .filter((box) => box.checked)
-        .map((box) => box.value);
-}
-
-function injectIds(form, ids) {
-    form.querySelectorAll('input[name="product_ids[]"]').forEach((n) => n.remove());
-    ids.forEach((id) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'product_ids[]';
-        input.value = id;
-        form.appendChild(input);
-    });
-}
-
-function submitBulk(form, ids) {
-    injectIds(form, ids);
-    showProgress('Working on ' + ids.length + (ids.length === 1 ? ' product' : ' products'));
-    const button = form.querySelector('button[type="submit"]');
-    if (button) button.disabled = true;
-    form.dataset.bulkSubmitting = '1';
-    if (form.requestSubmit) form.requestSubmit();
-    else form.submit();
-}
-
-function initBulkForms() {
-    document.querySelectorAll('form[data-bulk-form]').forEach((form) => {
-        form.addEventListener('submit', function (e) {
-            // Second pass, after a confirmation was accepted: let it through.
-            if (form.dataset.bulkSubmitting === '1') {
-                form.dataset.bulkSubmitting = '';
-                return;
-            }
-
-            e.preventDefault();
-
-            const ids = tickedIds();
-            if (!ids.length) {
-                // The bar is x-show'd on a non-empty selection, so this is
-                // unreachable in normal use. It stays as the guard the
-                // original had, because a bulk POST with no ids would
-                // otherwise round-trip to the server to be told the same.
-                if (typeof window.showFlashError === 'function') {
-                    window.showFlashError('Select at least one product first.');
-                }
-                return;
-            }
-
-            const message = form.getAttribute('data-bulk-confirm');
-            if (message && typeof window.confirmModal === 'function') {
-                window.confirmModal(message, document.activeElement).then(function (ok) {
-                    if (ok) submitBulk(form, ids);
-                });
-                return;
-            }
-
-            submitBulk(form, ids);
-        });
-    });
-}
-
-/* ------------------------------------------------------------------
-   Single-row marketplace actions. The overlay only appears once the
-   submit has actually survived: a form carrying data-confirm is
-   preventDefault()ed by resources/js/confirm-modal.js's capture-phase
-   listener until the operator accepts, and showing a "talking to Shopee"
-   overlay behind a dialog nobody has answered yet is a lie.
-   ------------------------------------------------------------------ */
-
-function initSlowActions() {
-    document.querySelectorAll('form[data-slow-action]').forEach((form) => {
-        form.addEventListener('submit', function (e) {
-            if (e.defaultPrevented) return;
-            showProgress('Talking to Shopee');
-        });
-    });
-}
-
-/* ------------------------------------------------------------------
-   Unmatched items: catalogue typeahead.
-   ------------------------------------------------------------------ */
-
-function buildResultButton(item, onPick) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.setAttribute('role', 'option');
-
-    const row = document.createElement('span');
-    row.className = 'cc-ta__row';
-
-    if (item.image) {
-        const thumb = document.createElement('span');
-        thumb.className = 'cc-thumb cc-thumb--sm';
-        const img = document.createElement('img');
-        // A src is an attribute, not markup: assigning it cannot introduce
-        // an element. The endpoint returns asset() URLs off the catalogue's
-        // own image column.
-        img.src = item.image;
-        img.alt = '';
-        img.loading = 'lazy';
-        thumb.appendChild(img);
-        row.appendChild(thumb);
-    }
-
-    const body = document.createElement('span');
-    body.className = 'cc-ta__body';
-
-    const name = document.createElement('span');
-    name.className = 'cc-ta__name';
-    name.textContent = item.name || 'Unnamed product';
-    body.appendChild(name);
-
-    const meta = document.createElement('span');
-    meta.className = 'cc-ta__meta';
-    const identifiers = [];
-    if (item.model) identifiers.push(String(item.model));
-    if (item.sku && item.sku !== item.model) identifiers.push(String(item.sku));
-    identifiers.push('ID ' + item.product_id);
-    meta.textContent = identifiers.join(' / ');
-    body.appendChild(meta);
-
-    // Variation lines. "Variation" is the user-facing word across this app
-    // and across every marketplace it talks to; the database columns behind
-    // it are still option_*.
-    if (item.options && item.options.length) {
-        item.options.forEach((option) => {
-            const line = document.createElement('span');
-            line.className = 'cc-ta__var';
-            const label = option.name ? option.name + ' / ' : '';
-            line.textContent = label + option.sku + ' / ' + option.qty + ' in stock';
-            body.appendChild(line);
-        });
-    }
-
-    row.appendChild(body);
-    button.appendChild(row);
-
-    button.addEventListener('click', function () {
-        onPick(item);
-    });
-
-    return button;
-}
-
-function initUnmatchedLinker(form) {
-    const searchUrl = form.getAttribute('data-search-url');
-    const input = form.querySelector('[data-unmatched-search]');
-    const list = form.querySelector('[data-unmatched-results]');
-    const hidden = form.querySelector('[data-unmatched-id]');
-    const submit = form.querySelector('[data-unmatched-submit]');
-    if (!searchUrl || !input || !list || !hidden) return;
-
-    let timer = null;
-
-    function hide() {
-        list.style.display = 'none';
-    }
-
-    function clear() {
-        list.textContent = '';
-        hide();
-    }
-
-    function show() {
-        list.style.display = 'block';
-    }
-
-    function message(text) {
-        list.textContent = '';
-        const empty = document.createElement('div');
-        empty.className = 'fm-ta__empty';
-        empty.textContent = text;
-        list.appendChild(empty);
-        show();
-    }
-
-    function pick(item) {
-        hidden.value = String(item.product_id);
-        input.value = (item.name || 'Unnamed product') + ' (ID ' + item.product_id + ')';
-        clear();
-        if (submit) submit.disabled = false;
-    }
-
-    input.addEventListener('input', function () {
-        // Typing invalidates a previous pick: the hidden id goes back to
-        // empty and Link is disabled again until something is chosen from
-        // the list. Without this an operator could pick a product, edit the
-        // text, and link a product whose name is no longer in the box.
-        hidden.value = '';
-        if (submit) submit.disabled = true;
-
-        const query = input.value.trim();
-        if (query.length < 2) {
-            clear();
-            return;
-        }
-
-        window.clearTimeout(timer);
-        timer = window.setTimeout(function () {
-            fetch(searchUrl + '?q=' + encodeURIComponent(query), {
-                headers: { Accept: 'application/json' },
-            })
-                .then((response) => response.json())
-                .then((items) => {
-                    if (!Array.isArray(items) || !items.length) {
-                        message('No catalogue product matches that.');
-                        return;
-                    }
-                    list.textContent = '';
-                    items.forEach((item) => list.appendChild(buildResultButton(item, pick)));
-                    show();
-                })
-                .catch(() => {
-                    message('Could not reach the catalogue. Try again.');
-                });
-        }, 300);
-    });
-
-    // Closing on an outside click is scoped to this form, so two linkers on
-    // the same page do not close each other's lists on every click.
-    document.addEventListener('click', function (e) {
-        if (!form.contains(e.target)) hide();
-    });
-
-    input.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') clear();
-    });
-}
+import { initChannelListings } from './channel-listings';
 
 document.addEventListener('DOMContentLoaded', function () {
-    // One presence check for the whole module: the overlay only exists on
-    // this page. Everything below is scoped to it or to its own attribute.
-    if (!document.querySelector(ROOT_SELECTOR)) return;
-
-    initBulkForms();
-    initSlowActions();
-    document.querySelectorAll('form[data-unmatched-link]').forEach(initUnmatchedLinker);
+    initChannelListings({
+        overlaySelector: '#shopee-listings-progress',
+        bulkField: 'product_ids[]',
+        slowTitle: 'Talking to Shopee',
+        bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' product' : ' products'),
+        emptyMessage: 'Select at least one product first.',
+    });
 });

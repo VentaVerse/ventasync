@@ -13,6 +13,7 @@ import './pages/venta-orders';
 import './pages/order-detail';
 import './pages/product-form';
 import './pages/shopee-listings';
+import './pages/lazada-listings';
 import './pages/channel-settings';
 
 import { initNavGroups } from './nav-groups';

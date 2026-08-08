@@ -177,6 +177,13 @@
     .cs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* A section inside that split which belongs to neither column. Lazada's
+   sandbox tab has one: pasting a pre-issued access token is an alternative
+   to the whole three-step OAuth sequence beside it, not a fourth step
+   inside either column, so it runs the full width underneath both. Below
+   1001px the grid is one column and this is already what it does. */
+.cs-span { grid-column: 1 / -1; }
+
 /* ------------------------------------------------------------------
    Per-section action row. One solid primary, aligned to the start of
    the section it saves so it is unmistakably that form's button and not
@@ -473,6 +480,20 @@
 .cs-page .api-kv td:not(:first-child) { padding-left: var(--space-2); }
 
 .cs-page .api-kv .x-input { height: var(--control-h-sm); font-size: 12px; }
+
+/* One parameter is not a value but a whole document: Lazada's `payload`,
+   which carries a JSON or XML request body. The explorer builds a textarea
+   for it instead of a text input, so the height rule above (a 28px control)
+   has to be undone for that one control or the document is unreadable in a
+   single line. Restated at a higher specificity rather than by narrowing the
+   rule above, which the Shopee explorer also depends on. */
+.cs-page .api-kv textarea.x-input {
+    height: auto;
+    min-height: 108px;
+    padding: var(--space-2);
+    line-height: 1.5;
+    resize: vertical;
+}
 
 /* Parameter-table column widths. Declared here rather than as inline
    width attributes in the Blade, which is where they used to live. */

@@ -3,86 +3,126 @@
 
 @section('title', 'Lazada Product Groups')
 
+{{-- Leaves the .x-legacy content boundary, rebuilt on the token set. --}}
+@section('content-class', '')
+
 @section('content')
-    @php
-        $canManageLazada = true;
-    @endphp
-    <div class="page-header">
-        <div>
-            <h2>Lazada Product Groups</h2>
-            <div class="text-muted text-sm">Group products and mass-map to Lazada category, brand &amp; attributes.</div>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn secondary" href="{{ route('integrations.index') }}">&larr; Back to Integrations</a>
-            @if($canManageLazada)
-            <a class="btn" href="{{ route('ext.lazada.product-groups.create') }}">Add Product Group</a>
-            @endif
-        </div>
-    </div>
+@php
+    // Read tier is `view_lazada|manage_lazada`; create, edit and destroy are
+    // all `manage_lazada`. Replaces a hardcoded `true`.
+    $canManageLazada = auth()->user()?->hasPermission('manage_lazada') ?? false;
+@endphp
 
-    <div class="card">
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                <tr>
-                    <th style="width:50px;">ID</th>
-                    <th>Product Group</th>
-                    <th style="width:80px;">Products</th>
-                    <th>Lazada Category</th>
-                    <th style="width:100px;">Markup</th>
-                    <th style="width:220px;">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($groups as $g)
-                    @php $pCount = $productCounts->get($g->id, 0); @endphp
-                    <tr>
-                        <td>{{ $g->id }}</td>
-                        <td class="font-bold">{{ $g->name }}</td>
-                        <td>
-                            <a href="{{ route('ext.lazada.product-groups.products', $g->id) }}">{{ $pCount }}</a>
-                        </td>
-                        <td>
-                            @if($g->lazada_category_id)
-                                {{ $lazadaCategoryNames->get($g->lazada_category_id, $g->lazada_category_id) }}
-                            @else
-                                <span class="text-muted">Not set</span>
-                            @endif
-                        </td>
-                        <td>
-                            @php
-                                $parts = [];
-                                if (!empty($g->markup_fixed)) $parts[] = '+' . number_format((float)$g->markup_fixed, 2);
-                                if (!empty($g->markup_percent)) $parts[] = '+' . rtrim(rtrim(number_format((float)$g->markup_percent, 2), '0'), '.') . '%';
-                            @endphp
-                            @if(!empty($parts))
-                                {{ implode(' & ', $parts) }}
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td>
-                            <div class="d-flex gap-6 items-center text-nowrap">
-                                <a class="btn small" href="{{ route('ext.lazada.product-groups.products', $g->id) }}">Products</a>
-                                @if($canManageLazada)
-                                <a class="btn small secondary" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit</a>
+<div class="cc-page">
 
-                                <form method="POST" action="{{ route('ext.lazada.product-groups.destroy', $g->id) }}" style="margin:0;" data-confirm="Delete product group? Products with no other group links will be removed.">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn small danger">Delete</button>
-                                </form>
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="text-muted">No product groups yet. Click <strong>Add Product Group</strong> to create one.</td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
+<div class="x-list-head">
+    <div>
+        <h1 class="x-page-title">Product Groups</h1>
+        <p class="x-page-sub">
+            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}. A group maps a set of catalogue products to one Lazada category, its brand and its required attributes.
+        </p>
     </div>
+    @if($canManageLazada)
+        <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New group</x-ui.button>
+    @endif
+</div>
+
+@if($groups->count() === 0)
+    <x-ui.empty title="No product groups yet"
+                description="A group is how a batch of catalogue products gets its Lazada category, brand, attributes and price markup in one place, instead of setting them per listing.">
+        @if($canManageLazada)
+        <x-slot:action>
+            <x-ui.button variant="primary" :href="route('ext.lazada.product-groups.create')">New group</x-ui.button>
+        </x-slot:action>
+        @endif
+    </x-ui.empty>
+@else
+<x-ui.table>
+    <x-slot:head>
+        <tr>
+            <th class="cc-col-id">ID</th>
+            <th>Group</th>
+            <th class="cc-col-count x-td-num">Products</th>
+            <th>Lazada category</th>
+            <th class="cc-col-markup">Markup</th>
+            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+        </tr>
+    </x-slot:head>
+
+    @foreach($groups as $g)
+        @php
+            $pCount = $productCounts->get($g->id, 0);
+            $productsUrl = route('ext.lazada.product-groups.products', $g->id);
+
+            // The same two figures the old view printed, kept as separate
+            // lines rather than joined with an ampersand: they are a fixed
+            // amount and a percentage of the selling price, which are
+            // different units and do not belong on one line reading as a sum.
+            $markupFixed = !empty($g->markup_fixed) ? (float) $g->markup_fixed : null;
+            $markupPercent = !empty($g->markup_percent) ? (float) $g->markup_percent : null;
+        @endphp
+        <tr>
+            <td class="cc-col-id" data-label="ID"><span class="x-num">{{ $g->id }}</span></td>
+            <td data-label="Group">
+                <a class="x-row-link" href="{{ $productsUrl }}">{{ $g->name }}</a>
+            </td>
+            <td class="cc-col-count x-td-num" data-label="Products"><span class="x-num">{{ number_format($pCount) }}</span></td>
+            <td data-label="Lazada category">
+                @if($g->lazada_category_id)
+                    <span class="x-cell-strong">{{ $lazadaCategoryNames->get($g->lazada_category_id, $g->lazada_category_id) }}</span>
+                    <span class="cc-sub cc-sub--mono">{{ $g->lazada_category_id }}</span>
+                @else
+                    <span class="x-cell-muted">Not set</span>
+                @endif
+            </td>
+            <td class="cc-col-markup" data-label="Markup">
+                @if($markupFixed !== null || $markupPercent !== null)
+                    @if($markupFixed !== null)
+                        <x-money :php="$markupFixed" />
+                    @endif
+                    @if($markupPercent !== null)
+                        <span class="cc-markup__pct">{{ $markupFixed !== null ? 'plus ' : '' }}{{ rtrim(rtrim(number_format($markupPercent, 2), '0'), '.') }}% of price</span>
+                    @endif
+                @else
+                    <span class="x-cell-muted">None</span>
+                @endif
+            </td>
+            <td class="x-td-actions">
+                {{-- The old row carried three standing buttons, one of them a
+                     solid red Delete, on every line. The row itself is the
+                     link to its products now, and the two remaining actions
+                     sit in the overflow. --}}
+                <x-ui.menu label="Group {{ $g->name }} actions">
+                    <a class="x-menu__item" href="{{ $productsUrl }}">Products in this group</a>
+                    @if($canManageLazada)
+                        <a class="x-menu__item" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit group</a>
+                        <div class="x-menu__sep"></div>
+                        {{-- Destroy is never a standing control: it sits in the
+                             overflow behind the shared confirm dialog and drives
+                             a form outside this table, because a form cannot be
+                             nested inside a row that is itself a stretched
+                             link. The wording states what the controller really
+                             does: it deletes local listing rows that belong to
+                             no other group and were never uploaded. --}}
+                        <button type="button" class="x-menu__item x-menu__item--danger"
+                                data-confirm="Delete the group {{ $g->name }}? Listings in no other group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalogue, and nothing already live on Lazada is touched."
+                                data-confirm-submit="lpg-del-{{ $g->id }}">Delete group</button>
+                    @endif
+                </x-ui.menu>
+            </td>
+        </tr>
+    @endforeach
+</x-ui.table>
+@endif
+
+@if($canManageLazada)
+    @foreach($groups as $g)
+        <form id="lpg-del-{{ $g->id }}" method="POST" action="{{ route('ext.lazada.product-groups.destroy', $g->id) }}" class="x-sr">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endforeach
+@endif
+
+</div>{{-- /.cc-page --}}
 @endsection

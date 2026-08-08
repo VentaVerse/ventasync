@@ -1,6 +1,13 @@
 /*
- * Channel settings page (Shopee first; Lazada and TikTok have the same five
- * tabs and bind the same attributes).
+ * Channel settings page (Shopee first, Lazada second; TikTok has the same five
+ * tabs and binds the same attributes).
+ *
+ * The tab strip, the environment switch, the API-logging toggle and the
+ * select-on-click redirect field are the same object on every channel and are
+ * shared here. The API explorer is not: each marketplace signs and shapes its
+ * requests differently and posts different field names, so each channel's
+ * explorer is its own function guarding on its own attribute. Shopee's is
+ * initExplorer below; Lazada's is ./lazada-explorer.js.
  *
  * Ports, unchanged in behaviour, the four inline scripts that used to sit at
  * the bottom of extensions/shopee/views/index.blade.php: tab switching, the
@@ -30,6 +37,8 @@
  * the explorer form, and the same `?tab=` URL contract the controller
  * redirects with after saving logs settings.
  */
+
+import { initLazadaExplorer } from './lazada-explorer';
 
 /* ------------------------------------------------------------------
    Tabs
@@ -378,6 +387,14 @@ document.addEventListener('DOMContentLoaded', function () {
     initTabs(root);
     initEnvironment(root);
     initLoggingToggle(root);
-    initExplorer(root);
     initSelectOnClick(root);
+
+    // The explorer is the one section of this page that is genuinely per
+    // channel, because each marketplace signs and shapes its requests
+    // differently and the field names posted differ with them. Each variant
+    // guards on its own attribute, so exactly one binds per page and neither
+    // touches the other's markup. Shopee's initExplorer above looks for
+    // [data-cs-explorer]; Lazada's looks for [data-lz-explorer].
+    initExplorer(root);
+    initLazadaExplorer(root);
 });
