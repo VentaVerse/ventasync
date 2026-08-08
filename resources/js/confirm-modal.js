@@ -83,6 +83,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return new Promise(function (resolve) { resolver = resolve; });
     }
 
+    // Same global contract layouts.app publishes for legacy pages
+    // (window.confirmModal(message) -> Promise<boolean>), so a page script can
+    // ask for a confirmation without reaching for confirm(). The catalogue
+    // form pages use it for the cost-override unlock and for deleting an image
+    // off the server.
+    window.confirmModal = confirmModal;
+
     okBtn.addEventListener('click', function () { close(true); });
 
     document.addEventListener('submit', function (e) {

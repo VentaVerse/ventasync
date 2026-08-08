@@ -49,6 +49,11 @@
    reuses that file's `co-` item grammar and re-faces a few of its pieces. */
 @import './components/order-detail.css';
 
+/* Shared form-page anatomy (`fm-`). After ui-controls.css because it refines
+   .x-input's readonly and invalid states, and after modals.css because the
+   image picker rides .modal-backdrop's show/hide mechanics. */
+@import './components/form-page.css';
+
 /* Pages */
 @import './pages/dashboard.css';
 @import './pages/marketplace-common.css';

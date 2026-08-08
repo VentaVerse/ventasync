@@ -102,5 +102,11 @@
 </div>
 @include('partials.confirm-modal')
 <x-ui.palette />
+{{-- Page-level scripts and any dialog markup that has to render outside the
+     page's own <form> (the product image picker, for one). layouts.app and
+     layouts.channel have carried this stack all along; the shell had no page
+     that pushed to it until the catalogue forms landed, so a @push in a view
+     on this layout silently rendered nothing. --}}
+@stack('scripts')
 </body>
 </html>

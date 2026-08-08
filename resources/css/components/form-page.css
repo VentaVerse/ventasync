@@ -1,0 +1,1167 @@
+/* Form page anatomy: the shared `fm-` grammar.
+   -------------------------------------------------------------------
+   The CRUD counterpart to `od-` (components/order-detail.css). Where
+   `od-` renders a record you read, this renders a record you change.
+   Product create/edit is the first and by far the richest consumer
+   (five sections, forty-odd controls, two JS editors embedded in it);
+   Categories and Manufacturers follow into the same pieces, and every
+   later CRUD form should too.
+
+   Six decisions run through the file, and they are deliberately the
+   same six `od-` made, because a person who has learned to read an
+   order should not have to relearn the page that edits a product.
+
+   1. Elevation is a three-step scale, not a stack of identical cards.
+      Main-column sections sit directly on the canvas under a hairline
+      rule - they are the subject, and boxing them would flatten the
+      subject into the furniture. Side-column blocks are raised
+      surfaces, because they are settings you glance aside to. Sunken
+      is reserved for figures the server computes and the operator
+      cannot type into. That difference is the entire information
+      hierarchy of the page.
+
+   2. Colour has one job: the primary action, and the accent border on
+      a focused control. Errors are --danger and nothing else is. There
+      is no green "valid" state, no blue "info" field, no brand tint on
+      a section heading. A form with forty controls cannot afford
+      colour that means two things.
+
+   3. Every numeral is mono with tabular figures. Price, cost,
+      quantity, weight, dimensions, IDs. .fm-input--num is applied per
+      field by the caller, not baked into .fm-input, for the same
+      reason components/ui-table.css leaves .x-td-num to the caller: a
+      shared control should not decide that "Model" is a number because
+      it happens to contain digits.
+
+   4. The save bar is sticky to the bottom of the viewport, not parked
+      at the end of the document. This form is roughly three screens
+      tall on a desktop and eight on a phone; a Save you have to scroll
+      to find is a Save that gets missed. It is the only place on the
+      page with a solid accent fill.
+
+   5. Destroy is never a standing control. It lives in the head's
+      overflow menu behind data-confirm, so the resting picture of an
+      edit page has exactly one button that does anything irreversible
+      and it is not red.
+
+   6. Two columns above 1000px, one below, and the split is by *kind*,
+      not by size: what identifies and prices the product is the
+      subject and goes in main; what configures it (status, stock
+      levels, shipping dimensions) is a setting and goes to the side.
+      See the note above .fm-body for why the census sorts that way.
+   ------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------
+   Page frame
+   ------------------------------------------------------------------ */
+
+.fm-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* Back to the list. A quiet text link, matching .od-back: the head
+   already carries the record's identity and an overflow menu, and a
+   third control of a different weight beside them is the mixed button
+   grammar this system avoids. */
+.fm-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    align-self: flex-start;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+    transition: color var(--motion-fast);
+}
+
+.fm-back:hover { color: var(--text); }
+
+.fm-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-4);
+}
+
+.fm-head__main { min-width: 0; }
+
+.fm-title {
+    margin: 0;
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+/* Record identity under the title: id, sku, created stamp. One line of
+   quiet facts rather than a row of stat boxes, because none of them is
+   a figure you act on. Same shape as .od-stamps. */
+.fm-stamps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+    margin-top: var(--space-1);
+}
+
+.fm-stamp {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.fm-stamp__k { color: var(--text-muted); font-size: 12px; }
+
+.fm-stamp__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.fm-head__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------
+   Flash region. layouts.shell renders no flash area of its own, and a
+   save on this page redirects back to the list or re-renders here with
+   session('status') / session('error') and a validation bag. Without a
+   region to land in, every failed save would be silent. Identical
+   contract to .od-flash, so both pages behave the same way.
+   ------------------------------------------------------------------ */
+
+.fm-flash { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.fm-flash:empty { display: none; }
+
+.fm-note {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    background: var(--surface);
+    font-size: 13px;
+    color: var(--text);
+}
+
+.fm-note--ok   { border-left-color: var(--accent); }
+.fm-note--fail { border-left-color: var(--danger); }
+.fm-note--warn { border-left-color: var(--warning); }
+
+.fm-note__body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.fm-note__list { margin: var(--space-1) 0 0; padding-left: var(--space-4); }
+
+.fm-note__close {
+    flex: none;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color var(--motion-fast);
+}
+
+.fm-note__close:hover { color: var(--text); }
+
+/* ------------------------------------------------------------------
+   Two-column body. 320px on the side: enough for a two-up field grid
+   of short numeric inputs (weight/length/width/height) without either
+   one wrapping, narrow enough to leave the variations table its
+   columns. Stacked below 1000px, which is also where the side column's
+   contents stop being "aside" and simply become the end of the form.
+
+   The census that decided the split, for products:
+
+     main   name, model, sku, manufacturer, categories, description,
+            price + the three cost inputs, images, variations
+     side   status, quantity, reorder level, weight/length/width/height
+
+   Everything in main is the product's identity or its economics, and
+   both need width (a description textarea, a nine-column variation
+   grid). Everything in side is a scalar setting that fits in a 140px
+   control and is read far more often than it is changed. Sorting by
+   "does it need width" and sorting by "is it the subject" happen to
+   agree here, which is why the split is stated once and not per page.
+   ------------------------------------------------------------------ */
+
+.fm-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+}
+
+@media (min-width: 1001px) {
+    .fm-body { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+
+.fm-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    min-width: 0;
+}
+
+/* The side column's cards are self-contained boxes, so they need less
+   air between them than two hairline sections that share the canvas. */
+.fm-col--side { gap: var(--space-4); }
+
+/* ------------------------------------------------------------------
+   Section: a heading on a hairline, fields directly on the canvas. No
+   box. Same construction as .od-section, so the read page and the edit
+   page have the same skeleton.
+   ------------------------------------------------------------------ */
+
+.fm-section { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.fm-section__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-1) var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border);
+}
+
+.fm-section__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* A sentence under the heading, for the one or two sections where the
+   rule genuinely is not guessable from the fields (that a product's
+   quantity is the sum of its variations, that images are ordered by
+   drag). Plain language, never a term of art. */
+.fm-section__note {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 62ch;
+}
+
+.fm-section__aside { display: flex; align-items: center; gap: var(--space-2); }
+
+/* ------------------------------------------------------------------
+   Side-column card. A raised surface: a settings panel, not the
+   subject. Weight varies with content rather than every card being the
+   same slab - status is one control, shipping is four.
+   ------------------------------------------------------------------ */
+
+.fm-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.fm-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.fm-card__title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.fm-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-4);
+}
+
+.fm-card__body p { margin: 0; }
+
+/* ------------------------------------------------------------------
+   Fields. Label above control, controls on a wrapping grid, so a
+   two-up side-column block and a three-up full-width block are the
+   same markup with a different container width.
+   ------------------------------------------------------------------ */
+
+.fm-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+    align-items: start;
+}
+
+/* Explicitly two columns regardless of width. The shipping block needs
+   this: auto-fit would give four 140px inputs a single row on a wide
+   container and a ragged 3+1 on a medium one. */
+.fm-fields--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.fm-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+
+.fm-field--wide { grid-column: 1 / -1; }
+
+.fm-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* Required is marked with the word, not a red asterisk. An asterisk is
+   a legend you have to have read; "Required" is not. It is set quiet
+   because the common case on this form is required, so shouting it
+   forty times would say nothing. */
+.fm-req {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.fm-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    max-width: 52ch;
+}
+
+.fm-error {
+    font-size: 11px;
+    color: var(--danger);
+}
+
+.fm-field .x-input,
+.fm-field .x-select-wrap,
+.fm-field textarea.x-input { width: 100%; }
+
+/* A textarea is the one control that does not fit the 32px control
+   height, so it states its own. */
+textarea.x-input {
+    height: auto;
+    min-height: 120px;
+    padding: var(--space-2) var(--space-3);
+    line-height: 1.55;
+    resize: vertical;
+}
+
+/* See decision 3: applied per field by the caller. */
+.fm-input--num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* A value the server computes and the operator cannot type into. Sunken
+   rather than greyed-out text, because the figure still has to be
+   readable - it is the answer to "what will this cost me". */
+.x-input[readonly] {
+    background: var(--surface-sunken);
+    color: var(--text);
+    cursor: default;
+}
+
+.x-input[readonly]:focus { border-color: var(--border-strong); box-shadow: none; }
+
+/* Invalid control. The ring is the same shape as the focus ring so the
+   two never fight; only the colour differs. */
+.x-input.is-invalid,
+.x-input.input-error {
+    border-color: var(--danger);
+}
+
+.x-input.is-invalid:focus,
+.x-input.input-error:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* ------------------------------------------------------------------
+   Input with a fixed leading segment (the manufacturer name that gets
+   prepended to a product name on submit). One bordered object, not two
+   controls that happen to touch.
+   ------------------------------------------------------------------ */
+
+.fm-group {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+}
+
+.fm-group__prefix {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    max-width: 40%;
+    padding: 0 var(--space-3);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-strong);
+    border-right: 0;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fm-group__prefix + .x-input {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* ------------------------------------------------------------------
+   Switch. A real <input type="checkbox"> so it is keyboard-operable
+   and announced correctly, drawn as a track and knob. It is preceded
+   by a hidden input of the same name carrying "0", because the
+   controllers that receive these forms validate status as
+   `required|in:0,1` - a bare checkbox submits nothing when off and
+   would fail that rule outright. This is the toggle-vs-checkbox call
+   the reskin protocol requires be made from the validation, and it is
+   made here once for every form page.
+   ------------------------------------------------------------------ */
+
+.fm-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    cursor: pointer;
+}
+
+.fm-switch__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.fm-switch__track {
+    position: relative;
+    flex: none;
+    width: 34px;
+    height: 20px;
+    background: var(--surface-hover);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    transition: background var(--motion-base), border-color var(--motion-base);
+}
+
+/* The knob is a foreground, not a highlight, for the reason spelled out
+   above .od-switch::after: an off-state knob in --surface on a
+   --border-strong track measures about 1.4:1 and is a control whose
+   state you cannot see. Off is --text-muted on --surface-hover (4.58
+   light / 4.56 dark); on is --accent-text on --accent (5.35 / 7.17).
+   Both clear the 3:1 a non-text UI component owes. */
+.fm-switch__track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: transform var(--motion-base), background var(--motion-base);
+}
+
+.fm-switch__input:checked + .fm-switch__track { background: var(--accent); border-color: var(--accent); }
+.fm-switch__input:checked + .fm-switch__track::after { transform: translateX(14px); background: var(--accent-text); }
+
+.fm-switch__input:focus-visible + .fm-switch__track {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-weak), 0 0 0 1px var(--accent);
+}
+
+.fm-switch__text { min-width: 0; }
+
+.fm-switch__label { font-size: 13px; font-weight: 500; color: var(--text); }
+
+.fm-switch__note { margin-top: 2px; font-size: 11px; color: var(--text-muted); }
+
+/* ------------------------------------------------------------------
+   Typeahead. Same behaviour the legacy components/typeahead.css drove,
+   re-drawn in tokens: that file's dropdown is fine but its chips are
+   built from raw blue hex values (rgba(59,130,246,...) on #1d4ed8),
+   which is both off-palette and invisible in dark mode.
+   ------------------------------------------------------------------ */
+
+.fm-ta { position: relative; min-width: 0; }
+
+.fm-ta__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    display: none;
+    margin-top: var(--space-1);
+    max-height: 260px;
+    overflow: auto;
+    padding: var(--space-1);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-menu);
+}
+
+.fm-ta__list button {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--motion-fast);
+}
+
+.fm-ta__list button:hover,
+.fm-ta__list button:focus-visible { background: var(--surface-hover); outline: none; }
+
+.fm-ta__empty {
+    padding: var(--space-2) var(--space-3);
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.fm-ta__new { padding: var(--space-1); border-top: 1px solid var(--border); }
+
+.fm-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.fm-tags:empty { display: none; }
+
+/* A selected value, not a status: neutral surface, no tint. Colour on
+   this page belongs to the primary action alone (decision 2). */
+.fm-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 2px var(--space-1) 2px var(--space-2);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text);
+}
+
+.fm-tag__x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.fm-tag__x:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+/* ------------------------------------------------------------------
+   Cost strip. Four inputs joined by the operators of the formula the
+   server actually applies:
+
+       cost = cost_amount + (cost_percentage / 100 * price) + cost_additional
+
+   Printing the operators between the fields is the whole point: the
+   relationship is the thing an operator gets wrong, and a legend
+   underneath ("fixed amount", "% of selling price") is a legend you
+   have to have read. The last cell is the result and is sunken,
+   because the server recomputes it on save regardless of what is in
+   the box.
+   ------------------------------------------------------------------ */
+
+.fm-cost {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3);
+}
+
+.fm-cost__cell { flex: 1 1 130px; min-width: 0; }
+
+.fm-cost__op {
+    flex: none;
+    padding-bottom: 9px;
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Derived figures (profit, margin, markup). These were readonly text
+   inputs before, which is three controls that look typeable and are
+   not. They are figures, so they are set as figures. */
+.fm-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-6);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.fm-metric { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.fm-metric__k { font-size: 11px; color: var(--text-muted); }
+
+.fm-metric__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* Colour marks the figure that is wrong, not the figure that is right:
+   a healthy margin is plain text. Same rule as .od-neg / .od-warn, and
+   the same reason - a screen where every good number is green has no
+   way left to say "look at this one". */
+.fm-neg { color: var(--danger); }
+
+/* ------------------------------------------------------------------
+   Sticky save bar. Bottom of the viewport while the form is on screen
+   (decision 4), a hairline above it so it reads as a floor rather than
+   a floating slab. One solid primary; Cancel is a plain link, never a
+   second button - two controls of different weight side by side is the
+   mixed grammar tell.
+   ------------------------------------------------------------------ */
+
+.fm-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    /* Pulls the bar out to the content padding so its rule spans the
+       full column, then puts the padding back inside. Without this the
+       floor stops short of both edges and reads as a card. */
+    margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
+    padding: var(--space-3) var(--space-5);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+}
+
+.fm-bar__meta {
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.fm-bar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-left: auto;
+}
+
+.fm-cancel {
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    transition: color var(--motion-fast);
+}
+
+.fm-cancel:hover { color: var(--text); }
+
+/* ------------------------------------------------------------------
+   Image manager. The picker's own wire (browse / upload-to-catalog /
+   import-url-to-catalog / delete) is unchanged; this is the surface it
+   is drawn on. The old `pim-` sheet was a dark-only panel built from
+   raw rgba, so it rendered as a black box on the light theme.
+   ------------------------------------------------------------------ */
+
+.fm-img { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.fm-img__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: var(--space-3);
+}
+
+.fm-img__grid:empty { display: none; }
+
+/* Drag to reorder, so the whole tile is a handle. */
+.fm-img__item {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    overflow: hidden;
+    cursor: grab;
+    transition: border-color var(--motion-fast);
+}
+
+.fm-img__item:hover { border-color: var(--border-strong); }
+
+.fm-img__item:active { cursor: grabbing; }
+
+.fm-img__thumb-wrap { width: 100%; aspect-ratio: 1 / 1; overflow: hidden; }
+
+.fm-img__thumb { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.fm-img__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+}
+
+/* Position in the gallery. "Main" is a word, not a colour, because the
+   only thing that distinguishes the first image is that the catalog
+   uses it - that is a fact, not a state. */
+.fm-img__pos {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.fm-img__item:first-child .fm-img__pos { color: var(--text); font-weight: 600; }
+
+.fm-img__x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.fm-img__x:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+.fm-img__empty {
+    padding: var(--space-6) var(--space-4);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.fm-img__empty.d-none { display: none; }
+
+/* ---- Picker dialog ---------------------------------------------- */
+
+/* Rides components/modals.css's .modal-backdrop for the show/hide
+   mechanics (a single `.active` class, already proven by
+   partials/confirm-modal.blade.php on this layout) but supplies its own
+   panel, because the shared .modal is 600px and this is a file browser.
+   `position: fixed` on the backdrop means this dialog is NOT trapped
+   inside the <form> it is markup-nested in; nothing inside it submits. */
+.fm-pick {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 980px;
+    max-height: 86vh;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal);
+    overflow: hidden;
+}
+
+.fm-pick__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.fm-pick__title { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+
+.fm-pick__actions { display: flex; align-items: center; gap: var(--space-3); }
+
+.fm-pick__msg { font-size: 12px; color: var(--text-secondary); }
+.fm-pick__msg.error { color: var(--danger); }
+
+.fm-pick__body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    overflow: auto;
+}
+
+.fm-pick__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+/* A filesystem path is an identifier. */
+.fm-pick__path {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.fm-pick__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.fm-pick__tools .x-input { height: var(--control-h-sm); font-size: 12px; }
+
+.fm-pick__search { flex: 1 1 200px; min-width: 0; }
+
+.fm-pick__label {
+    font-size: 11px;
+    letter-spacing: .02em;
+    color: var(--text-muted);
+}
+
+.fm-pick__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-3);
+}
+
+.fm-pick__grid:empty { display: none; }
+
+.fm-pick__item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color var(--motion-fast), background var(--motion-fast);
+}
+
+.fm-pick__item:hover { border-color: var(--accent); background: var(--surface-hover); }
+
+.fm-pick__item img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--surface-sunken); }
+
+.fm-pick__item .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    color: var(--text-muted);
+}
+
+.fm-pick__item .label {
+    padding: var(--space-2);
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Delete-from-server. Hidden until the tile is hovered or the control
+   itself is focused, so a folder of sixty images is not sixty standing
+   destructive buttons. */
+.fm-pick__del {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--motion-fast), background var(--motion-fast), color var(--motion-fast);
+}
+
+.fm-pick__item:hover .fm-pick__del,
+.fm-pick__del:focus-visible { opacity: 1; }
+
+.fm-pick__del:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+.fm-pick__empty { padding: var(--space-6); color: var(--text-muted); font-size: 13px; text-align: center; }
+
+.fm-pick__drop {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 2;
+}
+
+.fm-pick__drop[aria-hidden="false"] { display: flex; }
+
+/* ------------------------------------------------------------------
+   Variations editor. The builder's JS is untouched; these are the
+   classes it now writes instead of the `opt-` ones from
+   pages/product-options.css, which colour their metrics with
+   --success/--danger (--success does not exist in this token set) and
+   size everything against the legacy control height.
+   ------------------------------------------------------------------ */
+
+.fm-vars { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.fm-vars__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+}
+
+.fm-vars__col { min-width: 0; }
+
+.fm-vars__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.fm-vars__head {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-3);
+}
+
+.fm-vars__head .fm-field { flex: 1; }
+
+/* The "+ Add variation 2" control sits between the two cards and has to
+   line up with their bodies, not their top edges. */
+.fm-vars__mid { padding-top: 30px; }
+
+.fm-vars__values { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.fm-vars__values > div { display: flex; align-items: center; gap: var(--space-2); }
+
+.fm-vars__values .x-input { flex: 1; min-width: 0; }
+
+.fm-vars__add { display: flex; gap: var(--space-2); }
+
+.fm-vars__add .x-input { flex: 1; min-width: 0; }
+
+/* The grid can be nine columns wide with two variation axes; it scrolls
+   inside its own box rather than pushing the page sideways. */
+.fm-vars__scroll { overflow-x: auto; }
+
+.fm-vars__table { width: 100%; min-width: 720px; border-collapse: collapse; }
+
+.fm-vars__table th {
+    padding: 0 var(--space-2) var(--space-2);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Horizontal hairlines only. A rule per row, none anywhere vertical. */
+.fm-vars__table td {
+    padding: var(--space-2);
+    border-top: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.fm-vars__table tbody tr:first-child td { border-top: 0; }
+
+.fm-vars__table .x-input { height: var(--control-h-sm); font-size: 12px; }
+
+.fm-vars__table .fm-vcol-value { font-size: 13px; font-weight: 500; color: var(--text); }
+
+.fm-vcol-name  { min-width: 160px; }
+.fm-vcol-opt   { min-width: 120px; }
+.fm-vcol-sku   { width: 130px; }
+.fm-vcol-qty   { width: 88px; }
+.fm-vcol-price { width: 110px; }
+.fm-vcol-cost  { width: 110px; }
+.fm-vcol-num   { width: 84px; text-align: right; }
+.fm-vcol-act   { width: 36px; }
+
+.fm-vars__table th.fm-vcol-num { text-align: right; }
+
+/* Quantities and money in the grid, mono like everywhere else. Negative
+   quantities are legitimate here (an oversold variation carries a
+   negative and the parent quantity is the algebraic sum), so they are
+   not suppressed, not clamped, and not flagged as an error. */
+.fm-vars__table .x-input[type="number"],
+.fm-vars__table .fm-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.fm-num {
+    display: block;
+    font-size: 12px;
+    color: var(--text);
+}
+
+.fm-vars__rowx {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.fm-vars__rowx:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+/* Client-side validation summary for the builder (missing SKU, duplicate
+   value name). Not a Laravel error bag, so it cannot use .fm-error. */
+.fm-vars__errors {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--danger);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--text);
+}
+
+/* ------------------------------------------------------------------
+   Read-only satellite pages (sales history, stock history). Totals
+   summary above a table; the table itself is the shared x-table.
+   ------------------------------------------------------------------ */
+
+.fm-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.fm-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.fm-stat__k { font-size: 11px; color: var(--text-muted); }
+
+.fm-stat__v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+/* ------------------------------------------------------------------
+   Phones and small tablets. The two columns have already merged by
+   here (1000px); what is left is to stop the save bar and the
+   variations cards from eating their own padding, and to let the
+   variation axes stack instead of squeezing to nothing.
+   ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+    .fm-vars__row { grid-template-columns: minmax(0, 1fr); }
+    .fm-vars__mid { padding-top: 0; }
+}
+
+@media (max-width: 768px) {
+    /* layout/shell.css drops .x-content padding to space-4 here, so the
+       bar's negative margin has to follow it or the floor overhangs. */
+    .fm-bar {
+        margin: 0 calc(var(--space-4) * -1) calc(var(--space-4) * -1);
+        padding: var(--space-3) var(--space-4);
+    }
+}
+
+@media (max-width: 560px) {
+    .fm-bar__meta { display: none; }
+    .fm-bar__actions { width: 100%; justify-content: space-between; }
+    .fm-fields--2 { grid-template-columns: minmax(0, 1fr); }
+    .fm-cost { display: grid; grid-template-columns: minmax(0, 1fr); }
+    /* The operators only mean something between two side-by-side cells;
+       stacked, they are three orphan glyphs. */
+    .fm-cost__op { display: none; }
+    .fm-pick { max-height: 94vh; }
+}
