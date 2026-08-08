@@ -39,7 +39,16 @@
     --pill-track: var(--surface-sunken);
     --pill-track-border: var(--border);
     --pill-text: var(--text-secondary);
-    --pill-text-active: #FFFFFF;
+    /* Same value as before (#FFFFFF), now the token every other solid-
+       colour surface in this app already uses for its label: primary
+       buttons (ui-controls.css), switches (form-page.css, order-detail.css),
+       badges (layout/shell.css). Not really "accent" text here - it sits on
+       three different thumb colours (off/view/manage) - but it is this
+       system's one token for "readable label on a saturated surface", and
+       the light-mode value it carries is the same #FFFFFF this file always
+       rendered. Contrast unchanged: 5.35:1 / 6.36:1 / 5.55:1 against the
+       three thumbs. */
+    --pill-text-active: var(--accent-text);
 
     --thumb-off: var(--text-secondary);
     --thumb-view: var(--info);

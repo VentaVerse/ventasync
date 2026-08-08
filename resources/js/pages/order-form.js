@@ -64,6 +64,22 @@
         return symbol + ' ' + Number(amount || 0).toFixed(2);
     }
 
+    /**
+     * Round-half-up at 2dp, on the number BEFORE it feeds a further
+     * multiplication - not after. Multiplying a raw accumulated float
+     * (e.g. 116.74 * 3, which IEEE 754 stores as 350.21999999999997, not a
+     * clean 350.22) by a rate can land the product just under a rounding
+     * boundary and make a bare .toFixed(2) round the wrong way: qty 3 of a
+     * 6800 product at a 58.25 rate showed "PHP 20400.31" on screen while
+     * the server, working from the posted 350.22, stored 20400.3150 (which
+     * rounds to .32). Cleaning the multiplicand to cents first - the same
+     * number that actually gets posted - makes the display agree with
+     * what the server computes from that same posted figure.
+     */
+    function roundCents(amount) {
+        return Math.round((Number(amount) || 0) * 100) / 100;
+    }
+
     // --------------------------------------------------------------- currency
     const currencySelect = document.getElementById('of-currency');
     const codeHidden = document.getElementById('of-currency-code');
@@ -123,10 +139,21 @@
 
         rateInput.readOnly = cur.isDefault;
 
-        rateHint.textContent = cur.isDefault
+        // Re-read rather than reuse `cur`: the branches above can just have
+        // written a fresh value into rateInput.value (the switch-currency
+        // case), and `cur` was captured before that write, so it would name
+        // the currency this replaced with its stale rate. `effective.rate`
+        // is what the hint and every total on this page agree on: falls
+        // back to the option's own stored rate when the field is empty or
+        // unparsable mid-edit (rather than printing "1 USD = PHP 0.00" the
+        // moment the field is cleared), and reflects a currency switch
+        // immediately (rather than the rate the switch just replaced).
+        const effective = selected();
+
+        rateHint.textContent = effective.isDefault
             ? 'The default currency. Its rate is always 1, and this order stores one figure per amount.'
-            : '1 ' + cur.code + ' = ' + money(defaultSymbol, rateInput.value) + '. Each amount is stored twice: '
-              + 'as typed in ' + cur.code + ', and converted to ' + defaultCode + '.';
+            : '1 ' + effective.code + ' = ' + money(defaultSymbol, effective.rate) + '. Each amount is stored twice: '
+              + 'as typed in ' + effective.code + ', and converted to ' + defaultCode + '.';
     }
 
     currencySelect.addEventListener('change', function () {
@@ -185,6 +212,12 @@
         lines.forEach(function (item) {
             total += unitPrice(item) * item.qty;
         });
+        // Clean to cents BEFORE it feeds totalInput or the base conversion:
+        // see roundCents()'s comment. totalInput.value carries this exact
+        // rounded figure, which is what OrderController actually posts and
+        // stores foreign_total as, so the base-currency line below is
+        // computed from the same number the server will use.
+        total = roundCents(total);
 
         totalOut.textContent = money(cur.symbol, total);
         totalInput.value = total.toFixed(2);
@@ -292,11 +325,12 @@
 
             const tdTotal = el('td', 'of-col-total x-td-num');
             tdTotal.dataset.label = 'Line total';
-            const lineTotal = el('span', 'of-line__total x-num', money(cur.symbol, price * item.qty));
+            const lineAmount = roundCents(price * item.qty);
+            const lineTotal = el('span', 'of-line__total x-num', money(cur.symbol, lineAmount));
             tdTotal.appendChild(lineTotal);
             if (!cur.isDefault) {
                 tdTotal.appendChild(el('span', 'of-line__base x-num',
-                    money(defaultSymbol, price * item.qty * cur.rate)));
+                    money(defaultSymbol, lineAmount * cur.rate)));
             }
             tr.appendChild(tdTotal);
 
@@ -347,9 +381,10 @@
             const row = target.closest('tr');
             const priceField = row.querySelector('input[name="products[' + idx + '][price]"]');
             if (priceField) priceField.value = typed.toFixed(2);
-            row.querySelector('.of-line__total').textContent = money(cur.symbol, typed * lines[idx].qty);
+            const lineAmount = roundCents(typed * lines[idx].qty);
+            row.querySelector('.of-line__total').textContent = money(cur.symbol, lineAmount);
             const base = row.querySelector('.of-line__base');
-            if (base) base.textContent = money(defaultSymbol, typed * lines[idx].qty * cur.rate);
+            if (base) base.textContent = money(defaultSymbol, lineAmount * cur.rate);
             recalc();
         }
 
@@ -361,9 +396,10 @@
             const row = target.closest('tr');
             const qtyField = row.querySelector('input[name="products[' + idx + '][quantity]"]');
             if (qtyField) qtyField.value = lines[idx].qty;
-            row.querySelector('.of-line__total').textContent = money(cur.symbol, price * lines[idx].qty);
+            const lineAmount = roundCents(price * lines[idx].qty);
+            row.querySelector('.of-line__total').textContent = money(cur.symbol, lineAmount);
             const base = row.querySelector('.of-line__base');
-            if (base) base.textContent = money(defaultSymbol, price * lines[idx].qty * cur.rate);
+            if (base) base.textContent = money(defaultSymbol, lineAmount * cur.rate);
             recalc();
         }
     });
