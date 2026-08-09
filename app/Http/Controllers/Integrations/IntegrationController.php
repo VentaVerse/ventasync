@@ -290,7 +290,21 @@ class IntegrationController extends Controller
                     'store' => $entry['store'],
                     'state' => $state,
                     'lastSync' => $entry['lastSyncAt']?->diffForHumans(),
-                    'tokenExpiry' => $entry['tokenExpiresAt']?->diffForHumans(),
+                    // An expiry belongs to a token. Shopee's row holds an
+                    // expires_at left behind by an authorisation whose
+                    // access_token has since been cleared, which printed
+                    // "Setup needed" beside "Token expires 1 week from now"
+                    // on the same card - both read from that one row. A
+                    // credential that does not exist has no expiry to state.
+                    // ChannelWorkspace applies the same rule for the pages
+                    // that read their figures through it.
+                    'tokenExpiry' => $entry['hasToken'] === false
+                        ? null
+                        : $entry['tokenExpiresAt']?->diffForHumans(),
+                    // Lets the view say "expired" rather than labelling a
+                    // date two weeks in the past "Token expires".
+                    'tokenExpired' => $entry['hasToken'] !== false
+                        && (bool) $entry['tokenExpiresAt']?->isPast(),
                     'errors24h' => $entry['errors24h'],
                     // The channel workspace when this channel has one
                     // (Shopee, Lazada and TikTok, plus every configured

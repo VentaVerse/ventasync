@@ -832,6 +832,11 @@
    solid --text-secondary treatment real values get. */
 .x-board__health-value--empty { color: var(--text-muted); font-style: italic; }
 
-.x-board__foot { display: flex; gap: var(--space-2); }
+/* The grid stretches every card in a row to the tallest, but the footer sat
+   directly after the health list - so a card carrying a store name pushed its
+   buttons 16px lower than the card beside it and the row of buttons stepped
+   down mid-row. Pinning the footer to the bottom of the card makes the button
+   row a straight line whatever each card holds above it. */
+.x-board__foot { display: flex; gap: var(--space-2); margin-top: auto; }
 
 @media (max-width: 640px) { .x-board { grid-template-columns: 1fr; } }

@@ -13,14 +13,23 @@
                     <p class="x-board__name">{{ $c['label'] }}</p>
                     @if($c['store'])<p class="x-board__store">{{ $c['store'] }}</p>@endif
                 </div>
-                <x-ui.badge :tone="$c['state'] === 'connected' ? 'success' : ($c['state'] === 'attention' ? 'warning' : 'danger')">
-                    {{ $c['state'] === 'connected' ? 'Connected' : ($c['state'] === 'attention' ? 'Needs attention' : 'Setup needed') }}
-                </x-ui.badge>
+                {{-- Four states, not three. `untracked` means this channel
+                     reports nothing to judge it by, which is not the same as
+                     being unconfigured - a two-way ternary painted it red and
+                     told the seller to set up a store that was working. The
+                     channel nav already words this state correctly; this card
+                     was the last place still collapsing it into "Setup
+                     needed". --}}
+                @php
+                    $tone = ['connected' => 'success', 'attention' => 'warning', 'setup' => 'danger'][$c['state']] ?? 'neutral';
+                    $stateLabel = ['connected' => 'Connected', 'attention' => 'Needs attention', 'setup' => 'Not connected'][$c['state']] ?? 'Not tracked';
+                @endphp
+                <x-ui.badge :tone="$tone">{{ $stateLabel }}</x-ui.badge>
             </header>
 
             <dl class="x-board__health">
                 <div><dt>Last sync</dt><dd class="x-num @if(is_null($c['lastSync'])) x-board__health-value--empty @endif">{{ $c['lastSync'] ?? 'not tracked' }}</dd></div>
-                <div><dt>Token expires</dt><dd class="x-num @if(is_null($c['tokenExpiry'])) x-board__health-value--empty @endif">{{ $c['tokenExpiry'] ?? 'not tracked' }}</dd></div>
+                <div><dt>{{ ($c['tokenExpired'] ?? false) ? 'Token expired' : 'Token expires' }}</dt><dd class="x-num @if(is_null($c['tokenExpiry'])) x-board__health-value--empty @endif">{{ $c['tokenExpiry'] ?? 'not tracked' }}</dd></div>
                 <div><dt>Errors, 24h</dt><dd class="x-num @if(is_null($c['errors24h'])) x-board__health-value--empty @endif">{{ $c['errors24h'] ?? 'not tracked' }}</dd></div>
             </dl>
 

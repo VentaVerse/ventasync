@@ -496,6 +496,34 @@ class ChannelWorkspace
      */
     private function tokenFigures(string $channelId, ?int $storeId = null): array
     {
+        $figures = $this->rawTokenFigures($channelId, $storeId);
+
+        // An expiry belongs to a token. When the token is gone the date left
+        // behind in the row describes a credential that no longer exists, and
+        // printing it produced a card that argued with itself: Shopee showed
+        // "Setup needed" - which is what an empty access_token means - beside
+        // "Token expires 1 week from now", read from an expires_at the last
+        // authorisation left behind. Both came from the same row. Suppressing
+        // it here fixes the board and the workspace at once, since both read
+        // their figures through this method.
+        //
+        // state() is unaffected: it tests hasToken before it tests the expiry,
+        // so a channel that reached this branch was already going to be setup.
+        if ($figures['hasToken'] === false) {
+            $figures['tokenExpiresAt'] = null;
+        }
+
+        return $figures;
+    }
+
+    /**
+     * The figures exactly as their source row holds them, before the
+     * orphan-expiry rule above is applied.
+     *
+     * @return array{hasToken: ?bool, tokenExpiresAt: ?Carbon, lastSyncAt: ?Carbon, errors24h: ?int}
+     */
+    private function rawTokenFigures(string $channelId, ?int $storeId = null): array
+    {
         if ($storeId !== null) {
             return $this->storeFigures($channelId, $storeId);
         }
