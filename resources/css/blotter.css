@@ -1609,15 +1609,9 @@
     .bl-chan__qv--attn { color: var(--bl-attn); }
     .bl-chan__ql { font-size: 11px; color: var(--bl-ink-3); }
 
-    .bl-donut { display: grid; place-items: center; padding: 6px 0 10px; }
-    .bl-donut__hole-v { font-size: 24px; font-weight: 700; fill: var(--bl-ink); }
-    .bl-donut__hole-k { font-size: 11px; fill: var(--bl-ink-3); }
-
-    .bl-legend { display: flex; flex-direction: column; gap: 9px; padding: 0 var(--bl-pad, 20px) 16px; }
-    .bl-leg { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
-    .bl-leg__sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-    .bl-leg__n { color: var(--bl-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .bl-leg__v { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+    /* .bl-donut / .bl-legend lived here and were never used: the ring that
+       shipped is .bl-ring / .bl-share. Deleted rather than left as dead
+       weight carrying the same padding bug as the rules below. */
 }
 
 /* ============================================================
@@ -1739,9 +1733,65 @@
     .bl-ring__v { fill: var(--bl-ink); font-size: 26px; font-weight: 700; }
     .bl-ring__k { fill: var(--bl-ink-3); font-size: 11px; }
 
-    .bl-share { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px var(--bl-pad, 20px) 4px; }
-    .bl-share__row { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+    /* The ring beside its own table rather than stacked above it. Stacked,
+       the section ran 774px tall to state six numbers, and the ring used
+       24% of the width it was given. */
+    /* The CARD is the whole breakdown, not the table half of it. The records
+       column carries .bl-scroll for its horizontal overflow, and .bl-scroll
+       is in the raised-sheet list, so without this the table sat on a white
+       card while the ring beside it floated on the bare ground: two halves
+       of one thing looking like two different things. */
+    .bl-breakdown {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+        overflow: hidden;
+    }
+
+    .bl-breakdown .bl-scroll {
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+    }
+
+    @media (min-width: 900px) {
+        .bl-breakdown { grid-template-columns: 296px minmax(0, 1fr); }
+        .bl-breakdown__records { border-left: 1px solid var(--bl-rule); }
+    }
+
+    .bl-breakdown__ring { padding: 14px 0 18px; }
+
+    /* --bl-col-pad, NOT --bl-pad. .x-content declares --bl-pad as 0px, and a
+       var() fallback only applies when the variable is UNDEFINED: a variable
+       set to zero is a value and it wins. `var(--bl-pad, 20px)` therefore
+       resolved to 0 and the legend sat flush against the card edge. */
+    .bl-share { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 0 var(--bl-col-pad) 4px; }
+
+    .bl-share__row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        margin-inline: -8px;
+        border-radius: var(--bl-r-ctrl);
+        font-size: 13.5px;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    a.bl-share__row:hover { background: var(--bl-chrome); }
+    a.bl-share__row:focus-visible { outline: 2px solid var(--bl-brand); outline-offset: -2px; }
+
     .bl-share__sw { flex: none; }
     .bl-share__n { color: var(--bl-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .bl-share__v { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+    a.bl-share__row:hover .bl-share__n { color: var(--bl-ink); }
+
+    /* The count, not the percentage: the table beside this already prints
+       share, and printing it twice 170px apart was the section saying the
+       same thing three times. */
+    .bl-share__v { margin-left: auto; color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
 }

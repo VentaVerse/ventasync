@@ -462,6 +462,9 @@
                 <div class="bl-panel-head">
                     <h2>Orders by channel</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
+                    <x-ui.hint label="What this ring counts">Orders, not revenue. A channel with one large
+                        order can hold a small share here and the largest figure in the revenue column
+                        beside it.</x-ui.hint>
                 </div>
 
                 {{-- The ring is the glance and the table under it is the
@@ -479,10 +482,26 @@
                     $ringR = 70;
                     $ringC = 2 * M_PI * $ringR;
                     $ringAt = 0.0;
-                    $brandFor = fn (string $label) => collect($channels ?? [])
-                        ->firstWhere('name', $label)['colour'] ?? null;
+                    // A slice is labelled from the order's marketplace_source and
+                    // a channel from its own card, so the two agree on "Shopee"
+                    // and disagree on "TikTok" vs "TikTok Shop". Exact match
+                    // first, then one prefix match in either direction, which
+                    // is enough for that family without pairing two channels
+                    // that merely share a first word.
+                    $channelFor = function (string $label) use ($channels) {
+                        $all = collect($channels ?? []);
+                        return $all->firstWhere('name', $label)
+                            ?? $all->first(function ($c) use ($label) {
+                                $a = Str::lower($c['name']);
+                                $b = Str::lower($label);
+                                return $a !== $b && (Str::startsWith($a, $b) || Str::startsWith($b, $a));
+                            });
+                    };
+                    $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
                 @endphp
-                <div class="bl-scroll">
+                <div class="bl-breakdown">
+                    <div>
+                    <div class="bl-breakdown__ring">
                     <svg class="bl-ring" width="188" height="188" viewBox="0 0 200 200"
                          role="img" aria-label="Share of orders by channel">
                         @foreach($platformSlices as $i => $slice)
@@ -506,24 +525,33 @@
                         <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
                     </svg>
 
+                    </div>
+
+                    {{-- Rows link into the channel wherever one exists. They
+                         were static text, which left a keyboard user no way
+                         to reach a channel from the one place on this page
+                         that ranks them. --}}
                     <div class="bl-share">
-                        @php $shareAt = 0; @endphp
                         @foreach($platformSlices as $i => $slice)
-                            @php $brand = $brandFor($slice['label']); @endphp
-                            <div class="bl-share__row">
+                            @php
+                                $brand = $brandFor($slice['label']);
+                                $href = $channelFor($slice['label'])['link'] ?? null;
+                                $rowTag = $href ? 'a' : 'div';
+                            @endphp
+                            <{{ $rowTag }} class="bl-share__row" @if($href) href="{{ $href }}" @endif>
                                 <svg class="bl-share__sw" width="10" height="10" viewBox="0 0 10 10"
                                      aria-hidden="true" focusable="false">
                                     <rect class="{{ $brand ? '' : 'bl-sw-' . ($i % 6) }}" width="10" height="10" rx="3"
                                           @if($brand) fill="{{ $brand }}" @endif></rect>
                                 </svg>
                                 <span class="bl-share__n">{{ $slice['label'] }}</span>
-                                <span class="bl-share__v">{{ number_format($slice['orders'] / $ringTotal * 100, 1) }}%</span>
-                            </div>
+                                <span class="bl-share__v">{{ number_format($slice['orders']) }}</span>
+                            </{{ $rowTag }}>
                         @endforeach
                     </div>
-                </div>
+                    </div>
 
-                <div class="bl-scroll">
+                    <div class="bl-breakdown__records bl-scroll">
                     <table class="bl-table">
                         <thead>
                             <tr>
@@ -545,6 +573,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
                 </div>
             @endif
         </div>
