@@ -19,6 +19,7 @@
         'moon'     => '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
         'monitor'  => '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
         'search'   => '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+        'menu'     => '<path d="M4 7h16M4 12h16M4 17h16"/>',
         'chevron-left'  => '<path d="m15 18-6-6 6-6"/>',
         'chevron-right' => '<path d="m9 18 6-6-6-6"/>',
         'chevron-up'    => '<path d="m18 15-6-6-6 6"/>',

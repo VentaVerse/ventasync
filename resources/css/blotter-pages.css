@@ -1,0 +1,1342 @@
+/* ============================================================
+   VentaSync v2.2: page vocabularies, in the Blotter.
+
+   blotter-components.css dresses the shared component layer. This file
+   dresses the vocabularies that belong to one family of pages: the order
+   detail (od-), the order form (of-), the payments report (rp-/op-), the
+   settings hub (x-hub) and the settings pages (st-).
+
+   Same contract as the component adapter: the class names are kept exactly
+   as the views and their JavaScript already use them, and only the
+   materials change. Widths and grid tracks are carried over from the
+   legacy rules, because those proportions were designed against real
+   content and re-deciding them would be churn, not design.
+   ============================================================ */
+
+@layer components {
+    /* ------------------------------------------------------------
+       Shared across the order pages
+       ------------------------------------------------------------ */
+
+    /* A figure and, under it, the same figure as the buyer was charged.
+       Both are money, so both are set as money. */
+    .money-primary {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    .money-secondary {
+        display: block;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        color: var(--bl-ink-3);
+    }
+
+    /* Channel identity on a badge, same grammar as the swatch: a square
+       carrying the marketplace's own colour, beside its written name. */
+    .x-badge--shopee { color: var(--bl-ink); }
+    .x-badge--shopee .x-badge__dot { background: #ee4d2d; }
+    .x-badge--lazada { color: var(--bl-ink); }
+    .x-badge--lazada .x-badge__dot { background: #0f146d; }
+    .x-badge--tiktok { color: var(--bl-ink); }
+    .x-badge--tiktok .x-badge__dot { background: #111111; box-shadow: 0 0 0 1px var(--bl-rule-2); }
+    .x-badge--venta { color: var(--bl-ink); }
+    .x-badge--venta .x-badge__dot { background: #2b4b7a; }
+
+    .x-menu__trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .x-col-id { width: 76px; }
+    .x-col-date { width: 132px; }
+    .x-td-actions { width: 44px; text-align: right; }
+    .x-th-sort--num { justify-content: flex-end; }
+
+    /* The exchange rate a foreign order was booked at. */
+    .currency-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 14px;
+        padding: 8px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+        font-size: 12.5px;
+    }
+
+    .currency-banner__date,
+    .od-rate {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-2);
+    }
+
+    /* ------------------------------------------------------------
+       Order detail
+       ------------------------------------------------------------ */
+    .od-page {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: 18px var(--bl-pad) 40px;
+    }
+
+    .od-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+    }
+
+    .od-back:hover { color: var(--bl-ink); }
+
+    .od-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+    }
+
+    .od-head__id {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    /* The order reference is an identifier, so it is set as one. */
+    .od-title {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+
+    .od-head__actions {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .od-stamps {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 16px;
+    }
+
+    .od-stamp {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        font-size: 12px;
+    }
+
+    .od-stamp__k { color: var(--bl-ink-3); }
+
+    .od-stamp__v {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-2);
+    }
+
+    .od-flash {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .od-flash:empty { display: none; }
+
+    .od-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        font-size: 13px;
+    }
+
+    .od-note--ok { border-color: var(--bl-good); background: color-mix(in srgb, var(--bl-good) 8%, var(--bl-sheet)); }
+    .od-note--fail { border-color: var(--bl-bad); background: var(--bl-bad-wash); }
+    .od-note__body { flex: 1; min-width: 0; }
+    .od-note__close { flex: none; border: 0; background: none; color: var(--bl-ink-3); cursor: pointer; }
+
+    .od-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+    }
+
+    @media (min-width: 1001px) {
+        .od-body { grid-template-columns: minmax(0, 1fr) 320px; }
+    }
+
+    .od-col {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        min-width: 0;
+    }
+
+    .od-section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .od-section__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .od-section__title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+    }
+
+    .od-section__count {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    .od-section__aside {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* The line items. One grid shared by the head and every row, so the
+       figures line up as columns rather than as a stack of cards. */
+    .od-items { display: flex; flex-direction: column; }
+
+    .od-items__head,
+    .od-item {
+        display: grid;
+        grid-template-columns: 96px minmax(0, 1fr) 3.5rem 7.5rem 8rem;
+        align-items: start;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .od-items__head {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bl-rule-2);
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .od-items__head span:nth-child(n + 3) { text-align: right; }
+
+    .od-item__media { min-width: 0; }
+    .od-item__body { min-width: 0; }
+
+    .od-item__name {
+        font-size: 13px;
+        font-weight: 550;
+    }
+
+    .od-item__figs { display: contents; }
+
+    .od-fig {
+        text-align: right;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 12.5px;
+    }
+
+    .od-fig--total { font-weight: 650; }
+    .od-fig__k { display: none; }
+
+    /* What the line actually earned, under the line it belongs to. */
+    .od-econ {
+        grid-column: 2 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        font-size: 11.5px;
+    }
+
+    .od-econ__cell {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+
+    .od-econ__k { color: var(--bl-ink-3); }
+
+    .od-econ__v {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    /* The money ledger: label left, figure right, one line per fact. */
+    .od-ledger { display: flex; flex-direction: column; }
+
+    .od-ledger__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 16px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .od-ledger__k { min-width: 0; font-size: 13px; }
+
+    .od-ledger__v {
+        text-align: right;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+    }
+
+    .od-ledger__row--total {
+        border-bottom: 0;
+        border-top: 1px solid var(--bl-rule-2);
+        margin-top: 4px;
+        padding-top: 9px;
+        font-weight: 650;
+    }
+
+    .od-ledger__row--total .od-ledger__v { font-size: 16px; font-weight: 650; }
+
+    .od-ledger__row--profit .od-ledger__v { font-weight: 650; }
+
+    .od-ledger__split { color: var(--bl-ink-3); font-size: 12px; }
+
+    .od-ledger__margins {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+    }
+
+    .od-ledger__margin {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .od-ledger__form {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 7px;
+        padding: 8px 0;
+    }
+
+    /* Money that moved the wrong way is the one thing here that takes a
+       colour, because a negative figure is a state. */
+    .od-neg { color: var(--bl-bad); }
+    .od-pos { color: var(--bl-good); }
+
+    .od-fee-label { width: 8.5rem; }
+
+    .od-fee-amount,
+    .od-edit__input {
+        width: 6.5rem;
+        text-align: right;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .od-edit__input--text {
+        width: 8.5rem;
+        text-align: left;
+        font-family: var(--font-sans);
+    }
+
+    .od-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: 1px solid transparent;
+        background: none;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .od-icon-btn:hover {
+        border-color: var(--bl-rule-2);
+        color: var(--bl-ink);
+    }
+
+    /* Side rail panels. */
+    .od-card {
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        overflow: hidden;
+    }
+
+    .od-card__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .od-card__title {
+        margin: 0;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .od-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .od-card__body--tight { gap: 8px; }
+
+    .od-lines { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+    .od-lines__name { font-weight: 600; }
+
+    .od-fact { display: flex; flex-direction: column; gap: 2px; }
+
+    .od-fact__k {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .od-fact__v { font-size: 13px; }
+
+    .od-fact__v--mono {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .od-divider { height: 1px; background: var(--bl-rule); }
+
+    .od-paid {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .od-paid__v {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-weight: 650;
+    }
+
+    .od-pay {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: baseline;
+        gap: 2px 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bl-rule);
+        font-size: 12.5px;
+    }
+
+    .od-pay__when,
+    .od-pay__amount {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .od-pay__amount { text-align: right; }
+    .od-pay__meta { grid-column: 1 / 3; color: var(--bl-ink-3); font-size: 11.5px; }
+    .od-pay__act { grid-column: 3; }
+
+    .od-disclose > summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+        cursor: pointer;
+    }
+
+    .od-disclose > summary::-webkit-details-marker { display: none; }
+
+    .od-fields {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .od-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .od-field--wide { grid-column: 1 / -1; }
+
+    .od-field__k {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .od-form__actions { display: flex; justify-content: flex-end; }
+
+    /* A submit sharing a field grid with labelled controls. Grid blockifies
+       an inline-flex child, so without this the button stretches the whole
+       column into a slab and lines up with the labels rather than with the
+       controls it submits. */
+    .od-field > .x-btn:only-child,
+    .fm-field > .x-btn:only-child {
+        margin-top: auto;
+        align-self: flex-start;
+    }
+
+    .od-override { display: flex; align-items: flex-start; gap: 12px; }
+    .od-override__body { min-width: 0; }
+    .od-override__title { font-size: 13px; font-weight: 550; }
+    .od-override__note { margin-top: 2px; font-size: 11.5px; color: var(--bl-ink-3); }
+
+    /* Same switch as the form pages, so one control means one thing. */
+    .od-switch {
+        position: relative;
+        flex: none;
+        width: 34px;
+        height: 20px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+    }
+
+    .od-switch::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        background: var(--bl-ink-3);
+    }
+
+    /* The order's history, newest first. */
+    .od-time { display: flex; flex-direction: column; }
+
+    .od-time__row {
+        display: grid;
+        grid-template-columns: 10.5rem minmax(0, 1fr);
+        gap: 2px 16px;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .od-time__when {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .od-time__what { min-width: 0; font-size: 12.5px; }
+    .od-time__status { font-weight: 600; }
+    .od-time__who { color: var(--bl-ink-3); }
+
+    @media (max-width: 720px) {
+        .od-items__head { display: none; }
+        .od-items__head,
+        .od-item { grid-template-columns: 72px minmax(0, 1fr); }
+        .od-fig__k { display: inline; color: var(--bl-ink-3); }
+        .od-fee-label,
+        .od-fee-amount { flex: 1 1 auto; width: auto; }
+    }
+
+    /* ------------------------------------------------------------
+       Order form
+       ------------------------------------------------------------ */
+    .of-page {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 18px var(--bl-pad) 40px;
+    }
+
+    .of-page [hidden],
+    .of-pick [hidden] { display: none !important; }
+
+    .fm-col--main { min-width: 0; }
+
+    .of-col-var { width: 152px; }
+    .of-col-sku { width: 124px; }
+    .of-col-price { width: 116px; }
+    .of-col-qty { width: 84px; }
+    .of-col-total { width: 148px; }
+
+    .of-lines { width: 100%; }
+    .of-lines__empty { padding: 22px 0; text-align: center; font-size: 13px; color: var(--bl-ink-3); }
+
+    .of-line__title { display: block; font-weight: 550; }
+
+    .of-line__id,
+    .of-line__base {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--bl-ink-3);
+    }
+
+    .of-line__price,
+    .of-line__qty {
+        width: 100%;
+        text-align: right;
+    }
+
+    .of-line__total {
+        display: block;
+        text-align: right;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    .of-line__x {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: 1px solid transparent;
+        background: none;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .of-line__x:hover { border-color: var(--bl-bad); color: var(--bl-bad); }
+
+    .of-sum {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-top: 11px;
+        border-top: 1px solid var(--bl-rule-2);
+    }
+
+    .of-sum__count { font-size: 12.5px; color: var(--bl-ink-3); }
+
+    .of-sum__totals {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 12px;
+    }
+
+    .of-sum__k { font-size: 12px; color: var(--bl-ink-3); }
+
+    .of-sum__v {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 17px;
+        font-weight: 650;
+    }
+
+    .of-sum__base,
+    .of-rate__hint {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .of-ship,
+    .of-pay,
+    .of-pay-block { min-width: 0; }
+
+    /* Product picker. */
+    .of-pick {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        max-width: 720px;
+    }
+
+    .of-pick__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 9px;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .of-pick__title { margin: 0; font-size: 15px; font-weight: 650; }
+
+    .of-pick__head-right { display: flex; align-items: center; gap: 12px; }
+
+    .of-pick__msg,
+    .of-pick__added { font-size: 12.5px; color: var(--bl-ink-3); }
+
+    .of-pick__body { min-height: 0; overflow: auto; }
+
+    .of-res__list { display: flex; flex-direction: column; }
+
+    .of-res {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 96px 96px 92px;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--bl-rule);
+        text-align: left;
+        width: 100%;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        background: none;
+        cursor: pointer;
+    }
+
+    .of-res:hover { background: color-mix(in srgb, var(--bl-brand) 5%, var(--bl-sheet)); }
+
+    .of-res__main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .of-res__sku { font-family: var(--font-mono); font-size: 11px; color: var(--bl-ink-3); }
+
+    .of-res__price {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+
+    .of-res__stock,
+    .of-res__opts {
+        text-align: right;
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    .of-detail { display: flex; flex-direction: column; gap: 12px; }
+
+    .of-detail__id {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 12px;
+    }
+
+    .of-detail__name { font-size: 14px; font-weight: 600; }
+    .of-detail__sku { font-family: var(--font-mono); font-size: 11.5px; color: var(--bl-ink-3); }
+
+    .of-detail__price {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-weight: 650;
+    }
+
+    .of-detail__options { display: flex; flex-direction: column; gap: 8px; }
+    .of-detail__label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .of-detail__foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding-top: 11px;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .of-detail__qty { display: flex; align-items: center; gap: 8px; }
+    .of-detail__qty .x-input { width: 80px; text-align: right; }
+
+    .of-opt { display: flex; align-items: flex-start; gap: 8px; }
+    .of-opt__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .of-opt__meta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--bl-ink-3); }
+
+    .of-totals__row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 4px 0;
+    }
+
+    .of-totals__row dd {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .of-hist__item {
+        display: grid;
+        grid-template-columns: 152px minmax(0, 1fr);
+        gap: 2px 16px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bl-rule);
+        font-size: 12.5px;
+    }
+
+    .of-hist__when {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-3);
+    }
+
+    .of-hist__what { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .of-hist__note { grid-column: 2; color: var(--bl-ink-3); }
+
+    /* ------------------------------------------------------------
+       Payments report
+       ------------------------------------------------------------ */
+    .rp-page {
+        display: block;
+        padding: 18px var(--bl-pad) 40px;
+    }
+
+    .rp-band,
+    .op-band {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 22px;
+        padding: 14px 16px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .rp-lead { flex: 0 0 auto; min-width: 200px; }
+
+    .rp-lead__k {
+        display: block;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .rp-lead__v {
+        display: block;
+        font-variant-numeric: tabular-nums;
+        font-size: 27px;
+        font-weight: 640;
+        letter-spacing: -0.03em;
+    }
+
+    .rp-lead__sub {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .rp-facts {
+        flex: 1 1 340px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+        gap: 12px;
+    }
+
+    .rp-fact { min-width: 0; }
+
+    .rp-fact__k {
+        display: block;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .rp-fact__v {
+        display: block;
+        font-variant-numeric: tabular-nums;
+        font-size: 15px;
+        font-weight: 640;
+    }
+
+    .rp-fact__note,
+    .rp-basis {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        max-width: 78ch;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    /* The currency itself is the fact the reader checks before trusting a
+       column of money, so it is set as a value rather than as prose. */
+    .rp-basis__code {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: var(--bl-ink-2);
+    }
+
+    .rp-basis__caveat { flex: 1 1 100%; }
+
+    .rp-scroll { overflow-x: auto; }
+    .rp-total { font-weight: 650; }
+
+    /* Money still owed reads as attention, because it is a state. */
+    .op-owing { color: var(--bl-attn); font-weight: 650; }
+    .op-col-count { width: 92px; }
+
+    .rp-range { display: inline-flex; align-items: center; gap: 4px; }
+    .rp-filters { align-items: flex-end; }
+
+    /* ------------------------------------------------------------
+       Settings hub
+       ------------------------------------------------------------ */
+    .x-hub {
+        max-width: 1040px;
+        padding: 18px var(--bl-pad) 40px;
+    }
+
+    .x-hub__search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 320px;
+        margin-bottom: 24px;
+        padding: 6px 10px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink-3);
+    }
+
+    .x-hub__search:focus-within { border-color: var(--bl-ink-2); }
+
+    .x-hub__input {
+        flex: 1;
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: var(--bl-ink);
+        font: inherit;
+        font-size: 13px;
+    }
+
+    .x-hub__input::placeholder { color: var(--bl-ink-3); }
+
+    .x-hub__group { margin-bottom: 24px; }
+
+    .x-hub__group-title {
+        margin: 0 0 10px;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .x-hub__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+        gap: 8px;
+    }
+
+    .x-hub__card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .x-hub__card:hover {
+        border-color: var(--bl-ink-2);
+        background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
+    }
+
+    /* The icon is drawn, not tinted: a filled swatch here would be colour
+       spent on decoration. */
+    .x-hub__card-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--bl-rule);
+        color: var(--bl-ink-2);
+    }
+
+    .x-hub__card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .x-hub__card-title { font-size: 13px; font-weight: 600; }
+    .x-hub__card-desc { font-size: 12px; color: var(--bl-ink-3); }
+    .x-hub__empty { font-size: 13px; color: var(--bl-ink-3); }
+
+    @media (max-width: 640px) {
+        .x-hub__grid { grid-template-columns: 1fr; }
+    }
+
+    /* ------------------------------------------------------------
+       Settings pages
+       ------------------------------------------------------------ */
+    .st-os-page,
+    .st-log-page,
+    .st-ext-page {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px var(--bl-pad) 40px;
+    }
+
+    .st-col-check { width: 36px; }
+    .st-col-id { width: 72px; }
+    .st-col-code { width: 88px; }
+    .st-col-symbol { width: 72px; }
+    .st-col-rate { width: 190px; }
+    .st-col-flag { width: 140px; }
+    .st-col-stat { width: 112px; }
+    .st-col-user { width: 168px; }
+    .st-col-when { width: 176px; }
+    .st-col-tiers { width: 132px; }
+    .st-col-ver { width: 96px; }
+    .st-col-author { width: 168px; }
+
+    .st-check { position: relative; width: 15px; height: 15px; accent-color: var(--bl-ink); }
+
+    .st-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .st-bulkbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px var(--bl-pad);
+        border-block: 1px solid var(--bl-rule-2);
+        background: var(--bl-attn-wash);
+    }
+
+    .st-bulkbar__count { font-size: 13px; font-weight: 600; }
+    .st-bulkbar__actions { display: flex; gap: 8px; }
+
+    .st-note,
+    .st-lede {
+        max-width: 78ch;
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+    }
+
+    /* A rate is a figure with a basis, so both are mono and stack right. */
+    .st-rate {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        align-items: flex-end;
+    }
+
+    .st-rate__value,
+    .st-rate__basis {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .st-rate__basis { font-size: 11px; color: var(--bl-ink-3); }
+
+    .st-cron {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 14px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+    }
+
+    .st-cron__title { font-size: 13px; font-weight: 650; }
+    .st-cron__note { max-width: 72ch; font-size: 12px; color: var(--bl-ink-3); }
+    .st-cron__row { display: flex; align-items: center; gap: 8px; }
+
+    .st-cron__cmd,
+    .st-key {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+
+    .st-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 26px;
+        padding: 12px 14px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+    }
+
+    .st-fact { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+    .st-fact__k {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .st-fact__v {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+    }
+
+    .st-fact__v--path { word-break: break-all; font-size: 11.5px; }
+    .st-fact__note { font-size: 11.5px; color: var(--bl-ink-3); }
+
+    /* Error log. Severity is a state, so it is the one coloured thing. */
+    .st-log-count { font-size: 12.5px; color: var(--bl-ink-3); }
+    .st-log { display: flex; flex-direction: column; }
+
+    .st-log__row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .st-log__top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .st-log__at,
+    .st-log__lvl,
+    .st-log__where {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+    }
+
+    .st-log__at { color: var(--bl-ink-3); }
+
+    .st-log__lvl {
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .sev-error,
+    .sev-critical,
+    .sev-emergency,
+    .sev-alert { color: var(--bl-bad); }
+
+    .sev-warning { color: var(--bl-attn); }
+    .sev-info,
+    .sev-notice { color: var(--bl-cool); }
+    .sev-debug { color: var(--bl-ink-3); }
+
+    .st-log__msg { font-size: 13px; }
+
+    .st-log__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    /* Extensions. */
+    .st-install {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+        border: 1px dashed var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+    }
+
+    .st-install__body { min-width: 0; }
+    .st-install__title { font-size: 13px; font-weight: 650; }
+    .st-install__note { max-width: 78ch; font-size: 12px; color: var(--bl-ink-3); }
+
+    .st-install__row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .st-file { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+    .st-file__input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+    }
+
+    .st-file__btn { display: inline-flex; align-items: center; }
+    .st-file__name { min-width: 0; font-size: 12.5px; color: var(--bl-ink-3); }
+
+    .st-ext { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .st-ext__name { font-size: 13px; font-weight: 600; }
+    .st-ext__id { font-family: var(--font-mono); font-size: 11px; color: var(--bl-ink-3); }
+    .st-ext__desc { font-size: 12px; color: var(--bl-ink-3); }
+
+    .st-inline-check { display: flex; align-items: center; gap: 8px; }
+    .st-date { max-width: 220px; }
+    .st-days { max-width: 140px; }
+    .st-tabs { max-width: 100%; }
+    .st-smtp[hidden] { display: none; }
+    .st-test__result[hidden] { display: none; }
+
+    .st-body--one { grid-template-columns: minmax(0, 1fr); }
+    .st-body--one .fm-col--main { max-width: 900px; }
+    .st-form--wide .fm-body { grid-template-columns: minmax(0, 1fr); }
+
+    /* Permission scopes: a name, then its two tiers, on one grid so the
+       checkboxes line up down the page. */
+    .st-scopes__head,
+    .st-scope {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 176px;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .st-scopes__head {
+        border-bottom: 1px solid var(--bl-rule-2);
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .st-scope__tiers {
+        display: grid;
+        grid-template-columns: 84px 84px;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .st-scopes__tier { text-align: center; }
+    .st-tier { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .st-tier__box { width: 15px; height: 15px; accent-color: var(--bl-ink); }
+
+    .st-tier__text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .st-tier--none { display: flex; justify-content: center; color: var(--bl-ink-3); }
+
+    .st-token__note { max-width: 62ch; }
+    .st-token__row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+    .st-token__value { flex: 1 1 320px; min-width: 0; font-family: var(--font-mono); }
+
+    /* What is on the site now, directly under the control that replaces it.
+       Set on a ground so a logo with a transparent background is still
+       readable, and bounded in height so a tall upload cannot push the
+       favicon field off the fold. */
+    .st-brandnow {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        /* The field is a flex column, so a child stretches to its width
+           unless it says otherwise. The box should be the size of the image
+           in it, not the size of the form. */
+        align-self: flex-start;
+        max-width: 100%;
+        gap: 8px;
+        margin-top: 6px;
+        padding: 12px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-paper);
+    }
+
+    .st-brandnow--icon { flex-direction: row; align-items: center; gap: 12px; }
+
+    .st-brand__logo {
+        max-width: 100%;
+        max-height: 96px;
+        object-fit: contain;
+    }
+
+    .st-brand__fav {
+        width: 44px;
+        height: 44px;
+        flex: none;
+        object-fit: contain;
+    }
+
+    .st-brand__cap { font-size: 12px; color: var(--bl-ink-3); }
+
+    @media (max-width: 720px) {
+        .st-scopes__head { display: none; }
+        .st-scope { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    }
+}

@@ -1,0 +1,3105 @@
+/* ============================================================
+   VentaSync v2.2: the shared component layer, in the Blotter.
+
+   Every page in this application is built from one set of shared Blade
+   components (x-ui.input, x-ui.field, x-ui.table, x-ui.badge, x-ui.menu)
+   and one set of form-page classes (fm-*). Those components are used by
+   both shells, so this file dresses their existing class names rather
+   than forking the components and their JavaScript with them. A page
+   loads app.css or blotter.css, never both, so exactly one set of rules
+   ever applies and the legacy pages cannot break.
+
+   That is the same move confirm-modal already made in blotter.css, at
+   the scale of the whole component layer. When the last view has moved
+   across, this file and the legacy class names go together.
+
+   The materials are the Blotter's throughout: hairline rules instead of
+   borders-plus-shadow, 2px corners, tabular figures on every number, and
+   colour reserved for state.
+   ============================================================ */
+
+@layer components {
+    /* ------------------------------------------------------------
+       Shared utilities
+       ------------------------------------------------------------ */
+    .x-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .x-num,
+    .fm-num {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-row-link {
+        color: var(--bl-ink);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .x-row-link:hover {
+        text-decoration: underline;
+    }
+
+    .x-th-sort {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    /* ------------------------------------------------------------
+       Controls
+       ------------------------------------------------------------ */
+    .x-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font: inherit;
+        font-size: 13px;
+    }
+
+    .x-input::placeholder {
+        color: var(--bl-ink-3);
+    }
+
+    .x-input:focus {
+        border-color: var(--bl-ink-2);
+    }
+
+    .x-input[readonly] {
+        background: var(--bl-chrome);
+        color: var(--bl-ink-2);
+    }
+
+    .x-input.input-error {
+        border-color: var(--bl-bad);
+    }
+
+    textarea.x-input {
+        min-height: 96px;
+        line-height: 1.5;
+        resize: vertical;
+    }
+
+    /* Applied per field by the caller, and it marks identifiers (model, SKU)
+       as often as figures, so it sets the face and the figure style without
+       touching alignment. Right-aligning it would set "White" against the
+       right edge of the Model field. Column alignment is the table's job,
+       via fm-num and fm-vcol-num below. */
+    .fm-input--num,
+    .fm-vars__table .x-input {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 12.5px;
+    }
+
+    .x-select-wrap {
+        position: relative;
+        min-width: 0;
+    }
+
+    .x-select-wrap .x-input {
+        appearance: none;
+        padding-right: 28px;
+    }
+
+    .x-select-wrap__chevron {
+        position: absolute;
+        top: 50%;
+        right: 9px;
+        transform: translateY(-50%);
+        color: var(--bl-ink-3);
+        pointer-events: none;
+    }
+
+    /* A unit or currency welded to the front of a control. */
+    .fm-group {
+        display: flex;
+        min-width: 0;
+    }
+
+    .fm-group__prefix {
+        display: inline-flex;
+        align-items: center;
+        flex: none;
+        padding: 0 9px;
+        border: 1px solid var(--bl-rule-2);
+        border-right: 0;
+        border-radius: 2px 0 0 2px;
+        background: var(--bl-chrome);
+        font-size: 12px;
+        color: var(--bl-ink-2);
+    }
+
+    .fm-group__prefix + .x-input {
+        border-radius: 0 2px 2px 0;
+    }
+
+    /* ------------------------------------------------------------
+       Field: label above control, one message directly beneath it
+       ------------------------------------------------------------ */
+    .fm-fields {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        align-items: start;
+    }
+
+    .fm-fields--2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fm-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .fm-field--wide {
+        grid-column: 1 / -1;
+    }
+
+    .fm-label {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .fm-req {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: var(--bl-attn);
+        text-transform: uppercase;
+    }
+
+    .fm-hint {
+        font-size: 12px;
+        color: var(--bl-ink-3);
+        max-width: 62ch;
+    }
+
+    .fm-error {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--bl-bad);
+    }
+
+    /* ------------------------------------------------------------
+       Page chrome
+       ------------------------------------------------------------ */
+    .fm-page {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 18px var(--bl-pad) 40px;
+    }
+
+    .fm-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+    }
+
+    .fm-back:hover {
+        color: var(--bl-ink);
+    }
+
+    .fm-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px;
+    }
+
+    .fm-head__main {
+        min-width: 0;
+    }
+
+    .fm-head__actions {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+    }
+
+    .fm-title {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 640;
+        letter-spacing: -0.02em;
+    }
+
+    /* Record provenance: created, updated, who. Facts about the row, set
+       as facts rather than as chips. */
+    .fm-stamps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        margin-top: 3px;
+    }
+
+    .fm-stamp {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 5px;
+        font-size: 12px;
+    }
+
+    .fm-stamp__k {
+        color: var(--bl-ink-3);
+    }
+
+    .fm-stamp__v {
+        color: var(--bl-ink-2);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Sticky action bar at the foot of a form. */
+    .fm-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 0 0;
+        border-top: 1px solid var(--bl-rule-2);
+        background: var(--bl-paper);
+    }
+
+    .fm-bar__meta {
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-bar__actions {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+    }
+
+    .fm-cancel {
+        font-size: 13px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .fm-cancel:hover {
+        color: var(--bl-ink);
+        border-color: var(--bl-ink);
+    }
+
+    /* ------------------------------------------------------------
+       Outcome messages. Tinted ground, never a coloured left bar.
+       ------------------------------------------------------------ */
+    .fm-flash:empty {
+        display: none;
+    }
+
+    .fm-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        font-size: 13px;
+    }
+
+    .fm-note--ok {
+        border-color: var(--bl-good);
+        background: color-mix(in srgb, var(--bl-good) 8%, var(--bl-sheet));
+    }
+
+    .fm-note--fail {
+        border-color: var(--bl-bad);
+        background: var(--bl-bad-wash);
+    }
+
+    .fm-note--warn {
+        border-color: var(--bl-attn-fill);
+        background: var(--bl-attn-wash);
+    }
+
+    .fm-note__body {
+        min-width: 0;
+    }
+
+    .fm-note__list {
+        margin: 4px 0 0;
+        padding-left: 18px;
+    }
+
+    .fm-note__close {
+        margin-left: auto;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-3);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .fm-note__close:hover {
+        color: var(--bl-ink);
+    }
+
+    /* ------------------------------------------------------------
+       Body, columns, sections, side cards
+       ------------------------------------------------------------ */
+    .fm-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+    }
+
+    @media (min-width: 1001px) {
+        .fm-body {
+            grid-template-columns: minmax(0, 1fr) 320px;
+        }
+
+        .fm-body--single {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    .fm-col {
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
+        min-width: 0;
+    }
+
+    .fm-col--side {
+        gap: 16px;
+    }
+
+    .fm-section {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .fm-section__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4px 12px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .fm-section__title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+    }
+
+    .fm-section__note {
+        margin: 0;
+        max-width: 62ch;
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-section__aside {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* The side rail's panels. A ruled sheet, not a raised slab: this world
+       has no shadows, so a panel is told apart by its hairline and its
+       ground. */
+    .fm-card {
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        overflow: hidden;
+    }
+
+    .fm-card__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .fm-card__title {
+        margin: 0;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .fm-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .fm-card__body p {
+        margin: 0;
+    }
+
+    /* ------------------------------------------------------------
+       Switch. Squared to match the world, and the knob carries enough
+       contrast in both positions that its state is visible rather than
+       inferred.
+       ------------------------------------------------------------ */
+    .fm-switch {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        cursor: pointer;
+    }
+
+    .fm-switch__input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .fm-switch__track {
+        position: relative;
+        flex: none;
+        width: 34px;
+        height: 20px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+        transition: background 0.14s ease, border-color 0.14s ease;
+    }
+
+    .fm-switch__track::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        background: var(--bl-ink-3);
+        transition: transform 0.14s ease, background 0.14s ease;
+    }
+
+    .fm-switch__input:checked + .fm-switch__track {
+        border-color: var(--bl-ink);
+        background: var(--bl-ink);
+    }
+
+    .fm-switch__input:checked + .fm-switch__track::after {
+        background: var(--bl-paper);
+        transform: translateX(14px);
+    }
+
+    .fm-switch__input:focus-visible + .fm-switch__track {
+        outline: 2px solid var(--bl-attn-fill);
+        outline-offset: 1px;
+    }
+
+    .fm-switch__text {
+        min-width: 0;
+    }
+
+    .fm-switch__label {
+        display: block;
+        font-size: 13px;
+        font-weight: 550;
+    }
+
+    .fm-switch__note {
+        display: block;
+        margin-top: 2px;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    /* ------------------------------------------------------------
+       Typeahead and selected values
+       ------------------------------------------------------------ */
+    .fm-ta {
+        position: relative;
+        min-width: 0;
+    }
+
+    .fm-ta__list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 60;
+        display: none;
+        max-height: 260px;
+        margin-top: 3px;
+        overflow: auto;
+        padding: 3px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .fm-ta__list button {
+        display: block;
+        width: 100%;
+        padding: 6px 9px;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-2);
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .fm-ta__list button:hover,
+    .fm-ta__list button:focus-visible {
+        background: var(--bl-chrome-2);
+        color: var(--bl-ink);
+    }
+
+    .fm-ta__empty,
+    .fm-ta__new {
+        padding: 7px 9px;
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .fm-tags:empty {
+        display: none;
+    }
+
+    /* A chosen value, not a status, so it carries no colour. */
+    .fm-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 5px 2px 8px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+        font-size: 12px;
+        color: var(--bl-ink);
+    }
+
+    .fm-tag__x {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 15px;
+        height: 15px;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-3);
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .fm-tag__x:hover {
+        color: var(--bl-bad);
+    }
+
+    /* ------------------------------------------------------------
+       Cost row and its derived figures
+       ------------------------------------------------------------ */
+    .fm-cost {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+    }
+
+    .fm-cost__cell {
+        flex: 1 1 130px;
+        min-width: 0;
+    }
+
+    .fm-cost__op {
+        flex: none;
+        padding-bottom: 9px;
+        font-size: 12px;
+        white-space: nowrap;
+        color: var(--bl-ink-3);
+    }
+
+    /* Derived figures are figures, not disabled inputs. */
+    .fm-metrics,
+    .fm-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 26px;
+        padding: 11px 14px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+    }
+
+    .fm-metric,
+    .fm-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .fm-metric__k,
+    .fm-stat__k {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .fm-metric__v,
+    .fm-stat__v {
+        font-size: 16px;
+        font-weight: 640;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+    }
+
+    /* ------------------------------------------------------------
+       Images
+       ------------------------------------------------------------ */
+    .fm-img {
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+    }
+
+    .fm-img__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+        gap: 9px;
+    }
+
+    .fm-img__grid:empty {
+        display: none;
+    }
+
+    .fm-img__item {
+        position: relative;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        cursor: grab;
+        overflow: hidden;
+    }
+
+    .fm-img__item:hover {
+        border-color: var(--bl-ink-2);
+    }
+
+    .fm-img__item:active {
+        cursor: grabbing;
+    }
+
+    .fm-img__thumb-wrap {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        overflow: hidden;
+        background: var(--bl-paper);
+    }
+
+    .fm-img__thumb {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .fm-img__empty {
+        padding: 22px 14px;
+        border: 1px dashed var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        font-size: 13px;
+        text-align: center;
+        color: var(--bl-ink-3);
+    }
+
+    /* ------------------------------------------------------------
+       Image picker
+       ------------------------------------------------------------ */
+    .fm-pick {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+    }
+
+    .fm-pick__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 9px;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .fm-pick__title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+    }
+
+    .fm-pick__tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+    }
+
+    .fm-pick__search {
+        max-width: 220px;
+    }
+
+    .fm-pick__nav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+    }
+
+    .fm-pick__path {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--bl-ink-2);
+    }
+
+    .fm-pick__body {
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .fm-pick__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+        gap: 9px;
+    }
+
+    .fm-pick__label {
+        display: block;
+        margin-top: 4px;
+        font-size: 11.5px;
+        color: var(--bl-ink-2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .fm-pick__drop {
+        padding: 22px 14px;
+        border: 1px dashed var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        text-align: center;
+        font-size: 13px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-pick__empty,
+    .fm-pick__msg {
+        padding: 14px 0;
+        font-size: 13px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-pick__actions {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding-top: 11px;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    /* ------------------------------------------------------------
+       Variations
+       ------------------------------------------------------------ */
+    .fm-vars {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .fm-vars__card {
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .fm-vars__head,
+    .fm-vars__mid {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .fm-vars__col {
+        flex: 1 1 180px;
+        min-width: 0;
+    }
+
+    .fm-vars__values {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .fm-vars__values > div {
+        flex: 1 1 150px;
+        min-width: 0;
+    }
+
+    .fm-vars__add {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        padding: 11px 14px;
+    }
+
+    .fm-vars__scroll {
+        overflow-x: auto;
+    }
+
+    .fm-vars__table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .fm-vars__table th {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--bl-rule-2);
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        text-align: left;
+        white-space: nowrap;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-vars__table td {
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--bl-rule);
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .fm-vars__table th.fm-vcol-num,
+    .fm-vars__table td.fm-vcol-num,
+    .fm-vars__table .fm-num {
+        text-align: right;
+    }
+
+    /* A figure typed into a column of figures still aligns on its decimal. */
+    .fm-vars__table td.fm-vcol-num .x-input {
+        text-align: right;
+    }
+
+    .fm-vcol-act {
+        width: 40px;
+    }
+
+    .fm-vars__rowx {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: 1px solid transparent;
+        background: none;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .fm-vars__rowx:hover {
+        border-color: var(--bl-bad);
+        color: var(--bl-bad);
+    }
+
+    .fm-vars__errors {
+        padding: 9px 14px;
+        border-top: 1px solid var(--bl-rule);
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--bl-bad);
+    }
+
+    /* ------------------------------------------------------------
+       Rich text editor.
+
+       Summernote ships its own stylesheet, pushed by the wysiwyg partial.
+       These rules only remove its chrome so the editor sits on the page as
+       another ruled field rather than as a widget from another design.
+       ------------------------------------------------------------ */
+    .fm-page .note-editor.note-frame {
+        margin: 0;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .fm-page .note-editor .note-toolbar {
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--bl-rule);
+        background: var(--bl-chrome);
+    }
+
+    .fm-page .note-editor .note-btn {
+        border: 1px solid transparent;
+        border-radius: var(--bl-r-ctrl);
+        background: none;
+        color: var(--bl-ink-2);
+    }
+
+    .fm-page .note-editor .note-btn:hover,
+    .fm-page .note-editor .note-btn.active {
+        border-color: var(--bl-rule-2);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+    }
+
+    .fm-page .note-editor .note-editable {
+        min-height: 180px;
+        padding: 12px 14px;
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font-family: var(--font-sans);
+        font-size: 13.5px;
+        line-height: 1.55;
+    }
+
+    .fm-page .note-editor .note-placeholder {
+        padding: 12px 14px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-page .note-editor .note-statusbar {
+        border-top: 1px solid var(--bl-rule);
+        background: var(--bl-chrome);
+    }
+
+    .fm-page .note-editor .note-codable {
+        background: var(--bl-chrome);
+        color: var(--bl-ink);
+        font-family: var(--font-mono);
+    }
+
+    /* ------------------------------------------------------------
+       Shared display components
+       ------------------------------------------------------------ */
+    .x-table-wrap {
+        overflow-x: auto;
+    }
+
+    .x-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bl-sheet);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-table th {
+        padding: 7px 12px;
+        border-block: 1px solid var(--bl-rule-2);
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        text-align: left;
+        white-space: nowrap;
+        color: var(--bl-ink-3);
+    }
+
+    .x-table td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--bl-rule);
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .x-table tbody tr:hover td {
+        background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
+    }
+
+    .x-td-num {
+        text-align: right;
+    }
+
+    /* Badge: a square and a word, never a tinted capsule. Same grammar as
+       bl-state, so a status reads identically wherever it appears. */
+    .x-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--bl-ink-3);
+    }
+
+    .x-badge__dot {
+        width: 8px;
+        height: 8px;
+        flex: none;
+        background: var(--bl-rule-2);
+    }
+
+    .x-badge--success { color: var(--bl-good); }
+    .x-badge--success .x-badge__dot { background: var(--bl-good); }
+    .x-badge--warning { color: var(--bl-attn); }
+    .x-badge--warning .x-badge__dot { background: var(--bl-attn-fill); }
+    .x-badge--danger { color: var(--bl-bad); }
+    .x-badge--danger .x-badge__dot { background: var(--bl-bad); }
+    .x-badge--info { color: var(--bl-cool); }
+    .x-badge--info .x-badge__dot { background: var(--bl-cool); }
+
+    .x-empty {
+        padding: 46px var(--bl-pad);
+        text-align: center;
+        background: var(--bl-sheet);
+        border-top: 1px solid var(--bl-rule-2);
+    }
+
+    .x-empty__title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+    }
+
+    .x-empty__desc {
+        margin: 4px auto 0;
+        max-width: 46ch;
+        font-size: 13px;
+        color: var(--bl-ink-2);
+    }
+
+    .x-empty__action {
+        margin-top: 16px;
+    }
+
+    /* Menu. The trigger is whatever the caller put in it; the panel is a
+       ruled sheet with no shadow, because this world has none. */
+    .x-menu {
+        position: relative;
+        display: inline-flex;
+    }
+
+    .x-menu__panel {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        z-index: 40;
+        min-width: 176px;
+        margin-top: 4px;
+        padding: 4px 0;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .x-menu__item {
+        display: block;
+        width: 100%;
+        padding: 6px 14px;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-2);
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .x-menu__item:hover {
+        background: var(--bl-chrome-2);
+        color: var(--bl-ink);
+    }
+
+    .x-menu__item--danger:hover {
+        color: var(--bl-bad);
+    }
+
+    .x-menu__sep {
+        height: 1px;
+        margin: 4px 0;
+        background: var(--bl-rule);
+    }
+
+    /* ------------------------------------------------------------
+       Fulfilment hub
+
+       The hub is a container: it draws the channel strip and the summary,
+       then renders whichever marketplace panel is selected inside itself.
+       Its class names are asserted by FulfilmentHubTest, so they are kept
+       exactly and only their materials change.
+       ------------------------------------------------------------ */
+    .x-fh-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px;
+        padding: 18px var(--bl-pad) 14px;
+    }
+
+    /* One card per channel, read left to right like a row of gauges. */
+    .x-fh-strip {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        min-width: 0;
+        overflow-x: auto;
+        border-block: 1px solid var(--bl-rule-2);
+        background: var(--bl-sheet);
+    }
+
+    .x-fh-strip__split {
+        flex: none;
+        width: 1px;
+        background: var(--bl-rule);
+    }
+
+    .x-fh-card {
+        flex: 0 0 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 12px 16px;
+        border-right: 1px solid var(--bl-rule);
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .x-fh-card:hover {
+        background: color-mix(in srgb, var(--bl-brand) 5%, var(--bl-sheet));
+    }
+
+    .x-fh-card__label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    /* The figure is the point of the card, so it is set at the size the
+       band uses on the dashboard: the same measure means the same thing. */
+    .x-fh-card__lead {
+        font-size: 27px;
+        line-height: 1.05;
+        font-weight: 640;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-fh-card__name {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .x-fh-card__meta {
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-fh-card__sep {
+        color: var(--bl-rule-2);
+    }
+
+    .x-fh-panel {
+        min-width: 0;
+    }
+
+    .x-fh-panel__scope {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 11px var(--bl-pad);
+        border-bottom: 1px solid var(--bl-rule);
+        background: var(--bl-chrome);
+    }
+
+    .x-fh-panel__scope-label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .x-fh-panel__scope-value {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .x-fh-sec {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .x-fh-sec__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 15px var(--bl-pad) 9px;
+    }
+
+    .x-fh-sec__title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+    }
+
+    .x-fh-sec__title--minor {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .x-fh-sec__meta {
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-fh-board {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 0 22px;
+        padding: 0 var(--bl-pad) 18px;
+    }
+
+    /* Best sellers. Rank, picture, name, then the figures right-aligned so
+       the column reads down as a column of quantities. */
+    .x-fh-prod {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .x-fh-prod__rank {
+        flex: none;
+        width: 20px;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-3);
+    }
+
+    .x-fh-prod__thumb {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        overflow: hidden;
+        border: 1px solid var(--bl-rule);
+        background: var(--bl-paper);
+    }
+
+    .x-fh-prod__img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .x-fh-prod__body {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .x-fh-prod__name {
+        font-size: 13px;
+        font-weight: 550;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .x-fh-prod__sku,
+    .x-fh-prod__from {
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-fh-prod__sku {
+        font-family: var(--font-mono);
+    }
+
+    .x-fh-prod__stats {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 1px;
+    }
+
+    .x-fh-prod__qty {
+        font-size: 14px;
+        font-weight: 640;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-fh-prod__rev {
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-fh-prod__sep {
+        color: var(--bl-rule-2);
+    }
+
+    .x-fh-col-ref { width: 150px; }
+    .x-fh-col-when { width: 124px; }
+    .x-col-chan { width: 130px; }
+    .x-col-stat { width: 140px; }
+    .x-col-total { width: 120px; }
+
+    .x-cell-strong { font-weight: 600; }
+    .x-cell-muted { color: var(--bl-ink-3); font-size: 12px; }
+
+    @media (max-width: 900px) {
+        .x-fh-board { grid-template-columns: 1fr; }
+        .x-fh-card { flex: 0 0 152px; }
+        .x-fh-prod__thumb { display: none; }
+        .x-fh-col-ref,
+        .x-fh-col-when { width: auto; }
+    }
+
+    /* ------------------------------------------------------------
+       Marketplace order panels
+
+       Shopee, Lazada and TikTok all render through this one vocabulary,
+       so this block dresses all three at once.
+       ------------------------------------------------------------ */
+    .co-notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        padding: 10px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+        font-size: 13px;
+    }
+
+    .co-notice__title {
+        flex: none;
+        font-weight: 650;
+    }
+
+    .co-notice__body {
+        min-width: 0;
+        color: var(--bl-ink-2);
+    }
+
+    .co-couriers {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .co-couriers__label {
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .co-courier {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 2px 8px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        font-size: 12px;
+    }
+
+    .co-courier__count {
+        font-variant-numeric: tabular-nums;
+        font-weight: 640;
+    }
+
+    /* Order reference and serial: identifiers, so mono. */
+    .co-ref,
+    .co-sn {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        letter-spacing: -0.02em;
+    }
+
+    .co-ref {
+        position: relative;
+        color: var(--bl-ink);
+    }
+
+    .co-sn {
+        color: var(--bl-ink-3);
+    }
+
+    .co-items {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .co-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        min-width: 0;
+    }
+
+    .co-item__body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .co-item__name {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 550;
+    }
+
+    .co-item__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .co-item__sku {
+        font-family: var(--font-mono);
+    }
+
+    .co-item__none {
+        font-size: 9px;
+        color: var(--bl-ink-3);
+    }
+
+    /* The band under each order: shipping on the left, money on the right. */
+    .co-band {
+        padding: 8px 0 0;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .co-band__row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px 16px;
+    }
+
+    .co-band__left,
+    .co-band__right {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .co-band__label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .co-band__value {
+        font-size: 13px;
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .co-band__value--mono {
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+
+    .co-band__muted {
+        color: var(--bl-ink-3);
+    }
+
+    .co-carrier,
+    .co-ship__no,
+    .co-ship__note,
+    .co-total,
+    .co-total__method {
+        display: block;
+    }
+
+    .co-carrier {
+        font-size: 13px;
+        font-weight: 550;
+    }
+
+    .co-ship__no {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--bl-ink-2);
+    }
+
+    .co-ship__note,
+    .co-total__method {
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .co-total,
+    .co-price {
+        font-size: 14px;
+        font-weight: 640;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .co-qty {
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-2);
+    }
+
+    .co-status {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .co-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 5px;
+    }
+
+    .co-actions--wrap {
+        flex-wrap: wrap;
+    }
+
+    .co-empty-mark {
+        color: var(--bl-ink-3);
+    }
+
+    /* Panel dialogs share the confirm dialog's shell, sized per use. */
+    .co-modal { max-width: 520px; }
+    .co-modal--sm { max-width: 420px; }
+    .co-modal--md { max-width: 480px; }
+    .co-modal--lg { max-width: 720px; }
+
+    .co-modal__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 11px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .co-modal__title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+    }
+
+    .co-modal__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-3);
+        font-size: 17px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .co-modal__close:hover {
+        color: var(--bl-ink);
+    }
+
+    .co-modal__meta,
+    .co-modal__prompt {
+        font-size: 13px;
+        color: var(--bl-ink-2);
+    }
+
+    .co-modal__choices {
+        display: flex;
+        gap: 8px;
+    }
+
+    .co-modal__choices .x-btn {
+        flex: 1;
+    }
+
+    .co-modal__foot {
+        display: flex;
+        gap: 8px;
+        padding-top: 12px;
+    }
+
+    .co-modal__foot--end {
+        justify-content: flex-end;
+    }
+
+    .co-modal__loading,
+    .co-progress {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+    }
+
+    .co-progress__title {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .co-progress__note {
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    /* A working indicator, not decoration: it only exists while a request
+       is in flight, and it stops moving for anyone who asked motion to stop. */
+    .co-spinner {
+        width: 16px;
+        height: 16px;
+        flex: none;
+        border: 2px solid var(--bl-rule-2);
+        border-top-color: var(--bl-ink);
+        border-radius: 50%;
+        animation: bl-spin 0.7s linear infinite;
+    }
+
+    .co-spinner--lg {
+        width: 18px;
+        height: 18px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .co-spinner {
+            animation-duration: 2.4s;
+        }
+    }
+
+    /* ------------------------------------------------------------
+       List page furniture
+       ------------------------------------------------------------ */
+    .x-list-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px;
+        padding: 18px var(--bl-pad) 14px;
+    }
+
+    .x-page-title {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 640;
+        letter-spacing: -0.02em;
+    }
+
+    .x-page-sub {
+        margin: 0;
+        font-size: 13px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 0 var(--bl-pad) 14px;
+    }
+
+    .x-filters__search {
+        max-width: 300px;
+    }
+
+    .x-filters__select {
+        max-width: 190px;
+    }
+
+    .x-pager {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 12px var(--bl-pad);
+        border-top: 1px solid var(--bl-rule-2);
+    }
+
+    .x-pager__count {
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-pager__nav {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+    }
+}
+
+@keyframes bl-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       Marketplace command bar and status strip
+
+       The last of the fulfilment vocabulary: the bar that fetches orders
+       from a marketplace, and the strip of order states you filter by.
+       ------------------------------------------------------------ */
+    .x-cmdbar {
+        padding: 14px 16px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .x-cmdbar__row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+    }
+
+    .x-cmdbar__field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .x-cmdbar__label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .x-cmdbar__date {
+        width: 168px;
+        max-width: 100%;
+    }
+
+    .x-cmdbar__check {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 4px 7px;
+        font-size: 13px;
+    }
+
+    .x-cmdbar__check input {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--bl-ink);
+    }
+
+    .x-cmdbar__actions {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .x-cmdbar__spacer {
+        flex: 1 1 16px;
+        min-width: 0;
+    }
+
+    .x-cmdbar__hint {
+        flex: 1 1 100%;
+        max-width: 78ch;
+        font-size: 12px;
+        color: var(--bl-ink-3);
+    }
+
+    /* Order states, as a row of counted filters. The active one is filled
+       ink because it states what you are looking at, and the counts are
+       tabular so the row reads as a set of quantities. */
+    /* The status strip is a control, not a full-bleed rule, so its box takes
+       the page gutter like every other painted thing. Without it the active
+       segment's filled pill pressed straight against the sidebar. */
+    .x-segment-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-width: 0;
+        padding: 10px var(--bl-pad);
+    }
+
+    .x-segment {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
+        padding: 3px;
+        overflow-x: auto;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+    }
+
+    .x-segment::-webkit-scrollbar {
+        display: none;
+    }
+
+    .x-segment__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        flex: none;
+        padding: 5px 12px;
+        border-radius: var(--bl-r-ctrl);
+        color: var(--bl-ink-2);
+        font-size: 12.5px;
+        font-weight: 550;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .x-segment__item:hover {
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+    }
+
+    .x-segment__item.is-active {
+        background: var(--bl-ink);
+        color: var(--bl-paper);
+        font-weight: 640;
+    }
+
+    .x-segment__count {
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-segment__item.is-active .x-segment__count {
+        color: color-mix(in srgb, var(--bl-paper) 70%, transparent);
+    }
+
+    .x-segment--sub {
+        padding: 0;
+        gap: 4px;
+        border: 0;
+        background: none;
+    }
+
+    .x-segment--sub .x-segment__item {
+        padding: 3px 10px;
+    }
+
+    .x-segment-bar__aside {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex: none;
+    }
+
+    .x-filters__select--wide { min-width: 232px; }
+    .x-filters__select--narrow { min-width: 132px; }
+
+    /* x-btn--secondary and x-btn--md need no rules: the base .x-btn already
+       is the secondary weight at the medium size, so a variant rule would
+       only restate it. Ghost is the one that genuinely differs. */
+    .x-btn--ghost {
+        border-color: transparent;
+        background: none;
+        color: var(--bl-ink-2);
+    }
+
+    .x-btn--ghost:hover {
+        border-color: var(--bl-rule-2);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+    }
+
+    .co-modal__body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px 0 0;
+    }
+
+    /* Shared utilities the panels use. */
+    .sp-hidden { display: none !important; }
+    .text-secondary { color: var(--bl-ink-2); }
+
+    @media (max-width: 900px) {
+        .x-cmdbar__spacer { display: none; }
+        .x-cmdbar__actions { width: 100%; }
+        .x-cmdbar__actions .x-btn { flex: 1; }
+        .x-cmdbar__field { flex: 1 1 140px; }
+        .x-cmdbar__date { width: 100%; }
+        .x-segment-bar { flex-direction: column; align-items: stretch; }
+        .x-segment-bar__aside { align-self: flex-start; }
+    }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       Order rows, product thumbnails and the delivery clock
+
+       The last of the marketplace vocabulary. The SLA chip is the one
+       genuinely time-critical mark in this application, so it is also the
+       one place a filled colour block is earned.
+       ------------------------------------------------------------ */
+    .co-itemrow {
+        padding: 9px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .co-itemrow--last {
+        border-bottom: 0;
+    }
+
+    .co-item__var {
+        padding: 1px 7px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+        color: var(--bl-ink-2);
+    }
+
+    .order-img-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 96px;
+        flex: none;
+        overflow: hidden;
+        border: 1px solid var(--bl-rule);
+        background: var(--bl-paper);
+    }
+
+    .order-img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* Time left to ship. A countdown is only useful if lateness is visible
+       across the room, so this is the one mark that fills with colour. */
+    .sla-chip-wrap {
+        display: block;
+        margin-top: 6px;
+    }
+
+    .sla-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-2);
+    }
+
+    .sla-chip__icon {
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        flex-shrink: 0;
+    }
+
+    .sla-chip__label {
+        font-family: var(--font-sans);
+        font-weight: 500;
+        color: var(--bl-ink-3);
+    }
+
+    .sla-chip__time {
+        font-weight: 700;
+    }
+
+    .sla-chip--ok {
+        border-color: var(--bl-good);
+        color: var(--bl-good);
+    }
+
+    .sla-chip--warn {
+        border-color: var(--bl-attn-fill);
+        background: var(--bl-attn-wash);
+        color: var(--bl-attn);
+    }
+
+    .sla-chip--crit {
+        border-color: var(--bl-bad);
+        background: var(--bl-bad-wash);
+        color: var(--bl-bad);
+    }
+
+    /* Already late. Filled, because by this point the row is costing money. */
+    .sla-chip--overdue {
+        border-color: var(--bl-bad);
+        background: var(--bl-bad);
+        color: #fff;
+    }
+
+    .sla-chip--overdue .sla-chip__label {
+        color: color-mix(in srgb, #fff 75%, transparent);
+    }
+
+    .x-badge--neutral {
+        color: var(--bl-ink-3);
+    }
+
+    .x-btn--sm {
+        padding: 3px 9px;
+        font-size: 12px;
+    }
+
+    /* Lazada's own column proportions. Widths only: everything about how a
+       cell looks comes from the shared table above. */
+    .lz-col-products { width: 29%; }
+    .lz-col-qty { width: 5%; }
+    .lz-col-price { width: 8%; }
+    .lz-col-total { width: 9%; }
+    .lz-col-ship { width: 11%; }
+    .lz-col-status { width: 12%; }
+    .lz-col-act { width: 26%; }
+
+    .lz-docs {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 12px;
+        margin-top: 8px;
+    }
+
+    .lz-docs__label {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--bl-ink-3);
+    }
+
+    .lz-doc {
+        position: relative;
+        z-index: 1;
+        font-size: 12px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+    }
+
+    .lz-doc:hover {
+        color: var(--bl-ink);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    @media (max-width: 900px) {
+        .lz-col-ship { display: none; }
+    }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       Command palette and the chrome that opens it
+
+       Dropped when the v2.2 shell was first built, which silently removed
+       Cmd+K from every converted page. Restored here: the component and
+       its JavaScript are unchanged, so the behaviour is exactly the one
+       the rest of the app already had.
+       ------------------------------------------------------------ */
+    .x-search-trigger {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        max-width: 420px;
+        padding: 6px 10px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink-3);
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .x-search-trigger:hover { border-color: var(--bl-ink-2); }
+    .x-search-trigger__label { flex: 1; min-width: 0; }
+
+    .x-search-trigger__hint {
+        flex: none;
+        padding: 1px 5px;
+        border: 1px solid var(--bl-rule);
+        border-radius: 3px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+    }
+
+    .x-account { position: relative; display: inline-flex; }
+
+    .x-account__avatar {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        flex: none;
+        border-radius: var(--bl-r-dot);
+        background: var(--bl-ink);
+        color: var(--bl-paper);
+        font-size: 10.5px;
+        font-weight: 650;
+    }
+
+    .x-account__name { font-size: 13px; font-weight: 550; }
+
+    .x-account__card { padding: 6px 14px 8px; border-bottom: 1px solid var(--bl-rule); }
+    .x-account__card-name { font-size: 13px; font-weight: 600; }
+    .x-account__card-email { font-size: 12px; color: var(--bl-ink-3); }
+
+    /* The palette itself: a sheet over the page, not a page of its own. */
+    .x-palette {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: flex;
+        justify-content: center;
+        padding: 12vh 16px 16px;
+    }
+
+    .x-palette__scrim {
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, var(--bl-ink) 45%, transparent);
+    }
+
+    .x-palette__panel {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 560px;
+        max-height: 70vh;
+        overflow: hidden;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+    }
+
+    .x-palette__search {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--bl-rule);
+        color: var(--bl-ink-3);
+    }
+
+    .x-palette__input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: var(--bl-ink);
+        font: inherit;
+        font-size: 14px;
+    }
+
+    .x-palette__input::placeholder { color: var(--bl-ink-3); }
+
+    .x-palette__results { overflow: auto; padding: 5px 0; }
+
+    .x-palette__group-title {
+        padding: 8px 14px 4px;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .x-palette__item {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 14px;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-2);
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .x-palette__item:hover,
+    .x-palette__item.is-active {
+        background: var(--bl-chrome);
+        color: var(--bl-ink);
+    }
+
+    .x-palette__item-title { font-weight: 550; }
+    .x-palette__item-meta { margin-left: auto; font-size: 11.5px; color: var(--bl-ink-3); }
+    .x-palette__item--record .x-palette__item-title { font-family: var(--font-mono); font-size: 12.5px; }
+
+    .x-palette__empty { padding: 22px 14px; text-align: center; font-size: 13px; color: var(--bl-ink-3); }
+
+    .x-palette__hints {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        padding: 8px 14px;
+        border-top: 1px solid var(--bl-rule);
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       Channel workspace shell
+
+       layouts/channel is a second shell: same top bar and content region,
+       but a sidebar scoped to one marketplace instead of the global nav.
+       Fifty-five views extend it, so dressing this one layout converts all
+       of them at once. Its class names are the ones ChannelWorkspaceTest
+       and FulfilmentHubTest already assert on, so they are kept exactly.
+       ------------------------------------------------------------ */
+    .x-app {
+        min-height: 100vh;
+        background: var(--bl-paper);
+        color: var(--bl-ink);
+    }
+
+    .x-shell {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    .x-sidebar {
+        display: flex;
+        flex-direction: column;
+        width: 216px;
+        flex: none;
+        border-right: 1px solid var(--bl-side-rule);
+        background: var(--bl-side-bg);
+        color: var(--bl-side-ink);
+    }
+
+    .x-sidebar__brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--bl-side-rule);
+        color: #fff;
+    }
+
+    .x-sidebar__mark {
+        width: 18px;
+        height: 18px;
+        flex: none;
+        border-radius: var(--bl-r-dot);
+        background: var(--bl-lime);
+    }
+
+    .x-sidebar__name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 640;
+    }
+
+    .x-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .x-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex: none;
+        /* The top bar sits outside the content region, so it takes the page
+           gutter directly: its search field has to line up with the page
+           beneath it. */
+        padding: 10px var(--bl-page-gutter);
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .x-topbar__crumb {
+        min-width: 0;
+        overflow: hidden;
+        font-size: 13px;
+        color: var(--bl-ink-2);
+    }
+
+    .x-topbar__right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: none;
+    }
+
+    .x-theme {
+        display: inline-flex;
+        gap: 1px;
+        padding: 2px;
+    }
+
+    .x-theme__btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 22px;
+        border: 0;
+        border-radius: var(--bl-r-dot);
+        background: none;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .x-theme__btn:hover { color: var(--bl-ink); }
+    .x-theme__btn.is-on { background: var(--bl-ink); color: var(--bl-paper); }
+
+    /* The content region carries no padding of its own: sections inside it
+       are full-bleed and take the gutter themselves, exactly as on the
+       global shell. */
+    .x-content {
+        flex: 1;
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Channel sidebar. */
+    .x-cnav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px;
+    }
+
+    .x-cnav__head {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px;
+    }
+
+    .x-cnav__name {
+        font-size: 14px;
+        font-weight: 640;
+        color: #fff;
+    }
+
+    .x-cnav__store {
+        font-size: 12px;
+        color: var(--bl-side-ink);
+    }
+
+    .x-cnav__back,
+    .x-cnav__item,
+    .x-cnav__child {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: none;
+        padding: 6px 8px;
+        border-radius: var(--bl-r-ctrl);
+        color: var(--bl-side-ink);
+        font-size: 13.5px;
+        text-decoration: none;
+    }
+
+    .x-cnav__back:hover,
+    .x-cnav__item:hover,
+    .x-cnav__child:hover {
+        background: var(--bl-side-hover);
+        color: #fff;
+    }
+
+    .x-cnav__item.is-active,
+    .x-cnav__child.is-active {
+        background: var(--bl-side-active);
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .x-cnav__back {
+        font-size: 12.5px;
+        border-bottom: 1px solid var(--bl-side-rule);
+        border-radius: 0;
+        padding-bottom: 10px;
+        margin-bottom: 4px;
+    }
+
+    .x-cnav__group { display: flex; flex-direction: column; gap: 1px; }
+
+    .x-cnav__group-label {
+        padding: 8px 8px 4px;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-side-ink);
+        opacity: .8;
+    }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       Flash messages and toasts
+
+       Rendered conditionally, which is why a class sweep over live pages
+       missed them: with no alert on screen there was no class to find, and
+       an unsized .alert__icon then drew a 1200px cross across the Shopee
+       workspace.
+
+       Shape matches fm-note deliberately: one hairline box, tone carried by
+       the border and the icon. The legacy version used a 3px coloured left
+       rule, which this world does not do.
+       ------------------------------------------------------------ */
+    .alert {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding: 10px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        font-size: 13px;
+        color: var(--bl-ink);
+    }
+
+    /* The one that actually mattered: without a size this is an unbounded
+       SVG and it fills the page. */
+    .alert__icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        margin-top: 1px;
+        color: var(--bl-ink-3);
+    }
+
+    .alert__list { margin: 0; padding-left: 18px; }
+
+    .alert.success { border-color: var(--bl-good); background: color-mix(in srgb, var(--bl-good) 7%, var(--bl-sheet)); }
+    .alert.success .alert__icon { color: var(--bl-good); }
+    .alert.danger { border-color: var(--bl-bad); background: var(--bl-bad-wash); }
+    .alert.danger .alert__icon { color: var(--bl-bad); }
+    .alert.warning { border-color: var(--bl-attn-fill); background: var(--bl-attn-wash); }
+    .alert.warning .alert__icon { color: var(--bl-attn); }
+    .alert.info { border-color: var(--bl-cool); background: color-mix(in srgb, var(--bl-cool) 7%, var(--bl-sheet)); }
+    .alert.info .alert__icon { color: var(--bl-cool); }
+
+    .alert a { color: var(--bl-brand-deep); }
+
+    .alert .alert-close {
+        position: absolute;
+        top: 9px;
+        right: 11px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-3);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .alert .alert-close:hover { color: var(--bl-ink); }
+
+    .toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 90;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 8px;
+        max-width: 400px;
+        pointer-events: none;
+    }
+
+    .toast-container .alert {
+        margin-bottom: 0;
+        pointer-events: auto;
+        box-shadow: var(--bl-lift);
+    }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       The last of it
+
+       What the bridge did not cover: breadcrumb, the channel overview's
+       health and waiting blocks, a handful of table column modifiers and
+       a few utility names. Small enough to author properly.
+       ------------------------------------------------------------ */
+
+    /* Breadcrumb. Integrations / Shopee / Listings. */
+    .x-crumb {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        font-size: 13px;
+    }
+
+    .x-crumb__part { color: var(--bl-ink-3); }
+    .x-crumb__part:last-child { color: var(--bl-ink); font-weight: 550; }
+    .x-crumb__sep { color: var(--bl-rule-2); }
+
+    .x-crumb__link {
+        color: var(--bl-ink-2);
+        text-decoration: none;
+    }
+
+    .x-crumb__link:hover { color: var(--bl-ink); text-decoration: underline; }
+
+    /* Channel overview: is this connection healthy, and what is queued. */
+    .x-overview-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px;
+        padding: 18px var(--bl-pad) 14px;
+    }
+
+    .x-health,
+    .x-waiting {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        border-block: 1px solid var(--bl-rule-2);
+        background: var(--bl-sheet);
+    }
+
+    /* Cells in a full-bleed row: their padding is internal spacing between
+       column dividers, never the page edge, so it is a literal. */
+    .x-health__cell,
+    .x-waiting__cell {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 13px 16px;
+        border-right: 1px solid var(--bl-rule);
+        min-width: 0;
+    }
+
+    .x-health__cell:last-child,
+    .x-waiting__cell:last-child { border-right: 0; }
+
+    .x-health__label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .x-health__value {
+        font-size: 17px;
+        font-weight: 640;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .x-cnav__state { font-size: 12px; color: var(--bl-side-ink); }
+
+    .x-filters__reset {
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .x-filters__reset:hover { color: var(--bl-ink); border-color: var(--bl-ink); }
+
+    /* Order detail leftovers. */
+    .od-card__foot {
+        padding: 10px 14px;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .od-empty {
+        padding: 22px 0;
+        text-align: center;
+        font-size: 13px;
+        color: var(--bl-ink-3);
+    }
+
+    .od-fact__va { font-variant-numeric: tabular-nums; }
+    .od-note--warn { border-color: var(--bl-attn-fill); background: var(--bl-attn-wash); }
+    .od-note__list { margin: 4px 0 0; padding-left: 18px; }
+    .od-paid__k { color: var(--bl-ink-3); font-size: 12.5px; }
+    .od-stamp__out { color: var(--bl-bad); }
+    .od-time__note { grid-column: 2; color: var(--bl-ink-3); font-size: 11.5px; }
+    .od-warn { color: var(--bl-attn); font-weight: 600; }
+
+    /* Variation and history table columns. Numbers right, identifiers mono. */
+    .fm-vcol-name { min-width: 160px; }
+    .fm-vcol-opt { width: 132px; }
+    .fm-vcol-sku { width: 128px; }
+    .fm-vcol-qty,
+    .fm-vcol-price,
+    .fm-vcol-cost { width: 104px; text-align: right; }
+    .fm-col-who { width: 148px; }
+    .fm-neg { color: var(--bl-bad); font-weight: 650; }
+
+    .po-lines__body { display: flex; flex-direction: column; }
+
+    /* Shopee panel odds and ends. */
+    .sp-col-order { width: 178px; }
+    .sp-col-buyer { width: 150px; }
+    .sp-buyer { font-size: 12.5px; }
+    .sp-item__qty { font-variant-numeric: tabular-nums; color: var(--bl-ink-2); }
+    .co-date { display: block; font-family: var(--font-mono); font-size: 11.5px; color: var(--bl-ink-3); }
+    .co-status__note { font-size: 11.5px; color: var(--bl-ink-3); }
+
+    /* Settings odds and ends. */
+    .st-code-input {
+        font-family: var(--font-mono);
+        letter-spacing: 0.28em;
+        text-align: center;
+    }
+
+    .st-token__title { font-size: 13px; font-weight: 650; }
+    .st-perm { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .st-set-form { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Small shared utilities the legacy sheets relied on. */
+    .text-muted { color: var(--bl-ink-3); }
+    .d-none { display: none !important; }
+    .is-untracked { color: var(--bl-ink-3); }
+    .automations-batch-form { display: contents; }
+}
+
+@layer components {
+    /* The last three that can actually appear on screen. The rest of the
+       sweep's remainder is markers (x-nav__*, co-page role classes), an
+       Alpine loop variable, and a Tailwind v3 name in a component the
+       Blotter pages do not use. */
+    .co-page,
+    .st-page { display: flex; flex-direction: column; }
+
+    .section-title {
+        font-size: 13px;
+        font-weight: 650;
+        margin-bottom: 8px;
+    }
+
+    /* Replaced in place by the rich text editor; visible only in the moment
+       before it initialises. */
+    textarea.wysiwyg { min-height: 180px; }
+}
+
+@layer components {
+    /* ------------------------------------------------------------
+       Sign in
+
+       The front door, and the one screen where brand colour leads rather
+       than annotates: navy ground, the mark in lime, the work surface a
+       white sheet. Everything past this point inverts that relationship.
+
+       This also retires the inline <style> block the old login page
+       carried, which the project's own rule forbids.
+       ------------------------------------------------------------ */
+    .auth {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        min-height: 100vh;
+        padding: 40px 20px;
+        background: var(--bl-side-bg);
+    }
+
+    .auth__brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .auth__logo {
+        height: 96px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .auth__name {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .auth__card {
+        width: 100%;
+        max-width: 380px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 24px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+    }
+
+    .auth__title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.015em;
+        color: var(--bl-ink);
+    }
+
+    .auth__form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .auth__row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .auth__check {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--bl-ink-2);
+        cursor: pointer;
+    }
+
+    .auth__check input {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--bl-ink);
+    }
+
+    .auth__link {
+        font-size: 12.5px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .auth__link:hover { color: var(--bl-ink); border-color: var(--bl-ink); }
+
+    .auth__submit {
+        width: 100%;
+        justify-content: center;
+        padding: 9px 14px;
+        font-size: 14px;
+    }
+
+    .auth__note {
+        font-size: 12px;
+        color: var(--bl-ink-3);
+        text-align: center;
+    }
+
+    /* Sign-in failures name the problem and nothing else. */
+    .auth__error,
+    .auth__status {
+        padding: 9px 12px;
+        border: 1px solid var(--bl-bad);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-bad-wash);
+        font-size: 13px;
+        color: var(--bl-bad);
+    }
+
+    .auth__status {
+        border-color: var(--bl-good);
+        background: color-mix(in srgb, var(--bl-good) 8%, var(--bl-sheet));
+        color: var(--bl-good);
+    }
+}
+
+@layer components {
+    /* The bar under a product image tile: its position marker and remove
+       control. The Blotter adapter styled the tile but never this row, so
+       the label sat hard against the tile's own border. */
+    .fm-img__bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 5px 8px;
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .fm-img__pos {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        color: var(--bl-ink-3);
+    }
+
+    .fm-img__x {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--bl-r-dot);
+        background: none;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .fm-img__x:hover {
+        background: var(--bl-bad-wash);
+        color: var(--bl-bad);
+    }
+}
+
+/* ============================================================
+   Hint: the question mark that withholds its prose until asked.
+
+   Explanatory sentences used to sit permanently under every command bar
+   and section heading. They are worth keeping and not worth reading
+   twice, so they moved in here: the control stays on screen, the
+   paragraph arrives on hover, focus or tap.
+
+   No JavaScript. Tapping the button focuses it, and focus and hover
+   share one rule, so all three inputs land in the same place.
+   ============================================================ */
+@layer components {
+    .bl-hint {
+        position: relative;
+        display: inline-flex;
+        vertical-align: middle;
+    }
+
+    .bl-hint__btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: 50%;
+        background: none;
+        color: var(--bl-ink-3);
+        font: inherit;
+        font-size: 10.5px;
+        font-weight: 600;
+        line-height: 1;
+        /* `help`, not `pointer`: nothing navigates and nothing submits. */
+        cursor: help;
+        transition: color .12s, border-color .12s, background-color .12s;
+    }
+
+    .bl-hint__btn:hover,
+    .bl-hint__btn:focus-visible {
+        border-color: var(--bl-ink-3);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+    }
+
+    .bl-hint__bubble {
+        position: absolute;
+        top: calc(100% + 7px);
+        left: 0;
+        z-index: 60;
+        width: max-content;
+        max-width: min(300px, 68vw);
+        padding: 9px 11px;
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-tip-bg);
+        box-shadow: var(--bl-lift);
+        color: var(--bl-tip-ink);
+        font-size: 12.5px;
+        font-weight: 400;
+        line-height: 1.45;
+        text-align: left;
+        text-transform: none;
+        letter-spacing: normal;
+        white-space: normal;
+        /* Withheld from sight, never from assistive technology: the button
+           points at this element with aria-describedby, and `visibility` or
+           `hidden` would take it out of the tree the description resolves
+           against. */
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-3px);
+        transition: opacity .14s ease, transform .14s ease;
+    }
+
+    .bl-hint__btn:hover + .bl-hint__bubble,
+    .bl-hint__btn:focus + .bl-hint__bubble {
+        opacity: 1;
+        transform: none;
+    }
+
+    /* A hint on a section heading belongs to the title, not to the far side
+       of the bar: fm-section__head is space-between, so without this it flew
+       to the right edge and read as if it explained the actions there. */
+    .fm-section__head > .bl-hint { margin-inline-end: auto; }
+
+    /* Anchored to whichever edge it is nearest, so the bubble opens into the
+       page instead of off it. Command bar actions are right-aligned, so a
+       hint sitting in one has nothing to its right to open into.
+
+       Only above the phone breakpoint: below it the bubble is not anchored to
+       the button at all (see below), and these would fight the left/right
+       pair that pins it to the viewport.
+
+       An earlier version also matched `.x-list-head > :last-child`, on the
+       assumption that the last child of a page head sits at the right. A head
+       with a single child is both its first and its last, so a hint at the
+       far LEFT of the page got right-anchored and opened off the left edge of
+       a phone. Position cannot be inferred from source order. */
+    /* A spacer in the row is what pushes the actions to the right, so it is
+       also the test for which way the bubble should open. Anchoring every
+       command bar hint to the right instead sent the bubble left across the
+       sidebar on the bars whose single button sits at the left. */
+    @media (min-width: 901px) {
+        .x-cmdbar__row:has(.x-cmdbar__spacer) .x-cmdbar__actions .bl-hint__bubble,
+        .bl-hint--end .bl-hint__bubble {
+            right: 0;
+            left: auto;
+        }
+    }
+
+    /* Below 900px there is not enough width to open a 300px bubble beside
+       anything, whichever edge it is anchored to, so it stops being anchored
+       to the button and becomes a sheet across the bottom of the screen: the
+       same move the phone OS makes, for the same reason. It is still the
+       button's description, still shown only while that button is focused.
+
+       900px rather than a new number of its own, because that is already
+       where the command bar drops its spacer and sends the actions full
+       width. One breakpoint, one layout regime. */
+    @media (max-width: 900px) {
+        .bl-hint__bubble {
+            position: fixed;
+            inset: auto 12px 12px;
+            z-index: 200;
+            width: auto;
+            max-width: none;
+            transform: translateY(6px);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bl-hint__bubble { transition: none; transform: none; }
+    }
+}

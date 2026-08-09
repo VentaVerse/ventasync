@@ -4,6 +4,7 @@ import './invoice-copy';
 import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
+import './thumb-fallback';
 import './list-filters';
 import './legacy-flash';
 import './pages/shopee-orders';

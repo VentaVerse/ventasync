@@ -1,0 +1,1231 @@
+/* ============================================================
+   VentaSync v2.2 interface bundle: "The Blotter"
+
+   One rule governs this file: colour may only ever mean state.
+   Amber needs a person, green is settled, red is trouble, and one
+   solid swatch identifies a sales channel. Nothing is coloured
+   because it looked plain, which is what keeps this from drifting
+   back into a bought-template admin panel.
+
+   Structure comes from hairline rules and tabular figures, not from
+   cards and shadows. Elevation exists but is rationed: floating surfaces and the one primary
+   action per screen, nothing else.
+   ============================================================ */
+
+@import 'tailwindcss';
+
+/* The shared component layer, dressed in this world. Imported here rather
+   than inlined so the adapter can be deleted in one move once the last view
+   has left the legacy class names behind. */
+@import './blotter-bridge.css';
+@import './blotter-components.css';
+@import './blotter-pages.css';
+@import './blotter-extensions.css';
+
+/* Blade lives outside Tailwind's default source detection once a view sits
+   in an extension folder, so both roots are declared explicitly. */
+@source '../views';
+@source '../../extensions/**/views';
+
+/* ------------------------------------------------------------
+   Faces
+
+   Archivo carries a width axis (62-125%), which is why the column
+   headers can be condensed and the body text normal from a single
+   file. JetBrains Mono is reserved for SKUs, order references and
+   locations, where telling 0 from O is real work rather than a
+   costume for looking technical.
+   ------------------------------------------------------------ */
+@font-face {
+    font-family: 'Archivo';
+    font-style: normal;
+    font-weight: 400 700;
+    font-stretch: 62% 125%;
+    font-display: swap;
+    src: url('../fonts/Archivo-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Archivo';
+    font-style: normal;
+    font-weight: 400 700;
+    font-stretch: 62% 125%;
+    font-display: swap;
+    src: url('../fonts/Archivo-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+        U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+        U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'JB Mono';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('../fonts/JetBrainsMono.woff2') format('woff2');
+}
+
+/* ------------------------------------------------------------
+   Palette
+
+   Held in plain custom properties rather than directly in @theme so
+   the existing theme switch (data-theme on <html>, set before first
+   paint by partials/theme-boot) can swap them at runtime. @theme
+   below points Tailwind's utilities at these.
+
+   Light is the working default: the physical scene is a fluorescent
+   back office in daylight and a bright warehouse floor seen on a
+   phone. Dark is a real second theme for evening reconciliation, not
+   an inverted copy.
+   ------------------------------------------------------------ */
+:root {
+    /* Surfaces. Cool near-white rather than warm bond paper: it holds more
+       contrast against the ink, and it stops the neutrals carrying a beige
+       cast that dark mode then has to undo. */
+    --bl-paper: #f7f8fa;
+    --bl-sheet: #ffffff;
+    --bl-chrome: #eef0f4;
+    --bl-chrome-2: #e4e7ee;
+
+    /* Ink is the logo's navy, not a neutral black. Every rule and every
+       figure inherits a trace of the brand without anything being tinted. */
+    --bl-ink: #0b1228;
+    --bl-ink-2: #4a5468;
+    --bl-ink-3: #5f6b85;
+    --bl-rule: #e6e9ef;
+    --bl-rule-2: #d2d8e2;
+
+    /* State. Unchanged in meaning, slightly more chromatic so it still
+       reads at a glance on a brighter ground. Each one clears 4.5:1 on
+       white as text; the fills clear 3:1 as marks. */
+    --bl-attn: #a35f05;
+    --bl-attn-fill: #c77a0a;
+    --bl-attn-wash: #fdf6ea;
+    --bl-good: #0c7a54;
+    --bl-bad: #cb3327;
+    --bl-bad-wash: #fdeeec;
+    --bl-cool: #2563a5;
+
+    /* Brand. Cyan means "you can act on this": focus, the active row, the
+       period in progress. Lime is reserved for the mark itself and is never
+       allowed to carry meaning, because a colour that means two things
+       means neither. */
+    --bl-brand: #4fb9d4;
+    --bl-brand-deep: #1c7f9b;
+    --bl-lime: #c2ec42;
+
+    /* Navigation chrome. The sidebar carries the identity so the work
+       surface can stay white and keep its contrast. */
+    --bl-side-bg: #0b1228;
+    --bl-side-ink: #97a4bd;
+    --bl-side-hover: #16203c;
+    --bl-side-active: #1d2a4d;
+    --bl-side-rule: #1b2542;
+
+    /* Materials. 2026 rather than 1985: softer corners, and exactly one
+       elevation, spent on things that genuinely float above the page. */
+    --bl-r-panel: 10px;
+    --bl-r-ctrl: 6px;
+    --bl-r-dot: 2px;
+    --bl-lift: 0 1px 2px rgba(11, 18, 40, .06), 0 14px 30px -18px rgba(11, 18, 40, .34);
+
+    /* The page gutter.
+
+       Sections here are full-bleed by design: a band, a strip and a table
+       all run edge to edge so the columns can line up down the page. But
+       full-bleed is about the RULE reaching the edge, not the text. Without
+       a gutter the first column presses against the sidebar and the last
+       one against the window, which is what "0 today" and a timestamp
+       ending in a stray digit were doing.
+
+       One token, so every full-bleed row and every outer table cell keeps
+       the same distance from the edge. */
+    /* The hint bubble inverts against the page so it reads as an overlay
+       and not as another panel. */
+    --bl-tip-bg: #0b1228;
+    --bl-tip-ink: #f2f5fa;
+
+    --bl-page-gutter: 28px;
+
+    /* Sections used to carry the gutter themselves, which meant every new
+       section was a fresh chance to forget it, and bridged pages that this
+       project never wrote could not carry it at all. The content region
+       owns it now. --bl-gutter is re-declared as zero inside that region
+       (see .x-content below) so every rule that already asks for it
+       resolves to nothing rather than doubling. */
+    --bl-gutter: var(--bl-page-gutter);
+
+    /* A section's OWN horizontal padding, which is a different thing from
+       the page edge and must not be the same token. Overloading one value
+       for both is what stripped the padding off the dashboard's side rail
+       and the channel overview's cells the moment the page gutter moved to
+       the container. Zero at page level (the container already inset the
+       page); a rail or a cell opts back in. */
+    --bl-pad: 18px;
+
+    /* How far a column's content sits from the divider beside it. Separate
+       from --bl-pad because it applies to ONE side of a column, not to a
+       section's own box. */
+    --bl-col-pad: 18px;
+
+    /* Column labels. Sentence case at normal width: the wide-tracked
+       uppercase micro-cap was the single most dating detail in the build. */
+    --bl-lab-size: 11.5px;
+    --bl-lab-track: 0.005em;
+    --bl-lab-case: none;
+    --bl-lab-stretch: 100%;
+    --bl-lab-weight: 500;
+}
+
+[data-theme='dark'] {
+    --bl-tip-bg: #e8edf6;
+    --bl-tip-ink: #0b1228;
+
+    --bl-paper: #0a0f1c;
+    --bl-sheet: #111828;
+    --bl-chrome: #0d1424;
+    --bl-chrome-2: #1a2338;
+    --bl-ink: #eef1f7;
+    --bl-ink-2: #a7b1c5;
+    --bl-ink-3: #8792a9;
+    --bl-rule: #1e2739;
+    --bl-rule-2: #2c3852;
+
+    --bl-attn: #e8a851;
+    --bl-attn-fill: #c77a0a;
+    --bl-attn-wash: #2a2013;
+    --bl-good: #3fc48d;
+    --bl-bad: #f0705f;
+    --bl-bad-wash: #2e1715;
+    --bl-cool: #79a9e0;
+
+    --bl-brand: #62c8e0;
+    --bl-brand-deep: #8fd9ea;
+    --bl-lime: #c2ec42;
+
+    /* In dark the sidebar goes deeper than the page rather than lighter,
+       so the chrome still reads as chrome and not as another panel. */
+    --bl-side-bg: #060a14;
+    --bl-side-ink: #8592ab;
+    --bl-side-hover: #121b30;
+    --bl-side-active: #1a2540;
+    --bl-side-rule: #16203a;
+
+    --bl-lift: 0 1px 2px rgba(0, 0, 0, .5), 0 14px 30px -18px rgba(0, 0, 0, .8);
+}
+
+@theme {
+    --color-paper: var(--bl-paper);
+    --color-sheet: var(--bl-sheet);
+    --color-chrome: var(--bl-chrome);
+    --color-chrome-2: var(--bl-chrome-2);
+    --color-ink: var(--bl-ink);
+    --color-ink-2: var(--bl-ink-2);
+    --color-ink-3: var(--bl-ink-3);
+    --color-rule: var(--bl-rule);
+    --color-rule-2: var(--bl-rule-2);
+    --color-attn: var(--bl-attn);
+    --color-attn-fill: var(--bl-attn-fill);
+    --color-attn-wash: var(--bl-attn-wash);
+    --color-good: var(--bl-good);
+    --color-bad: var(--bl-bad);
+    --color-bad-wash: var(--bl-bad-wash);
+    --color-cool: var(--bl-cool);
+
+    --color-brand: var(--bl-brand);
+    --color-brand-deep: var(--bl-brand-deep);
+    --color-lime: var(--bl-lime);
+
+    --color-side: var(--bl-side-bg);
+    --color-side-ink: var(--bl-side-ink);
+    --color-side-hover: var(--bl-side-hover);
+    --color-side-active: var(--bl-side-active);
+    --color-side-rule: var(--bl-side-rule);
+
+    --font-sans: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JB Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --radius-ctrl: var(--bl-r-ctrl);
+    --radius-panel: var(--bl-r-panel);
+}
+
+/* ------------------------------------------------------------
+   Base
+   ------------------------------------------------------------ */
+@layer base {
+    html {
+        background: var(--bl-paper);
+    }
+
+    body {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--bl-ink);
+        background: var(--bl-paper);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Every figure in this interface aligns on its decimal. */
+    table,
+    .bl-num {
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Cyan, because focus is the clearest case of "you can act on this".
+       Amber stays reserved for "this needs you", which is a different
+       sentence and must not be said by the same colour. */
+    :focus-visible {
+        outline: 2px solid var(--bl-brand);
+        outline-offset: 1px;
+    }
+
+    /* Alpine paints after first paint; without this, every collapsed group
+       and closed menu flashes open on load. */
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+/* ------------------------------------------------------------
+   Ledger primitives
+
+   These earn a component class rather than a utility string because
+   each one is a rule about meaning, not a bundle of spacing. A state
+   token is a square plus a word; a band cell is a figure that links
+   somewhere. Repeating those as utilities across 100 views is how
+   the meaning drifts.
+   ------------------------------------------------------------ */
+@layer components {
+    /* Column label: condensed, uppercase, quiet. */
+    .bl-label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    /* The trading band: equal ruled cells, no cards, no shadows. */
+    .bl-band {
+        display: grid;
+        border-block: 1px solid var(--bl-rule-2);
+        background: var(--bl-sheet);
+    }
+
+    /* A cell in a full-bleed row. Its padding is the space between column
+       dividers, not the page edge, so it is a literal; the outer cells add
+       the page gutter on top further down. */
+    .bl-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 14px 18px 13px;
+        border-right: 1px solid var(--bl-rule);
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .bl-cell:last-child {
+        border-right: 0;
+    }
+
+    a.bl-cell:hover {
+        background: color-mix(in srgb, var(--bl-brand) 5%, var(--bl-sheet));
+    }
+
+    /* Fluid so a seven-figure peso amount cannot push the band past the
+       viewport at 1280 or 1440, which is where an ERP is actually read. */
+    .bl-figure {
+        font-size: clamp(24px, 2.1vw, 34px);
+        line-height: 1.02;
+        font-weight: 640;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .bl-figure small {
+        font-size: 0.55em;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+
+    /* Ledger table. Rules do the separating; there is no zebra striping,
+       because a coloured row would have to mean something. */
+    .bl-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bl-sheet);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .bl-table th {
+        padding: 7px 12px;
+        text-align: left;
+        white-space: nowrap;
+        border-block: 1px solid var(--bl-rule-2);
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    .bl-table td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--bl-rule);
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .bl-table tbody tr:hover td {
+        background: color-mix(in srgb, var(--bl-brand) 4%, var(--bl-sheet));
+    }
+
+    .bl-table .num {
+        text-align: right;
+        font-weight: 550;
+    }
+
+    /* Wide tables scroll inside their own container so the page never does. */
+    .bl-scroll {
+        overflow-x: auto;
+    }
+
+    /* One chart column, one SVG. A single stretched SVG would scale its bars
+       to the container, so a five-year range would draw five wide slabs;
+       per-column SVGs let the row cap how wide a bar can get. The height
+       comes from the data and travels as a geometry attribute, never as an
+       inline style. */
+    .bl-col {
+        flex: 1 1 0;
+        max-width: 20px;
+        height: 100%;
+        align-self: stretch;
+    }
+
+    .bl-col rect {
+        fill: var(--bl-ink);
+    }
+
+    /* The period in progress. Amber because it is the one column still
+       moving, which is a state, not decoration. */
+    .bl-col-now rect {
+        fill: var(--bl-attn-fill);
+    }
+
+    /* State token: a solid square and a word. Never a pill, never a
+       tinted capsule, and the word is never carried by colour alone. */
+    .bl-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .bl-state i {
+        width: 8px;
+        height: 8px;
+        flex: none;
+    }
+
+    .bl-state-attn { color: var(--bl-attn); }
+    .bl-state-attn i { background: var(--bl-attn-fill); }
+    .bl-state-good { color: var(--bl-good); }
+    .bl-state-good i { background: var(--bl-good); }
+    .bl-state-bad { color: var(--bl-bad); }
+    .bl-state-bad i { background: var(--bl-bad); }
+    .bl-state-cool { color: var(--bl-cool); }
+    .bl-state-cool i { background: var(--bl-cool); }
+    .bl-state-off { color: var(--bl-ink-3); }
+    .bl-state-off i { background: var(--bl-rule-2); }
+
+    /* Channel swatch: the one place a brand colour is allowed, and only
+       ever as identity next to the written name. */
+    .bl-swatch {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        flex: none;
+        vertical-align: baseline;
+        /* Every swatch carries a hairline ring. Channel colours come from the
+           marketplaces themselves, and some of them (TikTok's #111) vanish
+           against their own theme's ground without it. */
+        box-shadow: 0 0 0 1px var(--bl-rule-2);
+    }
+
+    .bl-swatch-empty {
+        background: transparent;
+        box-shadow: inset 0 0 0 1px var(--bl-rule-2);
+    }
+
+    .bl-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font-size: 13px;
+        font-weight: 560;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .bl-btn:hover {
+        border-color: var(--bl-ink-2);
+    }
+
+    .bl-btn-primary {
+        background: var(--bl-ink);
+        border-color: var(--bl-ink);
+        color: var(--bl-paper);
+    }
+
+    .bl-btn-sm {
+        padding: 3px 9px;
+        font-size: 12px;
+    }
+
+    /* Inputs. A field is a ruled slot on the sheet, not a rounded pill: the
+       same hairline that separates a table row separates a value from its
+       label. */
+    .bl-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font: inherit;
+        font-size: 13px;
+    }
+
+    .bl-input::placeholder {
+        color: var(--bl-ink-3);
+    }
+
+    .bl-input:focus {
+        border-color: var(--bl-ink-2);
+    }
+
+    .bl-label-text {
+        display: block;
+        margin-bottom: 4px;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        text-transform: var(--bl-lab-case);
+        color: var(--bl-ink-3);
+    }
+
+    /* Row selection. Square, ink, no custom control: a checkbox that looks
+       like a checkbox is the one affordance nobody has to learn. */
+    .bl-check {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--bl-ink);
+        cursor: pointer;
+    }
+
+    /* Sortable column header. The arrow only appears on the sorted column,
+       so the header row does not read as six controls competing. */
+    .bl-sort {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .bl-sort:hover {
+        color: var(--bl-ink);
+    }
+
+    /* Product thumbnail. Fixed square so a ragged set of source images
+       cannot make the rows different heights. */
+    .bl-thumb {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        flex: none;
+        overflow: hidden;
+        border: 1px solid var(--bl-rule);
+        background: var(--bl-paper);
+        font-size: 9px;
+        color: var(--bl-ink-3);
+    }
+
+    /* The image sits over its own placeholder rather than beside it, so
+       thumb-fallback.js can remove a broken one and the placeholder is
+       already in place underneath. */
+    .bl-thumb img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .bl-menu {
+        position: absolute;
+        right: 0;
+        z-index: 30;
+        min-width: 176px;
+        margin-top: 4px;
+        border: 1px solid var(--bl-rule-2);
+        background: var(--bl-sheet);
+        padding: 4px 0;
+    }
+
+    .bl-menu a,
+    .bl-menu button {
+        display: block;
+        width: 100%;
+        padding: 6px 14px;
+        border: 0;
+        background: none;
+        color: var(--bl-ink-2);
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .bl-menu a:hover,
+    .bl-menu button:hover {
+        background: var(--bl-chrome-2);
+        color: var(--bl-ink);
+    }
+
+    .bl-menu button.is-danger:hover {
+        color: var(--bl-bad);
+    }
+
+    .bl-mono {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        letter-spacing: -0.02em;
+        color: var(--bl-ink-2);
+    }
+
+    /* Panel heading. Deliberately small: on an operate surface the data is
+       the headline and the heading is a label for it. */
+    .bl-panel-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        /* A floor, so a heading carrying a trailing link is not half a pixel
+           taller than one that does not. Two headings side by side must put
+           their cards on the same line. */
+        min-height: 2rem;
+        padding-block: 15px 9px;
+        padding-left: var(--bl-pad-l, 0px);
+        padding-right: var(--bl-pad-r, 0px);
+    }
+
+    .bl-panel-head h2,
+    .bl-panel-head h3 {
+        font-size: 13px;
+        font-weight: 650;
+    }
+
+    /* ------------------------------------------------------------
+       Shared confirm dialog.
+
+       partials/confirm-modal is one dialog for the whole application and
+       resources/js/confirm-modal.js binds it by id, toggling .active on the
+       backdrop and swapping x-btn--danger / x-btn--primary on the confirm
+       control. Those class names are the contract, so the Blotter dresses
+       them rather than forking the partial and the behaviour with it. Red
+       here keeps meaning "this removes something".
+       ------------------------------------------------------------ */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: color-mix(in srgb, var(--bl-ink) 45%, transparent);
+    }
+
+    .modal-backdrop.active {
+        display: flex;
+    }
+
+    .modal {
+        width: 100%;
+        max-width: 460px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        padding: 18px;
+    }
+
+    .modal--sm {
+        max-width: 400px;
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .modal-header h3 {
+        font-size: 15px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+    }
+
+    .modal-close {
+        margin-left: auto;
+        border: 0;
+        background: none;
+        font-size: 20px;
+        line-height: 1;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .modal-close:hover {
+        color: var(--bl-ink);
+    }
+
+    .x-confirm__message {
+        padding: 14px 0 16px;
+        font-size: 13.5px;
+        color: var(--bl-ink-2);
+    }
+
+    .modal .d-flex {
+        display: flex;
+    }
+
+    .modal .justify-end {
+        justify-content: flex-end;
+    }
+
+    .modal .gap-8 {
+        gap: 8px;
+    }
+
+    .x-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 560;
+        cursor: pointer;
+    }
+
+    .x-btn--primary {
+        background: var(--bl-ink);
+        border-color: var(--bl-ink);
+        color: var(--bl-paper);
+    }
+
+    /* Destructive controls come in two weights, because they do two
+       different jobs. An inline Remove sits among ordinary controls and
+       must not outshout the page's primary action, so it is outlined. The
+       confirm dialog's own button IS the destructive act, and it is filled.
+       A page covered in solid red buttons teaches people to ignore red. */
+    .x-btn--danger {
+        border-color: var(--bl-bad);
+        background: var(--bl-sheet);
+        color: var(--bl-bad);
+    }
+
+    .x-btn--danger:hover {
+        background: var(--bl-bad-wash);
+    }
+
+    #x-confirm-modal-ok.x-btn--danger {
+        background: var(--bl-bad);
+        border-color: var(--bl-bad);
+        color: #fff;
+    }
+}
+
+/* ------------------------------------------------------------
+   Motion: one authored moment, on the band, at page load. Anything
+   the operator triggers themselves is instant, because a person
+   waiting on an animation to read a figure is a person being made
+   to wait for nothing.
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+    .bl-band > .bl-cell {
+        animation: bl-cell-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    }
+    .bl-band > .bl-cell:nth-child(2) { animation-delay: 0.05s; }
+    .bl-band > .bl-cell:nth-child(3) { animation-delay: 0.1s; }
+    .bl-band > .bl-cell:nth-child(4) { animation-delay: 0.15s; }
+    .bl-band > .bl-cell:nth-child(5) { animation-delay: 0.2s; }
+}
+
+@keyframes bl-cell-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ============================================================
+   2026 materials
+
+   The rendition the owner chose: same layout, same rules about meaning,
+   current materials. Corners were tokenised in place above; this block
+   handles the two things that need to know WHICH surface they are on.
+
+   Elevation is spent, deliberately, on exactly two categories: things
+   that genuinely float over the page (menus, dropdowns, dialogs), and
+   the one primary action per screen. A dense operational page where
+   every panel is lifted is the bought-template look wearing a shadow.
+   ============================================================ */
+@layer components {
+    /* Large surfaces take the panel radius. Everything else keeps the
+       control radius it inherited. */
+    .fm-card,
+    .od-card,
+    .x-hub__card,
+    .x-cmdbar,
+    .fm-vars__card,
+    .fm-metrics,
+    .fm-stats,
+    .st-facts,
+    .st-cron,
+    .st-install,
+    .rp-band,
+    .op-band,
+    .fm-note,
+    .od-note,
+    .fm-img__empty,
+    .fm-pick__drop,
+    .bl-menu,
+    .x-menu__panel,
+    .fm-ta__list,
+    .modal {
+        border-radius: var(--bl-r-panel);
+    }
+
+    /* Off the page, so lifted. */
+    .bl-menu,
+    .x-menu__panel,
+    .fm-ta__list,
+    .modal {
+        box-shadow: var(--bl-lift);
+    }
+
+    /* The primary action, and only the primary action. */
+    .bl-btn-primary,
+    .x-btn--primary {
+        box-shadow: var(--bl-lift);
+    }
+
+    /* State marks and channel swatches get the faintest rounding. They stay
+       square in character: a circle would read as a status light from a
+       different design language. */
+    .bl-state i,
+    .bl-swatch,
+    .x-badge__dot,
+    .st i {
+        border-radius: var(--bl-r-dot);
+    }
+
+    /* The period still in progress, on any chart. Cyan rather than amber:
+       "this is now" is not "this needs you". */
+    .bl-col-now rect {
+        fill: var(--bl-brand);
+    }
+}
+
+@layer components {
+    /* The outer columns of a full-bleed table keep the page gutter, so a
+       first cell never presses against the sidebar and a last cell never
+       runs into the window. The rule still reaches both edges. */
+    .bl-table th:first-child,
+    .bl-table td:first-child,
+    .x-table th:first-child,
+    .x-table td:first-child,
+    .fm-vars__table th:first-child,
+    .fm-vars__table td:first-child {
+        padding-left: var(--bl-pad);
+    }
+
+    .bl-table th:last-child,
+    .bl-table td:last-child,
+    .x-table th:last-child,
+    .x-table td:last-child,
+    .fm-vars__table th:last-child,
+    .fm-vars__table td:last-child {
+        padding-right: var(--bl-pad);
+    }
+
+    /* Same for the band, the channel strip and the fulfilment cards: the
+       outer cell's own padding is the gutter, the inner ones stay tight so
+       the columns keep their rhythm. */
+    .bl-band > :first-child,
+    .strip > :first-child,
+    .x-fh-strip > :first-child,
+    .x-fh-card:first-child {
+        padding-left: var(--bl-pad);
+    }
+
+    .bl-band > :last-child,
+    .strip > :last-child,
+    .x-fh-strip > :last-child,
+    .x-fh-card:last-child {
+        padding-right: var(--bl-pad);
+    }
+
+    /* Narrow screens have no sidebar to clear and much less width to give
+       away, so the gutter tightens rather than eating the content. */
+    @media (max-width: 700px) {
+        :root { --bl-page-gutter: 16px; }
+    }
+}
+
+@layer components {
+    /* A page heading that sits straight in the content area, with no
+       wrapper to carry padding for it. The settings hub does exactly this,
+       which is how "Settings" ended up flush against the sidebar. Zeroed
+       again wherever a container already provides the gutter. */
+    .x-page-title,
+    .x-page-sub {
+        padding-inline: var(--bl-pad);
+    }
+
+    .x-list-head .x-page-title,
+    .x-list-head .x-page-sub,
+    .fm-head .x-page-title,
+    .fm-head .x-page-sub,
+    .x-fh-head .x-page-title,
+    .x-fh-head .x-page-sub {
+        padding-inline: 0;
+    }
+}
+
+@layer components {
+    /* One name for the page gutter, so a view never has to pick a number.
+       Every ad-hoc px-4.5 / px-5 / px-7 in a Blotter view was a chance for
+       two sections to disagree about where the page edge is. */
+    .px-gutter {
+        padding-left: var(--bl-pad-l, 0px);
+        padding-right: var(--bl-pad-r, 0px);
+    }
+    .pl-gutter { padding-left: var(--bl-pad); }
+    .pr-gutter { padding-right: var(--bl-pad); }
+}
+
+@layer components {
+    /* Collapsible nav group.
+
+       A height transition needs a height, and a list of links does not have
+       one until it is open. The 0fr to 1fr grid row gives the browser both
+       ends of the animation without anyone measuring anything, so the group
+       expands and collapses smoothly in both directions. */
+    .bl-collapse {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+    }
+
+    .bl-collapse.is-open { grid-template-rows: 1fr; }
+
+    .bl-collapse__inner {
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    /* Breathing room under an open group only. Left on the inner element it
+       survived the clip and every closed group kept a 4px ghost, which read
+       as uneven spacing down the sidebar. */
+    .bl-collapse.is-open .bl-collapse__inner { padding-bottom: 4px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bl-collapse { transition: none; }
+    }
+
+    /* ------------------------------------------------------------
+       Gutter corrections found by the page audit
+
+       Panels that sit straight in the content region rather than inside a
+       page wrapper were reaching the edge on their own. Margin rather than
+       padding, so the panel's border stays inside the gutter with it.
+       ------------------------------------------------------------ */
+    .x-cmdbar,
+    .st-cron,
+    .st-facts,
+    .st-install,
+    .rp-band,
+    .op-band {
+        margin-inline: var(--bl-gutter);
+    }
+
+    /* Bridged channel pages have their own page wrapper and no padding of
+       their own; this is where their gutter comes from. */
+    .x-content > .cc-page,
+    .x-content > .co-page,
+    .x-content > .alert,
+    .x-content > .fm-section,
+    .x-fh-panel > .alert {
+        padding-inline: var(--bl-pad);
+    }
+
+    /* A panel already inset by the rule above must not be inset twice. */
+    .cc-page .x-cmdbar,
+    .co-page .x-cmdbar,
+    .x-content > .cc-page .st-cron {
+        margin-inline: 0;
+    }
+
+    /* The dashboard's channel strip, on the same terms as the band: the row
+       bleeds, the outer cells carry the gutter. */
+    /* The sub-tab strip under a marketplace tab (To Pack / To Arrange
+       Shipment / To Handover) is rendered bare, with no segment-bar wrapper
+       to carry the gutter for it, so it takes its own. Only appears on the
+       To Ship and Failed Delivery tabs, which is why a page audit of default
+       tabs never saw it. */
+    .x-segment--sub { margin-inline: var(--bl-gutter); }
+    .x-segment-bar .x-segment--sub { margin-inline: 0; }
+
+    .bl-strip > * { padding-inline: 16px; }
+    .bl-strip > :first-child { padding-left: var(--bl-pad); }
+    .bl-strip > :last-child { padding-right: var(--bl-pad); }
+}
+
+@layer components {
+    /* ============================================================
+       The page gutter, in one place.
+
+       Every page on this shell is inset by the same amount, whatever it
+       renders: tabs, search fields, cards, tables, bands, bridged legacy
+       vocabularies this project never wrote. Nothing has to opt in.
+
+       Zeroing --bl-gutter here is what makes that safe. Sections written
+       earlier still say padding: 14px var(--bl-pad); inside this region
+       that now resolves to 14px 0, so the container's gutter is the only
+       one and nothing is inset twice.
+       ============================================================ */
+    .x-content {
+        padding-inline: var(--bl-page-gutter);
+        --bl-gutter: 0px;
+        --bl-pad: 0px;
+        /* Per-side, because a column's two edges are not the same thing. */
+        --bl-pad-l: 0px;
+        --bl-pad-r: 0px;
+    }
+
+    /* Columns in a split.
+
+       A column has two different kinds of edge and they need different
+       treatment: the side facing the page edge is the container's job and
+       must stay at zero, while the side facing the divider between columns
+       needs holding off it. Padding the whole column (which is what
+       --bl-pad: 18px on the rail did) gets the second right and the first
+       wrong, so the rail's figures sat 46px from the window while the table
+       above them sat at 28.
+
+       Stated once, so the next split gets it without anyone remembering. */
+    /* Padding the column itself insets its SURFACES too: the orders table
+       stopped 18px short of the divider and left a strip of page showing
+       through. The column instead publishes how much padding its sections
+       should take on each side, so the white reaches the divider and only
+       the text is held off it. */
+    .bl-split > :first-child { --bl-pad-r: var(--bl-col-pad); }
+    .bl-split > :last-child { --bl-pad-l: var(--bl-col-pad); }
+
+    @media (max-width: 1279px) {
+        /* Stacked: there is no divider, so there is nothing to hold off. */
+        .bl-split > :first-child,
+        .bl-split > :last-child { --bl-pad-l: 0px; --bl-pad-r: 0px; }
+    }
+
+    /* The three places that ADD to a cell's own padding rather than
+       replacing it, so they keep working under either model. */
+    .bl-table th:first-child,
+    .bl-table td:first-child,
+    .x-table th:first-child,
+    .x-table td:first-child,
+    .fm-vars__table th:first-child,
+    .fm-vars__table td:first-child {
+        padding-left: calc(12px + var(--bl-gutter) + var(--bl-pad-l, 0px));
+    }
+
+    .bl-table th:last-child,
+    .bl-table td:last-child,
+    .x-table th:last-child,
+    .x-table td:last-child,
+    .fm-vars__table th:last-child,
+    .fm-vars__table td:last-child {
+        padding-right: calc(12px + var(--bl-gutter) + var(--bl-pad-r, 0px));
+    }
+
+    .bl-band > :first-child { padding-left: calc(18px + var(--bl-gutter)); }
+    .bl-band > :last-child { padding-right: calc(18px + var(--bl-gutter)); }
+    .bl-strip > :first-child { padding-left: calc(16px + var(--bl-gutter)); }
+    .bl-strip > :last-child { padding-right: calc(16px + var(--bl-gutter)); }
+    .x-fh-strip > :first-child { padding-left: calc(16px + var(--bl-gutter)); }
+    .x-fh-strip > :last-child { padding-right: calc(16px + var(--bl-gutter)); }
+}
+
+@layer components {
+    /* Row actions shown inline rather than folded into a menu. The column
+       takes only the width its buttons need (width: 1% plus nowrap is the
+       shrink-to-fit idiom), so the columns beside it keep the rest. */
+    .bl-col-actions {
+        width: 1%;
+        white-space: nowrap;
+        text-align: right;
+    }
+
+    .bl-rowactions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+}
+
+@layer components {
+    /* A rail card. The table in the column beside it is bounded by its own
+       rules, so a block of loose figures next to it reads as unfinished. A
+       hairline box, no shadow: the panel language this world already uses.
+       Held off the divider by the column's own padding token, and ending at
+       the page gutter like everything else. */
+    /* Card spacing rides on the siblings rather than on `gap`, because the
+       stack's first child is a heading and a heading must NOT take the card
+       gap: its own bottom padding is its spacing, exactly as on the table
+       heading in the column beside it. With `gap` the two columns started
+       13px out of step. */
+    .bl-rail-stack {
+        display: flex;
+        flex-direction: column;
+        padding-left: var(--bl-pad-l, 0px);
+    }
+
+    .bl-rail-stack > * + * { margin-top: 14px; }
+    .bl-rail-stack > .bl-panel-head { padding-block: 4px 8px; }
+    .bl-rail-stack > .bl-panel-head + * { margin-top: 0; }
+
+    .bl-panel {
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        overflow: hidden;
+    }
+
+    .bl-panel__head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .bl-panel__head h2 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+    }
+
+    .bl-panel__body { padding: 14px; }
+}
+
+@layer components {
+    /* ============================================================
+       Blocks are cards.
+
+       These sections used to be full-bleed rows: a rule along the top and
+       bottom, running edge to edge. Now that the content region owns the
+       page gutter, a row with no left or right border reads as cut off at
+       both ends, which is what it looked like beside the bordered Stock and
+       Purchasing panels.
+
+       Stated once, for every block that carries data, so a new one inherits
+       the treatment instead of needing to remember it.
+       ============================================================ */
+    .bl-band,
+    .bl-strip,
+    .bl-scroll,
+    .bl-charts,
+    .x-fh-strip,
+    .x-health,
+    .x-waiting,
+    .x-table-wrap {
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        overflow: hidden;
+    }
+
+    /* Their own edge rules would now double the card's border. */
+    .bl-band,
+    .x-fh-strip,
+    .x-health,
+    .x-waiting {
+        border-block-color: var(--bl-rule-2);
+    }
+
+    .bl-scroll,
+    .x-table-wrap {
+        overflow-x: auto;
+    }
+
+    /* A table inside a card must not draw its own top rule over the card's,
+       and its last row must not draw a rule across the card's bottom edge. */
+    .bl-scroll > .bl-table > thead > tr > th,
+    .x-table-wrap > .x-table > thead > tr > th {
+        border-top: 0;
+    }
+
+    .bl-scroll > .bl-table > tbody > tr:last-child > td,
+    .x-table-wrap > .x-table > tbody > tr:last-child > td {
+        border-bottom: 0;
+    }
+
+    /* Cards stacked in a column need air between them; flush-stacked cards
+       read as one block with stray lines through it. */
+    .bl-band,
+    .bl-strip,
+    .bl-scroll,
+    .bl-charts,
+    .x-fh-strip,
+    .x-health,
+    .x-waiting,
+    .x-table-wrap {
+        margin-bottom: 14px;
+    }
+
+    /* A label belongs to the card under it, so it sits closer to it than to
+       whatever came before. */
+    .bl-panel-head,
+    .x-fh-sec__head {
+        padding-block: 4px 8px;
+    }
+}

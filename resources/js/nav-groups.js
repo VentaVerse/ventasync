@@ -20,11 +20,23 @@ export function initNavGroups() {
 
     nav.querySelectorAll('[data-nav-group]').forEach((group) => {
         const key = group.getAttribute('data-nav-group');
+        const toggle = group.querySelector('.x-nav__group-toggle');
+
+        // A group with no toggle is not this script's to drive. Without this
+        // guard the null dereference below threw during module evaluation,
+        // which happens BEFORE Alpine.start() further down app.js - so one
+        // missing button silently killed every Alpine behaviour in the
+        // application: nav groups, menus, the command palette, bulk bars,
+        // the product form. Fail past it instead of taking the bundle down.
+        if (!toggle) {
+            return;
+        }
+
         const serverOpen = group.hasAttribute('data-nav-open');
         const open = serverOpen || stored[key] === true;
 
         group.classList.toggle('is-open', open);
-        group.querySelector('.x-nav__group-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
 
         // The pre-paint CSS in shell.css ([data-nav-open], and
         // html[data-nav-restore~=...] below) only exists so a group renders
@@ -35,10 +47,10 @@ export function initNavGroups() {
         // forcing display: flex - a dead control that never visibly closes.
         group.removeAttribute('data-nav-open');
 
-        group.querySelector('.x-nav__group-toggle').addEventListener('click', () => {
+        toggle.addEventListener('click', () => {
             const nowOpen = !group.classList.contains('is-open');
             group.classList.toggle('is-open', nowOpen);
-            group.querySelector('.x-nav__group-toggle').setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+            toggle.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
             const next = read();
             next[key] = nowOpen;
             write(next);

@@ -22,10 +22,10 @@
     <link rel="shortcut icon" href="{{ $__faviconUrl }}">
     <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">
     @include('partials.theme-boot')
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/blotter.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-<body class="x-app">
+<body class="x-app bl-app">
 <div class="x-shell">
     <aside class="x-sidebar x-sidebar--channel">
         @include('partials.channel-nav')

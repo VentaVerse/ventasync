@@ -1,30 +1,42 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    @php
+        // AppServiceProvider shares $appSetting with every view; the login
+        // controller's own $setting is not always populated, and
+        // config('app.name') is still the scaffold default on a fresh
+        // install. Prefer the record the rest of the app reads.
+        $company = $appSetting->company_name
+            ?? ($setting->company_name ?? null)
+            ?: 'VentaSync';
+        $logo = !empty($appSetting->logo_path ?? null)
+            ? asset('storage/' . $appSetting->logo_path)
+            : asset('images/brand/ventasync.png');
+        $favicon = !empty($appSetting->favicon_path ?? null)
+            ? asset('storage/' . $appSetting->favicon_path)
+            : asset('images/brand/ventasync-icon.png');
+    @endphp
+    <title>{{ $company }}</title>
+    <link rel="icon" type="image/png" href="{{ $favicon }}">
+    @include('partials.theme-boot')
+    {{-- The Breeze scaffold pulled Figtree from a font CDN. A self-hosted
+         product should not phone out for a typeface on its login screen, and
+         this application already ships its own faces through Vite. --}}
+    @vite(['resources/css/blotter.css', 'resources/js/app.js'])
+</head>
+<body class="bl-app">
+<div class="auth">
+    <a class="auth__brand" href="/">
+        <img class="auth__logo" src="{{ $logo }}" alt="{{ $company }}">
+        <p class="auth__name">{{ $company }}</p>
+    </a>
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
-
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
-    <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100 dark:bg-gray-900">
-            <div>
-                <a href="/">
-                    <x-application-logo class="w-20 h-20 fill-current text-gray-500" />
-                </a>
-            </div>
-
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white dark:bg-gray-800 shadow-md overflow-hidden sm:rounded-lg">
-                {{ $slot }}
-            </div>
-        </div>
-    </body>
+    <div class="auth__card">
+        {{ $slot }}
+    </div>
+</div>
+</body>
 </html>
