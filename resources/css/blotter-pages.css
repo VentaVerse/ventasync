@@ -1340,3 +1340,32 @@
         .st-scope { grid-template-columns: minmax(0, 1fr); gap: 8px; }
     }
 }
+
+    /* An editable figure has to look different from a printed one.
+       Unit cost, shipping and the fee were <button> elements rendering as
+       plain money, identical to the line totals beside them that cannot be
+       changed. An operator either never found the feature or found it by
+       accident on a live order - and unit cost drives COGS, which drives
+       every profit figure on the page.
+
+       A dashed underline in the ink's own colour, not a border or a box:
+       the figure keeps its place in the column of numbers and still says
+       "you can change me". The pointer confirms it. */
+    .od-edit {
+        border: 0;
+        background: none;
+        padding: 0;
+        font: inherit;
+        color: inherit;
+        cursor: text;
+        text-decoration: underline dashed color-mix(in srgb, currentColor 45%, transparent);
+        text-underline-offset: 3px;
+        text-decoration-thickness: 1px;
+    }
+
+    .od-edit:hover,
+    .od-edit:focus-visible {
+        text-decoration-color: currentColor;
+        background: var(--bl-chrome);
+        border-radius: var(--bl-r-dot);
+    }

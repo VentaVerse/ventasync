@@ -259,7 +259,8 @@
                                                 data-edit="cost"
                                                 data-op-id="{{ $p->order_product_id }}"
                                                 data-cost="{{ $unitCost }}"
-                                                title="Edit unit cost">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</button>
+                                                title="Edit unit cost"
+                                                aria-label="Edit unit cost, currently {{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : 'not set' }}">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</button>
                                     @else
                                         <span class="od-econ__v">{{ $unitCost > 0 ? \App\Support\Money::base($unitCost) : '-' }}</span>
                                     @endif
@@ -707,10 +708,21 @@
                         class="od-switch"
                         role="switch"
                         aria-checked="{{ $order->sync_override ? 'true' : 'false' }}"
-                        aria-label="Sync override">
+                        aria-label="{{ $order->sync_override
+                            ? 'Hand status back to the marketplace'
+                            : 'Take over this order\'s status' }}">
                 </button>
                 <div class="od-override__body">
-                    <div class="od-override__title">Sync override {{ $order->sync_override ? 'on' : 'off' }}</div>
+                    {{-- The label names the CONSEQUENCE, not the switch's own
+                         state. "Sync override off" is true and tells an
+                         operator nothing: they have to infer that off means
+                         the marketplace decides. Say which of the two is in
+                         charge, and the sentence below explains the rest. --}}
+                    <div class="od-override__title">
+                        {{ $order->sync_override
+                            ? 'You set this order\'s status'
+                            : 'The marketplace sets this order\'s status' }}
+                    </div>
                     <div class="od-override__note">
                         @if($order->sync_override)
                             Manually controlled. Marketplace syncs will not change this order's status or stock.
