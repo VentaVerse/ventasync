@@ -1463,13 +1463,9 @@
    the alarming one.
    ============================================================ */
 @layer components {
-    .cs-env .x-segment__item[data-cs-env-option="sandbox"].is-active {
-        background: var(--bl-attn-fill);
-        color: #fff;
-    }
-
-    .cs-env .x-segment:has([data-cs-env-option="sandbox"].is-active) {
-        border-color: var(--bl-attn-fill);
-        background: var(--bl-attn-wash);
-    }
+    /* The environment colours live in resources/css/pages/channel-settings.css,
+       not here. That file is a legacy page stylesheet imported through the
+       bridge and is UNLAYERED, so it beats anything in @layer components no
+       matter how specific the selector - which is why the first version of
+       this rule measured as though it had never been written. */
 }

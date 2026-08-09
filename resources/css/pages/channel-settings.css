@@ -937,3 +937,70 @@
     .cs-page .x-table td.cs-col-ms,
     .cs-page .x-table td.cs-col-status { text-align: left; }
 }
+
+/* ============================================================
+   WHICH ENVIRONMENT AM I IN
+
+   Production and Sandbox were the same ink pill, so the one control on
+   this page that decides whether an action touches real orders and real
+   money looked exactly like a view filter.
+
+   BOTH states are coloured, not just one. An earlier attempt painted
+   only Sandbox, which left the state most sellers are actually in -
+   live - looking exactly as it always had; "put colour here" is not
+   answered by colouring the case you are usually not in.
+
+   Production is green: connected, live, working. Sandbox is amber, the
+   same token that means "needs a person" everywhere else, because
+   nothing done there is real and that is worth noticing. The segment
+   takes a wash of whichever is active, so the answer reads from across
+   the room before either word does.
+
+   Green means LIVE here rather than "good", and the two words carry the
+   meaning on their own - so the distinction survives for anyone who
+   cannot separate amber from green.
+
+   These rules live in this file deliberately. It is a legacy page
+   stylesheet imported through blotter-bridge.css and therefore
+   unlayered, which beats @layer components regardless of specificity.
+   Written in the layered file they did nothing at all.
+
+   The pill fills are DEEPENED from the tokens rather than used raw. The
+   raw amber carries white at 3.38:1 and the dark theme's green at 2.2:1,
+   both under the 4.5 floor for a 12.5px label. Mixing toward black keeps
+   the hue tied to the token - repalette the accent and this follows - and
+   buys the contrast the raw value does not have. The mix is stronger in
+   dark because both tokens lighten there.
+   ============================================================ */
+.cs-env .x-segment__item[data-cs-env-option="live"].is-active {
+    background: color-mix(in srgb, var(--bl-good) 92%, #000);
+    color: #fff;
+}
+
+.cs-env .x-segment:has([data-cs-env-option="live"].is-active) {
+    border-color: var(--bl-good);
+    background: color-mix(in srgb, var(--bl-good) 8%, transparent);
+}
+
+.cs-env .x-segment__item[data-cs-env-option="sandbox"].is-active {
+    background: color-mix(in srgb, var(--bl-attn-fill) 80%, #000);
+    color: #fff;
+}
+
+.cs-env .x-segment:has([data-cs-env-option="sandbox"].is-active) {
+    border-color: var(--bl-attn-fill);
+    background: var(--bl-attn-wash);
+}
+
+[data-theme='dark'] .cs-env .x-segment__item[data-cs-env-option="live"].is-active {
+    background: color-mix(in srgb, var(--bl-good) 60%, #000);
+}
+
+[data-theme='dark'] .cs-env .x-segment__item[data-cs-env-option="sandbox"].is-active {
+    background: color-mix(in srgb, var(--bl-attn-fill) 78%, #000);
+}
+
+/* A status dot per option was tried and removed: the ::before never took
+   its width, so it shipped as a rule that did nothing. Not chased, because
+   it was only there for redundancy and the words Production and Sandbox
+   already provide it - colour is not the sole signal either way. */
