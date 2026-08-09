@@ -368,137 +368,116 @@
                 </div>
             </div>
 
+            {{-- ONE plot, two series, two colours.
+
+                 the owner's reasoning: the lines are already colour coded, so
+                 they can share a frame and still be told apart. True, and it
+                 halves the vertical space this section spends.
+
+                 The honest cost, stated because it is real: revenue runs to
+                 hundreds of thousands of pesos and orders to a couple of
+                 dozen, so the two cannot share one y-scale. Each is drawn
+                 against its OWN peak, which means the two lines crossing says
+                 nothing about the data - it is decided by the scaling. The
+                 shapes are comparable; the crossings are not. Each series
+                 therefore prints its own peak in the key above the plot, so a
+                 reader can see the two scales rather than infer one. --}}
             @php
-                $series = [
-                    ['title' => 'Revenue', 'values' => $chartRevenue, 'unit' => 'money'],
-                    ['title' => 'Orders', 'values' => $chartOrders, 'unit' => 'count'],
-                ];
+                $rev = array_map('floatval', $chartRevenue ?? []);
+                $ord = array_map('floatval', $chartOrders ?? []);
+                $n = min(count($rev), count($ord));
+                $revPeak = $rev === [] ? 0.0 : max($rev);
+                $ordPeak = $ord === [] ? 0.0 : max($ord);
+                $hasPlot = $n > 1 && ($revPeak > 0 || $ordPeak > 0);
+
+                $pw = 1000; $ph = 200; $pad = 12;
+                $trace = function (array $v, float $peak) use ($n, $pw, $ph, $pad) {
+                    $d = '';
+                    for ($i = 0; $i < $n; $i++) {
+                        $x = round($i / ($n - 1) * $pw, 2);
+                        $y = $peak <= 0 ? $ph - $pad
+                           : round($ph - $pad - ($v[$i] / $peak) * ($ph - $pad * 2), 2);
+                        $d .= ($i === 0 ? 'M' : 'L') . $x . ',' . $y . ' ';
+                    }
+                    return rtrim($d);
+                };
+
+                $revLine = $hasPlot ? $trace($rev, $revPeak) : '';
+                $revArea = $revLine === '' ? '' : $revLine . ' L' . $pw . ',' . $ph . ' L0,' . $ph . ' Z';
+                $ordLine = $hasPlot ? $trace($ord, $ordPeak) : '';
+
+                $tickStep = max(1, (int) ceil(($n - 1) / 7));
+                $ticks = [];
+                for ($t = 0; $t < $n; $t += $tickStep) { $ticks[] = $t; }
+                if ($ticks !== [] && end($ticks) !== $n - 1) { $ticks[] = $n - 1; }
             @endphp
-    @php
-        $ringTotal = max(1, collect($platformSlices)->sum('orders'));
-        $ringR = 70;
-        $ringC = 2 * M_PI * $ringR;
-        $ringAt = 0.0;
-        // A slice is labelled from the order's marketplace_source and
-        // a channel from its own card, so the two agree on "Shopee"
-        // and disagree on "TikTok" vs "TikTok Shop". Exact match
-        // first, then one prefix match in either direction, which
-        // is enough for that family without pairing two channels
-        // that merely share a first word.
-        $channelFor = function (string $label) use ($channels) {
-            $all = collect($channels ?? []);
-            return $all->firstWhere('name', $label)
-                ?? $all->first(function ($c) use ($label) {
-                    $a = Str::lower($c['name']);
-                    $b = Str::lower($label);
-                    return $a !== $b && (Str::startsWith($a, $b) || Str::startsWith($b, $a));
-                });
-        };
-        $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
-    @endphp
+
             <div class="bl-charts grid gap-px bg-rule-2">
-                @foreach($series as $plot)
-                    @php
-                        $values = array_map('floatval', $plot['values'] ?? []);
-                        $peak = $values === [] ? 0.0 : max($values);
-                        $lastIndex = $values === [] ? null : array_key_last($values);
-                        $n = count($values);
+                <div class="bg-sheet px-3.5 pb-4 pt-3">
+                    @if($hasPlot)
+                        {{-- The key doubles as the scale disclosure: each series
+                             names its own peak, so nobody reads a crossing as a
+                             fact about the business. --}}
+                        <div class="bl-key">
+                            <span class="bl-key__item">
+                                <svg class="bl-key__sw" width="14" height="4" viewBox="0 0 14 4" aria-hidden="true" focusable="false">
+                                    <rect class="bl-key__money" width="14" height="4" rx="2"></rect>
+                                </svg>
+                                Revenue
+                                <b class="bl-key__peak">peak {{ Money::base($revPeak) }}</b>
+                            </span>
+                            <span class="bl-key__item">
+                                <svg class="bl-key__sw" width="14" height="4" viewBox="0 0 14 4" aria-hidden="true" focusable="false">
+                                    <rect class="bl-key__count" width="14" height="4" rx="2"></rect>
+                                </svg>
+                                Orders
+                                <b class="bl-key__peak">peak {{ number_format($ordPeak) }}</b>
+                            </span>
+                        </div>
 
-                        // Plot space. Wide and flat so the path has room to
-                        // say something; the stroke keeps its weight through
-                        // non-scaling-stroke rather than through the viewBox.
-                        $pw = 1000; $ph = 200; $pad = 12;
+                        <svg class="bl-plot bl-plot--dual" viewBox="0 0 {{ $pw }} {{ $ph }}"
+                             preserveAspectRatio="none" role="img"
+                             aria-label="Revenue and orders over the period, each against its own scale">
+                            <defs>
+                                <linearGradient id="plot-rev" x1="0" y1="0" x2="0" y2="1">
+                                    <stop class="bl-plot__from" offset="0%"></stop>
+                                    <stop class="bl-plot__to" offset="100%"></stop>
+                                </linearGradient>
+                            </defs>
 
-                        $pt = function (int $i) use ($values, $peak, $pw, $ph, $pad, $n) {
-                            $x = $n <= 1 ? 0 : round($i / ($n - 1) * $pw, 2);
-                            $y = $peak <= 0 ? $ph - $pad
-                               : round($ph - $pad - ($values[$i] / $peak) * ($ph - $pad * 2), 2);
-                            return [$x, $y];
-                        };
+                            @foreach([0.25, 0.5, 0.75] as $g)
+                                <line class="bl-plot__grid" x1="0" x2="{{ $pw }}"
+                                      y1="{{ $ph * $g }}" y2="{{ $ph * $g }}"></line>
+                            @endforeach
 
-                        $line = '';
-                        foreach (array_keys($values) as $i) {
-                            [$x, $y] = $pt($i);
-                            $line .= ($i === 0 ? 'M' : 'L') . $x . ',' . $y . ' ';
-                        }
-                        $area = $line . 'L' . $pw . ',' . $ph . ' L0,' . $ph . ' Z';
-                        $gid = 'plot-' . Str::slug($plot['title']);
-                    @endphp
-                    <div class="bg-sheet px-3.5 pb-4 pt-3">
-                        <h3 class="bl-label">{{ $plot['title'] }}</h3>
-                        @if($peak > 0)
-                            <svg class="bl-plot bl-plot--{{ $plot['unit'] }} mt-2"
-                                 viewBox="0 0 {{ $pw }} {{ $ph }}" preserveAspectRatio="none"
-                                 role="img" aria-label="{{ $plot['title'] }} over the period">
-                                <defs>
-                                    <linearGradient id="{{ $gid }}" x1="0" y1="0" x2="0" y2="1">
-                                        <stop class="bl-plot__from" offset="0%"></stop>
-                                        <stop class="bl-plot__to" offset="100%"></stop>
-                                    </linearGradient>
-                                </defs>
+                            {{-- Revenue takes the fill because it is the figure a
+                                 seller opens the page for; orders ride over it as
+                                 a line so neither hides the other. --}}
+                            <path class="bl-trace__area" d="{{ $revArea }}" fill="url(#plot-rev)"></path>
+                            <path class="bl-trace bl-trace--money" d="{{ $revLine }}"></path>
+                            <path class="bl-trace bl-trace--count" d="{{ $ordLine }}"></path>
 
-                                @foreach([0.25, 0.5, 0.75] as $g)
-                                    <line class="bl-plot__grid" x1="0" x2="{{ $pw }}"
-                                          y1="{{ $ph * $g }}" y2="{{ $ph * $g }}"></line>
-                                @endforeach
+                            @for($i = 0; $i < $n; $i++)
+                                @php
+                                    $hx = round($i / ($n - 1) * $pw, 2);
+                                    $hw = $pw / ($n - 1);
+                                @endphp
+                                <rect class="bl-plot__hit" x="{{ max(0, $hx - $hw / 2) }}" y="0"
+                                      width="{{ $hw }}" height="{{ $ph }}">
+                                    <title>{{ $chartLabels[$i] ?? '' }} &middot; {{ Money::base($rev[$i]) }} &middot; {{ number_format($ord[$i]) }} {{ Str::plural('order', $ord[$i]) }}</title>
+                                </rect>
+                            @endfor
+                        </svg>
 
-                                <g class="bl-plot__reveal">
-                                    <path class="bl-plot__area" d="{{ $area }}" fill="url(#{{ $gid }})"></path>
-                                    <path class="bl-plot__line" d="{{ $line }}"></path>
-                                </g>
-
-                                @php [$nx, $ny] = $pt($lastIndex); @endphp
-                                <line class="bl-plot__now" x1="{{ $nx }}" x2="{{ $nx }}"
-                                      y1="{{ $ny }}" y2="{{ $ph }}"></line>
-
-                                {{-- One transparent target per period, so a reading
-                                     is still one hover away. The figures are all in
-                                     the table below too, so nothing lives only
-                                     behind a pointer. --}}
-                                @foreach($values as $i => $value)
-                                    @php
-                                        [$hx] = $pt($i);
-                                        $hw = $n <= 1 ? $pw : $pw / ($n - 1);
-                                        $reading = $plot['unit'] === 'money'
-                                            ? Money::base((float) $value)
-                                            : number_format($value);
-                                    @endphp
-                                    <rect class="bl-plot__hit" x="{{ max(0, $hx - $hw / 2) }}" y="0"
-                                          width="{{ $hw }}" height="{{ $ph }}">
-                                        <title>{{ ($chartLabels[$i] ?? '') . ': ' . $reading }}</title>
-                                    </rect>
-                                @endforeach
-                            </svg>
-                            {{-- A real axis, not two endpoints. The periods are
-                                 evenly spaced in the data, so evenly spaced
-                                 labels land under the points they name and
-                                 space-between puts the first at 0% and the last
-                                 at 100% without a single positioned element.
-
-                                 At most eight, because thirty dates at this
-                                 width is a smear rather than an axis. --}}
-                            @php
-                                $tickStep = max(1, (int) ceil(($n - 1) / 7));
-                                $ticks = [];
-                                for ($t = 0; $t < $n; $t += $tickStep) { $ticks[] = $t; }
-                                if (end($ticks) !== $lastIndex) { $ticks[] = $lastIndex; }
-                            @endphp
-                            <div class="bl-axis">
-                                @foreach($ticks as $t)
-                                    <span>{{ $chartLabels[$t] ?? '' }}</span>
-                                @endforeach
-                            </div>
-                        @else
-                            <p class="py-6 text-[13px] text-ink-3">Nothing recorded in this period yet.</p>
-                        @endif
-                    </div>
-                @endforeach
-
-                {{-- The share ring rides in the same row as the plots. It was a
-                     column of its own beside the table, where it had to match a
-                     six-row table's height and left a hole under itself. Here it
-                     is one of three cells that are all the same height by
-                     construction. --}}
+                        <div class="bl-axis">
+                            @foreach($ticks as $t)
+                                <span>{{ $chartLabels[$t] ?? '' }}</span>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="py-6 text-[13px] text-ink-3">Nothing recorded in this period yet.</p>
+                    @endif
+                </div>
             </div>
 
             @if(!empty($platformSlices))
@@ -506,6 +485,30 @@
                     <h2>Orders by channel</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
                 </div>
+                @php
+                    $ringTotal = max(1, collect($platformSlices)->sum('orders'));
+                    $ringR = 70;
+                    $ringC = 2 * M_PI * $ringR;
+                    $ringAt = 0.0;
+
+                    // A slice is labelled from the order's marketplace_source and
+                    // a channel from its own card, so the two agree on "Shopee"
+                    // and disagree on "TikTok" vs "TikTok Shop". Exact match
+                    // first, then one prefix match in either direction, which is
+                    // enough for that family without pairing two channels that
+                    // merely share a first word.
+                    $channelFor = function (string $label) use ($channels) {
+                        $all = collect($channels ?? []);
+                        return $all->firstWhere('name', $label)
+                            ?? $all->first(function ($c) use ($label) {
+                                $a = Str::lower($c['name']);
+                                $b = Str::lower($label);
+                                return $a !== $b && (Str::startsWith($a, $b) || Str::startsWith($b, $a));
+                            });
+                    };
+                    $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
+                @endphp
+
                 {{-- Ring on the LEFT, because the colour it explains is in the
                      Channel column immediately beside it. On the right it was
                      the full width of the table away from the swatches it
