@@ -1848,6 +1848,22 @@
     .bl-ring__seg { fill: none; stroke-width: 26; }
     .bl-ring__v { fill: var(--bl-ink); font-size: 26px; font-weight: 700; }
     .bl-ring__k { fill: var(--bl-ink-3); font-size: 11px; }
+    .bl-ring__s { fill: var(--bl-ink-3); font-size: 10.5px; }
+
+    /* The channel name replaces the word "orders" while reading, so it takes
+       the weight that word did not need. */
+    .bl-ring.is-reading .bl-ring__k { fill: var(--bl-ink-2); font-weight: 650; }
+
+    /* Which arc you are on, without moving anything: the others step back
+       rather than the hovered one growing, so the ring keeps its geometry
+       and nothing reflows under the pointer. */
+    .bl-ring__seg { transition: opacity .12s; cursor: default; }
+    .bl-ring.is-reading .bl-ring__seg { opacity: .32; }
+    .bl-ring.is-reading .bl-ring__seg:hover { opacity: 1; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bl-ring__seg { transition: none; }
+    }
 
     /* The ring beside its own table rather than stacked above it. Stacked,
        the section ran 774px tall to state six numbers, and the ring used

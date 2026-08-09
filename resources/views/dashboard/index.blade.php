@@ -590,7 +590,7 @@
                      matches. --}}
                 <div class="bl-split-ring">
                     <div class="bl-split-ring__ring">
-            <svg class="bl-ring" width="100%" height="188" viewBox="0 0 200 200"
+            <svg class="bl-ring" width="100%" height="188" viewBox="0 0 200 200" data-ring
             role="img" aria-label="Share of orders by channel">
             @foreach($platformSlices as $i => $slice)
             @php
@@ -601,6 +601,10 @@
             $brand = $brandFor($slice['label']);
             @endphp
             <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
+            data-ring-seg
+            data-ring-label="{{ $slice['label'] }}"
+            data-ring-count="{{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}"
+            data-ring-share="{{ number_format($share * 100, 1) }}% of orders"
             cx="100" cy="100" r="{{ $ringR }}"
             @if($brand) stroke="{{ $brand }}" @endif
             stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
@@ -609,8 +613,14 @@
             <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
             </circle>
             @endforeach
-            <text class="bl-ring__v" x="100" y="97" text-anchor="middle">{{ number_format($ringTotal) }}</text>
-            <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
+            {{-- The middle answers the hover. Idle it is the total; over a
+                 segment it becomes that channel's own figures, instantly, in
+                 space that was already there. No floating panel to position,
+                 and no native <title> to wait a second for. The titles stay
+                 for assistive technology. --}}
+            <text class="bl-ring__v" x="100" y="92" text-anchor="middle" data-ring-v>{{ number_format($ringTotal) }}</text>
+            <text class="bl-ring__k" x="100" y="109" text-anchor="middle" data-ring-k>{{ Str::plural('order', $ringTotal) }}</text>
+            <text class="bl-ring__s" x="100" y="125" text-anchor="middle" data-ring-s></text>
             </svg>
                     </div>
                     <div class="bl-scroll">

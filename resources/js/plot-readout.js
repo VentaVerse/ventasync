@@ -130,8 +130,53 @@ function mount(card) {
     svg.addEventListener('pointerup', onLeave);
 }
 
+/**
+ * The share ring, same problem and a better place to put the answer.
+ *
+ * Its middle already prints the total, so a hover replaces that with the
+ * segment's own figures rather than opening a panel that has to be
+ * positioned and clamped. Nothing moves, nothing waits.
+ */
+function mountRing(svg) {
+    const v = svg.querySelector('[data-ring-v]');
+    const k = svg.querySelector('[data-ring-k]');
+    const share = svg.querySelector('[data-ring-s]');
+
+    if (!v || !k || !share) {
+        return;
+    }
+
+    const idle = { v: v.textContent, k: k.textContent };
+
+    function read(seg) {
+        v.textContent = seg.dataset.ringCount.split(' ')[0];
+        k.textContent = seg.dataset.ringLabel;
+        share.textContent = seg.dataset.ringShare;
+        svg.classList.add('is-reading');
+    }
+
+    function rest() {
+        v.textContent = idle.v;
+        k.textContent = idle.k;
+        share.textContent = '';
+        svg.classList.remove('is-reading');
+    }
+
+    svg.querySelectorAll('[data-ring-seg]').forEach((seg) => {
+        // pointerover, not pointerenter: these are stroked arcs, and moving
+        // between two of them fires over/out on each rather than a single
+        // enter on the parent.
+        seg.addEventListener('pointerover', () => read(seg));
+        seg.addEventListener('focus', () => read(seg));
+    });
+
+    svg.addEventListener('pointerleave', rest);
+    svg.addEventListener('blur', rest, true);
+}
+
 function init() {
     document.querySelectorAll('[data-plot]').forEach(mount);
+    document.querySelectorAll('[data-ring]').forEach(mountRing);
 }
 
 if (document.readyState === 'loading') {
