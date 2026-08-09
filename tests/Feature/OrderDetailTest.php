@@ -338,7 +338,7 @@ class OrderDetailTest extends TestCase
 
         $response->assertOk();
         // On the new shell, on the new component anatomy.
-        $response->assertSee('class="x-app"', false);
+        $response->assertSee('class="bl-app', false);
         $response->assertSee('od-page', false);
         $response->assertSee('#' . $order->order_id);
     }
