@@ -9,7 +9,7 @@
     ]
   },
   "resources/css/blotter.css": {
-    "file": "assets/blotter-U6TQbIQt.css",
+    "file": "assets/blotter-BoQBfkAL.css",
     "src": "resources/css/blotter.css",
     "isEntry": true,
     "name": "blotter",
@@ -34,7 +34,7 @@
     "src": "resources/fonts/JetBrainsMono.woff2"
   },
   "resources/js/app.js": {
-    "file": "assets/app-CtXlb7TH.js",
+    "file": "assets/app-6FtZg7X1.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

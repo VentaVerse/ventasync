@@ -75,7 +75,14 @@
                      x-show would snap. The inner element clips during the
                      transition, and inert keeps the closed group's links out
                      of the tab order rather than merely out of sight. --}}
-                <div class="bl-collapse" :class="group === '{{ $key }}' && 'is-open'"
+                {{-- is-open is rendered by the SERVER, not left to Alpine.
+                     Alpine applies :class after it boots, so the group began
+                     every page load closed and then transitioned open - which
+                     is what made clicking a child look like the nav collapsed
+                     and re-opened itself. Rendered open, there is nothing to
+                     animate; Alpine takes over from the same state. --}}
+                <div class="bl-collapse {{ $blOpenGroup === $key ? 'is-open' : '' }}"
+                     :class="group === '{{ $key }}' && 'is-open'"
                      :inert="group !== '{{ $key }}'">
                     <div class="bl-collapse__inner flex flex-col gap-px">
                     @foreach($entry['items'] as $item)

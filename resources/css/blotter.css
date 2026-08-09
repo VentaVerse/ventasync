@@ -1031,9 +1031,17 @@
        one until it is open. The 0fr to 1fr grid row gives the browser both
        ends of the animation without anyone measuring anything, so the group
        expands and collapses smoothly in both directions. */
+    /* No transition until the page has painted once. A collapse that
+       animates on load reads as the nav collapsing and re-opening itself
+       every time you click a child, which is exactly what it looked like.
+       The class is added on the frame after load, so the first paint is
+       static and every interaction after it animates. */
     .bl-collapse {
         display: grid;
         grid-template-rows: 0fr;
+    }
+
+    .bl-app.is-ready .bl-collapse {
         transition: grid-template-rows 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
     }
 

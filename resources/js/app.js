@@ -52,3 +52,16 @@ window.Alpine = Alpine;
 Alpine.data('xenonPalette', xenonPalette);
 Alpine.data('pettyCash', pettyCash);
 Alpine.start();
+
+/**
+ * Mark the shell ready one frame after load.
+ *
+ * The nav's collapse animates on `.bl-app.is-ready` only. Without this the
+ * open group transitioned open on every page load, so clicking a child link
+ * looked like the sidebar collapsed and re-opened itself. The open state is
+ * rendered by the server, so the first paint is already correct and static;
+ * from the next frame on, every toggle animates as before.
+ */
+requestAnimationFrame(() => {
+    requestAnimationFrame(() => document.querySelector('.bl-app')?.classList.add('is-ready'));
+});
