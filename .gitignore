@@ -43,5 +43,9 @@ CLAUDE.md
 # Dev/QA screenshots — collected out of the repo root into one folder
 .dev-screenshots/
 
+# Design-review screenshots. Local evidence for UI work, not shipped:
+# this repo is public and the folder runs to double-digit megabytes.
+/media
+
 # Superpowers brainstorm mockups
 .superpowers/
