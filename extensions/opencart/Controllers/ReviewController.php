@@ -268,7 +268,14 @@ class ReviewController extends Controller
 
         $from = $data['date_from'];
         $platform = $data['platform'] ?? 'all';
-        $daysBack = max(1, (int) now()->diffInDays(\Carbon\Carbon::parse($from)) + 1);
+        // abs(), because Carbon 3 returns a SIGNED difference and $from is
+        // always in the past: diffInDays() gave -29.84 for a 30-day range,
+        // (int) + 1 made it -28, and max(1, ...) clamped it to 1. The form
+        // accepted the range, the page reported success, and the sync fetched
+        // a single day. Nothing errored, so 29 days of reviews just never
+        // arrived. The line above stores the correct range start, so the two
+        // halves of this handler disagreed with each other.
+        $daysBack = max(1, (int) abs(now()->diffInDays(\Carbon\Carbon::parse($from))) + 1);
 
         $php = PHP_BINARY ?: '/usr/bin/php';
         $artisan = base_path('artisan');
