@@ -115,8 +115,11 @@ class DashboardController extends Controller
 
         $invRow = DB::table($pfx . 'product')
             ->where('status', 1)
-            ->selectRaw('SUM(quantity * cost) as at_cost, SUM(quantity * price) as at_sale')
+            // COUNT rides along in the aggregate that was already running,
+            // so the rail's heading costs no extra query.
+            ->selectRaw('COUNT(*) as products, SUM(quantity * cost) as at_cost, SUM(quantity * price) as at_sale')
             ->first();
+        $inventoryProducts = (int) ($invRow->products ?? 0);
         $inventoryAtCost = (float) ($invRow->at_cost ?? 0);
         $inventoryAtSale = (float) ($invRow->at_sale ?? 0);
         $inventoryMargin = $inventoryAtSale > 0 ? round(($inventoryAtSale - $inventoryAtCost) / $inventoryAtSale * 100, 1) : 0;
@@ -189,6 +192,7 @@ class DashboardController extends Controller
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
             'sourceLabelsMap' => $sourceLabelsMap,
+            'inventoryProducts' => $inventoryProducts,
             'inventoryAtCost' => $inventoryAtCost,
             'inventoryAtSale' => $inventoryAtSale,
             'inventoryMargin' => $inventoryMargin,

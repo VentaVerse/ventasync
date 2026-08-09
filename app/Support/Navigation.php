@@ -622,6 +622,107 @@ class Navigation
             }
         }
 
+        return self::mergeGroupsByLabel($out);
+    }
+
+    /**
+     * Fold groups that share a label into one.
+     *
+     * definition() carries both the core group and the one an extension
+     * contributes under the same name, so an admin with every permission saw
+     * "Purchasing", "Warehousing", "Reports" and "Petty Cash" twice each in
+     * the sidebar. Merging here rather than in definition() keeps each source
+     * free to declare its own entries without knowing what else exists, and
+     * fixes every consumer at once: the sidebar, the command palette and
+     * search all read groups().
+     *
+     * The first occurrence keeps its position and icon; later ones donate
+     * their items. Items are de-duplicated on route plus params, so a link
+     * declared by both sides appears once.
+     *
+     * @param  array<int, array<string, mixed>>  $groups
+     * @return array<int, array<string, mixed>>
+     */
+    private static function mergeGroupsByLabel(array $groups): array
+    {
+        $merged = [];
+        $indexByLabel = [];
+
+        foreach ($groups as $entry) {
+            $label = (string) $entry['label'];
+
+            if (!isset($indexByLabel[$label])) {
+                $indexByLabel[$label] = count($merged);
+                $merged[] = $entry;
+                continue;
+            }
+
+            $target = $indexByLabel[$label];
+            $existing = $merged[$target];
+
+            // Same label held by a bare link and by a group. The group wins the
+            // slot and the link becomes its first child, which is how "Petty
+            // Cash" the page and "Petty Cash" the section stop being two
+            // separate things in the sidebar.
+            if (isset($existing['route']) && !isset($entry['route'])) {
+                $entry['items'] = self::dedupeItems(
+                    array_merge([['label' => $existing['label'], 'route' => $existing['route'], 'params' => $existing['params'] ?? []]], $entry['items'])
+                );
+                $entry['icon'] = $existing['icon'] ?? $entry['icon'];
+                $merged[$target] = $entry;
+                continue;
+            }
+
+            if (!isset($existing['route']) && isset($entry['route'])) {
+                $merged[$target]['items'] = self::dedupeItems(array_merge(
+                    [['label' => $entry['label'], 'route' => $entry['route'], 'params' => $entry['params'] ?? []]],
+                    $existing['items']
+                ));
+                continue;
+            }
+
+            // Two groups: the first keeps its position, the second donates.
+            if (!isset($existing['route']) && !isset($entry['route'])) {
+                $merged[$target]['items'] = self::dedupeItems(
+                    array_merge($existing['items'], $entry['items'])
+                );
+            }
+
+            // Two bare links with one label and one destination: the first wins.
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Drop items that resolve to the same destination, keeping the first.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private static function dedupeItems(array $items): array
+    {
+        $seen = [];
+        $out = [];
+
+        foreach ($items as $item) {
+            $key = self::itemKey($item);
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $out[] = $item;
+            }
+        }
+
         return $out;
+    }
+
+    /**
+     * Identity for a nav item: its route and the params that resolve it.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private static function itemKey(array $item): string
+    {
+        return ($item['route'] ?? '') . '|' . json_encode($item['params'] ?? []);
     }
 }

@@ -1259,6 +1259,16 @@ class OrderController extends Controller
             ];
         });
 
+        // Counted before the filter, so each tab states the size of its own
+        // set rather than the size of whatever is currently on screen. The
+        // rows are already in memory and balance is already computed, so this
+        // is three passes over a collection, not three more queries.
+        $counts = [
+            'all' => $rows->count(),
+            'unpaid' => $rows->filter(fn ($r) => !$r->is_paid)->count(),
+            'paid' => $rows->filter(fn ($r) => $r->is_paid)->count(),
+        ];
+
         if ($filter === 'paid') {
             $rows = $rows->filter(fn ($r) => $r->is_paid);
         } elseif ($filter === 'unpaid') {
@@ -1267,6 +1277,7 @@ class OrderController extends Controller
 
         return view('sales.orders.payments_report', [
             'rows' => $rows,
+            'counts' => $counts,
             'filter' => $filter,
             'search' => $search,
         ]);

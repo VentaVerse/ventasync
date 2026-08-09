@@ -6,6 +6,7 @@ use App\Models\Catalog\Order;
 use App\Models\Setting;
 use App\Observers\OrderObserver;
 use App\Support\ChannelWorkspace;
+use App\Support\FulfilmentBadge;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -41,6 +42,19 @@ class AppServiceProvider extends ServiceProvider
         // `*_test` schemas freely rebuildable.
         $database = (string) config('database.connections.'.config('database.default').'.database');
         DB::prohibitDestructiveCommands(! str_ends_with($database, '_test'));
+
+        // Counts that ride on a nav entry, keyed by the route the entry points
+        // at so the partial stays a renderer: it looks its own route up in the
+        // map and knows nothing about which route earns a badge.
+        //
+        // Bound to the nav partial rather than shared, so the work happens
+        // only where a sidebar is actually drawn: not on the login screen,
+        // not in a mail template, not in the installer.
+        View::composer('partials.nav-blotter', function ($view) {
+            $view->with('navBadges', [
+                'integrations.orders' => FulfilmentBadge::pending(auth()->user()),
+            ]);
+        });
 
         // layouts.channel needs the card, the sidebar groups and the state in
         // every view that extends it, including the seven existing Shopee
