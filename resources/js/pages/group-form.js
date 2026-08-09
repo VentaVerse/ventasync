@@ -111,13 +111,28 @@ function initFilterPicker(field) {
             const button = document.createElement('button');
             button.type = 'button';
             button.textContent = option.name;
-            button.addEventListener('mousedown', function (e) {
-                // mousedown, not click: the input's blur fires first otherwise
-                // and the list is gone before the click lands.
+            // Two paths, deliberately. mousedown carries the MOUSE because the
+            // input's blur fires before click and would tear the list down
+            // first; that reasoning is real and is why click alone was used
+            // here. But mousedown never fires for a keyboard, so binding only
+            // mousedown left this picker unreachable without a mouse, exactly
+            // the defect the category combobox below was fixed for. keydown
+            // carries Enter and Space so a keyboard user can commit the option
+            // their focus is already on.
+            const choose = function (e) {
                 e.preventDefault();
                 addTag(option);
                 search.value = '';
                 hide();
+            };
+
+            button.addEventListener('mousedown', choose);
+
+            button.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    choose(e);
+                    search.focus();
+                }
             });
             list.appendChild(button);
         });
@@ -391,6 +406,8 @@ function initProductPicker(root) {
    named `<img src=x onerror=...>` is text here.
    ================================================================== */
 
+let categoryComboSeq = 0;
+
 function initCategoryCombo(root) {
     const mode = root.getAttribute('data-combo-mode') || 'local';
     const searchUrl = root.getAttribute('data-combo-search-url');
@@ -400,6 +417,17 @@ function initCategoryCombo(root) {
     const results = root.querySelector('[data-combo-results]');
     const island = root.querySelector('[data-combo-options]');
     if (!input || !value || !results) return;
+
+    // The popup is a real listbox and the field that opens it is a real
+    // combobox: both roles need the pair of ids that ties them together,
+    // and aria-expanded has to track the one thing that actually decides
+    // whether the popup is showing (`results.hidden`), not a value set
+    // once at load and forgotten.
+    if (!results.id) results.id = 'gf-combo-results-' + (categoryComboSeq += 1);
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', results.id);
+    input.setAttribute('aria-expanded', 'false');
 
     let options = [];
     if (island) {
@@ -412,13 +440,44 @@ function initCategoryCombo(root) {
     }
 
     let timer = null;
+    // Set immediately before a programmatic input.focus() that follows a
+    // deliberate hide(), so the input's own 'focus' handler (below) does
+    // not treat that refocus as a user tabbing back in and reopen the list
+    // it was just told to close. Keyboard-only, found by actually pressing
+    // Enter on a focused option: without this, commit() left the picked
+    // value showing but silently reopened the results underneath it, and
+    // Escape from an option closed the list for exactly one frame before
+    // its own return-of-focus reopened it.
+    let suppressFocusSearch = false;
 
-    function hide() { results.hidden = true; }
+    function hide() {
+        results.hidden = true;
+        input.setAttribute('aria-expanded', 'false');
+    }
+
+    // hide() plus returning focus to the field, without the field's own
+    // focus handler re-running the search that would undo the hide.
+    function hideAndFocusInput() {
+        hide();
+        suppressFocusSearch = true;
+        input.focus();
+    }
+
+    function optionAt(index) {
+        const all = results.querySelectorAll('.gf-combo__opt');
+        return all[index] || null;
+    }
+
+    function focusOption(el) { if (el) el.focus(); }
 
     function commit(id, label) {
         value.value = String(id);
         input.value = label;
-        hide();
+        // Without this, focus was left on the option button, which the
+        // hide() above turns into `display: none`; a hidden element cannot
+        // hold focus, so the browser drops it to <body> and a keyboard
+        // user loses their place in the form entirely.
+        hideAndFocusInput();
         // The brand loader and the attribute fetch are bound to this
         // element's change event, exactly as they were before. Picking
         // from the list is not a user edit of the input, so nothing
@@ -439,13 +498,16 @@ function initCategoryCombo(root) {
             empty.textContent = 'No leaf category matches that.';
             results.appendChild(empty);
             results.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
             return;
         }
 
-        items.slice(0, 50).forEach(function (item) {
+        items.slice(0, 50).forEach(function (item, index) {
             const option = document.createElement('button');
             option.type = 'button';
             option.className = 'gf-combo__opt';
+            option.id = results.id + '-opt-' + index;
+            option.setAttribute('role', 'option');
 
             const name = document.createElement('span');
             name.textContent = item.name || 'Unnamed category';
@@ -456,18 +518,42 @@ function initCategoryCombo(root) {
             id.textContent = String(item.id);
             option.appendChild(id);
 
-            // mousedown, not click: the input's own blur handler hides
-            // the list, and on a blur-then-click sequence the element
-            // is already gone by the time click would fire.
-            option.addEventListener('mousedown', function (e) {
-                e.preventDefault();
+            // A real button already receives `click` for a mouse click and
+            // for a keyboard Enter/Space on whichever option currently has
+            // focus, so one listener covers both input methods.
+            option.addEventListener('click', function () {
                 commit(item.id, label(item));
+            });
+
+            // Roving between options with the arrow keys, in addition to
+            // the plain Tab stop each button already carries: Home/End
+            // jump to the ends, Up from the first option (or Escape from
+            // any option) hands focus back to the field.
+            option.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowDown') {
+                    const next = optionAt(index + 1);
+                    if (next) { e.preventDefault(); focusOption(next); }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prev = optionAt(index - 1);
+                    if (prev) focusOption(prev); else input.focus();
+                } else if (e.key === 'Home') {
+                    e.preventDefault();
+                    focusOption(optionAt(0));
+                } else if (e.key === 'End') {
+                    e.preventDefault();
+                    focusOption(optionAt(results.querySelectorAll('.gf-combo__opt').length - 1));
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideAndFocusInput();
+                }
             });
 
             results.appendChild(option);
         });
 
         results.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
     }
 
     function localSearch(query) {
@@ -511,13 +597,24 @@ function initCategoryCombo(root) {
         timer = window.setTimeout(function () { search(query); }, 200);
     });
 
-    input.addEventListener('focus', function () { search(input.value.trim()); });
+    input.addEventListener('focus', function () {
+        if (suppressFocusSearch) { suppressFocusSearch = false; return; }
+        search(input.value.trim());
+    });
 
     input.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { hide(); return; }
         // This control lives inside the group form. A bare Enter here
         // would submit a half-filled form.
-        if (e.key === 'Enter') e.preventDefault();
+        if (e.key === 'Enter') { e.preventDefault(); return; }
+        // Down steps off the field and onto the first option, the same
+        // move Tab makes, so a keyboard user is not required to know that
+        // Tab happens to work here. Only meaningful once the popup is
+        // actually open with something in it.
+        if (e.key === 'ArrowDown' && !results.hidden) {
+            const first = optionAt(0);
+            if (first) { e.preventDefault(); focusOption(first); }
+        }
     });
 
     document.addEventListener('click', function (e) {

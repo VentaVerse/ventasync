@@ -75,8 +75,6 @@
     font-size: 12px;
 }
 
-.pd-range__date:focus { outline: none; }
-
 /* The native calendar glyph is near-black and vanishes on the dark theme;
    invert it there and tone it down in both. */
 .pd-range__date::-webkit-calendar-picker-indicator {

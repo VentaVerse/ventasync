@@ -329,7 +329,7 @@
 .gf-combo__opt:last-child { border-bottom: 0; }
 
 .gf-combo__opt:hover,
-.gf-combo__opt:focus-visible { background: var(--surface-hover); outline: none; }
+.gf-combo__opt:focus-visible { background: var(--surface-hover); }
 
 /* The marketplace's own id for the category, read down the list and
    compared against what the marketplace's back office shows. */

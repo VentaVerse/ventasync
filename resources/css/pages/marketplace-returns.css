@@ -61,7 +61,7 @@
 }
 
 .rt-media__item:hover,
-.rt-media__item:focus-visible { border-color: var(--border-strong); outline: none; }
+.rt-media__item:focus-visible { border-color: var(--border-strong); }
 
 .rt-media__item img {
     display: block;
