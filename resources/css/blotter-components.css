@@ -2436,7 +2436,18 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        flex: none;
+        /* Was flex: none, which on a phone pushed the search field, the
+           theme switch and the account 195px past the right edge of the
+           window. It may shrink; what it must not do is grow. */
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+
+    @media (max-width: 640px) {
+        /* The search trigger's keyboard hint is meaningless on a device with
+           no keyboard, and it is the widest thing in the cluster. */
+        .x-topbar__right .x-search-trigger__hint { display: none; }
+        .x-topbar__right .x-search-trigger { min-width: 0; }
     }
 
     .x-theme {

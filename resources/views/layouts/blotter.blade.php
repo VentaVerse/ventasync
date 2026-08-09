@@ -12,15 +12,15 @@
 {{-- bl-app marks a page as converted to the v2.2 shell, the same way x-app
      marked the shell before it. The suite asserts on it. --}}
 <body class="bl-app min-h-screen">
-{{--
-    IMPECCABLE DIRECTION CONTRACT
-    THESIS: The figures are the interface. This refuses the admin-panel arrangement where numbers sit inert inside coloured cards and colour is spent on decoration.
-    OWN-WORLD: Cool near-white ground, navy ink drawn from the logo, hairline ledger rules, 10px panels and 6px controls, one elevation spent only on floating things and the primary action. Navy sidebar carries the identity so the work surface stays white. Archivo with tabular figures; JetBrains Mono for identifiers. Colour is legal only as state (amber needs you, green settled, red trouble) plus brand cyan for "you can act here" and one swatch per channel; lime is the mark alone and never carries meaning.
-    STORY: The operator sees what today owes them, learns which figures are fresh and which are stale, and acts on the row without leaving the page.
-    FIRST VIEWPORT: A ruled band of monumental figures across the full width, each with its real movement against the comparable period; then the work that needs a person. No chart above the fold.
-    FORM: Market-data blotter, candidate 6 of the grounded list, seed key a9ccf491.
+<!--
+    IMPECCABLE DIRECTION CONTRACT (v2.3)
+    THESIS: Money and work-in-hand are stated loudly in colour, everything else is a quiet white sheet. Refuses the terminal arrangement v2.2 shipped, where restraint was total and the product read as unfinished from across the room.
+    OWN-WORLD: Tinted cool ground; white sheets raised on soft shadow at 16px corners; five saturated identity fills (cyan, violet, amber, green, rose) carrying headline figures in white; navy sidebar; Archivo with tabular figures, JetBrains Mono for identifiers; drawn icons at one stroke weight. State colour (amber/green/red) is separate from identity colour and never appears on a fill.
+    STORY: The operator reads today's money and today's queue in one glance, sees which channels are stale, and acts on a row without leaving the page.
+    FIRST VIEWPORT: Five filled metric blocks across the top; a row of channel chips under them; then latest orders beside inventory and purchasing. Zero-value blocks drop to white so absence never shouts.
+    FORM: Colour-forward admin, pinned by the owner from CoreUI Pro, Purple React and Devias. User-pinned direction, so no concept roll; session seed a9ccf491.
     FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
---}}
+-->
 <div x-data="{ nav: false }" class="lg:grid lg:grid-cols-[216px_minmax(0,1fr)] min-h-screen">
 
     {{-- Sidebar. Off-canvas below lg, permanent above it. --}}

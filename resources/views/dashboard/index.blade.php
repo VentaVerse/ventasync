@@ -149,107 +149,130 @@
         </div>
     </div>
 
-    {{-- The trading band. Every figure is a link, not a label. --}}
-    <div class="bl-band grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-        <a class="bl-cell min-w-0" href="{{ route('orders.index') }}">
-            <span class="bl-label">Orders today</span>
-            <span class="bl-figure">{{ number_format($todayOrders) }}</span>
-            <span class="text-[12px] text-ink-2">
+    {{-- The headline figures. Filled blocks rather than a ruled band:
+         the owner picked this against CoreUI Pro and it is the brief.
+
+         Colour here says WHICH MEASURE, never how it is doing, so the
+         written label carries the meaning and nothing is lost without
+         hue. State colour stays on the rows below, where it belongs.
+
+         is-zero drops a block to white. Most of these are zero on a
+         quiet morning, and a saturated block shouting 0 reads as a
+         fault rather than as a calm nothing-yet. --}}
+    <div class="bl-stats">
+        <a class="bl-stat bl-stat--violet {{ $todayOrders === 0 ? 'is-zero' : '' }}" href="{{ route('orders.index') }}">
+            <span class="bl-stat__top">
+                <span class="bl-stat__k">Orders today</span>
+                <span class="bl-stat__ic"><x-ui.icon name="cart" size="17" /></span>
+            </span>
+            <span class="bl-stat__v">{{ number_format($todayOrders) }}</span>
+            <span class="bl-stat__d">
                 @if($ordersDelta === null)
                     none yesterday to compare
                 @else
-                    <span class="font-semibold {{ $ordersDelta >= 0 ? 'text-good' : 'text-bad' }}">
-                        {{ $ordersDelta >= 0 ? '+' : '' }}{{ number_format($ordersDelta, 1) }}%
-                    </span>
-                    vs yesterday
+                    <x-ui.icon :name="$ordersDelta >= 0 ? 'arrow-up-right' : 'arrow-down-right'" size="13" />
+                    {{ $ordersDelta >= 0 ? '+' : '' }}{{ number_format($ordersDelta, 1) }}% vs yesterday
                 @endif
             </span>
         </a>
 
-        <a class="bl-cell min-w-0" href="{{ route('orders.index') }}">
-            <span class="bl-label">Revenue today</span>
-            <span class="bl-figure">{{ Money::base($todayRevenue) }}</span>
-            <span class="text-[12px] text-ink-2">
+        <a class="bl-stat bl-stat--cyan {{ $todayRevenue <= 0 ? 'is-zero' : '' }}" href="{{ route('orders.index') }}">
+            <span class="bl-stat__top">
+                <span class="bl-stat__k">Revenue today</span>
+                <span class="bl-stat__ic"><x-ui.icon name="banknote" size="17" /></span>
+            </span>
+            <span class="bl-stat__v">{{ Money::base($todayRevenue) }}</span>
+            <span class="bl-stat__d">
                 @if($revenueDelta === null)
                     none yesterday to compare
                 @else
-                    <span class="font-semibold {{ $revenueDelta >= 0 ? 'text-good' : 'text-bad' }}">
-                        {{ $revenueDelta >= 0 ? '+' : '' }}{{ number_format($revenueDelta, 1) }}%
-                    </span>
-                    vs yesterday
+                    <x-ui.icon :name="$revenueDelta >= 0 ? 'arrow-up-right' : 'arrow-down-right'" size="13" />
+                    {{ $revenueDelta >= 0 ? '+' : '' }}{{ number_format($revenueDelta, 1) }}% vs yesterday
                 @endif
             </span>
         </a>
 
-        <a class="bl-cell min-w-0" href="{{ route('orders.index') }}">
-            <span class="bl-label">Week to date</span>
-            <span class="bl-figure">{{ Money::base($weekRevenue) }}</span>
-            <span class="text-[12px] text-ink-2">
+        <a class="bl-stat bl-stat--green {{ $weekRevenue <= 0 ? 'is-zero' : '' }}" href="{{ route('orders.index') }}">
+            <span class="bl-stat__top">
+                <span class="bl-stat__k">Week to date</span>
+                <span class="bl-stat__ic"><x-ui.icon name="trending-up" size="17" /></span>
+            </span>
+            <span class="bl-stat__v">{{ Money::base($weekRevenue) }}</span>
+            <span class="bl-stat__d">
+                @if($weekDelta !== null)
+                    <x-ui.icon :name="$weekDelta >= 0 ? 'arrow-up-right' : 'arrow-down-right'" size="13" />
+                @endif
                 {{ number_format($weekOrders) }} {{ Str::plural('order', $weekOrders) }}
                 @if($weekDelta !== null)
-                    &middot;
-                    <span class="font-semibold {{ $weekDelta >= 0 ? 'text-good' : 'text-bad' }}">
-                        {{ $weekDelta >= 0 ? '+' : '' }}{{ number_format($weekDelta, 1) }}%
-                    </span>
+                    &middot; {{ $weekDelta >= 0 ? '+' : '' }}{{ number_format($weekDelta, 1) }}%
                 @endif
             </span>
         </a>
 
-        <a class="bl-cell min-w-0" href="{{ route('orders.index') }}">
-            <span class="bl-label">Waiting to ship</span>
-            <span class="bl-figure {{ $pendingTotal > 0 ? 'text-attn' : '' }}">{{ number_format($pendingTotal) }}</span>
-            <span class="text-[12px] text-ink-2">
+        <a class="bl-stat bl-stat--amber {{ $pendingTotal === 0 ? 'is-zero' : '' }}" href="{{ route('integrations.orders') }}">
+            <span class="bl-stat__top">
+                <span class="bl-stat__k">Waiting to ship</span>
+                <span class="bl-stat__ic"><x-ui.icon name="send" size="17" /></span>
+            </span>
+            <span class="bl-stat__v">{{ number_format($pendingTotal) }}</span>
+            <span class="bl-stat__d">
                 {{ $pendingTotal === 0 ? 'nothing pending' : 'across your channels' }}
             </span>
         </a>
 
-        <a class="bl-cell min-w-0 col-span-2 md:col-span-3 xl:col-span-1" href="{{ route('products.index') }}">
-            <span class="bl-label">Stock at cost</span>
-            <span class="bl-figure">{{ abs($inventoryAtCost) >= 1000000 ? Money::compactAxis($inventoryAtCost) : Money::base($inventoryAtCost) }}</span>
-            <span class="text-[12px] text-ink-2">
-                {{ number_format($inventoryMargin, 1) }}% margin if it all sold at list
+        <a class="bl-stat bl-stat--indigo {{ $inventoryAtCost <= 0 ? 'is-zero' : '' }}" href="{{ route('products.index') }}">
+            <span class="bl-stat__top">
+                <span class="bl-stat__k">Stock at cost</span>
+                <span class="bl-stat__ic"><x-ui.icon name="boxes" size="17" /></span>
             </span>
+            <span class="bl-stat__v">{{ abs($inventoryAtCost) >= 1000000 ? Money::compactAxis($inventoryAtCost) : Money::base($inventoryAtCost) }}</span>
+            <span class="bl-stat__d">{{ number_format($inventoryMargin, 1) }}% margin at list</span>
         </a>
     </div>
 
-    {{-- Channels. The swatch colour is the one place a brand hue appears,
-         and it never carries meaning alone: the written name and the
-         freshness sentence sit beside it. --}}
+    {{-- Channels, as chips. A 9px square beside a name made six channels
+         read as six near-identical words; a filled rounded chip carrying
+         the initial is scannable at a glance.
+
+         The chip colour is the channel's own brand hue and is the one
+         place a non-token colour is allowed. It never carries meaning by
+         itself: the name is beside it and the freshness sentence under
+         it, both in words. --}}
     @if($channels !== [])
-        <div class="bl-strip grid border-b border-rule-2 bg-sheet md:grid-cols-2 xl:grid-cols-3">
+        <div class="bl-chans">
             @foreach($channels as $channel)
-                @if($channel['link'])
-                    <a href="{{ $channel['link'] }}"
-                       class="flex min-w-0 items-center gap-2.5 border-r border-b border-rule py-2.5 text-ink no-underline">
-                @else
-                    <div class="flex min-w-0 items-center gap-2.5 border-r border-b border-rule py-2.5">
-                @endif
-                    @if($channel['colour'])
-                        <svg class="bl-swatch" width="9" height="9" viewBox="0 0 9 9" aria-hidden="true" focusable="false">
-                            <rect width="9" height="9" fill="{{ $channel['colour'] }}"></rect>
-                        </svg>
-                    @else
-                        <span class="bl-swatch bl-swatch-empty"></span>
-                    @endif
-                    <span class="min-w-0">
-                        <span class="block truncate text-[13px] font-semibold">{{ $channel['name'] }}</span>
-                        <span class="bl-state bl-state-{{ $channel['state']['tone'] }} font-normal">
-                            <i></i>{{ $channel['state']['text'] }}
+                @php
+                    $chTag = $channel['link'] ? 'a' : 'div';
+                    $chBad = ($channel['state']['tone'] ?? '') === 'bad';
+                @endphp
+                <{{ $chTag }} class="bl-chan" @if($channel['link']) href="{{ $channel['link'] }}" @endif>
+                    {{-- Drawn as SVG, not as a span with an inline custom
+                         property: this project puts no CSS in Blade and the
+                         suite enforces it. fill is a presentation attribute,
+                         which is how the swatch this replaces carried a
+                         per-channel colour too. --}}
+                    <svg class="bl-chan__ic" width="40" height="40" viewBox="0 0 40 40"
+                         aria-hidden="true" focusable="false">
+                        <rect width="40" height="40" rx="13"
+                              fill="{{ $channel['colour'] ?: '#5f6b85' }}"></rect>
+                        <text class="bl-chan__in" x="20" y="20" text-anchor="middle"
+                              dominant-baseline="central">{{ Str::upper(Str::substr($channel['name'], 0, 1)) }}</text>
+                    </svg>
+                    <span class="bl-chan__body">
+                        <span class="bl-chan__n block truncate">{{ $channel['name'] }}</span>
+                        <span class="bl-chan__s {{ $chBad ? 'bl-chan__s--bad' : '' }} block truncate">
+                            {{ $channel['state']['text'] }}
                         </span>
                     </span>
                     @if($channel['pending'] !== null)
-                        <span class="ml-auto shrink-0 text-right text-[11.5px] leading-tight text-ink-3">
-                            <b class="block text-[15px] font-semibold {{ $channel['pending'] > 0 ? 'text-attn' : 'text-ink' }}">
+                        <span class="bl-chan__q">
+                            <span class="bl-chan__qv {{ $channel['pending'] > 0 ? 'bl-chan__qv--attn' : '' }}">
                                 {{ number_format($channel['pending']) }}
-                            </b>
-                            waiting
+                            </span>
+                            <span class="bl-chan__ql block">waiting</span>
                         </span>
                     @endif
-                @if($channel['link'])
-                    </a>
-                @else
-                    </div>
-                @endif
+                </{{ $chTag }}>
             @endforeach
         </div>
     @endif

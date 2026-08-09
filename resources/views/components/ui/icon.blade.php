@@ -42,6 +42,14 @@
         'arrow-up-right'   => '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
         'arrow-down-right' => '<path d="M7 7l10 10"/><path d="M17 8v9H8"/>',
         'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+        /* v2.3. One per headline metric, drawn on the same 24 grid at the
+           same 1.75 stroke as everything above, because a filled block with
+           a borrowed glyph in it is the tell that gives a template away. */
+        'trending-up' => '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
+        'cart'        => '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 11.6a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>',
+        'boxes'       => '<path d="M12 2 4 6v12l8 4 8-4V6z"/><path d="M4 6l8 4 8-4M12 10v12"/>',
+        'banknote'    => '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+        'send'        => '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
         /* The only closed shape in this set. It renders as an outline like
            every other icon here (the <svg> carries fill="none"), and a CSS
            rule outranks that presentation attribute, which is how

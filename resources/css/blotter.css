@@ -1,15 +1,32 @@
 /* ============================================================
-   VentaSync v2.2 interface bundle: "The Blotter"
+   VentaSync v2.3 interface bundle
 
-   One rule governs this file: colour may only ever mean state.
-   Amber needs a person, green is settled, red is trouble, and one
-   solid swatch identifies a sales channel. Nothing is coloured
-   because it looked plain, which is what keeps this from drifting
-   back into a bought-template admin panel.
+   v2.2 was "The Blotter": hairline rules on near-white, tabular
+   figures, and colour permitted only to mean state. It was coherent
+   and it was too quiet. Held up against the admin products the owner
+   actually wants to be compared to, it read as unfinished rather
+   than as restrained, and a stock Bootstrap build of the same screen
+   was indistinguishable from it at arm's length. That is the note
+   this revision answers.
 
-   Structure comes from hairline rules and tabular figures, not from
-   cards and shadows. Elevation exists but is rationed: floating surfaces and the one primary
-   action per screen, nothing else.
+   What changed, and only this:
+
+   1. MATERIAL. Structure now comes from raised sheets on a tinted
+      ground rather than from hairlines on near-white. Generous
+      corners, two elevations, soft shadows.
+
+   2. COLOUR. There is now a second use for it. STATE keeps its own
+      tokens and its old meanings exactly (amber needs a person,
+      green is settled, red is trouble). IDENTITY is new: five
+      accents that say which measure or which channel you are looking
+      at. The two sets never mix, and identity colour is always
+      paired with the written label, so nothing is carried by hue.
+
+   3. SPACE. Roughly a fifth more of it, everywhere.
+
+   What did NOT change: the information design. Same figures, same
+   hierarchy, same words, same tabular numerals, same one primary
+   action per screen. This is a change of material, not of meaning.
    ============================================================ */
 
 @import 'tailwindcss';
@@ -83,18 +100,18 @@
     /* Surfaces. Cool near-white rather than warm bond paper: it holds more
        contrast against the ink, and it stops the neutrals carrying a beige
        cast that dark mode then has to undo. */
-    --bl-paper: #f7f8fa;
+    --bl-paper: #eef2f8;
     --bl-sheet: #ffffff;
-    --bl-chrome: #eef0f4;
-    --bl-chrome-2: #e4e7ee;
+    --bl-chrome: #f5f8fc;
+    --bl-chrome-2: #e7ecf4;
 
     /* Ink is the logo's navy, not a neutral black. Every rule and every
        figure inherits a trace of the brand without anything being tinted. */
     --bl-ink: #0b1228;
     --bl-ink-2: #4a5468;
     --bl-ink-3: #5f6b85;
-    --bl-rule: #e6e9ef;
-    --bl-rule-2: #d2d8e2;
+    --bl-rule: #eaeef5;
+    --bl-rule-2: #dfe5ee;
 
     /* State. Unchanged in meaning, slightly more chromatic so it still
        reads at a glance on a brighter ground. Each one clears 4.5:1 on
@@ -115,6 +132,24 @@
     --bl-brand-deep: #1c7f9b;
     --bl-lime: #c2ec42;
 
+    /* ACCENTS. New in v2.3.
+
+       The v2.2 rule was that colour means state and nothing else, which is
+       why almost nothing on a page was coloured. That reads as restraint up
+       close and as "unfinished" across the room, which is the note this
+       revamp is answering.
+
+       These five are for IDENTITY, not state: they say which measure you
+       are looking at, and they are always paired with the written label, so
+       nothing is carried by hue alone. State keeps its own tokens above and
+       they never mix. */
+    --bl-a-cyan: #1c7f9b;    --bl-a-cyan-2: #4fb9d4;
+    --bl-a-violet: #5b4bd6;  --bl-a-violet-2: #8a7bf0;
+    --bl-a-amber: #d98207;   --bl-a-amber-2: #f5b74b;
+    --bl-a-green: #0f9a6c;   --bl-a-green-2: #37d39a;
+    --bl-a-rose: #d4426a;    --bl-a-rose-2: #f4789a;
+    --bl-a-indigo: #3d4fc4; --bl-a-indigo-2: #6f80ea;
+
     /* Navigation chrome. The sidebar carries the identity so the work
        surface can stay white and keep its contrast. */
     --bl-side-bg: #0b1228;
@@ -123,12 +158,23 @@
     --bl-side-active: #1d2a4d;
     --bl-side-rule: #1b2542;
 
-    /* Materials. 2026 rather than 1985: softer corners, and exactly one
-       elevation, spent on things that genuinely float above the page. */
-    --bl-r-panel: 10px;
-    --bl-r-ctrl: 6px;
-    --bl-r-dot: 2px;
-    --bl-lift: 0 1px 2px rgba(11, 18, 40, .06), 0 14px 30px -18px rgba(11, 18, 40, .34);
+    /* MATERIALS. Rewritten in v2.3.
+
+       v2.2 spent its edges on hairline rules and kept exactly one
+       elevation. The references this revamp answers do the opposite: the
+       card edge is a soft shadow, corners are generous, and the ground is
+       tinted so white reads as raised rather than as more page.
+
+       Two elevations now, not one. --bl-lift is the resting card;
+       --bl-lift-2 is for a surface that is deliberately louder than the
+       cards around it, which on the dashboard means the figures at the top.
+       A third would mean nothing, so there is no third. */
+    --bl-r-panel: 16px;
+    --bl-r-ctrl: 11px;
+    --bl-r-dot: 4px;
+    --bl-r-pill: 999px;
+    --bl-lift: 0 1px 2px rgba(19, 26, 43, .04), 0 10px 28px -14px rgba(19, 26, 43, .22);
+    --bl-lift-2: 0 2px 6px rgba(19, 26, 43, .06), 0 22px 44px -22px rgba(19, 26, 43, .34);
 
     /* The page gutter.
 
@@ -146,7 +192,7 @@
     --bl-tip-bg: #0b1228;
     --bl-tip-ink: #f2f5fa;
 
-    --bl-page-gutter: 28px;
+    --bl-page-gutter: 30px;
 
     /* Sections used to carry the gutter themselves, which meant every new
        section was a fresh chance to forget it, and bridged pages that this
@@ -162,12 +208,12 @@
        and the channel overview's cells the moment the page gutter moved to
        the container. Zero at page level (the container already inset the
        page); a rail or a cell opts back in. */
-    --bl-pad: 18px;
+    --bl-pad: 20px;
 
     /* How far a column's content sits from the divider beside it. Separate
        from --bl-pad because it applies to ONE side of a column, not to a
        section's own box. */
-    --bl-col-pad: 18px;
+    --bl-col-pad: 20px;
 
     /* Column labels. Sentence case at normal width: the wide-tracked
        uppercase micro-cap was the single most dating detail in the build. */
@@ -181,6 +227,15 @@
 [data-theme='dark'] {
     --bl-tip-bg: #e8edf6;
     --bl-tip-ink: #0b1228;
+
+    /* Accents lighten in dark so they stay legible as fills carrying white
+       text and as text on the panel. Same five identities, same order. */
+    --bl-a-cyan: #4fb9d4;    --bl-a-cyan-2: #7fd3e6;
+    --bl-a-violet: #8a7bf0;  --bl-a-violet-2: #a99dff;
+    --bl-a-amber: #f5b74b;   --bl-a-amber-2: #ffd28a;
+    --bl-a-green: #37d39a;   --bl-a-green-2: #6fe6bb;
+    --bl-a-rose: #f4789a;    --bl-a-rose-2: #ffa3bc;
+    --bl-a-indigo: #6f80ea; --bl-a-indigo-2: #98a6ff;
 
     --bl-paper: #0a0f1c;
     --bl-sheet: #111828;
@@ -213,9 +268,18 @@
     --bl-side-rule: #16203a;
 
     --bl-lift: 0 1px 2px rgba(0, 0, 0, .5), 0 14px 30px -18px rgba(0, 0, 0, .8);
+    --bl-lift-2: 0 2px 6px rgba(0, 0, 0, .55), 0 22px 44px -22px rgba(0, 0, 0, .9);
 }
 
 @theme {
+    /* px-gutter has been used on the shell header since v2.2 and generated
+       NOTHING: without a spacing token of that name Tailwind emits no rule,
+       so the topbar has had zero horizontal padding all along and the
+       account name sat flush against the window edge. Declaring the token
+       makes the class real and puts the chrome on the same gutter as the
+       page under it. */
+    --spacing-gutter: var(--bl-page-gutter);
+
     --color-paper: var(--bl-paper);
     --color-sheet: var(--bl-sheet);
     --color-chrome: var(--bl-chrome);
@@ -1227,5 +1291,368 @@
     .bl-panel-head,
     .x-fh-sec__head {
         padding-block: 4px 8px;
+    }
+}
+
+/* ============================================================
+   v2.3 SURFACE UPGRADE
+
+   v2.2 built its structure out of hairline rules on a near-white
+   ground: correct, dense, and read as unfinished from across a room.
+   This block changes the material without touching a single view.
+
+   Every data container becomes a raised sheet: generous corner, soft
+   shadow, and a border that is now almost invisible and there only to
+   hold the edge when the shadow is suppressed (print, forced-colours,
+   a low-contrast display). The ground beneath them is tinted, which is
+   what makes white read as raised rather than as more page.
+
+   Written as one additive block rather than by editing forty rules,
+   so the whole change can be read in one place and reverted in one.
+   ============================================================ */
+@layer components {
+    .bl-band,
+    .bl-strip,
+    .bl-scroll,
+    .bl-charts,
+    .bl-panel,
+    .x-fh-strip,
+    .x-fh-panel,
+    .x-health,
+    .x-waiting,
+    .x-table-wrap,
+    .x-hub__card,
+    .fm-card,
+    .od-card,
+    .rp-band,
+    .op-band,
+    .co-band,
+    .x-board__card,
+    .fm-vars__card,
+    .auth__card {
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+    }
+
+    /* A table inside a raised sheet must not draw its own outer rules, or
+       the card gets a double edge at top and bottom. */
+    .x-table-wrap > .x-table > thead > tr > th,
+    .bl-scroll > .bl-table > thead > tr > th { border-top: 0; }
+    .x-table-wrap > .x-table > tbody > tr:last-child > td,
+    .bl-scroll > .bl-table > tbody > tr:last-child > td { border-bottom: 0; }
+
+    /* Section heads sat on a rule because there was nothing else to
+       separate them. On a raised sheet the sheet does that job, so the
+       rule goes and the space stays. */
+    .fm-section__head,
+    .od-section__head {
+        border-bottom: 0;
+        padding-bottom: 2px;
+    }
+
+    /* Controls take the same corner as the sheets they sit on. 6px inside
+       a 16px card reads as two different products. */
+    .x-input,
+    .x-select,
+    .x-textarea,
+    .fm-input,
+    .fm-select,
+    .fm-textarea,
+    .x-btn,
+    .x-segment,
+    .x-cmdbar,
+    .x-filters__search {
+        border-radius: var(--bl-r-ctrl);
+    }
+
+    /* Status marks become pills. A 2px-cornered rectangle is the single
+       most dating detail left on a row. */
+    .x-badge,
+    .bl-badge,
+    .x-segment__count,
+    .x-chip {
+        border-radius: var(--bl-r-pill);
+    }
+
+    /* The one surface that is deliberately louder than the cards around
+       it: the figures a seller opens the page to read. */
+    .bl-band { box-shadow: var(--bl-lift-2); }
+
+    /* Menus and dialogs already floated; they now float on the same two
+       materials as everything else rather than on their own. */
+    .bl-menu,
+    .x-menu__panel,
+    .x-palette__panel,
+    .fm-pick__drop,
+    .fm-ta__list,
+    .modal { box-shadow: var(--bl-lift-2); }
+
+    /* Forced colours and print get the border back, since neither renders
+       a shadow and the edge is load-bearing. */
+    @media (forced-colors: active), print {
+        .bl-band, .bl-strip, .bl-scroll, .bl-charts, .bl-panel,
+        .x-table-wrap, .fm-card, .od-card, .x-hub__card {
+            border-color: var(--bl-rule-2);
+            box-shadow: none;
+        }
+    }
+}
+
+/* ============================================================
+   v2.3 METRIC BLOCKS
+
+   The headline figures are the one place this interface raises its
+   voice. Filled saturated colour, white figures, one drawn icon each.
+   the owner picked this over the quieter variants against CoreUI Pro, so
+   it is the brief, not a flourish.
+
+   Colour here is IDENTITY, never state: it says which measure you are
+   reading. The written label sits beside it in every case, so a
+   colour-blind operator loses nothing. State keeps amber/green/red
+   and never appears on a block's fill.
+
+   ZERO. A saturated block shouting "0" reads as an alarm or a fault,
+   and on a quiet Sunday morning most of these ARE zero. A block with
+   nothing in it drops to a tint of its own hue with ink figures: the
+   measure keeps its identity, absence looks like absence.
+   ============================================================ */
+@layer components {
+    .bl-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    @media (min-width: 900px)  { .bl-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 1280px) { .bl-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+    .bl-stat {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 18px;
+        border-radius: var(--bl-r-panel);
+        background: var(--st-fill, var(--bl-a-cyan));
+        color: #fff;
+        box-shadow: var(--bl-lift-2);
+        overflow: hidden;
+        text-decoration: none;
+        transition: transform .16s cubic-bezier(.2,.7,.3,1), box-shadow .16s;
+    }
+
+    a.bl-stat:hover { transform: translateY(-2px); box-shadow: var(--bl-lift-2), 0 0 0 1px rgba(255,255,255,.28) inset; }
+    a.bl-stat:focus-visible { outline: 2px solid var(--bl-sheet); outline-offset: 2px; }
+
+    /* Two soft rounds of the block's own light, which is what stops a
+       flat rectangle of colour reading as a swatch. Behind the content,
+       never over it. */
+    .bl-stat::before,
+    .bl-stat::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .13);
+        pointer-events: none;
+    }
+    .bl-stat::before { inset: -58px -44px auto auto; width: 156px; height: 156px; }
+    .bl-stat::after  { inset: auto 22px -70px auto; width: 120px; height: 120px; background: rgba(255,255,255,.09); }
+
+    .bl-stat__top { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+
+    .bl-stat__k {
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: .01em;
+        color: rgba(255, 255, 255, .93);
+    }
+
+    .bl-stat__ic {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        background: rgba(255, 255, 255, .2);
+        color: #fff;
+    }
+
+    .bl-stat__v {
+        position: relative;
+        margin: 10px 0 4px;
+        font-size: clamp(21px, 2vw, 26px);
+        font-weight: 700;
+        letter-spacing: -.02em;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+    }
+
+    .bl-stat__d {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, .88);
+    }
+
+    .bl-stat__d svg { flex: none; }
+
+    /* Identity fills. */
+    .bl-stat--cyan   { --st-fill: linear-gradient(135deg, var(--bl-a-cyan-2), var(--bl-a-cyan)); }
+    .bl-stat--violet { --st-fill: linear-gradient(135deg, var(--bl-a-violet-2), var(--bl-a-violet)); }
+    .bl-stat--amber  { --st-fill: linear-gradient(135deg, var(--bl-a-amber-2), var(--bl-a-amber)); }
+    .bl-stat--green  { --st-fill: linear-gradient(135deg, var(--bl-a-green-2), var(--bl-a-green)); }
+    .bl-stat--rose   { --st-fill: linear-gradient(135deg, var(--bl-a-rose-2), var(--bl-a-rose)); }
+    .bl-stat--indigo { --st-fill: linear-gradient(135deg, var(--bl-a-indigo-2), var(--bl-a-indigo)); }
+
+    /* Amber is the one fill white cannot sit on at 4.5:1, so its label,
+       figure and delta take the ink they would have on paper. The block
+       keeps its identity; the text keeps its contrast. */
+    .bl-stat--amber { color: #2c1c02; }
+    .bl-stat--amber .bl-stat__k { color: rgba(44, 28, 2, .82); }
+    .bl-stat--amber .bl-stat__d { color: rgba(44, 28, 2, .78); }
+    .bl-stat--amber .bl-stat__ic { background: rgba(44, 28, 2, .14); color: #2c1c02; }
+    .bl-stat--amber::before { background: rgba(255, 255, 255, .22); }
+    .bl-stat--amber::after  { background: rgba(255, 255, 255, .16); }
+
+    /* Nothing to report. The hue survives at a tenth of its strength so
+       the block is still recognisably that measure. */
+    .bl-stat.is-zero {
+        background: var(--bl-sheet);
+        color: var(--bl-ink);
+        box-shadow: var(--bl-lift);
+    }
+    .bl-stat.is-zero::before,
+    .bl-stat.is-zero::after { display: none; }
+    .bl-stat.is-zero .bl-stat__k { color: var(--bl-ink-3); }
+    .bl-stat.is-zero .bl-stat__v { color: var(--bl-ink-2); font-weight: 650; }
+    .bl-stat.is-zero .bl-stat__d { color: var(--bl-ink-3); }
+    .bl-stat.is-zero .bl-stat__ic { background: var(--bl-chrome); color: var(--bl-ink-3); }
+    .bl-stat--cyan.is-zero   .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-cyan) 12%, transparent);   color: var(--bl-a-cyan); }
+    .bl-stat--violet.is-zero .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-violet) 12%, transparent); color: var(--bl-a-violet); }
+    .bl-stat--amber.is-zero  .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-amber) 14%, transparent);  color: var(--bl-a-amber); }
+    .bl-stat--green.is-zero  .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-green) 12%, transparent);  color: var(--bl-a-green); }
+    .bl-stat--indigo.is-zero .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-indigo) 12%, transparent); color: var(--bl-a-indigo); }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bl-stat { transition: none; }
+        a.bl-stat:hover { transform: none; }
+    }
+}
+
+/* ============================================================
+   v2.3 CHANNEL CHIPS + DONUT
+
+   A channel used to be a 9px square beside a name. It now carries a
+   rounded chip in the channel's own colour with its initial, which is
+   what makes a row of channels scannable at a glance rather than a
+   list of near-identical words.
+   ============================================================ */
+@layer components {
+    .bl-chans {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .bl-chan {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        min-width: 0;
+        padding: 15px 17px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+        color: inherit;
+        text-decoration: none;
+    }
+
+    a.bl-chan:hover { border-color: var(--bl-rule-2); }
+
+    .bl-chan__ic { flex: none; width: 40px; height: 40px; }
+
+    .bl-chan__in {
+        fill: #fff;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    /* The truncation is stated here rather than left to a utility class in
+       the markup, because "reconnect needed, the access token expired" is
+       the longest string any channel can carry and it pushed the chip 14px
+       past the window at 900px. A rule the component owns cannot be
+       dropped by an edit to the view. */
+    .bl-chan__body { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+
+    .bl-chan__n,
+    .bl-chan__s {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .bl-chan__n { font-size: 14px; font-weight: 650; }
+    .bl-chan__s { font-size: 12.5px; color: var(--bl-ink-3); }
+    .bl-chan__s--bad { color: var(--bl-bad); }
+    .bl-chan__q { margin-left: auto; text-align: right; flex: none; }
+    .bl-chan__qv { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .bl-chan__qv--attn { color: var(--bl-attn); }
+    .bl-chan__ql { font-size: 11px; color: var(--bl-ink-3); }
+
+    .bl-donut { display: grid; place-items: center; padding: 6px 0 10px; }
+    .bl-donut__hole-v { font-size: 24px; font-weight: 700; fill: var(--bl-ink); }
+    .bl-donut__hole-k { font-size: 11px; fill: var(--bl-ink-3); }
+
+    .bl-legend { display: flex; flex-direction: column; gap: 9px; padding: 0 var(--bl-pad, 20px) 16px; }
+    .bl-leg { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+    .bl-leg__sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+    .bl-leg__n { color: var(--bl-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bl-leg__v { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+}
+
+/* ============================================================
+   v2.3 RESPONSIVE REPAIRS
+
+   Found by the inspection round, not by reading the code.
+   ============================================================ */
+@layer components {
+    /* A channel strip that clips is a channel you own and cannot reach.
+       x-fh-strip is a flex row with overflow:hidden, so a sixth channel
+       (Shop B, on this database) rendered 328px past the right
+       edge of its own box and was invisible at every width. It scrolls
+       now; the radius still clips the corners because overflow-x on one
+       axis is enough to establish the clip. */
+    .x-fh-strip {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+    }
+
+    .x-fh-strip > .x-fh-card { flex: none; }
+
+    /* 820, not 640: the channel shell's bar holds a search field, a
+       three-way theme switch, a breadcrumb and an account, and it was
+       still 6px over the window at 768. It takes a second line rather
+       than running off the edge. */
+    @media (max-width: 820px) {
+        .x-topbar { flex-wrap: wrap; row-gap: 8px; }
+        .x-topbar__right { flex: 1 1 100%; justify-content: flex-end; }
+    }
+
+    @media (max-width: 640px) {
+        /* Two plots side by side is 160px each on a phone, which is not a
+           chart. They stack, and the axis labels stop overflowing with
+           them. */
+        .bl-charts { grid-template-columns: minmax(0, 1fr); }
     }
 }
