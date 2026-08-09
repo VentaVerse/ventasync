@@ -48,12 +48,12 @@
                 : null;
         @endphp
 
-        <section class="cw-panel">
-            <div class="cw-panel__head">
-                <h2 class="cw-panel__title">Last 30 days</h2>
-                <p class="cw-panel__note">Compared with the 30 days before</p>
-            </div>
+        <div class="cw-panel__head">
+            <h2 class="cw-panel__title">Last 30 days</h2>
+            <p class="cw-panel__note">Compared with the 30 days before</p>
+        </div>
 
+        <section class="cw-panel">
             <div class="cw-figures">
                 {{-- A percentage against a period that sold nothing is not a
                      number: it prints the plain total instead of "up
@@ -96,6 +96,9 @@
              connection. An operator opening a channel is asking "what is
              waiting for me", and the health strip below answers a different
              question. --}}
+        <div class="cw-panel__head">
+            <h2 class="cw-panel__title">Waiting on you</h2>
+        </div>
         <div class="x-waiting">
             @foreach($channelWaiting as $row)
                 <div class="x-waiting__cell">
@@ -113,12 +116,12 @@
              the closest thing this page offers to a stocking decision.
              Ranked by revenue; units sit alongside because the two together
              are what makes a line readable. --}}
-        <section class="cw-panel">
-            <div class="cw-panel__head">
-                <h2 class="cw-panel__title">Best sellers here</h2>
-                <p class="cw-panel__note">By revenue, last 30 days</p>
-            </div>
+        <div class="cw-panel__head">
+            <h2 class="cw-panel__title">Best sellers here</h2>
+            <p class="cw-panel__note">By revenue, last 30 days</p>
+        </div>
 
+        <section class="cw-panel">
             <ol class="cw-top">
                 @foreach($channelBestSellers as $product)
                     <li class="cw-top__row">
@@ -138,6 +141,9 @@
 
     {{-- Health last. It matters on the day it breaks and never otherwise,
          and the badge in the channel sidebar already carries the alarm. --}}
+    <div class="cw-panel__head">
+        <h2 class="cw-panel__title">Connection</h2>
+    </div>
     <div class="x-health">
         @foreach($channelHealth as $row)
             <div class="x-health__cell">

@@ -863,7 +863,10 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 4px 10px;
-    margin-bottom: 16px;
+    /* Heads sit above their card, not inside it, so every region on the page
+       labels itself the same way. Two placements on one screen read as two
+       designs. */
+    margin-bottom: 10px;
 }
 
 .cw-panel__title {
@@ -935,7 +938,10 @@
 
 .cw-top__row {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    /* Fixed number columns, not auto. With auto tracks each row sized its own
+       figures, so "1 sold" and "20 sold" started at different x and the
+       column read as ragged - the one thing a list of numbers must not do. */
+    grid-template-columns: 1fr 88px 116px;
     align-items: baseline;
     gap: 6px 16px;
     padding: 10px 0;
@@ -957,11 +963,13 @@
 }
 
 .cw-top__units {
+    text-align: right;
     font-variant-numeric: tabular-nums;
     color: var(--bl-ink-2, #a7b1c5);
 }
 
 .cw-top__rev {
+    text-align: right;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--bl-ink, #1f2937);
@@ -971,7 +979,7 @@
    product title into a column too narrow to read. */
 @media (max-width: 560px) {
     .cw-top__row {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr 116px;
     }
 
     .cw-top__name { grid-column: 1 / -1; }
@@ -999,3 +1007,23 @@
     flex-wrap: wrap;
     min-width: 0;
 }
+
+/* The waiting and health strips predate the panels above them and carried a
+   different surface: no radius to speak of, no lift, a lighter rule. Four
+   stacked regions on one page wearing two different card treatments reads as
+   two designs sharing a screen, so they take the panel's surface too. This is
+   the same "styled only where someone remembered to style it" pattern the
+   page gutter and the section cards both had - the rule belongs to every
+   region on the page, not to the ones added last. */
+.x-waiting,
+.x-health {
+    margin-bottom: var(--bl-col-pad, 20px);
+    background: var(--bl-sheet, #fff);
+    border: 1px solid var(--bl-rule, #eaeef5);
+    border-radius: var(--bl-r-panel, 16px);
+    box-shadow: var(--bl-lift, none);
+    overflow: hidden;
+}
+
+.x-health { margin-bottom: 0; }
+
