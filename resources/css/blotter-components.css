@@ -787,16 +787,50 @@
 
     .fm-img__item {
         position: relative;
-        border: 1px solid var(--bl-rule-2);
+        border: 1px solid var(--bl-rule);
         border-radius: var(--bl-r-ctrl);
         background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
         cursor: grab;
         overflow: hidden;
+        transition: box-shadow .14s ease, border-color .14s ease, transform .14s ease;
     }
 
     .fm-img__item:hover {
-        border-color: var(--bl-ink-2);
+        border-color: var(--bl-rule-2);
+        box-shadow: var(--bl-lift-2);
+        transform: translateY(-1px);
     }
+
+    /* The first image is what the catalogue and every marketplace show. That
+       is the one piece of state in this grid worth seeing rather than
+       reading, so it sits ON the picture as a badge rather than as a word in
+       the footer. Ink on white, not a colour: it is an identity, not an
+       alarm. */
+    .fm-img__main {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        z-index: 1;
+        padding: 2px 7px;
+        border-radius: var(--bl-r-pill);
+        background: var(--bl-ink);
+        color: var(--bl-sheet);
+        font-size: 10.5px;
+        font-weight: 650;
+        letter-spacing: .01em;
+        box-shadow: 0 1px 3px rgba(19, 26, 43, .4);
+    }
+
+    /* The handle IS the instruction. A sentence saying "drag to reorder" is
+       a thing you have to read; a grip is a thing you can see. */
+    .fm-img__grip {
+        display: inline-flex;
+        color: var(--bl-ink-3);
+        cursor: grab;
+    }
+
+    .fm-img__item:hover .fm-img__grip { color: var(--bl-ink-2); }
 
     .fm-img__item:active {
         cursor: grabbing;
@@ -3009,11 +3043,14 @@
     .fm-img__bar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        padding: 5px 8px;
+        gap: 7px;
+        padding: 5px 7px;
         border-top: 1px solid var(--bl-rule);
     }
+
+    /* Grip, then the position, then the remove pushed to the far end so it
+       is never the thing a thumb lands on by accident. */
+    .fm-img__bar .fm-img__x { margin-left: auto; }
 
     .fm-img__pos {
         font-family: var(--font-mono);
@@ -3026,8 +3063,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 18px;
-        height: 18px;
+        width: 24px;
+        height: 24px;
         padding: 0;
         border: 0;
         border-radius: var(--bl-r-dot);

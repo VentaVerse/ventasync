@@ -35,13 +35,14 @@
 <section class="fm-section">
     <div class="fm-section__head">
         <h2 class="fm-section__title">Images</h2>
+        <x-ui.hint label="How image order works">Drag a tile to reorder. The first image is the one the
+            catalogue and the marketplaces show, and it is marked Main.</x-ui.hint>
         <div class="fm-section__aside">
             <x-ui.button type="button" size="sm" id="pimOpenManagerBtn">
                 <x-ui.icon name="image" size="14" /> Browse library
             </x-ui.button>
         </div>
     </div>
-    <p class="fm-section__note">Drag to reorder. The first image is the one the catalog and the marketplaces show.</p>
 
     <div class="fm-img">
         <input type="hidden" name="pim_token" value="{{ $pimToken }}">
@@ -204,19 +205,45 @@
       wrap.appendChild(img);
       div.appendChild(wrap);
 
+      // Main is a badge ON the picture, not a caption under it. Which image
+      // the catalogue and every marketplace show is the one state that
+      // matters in this grid, and a word in a footer is read, not seen.
+      if (idx === 0) {
+        const main = document.createElement('span');
+        main.className = 'fm-img__main';
+        main.textContent = 'Main';
+        div.appendChild(main);
+      }
+
       const bar = document.createElement('div');
       bar.className = 'fm-img__bar';
 
+      // The grip is the reorder affordance. It replaces the sentence that
+      // used to say "drag to reorder": an instruction you have to read is
+      // worse than a handle you can see, and the sentence has moved into
+      // the heading's hint for anyone who wants it spelled out.
+      const grip = document.createElement('span');
+      grip.className = 'fm-img__grip';
+      grip.setAttribute('aria-hidden', 'true');
+      grip.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">'
+        + '<circle cx="4" cy="2.5" r="1"/><circle cx="8" cy="2.5" r="1"/>'
+        + '<circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/>'
+        + '<circle cx="4" cy="9.5" r="1"/><circle cx="8" cy="9.5" r="1"/></svg>';
+      bar.appendChild(grip);
+
       const pos = document.createElement('span');
       pos.className = 'fm-img__pos';
-      pos.textContent = (idx === 0) ? 'Main' : String(idx + 1);
+      pos.textContent = String(idx + 1);
       bar.appendChild(pos);
 
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'fm-img__x';
       remove.setAttribute('aria-label', 'Remove image ' + (idx + 1));
-      remove.textContent = '×';
+      // Drawn, not a multiplication sign. The craft floor bans a glyph
+      // standing in for an icon, and this one sat at 18px besides.
+      remove.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
       remove.addEventListener('click', (e) => {
         e.preventDefault();
         items = items.filter(x => x.path !== it.path);
