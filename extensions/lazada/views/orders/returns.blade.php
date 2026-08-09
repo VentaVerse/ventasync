@@ -60,9 +60,9 @@
         <div class="x-cmdbar__spacer"></div>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary" id="btnFetchLazadaReturns">Fetch returns</x-ui.button>
+            <x-ui.hint>Leave both dates empty to pull every return Lazada has on file. That can take a moment on a large history.</x-ui.hint>
         </div>
     </form>
-    <p class="x-cmdbar__hint">Leave both dates empty to pull every return Lazada has on file. That can take a moment on a large history.</p>
 </div>
 @endif
 

@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Edit ' . ($product->name ?: 'product'))
 @section('breadcrumb', $product->name ?: ('Product ' . $product->product_id))
 

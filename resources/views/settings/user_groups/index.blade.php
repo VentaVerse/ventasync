@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'User groups')
 @section('breadcrumb', 'User groups')
 
@@ -46,7 +46,7 @@
         <tr>
             <th class="st-col-id">ID</th>
             <th>Name</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 
@@ -64,17 +64,20 @@
                     <div class="st-note">Always keeps settings, users and user groups. Cannot be deleted.</div>
                 @endif
             </td>
-            <td class="x-td-actions">
+            {{-- Two actions and a wide empty column: a menu here hides the
+                 controls and wastes the space at the same time. Shown inline,
+                 with the column sized to its content so the name still gets
+                 every pixel it can use. --}}
+            <td class="bl-col-actions">
                 @if($canManageUserGroups)
-                <x-ui.menu label="{{ $g->name }} actions">
-                    <a class="x-menu__item" href="{{ route('user_groups.edit', $g->id) }}">Edit permissions</a>
-                    @unless($isAdminGroup)
-                        <div class="x-menu__sep"></div>
-                        <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete {{ $g->name }}? This cannot be undone."
-                                data-confirm-submit="st-group-del-{{ $g->id }}">Delete</button>
-                    @endunless
-                </x-ui.menu>
+                    <div class="bl-rowactions">
+                        <a class="x-btn x-btn--sm" href="{{ route('user_groups.edit', $g->id) }}">Edit permissions</a>
+                        @unless($isAdminGroup)
+                            <button type="button" class="x-btn x-btn--sm x-btn--danger"
+                                    data-confirm="Delete {{ $g->name }}? This cannot be undone."
+                                    data-confirm-submit="st-group-del-{{ $g->id }}">Delete</button>
+                        @endunless
+                    </div>
                 @endif
             </td>
         </tr>

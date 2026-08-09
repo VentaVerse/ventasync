@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 {{--
     No manual escaping here: the inline `@section('name', $value)` form
     already runs the value through e() (ManagesLayouts::startSection()),

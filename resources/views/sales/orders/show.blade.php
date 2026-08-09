@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Order ' . $order->order_id)
 @section('breadcrumb', $order->order_id)
 

@@ -17,7 +17,8 @@
     <div>
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
-            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}. A group maps a set of catalogue products to one Lazada category, its brand and its required attributes.
+            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }}.
+            <x-ui.hint label="What a product group is">A group maps a set of catalogue products to one Lazada category, its brand and its required attributes.</x-ui.hint>
         </p>
     </div>
     @if($canManageLazada)

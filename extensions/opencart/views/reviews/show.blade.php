@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Review ' . $review->platform_review_id)
 @section('breadcrumb', $review->platform_review_id)
 

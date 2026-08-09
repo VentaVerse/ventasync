@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Error log')
 @section('breadcrumb', 'Error log')
 

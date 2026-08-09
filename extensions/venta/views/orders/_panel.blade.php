@@ -84,9 +84,9 @@
         <div class="x-cmdbar__spacer"></div>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary" id="btnFetchVentaOrders">Fetch orders</x-ui.button>
+            <x-ui.hint>Fetching pulls the orders this store created between those two dates.</x-ui.hint>
         </div>
     </form>
-    <p class="x-cmdbar__hint">Fetching pulls the orders this store created between those two dates.</p>
 </div>
 @endif
 

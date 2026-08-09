@@ -41,9 +41,9 @@
 <div class="x-cmdbar">
     <form method="POST" action="{{ route('ext.shopee.categories.fetch') }}" class="x-cmdbar__row">
         @csrf
-        <p class="x-cmdbar__hint x-cmdbar__hint--inline">Pulls Shopee's whole category tree and replaces the cached copy. Product Groups map to categories from this list, so refresh it when Shopee adds one.</p>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch categories</x-ui.button>
+            <x-ui.hint>Pulls Shopee's whole category tree and replaces the cached copy. Product Groups map to categories from this list, so refresh it when Shopee adds one.</x-ui.hint>
         </div>
     </form>
 </div>

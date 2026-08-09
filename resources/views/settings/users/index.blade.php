@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Users')
 @section('breadcrumb', 'Users')
 
@@ -53,7 +53,7 @@
             <th>Email</th>
             <th class="st-col-user">Group</th>
             <th class="st-col-when">Last sign-in</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 
@@ -90,20 +90,19 @@
                     <span class="st-note">Never</span>
                 @endif
             </td>
-            <td class="x-td-actions">
+            <td class="bl-col-actions">
                 @if($canManageUsers)
-                <x-ui.menu label="{{ $u->name }} actions">
-                    <a class="x-menu__item" href="{{ route('users.edit', $u->id) }}">Edit</a>
+                <div class="bl-rowactions">
+                    <a class="x-btn x-btn--sm" href="{{ route('users.edit', $u->id) }}">Edit</a>
                     @if(Route::has('ext.audit.activity-log.index'))
-                        <a class="x-menu__item" href="{{ route('ext.audit.activity-log.index', ['user_id' => $u->id]) }}">Activity log</a>
+                        <a class="x-btn x-btn--sm" href="{{ route('ext.audit.activity-log.index', ['user_id' => $u->id]) }}">Activity log</a>
                     @endif
                     @if($canDelete)
-                        <div class="x-menu__sep"></div>
-                        <button type="button" class="x-menu__item x-menu__item--danger"
+                        <button type="button" class="x-btn x-btn--sm x-btn--danger"
                                 data-confirm="Delete {{ $u->name }}? This cannot be undone."
                                 data-confirm-submit="st-user-del-{{ $u->id }}">Delete</button>
                     @endif
-                </x-ui.menu>
+                </div>
                 @endif
             </td>
         </tr>

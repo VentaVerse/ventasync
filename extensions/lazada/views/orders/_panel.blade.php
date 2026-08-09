@@ -125,9 +125,9 @@
             <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
             <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
                          formaction="{{ route('ext.lazada.orders.update_statuses') }}">Update statuses</x-ui.button>
+            <x-ui.hint>Both dates are required, for fetching new orders and for updating statuses.</x-ui.hint>
         </div>
     </form>
-    <p class="x-cmdbar__hint">Both dates are required, for fetching new orders and for updating statuses.</p>
 </div>
 @endif
 

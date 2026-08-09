@@ -98,9 +98,9 @@
             <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
             <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
                          formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update statuses</x-ui.button>
+            <x-ui.hint>Fetching pulls the orders created between those two dates. Updating statuses refreshes the last 30 days and ignores the dates.</x-ui.hint>
         </div>
     </form>
-    <p class="x-cmdbar__hint">Fetching pulls the orders created between those two dates. Updating statuses refreshes the last 30 days and ignores the dates.</p>
 </div>
 @endif
 

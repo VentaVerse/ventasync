@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Edit ' . $client->name)
 @section('breadcrumb', $client->name)
 

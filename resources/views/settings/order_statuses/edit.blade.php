@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Edit ' . $orderStatus->name)
 @section('breadcrumb', $orderStatus->name)
 

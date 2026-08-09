@@ -336,8 +336,8 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Run one now</h2>
+            <x-ui.hint label="About running one now">Outside the schedule, for when you need something immediately. Leave both dates empty to use the window above.</x-ui.hint>
         </div>
-        <p class="fm-section__note">Outside the schedule, for when you need something immediately. Leave both dates empty to use the window above.</p>
 
         <div class="fm-fields fm-fields--2">
             <x-ui.field label="From" for="oc-pull-from">

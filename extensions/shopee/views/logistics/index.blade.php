@@ -33,9 +33,9 @@
 <div class="x-cmdbar">
     <form method="POST" action="{{ route('ext.shopee.logistics.fetch') }}" class="x-cmdbar__row">
         @csrf
-        <p class="x-cmdbar__hint x-cmdbar__hint--inline">Reads the courier list Shopee has switched on for your shop. Product Groups pick their couriers from this list, so refresh it after changing anything in Seller Centre.</p>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch couriers</x-ui.button>
+            <x-ui.hint>Reads the courier list Shopee has switched on for your shop. Product Groups pick their couriers from this list, so refresh it after changing anything in Seller Centre.</x-ui.hint>
         </div>
     </form>
 </div>

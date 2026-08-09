@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 
 @php
     // One controller action and one view back four real routes

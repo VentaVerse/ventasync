@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'New user group')
 @section('breadcrumb', 'New')
 

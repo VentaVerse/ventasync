@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'New order')
 @section('breadcrumb', 'New order')
 

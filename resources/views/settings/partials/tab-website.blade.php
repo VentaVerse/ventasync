@@ -17,7 +17,7 @@
         : 'Mail this system sends comes from here, unless the Mail page sets a From address.';
 @endphp
 
-<div class="fm-body">
+<div class="fm-body st-body--one">
     <div class="fm-col fm-col--main">
 
         <section class="fm-section">
@@ -70,46 +70,49 @@
                 Uploading replaces what is there now. There is no revert: upload again to change it back.
             </p>
 
+            {{-- Each upload sits with the thing it would replace. They were
+                 split apart into a side card, which put the logo you are
+                 about to overwrite in a different column from the button
+                 that overwrites it. The file input still drives the image
+                 above it by id through data-image-preview, so picking a file
+                 previews it in place. --}}
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Logo" for="st-logo" name="logo" wide
-                            hint="Shown in the sidebar and on the login screen. Up to 2 MB.">
+                {{-- The hint is written into the slot rather than passed as
+                     the prop, only so it keeps its old position: the prop
+                     renders after the slot, which would put the sentence
+                     under the preview where it reads as a caption for the
+                     image. Same markup either way. --}}
+                <x-ui.field label="Logo" for="st-logo" name="logo" wide>
                     <div class="st-file">
                         <label class="st-file__btn" for="st-logo">Choose file</label>
                         <span class="st-file__name" data-file-name-for="st-logo">No file chosen</span>
                         <input type="file" id="st-logo" name="logo" accept="image/*" class="st-file__input"
                                data-image-preview="st-logo-img" @disabled($ro)>
                     </div>
+                    <div class="fm-hint">Shown in the sidebar and on the login screen. Up to 2 MB.</div>
+                    <div class="st-brandnow">
+                        <img class="st-brand__logo" id="st-logo-img" alt="Logo"
+                             src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync.png') }}">
+                        <span class="st-brand__cap">{{ $setting->logo_path ? 'Uploaded logo' : 'Default logo' }}</span>
+                    </div>
                 </x-ui.field>
 
-                <x-ui.field label="Favicon" for="st-favicon" name="favicon" wide
-                            hint="Shown in the browser tab. PNG, SVG or ICO, square, up to 512 KB.">
+                <x-ui.field label="Favicon" for="st-favicon" name="favicon" wide>
                     <div class="st-file">
                         <label class="st-file__btn" for="st-favicon">Choose file</label>
                         <span class="st-file__name" data-file-name-for="st-favicon">No file chosen</span>
                         <input type="file" id="st-favicon" name="favicon" accept="image/*,.ico,.svg" class="st-file__input"
                                data-image-preview="st-favicon-img" @disabled($ro)>
                     </div>
+                    <div class="fm-hint">Shown in the browser tab. PNG, SVG or ICO, square, up to 512 KB.</div>
+                    <div class="st-brandnow st-brandnow--icon">
+                        <img class="st-brand__fav" id="st-favicon-img" alt="Favicon"
+                             src="{{ $setting->favicon_path ? asset('storage/'.$setting->favicon_path) : asset('images/brand/ventasync-icon.png') }}">
+                        <span class="st-brand__cap">{{ $setting->favicon_path ? 'Uploaded favicon' : 'Default favicon' }}</span>
+                    </div>
                 </x-ui.field>
             </div>
         </section>
 
-    </div>
-
-    <div class="fm-col fm-col--side">
-        <div class="fm-card">
-            <div class="fm-card__head"><h2 class="fm-card__title">What is showing now</h2></div>
-            <div class="fm-card__body">
-                <div class="st-brand">
-                    <img class="st-brand__logo" id="st-logo-img" alt="Logo"
-                         src="{{ $setting->logo_path ? asset('storage/'.$setting->logo_path) : asset('images/brand/ventasync.png') }}">
-                    <span class="st-brand__cap">{{ $setting->logo_path ? 'Uploaded logo' : 'Default logo' }}</span>
-                </div>
-                <div class="st-brand st-brand--icon">
-                    <img class="st-brand__fav" id="st-favicon-img" alt="Favicon"
-                         src="{{ $setting->favicon_path ? asset('storage/'.$setting->favicon_path) : asset('images/brand/ventasync-icon.png') }}">
-                    <span class="st-brand__cap">{{ $setting->favicon_path ? 'Uploaded favicon' : 'Default favicon' }}</span>
-                </div>
-            </div>
-        </div>
     </div>
 </div>

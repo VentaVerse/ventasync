@@ -35,9 +35,9 @@
 <div class="x-cmdbar">
     <form method="POST" action="{{ route('ext.tiktok.categories.sync') }}" class="x-cmdbar__row">
         @csrf
-        <p class="x-cmdbar__hint x-cmdbar__hint--inline">Pulls TikTok Shop's category tree into the local cache. Product Groups pick their TikTok category from this list, so refresh it when TikTok adds one.</p>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary">Fetch categories</x-ui.button>
+            <x-ui.hint>Pulls TikTok Shop's category tree into the local cache. Product Groups pick their TikTok category from this list, so refresh it when TikTok adds one.</x-ui.hint>
         </div>
     </form>
 </div>

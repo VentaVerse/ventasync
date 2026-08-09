@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Stock history: ' . $product->name)
 @section('breadcrumb', 'Stock history')
 

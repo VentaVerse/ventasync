@@ -24,7 +24,8 @@
     <div>
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
-            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }} on {{ $storeName }}. A group is a set of catalogue products pushed to this Venta store together, with one price markup.
+            {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'group' : 'groups' }} on {{ $storeName }}.
+            <x-ui.hint label="What a product group is">A group is a set of catalogue products pushed to this Venta store together, with one price markup.</x-ui.hint>
         </p>
     </div>
     @if($canManageVenta)

@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Fulfilment')
 
 {{-- The trail's first segment comes from the nav tree automatically (the
@@ -74,8 +74,18 @@
                 // that store's own panel here rather than the channel's
                 // first one. Every other channel still navigates to its own
                 // orders page until its panel is extracted the same way.
+                // A channel that declares a landing tab in its own OrderTab
+                // (Lazada opens on TO_SHIP, because "all 564 orders" is not
+                // what anyone opens a fulfilment card to see) keeps that tab
+                // when its panel renders in place. Forwarding the channel's
+                // own routeParams rather than naming any channel here keeps
+                // this line free of per-channel knowledge, exactly as the
+                // note above intends.
                 'url' => in_array($fhTab->id, $panelChannels ?? [], true)
-                    ? route('integrations.orders', ['channel' => $fhTab->id])
+                    ? route('integrations.orders', array_filter([
+                        'channel' => $fhTab->id,
+                        'tab' => $fhTab->routeParams['tab'] ?? null,
+                    ]))
                     : route($fhTab->routeName, $fhTab->routeParams),
                 'unprocessed' => $fhUnprocessed,
                 'today' => $fhTabToday,

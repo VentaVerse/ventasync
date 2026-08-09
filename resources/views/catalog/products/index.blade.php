@@ -1,16 +1,13 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Products')
 
-@section('content')
 @php
+    use Illuminate\Support\Str;
+
     // Phase 4.5 view/manage gating: read-tier sees the list plus the Sales
     // and Stock history satellites; create/edit/delete/bulk actions are
-    // manage-tier only. Mirrors sales/orders/index-v2.blade.php - hardcoded
-    // true until that gating lands app-wide. Same live gap as view_orders (documented separately):
-    // view_products is declared in config/permissions.php and in this
-    // route's own middleware, but core permissions only reach the
-    // `permissions` table via `php artisan permission:sync`, which nothing
-    // runs automatically on a fresh install. Not this task's fix.
+    // manage-tier only. Hardcoded true until that gating lands app-wide,
+    // unchanged by the v2.2 interface work.
     $canManageProducts = true;
 
     $hasFilters = $q !== '' || $status !== '';
@@ -19,184 +16,260 @@
         request()->except('sort', 'dir'),
         ['sort' => $col, 'dir' => ($sort === $col && $dir === 'asc') ? 'desc' : 'asc']
     ));
+
+    // The arrow is drawn only on the column actually in force, so the header
+    // row reads as one sorted column rather than six competing controls.
+    $sortArrow = fn (string $col) => $sort === $col
+        ? ($dir === 'asc' ? 'chevron-up' : 'chevron-down')
+        : null;
 @endphp
 
-<div class="x-list-head">
-    <div>
-        <h1 class="x-page-title">Products</h1>
-        <p class="x-page-sub">{{ number_format($products->total()) }} {{ Str::plural('product', $products->total()) }}</p>
+@section('content')
+    <div class="flex flex-wrap items-end gap-4 px-gutter pt-4.5 pb-3.5">
+        <div>
+            <h1 class="text-[21px] font-semibold tracking-tight">Products</h1>
+            <p class="text-[13px] text-ink-3">
+                {{ number_format($products->total()) }} {{ Str::plural('product', $products->total()) }}
+                @if($hasFilters) matching this filter @endif
+            </p>
+        </div>
+        @if($canManageProducts)
+            <a href="{{ route('products.create') }}" class="bl-btn bl-btn-primary ml-auto">
+                <x-ui.icon name="plus" size="14" /> New product
+            </a>
+        @endif
     </div>
-    @if($canManageProducts)
-    <x-ui.button variant="primary" :href="route('products.create')">New product</x-ui.button>
-    @endif
-</div>
 
-<form method="GET" action="{{ route('products.index') }}" class="x-filters" id="products-filter">
-    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Search name, SKU, model" class="x-filters__search" />
-    <div class="x-select-wrap x-filters__select">
-        <select name="status" class="x-input" data-autosubmit>
+    <form method="GET" action="{{ route('products.index') }}" id="products-filter"
+          class="flex flex-wrap items-center gap-2 px-gutter pb-3.5">
+        <label for="products-q" class="sr-only">Search products</label>
+        <input id="products-q" type="search" name="q" value="{{ $q }}"
+               placeholder="Search name, SKU, model" class="bl-input max-w-[300px]">
+
+        <label for="products-status" class="sr-only">Filter by status</label>
+        <select id="products-status" name="status" class="bl-input max-w-[170px]" data-autosubmit>
             <option value="">All statuses</option>
             <option value="1" @selected($status === '1')>Enabled</option>
             <option value="0" @selected($status === '0')>Disabled</option>
         </select>
-        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
-    </div>
-    {{-- Keeps whatever column the list is sorted by from being dropped the
-         moment a filter is submitted - same fix orders/index-v2 carries. --}}
-    <input type="hidden" name="sort" value="{{ $sort }}">
-    <input type="hidden" name="dir" value="{{ $dir }}">
-</form>
 
-<div class="cat-page" x-data="{
-        selected: [],
-        ids: {{ \Illuminate\Support\Js::from($products->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
-    }">
+        {{-- Keeps the sorted column from being dropped the moment a filter
+             is submitted. --}}
+        <input type="hidden" name="sort" value="{{ $sort }}">
+        <input type="hidden" name="dir" value="{{ $dir }}">
 
-@if($canManageProducts)
-    <form id="product-bulk-form" method="POST" action="{{ route('products.bulk') }}" x-ref="bulkForm">
-        @csrf
-        <input type="hidden" name="action" x-ref="bulkAction" value="">
+        @if($hasFilters)
+            <a href="{{ route('products.index') }}"
+               class="border-b border-rule-2 text-[12.5px] text-ink-2 no-underline hover:border-ink hover:text-ink">
+                Clear filters
+            </a>
+        @endif
     </form>
 
-    <div class="cat-bulkbar" x-show="selected.length > 0" x-cloak>
-        <span class="cat-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
-        <div class="cat-bulkbar__actions">
-            <x-ui.button type="button" size="sm" @click="$refs.bulkAction.value = 'enable'; $refs.bulkForm.requestSubmit()">Enable</x-ui.button>
-            <x-ui.button type="button" size="sm" @click="$refs.bulkAction.value = 'disable'; $refs.bulkForm.requestSubmit()">Disable</x-ui.button>
-            <x-ui.button type="button" variant="danger" size="sm"
-                    @click="$refs.bulkAction.value = 'delete'"
-                    data-confirm="Delete the selected products? This cannot be undone."
-                    data-confirm-submit="product-bulk-form">Delete</x-ui.button>
-        </div>
-    </div>
-@endif
+    <div x-data="{
+            selected: [],
+            ids: {{ \Illuminate\Support\Js::from($products->pluck('product_id')->map(fn ($v) => (string) $v)->values()) }}
+        }">
 
-@if($products->isEmpty())
-    <x-ui.empty title="{{ $hasFilters ? 'No products match those filters' : 'No products yet' }}"
-                description="{{ $hasFilters ? 'Try clearing the search or choosing a different status.' : 'Add your first product to start building the catalog.' }}">
-        @if($canManageProducts && !$hasFilters)
-        <x-slot:action>
-            <x-ui.button variant="primary" :href="route('products.create')">New product</x-ui.button>
-        </x-slot:action>
-        @endif
-    </x-ui.empty>
-@else
-<x-ui.table>
-    <x-slot:head>
-        <tr>
-            @if($canManageProducts)
-            <th class="cat-col-check">
-                <input type="checkbox" class="cat-check"
-                       :checked="ids.length > 0 && selected.length === ids.length"
-                       x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
-                       @change="selected = $event.target.checked ? ids.slice() : []"
-                       aria-label="Select all products on this page">
-            </th>
-            @endif
-            <th class="cat-col-id">
-                <a class="x-th-sort" href="{{ $sortUrl('product_id') }}">
-                    ID
-                    @if($sort === 'product_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th>
-                <a class="x-th-sort" href="{{ $sortUrl('name') }}">
-                    Product
-                    @if($sort === 'name')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th class="cat-col-qty x-td-num">
-                <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">
-                    Quantity
-                    @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th class="cat-col-price x-td-num">
-                <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">
-                    Price
-                    @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th class="cat-col-stat">
-                <a class="x-th-sort" href="{{ $sortUrl('status') }}">
-                    Status
-                    @if($sort === 'status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
-        </tr>
-    </x-slot:head>
+        @if($canManageProducts)
+            <form id="product-bulk-form" method="POST" action="{{ route('products.bulk') }}" x-ref="bulkForm">
+                @csrf
+                <input type="hidden" name="action" x-ref="bulkAction" value="">
+            </form>
 
-    @foreach($products as $p)
-        @php
-            $img = trim((string) ($p->image ?? ''));
-            $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
-            $variationCount = count($p->option_rows ?? []);
-            $backUrl = urlencode(request()->fullUrl());
-        @endphp
-        <tr>
-            @if($canManageProducts)
-            <td class="cat-col-check">
-                <input type="checkbox" class="cat-check" name="ids[]" value="{{ (string) $p->product_id }}" form="product-bulk-form" x-model="selected">
-            </td>
-            @endif
-            <td class="cat-col-id" data-label="ID"><span class="x-num">{{ $p->product_id }}</span></td>
-            <td data-label="Product">
-                <div class="co-item">
-                    <div class="cat-thumb">
-                        <span class="co-item__none">No image</span>
-                        @if($thumbSrc)
-                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';">
-                        @endif
-                    </div>
-                    <div class="co-item__body">
-                        @if($canManageProducts)
-                            <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $p->name ?? '-' }}</a>
-                        @else
-                            <span class="co-item__name">{{ $p->name ?? '-' }}</span>
-                        @endif
-                        <div class="co-item__meta">
-                            <span class="co-item__sku">{{ $p->sku ?: '-' }}</span>
-                            @if($variationCount > 0)
-                                <span class="co-item__var">{{ $variationCount }} {{ Str::plural('variation', $variationCount) }}</span>
-                            @endif
-                        </div>
-                    </div>
+            {{-- The bulk bar only exists while something is selected, so the
+                 page never carries a row of controls that do nothing. --}}
+            <div x-show="selected.length > 0" x-cloak
+                 class="flex flex-wrap items-center gap-2 border-y border-rule-2 bg-attn-wash px-gutter py-2.5">
+                <span class="text-[13px] font-semibold">
+                    <span x-text="selected.length"></span> selected
+                </span>
+                <div class="ml-auto flex gap-1.5">
+                    <button type="button" class="bl-btn bl-btn-sm"
+                            @click="$refs.bulkAction.value = 'enable'; $refs.bulkForm.requestSubmit()">Enable</button>
+                    <button type="button" class="bl-btn bl-btn-sm"
+                            @click="$refs.bulkAction.value = 'disable'; $refs.bulkForm.requestSubmit()">Disable</button>
+                    <button type="button" class="bl-btn bl-btn-sm x-btn--danger"
+                            @click="$refs.bulkAction.value = 'delete'"
+                            data-confirm="Delete the selected products? This cannot be undone."
+                            data-confirm-submit="product-bulk-form">Delete</button>
                 </div>
-            </td>
-            <td class="cat-col-qty x-td-num" data-label="Quantity"><span class="x-num">{{ (int) $p->quantity }}</span></td>
-            <td class="cat-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
-            <td class="cat-col-stat" data-label="Status">
-                <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
-            </td>
-            <td class="x-td-actions">
-                <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.sales', $p->product_id) }}?back={{ $backUrl }}">Sales history</a>
-                    <a class="x-menu__item" href="{{ route('products.stock_history', $p->product_id) }}?back={{ $backUrl }}">Stock history</a>
-                    @if($canManageProducts)
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit</a>
-                    <div class="x-menu__sep"></div>
-                    <button type="button" class="x-menu__item x-menu__item--danger"
-                            data-confirm="Delete {{ $p->name }}? This cannot be undone."
-                            data-confirm-submit="prod-del-{{ $p->product_id }}">Delete</button>
-                    <form id="prod-del-{{ $p->product_id }}" method="POST" action="{{ route('products.destroy', $p->product_id) }}" class="x-sr">
-                        @csrf
-                        @method('DELETE')
-                    </form>
-                    @endif
-                </x-ui.menu>
-            </td>
-        </tr>
-    @endforeach
-</x-ui.table>
+            </div>
+        @endif
 
-<div class="x-pager">
-    <span class="x-pager__count x-num">{{ number_format($products->firstItem() ?? 0) }} to {{ number_format($products->lastItem() ?? 0) }} of {{ number_format($products->total()) }}</span>
-    <div class="x-pager__nav">
-        <x-ui.button size="sm" :href="$products->previousPageUrl()" :disabled="!$products->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-        <x-ui.button size="sm" :href="$products->nextPageUrl()" :disabled="!$products->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
+        @if($products->isEmpty())
+            <div class="border-t border-rule-2 bg-sheet px-gutter py-14 text-center">
+                <p class="text-[15px] font-semibold">
+                    {{ $hasFilters ? 'No products match those filters' : 'No products yet' }}
+                </p>
+                <p class="mx-auto mt-1 max-w-[46ch] text-[13px] text-ink-2">
+                    {{ $hasFilters
+                        ? 'Try clearing the search or choosing a different status.'
+                        : 'Add your first product to start building the catalog.' }}
+                </p>
+                @if($canManageProducts && !$hasFilters)
+                    <a href="{{ route('products.create') }}" class="bl-btn bl-btn-primary mt-4">New product</a>
+                @endif
+            </div>
+        @else
+            <div class="bl-scroll">
+                <table class="bl-table">
+                    <thead>
+                        <tr>
+                            @if($canManageProducts)
+                                <th class="w-9">
+                                    <input type="checkbox" class="bl-check"
+                                           :checked="ids.length > 0 && selected.length === ids.length"
+                                           x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
+                                           @change="selected = $event.target.checked ? ids.slice() : []"
+                                           aria-label="Select all products on this page">
+                                </th>
+                            @endif
+                            <th class="w-16">
+                                <a class="bl-sort" href="{{ $sortUrl('product_id') }}">
+                                    ID
+                                    @if($sortArrow('product_id'))<x-ui.icon :name="$sortArrow('product_id')" size="12" />@endif
+                                </a>
+                            </th>
+                            <th>
+                                <a class="bl-sort" href="{{ $sortUrl('name') }}">
+                                    Product
+                                    @if($sortArrow('name'))<x-ui.icon :name="$sortArrow('name')" size="12" />@endif
+                                </a>
+                            </th>
+                            <th class="num">
+                                <a class="bl-sort" href="{{ $sortUrl('quantity') }}">
+                                    On hand
+                                    @if($sortArrow('quantity'))<x-ui.icon :name="$sortArrow('quantity')" size="12" />@endif
+                                </a>
+                            </th>
+                            <th class="num">
+                                <a class="bl-sort" href="{{ $sortUrl('price') }}">
+                                    Price
+                                    @if($sortArrow('price'))<x-ui.icon :name="$sortArrow('price')" size="12" />@endif
+                                </a>
+                            </th>
+                            <th>
+                                <a class="bl-sort" href="{{ $sortUrl('status') }}">
+                                    Status
+                                    @if($sortArrow('status'))<x-ui.icon :name="$sortArrow('status')" size="12" />@endif
+                                </a>
+                            </th>
+                            <th class="w-10"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($products as $p)
+                            @php
+                                $img = trim((string) ($p->image ?? ''));
+                                $thumbSrc = $img !== '' ? asset('storage/' . ltrim($img, '/')) : '';
+                                $variationCount = count($p->option_rows ?? []);
+                                $backUrl = urlencode(request()->fullUrl());
+                                $qty = (int) $p->quantity;
+                                // Stock is the one figure here that can be
+                                // wrong in a way that costs money, so it is
+                                // the one that carries a state colour.
+                                $qtyTone = $qty < 0 ? 'text-bad' : ($qty === 0 ? 'text-attn' : '');
+                            @endphp
+                            <tr>
+                                @if($canManageProducts)
+                                    <td>
+                                        <input type="checkbox" class="bl-check" name="ids[]"
+                                               value="{{ (string) $p->product_id }}"
+                                               form="product-bulk-form" x-model="selected"
+                                               aria-label="Select {{ $p->name }}">
+                                    </td>
+                                @endif
+                                <td class="bl-mono">{{ $p->product_id }}</td>
+                                <td>
+                                    <div class="flex items-center gap-2.5">
+                                        {{-- The placeholder is always present and the image
+                                             covers it. A path this installation does not hold
+                                             (images can live on a separate storefront) is
+                                             removed by thumb-fallback.js, revealing it. --}}
+                                        <span class="bl-thumb">
+                                            None
+                                            @if($thumbSrc)
+                                                <img src="{{ $thumbSrc }}" alt="" data-thumb loading="lazy" decoding="async">
+                                            @endif
+                                        </span>
+                                        <span class="min-w-0">
+                                            @if($canManageProducts)
+                                                <a href="{{ route('products.edit', $p->product_id) }}"
+                                                   class="block font-semibold text-ink no-underline hover:underline">{{ $p->name ?? '-' }}</a>
+                                            @else
+                                                <span class="block font-semibold">{{ $p->name ?? '-' }}</span>
+                                            @endif
+                                            <span class="flex flex-wrap items-center gap-x-2.5 text-[12px] text-ink-3">
+                                                <span class="bl-mono">{{ $p->sku ?: '-' }}</span>
+                                                @if($variationCount > 0)
+                                                    <span>{{ $variationCount }} {{ Str::plural('variation', $variationCount) }}</span>
+                                                @endif
+                                            </span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="num {{ $qtyTone }}">{{ number_format($qty) }}</td>
+                                <td class="num">{{ \App\Support\Money::base((float) $p->price) }}</td>
+                                <td>
+                                    @if((int) $p->status === 1)
+                                        <span class="bl-state bl-state-good"><i></i>Enabled</span>
+                                    @else
+                                        <span class="bl-state bl-state-off"><i></i>Disabled</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
+                                        <button type="button" @click="open = !open"
+                                                :aria-expanded="open ? 'true' : 'false'"
+                                                class="bl-btn bl-btn-sm"
+                                                aria-label="Product {{ $p->product_id }} actions">
+                                            <x-ui.icon name="chevron-down" size="12" />
+                                        </button>
+                                        <div x-show="open" x-cloak @click.outside="open = false" class="bl-menu">
+                                            <a href="{{ route('products.sales', $p->product_id) }}?back={{ $backUrl }}">Sales history</a>
+                                            <a href="{{ route('products.stock_history', $p->product_id) }}?back={{ $backUrl }}">Stock history</a>
+                                            @if($canManageProducts)
+                                                <a href="{{ route('products.edit', $p->product_id) }}">Edit</a>
+                                                <button type="button" class="is-danger"
+                                                        data-confirm="Delete {{ $p->name }}? This cannot be undone."
+                                                        data-confirm-submit="prod-del-{{ $p->product_id }}">Delete</button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @if($canManageProducts)
+                                        <form id="prod-del-{{ $p->product_id }}" method="POST"
+                                              action="{{ route('products.destroy', $p->product_id) }}" class="sr-only">
+                                            @csrf
+                                            @method('DELETE')
+                                        </form>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 border-t border-rule-2 px-gutter py-3">
+                <span class="text-[12.5px] text-ink-3">
+                    {{ number_format($products->firstItem() ?? 0) }} to
+                    {{ number_format($products->lastItem() ?? 0) }} of
+                    {{ number_format($products->total()) }}
+                </span>
+                <div class="ml-auto flex gap-1.5">
+                    @if($products->previousPageUrl())
+                        <a href="{{ $products->previousPageUrl() }}" class="bl-btn bl-btn-sm">
+                            <x-ui.icon name="chevron-left" size="13" /> Previous
+                        </a>
+                    @endif
+                    @if($products->nextPageUrl())
+                        <a href="{{ $products->nextPageUrl() }}" class="bl-btn bl-btn-sm">
+                            Next <x-ui.icon name="chevron-right" size="13" />
+                        </a>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
-</div>
-@endif
-</div>
 @endsection

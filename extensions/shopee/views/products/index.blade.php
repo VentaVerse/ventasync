@@ -161,7 +161,7 @@
             @endforeach
         </x-ui.table>
     @else
-        <p class="fm-section__note">Nothing is waiting. A scan compares every item on your Shopee shop against catalogue SKUs and lists anything it could not place.</p>
+        <p class="fm-section__note">Nothing is waiting. <x-ui.hint label="What a scan does">A scan compares every item on your Shopee shop against catalogue SKUs and lists anything it could not place.</x-ui.hint></p>
     @endif
 </section>
 @endif

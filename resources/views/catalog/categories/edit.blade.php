@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 {{--
     Both sections below pass a value directly (the inline `@section('name',
     $value)` form), which Laravel escapes for you -

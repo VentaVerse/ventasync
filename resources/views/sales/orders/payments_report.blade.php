@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Payments')
 {{-- No @section('breadcrumb'): Sales > Payments is a real nav entry, so
      Breadcrumbs already derives "Sales / Payments" from the URL and a leaf
@@ -23,16 +23,14 @@
     $outstanding = $rows->where('is_paid', false)->count();
 
     $filters = [
-        'all'    => 'Every order',
-        'unpaid' => 'Still owing',
-        'paid'   => 'Settled',
+        'all'    => 'All',
+        'unpaid' => 'With Balance',
+        'paid'   => 'Paid in Full',
     ];
 
-    // Counts are deliberately absent from the segment. paymentsReport()
-    // applies the filter before handing the rows over, so a count taken here
-    // would describe the filtered set on every tab and read as though the
-    // other two were empty. The line under the segment says what is actually
-    // on screen instead.
+    // Counts come from the controller, taken before it applies the filter.
+    // Taken here they would describe the filtered set on every tab and read
+    // as though the other two were empty.
     $hasSearch = $search !== '';
 @endphp
 
@@ -45,7 +43,7 @@
             <h1 class="x-page-title">Payments</h1>
             <p class="x-page-sub">
                 Orders with payment tracking switched on, and what is still owed on each.
-                All figures in {{ $defaultCode }}.
+                <x-ui.hint label="How these figures are counted">All figures in {{ $defaultCode }} ({{ Money::defaultSymbol() }}). An order taken in another currency is converted at the rate recorded on that order.</x-ui.hint>
             </p>
         </div>
     </div>
@@ -55,7 +53,8 @@
             @foreach($filters as $key => $label)
                 <a class="x-segment__item {{ $filter === $key ? 'is-active' : '' }}"
                    href="{{ route('orders.payments_report', array_filter(['filter' => $key, 'search' => $search])) }}"
-                   @if($filter === $key) aria-current="page" @endif>{{ $label }}</a>
+                   @if($filter === $key) aria-current="page" @endif>{{ $label }}<span
+                    class="x-segment__count">{{ number_format($counts[$key] ?? 0) }}</span></a>
             @endforeach
         </div>
     </div>

@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', $card->name)
 @section('breadcrumb', $card->name)
 

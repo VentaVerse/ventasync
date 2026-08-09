@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Order statuses')
 @section('breadcrumb', 'Order statuses')
 
@@ -82,7 +82,7 @@
             <th>Name</th>
             <th class="st-col-flag">Takes stock</th>
             <th class="st-col-flag">Counts as revenue</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 
@@ -109,15 +109,14 @@
             <td class="st-col-flag" data-label="Counts as revenue">
                 <x-ui.badge :tone="$s->add_revenue ? 'success' : 'neutral'">{{ $s->add_revenue ? 'Yes' : 'No' }}</x-ui.badge>
             </td>
-            <td class="x-td-actions">
+            <td class="bl-col-actions">
                 @if($canManageOrderStatuses)
-                <x-ui.menu label="{{ $s->name }} actions">
-                    <a class="x-menu__item" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
-                    <div class="x-menu__sep"></div>
-                    <button type="button" class="x-menu__item x-menu__item--danger"
+                <div class="bl-rowactions">
+                    <a class="x-btn x-btn--sm" href="{{ route('order_statuses.edit', $s->order_status_id) }}">Edit</a>
+                    <button type="button" class="x-btn x-btn--sm x-btn--danger"
                             data-confirm="Delete {{ $s->name }}? This cannot be undone."
                             data-confirm-submit="st-os-del-{{ $s->order_status_id }}">Delete</button>
-                </x-ui.menu>
+                </div>
                 @endif
             </td>
         </tr>

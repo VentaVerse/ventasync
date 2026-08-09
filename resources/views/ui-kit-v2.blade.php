@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'UI Kit')
 @section('breadcrumb', 'UI Kit')
 

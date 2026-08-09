@@ -812,8 +812,8 @@
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Scheduled jobs</h2>
+            <x-ui.hint label="About the scheduled jobs">How often each Shopee sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        <p class="fm-section__note">How often each Shopee sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</p>
         @include('partials._automations_tab', ['integration' => 'shopee', 'storeId' => null])
     </section>
 </div>

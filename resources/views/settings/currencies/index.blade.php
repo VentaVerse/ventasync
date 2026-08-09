@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'Currencies')
 @section('breadcrumb', 'Currencies')
 
@@ -63,7 +63,7 @@
             <th class="st-col-symbol">Symbol</th>
             <th class="st-col-rate x-td-num">Rate</th>
             <th class="st-col-stat">Status</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 
@@ -94,17 +94,16 @@
             <td class="st-col-stat" data-label="Status">
                 <x-ui.badge :tone="$c->status ? 'success' : 'neutral'">{{ $c->status ? 'Active' : 'Inactive' }}</x-ui.badge>
             </td>
-            <td class="x-td-actions">
+            <td class="bl-col-actions">
                 @if($canManageCurrencies)
-                <x-ui.menu label="{{ $c->code }} actions">
-                    <a class="x-menu__item" href="{{ route('currencies.edit', $c->id) }}">Edit</a>
+                <div class="bl-rowactions">
+                    <a class="x-btn x-btn--sm" href="{{ route('currencies.edit', $c->id) }}">Edit</a>
                     @unless($c->is_default)
-                        <div class="x-menu__sep"></div>
-                        <button type="button" class="x-menu__item x-menu__item--danger"
+                        <button type="button" class="x-btn x-btn--sm x-btn--danger"
                                 data-confirm="Delete {{ $c->code }}? This cannot be undone."
                                 data-confirm-submit="st-cur-del-{{ $c->id }}">Delete</button>
                     @endunless
-                </x-ui.menu>
+                </div>
                 @endif
             </td>
         </tr>

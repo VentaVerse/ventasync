@@ -1,4 +1,4 @@
-@extends('layouts.shell')
+@extends('layouts.blotter')
 @section('title', 'API applications')
 @section('breadcrumb', 'API applications')
 
