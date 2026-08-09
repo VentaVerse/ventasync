@@ -116,7 +116,11 @@
     /* State. Unchanged in meaning, slightly more chromatic so it still
        reads at a glance on a brighter ground. Each one clears 4.5:1 on
        white as text; the fills clear 3:1 as marks. */
-    --bl-attn: #a35f05;
+    /* Tuned against the surface it lands on, not against white. As #a35f05
+       it measured 5.00:1 on pure white and 4.45:1 on the faintly tinted
+       ground a badge actually sits on - under AA by 0.05, and "Pending" is
+       the state a seller most needs to spot. */
+    --bl-attn: #9e5c05;
     --bl-attn-fill: #c77a0a;
     --bl-attn-wash: #fdf6ea;
     --bl-good: #0c7a54;
@@ -2015,6 +2019,24 @@
             min-width: 44px;
             min-height: 44px;
         }
+    }
+
+    /* WCAG 2.2 AA 2.5.8 asks 24x24 of every control that is not an inline
+       link inside a sentence. The order page's sync-override toggle measured
+       34x20 and its inline edit control 39x19: both are deliberate actions
+       with consequences, and neither is exempt. Stated on the components so
+       every page inherits it rather than the order page alone. */
+    .od-switch,
+    .od-edit,
+    .x-badge__dot + * {
+        min-height: 24px;
+    }
+
+    .od-switch,
+    .od-edit {
+        display: inline-flex;
+        align-items: center;
+        min-width: 24px;
     }
 
     /* The hint's circle stays 16px because it is a mark, not a button face.
