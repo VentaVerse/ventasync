@@ -402,10 +402,35 @@
         gap: 16px;
     }
 
+    /* A form section is a card, like every other data container in v2.3.
+    
+       It was not, which is the same defect the order page's .od-section had:
+       when the surface upgrade turned containers into raised sheets on a
+       tinted ground, .fm-card was on the list and the SECTION wrappers were
+       not. So a form page's actual content sat bare on the grey while any
+       card beside it floated - the whole page reading as unfinished for
+       exactly the reason nobody can name at a glance.
+    
+       .fm-card > .fm-section is exempt: a section already inside a card is a
+       group within it, and a card inside a card is always wrong. */
     .fm-section {
         display: flex;
         flex-direction: column;
         gap: 14px;
+        padding: 18px 20px 20px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+    }
+
+    .fm-card .fm-section,
+    .fm-section .fm-section {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
     }
 
     .fm-section__head {
