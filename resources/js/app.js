@@ -5,6 +5,7 @@ import './permission-pill';
 import './credential-mask';
 import './confirm-modal';
 import './thumb-fallback';
+import './plot-readout';
 import './list-filters';
 import './legacy-flash';
 import './pages/shopee-orders';

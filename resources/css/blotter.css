@@ -1743,6 +1743,84 @@
     .bl-key__count { fill: var(--bl-a-violet); }
     .bl-key__peak { color: var(--bl-ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
 
+    /* THE READING.
+
+       Everything below exists because a native <title> waits about a second
+       before it appears and no attribute or rule shortens that. The guide,
+       the two dots and the readout are moved by plot-readout.js on
+       pointermove; nothing here animates, because the whole point is that
+       the figure is there the instant the pointer is. */
+    .bl-plotcard { position: relative; }
+    .bl-plotwrap { position: relative; }
+
+    .bl-guide,
+    .bl-dot,
+    .bl-readout {
+        position: absolute;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .bl-plotcard.is-reading .bl-guide,
+    .bl-plotcard.is-reading .bl-dot,
+    .bl-plotcard.is-reading .bl-readout { opacity: 1; }
+
+    .bl-guide {
+        width: 1px;
+        height: 190px;
+        background: var(--bl-rule-2);
+    }
+
+    .bl-dot {
+        width: 9px;
+        height: 9px;
+        margin: -4.5px 0 0 -4.5px;
+        border: 2px solid var(--bl-sheet);
+        border-radius: 50%;
+    }
+
+    .bl-dot--money { background: var(--bl-a-cyan); }
+    .bl-dot--count { background: var(--bl-a-violet); }
+
+    .bl-readout {
+        top: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-left: -0.5px;
+        padding: 8px 11px;
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-tip-bg);
+        box-shadow: var(--bl-lift-2);
+        color: var(--bl-tip-ink);
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: nowrap;
+        /* Centred on the guide; the script clamps it to the card so a
+           reading near either end does not hang off the edge. */
+        translate: -50% 0;
+    }
+
+    .bl-readout__d { font-weight: 650; }
+    .bl-readout__r { display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+
+    .bl-readout__k {
+        width: 8px;
+        height: 8px;
+        flex: none;
+        border-radius: 2px;
+    }
+
+    .bl-readout__k--money { background: var(--bl-a-cyan); }
+    .bl-readout__k--count { background: var(--bl-a-violet); }
+
+    /* The hit rects were only ever a home for the <title>. They keep it for
+       assistive technology and stop painting a hover wash, which now
+       competes with the guide. */
+    .bl-plot--dual .bl-plot__hit:hover { fill: transparent; }
+
     /* The wipe-in is gone. It ran 620ms from the left, which on a chart
        read as the recent days arriving late - the exact opposite of what a
        trend line is for. A dashboard's figures should be there on arrival;

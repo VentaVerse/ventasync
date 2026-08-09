@@ -413,7 +413,21 @@
             @endphp
 
             <div class="bl-charts grid gap-px bg-rule-2">
-                <div class="bg-sheet px-3.5 pb-4 pt-3">
+                {{-- The series ride on the element as pre-formatted strings.
+                     Currency formatting belongs to App\Support\Money, not to a
+                     reimplementation of it in JavaScript that would drift the
+                     first time a second currency appeared. --}}
+                <div class="bg-sheet px-3.5 pb-4 pt-3 bl-plotcard"
+                     @if($hasPlot)
+                     data-plot="{{ json_encode([
+                         'labels' => array_map(fn ($i) => $chartLabels[$i] ?? '', range(0, $n - 1)),
+                         'money'  => array_map(fn ($v) => Money::base((float) $v), array_slice($rev, 0, $n)),
+                         'counts' => array_map(fn ($v) => number_format($v) . ' ' . Str::plural('order', $v), array_slice($ord, 0, $n)),
+                         'revenue' => array_slice($rev, 0, $n),
+                         'orders'  => array_slice($ord, 0, $n),
+                         'peaks'   => ['revenue' => $revPeak, 'orders' => $ordPeak],
+                     ]) }}"
+                     @endif>
                     @if($hasPlot)
                         {{-- The key doubles as the scale disclosure: each series
                              names its own peak, so nobody reads a crossing as a
@@ -435,6 +449,11 @@
                             </span>
                         </div>
 
+                        {{-- The reading is drawn here rather than left to the
+                             SVG's native <title>, which the browser holds for
+                             about a second before showing. The titles stay for
+                             assistive technology. --}}
+                        <div class="bl-plotwrap">
                         <svg class="bl-plot bl-plot--dual" viewBox="0 0 {{ $pw }} {{ $ph }}"
                              preserveAspectRatio="none" role="img"
                              aria-label="Revenue and orders over the period, each against its own scale">
@@ -468,6 +487,23 @@
                                 </rect>
                             @endfor
                         </svg>
+
+                        <span class="bl-guide" data-plot-guide aria-hidden="true"></span>
+                        <span class="bl-dot bl-dot--money" data-plot-dot="revenue" aria-hidden="true"></span>
+                        <span class="bl-dot bl-dot--count" data-plot-dot="orders" aria-hidden="true"></span>
+
+                        <div class="bl-readout" data-plot-readout aria-hidden="true">
+                            <span class="bl-readout__d" data-plot-date></span>
+                            <span class="bl-readout__r">
+                                <i class="bl-readout__k bl-readout__k--money"></i>
+                                <span data-plot-money></span>
+                            </span>
+                            <span class="bl-readout__r">
+                                <i class="bl-readout__k bl-readout__k--count"></i>
+                                <span data-plot-count></span>
+                            </span>
+                        </div>
+                        </div>
 
                         <div class="bl-axis">
                             @foreach($ticks as $t)
