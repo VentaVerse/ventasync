@@ -862,11 +862,32 @@
     /* ------------------------------------------------------------
        Image picker
        ------------------------------------------------------------ */
+    /* THE PICKER IS A DIALOG, and it never looked like one.
+
+       .modal-backdrop dims the page behind it, but .fm-pick itself carried
+       no background, no border, no radius, no shadow and no width - a bare
+       flex column, so the library's controls and thumbnails floated directly
+       on the dim with nothing behind them. Every other dialog in the build
+       gets that panel from .modal; this one was written separately and never
+       received it.
+
+       Wider and taller than .modal on purpose: that one is a confirm box,
+       this is a file browser and wants room for a grid. It takes the panel
+       radius rather than the control radius for the same reason - it is a
+       surface, not a control. */
     .fm-pick {
         display: flex;
         flex-direction: column;
         gap: 12px;
+        width: 100%;
+        max-width: 860px;
+        max-height: min(80dvh, 720px);
         min-height: 0;
+        padding: 18px 20px 20px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift-2);
     }
 
     .fm-pick__head {
@@ -911,7 +932,13 @@
         color: var(--bl-ink-2);
     }
 
+    /* The grid scrolls inside the panel rather than pushing it past the
+       bottom of the screen. */
     .fm-pick__body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         min-height: 0;
         overflow: auto;
     }
