@@ -108,18 +108,30 @@
    over --canvas, which is lighter than sunken in light theme and darker in
    dark theme, so both directions clear that measured floor rather than
    fall below it. */
+/* A sub-tab strip is still a strip.
+ *
+ * This stripped the border and ground entirely, so the To Pack / To Handover
+ * row floated unhoused beneath a set of main tabs that were properly
+ * contained - two levels of the same control reading as two different kinds
+ * of thing. It keeps its own scale, a step smaller and quieter, which is
+ * what says "second level" rather than "different control".
+ *
+ * This file is a LEGACY page stylesheet imported through blotter-bridge.css,
+ * so it lands after the component layer and wins on source order. The rule
+ * had to change here; setting it in blotter-components.css alone did nothing
+ * and measured as if the edit had not happened. */
 .x-segment--sub {
-    background: transparent;
-    border: 0;
-    padding: 0;
-    gap: var(--space-1);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    padding: 2px;
+    gap: 2px;
     margin-bottom: var(--space-4);
 }
 
 .x-segment--sub .x-segment__item {
-    height: 32px;
+    height: 30px;
     padding: 0 var(--space-3);
-    font-size: 13px;
+    font-size: 12.5px;
 }
 
 .x-segment--sub .x-segment__item.is-active {

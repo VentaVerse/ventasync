@@ -1450,3 +1450,26 @@
         .od-page > .od-section { max-width: calc(100% - 342px); }
     }
 }
+
+/* ============================================================
+   Which environment you are in is worth a colour.
+
+   Production and Sandbox were the same ink pill, so the one control on
+   the page that decides whether an action touches real orders and real
+   money looked exactly like a view filter. Sandbox takes the attention
+   token - the same amber that means "needs a person" everywhere else -
+   and the whole control borrows it, so the answer is visible before you
+   read either word. Production stays ink: it is the serious state, not
+   the alarming one.
+   ============================================================ */
+@layer components {
+    .cs-env .x-segment__item[data-cs-env-option="sandbox"].is-active {
+        background: var(--bl-attn-fill);
+        color: #fff;
+    }
+
+    .cs-env .x-segment:has([data-cs-env-option="sandbox"].is-active) {
+        border-color: var(--bl-attn-fill);
+        background: var(--bl-attn-wash);
+    }
+}

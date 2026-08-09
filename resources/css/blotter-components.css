@@ -2090,15 +2090,24 @@
         color: color-mix(in srgb, var(--bl-paper) 70%, transparent);
     }
 
+    /* A sub-tab strip is still a strip. This stripped its border and ground
+       entirely, so the To Ship / To Process row floated unhoused under a set
+       of main tabs that were properly contained - the two read as different
+       kinds of control when they are the same control one level down.
+
+       It keeps its own scale: the same housing, a step smaller and a step
+       quieter, which is what says "second level" rather than "different
+       thing". */
     .x-segment--sub {
-        padding: 0;
-        gap: 4px;
-        border: 0;
-        background: none;
+        padding: 2px;
+        gap: 2px;
+        border: 1px solid var(--bl-rule);
+        background: var(--bl-chrome);
     }
 
     .x-segment--sub .x-segment__item {
         padding: 3px 10px;
+        font-size: 12.5px;
     }
 
     .x-segment-bar__aside {
@@ -2642,6 +2651,18 @@
         color: var(--bl-side-ink);
         font-size: 13.5px;
         text-decoration: none;
+    }
+
+    /* The parent takes the main sidebar's weight, and the child takes its
+       indent. In the main nav a child aligns under its parent's LABEL, not
+       under the parent's icon, which is what makes a group read as one thing
+       with parts. Here both sat at the same 8px and the hierarchy was
+       carried by nothing but the group label above them. */
+    .x-cnav__item { font-weight: 500; }
+
+    .x-cnav__child {
+        padding-left: 32px;
+        font-size: 13px;
     }
 
     .x-cnav__back:hover,
