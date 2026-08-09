@@ -75,47 +75,86 @@
      * cannot act on.
      */
     $channelColour = fn (string $key) => $sourceLabelsMap[$key]['chart_color'] ?? null;
+
+    // Built from the registry, not from a list.
+    //
+    // This used to be four hardcoded blocks: one each for Shopee, Lazada and
+    // TikTok, plus a loop over OpenCart stores. Venta, Shopify and Pedallion
+    // therefore could not appear on this strip however many stores they had
+    // enabled - a channel became visible here only by someone remembering to
+    // add another block. visibleOrderTabs() already answers both halves of
+    // the question the old blocks answered by hand: it drops an integration
+    // that is disabled, and it drops one whose order permission this user
+    // does not hold. It is also the source the Fulfilment page and the
+    // sidebar badge read, so the three can no longer disagree.
+    //
+    // Freshness is the one thing a tab does not carry. The marketplaces that
+    // contribute a sync status through DashboardContributor keep their
+    // "synced 3 weeks ago" line; a channel that contributes none simply does
+    // not print one, rather than being left off the strip entirely.
+    $syncFor = [
+        'shopee' => $shopeeSyncStatus ?? null,
+        'lazada' => $lazadaSyncStatus ?? null,
+        'tiktok' => $tiktokSyncStatus ?? null,
+    ];
+
+    foreach (($syncStatuses ?? collect()) as $store) {
+        if (isset($store->id)) {
+            $syncFor['opencart:' . $store->id] = $store;
+        }
+    }
+
+    // The waiting count has TWO legitimate sources and the contributor wins.
+    //
+    // DashboardContributor lets an extension inject shopeePending and its
+    // siblings straight into this view, which is the contract the extension
+    // suite pins. OrderTab carries its own counter for the Fulfilment page.
+    // Reading only the tab silently dropped the injected figure, so an
+    // extension could report a number that never appeared. The tab is the
+    // fallback for a channel that injects nothing.
+    $pendingFor = [
+        'shopee' => $shopeePending ?? null,
+        'lazada' => $lazadaPending ?? null,
+        'tiktok' => $tiktokPending ?? null,
+    ];
+
+    foreach (($syncStatuses ?? collect()) as $store) {
+        if (isset($store->id) && isset($store->pending_count)) {
+            $pendingFor['opencart:' . $store->id] = (int) $store->pending_count;
+        }
+    }
+
     $channels = [];
 
-    if (($shopeeSyncStatus ?? null) && $user?->hasPermission('view_shopee')) {
-        $channels[] = [
-            'name' => 'Shopee',
-            'colour' => $channelColour('shopee'),
-            'state' => $freshness($shopeeSyncStatus->order_sync_at ?? null, $shopeeSyncStatus->expires_at ?? null),
-            'pending' => $user->hasPermission('view_shopee_orders') ? (int) ($shopeePending ?? 0) : null,
-            'link' => RouteFacade::has('ext.shopee.orders.index') ? route('ext.shopee.orders.index') : null,
-        ];
-    }
-    if (($lazadaSyncStatus ?? null) && $user?->hasPermission('view_lazada')) {
-        $channels[] = [
-            'name' => 'Lazada',
-            'colour' => $channelColour('lazada'),
-            'state' => $freshness($lazadaSyncStatus->order_sync_at ?? null, $lazadaSyncStatus->expires_at ?? null),
-            'pending' => $user->hasPermission('view_lazada_orders') ? (int) ($lazadaPending ?? 0) : null,
-            'link' => RouteFacade::has('ext.lazada.orders.index') ? route('ext.lazada.orders.index') : null,
-        ];
-    }
-    if (($tiktokSyncStatus ?? null) && $user?->hasPermission('view_tiktok')) {
-        $channels[] = [
-            'name' => 'TikTok Shop',
-            'colour' => $channelColour('tiktok'),
-            'state' => $freshness($tiktokSyncStatus->order_sync_at ?? null, $tiktokSyncStatus->expires_at ?? null),
-            'pending' => $user->hasPermission('view_tiktok_orders') ? (int) ($tiktokPending ?? 0) : null,
-            'link' => RouteFacade::has('ext.tiktok.orders.index') ? route('ext.tiktok.orders.index') : null,
-        ];
-    }
-    if ($user?->hasPermission('view_opencart') && ($syncStatuses ?? null) instanceof \Illuminate\Support\Collection) {
-        foreach ($syncStatuses as $store) {
+    try {
+        foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
+            $sync = $syncFor[$tab->id] ?? null;
+
+            if ($sync && ($sync->last_status ?? null) === 'failed') {
+                $state = ['tone' => 'bad', 'text' => 'last sync failed'];
+            } elseif ($sync) {
+                $state = $freshness(
+                    $sync->order_sync_at ?? $sync->last_order_sync_at ?? null,
+                    $sync->expires_at ?? null,
+                );
+            } else {
+                $state = ['tone' => 'muted', 'text' => 'connected'];
+            }
+
             $channels[] = [
-                'name' => $store->store_name ?: 'OpenCart store ' . $store->id,
-                'colour' => $channelColour('opencart:' . $store->id),
-                'state' => $store->last_status === 'failed'
-                    ? ['tone' => 'bad', 'text' => 'last sync failed']
-                    : $freshness($store->last_order_sync_at ?? null),
-                'pending' => $user->hasPermission('view_opencart_orders') ? (int) ($store->pending_count ?? 0) : null,
-                'link' => null,
+                'name' => $tab->label,
+                'colour' => $tab->accent ?: $channelColour($tab->id),
+                'state' => $state,
+                'pending' => $pendingFor[$tab->id] ?? $tab->unprocessedCount(),
+                'link' => RouteFacade::has($tab->routeName)
+                    ? route($tab->routeName, $tab->routeParams)
+                    : null,
             ];
         }
+    } catch (\Throwable $e) {
+        // A marketplace with an expired token or a missing table must not
+        // take the dashboard down with it. No strip is the honest failure.
+        $channels = [];
     }
 
     // Waiting across every channel, from the core order table rather than

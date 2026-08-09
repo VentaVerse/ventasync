@@ -58,9 +58,35 @@
     // Layout banners contributed by every enabled+licensed integration.
     // Token expiry warnings, sync pauses, etc. each marketplace knows
     // its own state and contributes via LayoutBannerContributor.
+    //
+    // SCOPED, since 2026-08-09. Every contributor's banners used to render on
+    // every page, so "TikTok Shop: Access token expired" greeted an operator
+    // on Lazada Brands, on Shopee Categories, and on every other channel's
+    // pages. Inside one marketplace, another marketplace's problem is noise.
+    //
+    // The rule: while you are inside a channel workspace that has banners of
+    // its own, you see only that channel's. Everywhere else - the dashboard,
+    // the integrations hub, catalogue, settings - you see all of them, which
+    // is where a cross-channel warning belongs.
     $__layoutBanners = [];
     try {
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->layoutBannerContributors() as $__c) {
+        $__reg = app(\App\Integrations\IntegrationRegistry::class);
+        $__byId = $__reg->layoutBannerContributorsById();
+
+        // ext.tiktok.orders.index -> tiktok
+        $__here = null;
+        $__routeName = (string) (\Illuminate\Support\Facades\Route::currentRouteName() ?? '');
+        if (str_starts_with($__routeName, 'ext.')) {
+            $__candidate = explode('.', $__routeName)[1] ?? null;
+            if ($__candidate !== null && array_key_exists($__candidate, $__byId)) {
+                $__here = $__candidate;
+            }
+        }
+
+        foreach ($__byId as $__id => $__c) {
+            if ($__here !== null && $__id !== $__here) {
+                continue;
+            }
             foreach ($__c->layoutBanners() as $__b) { $__layoutBanners[] = $__b; }
         }
     } catch (\Throwable $e) {}

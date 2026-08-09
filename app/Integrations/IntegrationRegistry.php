@@ -223,6 +223,30 @@ class IntegrationRegistry
     }
 
     /**
+     * The same contributors, keyed by integration id.
+     *
+     * The shell used to render every contributor's banners on every page,
+     * so an expired TikTok token announced itself on the Lazada brands page
+     * and on Shopee categories. Scoping that needs to know which channel
+     * owns a banner, and the id is the only thing that says so.
+     *
+     * @return array<string, \App\Integrations\Contracts\LayoutBannerContributor>
+     */
+    public function layoutBannerContributorsById(): array
+    {
+        $out = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if ($provider instanceof \App\Integrations\Contracts\LayoutBannerContributor
+                && $this->passesGates($id, null)) {
+                $out[$id] = $provider;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Product inventory detail contributors — used by the product edit
      * form to show supplemental inventory breakdowns (warehousing, etc.).
      *
