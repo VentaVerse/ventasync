@@ -396,7 +396,7 @@
         };
         $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
     @endphp
-            <div class="bl-charts grid gap-px bg-rule-2 md:grid-cols-2 xl:grid-cols-3">
+            <div class="bl-charts grid gap-px bg-rule-2">
                 @foreach($series as $plot)
                     @php
                         $values = array_map('floatval', $plot['values'] ?? []);
@@ -469,9 +469,24 @@
                                     </rect>
                                 @endforeach
                             </svg>
-                            <div class="flex justify-between pt-1.5 text-[11px] text-ink-3">
-                                <span>{{ $chartLabels[0] ?? '' }}</span>
-                                <span>{{ $chartLabels[$lastIndex] ?? '' }}</span>
+                            {{-- A real axis, not two endpoints. The periods are
+                                 evenly spaced in the data, so evenly spaced
+                                 labels land under the points they name and
+                                 space-between puts the first at 0% and the last
+                                 at 100% without a single positioned element.
+
+                                 At most eight, because thirty dates at this
+                                 width is a smear rather than an axis. --}}
+                            @php
+                                $tickStep = max(1, (int) ceil(($n - 1) / 7));
+                                $ticks = [];
+                                for ($t = 0; $t < $n; $t += $tickStep) { $ticks[] = $t; }
+                                if (end($ticks) !== $lastIndex) { $ticks[] = $lastIndex; }
+                            @endphp
+                            <div class="bl-axis">
+                                @foreach($ticks as $t)
+                                    <span>{{ $chartLabels[$t] ?? '' }}</span>
+                                @endforeach
                             </div>
                         @else
                             <p class="py-6 text-[13px] text-ink-3">Nothing recorded in this period yet.</p>
@@ -484,37 +499,6 @@
                      six-row table's height and left a hole under itself. Here it
                      is one of three cells that are all the same height by
                      construction. --}}
-                @if(!empty($platformSlices))
-                    <div class="bg-sheet px-3.5 pb-4 pt-3">
-                        <h3 class="bl-label">By channel
-                            <x-ui.hint label="What this ring counts">Orders, not revenue. A channel with
-                                one large order can hold a small share here and the largest figure in the
-                                revenue column below.</x-ui.hint>
-                        </h3>
-    <svg class="bl-ring" width="100%" height="176" viewBox="0 0 200 200"
-         role="img" aria-label="Share of orders by channel">
-        @foreach($platformSlices as $i => $slice)
-            @php
-                $share = $slice['orders'] / $ringTotal;
-                $dash = round($share * $ringC, 2);
-                $offset = round(-$ringAt * $ringC, 2);
-                $ringAt += $share;
-                $brand = $brandFor($slice['label']);
-            @endphp
-            <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
-                    cx="100" cy="100" r="{{ $ringR }}"
-                    @if($brand) stroke="{{ $brand }}" @endif
-                    stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
-                    stroke-dashoffset="{{ $offset }}"
-                    transform="rotate(-90 100 100)">
-                <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
-            </circle>
-        @endforeach
-        <text class="bl-ring__v" x="100" y="97" text-anchor="middle">{{ number_format($ringTotal) }}</text>
-        <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
-    </svg>
-                    </div>
-                @endif
             </div>
 
             @if(!empty($platformSlices))
@@ -522,7 +506,36 @@
                     <h2>Orders by channel</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
                 </div>
-                <div class="bl-scroll">
+                {{-- Ring on the LEFT, because the colour it explains is in the
+                     Channel column immediately beside it. On the right it was
+                     the full width of the table away from the swatches it
+                     matches. --}}
+                <div class="bl-split-ring">
+                    <div class="bl-split-ring__ring">
+            <svg class="bl-ring" width="100%" height="188" viewBox="0 0 200 200"
+            role="img" aria-label="Share of orders by channel">
+            @foreach($platformSlices as $i => $slice)
+            @php
+            $share = $slice['orders'] / $ringTotal;
+            $dash = round($share * $ringC, 2);
+            $offset = round(-$ringAt * $ringC, 2);
+            $ringAt += $share;
+            $brand = $brandFor($slice['label']);
+            @endphp
+            <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
+            cx="100" cy="100" r="{{ $ringR }}"
+            @if($brand) stroke="{{ $brand }}" @endif
+            stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
+            stroke-dashoffset="{{ $offset }}"
+            transform="rotate(-90 100 100)">
+            <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
+            </circle>
+            @endforeach
+            <text class="bl-ring__v" x="100" y="97" text-anchor="middle">{{ number_format($ringTotal) }}</text>
+            <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
+            </svg>
+                    </div>
+                    <div class="bl-scroll">
                     <table class="bl-table">
                         <thead>
                             <tr>
@@ -563,6 +576,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
                 </div>
             @endif
         </div>
