@@ -386,6 +386,17 @@
             grid-template-columns: minmax(0, 1fr) 320px;
         }
 
+        /* A body with ONE column should not reserve a rail track for a
+           column that does not exist. The stock-adjustment page sat at 820px
+           of a 1224px content area with 320px of nothing beside it, and so
+           did every other single-column form; the pages that noticed had
+           each been handed a modifier class by hand.
+
+           :has() asks the question the modifier was answering, so a form
+           gets the right grid from its own structure and nobody has to
+           remember. .fm-body--single stays for the pages already carrying
+           it and for any that want to force the single track deliberately. */
+        .fm-body:has(> .fm-col:only-child),
         .fm-body--single {
             grid-template-columns: minmax(0, 1fr);
         }
