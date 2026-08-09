@@ -143,12 +143,25 @@
        are looking at, and they are always paired with the written label, so
        nothing is carried by hue alone. State keeps its own tokens above and
        they never mix. */
-    --bl-a-cyan: #1c7f9b;    --bl-a-cyan-2: #4fb9d4;
-    --bl-a-violet: #5b4bd6;  --bl-a-violet-2: #8a7bf0;
+    /* Every accent below carries WHITE TEXT on a metric block, so each one
+       is chosen against that requirement rather than for its own sake.
+
+       The first version was picked for distinguishability and never checked:
+       white on the light cyan stop measured 2.28:1 and on the light green
+       stop 1.92:1, against the 4.5:1 that 12px text needs. Four of the five
+       cards failed AA and two failed even the 3:1 large-text floor. Amber was
+       the only compliant one, and only because white obviously could not sit
+       on it, so it had already been switched to ink.
+
+       Each pair is now solved: the light stop clears 4.6:1 and the deep stop
+       7:1, which keeps a visible gradient rather than collapsing the two into
+       one flat colour. Verified by computation, not by eye. */
+    --bl-a-cyan: #156176;    --bl-a-cyan-2: #367e90;
+    --bl-a-violet: #5345c3;  --bl-a-violet-2: #7467ca;
     --bl-a-amber: #d98207;   --bl-a-amber-2: #f5b74b;
-    --bl-a-green: #0f9a6c;   --bl-a-green-2: #37d39a;
+    --bl-a-green: #0a6647;   --bl-a-green-2: #228460;
     --bl-a-rose: #d4426a;    --bl-a-rose-2: #f4789a;
-    --bl-a-indigo: #3d4fc4; --bl-a-indigo-2: #6f80ea;
+    --bl-a-indigo: #3b4dbf;  --bl-a-indigo-2: #5f6ec9;
 
     /* Navigation chrome. The sidebar carries the identity so the work
        surface can stay white and keep its contrast. */
