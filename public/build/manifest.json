@@ -8,6 +8,23 @@
       "app.css"
     ]
   },
+  "resources/css/blotter.css": {
+    "file": "assets/blotter-DaI0KSEA.css",
+    "src": "resources/css/blotter.css",
+    "isEntry": true,
+    "name": "blotter",
+    "names": [
+      "blotter.css"
+    ]
+  },
+  "resources/fonts/Archivo-latin-ext.woff2": {
+    "file": "assets/Archivo-latin-ext-7khWdh9v.woff2",
+    "src": "resources/fonts/Archivo-latin-ext.woff2"
+  },
+  "resources/fonts/Archivo-latin.woff2": {
+    "file": "assets/Archivo-latin-DY7AcnAa.woff2",
+    "src": "resources/fonts/Archivo-latin.woff2"
+  },
   "resources/fonts/Geist.woff2": {
     "file": "assets/Geist-DPGgOCY9.woff2",
     "src": "resources/fonts/Geist.woff2"
@@ -17,7 +34,7 @@
     "src": "resources/fonts/JetBrainsMono.woff2"
   },
   "resources/js/app.js": {
-    "file": "assets/app-CNf-rIfO.js",
+    "file": "assets/app-CgdhYrNY.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true
