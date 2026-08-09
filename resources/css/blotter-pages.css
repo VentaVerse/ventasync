@@ -535,13 +535,11 @@
     .od-override__note { margin-top: 2px; font-size: 11.5px; color: var(--bl-ink-3); }
 
     /* Same switch as the form pages, so one control means one thing. */
-    /* A switch is a pill with a round knob that slides. This was a square
-       knob in a rounded track that jumped between states, which is my fault
-       twice over: --bl-r-ctrl went 6px -> 11px in v2.3, turning a squarish
-       track into a pill while the knob kept its zero radius, and the knob
-       never had a transition at all. Neither was re-checked after the token
-       moved. Stated explicitly here so the track's shape no longer depends
-       on a control token that is free to change. */
+    /* A switch is a pill with a round knob that slides. TWIN of
+       .fm-switch__track in blotter-components.css, which carries the full
+       reasoning: both took their radius from --bl-r-ctrl, both broke when
+       that token moved in v2.3, and both are now stated in absolute values.
+       These two blocks must agree. If you change one, change the other. */
     .od-switch {
         position: relative;
         flex: none;

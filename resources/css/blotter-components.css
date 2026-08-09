@@ -498,15 +498,32 @@
         pointer-events: none;
     }
 
+    /* THE SWITCH, and there is only one of it.
+    
+       This application has two switch implementations: .fm-switch__track on
+       every form page, and .od-switch on the order page. They were written
+       separately, drifted separately, and broke together - both took their
+       track radius from --bl-r-ctrl, which went 6px to 11px in v2.3, turning
+       a squarish track into a pill while both knobs kept their zero radius.
+       A square knob in a round track, in two places, from one token change.
+
+       The geometry is stated here in absolute values rather than borrowed
+       from a control token that is free to move again, and .od-switch is
+       held to the same numbers with a comment pointing here. A pill is a
+       pill; it does not share a radius with a text input.
+
+       On is brand cyan, the token whose stated meaning is "you can act
+       here", rather than ink - a switch that reads as OFF-but-dark is the
+       other classic switch defect. */
     .fm-switch__track {
         position: relative;
         flex: none;
-        width: 34px;
-        height: 20px;
+        width: 40px;
+        height: 24px;
         border: 1px solid var(--bl-rule-2);
-        border-radius: var(--bl-r-ctrl);
-        background: var(--bl-chrome);
-        transition: background 0.14s ease, border-color 0.14s ease;
+        border-radius: 999px;
+        background: var(--bl-chrome-2);
+        transition: background-color .16s ease, border-color .16s ease;
     }
 
     .fm-switch__track::after {
@@ -514,20 +531,29 @@
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 14px;
-        height: 14px;
-        background: var(--bl-ink-3);
-        transition: transform 0.14s ease, background 0.14s ease;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--bl-sheet);
+        box-shadow: 0 1px 2px rgba(19, 26, 43, .28);
+        transition: transform .16s cubic-bezier(.2, .7, .3, 1);
     }
 
     .fm-switch__input:checked + .fm-switch__track {
-        border-color: var(--bl-ink);
-        background: var(--bl-ink);
+        border-color: var(--bl-brand-deep);
+        background: var(--bl-brand-deep);
     }
 
-    .fm-switch__input:checked + .fm-switch__track::after {
-        background: var(--bl-paper);
-        transform: translateX(14px);
+    .fm-switch__input:checked + .fm-switch__track::after { transform: translateX(16px); }
+
+    .fm-switch__input:focus-visible + .fm-switch__track {
+        outline: 2px solid var(--bl-brand);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fm-switch__track,
+        .fm-switch__track::after { transition-duration: 0.01ms; }
     }
 
     .fm-switch__input:focus-visible + .fm-switch__track {
