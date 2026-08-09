@@ -374,7 +374,29 @@
                     ['title' => 'Orders', 'values' => $chartOrders, 'unit' => 'count'],
                 ];
             @endphp
-            <div class="bl-charts grid gap-px bg-rule-2 md:grid-cols-2">
+    @php
+        $ringTotal = max(1, collect($platformSlices)->sum('orders'));
+        $ringR = 70;
+        $ringC = 2 * M_PI * $ringR;
+        $ringAt = 0.0;
+        // A slice is labelled from the order's marketplace_source and
+        // a channel from its own card, so the two agree on "Shopee"
+        // and disagree on "TikTok" vs "TikTok Shop". Exact match
+        // first, then one prefix match in either direction, which
+        // is enough for that family without pairing two channels
+        // that merely share a first word.
+        $channelFor = function (string $label) use ($channels) {
+            $all = collect($channels ?? []);
+            return $all->firstWhere('name', $label)
+                ?? $all->first(function ($c) use ($label) {
+                    $a = Str::lower($c['name']);
+                    $b = Str::lower($label);
+                    return $a !== $b && (Str::startsWith($a, $b) || Str::startsWith($b, $a));
+                });
+        };
+        $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
+    @endphp
+            <div class="bl-charts grid gap-px bg-rule-2 md:grid-cols-2 xl:grid-cols-3">
                 @foreach($series as $plot)
                     @php
                         $values = array_map('floatval', $plot['values'] ?? []);
@@ -456,102 +478,51 @@
                         @endif
                     </div>
                 @endforeach
+
+                {{-- The share ring rides in the same row as the plots. It was a
+                     column of its own beside the table, where it had to match a
+                     six-row table's height and left a hole under itself. Here it
+                     is one of three cells that are all the same height by
+                     construction. --}}
+                @if(!empty($platformSlices))
+                    <div class="bg-sheet px-3.5 pb-4 pt-3">
+                        <h3 class="bl-label">By channel
+                            <x-ui.hint label="What this ring counts">Orders, not revenue. A channel with
+                                one large order can hold a small share here and the largest figure in the
+                                revenue column below.</x-ui.hint>
+                        </h3>
+    <svg class="bl-ring" width="100%" height="176" viewBox="0 0 200 200"
+         role="img" aria-label="Share of orders by channel">
+        @foreach($platformSlices as $i => $slice)
+            @php
+                $share = $slice['orders'] / $ringTotal;
+                $dash = round($share * $ringC, 2);
+                $offset = round(-$ringAt * $ringC, 2);
+                $ringAt += $share;
+                $brand = $brandFor($slice['label']);
+            @endphp
+            <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
+                    cx="100" cy="100" r="{{ $ringR }}"
+                    @if($brand) stroke="{{ $brand }}" @endif
+                    stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
+                    stroke-dashoffset="{{ $offset }}"
+                    transform="rotate(-90 100 100)">
+                <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
+            </circle>
+        @endforeach
+        <text class="bl-ring__v" x="100" y="97" text-anchor="middle">{{ number_format($ringTotal) }}</text>
+        <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
+    </svg>
+                    </div>
+                @endif
             </div>
 
             @if(!empty($platformSlices))
                 <div class="bl-panel-head">
                     <h2>Orders by channel</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
-                    <x-ui.hint label="What this ring counts">Orders, not revenue. A channel with one large
-                        order can hold a small share here and the largest figure in the revenue column
-                        beside it.</x-ui.hint>
                 </div>
-
-                {{-- The ring is the glance and the table under it is the
-                     record: share at a look, exact orders and revenue when
-                     you need them. The ring is not standing in for the
-                     numbers, it sits above them.
-
-                     A channel that has its own brand colour keeps it, which
-                     is the same hue its chip carries at the top of the page.
-                     One that has none falls back to an identity accent by
-                     position, through a class rather than a fill attribute,
-                     so it follows the theme. --}}
-                @php
-                    $ringTotal = max(1, collect($platformSlices)->sum('orders'));
-                    $ringR = 70;
-                    $ringC = 2 * M_PI * $ringR;
-                    $ringAt = 0.0;
-                    // A slice is labelled from the order's marketplace_source and
-                    // a channel from its own card, so the two agree on "Shopee"
-                    // and disagree on "TikTok" vs "TikTok Shop". Exact match
-                    // first, then one prefix match in either direction, which
-                    // is enough for that family without pairing two channels
-                    // that merely share a first word.
-                    $channelFor = function (string $label) use ($channels) {
-                        $all = collect($channels ?? []);
-                        return $all->firstWhere('name', $label)
-                            ?? $all->first(function ($c) use ($label) {
-                                $a = Str::lower($c['name']);
-                                $b = Str::lower($label);
-                                return $a !== $b && (Str::startsWith($a, $b) || Str::startsWith($b, $a));
-                            });
-                    };
-                    $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
-                @endphp
-                <div class="bl-breakdown">
-                    <div>
-                    <div class="bl-breakdown__ring">
-                    <svg class="bl-ring" width="188" height="188" viewBox="0 0 200 200"
-                         role="img" aria-label="Share of orders by channel">
-                        @foreach($platformSlices as $i => $slice)
-                            @php
-                                $share = $slice['orders'] / $ringTotal;
-                                $dash = round($share * $ringC, 2);
-                                $offset = round(-$ringAt * $ringC, 2);
-                                $ringAt += $share;
-                                $brand = $brandFor($slice['label']);
-                            @endphp
-                            <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
-                                    cx="100" cy="100" r="{{ $ringR }}"
-                                    @if($brand) stroke="{{ $brand }}" @endif
-                                    stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
-                                    stroke-dashoffset="{{ $offset }}"
-                                    transform="rotate(-90 100 100)">
-                                <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
-                            </circle>
-                        @endforeach
-                        <text class="bl-ring__v" x="100" y="97" text-anchor="middle">{{ number_format($ringTotal) }}</text>
-                        <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
-                    </svg>
-
-                    </div>
-
-                    {{-- Rows link into the channel wherever one exists. They
-                         were static text, which left a keyboard user no way
-                         to reach a channel from the one place on this page
-                         that ranks them. --}}
-                    <div class="bl-share">
-                        @foreach($platformSlices as $i => $slice)
-                            @php
-                                $brand = $brandFor($slice['label']);
-                                $href = $channelFor($slice['label'])['link'] ?? null;
-                                $rowTag = $href ? 'a' : 'div';
-                            @endphp
-                            <{{ $rowTag }} class="bl-share__row" @if($href) href="{{ $href }}" @endif>
-                                <svg class="bl-share__sw" width="10" height="10" viewBox="0 0 10 10"
-                                     aria-hidden="true" focusable="false">
-                                    <rect class="{{ $brand ? '' : 'bl-sw-' . ($i % 6) }}" width="10" height="10" rx="3"
-                                          @if($brand) fill="{{ $brand }}" @endif></rect>
-                                </svg>
-                                <span class="bl-share__n">{{ $slice['label'] }}</span>
-                                <span class="bl-share__v">{{ number_format($slice['orders']) }}</span>
-                            </{{ $rowTag }}>
-                        @endforeach
-                    </div>
-                    </div>
-
-                    <div class="bl-breakdown__records bl-scroll">
+                <div class="bl-scroll">
                     <table class="bl-table">
                         <thead>
                             <tr>
@@ -563,9 +534,28 @@
                         </thead>
                         <tbody>
                             @php $sliceTotal = max(1, collect($platformSlices)->sum('orders')); @endphp
-                            @foreach($platformSlices as $slice)
+                            @foreach($platformSlices as $i => $slice)
+                                @php
+                                    $brand = $brandFor($slice['label']);
+                                    $href = $channelFor($slice['label'])['link'] ?? null;
+                                @endphp
                                 <tr>
-                                    <td class="font-semibold">{{ $slice['label'] }}</td>
+                                    {{-- The swatch lives on the row it belongs to. It used
+                                         to sit in a legend beside this table, which meant
+                                         every channel name and every order count was
+                                         printed twice, six inches apart. --}}
+                                    <td class="font-semibold">
+                                        <svg class="bl-tsw" width="10" height="10" viewBox="0 0 10 10"
+                                             aria-hidden="true" focusable="false">
+                                            <rect class="{{ $brand ? '' : 'bl-sw-' . ($i % 6) }}" width="10" height="10" rx="3"
+                                                  @if($brand) fill="{{ $brand }}" @endif></rect>
+                                        </svg>
+                                        @if($href)
+                                            <a href="{{ $href }}">{{ $slice['label'] }}</a>
+                                        @else
+                                            {{ $slice['label'] }}
+                                        @endif
+                                    </td>
                                     <td class="num">{{ number_format($slice['orders']) }}</td>
                                     <td class="num">{{ Money::base((float) $slice['revenue']) }}</td>
                                     <td class="num">{{ number_format($slice['orders'] / $sliceTotal * 100, 1) }}%</td>
@@ -573,7 +563,6 @@
                             @endforeach
                         </tbody>
                     </table>
-                    </div>
                 </div>
             @endif
         </div>

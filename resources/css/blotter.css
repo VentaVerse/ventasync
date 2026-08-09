@@ -1736,6 +1736,24 @@
     /* The ring beside its own table rather than stacked above it. Stacked,
        the section ran 774px tall to state six numbers, and the ring used
        24% of the width it was given. */
+    /* The swatch now rides in the table's Channel cell instead of in a
+       legend beside it, which is what removed six duplicated names and six
+       duplicated counts. It sits on the row it describes, so matching a ring
+       segment to a revenue figure is one glance rather than two lists. */
+    /* display:inline-block explicitly, because Tailwind's preflight sets
+       `svg { display: block }`. The legend's swatches never showed this
+       because they were flex children; in a table cell the same element
+       stacked above the channel name instead of sitting beside it. */
+    .bl-tsw { display: inline-block; margin-right: 8px; vertical-align: -1px; }
+
+    .bl-ring { display: block; margin: 0 auto; }
+    .bl-ring__seg { fill: none; stroke-width: 26; }
+    .bl-ring__v { fill: var(--bl-ink); font-size: 26px; font-weight: 700; }
+    .bl-ring__k { fill: var(--bl-ink-3); font-size: 11px; }
+
+    /* The ring beside its own table rather than stacked above it. Stacked,
+       the section ran 774px tall to state six numbers, and the ring used
+       24% of the width it was given. */
     /* The CARD is the whole breakdown, not the table half of it. The records
        column carries .bl-scroll for its horizontal overflow, and .bl-scroll
        is in the raised-sheet list, so without this the table sat on a white
