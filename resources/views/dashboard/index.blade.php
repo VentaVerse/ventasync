@@ -561,6 +561,13 @@
                 <div class="bl-panel-head">
                     <h2>Orders by channel</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
+                    {{-- This rode on the ring's own heading until the ring moved
+                         beside the table and that heading went with the cell.
+                         It belongs to the section, not to the cell, so it lives
+                         on the section heading now. --}}
+                    <x-ui.hint label="What this ring counts">Orders, not revenue. A channel with one large
+                        order can hold a small share of the ring and the largest figure in the revenue
+                        column beside it.</x-ui.hint>
                 </div>
                 @php
                     $ringTotal = max(1, collect($platformSlices)->sum('orders'));

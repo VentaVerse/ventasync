@@ -1985,3 +1985,79 @@
        same thing three times. */
     .bl-share__v { margin-left: auto; color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
 }
+
+/* ============================================================
+   TOUCH AND MOTION
+
+   Two findings from the dashboard audit, fixed at the system layer so
+   every page inherits them rather than the dashboard alone.
+   ============================================================ */
+@layer components {
+    /* A coarse pointer is a finger, and a finger is not 31px wide. The
+       sidebar links, the theme switch and the hint buttons all cleared the
+       24px WCAG floor and none of them reached the 44px that a warehouse
+       floor actually needs one-handed.
+
+       Gated on pointer: coarse rather than on width, because the constraint
+       is the input device, not the window. A 390px browser on a desktop
+       keeps the tighter rhythm; a tablet at 1024px gets the bigger targets. */
+    @media (pointer: coarse) {
+        .x-nav__item,
+        .x-nav__child,
+        .x-nav__group > button {
+            min-height: 44px;
+            padding-block: 10px;
+        }
+
+        .x-theme__btn,
+        .x-account__avatar,
+        .bl-rowactions > * {
+            min-width: 44px;
+            min-height: 44px;
+        }
+    }
+
+    /* The hint's circle stays 16px because it is a mark, not a button face.
+       Its HIT AREA grows instead, through a pseudo-element that reaches the
+       44px a finger needs without moving a pixel of the layout. */
+    .bl-hint__btn { position: relative; }
+
+    .bl-hint__btn::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+    }
+
+    /* REDUCED MOTION, stated once for the whole bundle.
+
+       Individual rules were guarded as they were written, which meant the
+       answer depended on remembering. This covers what is left: the card
+       lift, the nav collapse, the hint bubble, the ring's fade.
+
+       Not a global `* { animation: none }` kill. Transitions collapse to a
+       duration a person cannot perceive as movement while state changes
+       still happen instantly and nothing loses its hover, focus or open
+       feedback - which is what the setting asks for, rather than a page
+       where nothing responds. */
+    @media (prefers-reduced-motion: reduce) {
+        .bl-stat,
+        .bl-collapse,
+        .bl-hint__bubble,
+        .bl-ring__seg,
+        .bl-hint__btn,
+        .x-nav__item,
+        .x-nav__child,
+        .bl-chan,
+        .bl-share__row {
+            transition-duration: 0.01ms !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+        }
+
+        a.bl-stat:hover { transform: none; }
+    }
+}
