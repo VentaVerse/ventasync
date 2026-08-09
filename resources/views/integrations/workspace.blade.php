@@ -33,6 +33,64 @@
         @endif
     </div>
 
+    @if($channelTrend)
+        {{-- How this channel is doing, which is what the page leads with.
+             Scoped to this channel only: the cross-channel comparison lives
+             on the dashboard, and repeating it here would give a seller two
+             places to check that eventually disagree. --}}
+        @php
+            $tr = $channelTrend;
+            $revDelta = $tr['prevRevenue'] > 0
+                ? round((($tr['totalRevenue'] - $tr['prevRevenue']) / $tr['prevRevenue']) * 100)
+                : null;
+            $ordDelta = $tr['prevOrders'] > 0
+                ? round((($tr['totalOrders'] - $tr['prevOrders']) / $tr['prevOrders']) * 100)
+                : null;
+        @endphp
+
+        <section class="cw-panel">
+            <div class="cw-panel__head">
+                <h2 class="cw-panel__title">Last 30 days</h2>
+                <p class="cw-panel__note">Compared with the 30 days before</p>
+            </div>
+
+            <div class="cw-figures">
+                {{-- A percentage against a period that sold nothing is not a
+                     number: it prints the plain total instead of "up
+                     infinity". --}}
+                <div class="cw-figure">
+                    <span class="cw-figure__k">Revenue</span>
+                    <span class="cw-figure__v">{{ \App\Support\Money::base($tr['totalRevenue']) }}</span>
+                    @if($revDelta !== null)
+                        <span class="cw-figure__d {{ $revDelta < 0 ? 'is-down' : 'is-up' }}">
+                            {{ $revDelta > 0 ? '+' : '' }}{{ $revDelta }}%
+                        </span>
+                    @else
+                        <span class="cw-figure__d is-flat">no prior sales</span>
+                    @endif
+                </div>
+
+                <div class="cw-figure">
+                    <span class="cw-figure__k">Orders</span>
+                    <span class="cw-figure__v">{{ number_format($tr['totalOrders']) }}</span>
+                    @if($ordDelta !== null)
+                        <span class="cw-figure__d {{ $ordDelta < 0 ? 'is-down' : 'is-up' }}">
+                            {{ $ordDelta > 0 ? '+' : '' }}{{ $ordDelta }}%
+                        </span>
+                    @else
+                        <span class="cw-figure__d is-flat">no prior orders</span>
+                    @endif
+                </div>
+            </div>
+
+            @include('partials._trend-plot', [
+                'labels' => $tr['labels'],
+                'revenue' => $tr['revenue'],
+                'orders' => $tr['orders'],
+            ])
+        </section>
+    @endif
+
     @if($channelWaiting)
         {{-- What needs doing, before what is merely true about the
              connection. An operator opening a channel is asking "what is
@@ -50,6 +108,36 @@
         </div>
     @endif
 
+    @if($channelBestSellers)
+        {{-- What actually moved here, which differs per marketplace and is
+             the closest thing this page offers to a stocking decision.
+             Ranked by revenue; units sit alongside because the two together
+             are what makes a line readable. --}}
+        <section class="cw-panel">
+            <div class="cw-panel__head">
+                <h2 class="cw-panel__title">Best sellers here</h2>
+                <p class="cw-panel__note">By revenue, last 30 days</p>
+            </div>
+
+            <ol class="cw-top">
+                @foreach($channelBestSellers as $product)
+                    <li class="cw-top__row">
+                        <span class="cw-top__name">
+                            {{ $product['name'] }}
+                            @if($product['model'])
+                                <span class="cw-top__model">{{ $product['model'] }}</span>
+                            @endif
+                        </span>
+                        <span class="cw-top__units">{{ number_format($product['units']) }} sold</span>
+                        <span class="cw-top__rev">{{ \App\Support\Money::base($product['revenue']) }}</span>
+                    </li>
+                @endforeach
+            </ol>
+        </section>
+    @endif
+
+    {{-- Health last. It matters on the day it breaks and never otherwise,
+         and the badge in the channel sidebar already carries the alarm. --}}
     <div class="x-health">
         @foreach($channelHealth as $row)
             <div class="x-health__cell">

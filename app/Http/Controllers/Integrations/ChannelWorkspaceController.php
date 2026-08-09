@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Integrations;
 
 use App\Http\Controllers\Controller;
+use App\Support\ChannelMetrics;
 use App\Support\ChannelWorkspace;
 use Illuminate\Http\Request;
 
 class ChannelWorkspaceController extends Controller
 {
-    public function show(Request $request, string $channel, ChannelWorkspace $workspace)
+    public function show(Request $request, string $channel, ChannelWorkspace $workspace, ChannelMetrics $metrics)
     {
         $user = $request->user();
 
@@ -46,7 +47,18 @@ class ChannelWorkspaceController extends Controller
         // page in this layout, including this one, and passing them from here
         // as well only computed the same values a second time for the
         // composer to overwrite.
+        // How this channel is doing, which is what the page leads with. The
+        // colon key resolved above IS the marketplace_source these orders
+        // were written with, so scoping costs nothing extra: a two-store
+        // seller reads one store per page for free.
+        //
+        // Both come back empty when the channel has no sales to describe,
+        // and the view drops the panel rather than drawing an empty chart.
+        $trend = $metrics->trend($channel);
+
         return view('integrations.workspace', [
+            'channelTrend' => $trend,
+            'channelBestSellers' => $trend ? $metrics->bestSellers($channel) : [],
             'channelHealth' => $workspace->health($card, $channel),
             // Spec 3.4: the Overview answers "what is waiting for me", not
             // just "is the connection alive". These read the same closures

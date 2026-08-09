@@ -840,3 +840,162 @@
 .x-board__foot { display: flex; gap: var(--space-2); margin-top: auto; }
 
 @media (max-width: 640px) { .x-board { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------------
+   Channel Overview panels.
+
+   The page leads with how the channel is doing and ends with whether the
+   connection is alive, which is the order a seller actually asks those two
+   questions in. These panels carry the first part; .x-waiting and .x-health
+   above already own the rest.
+   ------------------------------------------------------------------ */
+.cw-panel {
+    margin-bottom: var(--bl-col-pad, 20px);
+    padding: var(--bl-pad, 20px);
+    background: var(--bl-sheet, #fff);
+    border: 1px solid var(--bl-rule, #eaeef5);
+    border-radius: var(--bl-r-panel, 16px);
+    box-shadow: var(--bl-lift, none);
+}
+
+.cw-panel__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin-bottom: 16px;
+}
+
+.cw-panel__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--bl-ink, #1f2937);
+}
+
+.cw-panel__note {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--bl-ink-3, #8792a9);
+}
+
+/* The two figures the panel exists to state, before the shape of them. */
+.cw-figures {
+    display: grid;
+    /* min() rather than a bare 180px: a bare floor is a hard minimum, so on a
+       narrow phone the track stayed 180px wide, two of them did not fit, and
+       the page scrolled sideways. Capping the floor at the container width
+       lets the last column collapse instead. */
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.cw-figure {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.cw-figure__k {
+    flex-basis: 100%;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    color: var(--bl-ink-3, #8792a9);
+}
+
+.cw-figure__v {
+    font-size: 26px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink, #1f2937);
+}
+
+/* Direction is carried by the sign as well as the colour, so the reading
+   survives without colour vision. */
+.cw-figure__d {
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.cw-figure__d.is-up { color: var(--bl-good, #0c7a54); }
+.cw-figure__d.is-down { color: var(--bl-bad, #c0392b); }
+.cw-figure__d.is-flat { color: var(--bl-ink-3, #8792a9); font-weight: 500; }
+
+/* Best sellers. A list, not a table: three fields per row do not need
+   column headers to be read, and a table would not wrap on a phone. */
+.cw-top {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cw-top__row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: baseline;
+    gap: 6px 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--bl-rule, #eaeef5);
+    font-size: 13.5px;
+}
+
+.cw-top__row:first-child { border-top: 0; padding-top: 0; }
+
+.cw-top__name {
+    min-width: 0;
+    color: var(--bl-ink, #1f2937);
+}
+
+.cw-top__model {
+    display: block;
+    font-size: 12px;
+    color: var(--bl-ink-3, #8792a9);
+}
+
+.cw-top__units {
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink-2, #a7b1c5);
+}
+
+.cw-top__rev {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--bl-ink, #1f2937);
+}
+
+/* On a phone the two figures stack under the name rather than squeezing a
+   product title into a column too narrow to read. */
+@media (max-width: 560px) {
+    .cw-top__row {
+        grid-template-columns: 1fr auto;
+    }
+
+    .cw-top__name { grid-column: 1 / -1; }
+}
+
+/* The plot partial is shared with the dashboard, whose column is wider than
+   this one. Scoped to this panel so the dashboard keeps its own behaviour:
+   the key wraps rather than running past the edge, and the axis strip takes
+   its own horizontal scroll instead of making the whole page scroll
+   sideways on a phone. */
+.cw-panel .bl-key { flex-wrap: wrap; }
+
+.cw-panel .bl-axis {
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.cw-panel .bl-axis::-webkit-scrollbar { display: none; }
+
+/* The key item carries a label and its peak; at phone width that pair is a
+   few pixels wider than the column, which was enough to scroll the page. It
+   wraps within itself rather than being truncated - the peak is the scale
+   disclosure and hiding it would leave the two series looking comparable. */
+.cw-panel .bl-key__item {
+    flex-wrap: wrap;
+    min-width: 0;
+}
