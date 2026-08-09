@@ -2091,3 +2091,47 @@
         a.bl-stat:hover { transform: none; }
     }
 }
+
+/* ============================================================
+   THE SIDE RAIL FOLLOWS YOU DOWN THE PAGE
+
+   On an order and on a product, the left column is the work - line
+   items, variations, totals, history - and the right rail is the
+   context you keep glancing back at: who the customer is, what is
+   paid, where it ships, what the product costs. Scrolling the work
+   used to scroll that context off the top, so an operator halfway
+   down a long order had to scroll back up to check an address.
+
+   Sticky rather than fixed: the rail scrolls with the page until its
+   top reaches the offset, then holds. It never covers anything and it
+   never leaves its column.
+
+   Only where the rail exists as a column of its own. Below 1001px the
+   two columns stack, and a rail pinned to the viewport in a stacked
+   layout would sit on top of the content it is meant to accompany.
+   ============================================================ */
+@layer components {
+    @media (min-width: 1001px) {
+        .od-col--side,
+        .fm-col--side {
+            position: sticky;
+            top: var(--bl-page-gutter);
+            /* Its own scroll when the context is taller than the screen,
+               so a long rail stays reachable rather than being clipped at
+               the fold. overscroll-behavior stops a flick inside the rail
+               from carrying on into the page behind it. */
+            max-height: calc(100dvh - (var(--bl-page-gutter) * 2));
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            /* The scrollbar only appears when it is earning its keep. */
+            scrollbar-width: thin;
+        }
+
+        /* A sticky element inside a grid needs the track to start at the
+           top rather than stretch, which both of these grids already do
+           through align-items: start. Stated here so a later change to
+           either grid cannot silently break the rail. */
+        .od-body,
+        .fm-body { align-items: start; }
+    }
+}
