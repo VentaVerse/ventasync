@@ -499,7 +499,10 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
         gap: 12px;
-        align-items: start;
+        /* end, not start: a cell holding only a submit has no label above it,
+           so aligning to the top floated the button a label's height clear of
+           the inputs it submits. */
+        align-items: end;
     }
 
     .od-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -532,14 +535,24 @@
     .od-override__note { margin-top: 2px; font-size: 11.5px; color: var(--bl-ink-3); }
 
     /* Same switch as the form pages, so one control means one thing. */
+    /* A switch is a pill with a round knob that slides. This was a square
+       knob in a rounded track that jumped between states, which is my fault
+       twice over: --bl-r-ctrl went 6px -> 11px in v2.3, turning a squarish
+       track into a pill while the knob kept its zero radius, and the knob
+       never had a transition at all. Neither was re-checked after the token
+       moved. Stated explicitly here so the track's shape no longer depends
+       on a control token that is free to change. */
     .od-switch {
         position: relative;
         flex: none;
-        width: 34px;
-        height: 20px;
+        width: 40px;
+        height: 24px;
+        padding: 0;
         border: 1px solid var(--bl-rule-2);
-        border-radius: var(--bl-r-ctrl);
-        background: var(--bl-chrome);
+        border-radius: 999px;
+        background: var(--bl-chrome-2);
+        cursor: pointer;
+        transition: background-color .16s ease, border-color .16s ease;
     }
 
     .od-switch::after {
@@ -547,9 +560,26 @@
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 14px;
-        height: 14px;
-        background: var(--bl-ink-3);
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--bl-sheet);
+        box-shadow: 0 1px 2px rgba(19, 26, 43, .28);
+        transition: transform .16s cubic-bezier(.2, .7, .3, 1);
+    }
+
+    /* On is the brand's "you can act here" cyan, and the knob travels rather
+       than teleports. */
+    .od-switch[aria-checked="true"] {
+        border-color: var(--bl-brand-deep);
+        background: var(--bl-brand-deep);
+    }
+
+    .od-switch[aria-checked="true"]::after { transform: translateX(16px); }
+
+    @media (prefers-reduced-motion: reduce) {
+        .od-switch,
+        .od-switch::after { transition-duration: 0.01ms; }
     }
 
     /* The order's history, newest first. */
@@ -1369,3 +1399,56 @@
         background: var(--bl-chrome);
         border-radius: var(--bl-r-dot);
     }
+
+/* ============================================================
+   The order page's left column was never given the card treatment.
+
+   v2.3 turned every data container into a raised white sheet on a tinted
+   ground, and .od-card was in that list. .od-section - which wraps Items,
+   Totals, Update status and Order history, i.e. the entire left column and
+   the substance of the page - was not. So the rail carried three bordered
+   cards while everything that matters sat bare on the grey, and the page
+   read as unfinished down its whole left side.
+
+   This is the defect the owner saw and my audit did not: I measured contrast,
+   overflow, DOM count and token usage, all of which were fine, and never
+   asked whether the page's own containers agreed with each other.
+   ============================================================ */
+@layer components {
+    .od-section {
+        padding: 18px 20px 20px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+    }
+
+    .od-section + .od-section { margin-top: 16px; }
+
+    /* The section head no longer needs a rule to separate it: the sheet
+       does that job, exactly as on every other converted page. */
+    .od-section__head { border-bottom: 0; padding-bottom: 4px; }
+
+    /* The submit sits in a field slot with no label, so it aligned to the
+       top of its cell while every input aligned under its own label - the
+       button floated a label's height above the row it belongs to. Pushing
+       it down puts it on the same baseline as the fields it submits. */
+    .od-field > .x-btn { margin-top: auto; }
+}
+
+/* ============================================================
+   Update status and Order history sit AFTER the two-column grid, so they
+   ran the full page width while Items and Totals stopped at the rail -
+   two card widths on one page, which is the kind of thing that reads as
+   "unfinished" long before anyone can name it.
+
+   They keep the left column's measure. The subtraction is the grid's own
+   track plus its gap (320px rail + 22px), so the two agree by
+   construction rather than by a number chosen to look right.
+   ============================================================ */
+@layer components {
+    @media (min-width: 1001px) {
+        .od-body ~ .od-section,
+        .od-page > .od-section { max-width: calc(100% - 342px); }
+    }
+}
