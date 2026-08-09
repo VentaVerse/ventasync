@@ -73,13 +73,39 @@
         $__reg = app(\App\Integrations\IntegrationRegistry::class);
         $__byId = $__reg->layoutBannerContributorsById();
 
-        // ext.tiktok.orders.index -> tiktok
+        // Which channel am I in? There are two answers and both are needed.
+        //
+        //   ext.tiktok.orders.index          -> the name carries it
+        //   /integrations/shopee             -> integrations.workspace, and
+        //   /integrations/lazada                the channel is a route
+        //                                       PARAMETER, not part of the name
+        //
+        // The first version of this checked only the name, so the workspace
+        // and module pages - which is exactly where the owner saw the stray
+        // TikTok banner - never matched and fell through to showing all.
+        //
+        // A multi-store id arrives as "venta:2"; the part before the colon is
+        // the integration.
         $__here = null;
-        $__routeName = (string) (\Illuminate\Support\Facades\Route::currentRouteName() ?? '');
+        $__route = \Illuminate\Support\Facades\Route::current();
+        $__routeName = (string) ($__route?->getName() ?? '');
+        $__candidates = [];
+
         if (str_starts_with($__routeName, 'ext.')) {
-            $__candidate = explode('.', $__routeName)[1] ?? null;
+            $__candidates[] = explode('.', $__routeName)[1] ?? null;
+        }
+
+        foreach (['channel', 'key', 'integration'] as $__param) {
+            $__value = $__route?->parameter($__param);
+            if (is_string($__value) && $__value !== '') {
+                $__candidates[] = explode(':', $__value)[0];
+            }
+        }
+
+        foreach ($__candidates as $__candidate) {
             if ($__candidate !== null && array_key_exists($__candidate, $__byId)) {
                 $__here = $__candidate;
+                break;
             }
         }
 

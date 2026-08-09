@@ -1520,24 +1520,14 @@
     .bl-stat--amber::before { background: rgba(255, 255, 255, .22); }
     .bl-stat--amber::after  { background: rgba(255, 255, 255, .16); }
 
-    /* Nothing to report. The hue survives at a tenth of its strength so
-       the block is still recognisably that measure. */
-    .bl-stat.is-zero {
-        background: var(--bl-sheet);
-        color: var(--bl-ink);
-        box-shadow: var(--bl-lift);
-    }
-    .bl-stat.is-zero::before,
-    .bl-stat.is-zero::after { display: none; }
-    .bl-stat.is-zero .bl-stat__k { color: var(--bl-ink-3); }
-    .bl-stat.is-zero .bl-stat__v { color: var(--bl-ink-2); font-weight: 650; }
-    .bl-stat.is-zero .bl-stat__d { color: var(--bl-ink-3); }
-    .bl-stat.is-zero .bl-stat__ic { background: var(--bl-chrome); color: var(--bl-ink-3); }
-    .bl-stat--cyan.is-zero   .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-cyan) 12%, transparent);   color: var(--bl-a-cyan); }
-    .bl-stat--violet.is-zero .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-violet) 12%, transparent); color: var(--bl-a-violet); }
-    .bl-stat--amber.is-zero  .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-amber) 14%, transparent);  color: var(--bl-a-amber); }
-    .bl-stat--green.is-zero  .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-green) 12%, transparent);  color: var(--bl-a-green); }
-    .bl-stat--indigo.is-zero .bl-stat__ic { background: color-mix(in srgb, var(--bl-a-indigo) 12%, transparent); color: var(--bl-a-indigo); }
+    /* The zero rule is gone, on the owner's call.
+       
+       It dropped a block with nothing in it to a white sheet, on the
+       reasoning that a saturated card shouting "0" reads as a fault. In
+       practice it read as two of the five cards being unfinished, because
+       "no orders yet today" is the normal state of a morning and the row
+       looked broken for most of the working day. A row of five that agree
+       beats a rule that is right in the abstract. */
 
     @media (prefers-reduced-motion: reduce) {
         .bl-stat { transition: none; }

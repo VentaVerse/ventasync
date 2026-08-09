@@ -195,11 +195,13 @@
          written label carries the meaning and nothing is lost without
          hue. State colour stays on the rows below, where it belongs.
 
-         is-zero drops a block to white. Most of these are zero on a
-         quiet morning, and a saturated block shouting 0 reads as a
-         fault rather than as a calm nothing-yet. --}}
+         All five carry their fill whatever the figure. An earlier
+         version dropped a zero block to white on the reasoning that a
+         saturated card shouting 0 reads as a fault; in practice it read
+         as two of the five being unfinished, because no orders yet
+         today is the normal state of a morning. --}}
     <div class="bl-stats">
-        <a class="bl-stat bl-stat--violet {{ $todayOrders === 0 ? 'is-zero' : '' }}" href="{{ route('orders.index') }}">
+        <a class="bl-stat bl-stat--violet" href="{{ route('orders.index') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Orders today</span>
                 <span class="bl-stat__ic"><x-ui.icon name="cart" size="17" /></span>
@@ -215,7 +217,7 @@
             </span>
         </a>
 
-        <a class="bl-stat bl-stat--cyan {{ $todayRevenue <= 0 ? 'is-zero' : '' }}" href="{{ route('orders.index') }}">
+        <a class="bl-stat bl-stat--cyan" href="{{ route('orders.index') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Revenue today</span>
                 <span class="bl-stat__ic"><x-ui.icon name="banknote" size="17" /></span>
@@ -231,7 +233,7 @@
             </span>
         </a>
 
-        <a class="bl-stat bl-stat--green {{ $weekRevenue <= 0 ? 'is-zero' : '' }}" href="{{ route('orders.index') }}">
+        <a class="bl-stat bl-stat--green" href="{{ route('orders.index') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Week to date</span>
                 <span class="bl-stat__ic"><x-ui.icon name="trending-up" size="17" /></span>
@@ -248,7 +250,7 @@
             </span>
         </a>
 
-        <a class="bl-stat bl-stat--amber {{ $pendingTotal === 0 ? 'is-zero' : '' }}" href="{{ route('integrations.orders') }}">
+        <a class="bl-stat bl-stat--amber" href="{{ route('integrations.orders') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Waiting to ship</span>
                 <span class="bl-stat__ic"><x-ui.icon name="send" size="17" /></span>
@@ -259,7 +261,7 @@
             </span>
         </a>
 
-        <a class="bl-stat bl-stat--indigo {{ $inventoryAtCost <= 0 ? 'is-zero' : '' }}" href="{{ route('products.index') }}">
+        <a class="bl-stat bl-stat--indigo" href="{{ route('products.index') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Stock at cost</span>
                 <span class="bl-stat__ic"><x-ui.icon name="boxes" size="17" /></span>
