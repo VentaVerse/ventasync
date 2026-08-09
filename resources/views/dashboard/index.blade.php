@@ -380,33 +380,73 @@
                         $values = array_map('floatval', $plot['values'] ?? []);
                         $peak = $values === [] ? 0.0 : max($values);
                         $lastIndex = $values === [] ? null : array_key_last($values);
+                        $n = count($values);
+
+                        // Plot space. Wide and flat so the path has room to
+                        // say something; the stroke keeps its weight through
+                        // non-scaling-stroke rather than through the viewBox.
+                        $pw = 1000; $ph = 200; $pad = 12;
+
+                        $pt = function (int $i) use ($values, $peak, $pw, $ph, $pad, $n) {
+                            $x = $n <= 1 ? 0 : round($i / ($n - 1) * $pw, 2);
+                            $y = $peak <= 0 ? $ph - $pad
+                               : round($ph - $pad - ($values[$i] / $peak) * ($ph - $pad * 2), 2);
+                            return [$x, $y];
+                        };
+
+                        $line = '';
+                        foreach (array_keys($values) as $i) {
+                            [$x, $y] = $pt($i);
+                            $line .= ($i === 0 ? 'M' : 'L') . $x . ',' . $y . ' ';
+                        }
+                        $area = $line . 'L' . $pw . ',' . $ph . ' L0,' . $ph . ' Z';
+                        $gid = 'plot-' . Str::slug($plot['title']);
                     @endphp
-                    {{-- Inside a card now, so its padding is the card's business, not the
-                         column's. --}}
                     <div class="bg-sheet px-3.5 pb-4 pt-3">
                         <h3 class="bl-label">{{ $plot['title'] }}</h3>
                         @if($peak > 0)
-                            {{-- Each column is its own SVG so a five-year range
-                                 draws five narrow bars rather than five slabs.
-                                 The bar height is the only thing here that comes
-                                 from the data, so it lives in the rect's height
-                                 geometry attribute: this project puts no CSS in
-                                 Blade and the suite enforces it. --}}
-                            <div class="mt-2 flex h-[118px] items-end gap-[3px] border-b border-rule-2">
+                            <svg class="bl-plot bl-plot--{{ $plot['unit'] }} mt-2"
+                                 viewBox="0 0 {{ $pw }} {{ $ph }}" preserveAspectRatio="none"
+                                 role="img" aria-label="{{ $plot['title'] }} over the period">
+                                <defs>
+                                    <linearGradient id="{{ $gid }}" x1="0" y1="0" x2="0" y2="1">
+                                        <stop class="bl-plot__from" offset="0%"></stop>
+                                        <stop class="bl-plot__to" offset="100%"></stop>
+                                    </linearGradient>
+                                </defs>
+
+                                @foreach([0.25, 0.5, 0.75] as $g)
+                                    <line class="bl-plot__grid" x1="0" x2="{{ $pw }}"
+                                          y1="{{ $ph * $g }}" y2="{{ $ph * $g }}"></line>
+                                @endforeach
+
+                                <g class="bl-plot__reveal">
+                                    <path class="bl-plot__area" d="{{ $area }}" fill="url(#{{ $gid }})"></path>
+                                    <path class="bl-plot__line" d="{{ $line }}"></path>
+                                </g>
+
+                                @php [$nx, $ny] = $pt($lastIndex); @endphp
+                                <line class="bl-plot__now" x1="{{ $nx }}" x2="{{ $nx }}"
+                                      y1="{{ $ny }}" y2="{{ $ph }}"></line>
+
+                                {{-- One transparent target per period, so a reading
+                                     is still one hover away. The figures are all in
+                                     the table below too, so nothing lives only
+                                     behind a pointer. --}}
                                 @foreach($values as $i => $value)
                                     @php
-                                        $h = max(1, (int) round($value / $peak * 100));
+                                        [$hx] = $pt($i);
+                                        $hw = $n <= 1 ? $pw : $pw / ($n - 1);
                                         $reading = $plot['unit'] === 'money'
                                             ? Money::base((float) $value)
                                             : number_format($value);
                                     @endphp
-                                    <svg class="bl-col {{ $i === $lastIndex ? 'bl-col-now' : '' }}"
-                                         viewBox="0 0 10 100" preserveAspectRatio="none" role="img">
+                                    <rect class="bl-plot__hit" x="{{ max(0, $hx - $hw / 2) }}" y="0"
+                                          width="{{ $hw }}" height="{{ $ph }}">
                                         <title>{{ ($chartLabels[$i] ?? '') . ': ' . $reading }}</title>
-                                        <rect x="0" y="{{ 100 - $h }}" width="10" height="{{ $h }}"></rect>
-                                    </svg>
+                                    </rect>
                                 @endforeach
-                            </div>
+                            </svg>
                             <div class="flex justify-between pt-1.5 text-[11px] text-ink-3">
                                 <span>{{ $chartLabels[0] ?? '' }}</span>
                                 <span>{{ $chartLabels[$lastIndex] ?? '' }}</span>
@@ -423,6 +463,66 @@
                     <h2>Orders by channel</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
                 </div>
+
+                {{-- The ring is the glance and the table under it is the
+                     record: share at a look, exact orders and revenue when
+                     you need them. The ring is not standing in for the
+                     numbers, it sits above them.
+
+                     A channel that has its own brand colour keeps it, which
+                     is the same hue its chip carries at the top of the page.
+                     One that has none falls back to an identity accent by
+                     position, through a class rather than a fill attribute,
+                     so it follows the theme. --}}
+                @php
+                    $ringTotal = max(1, collect($platformSlices)->sum('orders'));
+                    $ringR = 70;
+                    $ringC = 2 * M_PI * $ringR;
+                    $ringAt = 0.0;
+                    $brandFor = fn (string $label) => collect($channels ?? [])
+                        ->firstWhere('name', $label)['colour'] ?? null;
+                @endphp
+                <div class="bl-scroll">
+                    <svg class="bl-ring" width="188" height="188" viewBox="0 0 200 200"
+                         role="img" aria-label="Share of orders by channel">
+                        @foreach($platformSlices as $i => $slice)
+                            @php
+                                $share = $slice['orders'] / $ringTotal;
+                                $dash = round($share * $ringC, 2);
+                                $offset = round(-$ringAt * $ringC, 2);
+                                $ringAt += $share;
+                                $brand = $brandFor($slice['label']);
+                            @endphp
+                            <circle class="bl-ring__seg {{ $brand ? '' : 'bl-slice-' . ($i % 6) }}"
+                                    cx="100" cy="100" r="{{ $ringR }}"
+                                    @if($brand) stroke="{{ $brand }}" @endif
+                                    stroke-dasharray="{{ $dash }} {{ round($ringC, 2) }}"
+                                    stroke-dashoffset="{{ $offset }}"
+                                    transform="rotate(-90 100 100)">
+                                <title>{{ $slice['label'] }}: {{ number_format($slice['orders']) }} {{ Str::plural('order', $slice['orders']) }}</title>
+                            </circle>
+                        @endforeach
+                        <text class="bl-ring__v" x="100" y="97" text-anchor="middle">{{ number_format($ringTotal) }}</text>
+                        <text class="bl-ring__k" x="100" y="116" text-anchor="middle">{{ Str::plural('order', $ringTotal) }}</text>
+                    </svg>
+
+                    <div class="bl-share">
+                        @php $shareAt = 0; @endphp
+                        @foreach($platformSlices as $i => $slice)
+                            @php $brand = $brandFor($slice['label']); @endphp
+                            <div class="bl-share__row">
+                                <svg class="bl-share__sw" width="10" height="10" viewBox="0 0 10 10"
+                                     aria-hidden="true" focusable="false">
+                                    <rect class="{{ $brand ? '' : 'bl-sw-' . ($i % 6) }}" width="10" height="10" rx="3"
+                                          @if($brand) fill="{{ $brand }}" @endif></rect>
+                                </svg>
+                                <span class="bl-share__n">{{ $slice['label'] }}</span>
+                                <span class="bl-share__v">{{ number_format($slice['orders'] / $ringTotal * 100, 1) }}%</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
                 <div class="bl-scroll">
                     <table class="bl-table">
                         <thead>

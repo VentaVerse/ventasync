@@ -1656,3 +1656,92 @@
         .bl-charts { grid-template-columns: minmax(0, 1fr); }
     }
 }
+
+/* ============================================================
+   v2.3 CHARTS
+
+   v2.2 drew one narrow SVG per column, which kept every bar the
+   same width at any range but could only ever be bars. Beside the
+   filled metric blocks they became the oldest thing on the page.
+
+   An area now, drawn as ONE path across the series. The stroke keeps
+   its weight under the non-uniform stretch through
+   vector-effect="non-scaling-stroke", which is what lets a fixed
+   140px plot hold its shape from 1600 down to 390 without the line
+   fattening at one end.
+
+   No circle marks the endpoint: under preserveAspectRatio="none" a
+   circle renders as a lopsided ellipse. A vertical rule to the axis
+   says "here is now" and distorts gracefully, because it is already
+   a straight line.
+
+   Readings still come from hovering, through one transparent rect
+   per point carrying a <title>, and every figure is also in the
+   table below, so nothing is reachable only by hover.
+   ============================================================ */
+@layer components {
+    .bl-plot { display: block; width: 100%; height: 140px; }
+
+    .bl-plot__grid { stroke: var(--bl-rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .bl-plot__line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+    .bl-plot__area { stroke: none; }
+    .bl-plot__now  { stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+    .bl-plot__hit  { fill: transparent; }
+    .bl-plot__hit:hover { fill: color-mix(in srgb, var(--bl-ink) 6%, transparent); }
+
+    /* Money and count are the two series this dashboard plots, and they
+       keep the identity colours the blocks above them use, so a reader
+       joins the figure to its plot without a legend. */
+    .bl-plot--money .bl-plot__line { stroke: var(--bl-a-cyan); }
+    .bl-plot--money .bl-plot__now  { stroke: var(--bl-a-cyan); }
+    .bl-plot--money .bl-plot__from { stop-color: var(--bl-a-cyan); stop-opacity: .34; }
+    .bl-plot--money .bl-plot__to   { stop-color: var(--bl-a-cyan); stop-opacity: 0; }
+
+    .bl-plot--count .bl-plot__line { stroke: var(--bl-a-violet); }
+    .bl-plot--count .bl-plot__now  { stroke: var(--bl-a-violet); }
+    .bl-plot--count .bl-plot__from { stop-color: var(--bl-a-violet); stop-opacity: .34; }
+    .bl-plot--count .bl-plot__to   { stop-color: var(--bl-a-violet); stop-opacity: 0; }
+
+    /* One authored moment: the area wipes in from the left on first
+       paint, once, at the pace a sheet of paper slides. Not a per-element
+       entrance and not on hover. */
+    @media (prefers-reduced-motion: no-preference) {
+        .bl-plot__reveal {
+            animation: bl-wipe .62s cubic-bezier(.16, 1, .3, 1) both;
+            transform-origin: left center;
+        }
+    }
+
+    @keyframes bl-wipe {
+        from { clip-path: inset(0 100% 0 0); }
+        to   { clip-path: inset(0 0 0 0); }
+    }
+
+    /* Fallback slice colours, for a channel with no brand hue of its own.
+       Identity accents, so the ring belongs to the same system as the
+       blocks at the top of the page. */
+    .bl-slice-0 { stroke: var(--bl-a-cyan); }
+    .bl-slice-1 { stroke: var(--bl-a-violet); }
+    .bl-slice-2 { stroke: var(--bl-a-green); }
+    .bl-slice-3 { stroke: var(--bl-a-amber); }
+    .bl-slice-4 { stroke: var(--bl-a-indigo); }
+    .bl-slice-5 { stroke: var(--bl-a-rose); }
+
+    .bl-sw-0 { fill: var(--bl-a-cyan); }
+    .bl-sw-1 { fill: var(--bl-a-violet); }
+    .bl-sw-2 { fill: var(--bl-a-green); }
+    .bl-sw-3 { fill: var(--bl-a-amber); }
+    .bl-sw-4 { fill: var(--bl-a-indigo); }
+    .bl-sw-5 { fill: var(--bl-a-rose); }
+
+    .bl-ring { display: block; margin: 0 auto; }
+    .bl-ring__seg { fill: none; stroke-width: 26; }
+    .bl-ring__v { fill: var(--bl-ink); font-size: 26px; font-weight: 700; }
+    .bl-ring__k { fill: var(--bl-ink-3); font-size: 11px; }
+
+    .bl-share { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px var(--bl-pad, 20px) 4px; }
+    .bl-share__row { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+    .bl-share__sw { flex: none; }
+    .bl-share__n { color: var(--bl-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bl-share__v { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+}
