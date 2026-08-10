@@ -115,6 +115,52 @@ class VentaImageVerdictTest extends TestCase
     }
 
     /**
+     * The dead end, named.
+     *
+     * With no local link the push takes the CREATE branch, and if Venta
+     * already holds that SKU it answers 422 "The sku has already been taken."
+     * Every visible action on the row then failed - Push created and 422'd
+     * again, Update was not offered because the page saw no link, and Delete
+     * from Venta refused with "not linked, nothing to delete" - while the one
+     * action that worked, Match Venta ID, went unmentioned. The operator was
+     * also reading Laravel's raw validation envelope rather than a sentence
+     * about their product.
+     */
+    public function test_a_taken_sku_tells_the_operator_how_to_get_out(): void
+    {
+        $method = new ReflectionMethod(VentaProductGroupController::class, 'pushFailureText');
+
+        $message = $method->invoke(
+            app(VentaProductGroupController::class),
+            ['body' => ['message' => 'The sku has already been taken.', 'errors' => ['sku' => ['The sku has already been taken.']]]],
+            'm-vave-tank-pro'
+        );
+
+        $this->assertStringContainsString('m-vave-tank-pro', $message,
+            'The message does not say which SKU Venta already has.');
+        $this->assertStringContainsString('Match Venta ID', $message,
+            'The message does not name the one action that resolves this, so the row is a dead end.');
+        $this->assertStringNotContainsString('{"', $message,
+            'The raw response envelope is still being shown to the operator.');
+    }
+
+    /** Any other refusal is passed through rather than reworded into a guess. */
+    public function test_an_unrelated_failure_is_not_rewritten(): void
+    {
+        $method = new ReflectionMethod(VentaProductGroupController::class, 'pushFailureText');
+
+        $message = $method->invoke(
+            app(VentaProductGroupController::class),
+            ['body' => ['error' => 'Connection refused']],
+            'some-sku'
+        );
+
+        $this->assertStringContainsString('Connection refused', $message);
+        $this->assertStringNotContainsString('Match Venta ID', $message,
+            'An unrelated failure is being given advice that does not apply to it.');
+    }
+
+    /**
      * The ratchet. A push that stored the product and none of its pictures is
      * not a clean success, whatever the product count says.
      */

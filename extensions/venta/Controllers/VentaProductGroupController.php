@@ -28,6 +28,40 @@ class VentaProductGroupController extends Controller
     }
 
     /**
+     * Turn Venta's refusal into something the operator can act on.
+     *
+     * One refusal in particular was a dead end. When the ERP holds no link it
+     * takes the CREATE branch, and if Venta already has that SKU it answers
+     * 422 "The sku has already been taken." The operator then had no move
+     * left on that row:
+     *
+     *   Push            creates, and 422s again, forever
+     *   Update          never offered, because the page sees no link
+     *   Delete from Venta   refuses: "not linked, nothing to delete"
+     *   Match Venta ID  the actual exit, and nothing said so
+     *
+     * All three visible actions failed and the one that worked was
+     * unmentioned. The raw response was dumped in as JSON, so the operator was
+     * reading Laravel's validation envelope rather than a sentence about their
+     * product.
+     *
+     * The underlying mistake is the mirror of the stale-link one: absence of a
+     * local link row was read as absence from the marketplace. A link row is
+     * not evidence about Venta in either direction.
+     */
+    private function pushFailureText(array $result, string $sku): string
+    {
+        $raw = json_encode($result['body'] ?? []);
+
+        if (stripos($raw, 'sku has already been taken') === false) {
+            return $raw;
+        }
+
+        return "Venta already has a product with SKU {$sku}, but this catalogue product is not "
+            ."linked to it. Use Match Venta ID on this row to link them, then push again.";
+    }
+
+    /**
      * Read the per-image verdict Venta returns with every push.
      *
      * Its response carries `images` (the ones it downloaded and kept) and
@@ -1045,11 +1079,11 @@ class VentaProductGroupController extends Controller
                         ]);
                 } else {
                     $failed++;
-                    $errMsg = json_encode($result['body']);
+                    $errMsg = $this->pushFailureText($result, $sku);
                     $errors[] = "Product #{$pid}: {$errMsg}";
                     VentaProductGroupProduct::where('venta_product_group_id', $g->id)
                         ->where('product_id', $pid)
-                        ->update(['sync_status' => 'failed', 'push_error' => $errMsg]);
+                        ->update(['sync_status' => 'failed', 'push_error' => Str::limit($errMsg, 480)]);
                 }
             }
         }
