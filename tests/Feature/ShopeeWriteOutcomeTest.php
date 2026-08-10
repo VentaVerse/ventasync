@@ -138,17 +138,65 @@ class ShopeeWriteOutcomeTest extends TestCase
         $this->assertNull($row->push_error, 'A fixed product keeps displaying its old failure.');
     }
 
-    public function test_outcomes_do_not_touch_other_groups(): void
+    /**
+     * A product's status reaches EVERY group that holds it.
+     *
+     * This test used to assert the opposite - that a result in one group left
+     * the others alone - and that assertion was the defect written down.
+     * Whether a product is on Shopee is one fact; storing it once per group
+     * meant the same product read differently on different pages. 42 products
+     * on this installation sit in more than one group.
+     *
+     * Both directions are wrong and the quiet one is worse: a stale error
+     * sends the operator chasing a problem that is already fixed, and a stale
+     * SUCCESS leaves a green badge on another page hiding a real failure,
+     * which is the one that gets ignored.
+     *
+     * Shopee is single-store, so every group refers to the same shop and the
+     * same remote product. A multi-store channel scopes the fan-out to its own
+     * store's groups instead.
+     */
+    public function test_a_result_reaches_every_group_holding_that_product(): void
     {
-        $mine = $this->group();
-        $theirs = $this->group();
-        $this->pivotFor($mine, 2708, ['sync_status' => 'pushed']);
-        $this->pivotFor($theirs, 2708, ['sync_status' => 'pushed']);
+        $one = $this->group();
+        $two = $this->group();
+        $this->pivotFor($one, 2708, ['sync_status' => 'pushed']);
+        $this->pivotFor($two, 2708, ['sync_status' => 'pushed']);
 
-        $this->invokePrivate('recordSyncOutcomes', [$mine, [2708 => ['ok' => false, 'error' => 'nope']]]);
+        $this->invokePrivate('recordSyncOutcomes', [$one, [
+            2708 => ['ok' => false, 'error' => 'Item_id is not found.'],
+        ]]);
 
-        $this->assertSame('pushed', DB::table('shopee_product_group_products')
-            ->where('shopee_product_group_id', $theirs)->value('sync_status'));
+        foreach ([$one, $two] as $group) {
+            $row = DB::table('shopee_product_group_products')
+                ->where('shopee_product_group_id', $group)
+                ->where('product_id', 2708)
+                ->first();
+
+            $this->assertSame('error', $row->sync_status,
+                'A group holding this product was left claiming success after a failure elsewhere.');
+            $this->assertSame('Item_id is not found.', $row->push_error);
+        }
+    }
+
+    /** And the healing direction: a later success clears the earlier error everywhere. */
+    public function test_a_later_success_clears_the_error_in_every_group(): void
+    {
+        $one = $this->group();
+        $two = $this->group();
+        $this->pivotFor($one, 2708, ['sync_status' => 'error', 'push_error' => 'Category not found']);
+        $this->pivotFor($two, 2708, ['sync_status' => 'pushed']);
+
+        $this->invokePrivate('recordSyncOutcomes', [$two, [2708 => ['ok' => true, 'error' => null]]]);
+
+        $stale = DB::table('shopee_product_group_products')
+            ->where('shopee_product_group_id', $one)
+            ->where('product_id', 2708)
+            ->first();
+
+        $this->assertSame('pushed', $stale->sync_status,
+            'A group kept a red badge after the product pushed successfully from another group.');
+        $this->assertNull($stale->push_error);
     }
 
     // ── Ratchets: the wiring cannot come undone ──────────────────────

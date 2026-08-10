@@ -17,6 +17,26 @@ class TikTokProductGroupController extends Controller
 {
     // ── Helpers ──────────────────────────────────────────────────
 
+    /**
+     * Write a product's status to EVERY group that holds it.
+     *
+     * The status was stored once per group, so one product could read
+     * differently on two pages: a stale error sends the operator chasing a
+     * problem that is fixed, and a stale success hides a real failure behind a
+     * green badge somewhere else. TikTok is single-store, so every group
+     * refers to the same shop and the same remote product.
+     */
+    private function writeProductStatus(int $productId, array $attributes): void
+    {
+        \App\Support\ChannelProductStatus::write(
+            'tiktok_product_group_products',
+            'tiktok_product_group_id',
+            null,
+            $productId,
+            $attributes
+        );
+    }
+
     private function productsRedirect(int $id)
     {
         $return = request()->input('_return');
@@ -590,9 +610,7 @@ class TikTokProductGroupController extends Controller
     {
         $group = TikTokProductGroup::findOrFail($id);
 
-        TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
-            ->where('product_id', $product)
-            ->update(['sync_status' => 'unlinked']);
+        $this->writeProductStatus($product, ['sync_status' => 'unlinked']);
 
         return $this->productsRedirect($id)
             ->with('status', 'Product unlinked from TikTok.');
@@ -794,9 +812,13 @@ class TikTokProductGroupController extends Controller
 
         if ($deleted > 0) {
             // Clear tiktok_product_id and reset sync status for successfully deleted
-            TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
-                ->whereIn('product_id', $ids)
-                ->update(['tiktok_product_id' => null, 'sync_status' => 'pending', 'push_error' => null]);
+            foreach ($ids as $unlinkedId) {
+                $this->writeProductStatus((int) $unlinkedId, [
+                    'tiktok_product_id' => null,
+                    'sync_status' => 'pending',
+                    'push_error' => null,
+                ]);
+            }
         }
 
         if (!empty($errors)) {

@@ -1561,9 +1561,7 @@ class ShopeeProductGroupController extends Controller
                 ]);
 
                 // Update pivot sync_status
-                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
-                    ->where('product_id', $productId)
-                    ->update([
+                $this->writeProductStatus($productId, [
                         'shopee_item_id' => (int) $itemId,
                         'sync_status' => 'pushed',
                         // Clears the previous failure. Without this a product
@@ -1631,9 +1629,7 @@ class ShopeeProductGroupController extends Controller
                 // error with an empty reason column, which read as though
                 // nothing had gone wrong. push_error is what that column is
                 // for; the rest of this file already fills it.
-                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
-                    ->where('product_id', $productId)
-                    ->update([
+                $this->writeProductStatus($productId, [
                         'sync_status' => 'error',
                         'push_error' => Str::limit($msg, 480),
                         'last_pushed_at' => now(),
@@ -1783,9 +1779,7 @@ class ShopeeProductGroupController extends Controller
                 $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
                 $this->pushStockForLinks($client, $auth, $pfx, $links);
 
-                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
-                    ->where('product_id', $productId)
-                    ->update([
+                $this->writeProductStatus($productId, [
                         'sync_status' => 'pushed',
                         // Both were missing. The row kept yesterday's failure
                         // reason next to today's success, and "Last push"
@@ -1801,9 +1795,7 @@ class ShopeeProductGroupController extends Controller
                 $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
                 $errors[] = "#{$productId}: {$msg}";
 
-                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
-                    ->where('product_id', $productId)
-                    ->update([
+                $this->writeProductStatus($productId, [
                         'sync_status' => 'error',
                         'push_error' => Str::limit($msg, 480),
                         'last_pushed_at' => now(),
@@ -1953,9 +1945,7 @@ class ShopeeProductGroupController extends Controller
                 ShopeeProductLink::query()->where('product_id', $productId)->delete();
 
                 // Clear pivot sync data
-                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
-                    ->where('product_id', $productId)
-                    ->update(['shopee_item_id' => null, 'sync_status' => 'pending']);
+                $this->writeProductStatus($productId, ['shopee_item_id' => null, 'sync_status' => 'pending']);
 
                 ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee via product group');
                 $okCount++;
@@ -1967,9 +1957,7 @@ class ShopeeProductGroupController extends Controller
                 $msg = $this->apiFailureMessage($result);
                 $errors[] = "#{$productId}: {$msg}";
 
-                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
-                    ->where('product_id', $productId)
-                    ->update([
+                $this->writeProductStatus($productId, [
                         'sync_status' => 'error',
                         'push_error' => Str::limit('Delete from Shopee failed. ' . $msg, 480),
                         'last_pushed_at' => now(),
@@ -1993,6 +1981,32 @@ class ShopeeProductGroupController extends Controller
     }
 
     // ── Sync Helpers ─────────────────────────────────────────────────
+
+    /**
+     * Write a product's status to EVERY group that holds it, not just the one
+     * the operator is standing in.
+     *
+     * Whether a product is on Shopee is one fact and it was stored once per
+     * group, so the same product read differently on different pages. 42
+     * products on this installation sit in more than one group. A push that
+     * failed in one left that page red forever after a later success
+     * elsewhere, and a success left a green badge on the other page hiding a
+     * real failure - the quiet direction, and the dangerous one.
+     *
+     * No group scope is passed because Shopee is single-store: every group
+     * belongs to the same shop, so every group is talking about the same
+     * remote product.
+     */
+    private function writeProductStatus(int $productId, array $attributes): void
+    {
+        \App\Support\ChannelProductStatus::write(
+            'shopee_product_group_products',
+            'shopee_product_group_id',
+            null,
+            $productId,
+            $attributes
+        );
+    }
 
     /**
      * The words Shopee refused with, or a stand-in that admits we have none.
@@ -2052,9 +2066,7 @@ class ShopeeProductGroupController extends Controller
     private function recordSyncOutcomes(int $groupId, array $outcomes): void
     {
         foreach ($outcomes as $productId => $outcome) {
-            ShopeeProductGroupProduct::where('shopee_product_group_id', $groupId)
-                ->where('product_id', (int) $productId)
-                ->update([
+            $this->writeProductStatus((int) $productId, [
                     'sync_status' => $outcome['ok'] ? 'pushed' : 'error',
                     'push_error' => $outcome['ok'] ? null : Str::limit($outcome['error'], 480),
                     'last_pushed_at' => now(),

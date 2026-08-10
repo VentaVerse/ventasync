@@ -121,6 +121,34 @@ class VentaProductGroupController extends Controller
     }
 
     /**
+     * Write a product's status to EVERY group of this store that holds it.
+     *
+     * Not just the group the operator happens to be standing in. Whether a
+     * product is on Venta is one fact, and it was stored once per group, so
+     * the same product read differently on different pages: a push that failed
+     * in group X stayed red there forever after a successful push from group
+     * Y, and - worse - a success recorded in Y left a green badge on X hiding
+     * a real failure.
+     *
+     * Scoped to this STORE's groups. Venta is multi-store and every store is a
+     * separate live shop; a result against one says nothing about another.
+     *
+     * Every status write goes through here. Fanning out is not a rule for the
+     * next author to remember, because that rule is what was already being
+     * forgotten.
+     */
+    private function writeProductStatus(VentaProductGroup $g, int $productId, array $attributes): void
+    {
+        \App\Support\ChannelProductStatus::write(
+            'venta_product_group_products',
+            'venta_product_group_id',
+            VentaProductGroup::where('venta_setting_id', $g->venta_setting_id)->pluck('id')->all(),
+            $productId,
+            $attributes
+        );
+    }
+
+    /**
      * Point an ERP product at a Venta product, or say who is in the way.
      *
      * A unique key on (venta_setting_id, venta_product_id) enforces one Venta
@@ -655,9 +683,7 @@ class VentaProductGroupController extends Controller
         }
 
         // Update sync status on group product pivot
-        VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-            ->where('product_id', $product)
-            ->update([
+        $this->writeProductStatus($g, $product, [
                 'sync_status' => 'synced',
                 'venta_sku'   => $matchedSku,
                 'push_error'  => null,
@@ -753,9 +779,7 @@ class VentaProductGroupController extends Controller
                 continue;
             }
 
-            VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                ->where('product_id', $pid)
-                ->update(['sync_status' => 'synced', 'venta_sku' => $matchedSku, 'push_error' => null]);
+            $this->writeProductStatus($g, $pid, ['sync_status' => 'synced', 'venta_sku' => $matchedSku, 'push_error' => null]);
 
             $synced++;
             usleep(200000); // rate limit
@@ -1021,9 +1045,7 @@ class VentaProductGroupController extends Controller
                 if ($result['ok']) {
                     $updated++;
                     $this->collectImageVerdict($result, $pid, $imagesSent, $imagesStored, $imageRejections);
-                    VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                        ->where('product_id', $pid)
-                        ->update([
+                    $this->writeProductStatus($g, $pid, [
                             'sync_status'  => 'synced',
                             'last_pushed_at' => now(),
                             'push_error'   => null,
@@ -1033,9 +1055,7 @@ class VentaProductGroupController extends Controller
                     $failed++;
                     $errMsg = json_encode($result['body']);
                     $errors[] = "Product #{$pid}: {$errMsg}";
-                    VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                        ->where('product_id', $pid)
-                        ->update(['sync_status' => 'failed', 'push_error' => $errMsg]);
+                    $this->writeProductStatus($g, $pid, ['sync_status' => 'failed', 'push_error' => $errMsg]);
                 }
             } else {
                 // Create new product on Venta
@@ -1069,9 +1089,7 @@ class VentaProductGroupController extends Controller
                         continue;
                     }
 
-                    VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                        ->where('product_id', $pid)
-                        ->update([
+                    $this->writeProductStatus($g, $pid, [
                             'sync_status'  => 'synced',
                             'last_pushed_at' => now(),
                             'push_error'   => null,
@@ -1081,9 +1099,7 @@ class VentaProductGroupController extends Controller
                     $failed++;
                     $errMsg = $this->pushFailureText($result, $sku);
                     $errors[] = "Product #{$pid}: {$errMsg}";
-                    VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                        ->where('product_id', $pid)
-                        ->update(['sync_status' => 'failed', 'push_error' => Str::limit($errMsg, 480)]);
+                    $this->writeProductStatus($g, $pid, ['sync_status' => 'failed', 'push_error' => Str::limit($errMsg, 480)]);
                 }
             }
         }
@@ -1380,9 +1396,7 @@ class VentaProductGroupController extends Controller
         $this->store_($store);
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
-        VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-            ->where('product_id', $product)
-            ->update(['sync_status' => 'unlinked']);
+        $this->writeProductStatus($g, $product, ['sync_status' => 'unlinked']);
 
         return $this->productsRedirect($store, $group)
             ->with('status', 'Product unlinked from Venta.');
@@ -1418,9 +1432,7 @@ class VentaProductGroupController extends Controller
             if ($result['ok']) {
                 $link->delete();
 
-                VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                    ->where('product_id', $pid)
-                    ->update(['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
+                $this->writeProductStatus($g, $pid, ['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
 
                 $deleted++;
                 continue;
@@ -1429,9 +1441,7 @@ class VentaProductGroupController extends Controller
             $message = $result['body']['error'] ?? 'Unknown error';
             $errors[] = "#{$pid}: {$message}";
 
-            VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                ->where('product_id', $pid)
-                ->update([
+            $this->writeProductStatus($g, $pid, [
                     'sync_status' => 'error',
                     'push_error'  => Str::limit('Delete from Venta failed. ' . $message, 480),
                 ]);
@@ -1508,9 +1518,7 @@ class VentaProductGroupController extends Controller
         if ($result['ok']) {
             $link->delete();
 
-            VentaProductGroupProduct::where('venta_product_group_id', $g->id)
-                ->where('product_id', $product)
-                ->update(['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
+            $this->writeProductStatus($g, $product, ['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
 
             return $this->productsRedirect($store, $group)
                 ->with('status', 'Product deleted from Venta store.');

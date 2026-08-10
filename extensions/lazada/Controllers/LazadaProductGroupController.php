@@ -23,6 +23,26 @@ use Illuminate\Support\Facades\Log;
 
 class LazadaProductGroupController extends Controller
 {
+    /**
+     * Write a product's status to EVERY group that holds it.
+     *
+     * The status was stored once per group, so one product could read
+     * differently on two pages: a stale error sends the operator chasing a
+     * problem that is fixed, and a stale success hides a real failure behind a
+     * green badge somewhere else. Lazada is single-store, so every group
+     * refers to the same shop and the same remote product.
+     */
+    private function writeProductStatus(int $productId, array $attributes): void
+    {
+        \App\Support\ChannelProductStatus::write(
+            'lazada_product_group_products',
+            'lazada_product_group_id',
+            null,
+            $productId,
+            $attributes
+        );
+    }
+
     private function productsRedirect(int $id)
     {
         $return = request()->input('_return');
@@ -1473,9 +1493,7 @@ class LazadaProductGroupController extends Controller
                 } catch (\Throwable $ex) {}
 
                 // Update pivot
-                LazadaProductGroupProduct::where('lazada_product_group_id', $group->id)
-                    ->where('product_id', $pivotRow->product_id)
-                    ->update(['sync_status' => 'pending']);
+                $this->writeProductStatus($pivotRow->product_id, ['sync_status' => 'pending']);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
                     'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);
