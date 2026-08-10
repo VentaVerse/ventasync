@@ -255,25 +255,8 @@
                 </table>
             </div>
 
-            <div class="flex flex-wrap items-center gap-3 border-t border-rule-2 px-gutter py-3">
-                <span class="text-[12.5px] text-ink-3">
-                    {{ number_format($products->firstItem() ?? 0) }} to
-                    {{ number_format($products->lastItem() ?? 0) }} of
-                    {{ number_format($products->total()) }}
-                </span>
-                <div class="ml-auto flex gap-1.5">
-                    @if($products->previousPageUrl())
-                        <a href="{{ $products->previousPageUrl() }}" class="bl-btn bl-btn-sm">
-                            <x-ui.icon name="chevron-left" size="13" /> Previous
-                        </a>
-                    @endif
-                    @if($products->nextPageUrl())
-                        <a href="{{ $products->nextPageUrl() }}" class="bl-btn bl-btn-sm">
-                            Next <x-ui.icon name="chevron-right" size="13" />
-                        </a>
-                    @endif
-                </div>
-            </div>
+            <x-ui.pager :paginator="$products" />
+
         @endif
     </div>
 @endsection

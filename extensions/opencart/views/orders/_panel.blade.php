@@ -300,19 +300,5 @@
     @endforeach
 </x-ui.table>
 
-<div class="x-pager">
-    <span class="x-pager__count x-num">{{ number_format($orders->firstItem() ?? 0) }} to {{ number_format($orders->lastItem() ?? 0) }} of {{ number_format($orders->total()) }}</span>
-    <div class="x-pager__nav">
-        @if($orders->previousPageUrl())
-            <x-ui.button size="sm" :href="$orders->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-        @else
-            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true"><x-ui.icon name="chevron-left" size="14" /> Previous</span>
-        @endif
-        @if($orders->nextPageUrl())
-            <x-ui.button size="sm" :href="$orders->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
-        @else
-            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true">Next <x-ui.icon name="chevron-right" size="14" /></span>
-        @endif
-    </div>
-</div>
+<x-ui.pager :paginator="$orders" />
 @endif

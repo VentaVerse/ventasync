@@ -75,7 +75,13 @@
                 <kbd class="x-search-trigger__hint" x-text="mac ? '&#8984;K' : 'Ctrl K'"></kbd>
             </button>
 
-            <div class="ml-auto flex items-center gap-4">
+            {{-- shrink-0 on the cluster and min-w-0 on the search beside it.
+                 Without them the search field refused to give up width at
+                 390px and pushed the theme switch and the account menu 67px
+                 past the right edge of the window - the same overflow the
+                 channel topbar had, in the layout that was not touched when
+                 that one was fixed. --}}
+            <div class="ml-auto flex shrink-0 items-center gap-4">
                 @isset($headerStatus)
                     <div class="hidden sm:block">{{ $headerStatus }}</div>
                 @endisset

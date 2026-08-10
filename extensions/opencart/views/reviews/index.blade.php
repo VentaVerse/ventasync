@@ -272,13 +272,7 @@
             @endforeach
         </x-ui.table>
 
-        <div class="x-pager">
-            <span class="x-pager__count x-num">{{ number_format($reviews->firstItem() ?? 0) }} to {{ number_format($reviews->lastItem() ?? 0) }} of {{ number_format($reviews->total()) }}</span>
-            <div class="x-pager__nav">
-                <x-ui.button size="sm" :href="$reviews->previousPageUrl()" :disabled="!$reviews->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-                <x-ui.button size="sm" :href="$reviews->nextPageUrl()" :disabled="!$reviews->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
-            </div>
-        </div>
+        <x-ui.pager :paginator="$reviews" />
 
         {{-- ===== OUT OF BAND FORMS =====
              A <form> cannot be nested inside the menu panel it is driven

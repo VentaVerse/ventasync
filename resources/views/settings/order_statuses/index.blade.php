@@ -134,13 +134,7 @@
     @endforeach
 @endif
 
-<div class="x-pager">
-    <span class="x-pager__count x-num">{{ number_format($statuses->firstItem() ?? 0) }} to {{ number_format($statuses->lastItem() ?? 0) }} of {{ number_format($statuses->total()) }}</span>
-    <div class="x-pager__nav">
-        <x-ui.button size="sm" :href="$statuses->previousPageUrl()" :disabled="!$statuses->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-        <x-ui.button size="sm" :href="$statuses->nextPageUrl()" :disabled="!$statuses->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
-    </div>
-</div>
+<x-ui.pager :paginator="$statuses" />
 </div>
 @endif
 @endsection

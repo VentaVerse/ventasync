@@ -278,21 +278,7 @@
     @endforeach
 </x-ui.table>
 
-<div class="x-pager">
-    <span class="x-pager__count x-num">{{ number_format($returns->firstItem() ?? 0) }} to {{ number_format($returns->lastItem() ?? 0) }} of {{ number_format($returns->total()) }}</span>
-    <div class="x-pager__nav">
-        @if($returns->previousPageUrl())
-            <x-ui.button size="sm" :href="$returns->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-        @else
-            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true"><x-ui.icon name="chevron-left" size="14" /> Previous</span>
-        @endif
-        @if($returns->nextPageUrl())
-            <x-ui.button size="sm" :href="$returns->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
-        @else
-            <span class="x-btn x-btn--secondary x-btn--sm" aria-disabled="true">Next <x-ui.icon name="chevron-right" size="14" /></span>
-        @endif
-    </div>
-</div>
+<x-ui.pager :paginator="$returns" />
 @endif
 
 {{-- Loading overlay. Identical markup and ids to the Orders page's own

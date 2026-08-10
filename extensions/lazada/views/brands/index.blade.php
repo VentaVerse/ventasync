@@ -96,13 +96,7 @@
 {{-- Previous and Next, not a numbered strip. Lazada's brand list runs to tens
      of thousands of rows for some regions and page 884 is not a destination
      anyone navigates to; the search box above is how you find a brand. --}}
-<div class="x-pager">
-    <span class="x-pager__count x-num">{{ number_format($brands->firstItem() ?? 0) }} to {{ number_format($brands->lastItem() ?? 0) }} of {{ number_format($brands->total()) }}</span>
-    <div class="x-pager__nav">
-        <x-ui.button size="sm" :href="$brands->previousPageUrl()" :disabled="!$brands->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-        <x-ui.button size="sm" :href="$brands->nextPageUrl()" :disabled="!$brands->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
-    </div>
-</div>
+<x-ui.pager :paginator="$brands" />
 @endif
 
 </div>{{-- /.cc-page --}}

@@ -2235,8 +2235,103 @@
 
     .x-pager__nav {
         display: flex;
+        align-items: center;
         gap: 6px;
         margin-left: auto;
+    }
+
+    /* The numbered pages.
+
+       Previously this row was Previous and Next alone, which made page 40 of
+       84 reachable only by clicking Next thirty-nine times. The numbers sit
+       between the two arrows, which is where the convention puts them and
+       where the owner asked for them.
+
+       They take the segmented control's language rather than a third one:
+       joined, hairline-separated, the current position filled with ink. A
+       pager IS a segmented control - one choice, many positions - so the
+       dashboard's range switch and this read as the same family. */
+    .x-pager__pages {
+        display: flex;
+        align-items: center;
+        margin: 0 2px;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        overflow: hidden;
+        background: var(--bl-sheet);
+    }
+
+    .x-pager__page {
+        display: block;
+        min-width: 30px;
+        padding: 4px 8px;
+        font-size: 12px;
+        line-height: 1.5;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+    }
+
+    .x-pager__pages li + li .x-pager__page,
+    .x-pager__pages li + li .x-pager__gap {
+        box-shadow: inset 1px 0 0 var(--bl-rule-2);
+    }
+
+    a.x-pager__page:hover { background: var(--bl-chrome); color: var(--bl-ink); }
+
+    .x-pager__page.is-on {
+        background: var(--bl-ink);
+        color: var(--bl-paper);
+        font-weight: 600;
+        box-shadow: none;
+    }
+
+    .x-pager__pages li + li .x-pager__page.is-on { box-shadow: none; }
+
+    .x-pager__gap {
+        display: block;
+        padding: 4px 6px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--bl-ink-3);
+    }
+
+    /* A page number is a one-handed tap on a warehouse floor as often as a
+       click at a desk, and 30px is too small a target for a thumb. Gated on
+       the input device, matching how the rest of the suite raises its
+       targets. */
+    @media (pointer: coarse) {
+        .x-pager__page {
+            min-width: 44px;
+            padding-block: 11px;
+        }
+    }
+
+    /* Below the phone breakpoint the window narrows to the current page and
+       one neighbour either side: five numbers plus two arrows do not fit in
+       390px, and a pager that overflows its row is worse than a shorter one.
+       Done in CSS rather than by a second server-side window so there is one
+       source of truth for which pages exist. */
+    @media (max-width: 560px) {
+        .x-pager__count { width: 100%; }
+
+        /* The nav takes the whole row so Previous and Next keep their labels,
+           and the numbers between them scroll rather than pushing the row off
+           the window. Eight numbers plus two buttons need about 490px; a
+           phone has 330. */
+        .x-pager__nav { margin-left: 0; width: 100%; }
+
+        .x-pager__pages {
+            flex: 1;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .x-pager__pages::-webkit-scrollbar { display: none; }
     }
 }
 
@@ -2627,6 +2722,12 @@
         align-items: center;
         gap: 8px;
         flex: 1;
+        /* A flex item's default min-width is auto, which is its content's
+           min-content width - so flex: 1 could not actually shrink this below
+           the width of its own label, and at 390px it pushed the theme switch
+           and the account menu off the right edge of the window. The
+           truncation on the label needed this to have any effect. */
+        min-width: 0;
         max-width: 420px;
         padding: 6px 10px;
         border: 1px solid var(--bl-rule-2);

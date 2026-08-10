@@ -123,13 +123,7 @@
         @endforeach
     </x-ui.table>
 
-    <div class="x-pager">
-        <span class="x-pager__count x-num">{{ number_format($sales->firstItem() ?? 0) }} to {{ number_format($sales->lastItem() ?? 0) }} of {{ number_format($sales->total()) }}</span>
-        <div class="x-pager__nav">
-            <x-ui.button size="sm" :href="$sales->previousPageUrl()" :disabled="!$sales->previousPageUrl()"><x-ui.icon name="chevron-left" size="14" /> Previous</x-ui.button>
-            <x-ui.button size="sm" :href="$sales->nextPageUrl()" :disabled="!$sales->nextPageUrl()">Next <x-ui.icon name="chevron-right" size="14" /></x-ui.button>
-        </div>
-    </div>
+    <x-ui.pager :paginator="$sales" />
 @endif
 </div>
 @endsection
