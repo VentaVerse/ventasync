@@ -14,6 +14,7 @@ use Extensions\shopee\Models\ShopeeProductGroup;
 use Extensions\shopee\Models\ShopeeProductGroupAttribute;
 use Extensions\shopee\Models\ShopeeProductGroupProduct;
 use Extensions\shopee\Models\ShopeeProductLink;
+use Illuminate\Support\Str;
 use Extensions\shopee\Models\ShopeeSetting;
 use App\Services\ActivityLogger;
 use Extensions\shopee\Services\Shopee\ShopeeClient;
@@ -963,12 +964,23 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
 
-        $group->groupProducts()
-            ->where('product_id', $productId)
-            ->update(['sync_status' => 'unlinked']);
+        // Delete the LINK, not just the pivot's label. This used to set
+        // sync_status to 'unlinked' and stop, so it reported success over a
+        // shopee_product_links row that was still there - and the push loop
+        // tests that table, so the product stayed skipped as "already linked"
+        // however many times it was unlinked.
+        $removed = ShopeeProductLink::unlinkProduct($productId);
 
-        return $this->productsRedirect($group->id)
-            ->with('status', 'Product unlinked from Shopee.');
+        // Says what happened rather than announcing success either way. A
+        // product that was never linked is not an error worth stopping for,
+        // but the operator should not be told links were removed when none
+        // were.
+        return $this->productsRedirect($group->id)->with(
+            'status',
+            $removed > 0
+                ? "Product unlinked from Shopee ({$removed} link(s) removed, cache cleared). You can push it again."
+                : 'Product was not linked to Shopee. Nothing to remove.'
+        );
     }
 
     /**
@@ -1447,6 +1459,11 @@ class ShopeeProductGroupController extends Controller
                     ->update([
                         'shopee_item_id' => (int) $itemId,
                         'sync_status' => 'pushed',
+                        // Clears the previous failure. Without this a product
+                        // that failed once and then pushed cleanly kept
+                        // displaying the old reason next to its success.
+                        'push_error' => null,
+                        'last_pushed_at' => now(),
                     ]);
 
                 // For multi-variant products, the parent link alone isn't
@@ -1501,9 +1518,19 @@ class ShopeeProductGroupController extends Controller
                 $msg = is_array($body) ? ($body['message'] ?? ($body['error'] ?? 'API error')) : 'API error';
                 $errors[] = "#{$productId}: {$msg}";
 
+                // The reason is SAVED, not just flashed. This used to write the
+                // status alone, so "invalid category" appeared once in a banner
+                // and was gone on the next page load - leaving a row marked
+                // error with an empty reason column, which read as though
+                // nothing had gone wrong. push_error is what that column is
+                // for; the rest of this file already fills it.
                 ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                     ->where('product_id', $productId)
-                    ->update(['sync_status' => 'error']);
+                    ->update([
+                        'sync_status' => 'error',
+                        'push_error' => Str::limit($msg, 480),
+                        'last_pushed_at' => now(),
+                    ]);
 
                 $errCount++;
             }

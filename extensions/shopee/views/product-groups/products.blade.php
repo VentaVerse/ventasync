@@ -280,19 +280,33 @@
             </td>
 
             <td class="cc-col-sync" data-label="Push">
+                {{-- FAILED IS TESTED BEFORE PUSHED, and the order is the whole
+                     point. This used to ask "does it have a Shopee ID?" first,
+                     so a row carrying an ID read "Pushed" no matter what the
+                     status said - a product whose push had just been refused
+                     for an invalid category still showed a green Pushed badge,
+                     because it happened to be holding an ID from an older
+                     attempt. The Failed badge could never render for any
+                     product that had an ID, which is nearly every product that
+                     can fail. A row states its most recent outcome, not the
+                     best outcome it has ever had. --}}
                 @if($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
-                @elseif($hasShopeeId)
-                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @elseif($failed)
                     <x-ui.badge tone="danger">Failed</x-ui.badge>
+                @elseif($hasShopeeId)
+                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @else
                     <span class="x-cell-muted">Not yet</span>
                 @endif
             </td>
 
             <td class="cc-col-err" data-label="Last push">
-                @if($hasError)
+                {{-- A failure with no saved message still says so. Silence in
+                     this column used to be indistinguishable from success. --}}
+                @if($failed && ! $hasError)
+                    <span class="cc-err">Push failed. No reason was recorded.</span>
+                @elseif($hasError)
                     <span class="cc-err">{{ \Illuminate\Support\Str::limit($pivot->push_error, 120) }}</span>
                     @if($pivot->last_pushed_at)
                         <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>

@@ -1141,22 +1141,14 @@ class ShopeeProductController extends Controller
 
     public function unlink(int $productId)
     {
-        // Get linked item IDs before deleting, so we can clear stale cache entries
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        // Deleting the links and clearing their cache entries is one operation
+        // and lives in one place, so this page and the product-group page
+        // cannot drift apart again.
+        $deleted = ShopeeProductLink::unlinkProduct($productId);
 
-        if ($links->isEmpty()) {
+        if ($deleted === 0) {
             return redirect()->back()->with('error', 'Product was not linked to Shopee.');
         }
-
-        // Clear cache entries for the linked SKUs to prevent stale re-matching
-        foreach ($links as $link) {
-            ShopeeItemCache::query()
-                ->where('shopee_item_id', $link->shopee_item_id)
-                ->where('sku', $link->sku)
-                ->delete();
-        }
-
-        $deleted = ShopeeProductLink::query()->where('product_id', $productId)->delete();
 
         return redirect()->back()->with('status', "Unlinked product from Shopee ($deleted link(s) removed, cache cleared). You can now re-sync.");
     }
