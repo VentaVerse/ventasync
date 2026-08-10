@@ -22,8 +22,26 @@
     /* ------------------------------------------------------------
        Shared utilities
        ------------------------------------------------------------ */
+    /* Visually hidden, and hidden from LAYOUT too.
+       
+       top/left pin it to its containing block's origin. Without them it sits
+       at its static position, and with no positioned ancestor that resolves
+       against the PAGE - so the "Actions" label on a wide table's last column
+       landed at x=851 on a 390px screen and dragged the document's
+       scrollWidth out with it. The table scrolled inside its own container as
+       designed AND the whole page slid sideways, on every table in the
+       application that labels a column this way. One 1px box, measured by
+       bisection: hiding it alone returned the page to 390.
+       
+       Pinning is the fix rather than making the wrapper a containing block,
+       which would have worked equally well for this and started clipping every
+       row action menu inside the table's overflow. Position is irrelevant to
+       what this element is for: it is clipped to nothing, and assistive
+       technology reads it in DOM order, not in page order. */
     .x-sr {
         position: absolute;
+        top: 0;
+        left: 0;
         width: 1px;
         height: 1px;
         padding: 0;

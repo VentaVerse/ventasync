@@ -362,9 +362,22 @@ class ShopeeProductGroupController extends Controller
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
 
-        // Auto-fill pivot shopee_item_id from shopee_product_links
+        // Auto-fill pivot shopee_item_id from shopee_product_links.
+        //
+        // This is a WRITE, and it runs inside a GET whose route is gated
+        // 'view_shopee|manage_shopee'. routes/web.php states the contract it
+        // breaks in its own words: "Read routes (display-only, no DB write)".
+        // So it is gated on the manage tier here: an operator holding only
+        // view_shopee now reads the page without mutating a single row, which
+        // is what their permission says they do.
+        //
+        // It still runs for a manager, because adopting a link created on
+        // another page is genuinely useful, and it is recorded below rather
+        // than happening in silence.
+        $canWriteBackfill = auth()->user()?->hasPermission('manage_shopee') ?? false;
+
         $pivotProductIds = $products->pluck('product_id')->toArray();
-        if (!empty($pivotProductIds)) {
+        if ($canWriteBackfill && !empty($pivotProductIds)) {
             $existingLinks = DB::table('shopee_product_links')
                 ->whereIn('product_id', $pivotProductIds)
                 ->pluck('shopee_item_id', 'product_id');
@@ -393,9 +406,12 @@ class ShopeeProductGroupController extends Controller
                     ->whereNotIn('sync_status', ['unlinked', 'error'])
                     ->get();
 
+                $adopted = 0;
+
                 foreach ($missingPivots as $pivot) {
                     $linkId = $existingLinks->get($pivot->product_id);
                     if ($linkId) {
+                        $adopted++;
                         $pivot->update([
                             'shopee_item_id' => (string) $linkId,
                             // 'pushed', not 'synced'. Two words for one state
@@ -405,6 +421,18 @@ class ShopeeProductGroupController extends Controller
                             'sync_status' => 'pushed',
                         ]);
                     }
+                }
+
+                // Rows changed state without anyone asking, so it leaves a
+                // trace. Only fires when something was actually adopted, so a
+                // normal page load writes nothing here either.
+                if ($adopted > 0) {
+                    ActivityLogger::log(
+                        'updated',
+                        'Shopee Product Group',
+                        $group->id,
+                        "Matched {$adopted} product(s) to existing Shopee listings on page load",
+                    );
                 }
             }
         }

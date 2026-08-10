@@ -2274,6 +2274,42 @@
             min-width: 44px;
             min-height: 44px;
         }
+
+        /* The four controls this block was missing, and they are the ones a
+           listing page is actually operated with: the row overflow menu's
+           trigger and its items, the row checkbox, and the small button
+           variant. Measured on a phone at 390px, the kebab and the checkbox
+           were both 14x14 - under even WCAG 2.2 AA 2.5.8's 24px floor, on the
+           page fulfilment staff use one-handed in a warehouse.
+
+           The checkbox grows its HIT AREA rather than its face: a 44px tick
+           box would dominate the row it belongs to. Same technique as
+           .bl-hint__btn below. */
+        .x-menu__trigger,
+        .x-btn--sm {
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .x-menu__item {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .cc-check {
+            position: relative;
+        }
+
+        .cc-check::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 44px;
+            height: 44px;
+            transform: translate(-50%, -50%);
+        }
     }
 
     /* WCAG 2.2 AA 2.5.8 asks 24x24 of every control that is not an inline

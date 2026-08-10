@@ -392,8 +392,14 @@ class TikTokProductGroupController extends Controller
 
         $productIds = $this->getMatchingProductIds($group);
 
-        // Auto-fill: detect products already synced to TikTok via other groups
-        if (!empty($productIds)) {
+        // Auto-fill: detect products already synced to TikTok via other groups.
+        //
+        // A WRITE inside a GET. Gated on the manage tier, so an operator
+        // holding only view_tiktok reads the page without mutating rows. See
+        // the same guard in ShopeeProductGroupController::products().
+        $canWriteBackfill = auth()->user()?->hasPermission('manage_tiktok') ?? false;
+
+        if ($canWriteBackfill && !empty($productIds)) {
             $missingPivots = TikTokProductGroupProduct::query()
                 ->where('tiktok_product_group_id', $group->id)
                 ->whereIn('product_id', $productIds)
