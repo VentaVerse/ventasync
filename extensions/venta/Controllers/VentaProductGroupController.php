@@ -29,11 +29,33 @@ class VentaProductGroupController extends Controller
     private function store_(int $storeId): VentaSetting
     {
         // Allow navigation into disabled stores so operators can finish
-        // configuring them after Add Store. Sync/cron paths use their
-        // own enabled-filtered lookups so disabled stores never reach
-        // the marketplace API; UI-only flows (index, edit, products
-        // list) just need the row to exist.
+        // configuring them after Add Store. READING is all this grants;
+        // anything that talks to Venta must go through storeForWrite_().
         return VentaSetting::findOrFail($storeId);
+    }
+
+    /**
+     * The store for an action that TALKS TO VENTA.
+     *
+     * The comment above this method used to claim that "sync/cron paths use
+     * their own enabled-filtered lookups so disabled stores never reach the
+     * marketplace API". Half true, and the dangerous half was false: the three
+     * console commands do filter on enabled, but every push in this controller
+     * - products, stock, prices, delete, and both id matchers - resolved its
+     * store through store_(), which is findOrFail with no enabled test at all.
+     *
+     * Venta has no sandbox. base_url on these rows is the real storefront
+     * (https://shop-a.example, https://shop-b.example), so a disabled store
+     * was one button press away from a write to a live shop, by an operator
+     * who had switched it off precisely to stop that.
+     *
+     * Disabled means disabled. Returns null and the caller refuses.
+     */
+    private function storeForWrite_(int $storeId): ?VentaSetting
+    {
+        $setting = VentaSetting::findOrFail($storeId);
+
+        return $setting->enabled ? $setting : null;
     }
 
     private function productsRedirect(int $store, int $group)
@@ -405,7 +427,12 @@ class VentaProductGroupController extends Controller
 
     public function syncId(int $store, int $group, int $product)
     {
-        $setting = $this->store_($store);
+        $setting = $this->storeForWrite_($store);
+
+        if (! $setting) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
         // Verify the product is in this group
@@ -517,7 +544,12 @@ class VentaProductGroupController extends Controller
      */
     public function syncIds(Request $request, int $store, int $group)
     {
-        $setting = $this->store_($store);
+        $setting = $this->storeForWrite_($store);
+
+        if (! $setting) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
@@ -610,7 +642,12 @@ class VentaProductGroupController extends Controller
 
     public function pushProducts(Request $request, int $store, int $group)
     {
-        $setting = $this->store_($store);
+        $setting = $this->storeForWrite_($store);
+
+        if (! $setting) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
@@ -868,7 +905,12 @@ class VentaProductGroupController extends Controller
 
     public function pushStock(Request $request, int $store, int $group)
     {
-        $setting = $this->store_($store);
+        $setting = $this->storeForWrite_($store);
+
+        if (! $setting) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
@@ -961,7 +1003,12 @@ class VentaProductGroupController extends Controller
 
     public function pushPrices(Request $request, int $store, int $group)
     {
-        $setting = $this->store_($store);
+        $setting = $this->storeForWrite_($store);
+
+        if (! $setting) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
@@ -1085,7 +1132,12 @@ class VentaProductGroupController extends Controller
 
     public function deleteFromVenta(int $store, int $group, int $product)
     {
-        $setting = $this->store_($store);
+        $setting = $this->storeForWrite_($store);
+
+        if (! $setting) {
+            return redirect()->back()->with('error',
+                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+        }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
         $link = VentaProductLink::where('venta_setting_id', $store)

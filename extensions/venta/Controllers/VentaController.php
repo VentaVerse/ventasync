@@ -146,7 +146,17 @@ class VentaController extends Controller
             ActivityLogger::log('created', 'Venta Store', $setting->id, $setting->store_name ?? $setting->base_url);
         }
 
-        return redirect()->route('ext.venta.index')->with('status', 'Venta store saved.');
+        // Back to the store that was just saved, not to ext.venta.index.
+        //
+        // That route is a legacy fallback which redirects to the FIRST store
+        // by id, so saving Shop B landed the operator on Shop A's
+        // settings, looking at another shop's credentials and with no sign
+        // that anything had moved. On a multi-store channel where every store
+        // is a live storefront, a save that silently changes which shop you
+        // are editing is worse than an inconvenience.
+        return redirect()
+            ->route('ext.venta.settings.show', ['store' => $setting->id])
+            ->with('status', 'Venta store saved.');
     }
 
     public function destroy($id)

@@ -2576,7 +2576,7 @@ class WorkspaceInteriorsTest extends TestCase
             'sync_last_days' => 45,
             'sync_orders_from' => '2026-01-15',
             'enabled' => '1',
-        ])->assertRedirect(route('ext.venta.index'));
+        ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
 
         // Every column the controller writes, read back.
         $saved = VentaSetting::findOrFail($one);
@@ -2606,6 +2606,13 @@ class WorkspaceInteriorsTest extends TestCase
      * must not wipe it - that would make every unrelated field edit
      * (renaming the store, changing the sync window) destroy the connection.
      */
+    /*
+     * These asserted a redirect to ext.venta.index, which encoded the defect
+     * rather than the contract: that route is a legacy fallback that bounces
+     * to the FIRST store by id, so saving Shop B landed the operator on
+     * Shop A's settings - another live shop's credentials, with nothing
+     * on screen saying it had moved. A save returns to the store it saved.
+     */
     public function test_a_venta_save_with_a_blank_token_keeps_the_stored_one(): void
     {
         [$one] = $this->seedVentaStores();
@@ -2615,7 +2622,7 @@ class WorkspaceInteriorsTest extends TestCase
             'store_name' => 'Gear Depot Renamed',
             'base_url' => 'https://one.venta.test',
             'api_token' => '',
-        ])->assertRedirect(route('ext.venta.index'));
+        ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
 
         $saved = VentaSetting::findOrFail($one);
         $this->assertSame('Gear Depot Renamed', $saved->store_name, 'The rest of the form still saved.');
@@ -2630,7 +2637,7 @@ class WorkspaceInteriorsTest extends TestCase
             'store_id' => $one,
             'base_url' => 'https://one.venta.test',
             'api_token' => 'venta-token-one-replaced',
-        ])->assertRedirect(route('ext.venta.index'));
+        ])->assertRedirect(route('ext.venta.settings.show', ['store' => $one]));
 
         $this->assertSame('venta-token-one-replaced', VentaSetting::findOrFail($one)->api_token);
     }
