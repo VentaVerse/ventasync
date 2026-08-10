@@ -799,6 +799,15 @@
         padding: 14px 0 16px;
         font-size: 13.5px;
         color: var(--bl-ink-2);
+        /* The message is set as textContent, deliberately: it can carry a
+           product name and a name is not ours to trust as markup. pre-line
+           is what lets that plain text hold the count and the list of what
+           is about to be deleted on their own lines. */
+        white-space: pre-line;
+        /* A long list stays inside the dialog rather than growing it past
+           the viewport on a phone. */
+        max-height: 46vh;
+        overflow-y: auto;
     }
 
     .modal .d-flex {

@@ -60,7 +60,36 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target === backdrop) close(false);
     });
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && backdrop.classList.contains('active')) close(false);
+        if (! backdrop.classList.contains('active')) return;
+
+        if (e.key === 'Escape') {
+            close(false);
+            return;
+        }
+
+        // Focus stays inside the dialog while it is open. Without this, Tab
+        // walked straight out into the page behind a backdrop that still
+        // covered the screen, so a keyboard user could be operating controls
+        // they could not see, with an unanswered confirmation still up.
+        if (e.key !== 'Tab') return;
+
+        var focusable = Array.prototype.filter.call(
+            backdrop.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+            function (el) { return ! el.disabled && el.offsetParent !== null; }
+        );
+
+        if (! focusable.length) return;
+
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (! e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
     });
 
     // The dialog is shared, so the trigger says whether what it guards is
@@ -78,7 +107,15 @@ document.addEventListener('DOMContentLoaded', function () {
         applyTone(trigger);
         msgEl.textContent = message;
         backdrop.classList.add('active');
-        okBtn.focus();
+        // Focus lands on CANCEL, not Confirm.
+        //
+        // It used to open with the cursor already on the destructive button,
+        // so a reflexive Enter - the keystroke that submitted the form that
+        // opened this dialog - deleted listings from a public marketplace
+        // before the operator had read a word. The safe choice is the one a
+        // guard should default to; reaching Confirm is one Tab away, and that
+        // Tab is the pause this dialog exists to create.
+        cancelBtn.focus();
         // The trigger for a data-confirm item is frequently inside an
         // open <x-ui.menu> (e.g. the row overflow menu's Delete item).
         // Alpine's @click.outside on that menu only closes it in response

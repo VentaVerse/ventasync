@@ -78,6 +78,55 @@ function tickedIds(attr) {
         .filter((id) => String(id) !== '');
 }
 
+/**
+ * The names behind the ticked boxes, in the order they appear on screen.
+ *
+ * A row's checkbox and its product name live in the same <tr>, so the name is
+ * one closest() away. Returns [] on a page whose rows are shaped differently,
+ * and the caller degrades to a bare count rather than to a wrong list.
+ */
+function tickedNames() {
+    return Array.from(document.querySelectorAll('[data-row-check]'))
+        .filter((box) => box.checked)
+        .map((box) => {
+            const row = box.closest('tr');
+            const name = row && row.querySelector('.co-item__name, .x-row-link');
+            return name ? name.textContent.trim() : '';
+        })
+        .filter((name) => name !== '');
+}
+
+/**
+ * What the operator is actually about to do, in a dialog that used to refuse
+ * to say.
+ *
+ * "Delete the selected products from Shopee?" read identically for one product
+ * and for forty-seven, and named none of them. The count is the fact that
+ * changes the decision, and on an irreversible public deletion the names are
+ * the difference between confirming and checking.
+ *
+ * Capped at six with an honest remainder: a dialog listing forty-seven names
+ * is a wall the operator scrolls past, which is the same as not reading it.
+ */
+const CONFIRM_NAME_LIMIT = 6;
+
+function buildBulkConfirm(message, ids) {
+    const names = tickedNames();
+    const noun = ids.length === 1 ? 'product' : 'products';
+    let out = message + '\n\n' + ids.length + ' ' + noun;
+
+    // Only when the names line up with the selection. A partial list beside a
+    // full count would misrepresent the scope of the action.
+    if (names.length === ids.length) {
+        out += ':\n' + names.slice(0, CONFIRM_NAME_LIMIT).join('\n');
+        if (names.length > CONFIRM_NAME_LIMIT) {
+            out += '\nand ' + (names.length - CONFIRM_NAME_LIMIT) + ' more';
+        }
+    }
+
+    return out;
+}
+
 function injectIds(form, ids, fieldName) {
     form.querySelectorAll('input[name="' + fieldName + '"]').forEach((n) => n.remove());
     ids.forEach((id) => {
@@ -133,7 +182,7 @@ function initBulkForms(config, showProgress) {
 
             const message = form.getAttribute('data-bulk-confirm');
             if (message && typeof window.confirmModal === 'function') {
-                window.confirmModal(message, document.activeElement).then(function (ok) {
+                window.confirmModal(buildBulkConfirm(message, ids), document.activeElement).then(function (ok) {
                     if (ok) submit();
                 });
                 return;

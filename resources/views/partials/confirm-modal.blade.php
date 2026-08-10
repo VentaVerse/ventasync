@@ -19,7 +19,13 @@
     class, so red on this dialog keeps meaning "this removes something".
 --}}
 <div class="modal-backdrop" id="x-confirm-modal">
-    <div class="modal modal--sm">
+    {{-- role/aria-modal/aria-labelledby: this was a bare <div>, so nothing
+         told assistive technology a dialog had opened, what it was called, or
+         that the page behind it was inert. The heading and the message are
+         named explicitly rather than left to be guessed from reading order. --}}
+    <div class="modal modal--sm" role="dialog" aria-modal="true"
+         aria-labelledby="x-confirm-modal-title"
+         aria-describedby="x-confirm-modal-message">
         <div class="modal-header">
             <h3 id="x-confirm-modal-title">Confirm</h3>
             <button class="modal-close" type="button" id="x-confirm-modal-close" aria-label="Close">&times;</button>
