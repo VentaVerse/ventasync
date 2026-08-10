@@ -80,6 +80,10 @@ Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(
     Route::post('/venta/{store}/product-groups/{group}/products/{product}/sync-id', [VentaProductGroupController::class, 'syncId'])->name('ext.venta.product-groups.sync-id');
     Route::post('/venta/{store}/product-groups/{group}/products/{product}/unlink', [VentaProductGroupController::class, 'unlinkProduct'])->name('ext.venta.product-groups.unlink');
     Route::post('/venta/{store}/product-groups/{group}/products/{product}/delete-from-venta', [VentaProductGroupController::class, 'deleteFromVenta'])->name('ext.venta.product-groups.deleteFromVenta');
+    // The bulk form of the line above, posting ids[] instead of naming one
+    // product in the path. Same controller method, same permission; Venta was
+    // the only channel of the four that could not do this.
+    Route::post('/venta/{store}/product-groups/{group}/delete-from-venta', [VentaProductGroupController::class, 'deleteFromVenta'])->name('ext.venta.product-groups.bulk-delete-from-venta');
     Route::post('/venta/{store}/product-groups/{group}/products/{product}/link', [VentaProductGroupController::class, 'linkProduct'])->name('ext.venta.product-groups.link');
 });
 

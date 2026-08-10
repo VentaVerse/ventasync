@@ -2035,6 +2035,11 @@
         "name": "ext.venta.product-groups.addProducts"
     },
     {
+        "method": "POST",
+        "uri": "integrations/venta/{store}/product-groups/{group}/delete-from-venta",
+        "name": "ext.venta.product-groups.bulk-delete-from-venta"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "integrations/venta/{store}/product-groups/{group}/edit",
         "name": "ext.venta.product-groups.edit"

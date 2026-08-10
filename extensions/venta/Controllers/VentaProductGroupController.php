@@ -12,6 +12,7 @@ use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -1211,7 +1212,88 @@ class VentaProductGroupController extends Controller
             ->with('status', 'Product unlinked from Venta.');
     }
 
-    public function deleteFromVenta(int $store, int $group, int $product)
+    /**
+     * The bulk half. Every product is reported on: which ones went, which did
+     * not, and why - rather than a count that leaves the operator to work out
+     * whether their listings are still on a public storefront.
+     */
+    private function deleteManyFromVenta($setting, $g, int $store, int $group, array $productIds)
+    {
+        $client = new VentaClient($setting);
+        $deleted = 0;
+        $skipped = 0;
+        $errors = [];
+
+        $links = VentaProductLink::where('venta_setting_id', $store)
+            ->whereIn('product_id', $productIds)
+            ->get()
+            ->keyBy('product_id');
+
+        foreach ($productIds as $pid) {
+            $link = $links->get($pid);
+
+            if (! $link || ! $link->sku) {
+                $skipped++;
+                continue;
+            }
+
+            $result = $client->delete("products/{$link->sku}");
+
+            if ($result['ok']) {
+                $link->delete();
+
+                VentaProductGroupProduct::where('venta_product_group_id', $g->id)
+                    ->where('product_id', $pid)
+                    ->update(['sync_status' => 'pending', 'push_error' => null, 'last_pushed_at' => null]);
+
+                $deleted++;
+                continue;
+            }
+
+            $message = $result['body']['error'] ?? 'Unknown error';
+            $errors[] = "#{$pid}: {$message}";
+
+            VentaProductGroupProduct::where('venta_product_group_id', $g->id)
+                ->where('product_id', $pid)
+                ->update([
+                    'sync_status' => 'error',
+                    'push_error'  => Str::limit('Delete from Venta failed. ' . $message, 480),
+                ]);
+
+            usleep(150000);
+        }
+
+        $msg = "Delete from Venta: {$deleted} deleted";
+        if ($skipped > 0) {
+            $msg .= ", {$skipped} skipped (not linked)";
+        }
+        if ($errors) {
+            $msg .= ', ' . count($errors) . ' failed. ' . implode('; ', array_slice($errors, 0, 3));
+            if (count($errors) > 3) {
+                $msg .= ' (and ' . (count($errors) - 3) . ' more, shown against their rows)';
+            }
+        }
+
+        $tone = empty($errors) ? ($deleted > 0 ? 'status' : 'warning') : ($deleted > 0 ? 'warning' : 'error');
+
+        return $this->productsRedirect($store, $group)->with($tone, $msg . '.');
+    }
+
+    /**
+     * Delete one product from Venta, or several.
+     *
+     * $product is optional now. Venta was the only channel of the four that
+     * could not delete in bulk: this took a single product id in the URL,
+     * while Shopee, Lazada and TikTok all take ids[] in the body. So its bulk
+     * bar had a red button in the last slot that meant "remove from group",
+     * where the same slot on the other three means "delete from the
+     * marketplace" - the same position, the same colour, opposite
+     * consequences, on a page an operator moves across channels all day.
+     *
+     * The per-product route still passes a $product and behaves exactly as it
+     * did; a bulk post passes none and sends ids[] instead.
+     */
+    public function deleteFromVenta(Request $request, int $store, int $group, ?int $product = null)
     {
         $setting = $this->storeForWrite_($store);
 
@@ -1220,6 +1302,20 @@ class VentaProductGroupController extends Controller
                 'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
         }
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
+
+        $productIds = $product !== null
+            ? [$product]
+            : array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])))));
+
+        if (empty($productIds)) {
+            return $this->productsRedirect($store, $group)->with('error', 'No products selected.');
+        }
+
+        if (count($productIds) > 1) {
+            return $this->deleteManyFromVenta($setting, $g, $store, $group, $productIds);
+        }
+
+        $product = $productIds[0];
 
         $link = VentaProductLink::where('venta_setting_id', $store)
             ->where('product_id', $product)

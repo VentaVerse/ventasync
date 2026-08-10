@@ -112,11 +112,25 @@
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Match Venta IDs</x-ui.button>
         </form>
+        {{-- Remove from group first, then Delete from Venta LAST and alone in
+             the danger fill, matching Shopee, Lazada and TikTok.
+
+             Venta was the only one of the four that could not delete in bulk,
+             so its last slot held Remove from group in red - the same
+             position and the same colour that means "delete from the
+             marketplace" on the other three. An operator moving between
+             channels reads position before words. --}}
         <form method="POST" action="{{ route('ext.venta.product-groups.mass-remove', [$setting->id, $group->id]) }}" data-bulk-form
               data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalogue, and nothing already live on {{ $storeName }} is touched.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" variant="danger" size="sm">Remove from group</x-ui.button>
+            <x-ui.button type="submit" size="sm">Remove from group</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.venta.product-groups.bulk-delete-from-venta', [$setting->id, $group->id]) }}" data-bulk-form
+              data-bulk-confirm="Delete the selected products from {{ $storeName }}? They are removed at the storefront and this cannot be undone.">
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" variant="danger" size="sm">Delete from Venta</x-ui.button>
         </form>
     </div>
 </div>
