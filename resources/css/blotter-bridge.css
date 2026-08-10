@@ -58,6 +58,36 @@
     --chart-money: var(--bl-ink);
     --chart-count: var(--bl-brand);
 
+    /* Aliases added 2026-08-10, found by FoundationTest's undeclared-property
+       check. Every one of these was referenced by a live stylesheet and
+       declared nowhere, so it fell through to a hardcoded fallback and painted
+       a v2.2 colour on a v2.3 page - #f1f5f9 surfaces, #6b7280 text, and
+       --accent-soft: #c7d2fe, which is the indigo DESIGN.md names as a
+       rejected anti-reference. Three of them had no fallback at all and
+       rendered nothing.
+
+       This is the "essence of v2.2" in its most literal form: not a layout
+       decision, a colour hardcoded behind a token that never existed. */
+    --ink: var(--bl-ink);
+    --text-primary: var(--bl-ink);
+    --muted: var(--bl-ink-3);
+
+    --surface-muted: var(--bl-chrome);
+    --surface-alt: var(--bl-chrome);
+
+    --border-soft: var(--bl-rule);
+    --border-light: var(--bl-rule);
+    --auto-border-subtle: var(--bl-rule);
+
+    /* Brand cyan, because this marks a card as interactive on hover, which is
+       the job --bl-brand is defined for. */
+    --accent-soft: var(--bl-brand);
+
+    --success-ink: var(--bl-good);
+    --success-soft: color-mix(in srgb, var(--bl-good) 12%, var(--bl-sheet));
+
+    --transition-fast: var(--motion-fast);
+
     --font-ui: var(--font-sans);
 
     --radius-sm: 4px;

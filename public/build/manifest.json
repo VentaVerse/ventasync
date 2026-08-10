@@ -1,15 +1,6 @@
 {
-  "resources/css/app.css": {
-    "file": "assets/app-DgiZGo8R.css",
-    "src": "resources/css/app.css",
-    "isEntry": true,
-    "name": "app",
-    "names": [
-      "app.css"
-    ]
-  },
   "resources/css/blotter.css": {
-    "file": "assets/blotter-mnFKm00j.css",
+    "file": "assets/blotter-DOe6_VJd.css",
     "src": "resources/css/blotter.css",
     "isEntry": true,
     "name": "blotter",
@@ -24,10 +15,6 @@
   "resources/fonts/Archivo-latin.woff2": {
     "file": "assets/Archivo-latin-DY7AcnAa.woff2",
     "src": "resources/fonts/Archivo-latin.woff2"
-  },
-  "resources/fonts/Geist.woff2": {
-    "file": "assets/Geist-DPGgOCY9.woff2",
-    "src": "resources/fonts/Geist.woff2"
   },
   "resources/fonts/JetBrainsMono.woff2": {
     "file": "assets/JetBrainsMono-CA-Os4ii.woff2",

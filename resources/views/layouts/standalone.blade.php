@@ -43,7 +43,14 @@
     <link rel="shortcut icon" href="{{ $__faviconUrl }}">
     <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">
     @include('partials.theme-boot')
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- blotter.css, not app.css. The note above says this layout gives its
+         page "the same tokens, the same fonts, the same theme boot and the
+         same bundle as everything else" - and it was loading the legacy
+         bundle, which is not what everything else loads and has not been
+         since the blotter shell arrived. This page's own markup is od-*,
+         which the blotter bundle styles. It was also the last view keeping
+         resources/css/app.css alive. --}}
+    @vite(['resources/css/blotter.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
 <body class="x-app">

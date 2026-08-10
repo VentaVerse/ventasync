@@ -241,12 +241,7 @@
         margin-left: auto;
     }
 
-    .fm-title {
-        margin: 0;
-        font-size: 21px;
-        font-weight: 640;
-        letter-spacing: -0.02em;
-    }
+    /* .fm-title is byte-identical to .x-page-title and joins it below. */
 
     /* Record provenance: created, updated, who. Facts about the row, set
        as facts rather than as chips. */
@@ -2192,7 +2187,10 @@
        ------------------------------------------------------------ */
     /* .x-list-head is aliased onto .bl-head in blotter.css. */
 
-    .x-page-title {
+    /* One page title. .fm-title carried the same four declarations under a
+       second name across 40 views. */
+    .x-page-title,
+    .fm-title {
         margin: 0;
         font-size: 21px;
         font-weight: 640;
