@@ -893,6 +893,17 @@ class VentaProductGroupController extends Controller
             }
         }
 
+        // Record that products reached Venta.
+        //
+        // Nothing wrote last_product_sync_at. The column existed and the
+        // settings page printed it, but no code path set it, so "Products
+        // pushed: Never" was permanent however many products were pushed.
+        // This is the only path that pushes them - venta:sync accepts only
+        // `orders`, so there is no scheduled product sync to stamp it from.
+        if ($created > 0 || $updated > 0) {
+            $setting->update(['last_product_sync_at' => now()]);
+        }
+
         $msg = "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}";
         if (!empty($errors)) {
             Log::warning('Venta pushProducts errors', ['store' => $store, 'group' => $group, 'errors' => $errors]);

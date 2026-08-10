@@ -89,6 +89,20 @@ class VentaPushStock extends Command
                 usleep(200000); // 200ms rate limit
             }
 
+            // Record that this ran, the way VentaPushReviews already did.
+            //
+            // Nothing wrote last_stock_push_at. The column existed, the
+            // settings page read it, and no code path anywhere set it - so
+            // "Stock pushed: Never" was permanent no matter how many hundreds
+            // of products pushed successfully. Same for last_product_sync_at
+            // below.
+            //
+            // Stamped even when some rows failed, because the figure answers
+            // "when did this last run", not "when did it last run perfectly".
+            // A push where 254 succeeded and 5 failed did happen, and saying
+            // "Never" about it is the worse lie.
+            $setting->update(['last_stock_push_at' => now()]);
+
             $this->info("  Done. OK: {$ok}, Failed: {$err}, Skipped: {$skip}");
         }
 
