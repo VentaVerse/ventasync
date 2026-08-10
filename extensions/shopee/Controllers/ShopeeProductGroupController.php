@@ -953,8 +953,18 @@ class ShopeeProductGroupController extends Controller
             $added++;
         }
 
+        // Duplicates were swallowed: adding 5 products of which 3 were already
+        // in the group reported "2 product(s) added" and left the operator to
+        // work out what happened to the other three.
+        $skipped = count($ids) - $added;
+
+        $summary = "{$added} product(s) added to group.";
+        if ($skipped > 0) {
+            $summary .= " {$skipped} already in the group.";
+        }
+
         return $this->productsRedirect($group->id)
-            ->with('status', "{$added} product(s) added to group.");
+            ->with($added > 0 ? 'status' : 'warning', $summary);
     }
 
     /**
@@ -1186,27 +1196,42 @@ class ShopeeProductGroupController extends Controller
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
         $pivot = $group->groupProducts()->where('product_id', $productId)->first();
 
-        if ($pivot) {
-            $status = 'synced';
-            // If pivot has no shopee_item_id, try to fill from global links
-            if (empty($pivot->shopee_item_id)) {
-                $linkId = DB::table('shopee_product_links')
-                    ->where('product_id', $productId)
-                    ->value('shopee_item_id');
-
-                if ($linkId) {
-                    $pivot->update(['shopee_item_id' => (string) $linkId, 'sync_status' => $status]);
-                } else {
-                    $pivot->update(['sync_status' => 'pending']);
-                    $status = 'pending';
-                }
-            } else {
-                $pivot->update(['sync_status' => $status]);
-            }
+        // Said "Product re-linked." even for a product that is not in this
+        // group at all, because the message sat outside the check.
+        if (! $pivot) {
+            return $this->productsRedirect($group->id)
+                ->with('error', 'That product is not in this group.');
         }
 
-        return $this->productsRedirect($group->id)
-            ->with('status', 'Product re-linked.');
+        // Already holds an item id: re-linking is just clearing the unlinked
+        // state.
+        if (! empty($pivot->shopee_item_id)) {
+            $pivot->update(['sync_status' => 'pushed']);
+
+            return $this->productsRedirect($group->id)
+                ->with('status', 'Product re-linked to Shopee item ' . $pivot->shopee_item_id . '.');
+        }
+
+        $linkId = DB::table('shopee_product_links')
+            ->where('product_id', $productId)
+            ->value('shopee_item_id');
+
+        if ($linkId) {
+            $pivot->update(['shopee_item_id' => (string) $linkId, 'sync_status' => 'pushed']);
+
+            return $this->productsRedirect($group->id)
+                ->with('status', 'Product re-linked to Shopee item ' . $linkId . '.');
+        }
+
+        // The branch that used to lie. There is no link to restore, so the
+        // product is set back to not-pushed - which is the opposite of
+        // re-linked, and was being reported as success.
+        $pivot->update(['sync_status' => 'pending', 'push_error' => null]);
+
+        return $this->productsRedirect($group->id)->with(
+            'warning',
+            'No Shopee link was found for this product, so it is set back to not pushed. Use Match Shopee ID to find an existing listing, or push it to create one.'
+        );
     }
 
     /**
@@ -1229,12 +1254,22 @@ class ShopeeProductGroupController extends Controller
         $group = ShopeeProductGroup::query()->findOrFail($id);
         $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
 
-        if (!empty($ids)) {
-            $group->groupProducts()->whereIn('product_id', $ids)->delete();
+        if (empty($ids)) {
+            return $this->productsRedirect($group->id)->with('error', 'No products selected.');
+        }
+
+        // delete() returns rows actually removed. This used to report
+        // count($ids), so posting ten ids of which four were not in the group
+        // still claimed ten removals.
+        $removed = $group->groupProducts()->whereIn('product_id', $ids)->delete();
+
+        $summary = "{$removed} product(s) removed from group.";
+        if ($removed < count($ids)) {
+            $summary .= ' ' . (count($ids) - $removed) . ' were not in the group.';
         }
 
         return $this->productsRedirect($group->id)
-            ->with('status', count($ids) . ' product(s) removed from group.');
+            ->with($removed > 0 ? 'status' : 'warning', $summary);
     }
 
     public function push(Request $request, int $id, ShopeeClient $client)
@@ -1678,7 +1713,15 @@ class ShopeeProductGroupController extends Controller
 
                 ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                     ->where('product_id', $productId)
-                    ->update(['sync_status' => 'pushed']);
+                    ->update([
+                        'sync_status' => 'pushed',
+                        // Both were missing. The row kept yesterday's failure
+                        // reason next to today's success, and "Last push"
+                        // went on reporting the last time a listing was
+                        // CREATED rather than the last time it was written.
+                        'push_error' => null,
+                        'last_pushed_at' => now(),
+                    ]);
 
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');
                 $okCount++;
@@ -1688,7 +1731,11 @@ class ShopeeProductGroupController extends Controller
 
                 ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                     ->where('product_id', $productId)
-                    ->update(['sync_status' => 'error', 'push_error' => $msg]);
+                    ->update([
+                        'sync_status' => 'error',
+                        'push_error' => Str::limit($msg, 480),
+                        'last_pushed_at' => now(),
+                    ]);
 
                 $errCount++;
             }
@@ -1701,7 +1748,7 @@ class ShopeeProductGroupController extends Controller
         if ($errCount > 0) $summary .= ", {$errCount} failed";
         if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
 
-        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
+        return $this->productsRedirect($id)->with($this->batchTone($okCount, $errCount), $summary);
     }
 
     public function pushPrices(Request $request, int $id, ShopeeClient $client)
@@ -1724,9 +1771,12 @@ class ShopeeProductGroupController extends Controller
         $skip = count($productIds) - $links->pluck('product_id')->unique()->count();
 
         $results = $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
+        $this->recordSyncOutcomes($group->id, $results['outcomes'] ?? []);
 
-        return $this->productsRedirect($id)
-            ->with('status', "Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).");
+        return $this->productsRedirect($id)->with(
+            $this->batchTone($results['ok'], $results['err']),
+            "Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)."
+        );
     }
 
     public function pushStock(Request $request, int $id, ShopeeClient $client)
@@ -1758,13 +1808,17 @@ class ShopeeProductGroupController extends Controller
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
         $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
+        $this->recordSyncOutcomes($group->id, $results['outcomes'] ?? []);
 
         $msg = "Sync Qty: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)";
         if ($disabledCount > 0) {
             $msg .= ", {$disabledCount} skipped (disabled)";
         }
 
-        return $this->productsRedirect($id)->with('status', $msg . '.');
+        return $this->productsRedirect($id)->with(
+            $this->batchTone($results['ok'], $results['err']),
+            $msg . '.'
+        );
     }
 
     public function deleteFromShopee(Request $request, int $id, ShopeeClient $client)
@@ -1784,6 +1838,7 @@ class ShopeeProductGroupController extends Controller
 
         $okCount = 0;
         $errCount = 0;
+        $errors = [];
         $path = '/api/v2/product/delete_item';
 
         foreach ($productIds as $productId) {
@@ -1833,15 +1888,107 @@ class ShopeeProductGroupController extends Controller
                 ActivityLogger::log('deleted', 'Shopee Product', $productId, 'Deleted item ' . $itemId . ' from Shopee via product group');
                 $okCount++;
             } else {
+                // The reason used to be discarded here, so "3 deleted, 9
+                // failed" was the entire account of nine listings still
+                // sitting on a public marketplace. Which nine, and why, was
+                // not recoverable from anywhere in the interface.
+                $msg = $this->apiFailureMessage($result);
+                $errors[] = "#{$productId}: {$msg}";
+
+                ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
+                    ->where('product_id', $productId)
+                    ->update([
+                        'sync_status' => 'error',
+                        'push_error' => Str::limit('Delete from Shopee failed. ' . $msg, 480),
+                        'last_pushed_at' => now(),
+                    ]);
+
                 $errCount++;
             }
         }
 
-        return $this->productsRedirect($id)
-            ->with($okCount > 0 ? 'status' : 'error', "Delete from Shopee: {$okCount} deleted, {$errCount} failed.");
+        $summary = "Delete from Shopee: {$okCount} deleted, {$errCount} failed.";
+        if (! empty($errors)) {
+            $summary .= ' ' . implode('; ', array_slice($errors, 0, 5));
+            if (count($errors) > 5) {
+                // Says so rather than trailing off. A truncated list that does
+                // not admit it is truncated reads as the whole list.
+                $summary .= ' (and ' . (count($errors) - 5) . ' more, shown against their rows)';
+            }
+        }
+
+        return $this->productsRedirect($id)->with($this->batchTone($okCount, $errCount), $summary);
     }
 
     // ── Sync Helpers ─────────────────────────────────────────────────
+
+    /**
+     * The words Shopee refused with, or a stand-in that admits we have none.
+     *
+     * Never returns an empty string. A blank reason written to push_error is
+     * indistinguishable from never having failed, which is the whole defect
+     * this file has been carrying.
+     */
+    private function apiFailureMessage(array $result): string
+    {
+        $body = $result['body'] ?? [];
+
+        if (! is_array($body)) {
+            return 'API error';
+        }
+
+        foreach (['message', 'error'] as $key) {
+            $value = trim((string) ($body[$key] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return 'API error';
+    }
+
+    /**
+     * Which flash key a batch has earned.
+     *
+     * Price and stock pushes used to flash 'status' unconditionally, and
+     * 'status' renders as a green tick. "Sync Price: 0 success, 12 error"
+     * arrived in the success colour, which is the most confident way an
+     * interface can be wrong. A batch that lost rows is not a success, and a
+     * batch that lost all of them is a failure.
+     */
+    private function batchTone(int $ok, int $err): string
+    {
+        if ($err === 0) {
+            return 'status';
+        }
+
+        return $ok > 0 ? 'warning' : 'error';
+    }
+
+    /**
+     * Write per-product outcomes onto the rows the operator is looking at.
+     *
+     * The push helpers already recorded each failure onto shopee_product_links
+     * - but the products page reads the GROUP PIVOT, so every one of those
+     * failures was invisible here. The only trace a price push had failed was
+     * a flash message the next click destroyed.
+     *
+     * Success clears the previous reason as well as setting the status. A row
+     * that failed yesterday and pushed cleanly today must not keep displaying
+     * yesterday's complaint.
+     */
+    private function recordSyncOutcomes(int $groupId, array $outcomes): void
+    {
+        foreach ($outcomes as $productId => $outcome) {
+            ShopeeProductGroupProduct::where('shopee_product_group_id', $groupId)
+                ->where('product_id', (int) $productId)
+                ->update([
+                    'sync_status' => $outcome['ok'] ? 'pushed' : 'error',
+                    'push_error' => $outcome['ok'] ? null : Str::limit($outcome['error'], 480),
+                    'last_pushed_at' => now(),
+                ]);
+        }
+    }
 
     private function parseIds(Request $request): array
     {
@@ -1854,6 +2001,7 @@ class ShopeeProductGroupController extends Controller
     {
         $ok = 0;
         $err = 0;
+        $outcomes = [];
 
         // Resolve qty per link through the shared service (combinations
         // first, POV fallback). Cron uses the same resolver.
@@ -1900,8 +2048,21 @@ class ShopeeProductGroupController extends Controller
                 'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
                 'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
             ];
+            $failure = $isOk ? null : $this->apiFailureMessage($result);
+
             foreach ($itemLinks as $link) {
                 $link->update($syncData);
+
+                // A product with several models has failed if ANY of them
+                // failed: the listing is not right on Shopee until all of it
+                // is. A recorded failure is never overwritten by a later
+                // success on a sibling model.
+                $pid = (int) $link->product_id;
+                if (! $isOk) {
+                    $outcomes[$pid] = ['ok' => false, 'error' => $failure];
+                } elseif (! array_key_exists($pid, $outcomes)) {
+                    $outcomes[$pid] = ['ok' => true, 'error' => null];
+                }
             }
 
             if ($isOk) {
@@ -1911,13 +2072,14 @@ class ShopeeProductGroupController extends Controller
             }
         }
 
-        return ['ok' => $ok, 'err' => $err];
+        return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
     }
 
     private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links, ShopeeProductGroup $group): array
     {
         $ok = 0;
         $err = 0;
+        $outcomes = [];
 
         $resolved = app(ShopeeStockPushService::class)->resolve($links, $pfx);
 
@@ -1968,8 +2130,18 @@ class ShopeeProductGroupController extends Controller
                 'last_sync_error_code' => $isOk ? null : (string) ($result['body']['error'] ?? ''),
                 'last_sync_error_message' => $isOk ? null : (string) ($result['body']['message'] ?? ''),
             ];
+            $failure = $isOk ? null : $this->apiFailureMessage($result);
+
             foreach ($itemLinks as $link) {
                 $link->update($syncData);
+
+                // See pushStockForLinks: any failed model fails the product.
+                $pid = (int) $link->product_id;
+                if (! $isOk) {
+                    $outcomes[$pid] = ['ok' => false, 'error' => $failure];
+                } elseif (! array_key_exists($pid, $outcomes)) {
+                    $outcomes[$pid] = ['ok' => true, 'error' => null];
+                }
             }
 
             if ($isOk) {
@@ -1979,7 +2151,7 @@ class ShopeeProductGroupController extends Controller
             }
         }
 
-        return ['ok' => $ok, 'err' => $err];
+        return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
     }
 
     private function resolveLocalImagePath(string $path): ?string
