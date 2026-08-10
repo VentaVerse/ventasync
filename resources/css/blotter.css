@@ -1300,6 +1300,102 @@
         }
     }
 
+    /* ============================================================
+       THE FOUNDATION PRIMITIVES
+
+       One definition of each thing a page is built out of, aliased onto every
+       name that already means it. Written 2026-08-10 after measuring the
+       application: 22 class-prefix families in the views, but only fm- and od-
+       ever defined a card or a head - the other ten are thin page-specific
+       layers riding on shared bones. So this is deduplication, not a redesign.
+       .fm-section and .od-section were already byte-identical.
+
+       The decomposition is deliberate: a SHEET is a surface, and how its
+       children stack is the page's own business. Folding both into one rule
+       would have forced every page onto one internal rhythm and turned a safe
+       dedupe into a layout rewrite. One surface, many arrangements.
+
+       Values are the ones from the pages the owner approved: the channel Overview,
+       the fulfilment summary and the dashboard.
+       ============================================================ */
+
+    /* A raised sheet. The thing a reader sees as "a panel on this page". */
+    .bl-sheet,
+    .fm-section,
+    .od-section,
+    .cw-section,
+    .fh-sec {
+        padding: 18px 20px 20px;
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+        box-shadow: var(--bl-lift);
+    }
+
+    /* A lighter container INSIDE a sheet: a tighter radius, a stronger rule,
+       no lift, because a shadow inside a shadow reads as a mistake. */
+    .bl-inset,
+    .fm-card,
+    .od-card {
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        overflow: hidden;
+    }
+
+    /* Nesting is guarded rather than forbidden: a sheet inside a sheet, or
+       inside an inset, goes flat. A card inside a card is always wrong. */
+    .bl-sheet .bl-sheet,
+    .bl-inset .bl-sheet,
+    .fm-card .fm-section,
+    .fm-section .fm-section {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+    }
+
+    /* A sheet's head, on a hairline.
+
+       Packed left with the action pushed right by its own margin, rather than
+       space-between across the whole row: with space-between a title and its
+       note ended up at opposite ends of an 800px card, reading as two
+       unrelated labels. This shape serves both cases at once. */
+    .bl-sheet__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 3px 10px;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .bl-sheet__title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 620;
+        letter-spacing: -0.005em;
+        color: var(--bl-ink);
+    }
+
+    .bl-sheet__note {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+    }
+
+    /* Anything trailing in a head is an action and belongs at the far edge. */
+    .bl-sheet__head > .bl-sheet__action { margin-left: auto; }
+
+    /* A rail is context, so it speaks at the smaller size the order page's
+       sections already use. Two columns read differently should not be
+       typeset identically. */
+    .bl-sheet--rail { padding: 15px 20px 16px; }
+    .bl-sheet--rail .bl-sheet__head { padding-bottom: 9px; margin-bottom: 12px; }
+    .bl-sheet--rail .bl-sheet__title { font-size: 13px; font-weight: 650; }
+
     .bl-panel {
         border: 1px solid var(--bl-rule-2);
         border-radius: var(--bl-r-panel);

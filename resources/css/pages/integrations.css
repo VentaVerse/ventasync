@@ -700,12 +700,10 @@
    This is the second time this trap has been sprung in this codebase - the
    dashboard's .bl-share hit it first and carries the same note. */
 .cw-section {
+    /* Surface from .bl-sheet. The token redeclaration stays, because it is
+       what makes the plot's own rules resolve their padding inside this card
+       (see the note above). */
     --bl-pad: 20px;
-    padding: 18px var(--bl-pad) 20px;
-    background: var(--bl-sheet, #fff);
-    border: 1px solid var(--bl-rule, #eaeef5);
-    border-radius: var(--bl-r-panel, 16px);
-    box-shadow: var(--bl-lift, none);
 }
 
 /* The head sits INSIDE its card, on a hairline, which is what .od-section and

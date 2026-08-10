@@ -391,12 +391,7 @@
     }
 
     /* Side rail panels. */
-    .od-card {
-        border: 1px solid var(--bl-rule-2);
-        border-radius: var(--bl-r-ctrl);
-        background: var(--bl-sheet);
-        overflow: hidden;
-    }
+    /* .od-card is aliased onto .bl-inset in blotter.css. */
 
     .od-card__head {
         display: flex;
@@ -1413,14 +1408,8 @@
    asked whether the page's own containers agreed with each other.
    ============================================================ */
 @layer components {
-    .od-section {
-        padding: 18px 20px 20px;
-        border: 1px solid var(--bl-rule);
-        border-radius: var(--bl-r-panel);
-        background: var(--bl-sheet);
-        box-shadow: var(--bl-lift);
-    }
-
+    /* The surface is .bl-sheet's, in blotter.css. Only the stacking is the
+       order page's own. */
     .od-section + .od-section { margin-top: 16px; }
 
     /* The section head no longer needs a rule to separate it: the sheet

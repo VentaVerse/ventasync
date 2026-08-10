@@ -424,24 +424,13 @@
     
        .fm-card > .fm-section is exempt: a section already inside a card is a
        group within it, and a card inside a card is always wrong. */
+    /* Surface and nesting guard now come from .bl-sheet in blotter.css, which
+       this class is aliased onto. Only the internal rhythm is the form
+       anatomy's own. */
     .fm-section {
         display: flex;
         flex-direction: column;
         gap: 14px;
-        padding: 18px 20px 20px;
-        border: 1px solid var(--bl-rule);
-        border-radius: var(--bl-r-panel);
-        background: var(--bl-sheet);
-        box-shadow: var(--bl-lift);
-    }
-
-    .fm-card .fm-section,
-    .fm-section .fm-section {
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: none;
-        box-shadow: none;
     }
 
     .fm-section__head {
@@ -476,12 +465,7 @@
     /* The side rail's panels. A ruled sheet, not a raised slab: this world
        has no shadows, so a panel is told apart by its hairline and its
        ground. */
-    .fm-card {
-        border: 1px solid var(--bl-rule-2);
-        border-radius: var(--bl-r-ctrl);
-        background: var(--bl-sheet);
-        overflow: hidden;
-    }
+    /* .fm-card is aliased onto .bl-inset in blotter.css. */
 
     .fm-card__head {
         display: flex;
@@ -1618,13 +1602,10 @@
         .fh-body { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
     }
 
-    .fh-sec {
-        padding: 15px 18px 17px;
-        background: var(--bl-sheet);
-        border: 1px solid var(--bl-rule);
-        border-radius: var(--bl-r-panel);
-        box-shadow: var(--bl-lift);
-    }
+    /* Surface from .bl-sheet. This carried 15px 18px 17px, which was my own
+       drift away from the 18px 20px 20px every other sheet already used -
+       introduced while polishing this page and corrected here rather than
+       promoted into the foundation. */
 
     .fh-sec__head {
         display: flex;
