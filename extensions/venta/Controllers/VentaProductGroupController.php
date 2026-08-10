@@ -27,6 +27,47 @@ class VentaProductGroupController extends Controller
         return redirect()->route('ext.venta.product-groups.index', $store->id);
     }
 
+    /**
+     * Point an ERP product at a Venta product, or say who is in the way.
+     *
+     * A unique key on (venta_setting_id, venta_product_id) enforces one Venta
+     * product per ERP product. A STALE link held by a different product
+     * therefore blocks this write, and on a database copied from another
+     * environment that happens constantly: the copy carries links to Venta
+     * products this environment never had, and matching by SKU keeps landing
+     * on ids those dead links already claim.
+     *
+     * Unhandled it is a 500. It was one, three times over, because all three
+     * paths that write a link - Match, Match in bulk, and Push - each had
+     * their own copy of this updateOrCreate and only the one inside Push was
+     * ever guarded. One definition now, so a fourth caller cannot reintroduce
+     * it.
+     *
+     * The conflicting link is NOT taken over. It may be perfectly good, and
+     * stealing it would leave that product silently pointing at nothing.
+     *
+     * @return string|null null when linked, or the reason it could not be
+     */
+    private function linkProductTo(int $store, int $productId, $ventaProductId, ?string $sku): ?string
+    {
+        $conflict = VentaProductLink::where('venta_setting_id', $store)
+            ->where('venta_product_id', $ventaProductId)
+            ->where('product_id', '!=', $productId)
+            ->first();
+
+        if ($conflict) {
+            return "Venta product {$ventaProductId} is already linked to catalogue product "
+                ."#{$conflict->product_id}. Unlink that product first, then try this one again.";
+        }
+
+        VentaProductLink::updateOrCreate(
+            ['venta_setting_id' => $store, 'product_id' => $productId],
+            ['venta_product_id' => $ventaProductId, 'sku' => $sku]
+        );
+
+        return null;
+    }
+
     private function store_(int $storeId): VentaSetting
     {
         // Allow navigation into disabled stores so operators can finish
@@ -515,17 +556,10 @@ class VentaProductGroupController extends Controller
                 ->with('error', 'No matching product found on Venta for SKU(s): ' . implode(', ', $skus));
         }
 
-        // Save or update the link
-        VentaProductLink::updateOrCreate(
-            [
-                'venta_setting_id' => $store,
-                'product_id'       => $product,
-            ],
-            [
-                'venta_product_id' => $matchedVentaId,
-                'sku'              => $matchedSku,
-            ]
-        );
+        // Save or update the link, unless another product already holds it.
+        if ($clash = $this->linkProductTo($store, $product, $matchedVentaId, $matchedSku)) {
+            return $this->productsRedirect($store, $group)->with('error', $clash);
+        }
 
         // Update sync status on group product pivot
         VentaProductGroupProduct::where('venta_product_group_id', $g->id)
@@ -563,6 +597,7 @@ class VentaProductGroupController extends Controller
 
         $synced = 0;
         $failed = 0;
+        $clashes = [];
         $skipped = 0;
 
         foreach ($ids as $pid) {
@@ -619,10 +654,11 @@ class VentaProductGroupController extends Controller
 
             if (!$matchedVentaId) { $failed++; continue; }
 
-            VentaProductLink::updateOrCreate(
-                ['venta_setting_id' => $store, 'product_id' => $pid],
-                ['venta_product_id' => $matchedVentaId, 'sku' => $matchedSku]
-            );
+            if ($clash = $this->linkProductTo($store, $pid, $matchedVentaId, $matchedSku)) {
+                $failed++;
+                $clashes[] = "#{$pid}: {$clash}";
+                continue;
+            }
 
             VentaProductGroupProduct::where('venta_product_group_id', $g->id)
                 ->where('product_id', $pid)
@@ -634,9 +670,26 @@ class VentaProductGroupController extends Controller
 
         $msg = "Sync complete. Linked: {$synced}";
         if ($skipped > 0) $msg .= ", Skipped (already linked/no SKU): {$skipped}";
-        if ($failed > 0) $msg .= ", Not found on Venta: {$failed}";
 
-        return $this->productsRedirect($store, $group)->with('status', $msg);
+        // "Not found on Venta" was covering two different outcomes. A product
+        // whose SKU matched nothing is not the same as one whose match is
+        // already claimed by another product: the first needs pushing, the
+        // second needs the other product unlinking, and only one of them is
+        // the operator's to fix here.
+        $notFound = $failed - count($clashes);
+        if ($notFound > 0) $msg .= ", Not found on Venta: {$notFound}";
+
+        if ($clashes) {
+            $msg .= ', ' . count($clashes) . ' already linked to another product. '
+                . implode('; ', array_slice($clashes, 0, 3));
+            if (count($clashes) > 3) {
+                $msg .= ' (and ' . (count($clashes) - 3) . ' more)';
+            }
+        }
+
+        $tone = $failed === 0 ? 'status' : ($synced > 0 ? 'warning' : 'error');
+
+        return $this->productsRedirect($store, $group)->with($tone, $msg);
     }
 
     // ── Push Products (create/update on Venta) ──────────────
@@ -907,29 +960,12 @@ class VentaProductGroupController extends Controller
                      * at nothing. Named instead, so the operator can see which
                      * one is in the way.
                      */
-                    $conflict = VentaProductLink::where('venta_setting_id', $store)
-                        ->where('venta_product_id', $ventaProductId)
-                        ->where('product_id', '!=', $pid)
-                        ->first();
-
-                    if ($conflict) {
+                    if ($clash = $this->linkProductTo($store, $pid, $ventaProductId, $sku)) {
                         $failed++;
                         $created--;
-                        $errors[] = "#{$pid}: created on Venta as {$ventaProductId}, but product "
-                            ."#{$conflict->product_id} already holds that link. Unlink that product, then push this one again.";
+                        $errors[] = "#{$pid}: created on Venta as {$ventaProductId}, but {$clash}";
                         continue;
                     }
-
-                    VentaProductLink::updateOrCreate(
-                        [
-                            'venta_setting_id' => $store,
-                            'product_id'       => $pid,
-                        ],
-                        [
-                            'venta_product_id' => $ventaProductId,
-                            'sku'              => $sku,
-                        ]
-                    );
 
                     VentaProductGroupProduct::where('venta_product_group_id', $g->id)
                         ->where('product_id', $pid)
