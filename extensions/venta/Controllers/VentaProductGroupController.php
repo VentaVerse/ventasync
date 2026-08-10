@@ -642,6 +642,10 @@ class VentaProductGroupController extends Controller
 
     public function pushProducts(Request $request, int $store, int $group)
     {
+        // Set by the row's "Push as new", which is offered only when Venta has
+        // told us the linked product is not there. See the branch below.
+        $relink = $request->boolean('relink');
+
         $setting = $this->storeForWrite_($store);
 
         if (! $setting) {
@@ -835,6 +839,28 @@ class VentaProductGroupController extends Controller
                 ->where('product_id', $pid)
                 ->first();
 
+            /*
+             * "Push as new" drops the stale link first.
+             *
+             * A link row is the ERP's own record that a product exists on
+             * Venta. It can be wrong - a database copied from another
+             * environment carries links to products that environment had and
+             * this one never did - and when it is wrong this branch sends an
+             * update for a product Venta has never heard of, which can only
+             * ever answer 404. The operator was then offered Update, which
+             * cannot work, and NOT offered Push, which is the only thing that
+             * would, because the page reads that same link as proof.
+             *
+             * Deleting the link here is what turns the request into a create.
+             * It is deliberately opt-in per press, never automatic: silently
+             * dropping a link on any failed update would recreate products on
+             * Venta whenever it had a bad afternoon.
+             */
+            if ($relink && $existingLink) {
+                $existingLink->delete();
+                $existingLink = null;
+            }
+
             if ($existingLink && $existingLink->venta_product_id) {
                 // Update existing product on Venta
                 $result = $client->updateProduct($sku, $data);
@@ -862,6 +888,36 @@ class VentaProductGroupController extends Controller
                 if ($result['ok']) {
                     $created++;
                     $ventaProductId = $result['body']['id'] ?? $result['body']['data']['id'] ?? 0;
+
+                    /*
+                     * One Venta product maps to one ERP product, enforced by a
+                     * unique key on (store, venta_product_id). A stale link
+                     * held by ANOTHER product can therefore block this write,
+                     * and it does: recreating one product here got back Venta
+                     * id 1885, which a second product still held a dead link
+                     * to from the same copied database. Unhandled, that
+                     * surfaced as a 500 after the product had already been
+                     * created on Venta - the worst possible moment to fail,
+                     * because the work was done and the record of it was lost.
+                     *
+                     * The conflicting link is NOT taken over automatically.
+                     * The other product's link may be perfectly good, and
+                     * stealing it would leave that product silently pointing
+                     * at nothing. Named instead, so the operator can see which
+                     * one is in the way.
+                     */
+                    $conflict = VentaProductLink::where('venta_setting_id', $store)
+                        ->where('venta_product_id', $ventaProductId)
+                        ->where('product_id', '!=', $pid)
+                        ->first();
+
+                    if ($conflict) {
+                        $failed++;
+                        $created--;
+                        $errors[] = "#{$pid}: created on Venta as {$ventaProductId}, but product "
+                            ."#{$conflict->product_id} already holds that link. Unlink that product, then push this one again.";
+                        continue;
+                    }
 
                     VentaProductLink::updateOrCreate(
                         [
@@ -905,11 +961,25 @@ class VentaProductGroupController extends Controller
         }
 
         $msg = "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}";
-        if (!empty($errors)) {
+
+        if (! empty($errors)) {
             Log::warning('Venta pushProducts errors', ['store' => $store, 'group' => $group, 'errors' => $errors]);
+
+            // The reasons reach the OPERATOR, not only the log. "Failed: 1"
+            // with the explanation written to a file they cannot read is the
+            // same as no explanation: the one useful sentence here names the
+            // product standing in the way and what to do about it.
+            $msg .= '. ' . implode('; ', array_slice($errors, 0, 3));
+
+            if (count($errors) > 3) {
+                $msg .= ' (and ' . (count($errors) - 3) . ' more, shown against their rows)';
+            }
         }
 
-        return $this->productsRedirect($store, $group)->with('status', $msg);
+        // Green only when nothing was lost.
+        $tone = $failed === 0 ? 'status' : (($created + $updated) > 0 ? 'warning' : 'error');
+
+        return $this->productsRedirect($store, $group)->with($tone, $msg);
     }
 
     // ── Push Stock ──────────────────────────────────────────

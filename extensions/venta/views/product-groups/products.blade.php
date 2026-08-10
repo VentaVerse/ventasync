@@ -169,6 +169,18 @@
             $failed = in_array($syncState, ['error', 'failed'], true);
             $hasError = $failed && ($p->push_error ?? null);
 
+            /*
+             * The link says this product is on Venta and Venta says it is not.
+             *
+             * The row's whole action set turns on $hasVentaId, which reads a
+             * local link row. When that link is stale - a database copied from
+             * another environment carries links to products this one never had
+             * - the row offers Update, which can only answer 404, and hides
+             * Push, which is the only thing that would fix it. Reading the
+             * recorded failure is what tells the two apart.
+             */
+            $linkBroken = $hasVentaId && \App\Support\MarketplaceLink::looksMissingRemotely($p->push_error ?? null);
+
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
@@ -336,6 +348,25 @@
                      <x-ui.menu> now, which Alpine drives. --}}
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+
+                    {{-- First, because it is the only action that can resolve
+                         this state, and because every other item in this menu
+                         acts on a link Venta has already said is dead. Push and
+                         Match are hidden by $hasVentaId; Update, Push stock and
+                         Push price will each answer 404. Without this the menu
+                         offers nothing that works. --}}
+                    @if($linkBroken)
+                        <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-slow-action>
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                            <input type="hidden" name="relink" value="1">
+                            <button type="submit" class="x-menu__item"
+                                    data-confirm="Venta does not have this product. Create it there as a new product and point the link at it?"
+                                    data-confirm-tone="primary">Push as new</button>
+                        </form>
+                        <div class="x-menu__sep" role="separator"></div>
+                    @endif
 
                     @if(!$hasVentaId && !$isUnlinked)
                         <form method="POST" action="{{ route('ext.venta.product-groups.sync-id', [$setting->id, $group->id, $p->product_id]) }}" data-slow-action>
