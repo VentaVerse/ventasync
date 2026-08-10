@@ -66,14 +66,54 @@ function initTabs(root) {
         });
     }
 
+    /*
+     * The URL names the tab you are looking at.
+     *
+     * ?tab= was already read on load - the controllers redirect with
+     * ?tab=logs after saving log settings - but clicking a tab only ever
+     * wrote to localStorage, so the address bar went on describing the tab
+     * the page opened with. A tab could not be linked to, bookmarked, or
+     * survive a refresh, and sending someone "the API explorer" meant sending
+     * a URL that would open on Connection and telling them where to click.
+     *
+     * replaceState rather than pushState, deliberately. Each tab has its own
+     * address and can be copied out of the bar at any moment, but stepping
+     * through five tabs does not bury the page the operator arrived from
+     * under five history entries they have to press Back through to leave.
+     *
+     * Every other query parameter is preserved: a multi-store channel carries
+     * its store in the same URL, and dropping it here would move the operator
+     * to a different shop.
+     */
+    function writeToUrl(id) {
+        if (typeof window.history?.replaceState !== 'function') return;
+
+        const short = prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
+        const url = new URL(window.location.href);
+
+        if (url.searchParams.get('tab') === short) return;
+
+        url.searchParams.set('tab', short);
+        window.history.replaceState(window.history.state, '', url);
+    }
+
     triggers.forEach((trigger) => {
         trigger.addEventListener('click', function () {
             const id = trigger.getAttribute('data-cs-tab');
             show(id);
+            writeToUrl(id);
             if (storageKey) {
                 try { window.localStorage.setItem(storageKey, id); } catch (e) { /* private mode */ }
             }
         });
+    });
+
+    // A real back or forward - arriving from a link, or the operator editing
+    // the address - re-reads the URL rather than leaving the panels showing
+    // whatever was open before.
+    window.addEventListener('popstate', function () {
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab) show(prefix + tab);
     });
 
     // Restore order, unchanged from the inline original: an explicit ?tab=
@@ -88,7 +128,14 @@ function initTabs(root) {
     }
     if (!wanted) wanted = fallback;
 
-    if (wanted) show(wanted);
+    if (wanted && ids.indexOf(wanted) !== -1) {
+        show(wanted);
+        // The address describes what is on screen from the first paint, so a
+        // tab restored from localStorage is as copyable as one that was
+        // clicked. Without this the panel and the URL disagree the moment the
+        // page opens on a remembered tab.
+        writeToUrl(wanted);
+    }
 }
 
 /* ------------------------------------------------------------------
