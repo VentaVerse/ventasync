@@ -162,6 +162,21 @@ class IntegrationRegistry
     }
 
     /**
+     * The provider for one channel id, when that channel can reveal a stored
+     * credential. Null for a channel that does not implement the contract,
+     * which is the same answer as "refuses", so the caller needs no second
+     * branch for "not supported" and "not allowed".
+     */
+    public function credentialRevealer(string $channelId): ?\App\Integrations\Contracts\CredentialRevealer
+    {
+        $provider = $this->providers[$channelId] ?? null;
+
+        return $provider instanceof \App\Integrations\Contracts\CredentialRevealer
+            ? $provider
+            : null;
+    }
+
+    /**
      * Providers that implement DashboardContributor — used by core's
      * DashboardController to gather per-marketplace stats, sync status,
      * and other widgets without core knowing which marketplaces exist.

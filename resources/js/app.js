@@ -35,6 +35,7 @@ import './pages/order-form';
 import { initNavGroups } from './nav-groups';
 import xenonPalette from './palette';
 import pettyCash from './pages/petty-cash';
+import credentialField from './credential-field';
 
 import Alpine from 'alpinejs';
 
@@ -51,6 +52,7 @@ initNavGroups();
 window.Alpine = Alpine;
 Alpine.data('xenonPalette', xenonPalette);
 Alpine.data('pettyCash', pettyCash);
+Alpine.data('credentialField', credentialField);
 Alpine.start();
 
 /**

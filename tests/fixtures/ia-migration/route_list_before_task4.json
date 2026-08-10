@@ -2105,6 +2105,11 @@
         "name": "integrations.workspace"
     },
     {
+        "method": "POST",
+        "uri": "integrations/{channel}/settings/credential/reveal",
+        "name": "integrations.credential.reveal"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "integrations/{key}",
         "name": null

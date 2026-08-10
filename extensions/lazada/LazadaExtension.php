@@ -3,6 +3,7 @@
 namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
+use App\Integrations\Contracts\CredentialRevealer;
 use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\LayoutBannerContributor;
 use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
@@ -30,7 +31,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider
+class LazadaExtension extends ExtensionProvider implements IntegrationProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -651,5 +652,52 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             'badge_class' => 'badge-indigo',
             'chart_color' => '#0F146D',
         ]];
+    }
+
+    // ── Credential reveal ──────────────────────────────────────
+
+    /**
+     * The two secrets an operator has a real reason to read back, and nothing
+     * else. App KEYS are not here: they are identifiers, they already render
+     * in the clear, and adding them would widen the allowlist for no gain.
+     *
+     * @return array<string, string>
+     */
+    public function revealableCredentials(): array
+    {
+        return [
+            'app_secret'           => 'App Secret',
+            'access_token'         => 'Access token',
+            'sandbox_app_secret'   => 'Sandbox App Secret',
+            'sandbox_access_token' => 'Sandbox access token',
+        ];
+    }
+
+    public function revealCredential(string $field, ?int $storeId = null): ?string
+    {
+        // Re-checked here rather than trusted from the caller. The controller
+        // already tests the allowlist; a provider that skips its own check is
+        // one refactor away from being the hole.
+        if (! array_key_exists($field, $this->revealableCredentials())) {
+            return null;
+        }
+
+        // Lazada is single-store, so a store id names nothing and is refused
+        // rather than ignored - quietly accepting it would make a
+        // multi-store-shaped request look like it had been honoured.
+        if ($storeId !== null) {
+            return null;
+        }
+
+        $setting = \Extensions\lazada\Models\LazadaSetting::query()->first()?->decrypted();
+
+        $value = $setting?->{$field} ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    public function credentialManagePermission(): string
+    {
+        return 'manage_lazada';
     }
 }

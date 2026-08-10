@@ -2732,6 +2732,56 @@
        its JavaScript are unchanged, so the behaviour is exactly the one
        the rest of the app already had.
        ------------------------------------------------------------ */
+    /* ------------------------------------------------------------
+       CREDENTIAL FIELD
+
+       A stored secret, masked to its real length, with a control that asks
+       the server for the plaintext rather than reading it out of the page.
+       The eye sits inside the field's own box so the pair reads as one
+       control and not as an input with a button parked beside it.
+       ------------------------------------------------------------ */
+    .x-cred { position: relative; display: flex; align-items: center; }
+
+    /* Room for the eye, so a long value scrolls under the button instead of
+       running beneath it. */
+    .x-cred__input { width: 100%; padding-right: 38px; }
+
+    .x-cred__eye {
+        position: absolute;
+        right: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: var(--bl-r-ctrl);
+        background: none;
+        color: var(--bl-ink-3);
+        cursor: pointer;
+    }
+
+    .x-cred__eye:hover { color: var(--bl-ink); background: var(--bl-chrome); }
+    .x-cred__eye:disabled { opacity: .5; cursor: default; }
+
+    /* Revealed is a state worth seeing from across the row: this field is
+       showing a secret right now. */
+    .x-cred__eye[aria-pressed="true"] { color: var(--bl-attn); }
+
+    .x-cred__meta {
+        margin: 5px 0 0;
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .x-cred__sep { color: var(--bl-rule-2); }
+
+    /* The eye is a one-handed tap on a tablet as often as a click. */
+    @media (pointer: coarse) {
+        .x-cred__eye { width: 44px; height: 44px; right: 2px; }
+        .x-cred__input { padding-right: 52px; }
+    }
+
     .x-search-trigger {
         display: flex;
         align-items: center;

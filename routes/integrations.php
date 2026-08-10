@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Integrations\IntegrationController;
 use App\Http\Controllers\Integrations\ChannelWorkspaceController;
+use App\Http\Controllers\Integrations\CredentialRevealController;
 
 // IA migration (2026-08-08, Task 4): Integrations section. Required from
 // routes/web.php inside the ['auth'] group. Every route here already shared
@@ -30,6 +31,18 @@ Route::prefix('integrations')->group(function () {
     Route::get('/module/{module}', [IntegrationController::class, 'module'])
         ->where('module', '[A-Za-z0-9_:-]+')
         ->name('integrations.module');
+
+    // Reveal one stored credential, for an operator who holds the channel's
+    // manage permission. POST, so the field being asked for never lands in a
+    // URL, a browser history entry or an access log.
+    //
+    // Registered before the /{channel} wildcard below. That route is a GET so
+    // it could not swallow this one, but the ordering is the same rule the
+    // rest of this file follows and breaking it here would only teach the
+    // next reader that the rule is optional.
+    Route::post('/{channel}/settings/credential/reveal', CredentialRevealController::class)
+        ->where('channel', '[A-Za-z0-9_.-]+')
+        ->name('integrations.credential.reveal');
 
     // Registered after integrations/orders and integrations/module on purpose:
     // this is a wildcard and would otherwise capture both.

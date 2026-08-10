@@ -330,12 +330,15 @@
                                     value="{{ $setting->sandbox_app_key ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Sandbox App Secret" for="lz-sb-app-secret" name="sandbox_app_secret" wide
-                                hint="Stored encrypted. Leave it as it is to keep the saved secret.">
-                        <x-ui.input id="lz-sb-app-secret" name="sandbox_app_secret" type="password" autocomplete="off" :disabled="!$canManageLazada"
-                                    value="{{ !empty($setting->sandbox_app_secret) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->sandbox_app_secret) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="sandbox_app_secret"
+                        id="lz-sb-app-secret"
+                        label="Sandbox App Secret"
+                        channel="lazada"
+                        hint="Stored encrypted."
+                        :length="strlen((string) ($setting->sandbox_app_secret ?? ''))"
+                        :can-reveal="$canManageLazada"
+                        :disabled="!$canManageLazada" />
 
                     {{-- No name attribute, same as the production copy. --}}
                     <x-ui.field label="Redirect URI" for="lz-sb-redirect" wide
@@ -432,10 +435,20 @@
             <form method="POST" action="{{ route('ext.lazada.sandbox_token_save') }}">
                 @csrf
                 <div class="fm-fields fm-fields--2">
-                    <x-ui.field label="Sandbox access token" for="lz-sb-paste-token" name="sandbox_access_token" required wide>
-                        <x-ui.input id="lz-sb-paste-token" name="sandbox_access_token" type="password" autocomplete="off"
-                                    placeholder="Paste the token from the Get Token button" required />
-                    </x-ui.field>
+                    {{-- Was blank with a placeholder, because this form only ever
+                         SET a token and never showed the one in use. An
+                         operator could not tell whether the token they pasted
+                         last week was still there, which is exactly the
+                         question this page gets opened to answer. --}}
+                    <x-ui.credential
+                        name="sandbox_access_token"
+                        id="lz-sb-paste-token"
+                        label="Sandbox access token"
+                        channel="lazada"
+                        :length="strlen((string) ($setting->sandbox_access_token ?? ''))"
+                        :can-reveal="$canManageLazada"
+                        placeholder="Paste the token from the Get Token button"
+                        required />
 
                     <x-ui.field label="Good for" for="lz-sb-expires" name="expires_in_days"
                                 hint="Anything from 1 to 365 days. Lazada does not say how long a pasted token lasts, so this is what the ERP will assume.">
