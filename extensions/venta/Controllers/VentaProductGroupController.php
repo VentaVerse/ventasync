@@ -28,6 +28,65 @@ class VentaProductGroupController extends Controller
     }
 
     /**
+     * Read the per-image verdict Venta returns with every push.
+     *
+     * Its response carries `images` (the ones it downloaded and kept) and
+     * `images_failed` (each rejected url with the reason it was rejected).
+     * Nothing here read either, so a push whose product was created and whose
+     * images were every one refused came back as "Created: 1, Updated: 0,
+     * Failed: 0" - green, no failures, no mention of images. The product
+     * really was created, so the count was not wrong; it was half the answer,
+     * and the missing half was the part the operator was looking for.
+     *
+     * Venta names the reason precisely, so the reason is what gets carried up
+     * rather than a count. On this installation every rejection reads "Host
+     * '192.168.0.10' resolves to a disallowed address", which is its SSRF
+     * guard refusing a private network address and is the whole explanation
+     * for why images never arrive from a sandbox.
+     *
+     * @param  array<string, mixed>  $result   the client's response envelope
+     * @param  int                   $pid      the ERP product just pushed
+     * @param  int                   $sent     running total offered to Venta
+     * @param  int                   $stored   running total Venta kept
+     * @param  array<string, int>    $reasons  reason => how many images it cost
+     */
+    private function collectImageVerdict(array $result, int $pid, int &$sent, int &$stored, array &$reasons): void
+    {
+        $body = $result['body'] ?? [];
+        $body = is_array($body) ? ($body['data'] ?? $body) : [];
+
+        $kept = $body['images'] ?? null;
+        $failed = $body['images_failed'] ?? null;
+
+        // A response with neither key is from an older Venta that does not
+        // report on images at all. Silence there is not evidence of failure,
+        // so nothing is claimed.
+        if ($kept === null && $failed === null) {
+            return;
+        }
+
+        $keptCount = is_array($kept) ? count($kept) : (int) $kept;
+        $failedList = is_array($failed) ? $failed : [];
+
+        $stored += $keptCount;
+        $sent += $keptCount + count($failedList);
+
+        foreach ($failedList as $entry) {
+            $reason = is_array($entry)
+                ? trim((string) ($entry['reason'] ?? 'no reason given'))
+                : trim((string) $entry);
+
+            if ($reason === '') {
+                $reason = 'no reason given';
+            }
+
+            // Grouped by reason, not listed per url. Six images refused for
+            // one reason is one thing an operator needs to know, not six.
+            $reasons[$reason] = ($reasons[$reason] ?? 0) + 1;
+        }
+    }
+
+    /**
      * Point an ERP product at a Venta product, or say who is in the way.
      *
      * A unique key on (venta_setting_id, venta_product_id) enforces one Venta
@@ -720,6 +779,13 @@ class VentaProductGroupController extends Controller
 
         $created = 0;
         $updated = 0;
+
+        // Venta answers every push with a per-image verdict. Nothing read it,
+        // so a push whose product landed and whose images were all refused
+        // reported "Created: 1, Failed: 0" and said nothing about the images.
+        $imagesSent = 0;
+        $imagesStored = 0;
+        $imageRejections = [];
         $failed = 0;
         $errors = [];
 
@@ -920,6 +986,7 @@ class VentaProductGroupController extends Controller
                 $result = $client->updateProduct($sku, $data);
                 if ($result['ok']) {
                     $updated++;
+                    $this->collectImageVerdict($result, $pid, $imagesSent, $imagesStored, $imageRejections);
                     VentaProductGroupProduct::where('venta_product_group_id', $g->id)
                         ->where('product_id', $pid)
                         ->update([
@@ -941,6 +1008,7 @@ class VentaProductGroupController extends Controller
                 $result = $client->createProduct($data);
                 if ($result['ok']) {
                     $created++;
+                    $this->collectImageVerdict($result, $pid, $imagesSent, $imagesStored, $imageRejections);
                     $ventaProductId = $result['body']['id'] ?? $result['body']['data']['id'] ?? 0;
 
                     /*
@@ -999,6 +1067,36 @@ class VentaProductGroupController extends Controller
 
         $msg = "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}";
 
+        /*
+         * The images, said out loud.
+         *
+         * A product can land perfectly and carry none of its pictures, which
+         * is what happens on any sandbox: Venta refuses to download from a
+         * private address. Reported as its own clause rather than folded into
+         * the failure count, because the product genuinely did push - saying
+         * "Failed: 1" about it would be a different lie from the one being
+         * fixed.
+         */
+        if ($imagesSent > 0 && $imagesStored < $imagesSent) {
+            $rejected = $imagesSent - $imagesStored;
+            $msg .= ". {$rejected} of {$imagesSent} images were rejected by Venta";
+
+            // Venta's own words. One line per distinct reason, because six
+            // images refused for one reason is one thing to know, not six.
+            arsort($imageRejections);
+            $lines = [];
+            foreach (array_slice($imageRejections, 0, 2, true) as $reason => $count) {
+                $lines[] = "{$count}x {$reason}";
+            }
+            $msg .= ': ' . implode('; ', $lines);
+
+            if (count($imageRejections) > 2) {
+                $msg .= ' (and ' . (count($imageRejections) - 2) . ' other reasons)';
+            }
+        } elseif ($imagesSent > 0) {
+            $msg .= ". {$imagesStored} images stored";
+        }
+
         if (! empty($errors)) {
             Log::warning('Venta pushProducts errors', ['store' => $store, 'group' => $group, 'errors' => $errors]);
 
@@ -1013,8 +1111,16 @@ class VentaProductGroupController extends Controller
             }
         }
 
-        // Green only when nothing was lost.
-        $tone = $failed === 0 ? 'status' : (($created + $updated) > 0 ? 'warning' : 'error');
+        // Green only when nothing was lost, and images count as something.
+        // A push that stored the product and none of its pictures is not a
+        // clean success, whatever the product count says.
+        $lostImages = $imagesSent > 0 && $imagesStored < $imagesSent;
+
+        $tone = match (true) {
+            $failed > 0 && ($created + $updated) === 0 => 'error',
+            $failed > 0 || $lostImages => 'warning',
+            default => 'status',
+        };
 
         return $this->productsRedirect($store, $group)->with($tone, $msg);
     }
