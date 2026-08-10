@@ -82,6 +82,7 @@
             <option value="pushed" @selected($syncStatus === 'pushed')>Pushed</option>
             <option value="pending" @selected($syncStatus === 'pending')>Not pushed yet</option>
             <option value="error" @selected($syncStatus === 'error')>Last push failed</option>
+            <option value="unlinked" @selected($syncStatus === 'unlinked')>Unlinked</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -92,6 +93,26 @@
         <a class="x-filters__reset" href="{{ $listUrl }}">Clear</a>
     @endif
 </form>
+
+{{-- Failures outlive the banner that announced them.
+
+     A push summary named up to five failures and then vanished on the next
+     click, so an operator who navigated away had to remember which of twelve
+     had failed. The count is taken across the whole group rather than the
+     current page or filter, so it does not quietly shrink as you narrow the
+     list, and it is a link to exactly the rows it counts.
+
+     Hidden while that filter is already applied, because a pointer to where
+     you are standing is noise. --}}
+@if(($failedCount ?? 0) > 0 && $syncStatus !== 'error')
+    <p class="cc-failnote">
+        <x-ui.icon name="alert-triangle" size="13" class="cc-failnote__icon" />
+        <span><span class="x-num">{{ number_format($failedCount) }}</span>
+            {{ \Illuminate\Support\Str::plural('product', $failedCount) }} in this group
+            {{ $failedCount === 1 ? 'failed its' : 'failed their' }} last push.</span>
+        <a class="cc-failnote__link" href="{{ request()->fullUrlWithQuery(['sync_status' => 'error', 'page' => null]) }}">Show them</a>
+    </p>
+@endif
 
 @if($canManageShopee)
 {{-- Bulk bar. It exists only once at least one row is ticked. Each action is
@@ -307,7 +328,36 @@
                 @if($failed && ! $hasError)
                     <span class="cc-err">Push failed. No reason was recorded.</span>
                 @elseif($hasError)
-                    <span class="cc-err">{{ \Illuminate\Support\Str::limit($pivot->push_error, 120) }}</span>
+                    @php
+                        $reason = (string) $pivot->push_error;
+                        // 120 shown against a column stored at 480: the reason
+                        // was truncated with no title and no expansion, so up
+                        // to 360 characters of what Shopee actually said were
+                        // unreachable from the interface. A fulfilment
+                        // operator's escalation was a sentence ending in an
+                        // ellipsis.
+                        $clipped = \Illuminate\Support\Str::limit($reason, 120);
+                    @endphp
+
+                    @if($clipped === $reason)
+                        <span class="cc-err">{{ $reason }}</span>
+                    @else
+                        {{-- <details>, not a tooltip: a title attribute waits
+                             a second, never appears on a phone, and cannot be
+                             reached from the keyboard. This opens on Enter and
+                             on tap. --}}
+                        <details class="cc-reason">
+                            <summary class="cc-reason__summary">
+                                <span class="cc-err cc-reason__clip">{{ $clipped }}</span>
+                                <span class="cc-reason__toggle">
+                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
+                                    <span class="cc-reason__label">Full reason</span>
+                                </span>
+                            </summary>
+                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
+                        </details>
+                    @endif
+
                     @if($pivot->last_pushed_at)
                         <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
                     @endif

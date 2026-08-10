@@ -337,6 +337,119 @@
     font-weight: 500;
 }
 
+/* ── The full reason, on request ──────────────────────────────────────
+   push_error is stored at 480 characters and the cell printed 120 of them
+   with no title and no expansion, so up to 360 characters of what the
+   marketplace actually said were unreachable from the interface.
+
+   A <details> rather than a title attribute: a tooltip waits about a second,
+   never appears on a phone, and cannot be reached from the keyboard. This
+   opens on Enter and on tap, and needs no JavaScript. */
+.cc-reason {
+    display: block;
+}
+
+.cc-reason__summary {
+    display: block;
+    cursor: pointer;
+    list-style: none;
+}
+
+/* Both engines, because each hides the marker its own way and a stray
+   triangle beside a drawn chevron is the tell. */
+.cc-reason__summary::-webkit-details-marker { display: none; }
+.cc-reason__summary::marker { content: ''; }
+
+.cc-reason__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--bl-ink-3);
+}
+
+.cc-reason__summary:hover .cc-reason__toggle,
+.cc-reason__summary:focus-visible .cc-reason__toggle {
+    color: var(--bl-ink);
+}
+
+.cc-reason__summary:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+    border-radius: var(--bl-r-dot);
+}
+
+.cc-reason__chevron {
+    transition: transform 160ms ease;
+}
+
+.cc-reason[open] .cc-reason__chevron {
+    transform: rotate(180deg);
+}
+
+/* Closed shows the clipped reason; open shows the whole one. Printing both
+   would repeat the first 120 characters directly above themselves. */
+.cc-reason[open] .cc-reason__clip { display: none; }
+
+.cc-reason__full {
+    margin: 0;
+    max-width: 46ch;
+    /* The reason column is naturally narrow, and inside the scrolling table
+       it measured 51px on a phone: opening the full reason produced a
+       289px-tall ribbon one word wide, which is not reading. Asking to read
+       it earns the room. The table already scrolls, so the cell widening on
+       demand costs nothing that was not already true. */
+    min-width: 30ch;
+}
+
+/* ── Failures outlive the banner that announced them ──────────────────
+   A line, not a card. The count is the whole group's, and it links to
+   exactly the rows it counts. The word "failed" carries the meaning; the
+   colour only agrees with it. */
+.cc-failnote {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    color: var(--bl-ink-3);
+}
+
+.cc-failnote__icon {
+    flex: none;
+    color: var(--bl-bad);
+}
+
+.cc-failnote__link {
+    color: var(--bl-brand);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.cc-failnote__link:hover {
+    color: var(--bl-ink);
+}
+
+/* A new control does not get to ship under the comfort target. Gated on the
+   input device rather than the viewport, matching how the rest of the suite
+   raises its targets, so a narrow desktop window keeps the tighter rhythm. */
+@media (pointer: coarse) {
+    .cc-failnote__link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    .cc-reason__toggle {
+        min-height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cc-reason__chevron { transition: none; }
+}
+
 .cc-when {
     display: block;
     margin-top: 2px;

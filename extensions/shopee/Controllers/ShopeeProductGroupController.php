@@ -339,15 +339,25 @@ class ShopeeProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
+        // These four must answer exactly what the badge shows, in the same
+        // order the badge tests. 'pushed' used to be "has an item id and is
+        // not unlinked", which INCLUDED failures - so filtering to Pushed
+        // returned rows the badge calls Failed, in one screenful. A filter
+        // that disagrees with the column it filters teaches the operator not
+        // to trust either.
         if ($syncStatus === 'pushed') {
             $query->whereNotNull('gp.shopee_item_id')->where('gp.shopee_item_id', '!=', '')
-                ->where('gp.sync_status', '!=', 'unlinked');
+                ->whereNotIn('gp.sync_status', ['unlinked', 'error']);
         } elseif ($syncStatus === 'pending') {
             $query->where(function ($w) {
                 $w->whereNull('gp.shopee_item_id')->orWhere('gp.shopee_item_id', '');
             })->whereNotIn('gp.sync_status', ['error', 'unlinked']);
         } elseif ($syncStatus === 'error') {
             $query->where('gp.sync_status', 'error');
+        } elseif ($syncStatus === 'unlinked') {
+            // The badge has always had four states and the filter offered
+            // three, so unlinked products could only be found by eye.
+            $query->where('gp.sync_status', 'unlinked');
         }
 
         $products = $query->orderBy('p.product_id', 'desc')->paginate(50)->appends($request->except('page'));
@@ -366,7 +376,21 @@ class ShopeeProductGroupController extends Controller
                     ->where(function ($w) {
                         $w->whereNull('shopee_item_id')->orWhere('shopee_item_id', '');
                     })
-                    ->where('sync_status', '!=', 'unlinked')
+                    // 'error' is excluded, and that exclusion is the point.
+                    //
+                    // This back-fill runs on a GET. With only 'unlinked'
+                    // excluded, loading the page took a row a failed push had
+                    // just marked error-with-no-item-id, gave it an id from
+                    // the links table and set it to synced - WITHOUT clearing
+                    // push_error. The result rendered as a green Pushed badge
+                    // sitting next to the words "invalid category". A refresh
+                    // laundered a failure into a success, which is why a
+                    // failed push kept looking like it had worked.
+                    //
+                    // Adopting a link the operator made elsewhere is fine.
+                    // Overwriting a recorded failure is not, and a read has no
+                    // business deciding a push succeeded.
+                    ->whereNotIn('sync_status', ['unlinked', 'error'])
                     ->get();
 
                 foreach ($missingPivots as $pivot) {
@@ -374,7 +398,11 @@ class ShopeeProductGroupController extends Controller
                     if ($linkId) {
                         $pivot->update([
                             'shopee_item_id' => (string) $linkId,
-                            'sync_status' => 'synced',
+                            // 'pushed', not 'synced'. Two words for one state
+                            // meant the vocabulary had five entries for four
+                            // states, and this was the only writer of the
+                            // fifth.
+                            'sync_status' => 'pushed',
                         ]);
                     }
                 }
@@ -460,8 +488,19 @@ class ShopeeProductGroupController extends Controller
         // All product IDs in this group (for "Remove from Group" action)
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
+        // Counted across the WHOLE group, not the current page or filter. The
+        // push summary was the only place failures were named, and it is a
+        // flash message the next click destroys, so an operator who navigated
+        // away had to remember which of twelve had failed. This is the same
+        // fact, kept where it cannot be lost.
+        $failedCount = ShopeeProductGroupProduct::query()
+            ->where('shopee_product_group_id', $group->id)
+            ->where('sync_status', 'error')
+            ->count();
+
         return view('ext-shopee::product-groups.products', [
             'group' => $group,
+            'failedCount' => $failedCount,
             'products' => $products,
             'pivotMap' => $pivotMap,
             'optionRowsByProductId' => $optionRowsByProductId,
@@ -1108,7 +1147,12 @@ class ShopeeProductGroupController extends Controller
         // Link and refresh models from API
         $pivot->update([
             'shopee_item_id' => (string) $matchedItemId,
-            'sync_status' => 'synced',
+            // 'pushed' everywhere. There were two words for one state, and
+            // the only thing keeping them interchangeable was that nothing
+            // read either of them. The first query written as
+            // where('sync_status', 'pushed') would have silently missed every
+            // row the Match-ID path had touched.
+            'sync_status' => 'pushed',
         ]);
 
         return $this->refreshShopeeProductLinks($pivot, $productId, (int) $matchedItemId, $skus, $erpHasOptions, $client, $mode, $pid, $pkey, $token, $shopId);
@@ -1175,7 +1219,7 @@ class ShopeeProductGroupController extends Controller
                     ->delete();
             }
 
-            $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'synced']);
+            $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'pushed']);
 
             return redirect()->back()->with('status', "Shopee item ID {$itemId} synced, {$linked} variation(s) linked.");
         }
@@ -1186,7 +1230,7 @@ class ShopeeProductGroupController extends Controller
             ['sku' => $skus[0] ?? '', 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
         );
 
-        $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'synced']);
+        $pivot->update(['shopee_item_id' => (string) $itemId, 'sync_status' => 'pushed']);
 
         return redirect()->back()->with('status', "Shopee item ID {$itemId} synced.");
     }
