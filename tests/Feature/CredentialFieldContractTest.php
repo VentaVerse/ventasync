@@ -127,6 +127,68 @@ class CredentialFieldContractTest extends TestCase
             'There is more than one place that empties this field.');
     }
 
+    /**
+     * Clicking Hide used to bounce straight back to the revealed state.
+     *
+     * Pressing the control moves focus off the input, the input blurs, the
+     * blur handler hid the field, and THEN the click ran toggle() - which saw
+     * a hidden field and revealed it again. Two state changes from one press,
+     * ending exactly where it started.
+     */
+    public function test_the_blur_handler_cannot_race_the_control(): void
+    {
+        $js = file_get_contents(base_path('resources/js/credential-field.js'));
+
+        $this->assertStringContainsString('event.relatedTarget === this.$refs.toggle', $js,
+            'Blur hides the field even when focus is moving to its own control, so Hide bounces back to revealed.');
+
+        // As a listener option, not the comment that explains why it went.
+        $this->assertStringNotContainsString('}, { once: true });', $js,
+            'The blur listener is registered per reveal again, so the first blur consumes it whether or not it acted.');
+
+        $this->assertStringContainsString('x-ref="toggle"',
+            file_get_contents(base_path('resources/views/components/ui/credential.blade.php')),
+            'The control is not addressable, so the blur guard cannot recognise it.');
+    }
+
+    /**
+     * Once edited the field holds the operator's own unsaved value, so a
+     * reveal would overwrite it with the stored one: a silent discard of their
+     * work, one click from a control still inviting them to press it.
+     */
+    public function test_an_edited_field_cannot_be_clobbered_by_revealing_again(): void
+    {
+        $js = file_get_contents(base_path('resources/js/credential-field.js'));
+        $component = file_get_contents(base_path('resources/views/components/ui/credential.blade.php'));
+
+        $this->assertMatchesRegularExpression('/if \(this->edited\) \{\s*\n\s*return;/',
+            str_replace('this.edited', 'this->edited', $js),
+            'toggle() will re-fetch over an edited field.');
+
+        $this->assertStringContainsString('x-show="! edited"', $component,
+            'The control stays visible after editing, inviting a press that would discard the edit.');
+    }
+
+    /**
+     * The caption reads `edited`, so it has to share the component's scope. On
+     * its own it sits outside, where the expression is undefined and x-show
+     * silently never fires.
+     */
+    public function test_the_caption_shares_the_components_scope(): void
+    {
+        $component = file_get_contents(base_path('resources/views/components/ui/credential.blade.php'));
+
+        $this->assertSame(1, substr_count($component, 'x-data='),
+            'More than one scope in this component: a nested x-data shadows the outer one.');
+
+        $dataAt = strpos($component, 'x-data=');
+        $metaAt = strpos($component, 'x-cred__meta');
+
+        $this->assertNotFalse($metaAt);
+        $this->assertLessThan($metaAt, $dataAt,
+            'The caption is declared before the scope that owns it, so `edited` reads as undefined there.');
+    }
+
     /** Two submit handlers on one field is how a saved credential gets wiped. */
     public function test_only_one_handler_owns_a_managed_field(): void
     {

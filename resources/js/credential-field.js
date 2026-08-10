@@ -27,10 +27,11 @@
  *     read into any number of unrecorded ones.
  *
  *  2. Re-masks after 30 seconds of NOT being edited, and on blur when
- *     untouched. A credential revealed on a packing-station monitor should not
- *     still be legible an hour later. The timer is cancelled by the first
- *     edit, because re-masking a field someone is typing into would discard
- *     their work - which is the defect this rewrite exists to remove.
+ *     untouched and focus is going somewhere other than its own control. A
+ *     credential revealed on a packing-station monitor should not still be
+ *     legible an hour later. The timer is cancelled by the first edit,
+ *     because re-masking a field someone is typing into would discard their
+ *     work - which is the defect this rewrite exists to remove.
  *
  *  3. Submits BLANK when the value was revealed but not edited. The
  *     controllers read blank as "keep what is stored", so looking at a secret
@@ -65,6 +66,34 @@ export default function credentialField({ channel, store, field, mask }) {
                 this.timer = null;
             });
 
+            /*
+             * ONE blur listener, registered once, and it refuses to act when
+             * the thing taking focus is this field's own control.
+             *
+             * Clicking Hide made the button appear to bounce: pressing it
+             * moves focus off the input, the input blurs, the blur handler
+             * hid the field, and THEN the click ran toggle() - which saw a
+             * hidden field and revealed it again. Two state changes from one
+             * press, ending exactly where it started.
+             *
+             * relatedTarget is where focus is going, so the guard catches the
+             * mouse and the keyboard alike; a Tab to the button is the same
+             * event. It was previously registered per reveal with
+             * { once: true }, which also meant the first blur consumed the
+             * listener whether or not it did anything.
+             */
+            this.$refs.input.addEventListener('blur', (event) => {
+                if (! this.shown || this.edited) {
+                    return;
+                }
+
+                if (event.relatedTarget === this.$refs.toggle) {
+                    return;
+                }
+
+                this.hide();
+            });
+
             const form = this.$refs.input.closest('form');
 
             if (form) {
@@ -79,6 +108,21 @@ export default function credentialField({ channel, store, field, mask }) {
         async toggle() {
             if (this.shown) {
                 this.hide();
+                return;
+            }
+
+            /*
+             * Once edited, there is nothing left to reveal and everything to
+             * lose. The field already holds the operator's own unsaved value,
+             * so fetching would overwrite it with the stored one - a silent
+             * discard of their work, one click from a control whose label
+             * still invited them to press it.
+             *
+             * The control hides itself in that state (x-show in the
+             * component), so this is the belt to that braces: a keyboard or a
+             * script reaching toggle() directly gets the same refusal.
+             */
+            if (this.edited) {
                 return;
             }
 
@@ -119,11 +163,6 @@ export default function credentialField({ channel, store, field, mask }) {
                 input.setSelectionRange(input.value.length, input.value.length);
 
                 this.timer = setTimeout(() => this.hide(), REMASK_AFTER_MS);
-                input.addEventListener('blur', () => {
-                    if (! this.edited) {
-                        this.hide();
-                    }
-                }, { once: true });
             } catch (e) {
                 window.showFlashError?.('That credential could not be shown.');
             } finally {
@@ -144,7 +183,9 @@ export default function credentialField({ channel, store, field, mask }) {
 
             // An edited value is the operator's work. Hiding must not discard
             // it, so the field goes back to dots ONLY when it still holds the
-            // value it was given.
+            // value it was given. It also stays editable: re-locking a field
+            // someone has typed into would strand their value behind a control
+            // that no longer offers to unlock it.
             if (this.edited) {
                 input.type = 'password';
                 return;

@@ -132,8 +132,18 @@ class OpenCartController extends Controller
             ActivityLogger::log('created', 'OpenCart Store', $setting->id, $setting->store_name ?? $setting->base_url);
         }
 
-        $savedStoreId = $setting->id;
-        return redirect()->route('ext.opencart.index', $savedStoreId ? ['store' => $savedStoreId] : [])->with('status', 'OpenCart store saved.');
+        // ext.opencart.settings.show, NOT ext.opencart.index.
+        //
+        // index is a legacy fallback that takes no store parameter and
+        // redirects to the FIRST store by id. Passing ['store' => n] to it
+        // does not scope anything: the id is appended as a query string and
+        // ignored, so saving store 3 landed the operator on store 1, looking
+        // at another shop's credentials with nothing saying it had moved. On a
+        // channel where every store is a live storefront that is worse than an
+        // inconvenience. Same defect Venta had.
+        return redirect()
+            ->route('ext.opencart.settings.show', ['store' => $setting->id])
+            ->with('status', 'OpenCart store saved.');
     }
 
     public function saveReviewSettings(Request $request)
@@ -148,7 +158,8 @@ class OpenCartController extends Controller
             'review_auto_approve' => $request->has('review_auto_approve'),
         ]);
 
-        return redirect()->route('ext.opencart.index', ['store' => $setting->id])
+        return redirect()
+            ->route('ext.opencart.settings.show', ['store' => $setting->id])
             ->with('status', 'Review settings saved.');
     }
 
@@ -177,7 +188,7 @@ class OpenCartController extends Controller
 
         $msg = $parts ? 'Order sync updated: ' . implode(', ', $parts) . '.' : 'Order sync settings saved.';
 
-        return redirect()->route('ext.opencart.index', ['store' => $setting->id])->with('status', $msg);
+        return redirect()->route('ext.opencart.settings.show', ['store' => $setting->id])->with('status', $msg);
     }
 
     public function destroy($id)

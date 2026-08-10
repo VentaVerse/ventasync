@@ -76,7 +76,12 @@
             : null;
     @endphp
 
-    <div class="x-cred" @if($bind) x-data="credentialField({{ $bind }})" @endif>
+    {{-- The scope wraps the field row AND the caption beneath it, because
+         both need to know whether the operator has started editing. Putting
+         x-data on the row alone left the caption outside it, where `edited`
+         reads as undefined and x-show silently never fires. --}}
+    <div @if($bind) x-data="credentialField({{ $bind }})" @endif>
+    <div class="x-cred">
         {{-- type=password while masked: a browser that offers to save or
              autofill a text field would happily do it to a field full of
              dots, and the dots would be what it saved. --}}
@@ -103,7 +108,12 @@
             class="x-cred__input" />
 
         @if($bind)
+            {{-- Gone once the operator has typed. The field then holds their
+                 own unsaved value, so there is nothing left to reveal and a
+                 press would overwrite it with the stored one. --}}
             <button type="button" class="x-cred__eye"
+                    x-show="! edited"
+                    x-ref="toggle"
                     @click="toggle()"
                     :aria-pressed="shown ? 'true' : 'false'"
                     :aria-label="shown ? 'Hide {{ $label ?? $name }}' : 'View and edit {{ $label ?? $name }}'"
@@ -116,7 +126,7 @@
     </div>
 
     @if($stored)
-        <p class="x-cred__meta" @if($bind) x-data @endif>
+        <p class="x-cred__meta">
             <span class="x-num">{{ number_format($length) }}</span> stored characters
             @if($canReveal)
                 <span class="x-cred__sep" aria-hidden="true">&middot;</span>
@@ -124,8 +134,10 @@
                      what happens if it is not: the old hint, "type to
                      replace", described a behaviour this field no longer has
                      and never explained that leaving it alone was safe. --}}
-                <span>read-only until you choose to edit</span>
+                <span x-show="! edited">read-only until you choose to edit</span>
+                <span x-show="edited" x-cloak>edited, not yet saved</span>
             @endif
         </p>
     @endif
+    </div>
 </x-ui.field>
