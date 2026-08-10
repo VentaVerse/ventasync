@@ -1405,6 +1405,21 @@
 
     .fh-head { margin-bottom: var(--space-5); }
 
+    /* The back link sits ABOVE the title, the same placement the channel
+       sidebar uses, so leaving a channel is the same gesture in both places.
+       Quiet by default: it is an escape hatch, not the page's action. */
+    .fh-head__back {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 3px;
+        font-size: 12.5px;
+        color: var(--bl-ink-3);
+        text-decoration: none;
+    }
+
+    .fh-head__back:hover { color: var(--bl-ink); }
+
     /* The page's whole answer, as a sentence rather than a row of figures. */
     .fh-head__state {
         display: flex;

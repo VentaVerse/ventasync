@@ -46,7 +46,28 @@
 @endphp
 
 <div class="fh-head">
-    <h1 class="x-page-title">Fulfilment</h1>
+    {{-- The way back to every channel.
+
+         The Summary card used to carry this: it sat first in the strip and
+         clicking it cleared the filter. Removing it from the grid was right -
+         an aggregate is not a peer of the channels, and the divider that
+         separated the two broke the moment the grid wrapped - but the brief
+         claimed the head sentence would take over that job and it never did.
+         With a panel open, nothing in the page body led back to the
+         unfiltered view; the only route was the sidebar's Fulfilment entry,
+         which renders in its ACTIVE state and so reads as "you are here"
+         rather than as a way out.
+
+         Same words and same shape as the channel sidebar's own back link, so
+         leaving a channel is one gesture wherever you meet it. --}}
+    @if($selectedChannel)
+        <a class="fh-head__back" href="{{ route('integrations.orders') }}">
+            <x-ui.icon name="chevron-left" size="12" />
+            All channels
+        </a>
+    @endif
+
+    <h1 class="x-page-title">{{ $selectedChannelLabel ?? 'Fulfilment' }}</h1>
     @if($fhWork)
         <p class="fh-head__state">
             <span class="{{ $fhWaiting > 0 ? 'fh-head__work is-live' : 'fh-head__work' }}">{{ $fhWork }}</span>
