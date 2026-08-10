@@ -286,20 +286,56 @@
             </td>
 
             <td class="cc-col-sync" data-label="Push">
+                {{-- FAILED IS TESTED BEFORE PUSHED, and the order is the whole
+                     point. This used to ask "does it have a Lazada id?" first,
+                     so a row carrying an id read "Pushed" no matter what the
+                     status said, and the Failed badge could never render for
+                     any product that had one - which is nearly every product
+                     that can fail. A row states its most recent outcome, not
+                     the best outcome it has ever had. --}}
                 @if($isUnlinked)
                     <span class="x-cell-muted">Unlinked</span>
-                @elseif($hasLazadaId)
-                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @elseif($failed)
                     <x-ui.badge tone="danger">Failed</x-ui.badge>
+                @elseif($hasLazadaId)
+                    <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @else
                     <span class="x-cell-muted">Not yet</span>
                 @endif
             </td>
 
             <td class="cc-col-err" data-label="Last push">
-                @if($hasError)
-                    <span class="cc-err">{{ \Illuminate\Support\Str::limit($pivot->push_error, 120) }}</span>
+                {{-- A failure with no saved message still says so. Silence in a
+                     column that only ever fills on failure reads as nothing
+                     wrong, and rendered "Never" - the strongest possible
+                     statement that nothing has ever gone wrong. --}}
+                @if($failed && ! $hasError)
+                    <span class="cc-err">Push failed. No reason was recorded.</span>
+                @elseif($hasError)
+                    @php
+                        $reason = (string) $pivot->push_error;
+                        // 120 shown against a column stored at 480: the rest
+                        // was unreachable from the interface entirely.
+                        $clipped = \Illuminate\Support\Str::limit($reason, 120);
+                    @endphp
+
+                    @if($clipped === $reason)
+                        <span class="cc-err">{{ $reason }}</span>
+                    @else
+                        {{-- <details>, not a tooltip: a title attribute waits a
+                             second, never appears on a phone, and cannot be
+                             reached from the keyboard. --}}
+                        <details class="cc-reason">
+                            <summary class="cc-reason__summary">
+                                <span class="cc-err cc-reason__clip">{{ $clipped }}</span>
+                                <span class="cc-reason__toggle">
+                                    <x-ui.icon name="chevron-down" size="12" class="cc-reason__chevron" />
+                                    <span class="cc-reason__label">Full reason</span>
+                                </span>
+                            </summary>
+                            <p class="cc-err cc-reason__full">{{ $reason }}</p>
+                        </details>
+                    @endif
                     @if($pivot->last_pushed_at)
                         <span class="cc-when">{{ \Carbon\Carbon::parse($pivot->last_pushed_at)->diffForHumans() }}</span>
                     @endif
@@ -315,7 +351,10 @@
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
 
-                    @if(!$hasLazadaId)
+                    {{-- && !$isUnlinked, matching Venta. Without it an unlinked
+                         row offered Push and "Link again" side by side, which are
+                         opposite answers to the same question. --}}
+                    @if(!$hasLazadaId && !$isUnlinked)
                         <form method="POST" action="{{ route('ext.lazada.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">

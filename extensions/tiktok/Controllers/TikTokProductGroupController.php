@@ -398,7 +398,19 @@ class TikTokProductGroupController extends Controller
                 ->where('tiktok_product_group_id', $group->id)
                 ->whereIn('product_id', $productIds)
                 ->whereNull('tiktok_product_id')
-                ->where('sync_status', '!=', 'unlinked')
+                // 'error' is excluded, and that exclusion is the point.
+                //
+                // This runs on a GET. With only 'unlinked' excluded, loading
+                // the page took a row a failed push had just marked
+                // error-with-no-id, gave it an id from another group and set
+                // it to synced WITHOUT clearing push_error - so it rendered
+                // as a green Pushed badge beside the reason it had failed.
+                // Every refresh laundered a failure into a success.
+                //
+                // Adopting an id the operator created elsewhere is fine.
+                // Overwriting a recorded failure is not, and a read has no
+                // business deciding a push succeeded.
+                ->whereNotIn('sync_status', ['unlinked', 'error'])
                 ->get();
 
             if ($missingPivots->isNotEmpty()) {
@@ -415,7 +427,10 @@ class TikTokProductGroupController extends Controller
                     if ($ttId) {
                         $pivot->update([
                             'tiktok_product_id' => $ttId,
-                            'sync_status' => 'synced',
+                            // 'pushed', matching the word the push path
+                            // writes. Two words for one state stay
+                            // interchangeable only while nothing reads them.
+                            'sync_status' => 'pushed',
                         ]);
                     }
                 }

@@ -373,7 +373,10 @@
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
                     <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
 
-                    @if(!$hasShopeeId)
+                    {{-- && !$isUnlinked, matching Venta. Without it an unlinked
+                         row offered Push and "Link again" side by side, which are
+                         opposite answers to the same question. --}}
+                    @if(!$hasShopeeId && !$isUnlinked)
                         <form method="POST" action="{{ route('ext.shopee.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">

@@ -298,9 +298,13 @@ class VentaProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
+        // See Lazada: the Pushed filter returned rows the badge calls Failed.
+        // 'failed' is included alongside 'error' because this channel's view
+        // treats both as a failure ($failed tests for either), so the filter
+        // has to agree with it.
         if ($syncStatus === 'pushed') {
             $query->whereNotNull('vpl.venta_product_id')
-                ->where('vpgp.sync_status', '!=', 'unlinked');
+                ->whereNotIn('vpgp.sync_status', ['unlinked', 'error', 'failed']);
         } elseif ($syncStatus === 'pending') {
             $query->whereNull('vpl.venta_product_id')
                 ->where(function ($w) {

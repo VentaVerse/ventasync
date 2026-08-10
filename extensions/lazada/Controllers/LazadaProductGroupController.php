@@ -323,9 +323,12 @@ class LazadaProductGroupController extends Controller
             $query->where('p.status', 0);
         }
 
+        // Must answer exactly what the badge shows. 'pushed' used to be "has an
+        // item id and is not unlinked", which INCLUDED failures - so filtering
+        // to Pushed returned rows the badge calls Failed, in one screenful.
         if ($syncStatus === 'pushed') {
             $query->whereNotNull('lp.lazada_item_id')->where('lp.lazada_item_id', '!=', '')
-                ->where('gp.sync_status', '!=', 'unlinked');
+                ->whereNotIn('gp.sync_status', ['unlinked', 'error']);
         } elseif ($syncStatus === 'pending') {
             $query->where(function ($w) {
                 $w->whereNull('lp.lazada_item_id')->orWhere('lp.lazada_item_id', '');
