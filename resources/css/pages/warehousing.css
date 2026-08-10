@@ -148,14 +148,18 @@
    moved yet", so the step where it moves is the one that changes
    weight.
    ------------------------------------------------------------------ */
+/* The transfer's status strip is a page-level panel sitting on the ground
+   beside the Lines sheet, so it takes the sheet treatment rather than the
+   inset's 11px. Measured at depth 1 from the content region. */
 .wh-rail {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0;
     padding: var(--space-4) var(--space-5) var(--space-3);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    box-shadow: var(--bl-lift);
     margin-bottom: var(--space-5);
 }
 

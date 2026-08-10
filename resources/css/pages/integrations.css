@@ -602,7 +602,21 @@
 
 .x-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3); }
 
-.x-board__card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+/* A top-level page card, so it takes the foundation's sheet: 16px and a lift,
+   not the 11px flat box --radius-md gives. This is the hub's primary content
+   and it was the one place where a page-level container still wore the INSET
+   treatment - measured at 11px against every sheet's 16px on the same
+   screen. */
+.x-board__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    box-shadow: var(--bl-lift);
+}
 .x-board__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 .x-board__name { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .x-board__store { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }

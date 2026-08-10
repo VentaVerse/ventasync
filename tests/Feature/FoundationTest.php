@@ -83,7 +83,7 @@ class FoundationTest extends TestCase
         'pages/channel-listing.css' => 30,
         'pages/channel-settings.css' => 164,
         'pages/group-form.css' => 58,
-        'pages/integrations.css' => 78,
+        'pages/integrations.css' => 75,
         'pages/lazada-orders.css' => 44,
         'pages/licenses.css' => 13,
         'pages/marketplace-common.css' => 15,
@@ -97,7 +97,7 @@ class FoundationTest extends TestCase
         'pages/shopee-orders.css' => 62,
         'pages/tiktok-orders.css' => 11,
         'pages/venta-orders.css' => 13,
-        'pages/warehousing.css' => 114,
+        'pages/warehousing.css' => 111,
     ];
 
     private const LEGACY_TOKEN_PATTERN =
