@@ -25,33 +25,40 @@
 @endphp
 
 @section('content')
-    <div class="flex flex-wrap items-end gap-4 px-gutter pt-4.5 pb-3.5">
+    {{-- On the shared list anatomy, not a hand-rolled copy of it.
+
+         This page had its own head and its own filter row written in raw
+         utilities: a bare flex div with an h1 sized by hand, and inputs on
+         .bl-input inside a bare form. Every other list in the application -
+         45 of them - uses .x-list-head and .x-filters, so this page was the
+         one that drifted, and no amount of work on the shared components was
+         ever going to reach it. --}}
+    <div class="x-list-head">
         <div>
-            <h1 class="text-[21px] font-semibold tracking-tight">Products</h1>
-            <p class="text-[13px] text-ink-3">
+            <h1 class="x-page-title">Products</h1>
+            <p class="x-page-sub">
                 {{ number_format($products->total()) }} {{ Str::plural('product', $products->total()) }}
                 @if($hasFilters) matching this filter @endif
             </p>
         </div>
         @if($canManageProducts)
-            <a href="{{ route('products.create') }}" class="bl-btn bl-btn-primary ml-auto">
+            <x-ui.button variant="primary" :href="route('products.create')">
                 <x-ui.icon name="plus" size="14" /> New product
-            </a>
+            </x-ui.button>
         @endif
     </div>
 
-    <form method="GET" action="{{ route('products.index') }}" id="products-filter"
-          class="flex flex-wrap items-center gap-2 px-gutter pb-3.5">
-        <label for="products-q" class="sr-only">Search products</label>
-        <input id="products-q" type="search" name="q" value="{{ $q }}"
-               placeholder="Search name, SKU, model" class="bl-input max-w-[300px]">
+    <form method="GET" action="{{ route('products.index') }}" id="products-filter" class="x-filters">
+        <label class="x-sr" for="products-q">Search products</label>
+        <x-ui.input type="search" id="products-q" name="q" :value="$q"
+                    placeholder="Search name, SKU, model" class="x-filters__search" />
 
-        <label for="products-status" class="sr-only">Filter by status</label>
-        <select id="products-status" name="status" class="bl-input max-w-[170px]" data-autosubmit>
+        <label class="x-sr" for="products-status">Filter by status</label>
+        <x-ui.select id="products-status" name="status" class="x-filters__select--narrow" data-autosubmit>
             <option value="">All statuses</option>
             <option value="1" @selected($status === '1')>Enabled</option>
             <option value="0" @selected($status === '0')>Disabled</option>
-        </select>
+        </x-ui.select>
 
         {{-- Keeps the sorted column from being dropped the moment a filter
              is submitted. --}}
@@ -59,10 +66,7 @@
         <input type="hidden" name="dir" value="{{ $dir }}">
 
         @if($hasFilters)
-            <a href="{{ route('products.index') }}"
-               class="border-b border-rule-2 text-[12.5px] text-ink-2 no-underline hover:border-ink hover:text-ink">
-                Clear filters
-            </a>
+            <a href="{{ route('products.index') }}" class="x-filters__reset">Clear filters</a>
         @endif
     </form>
 

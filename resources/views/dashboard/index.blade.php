@@ -174,14 +174,17 @@
 @endphp
 
 @section('content')
-    <div class="flex flex-wrap items-end gap-4 px-gutter pt-4.5 pb-3.5">
+    {{-- The shared list head, not a hand-rolled copy. Its utilities computed
+         to the same 18px/14px inset .x-list-head already applies, so this is
+         the same head it always was, now spelled once. --}}
+    <div class="x-list-head">
         <div>
-            <h1 class="text-[21px] font-semibold tracking-tight">{{ $greeting }}</h1>
-            <p class="text-[13px] text-ink-3">
+            <h1 class="x-page-title">{{ $greeting }}</h1>
+            <p class="x-page-sub">
                 {{ now()->format('l, j F') }} &middot; trading since 00:00
             </p>
         </div>
-        <div class="ml-auto flex gap-1.5">
+        <div class="flex gap-1.5">
             <a href="{{ route('search') }}" class="bl-btn">
                 <x-ui.icon name="search" size="14" /> Find an order
             </a>

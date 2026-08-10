@@ -289,13 +289,14 @@
 }
 
 @theme {
-    /* px-gutter has been used on the shell header since v2.2 and generated
-       NOTHING: without a spacing token of that name Tailwind emits no rule,
-       so the topbar has had zero horizontal padding all along and the
-       account name sat flush against the window edge. Declaring the token
-       makes the class real and puts the chrome on the same gutter as the
-       page under it. */
-    --spacing-gutter: var(--bl-page-gutter);
+    /* NO --spacing-gutter token here, deliberately.
+       Declaring one makes Tailwind emit .px-gutter as a UTILITY, and utilities
+       cascade after components, so it silently beat the .px-gutter rule in the
+       components layer below. Two fixes landed months apart - one to give the
+       topbar its padding, one to stop the page gutter doubling inside
+       .x-content - and the second was defeated by the first without either
+       being wrong on its own. The single definition lives with the other
+       gutter rules instead. */
 
     --color-paper: var(--bl-paper);
     --color-sheet: var(--bl-sheet);
@@ -1021,10 +1022,14 @@
     /* One name for the page gutter, so a view never has to pick a number.
        Every ad-hoc px-4.5 / px-5 / px-7 in a Blotter view was a chance for
        two sections to disagree about where the page edge is. */
-    .px-gutter {
-        padding-left: var(--bl-pad-l, 0px);
-        padding-right: var(--bl-pad-r, 0px);
-    }
+    /* --bl-gutter, not --bl-pad-l/r. --bl-gutter is the page edge: it is
+       var(--bl-page-gutter) at root and redeclared to 0 inside .x-content,
+       which is what stops a view that asks for the gutter from being inset
+       twice once the content region already paid it. --bl-pad-l/r are a
+       COLUMN's inset from a divider, they are only ever defined on
+       .x-content, and asking for them here gave the topbar zero padding and
+       every in-content section a doubled 60px. */
+    .px-gutter { padding-inline: var(--bl-gutter); }
     .pl-gutter { padding-left: var(--bl-pad); }
     .pr-gutter { padding-right: var(--bl-pad); }
 }
