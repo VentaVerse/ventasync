@@ -44,13 +44,6 @@
     $statusMap = $orderStatusMaps->get($store->id, collect());
     $storeSyncLogs = $recentLogs->where('opencart_setting_id', $store->id);
 
-    $artisan = '/usr/bin/php ' . base_path('artisan');
-    $cronJobs = [
-        ['id' => 'orders',  'label' => 'Pull orders',  'note' => 'Every five minutes is usual.', 'cmd' => $artisan . ' opencart:sync orders --store=' . $store->id],
-        ['id' => 'qty',     'label' => 'Push stock',   'note' => 'Every fifteen minutes is usual.', 'cmd' => $artisan . ' opencart:push-qty --store=' . $store->id],
-        ['id' => 'reviews', 'label' => 'Push reviews', 'note' => 'Once a day is usual.', 'cmd' => $artisan . ' opencart:push-reviews --store=' . $store->id],
-    ];
-
     // The ordered checklist for a first import. Steps 1 and 2 have nothing in
     // front of them; the rest wait on what they genuinely depend on, which is
     // the same dependency map the pre-redesign stepper carried.
@@ -123,11 +116,11 @@
         <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="oc-tab-connection-tab" aria-controls="oc-tab-connection" data-cs-tab="oc-tab-connection">Connection</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-orders-tab" aria-controls="oc-tab-orders" data-cs-tab="oc-tab-orders">Order sync</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-status-tab" aria-controls="oc-tab-status" data-cs-tab="oc-tab-status">Status mapping</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-schedule-tab" aria-controls="oc-tab-schedule" data-cs-tab="oc-tab-schedule">Scheduling</button>
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-automations-tab" aria-controls="oc-tab-automations" data-cs-tab="oc-tab-automations">Automations</button>
         @if($canManageOpencart)
             <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-import-tab" aria-controls="oc-tab-import" data-cs-tab="oc-tab-import">First import</button>
         @endif
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-log-tab" aria-controls="oc-tab-log" data-cs-tab="oc-tab-log">Run log</button>
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="oc-tab-sync-tab" aria-controls="oc-tab-sync" data-cs-tab="oc-tab-sync">Sync log</button>
     </div>
 </div>
 
@@ -457,46 +450,28 @@
 {{-- ================================================================
      SCHEDULING
      ================================================================ --}}
-<div id="oc-tab-schedule" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-schedule-tab" hidden>
+@if($canManageOpencart)
+<div id="oc-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-automations-tab" hidden>
     <section class="fm-section">
         <div class="fm-section__head">
-            <h2 class="fm-section__title">Scheduled commands</h2>
+            <h2 class="fm-section__title">Scheduled jobs</h2>
+            <x-ui.hint label="About the scheduled jobs">How often each OpenCart sync runs for {{ $store->store_name ?: $store->base_url }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        <p class="fm-section__note">This server runs its jobs from the hosting panel's scheduler, not from a URL. Paste each command into a cron entry and give it an interval. Each one is already scoped to {{ $storeName }}.</p>
 
-        <div class="cs-crons">
-            @foreach($cronJobs as $job)
-                <div class="cs-cron">
-                    <div class="cs-cron__head">
-                        <span class="cs-cron__title">{{ $job['label'] }}</span>
-                        <span class="cs-cron__note">{{ $job['note'] }}</span>
-                    </div>
-                    <div class="cs-cron__row">
-                        <code class="cs-cron__cmd" id="oc-cron-{{ $job['id'] }}">{{ $job['cmd'] }}</code>
-                        <x-ui.button type="button" size="sm" data-copy-target="oc-cron-{{ $job['id'] }}">Copy</x-ui.button>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    </section>
+        {{-- The same control every other channel uses.
 
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Where these go</h2>
-        </div>
-        <ol class="cs-guide">
-            <li>Open your hosting panel's Cron Jobs or Scheduled Tasks page.</li>
-            <li>Add an entry and set the interval, for example <span class="cs-code">*/5 * * * *</span> for every five minutes.</li>
-            <li>Paste one of the commands above as the command to run.</li>
-            <li>Save, and check the Run log tab after the first interval has passed.</li>
-        </ol>
+             This tab printed three artisan commands to copy into the hosting
+             panel by hand, so OpenCart's jobs ran only if the operator had
+             pasted each one and the ERP knew nothing about whether they
+             existed, when they last ran, or whether they had failed. The
+             command list and cadences are unchanged; only who runs them is.
+
+             storeId is passed because OpenCart is multi-store: each store has
+             its own three jobs, carrying --store on the command line. --}}
+        @include('partials._automations_tab', ['integration' => 'opencart', 'storeId' => $store->id])
     </section>
 </div>
 
-{{-- ================================================================
-     FIRST IMPORT
-     ================================================================ --}}
-@if($canManageOpencart)
 <div id="oc-tab-import" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-import-tab" hidden>
     <section class="fm-section">
         <div class="fm-section__head">
@@ -569,7 +544,7 @@
 {{-- ================================================================
      RUN LOG
      ================================================================ --}}
-<div id="oc-tab-log" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-log-tab" hidden>
+<div id="oc-tab-sync" class="cs-panel" role="tabpanel" aria-labelledby="oc-tab-sync-tab" hidden>
     <section class="fm-section">
         <div class="fm-section__head">
             <h2 class="fm-section__title">Recent runs</h2>

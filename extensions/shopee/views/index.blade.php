@@ -89,7 +89,7 @@
      controls removed. --}}
 <div class="x-segment-bar">
     <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="sp-tab-settings-tab" aria-controls="sp-tab-settings" data-cs-tab="sp-tab-settings">Connection</button>
+        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="sp-tab-connection-tab" aria-controls="sp-tab-connection" data-cs-tab="sp-tab-connection">Connection</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-status-tab" aria-controls="sp-tab-status" data-cs-tab="sp-tab-status">Status mapping</button>
         @if($canManageShopee)
             <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="sp-tab-explorer-tab" aria-controls="sp-tab-explorer" data-cs-tab="sp-tab-explorer">API explorer</button>
@@ -107,7 +107,7 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="sp-tab-settings" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-settings-tab">
+<div id="sp-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="sp-tab-connection-tab">
 
     <section class="fm-section">
         <div class="fm-section__head">

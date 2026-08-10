@@ -103,7 +103,7 @@
      controls removed. --}}
 <div class="x-segment-bar">
     <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="lz-tab-settings-tab" aria-controls="lz-tab-settings" data-cs-tab="lz-tab-settings">Connection</button>
+        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="lz-tab-connection-tab" aria-controls="lz-tab-connection" data-cs-tab="lz-tab-connection">Connection</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="lz-tab-status-tab" aria-controls="lz-tab-status" data-cs-tab="lz-tab-status">Status mapping</button>
         @if($canManageLazada)
             <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="lz-tab-explorer-tab" aria-controls="lz-tab-explorer" data-cs-tab="lz-tab-explorer">API explorer</button>
@@ -121,7 +121,7 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="lz-tab-settings" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-settings-tab">
+<div id="lz-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="lz-tab-connection-tab">
 
     <section class="fm-section">
         <div class="fm-section__head">

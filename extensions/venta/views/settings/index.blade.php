@@ -102,7 +102,7 @@
         <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="vt-tab-connection-tab" aria-controls="vt-tab-connection" data-cs-tab="vt-tab-connection">Connection</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-status-tab" aria-controls="vt-tab-status" data-cs-tab="vt-tab-status">Status mapping</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-automations-tab" aria-controls="vt-tab-automations" data-cs-tab="vt-tab-automations">Automations</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-api-tab" aria-controls="vt-tab-api" data-cs-tab="vt-tab-api">
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-logs-tab" aria-controls="vt-tab-logs" data-cs-tab="vt-tab-logs">
             <span>API log</span>
             @if($apiLogCount > 0)<span class="x-segment__count">{{ number_format($apiLogCount) }}</span>@endif
         </button>
@@ -382,7 +382,7 @@
 {{-- ================================================================
      API LOG
      ================================================================ --}}
-<div id="vt-tab-api" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-api-tab" hidden>
+<div id="vt-tab-logs" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-logs-tab" hidden>
 
     <section class="fm-section">
         <div class="fm-section__head">

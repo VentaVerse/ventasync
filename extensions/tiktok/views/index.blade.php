@@ -111,7 +111,7 @@
      controls removed. --}}
 <div class="x-segment-bar">
     <div class="x-segment" role="tablist" aria-label="Settings sections">
-        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="tt-tab-settings-tab" aria-controls="tt-tab-settings" data-cs-tab="tt-tab-settings">Connection</button>
+        <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="tt-tab-connection-tab" aria-controls="tt-tab-connection" data-cs-tab="tt-tab-connection">Connection</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-status-tab" aria-controls="tt-tab-status" data-cs-tab="tt-tab-status">Status mapping</button>
         @if($canManageTiktok)
             <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="tt-tab-explorer-tab" aria-controls="tt-tab-explorer" data-cs-tab="tt-tab-explorer">API explorer</button>
@@ -129,7 +129,7 @@
 {{-- ================================================================
      CONNECTION
      ================================================================ --}}
-<div id="tt-tab-settings" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-settings-tab">
+<div id="tt-tab-connection" class="cs-panel" role="tabpanel" aria-labelledby="tt-tab-connection-tab">
 
     <section class="fm-section">
         <div class="fm-section__head">

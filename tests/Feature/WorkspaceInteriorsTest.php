@@ -2853,8 +2853,25 @@ class WorkspaceInteriorsTest extends TestCase
                     'OpenCart settings does not post the store it was asked for.');
                 $this->assertStringContainsString('data-store-id="'.$two.'"', $content,
                     'OpenCart settings does not scope its AJAX calls to the store it was asked for.');
-                $this->assertStringContainsString('--store='.$two, $content,
-                    'OpenCart settings printed a cron command for the wrong store.');
+                // This asserted that the page printed `--store=N` in a cron
+                // command for the operator to paste by hand. Those commands
+                // are gone: the jobs are scheduled_jobs rows now. The intent
+                // was store scoping, so that is what is checked, and against
+                // the rows themselves rather than a string that happens to
+                // contain a number.
+                preg_match_all('/name="jobs\[(\d+)\]/', $content, $rendered);
+
+                $this->assertNotEmpty($rendered[1],
+                    'OpenCart settings rendered no scheduled jobs at all.');
+
+                $owners = \App\Models\ScheduledJob::query()
+                    ->whereIn('id', array_unique($rendered[1]))
+                    ->pluck('store_id')
+                    ->unique()
+                    ->all();
+
+                $this->assertSame([$two], $owners,
+                    'OpenCart settings showed scheduled jobs belonging to another store.');
             } else {
                 $this->assertStringContainsString('/integrations/opencart/'.$two.'/', $content,
                     "OpenCart {$label} emitted no link scoped to the store it was asked for.");
@@ -3190,7 +3207,14 @@ class WorkspaceInteriorsTest extends TestCase
 
         $settings = $this->actingAs($user)->get(route('ext.opencart.settings.show', ['store' => $one]))->assertOk();
         $settings->assertSee('Complete');
-        $settings->assertSee('opencart:sync orders --store='.$one);
+        // The Automations tab, not the copy-paste cron commands it replaced.
+        // OpenCart's jobs are scheduled_jobs rows now, the same as every other
+        // channel's, so the page shows each job and its cadence and the ERP
+        // knows when it last ran.
+        $settings->assertSee('Sync Orders');
+        $settings->assertSee('Push Stock &amp; Price', false);
+        $settings->assertSee('Push Reviews');
+        $settings->assertSee('schedule:run');
     }
 
     public function test_opencart_channel_sourced_names_are_escaped(): void

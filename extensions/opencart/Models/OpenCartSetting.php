@@ -60,4 +60,21 @@ class OpenCartSetting extends Model
     {
         $this->attributes['api_key'] = $value;
     }
+
+    /**
+     * A store gets its three scheduled jobs the moment it exists.
+     *
+     * On the model rather than in the controller that happens to create most
+     * of them: a store made by a seeder, by tinker, or by a second code path
+     * added later needs the same rows, and relying on one call site to
+     * remember is how a store ends up with an empty Automations tab and syncs
+     * that never run. ensureFor() is idempotent, so this cannot duplicate a
+     * row or reset a cadence the operator has edited.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $store) {
+            \Extensions\opencart\Support\OpencartScheduledJobs::ensureFor((int) $store->id);
+        });
+    }
 }
