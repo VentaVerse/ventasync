@@ -163,24 +163,30 @@
                                     value="{{ $setting->partner_id ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Partner Key" for="sp-partner-key" name="partner_key" wide
-                                hint="Stored encrypted. Leave it as it is to keep the saved key.">
-                        <x-ui.input id="sp-partner-key" name="partner_key" type="password" autocomplete="off" :disabled="!$canManageShopee"
-                                    value="{{ !empty($setting->partner_key) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->partner_key) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="partner_key"
+                        id="sp-partner-key"
+                        label="Partner Key"
+                        channel="shopee"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($setting->partner_key ?? null)"
+                        :can-reveal="$canManageShopee"
+                        :disabled="!$canManageShopee" />
 
                     <x-ui.field label="Shop ID" for="sp-shop-id" name="shop_id" wide>
                         <x-ui.input id="sp-shop-id" name="shop_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
                                     value="{{ $setting->shop_id ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Access Token" for="sp-access-token" name="access_token" wide
-                                hint="Stored encrypted. Normally filled in for you by the authorisation steps beside this.">
-                        <x-ui.input id="sp-access-token" name="access_token" type="password" autocomplete="off" :disabled="!$canManageShopee"
-                                    value="{{ !empty($setting->access_token) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->access_token) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="access_token"
+                        id="sp-access-token"
+                        label="Access Token"
+                        channel="shopee"
+                        hint="Stored encrypted. Normally filled in for you by the authorisation steps beside this."
+                        :length="\App\Support\Credentials::length($setting->access_token ?? null)"
+                        :can-reveal="$canManageShopee"
+                        :disabled="!$canManageShopee" />
 
                     {{-- No name attribute, deliberately: this is shown so it
                          can be copied into the Shopee console, and it must
@@ -303,25 +309,36 @@
                                     value="{{ $setting->sandbox_partner_id ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Sandbox Partner Key" for="sp-sb-partner-key" name="sandbox_partner_key" wide
-                                hint="Stored encrypted. Leave it as it is to keep the saved key.">
-                        <x-ui.input id="sp-sb-partner-key" name="sandbox_partner_key" type="password" autocomplete="off" :disabled="!$canManageShopee"
-                                    value="{{ !empty($setting->sandbox_partner_key) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->sandbox_partner_key) ? '1' : '0' }}" />
+                    <x-ui.credential
+                        name="sandbox_partner_key"
+                        id="sp-sb-partner-key"
+                        label="Sandbox Partner Key"
+                        channel="shopee"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($setting->sandbox_partner_key ?? null)"
+                        :can-reveal="$canManageShopee"
+                        :disabled="!$canManageShopee" />
+
+                    {{-- Shown in full, like the production Shop ID directly
+                         above it. A shop id is an identifier, not a secret: it
+                         appears in Shopee's own console and in every API log
+                         line, and masking it only stopped the operator
+                         confirming which shop they were pointed at. --}}
+                    <x-ui.field label="Sandbox Shop ID" for="sp-sb-shop-id" name="sandbox_shop_id" wide
+                                hint="The sandbox shop this connects to. Not a secret, so it is shown in full.">
+                        <x-ui.input id="sp-sb-shop-id" name="sandbox_shop_id" class="fm-input--num" type="text" autocomplete="off" :disabled="!$canManageShopee"
+                                    value="{{ $setting->sandbox_shop_id ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Sandbox Shop ID" for="sp-sb-shop-id" name="sandbox_shop_id" wide>
-                        <x-ui.input id="sp-sb-shop-id" name="sandbox_shop_id" type="password" autocomplete="off" :disabled="!$canManageShopee"
-                                    value="{{ !empty($setting->sandbox_shop_id) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->sandbox_shop_id) ? '1' : '0' }}" />
-                    </x-ui.field>
-
-                    <x-ui.field label="Sandbox Access Token" for="sp-sb-access-token" name="sandbox_access_token" wide
-                                hint="Stored encrypted.">
-                        <x-ui.input id="sp-sb-access-token" name="sandbox_access_token" type="password" autocomplete="off" :disabled="!$canManageShopee"
-                                    value="{{ !empty($setting->sandbox_access_token) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->sandbox_access_token) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="sandbox_access_token"
+                        id="sp-sb-access-token"
+                        label="Sandbox Access Token"
+                        channel="shopee"
+                        hint="Stored encrypted."
+                        :length="\App\Support\Credentials::length($setting->sandbox_access_token ?? null)"
+                        :can-reveal="$canManageShopee"
+                        :disabled="!$canManageShopee" />
 
                     {{-- No name attribute, same as the production copy. --}}
                     <x-ui.field label="Redirect URI" for="sp-sb-redirect" wide

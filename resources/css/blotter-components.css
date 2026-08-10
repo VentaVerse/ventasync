@@ -2753,34 +2753,59 @@
     /* ------------------------------------------------------------
        CREDENTIAL FIELD
 
-       A stored secret, masked to its real length, with a control that asks
-       the server for the plaintext rather than reading it out of the page.
-       The eye sits inside the field's own box so the pair reads as one
-       control and not as an input with a button parked beside it.
-       ------------------------------------------------------------ */
-    .x-cred { position: relative; display: flex; align-items: center; }
+       A stored secret, masked to its real length and READ-ONLY, with a
+       control that asks the server for the plaintext rather than reading it
+       out of the page.
 
-    /* Room for the eye, so a long value scrolls under the button instead of
-       running beneath it. */
-    .x-cred__input { width: 100%; padding-right: 38px; }
+       The control carries its words now. It was a bare eye parked inside the
+       field's own box, which reads as "look" - and the button no longer only
+       lets you look, it hands the field over to be edited. An icon cannot say
+       "and edit", so it sits beside the field and says it.
+       ------------------------------------------------------------ */
+    .x-cred { display: flex; align-items: center; gap: 8px; }
+
+    .x-cred__input { flex: 1 1 auto; min-width: 0; }
+
+    /* A read-only field must LOOK unavailable, or its first refusal to accept
+       a keystroke is the only thing that says so. Not the disabled treatment:
+       this field is not unavailable, it is one click from being editable. */
+    .x-cred__input[readonly] {
+        background: var(--bl-chrome);
+        color: var(--bl-ink-2);
+        cursor: default;
+    }
 
     .x-cred__eye {
-        position: absolute;
-        right: 4px;
+        flex: none;
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border: 0;
+        gap: 6px;
+        height: 34px;
+        padding: 0 11px;
+        border: 1px solid var(--bl-rule-2);
         border-radius: var(--bl-r-ctrl);
-        background: none;
-        color: var(--bl-ink-3);
+        background: var(--bl-sheet);
+        color: var(--bl-ink-2);
+        font: inherit;
+        font-size: 12.5px;
+        white-space: nowrap;
         cursor: pointer;
     }
 
-    .x-cred__eye:hover { color: var(--bl-ink); background: var(--bl-chrome); }
+    .x-cred__eye:hover { color: var(--bl-ink); border-color: var(--bl-ink-3); }
     .x-cred__eye:disabled { opacity: .5; cursor: default; }
+
+    .x-cred__eye:focus-visible {
+        outline: 2px solid var(--bl-brand);
+        outline-offset: 2px;
+    }
+
+    /* Below the narrowest desk width the label would push the field down to
+       nothing, so the words go and the accessible name carries them. */
+    @media (max-width: 560px) {
+        .x-cred__eye-label { display: none; }
+        .x-cred__eye { padding: 0 9px; }
+    }
 
     /* Revealed is a state worth seeing from across the row: this field is
        showing a secret right now. */
@@ -2794,10 +2819,9 @@
 
     .x-cred__sep { color: var(--bl-rule-2); }
 
-    /* The eye is a one-handed tap on a tablet as often as a click. */
+    /* The control is a one-handed tap on a tablet as often as a click. */
     @media (pointer: coarse) {
-        .x-cred__eye { width: 44px; height: 44px; right: 2px; }
-        .x-cred__input { padding-right: 52px; }
+        .x-cred__eye { min-height: 44px; height: 44px; }
     }
 
     .x-search-trigger {

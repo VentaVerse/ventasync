@@ -4,6 +4,7 @@ namespace Extensions\lazada;
 
 use App\Extensions\ExtensionProvider;
 use App\Integrations\Contracts\CredentialRevealer;
+use App\Integrations\Concerns\RevealsCredentials;
 use App\Integrations\Contracts\DashboardContributor;
 use App\Integrations\Contracts\LayoutBannerContributor;
 use App\Integrations\Contracts\MarketplaceSourceOptionsProvider;
@@ -663,6 +664,13 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
      *
      * @return array<string, string>
      */
+    use RevealsCredentials;
+
+    protected function credentialSettingsModel(): string
+    {
+        return \Extensions\lazada\Models\LazadaSetting::class;
+    }
+
     public function revealableCredentials(): array
     {
         return [
@@ -671,29 +679,6 @@ class LazadaExtension extends ExtensionProvider implements IntegrationProvider, 
             'sandbox_app_secret'   => 'Sandbox App Secret',
             'sandbox_access_token' => 'Sandbox access token',
         ];
-    }
-
-    public function revealCredential(string $field, ?int $storeId = null): ?string
-    {
-        // Re-checked here rather than trusted from the caller. The controller
-        // already tests the allowlist; a provider that skips its own check is
-        // one refactor away from being the hole.
-        if (! array_key_exists($field, $this->revealableCredentials())) {
-            return null;
-        }
-
-        // Lazada is single-store, so a store id names nothing and is refused
-        // rather than ignored - quietly accepting it would make a
-        // multi-store-shaped request look like it had been honoured.
-        if ($storeId !== null) {
-            return null;
-        }
-
-        $setting = \Extensions\lazada\Models\LazadaSetting::query()->first()?->decrypted();
-
-        $value = $setting?->{$field} ?? null;
-
-        return is_string($value) && $value !== '' ? $value : null;
     }
 
     public function credentialManagePermission(): string

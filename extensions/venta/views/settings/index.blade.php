@@ -172,17 +172,16 @@
                                     placeholder="https://store.example.com" :disabled="!$canManageVenta" />
                     </x-ui.field>
 
-                    <x-ui.field label="API token" for="vt-api-token" name="api_token" wide
-                                :hint="$canManageVenta
-                                    ? 'Stored encrypted. Leave blank to keep the stored token, type a new one to replace it.'
-                                    : 'Stored encrypted, and not shown to the view tier.'">
-                        {{-- Always sent blank, both tiers. The stored token
-                             never reaches the page source: save() keeps the
-                             existing value when this field posts empty. --}}
-                        <x-ui.input id="vt-api-token" name="api_token" type="password" autocomplete="off"
-                                    placeholder="{{ $store->api_token ? '••••••••' : '' }}"
-                                    value="" :disabled="!$canManageVenta" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="api_token"
+                        id="vt-api-token"
+                        label="API token"
+                        channel="venta"
+                        :store="$store->id"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($store->api_token ?? null)"
+                        :can-reveal="$canManageVenta"
+                        :disabled="!$canManageVenta" />
 
                     <x-ui.field label="Colour" for="vt-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">

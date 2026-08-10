@@ -27,7 +27,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider
+use App\Integrations\Contracts\CredentialRevealer;
+use App\Integrations\Concerns\RevealsCredentials;
+
+class TiktokExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -478,5 +481,36 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
             'badge_class' => 'badge-dark',
             'chart_color' => '#1e1e1e',
         ]];
+    }
+
+    use RevealsCredentials;
+
+    /**
+     * Readable back, and nothing else is.
+     *
+     * Public identifiers are deliberately absent: app keys, partner ids and
+     * shop ids are not secrets, so they are printed in the settings page and
+     * there is nothing to reveal. Only what is genuinely hidden appears here.
+     */
+    public function revealableCredentials(): array
+    {
+        return [
+            'app_secret' => 'App secret',
+            'access_token' => 'Access token',
+            'refresh_token' => 'Refresh token',
+            'sandbox_app_secret' => 'Sandbox app secret',
+            'sandbox_access_token' => 'Sandbox access token',
+            'sandbox_refresh_token' => 'Sandbox refresh token',
+        ];
+    }
+
+    protected function credentialSettingsModel(): string
+    {
+        return \Extensions\tiktok\Models\TikTokSetting::class;
+    }
+
+    public function credentialManagePermission(): string
+    {
+        return 'manage_tiktok';
     }
 }

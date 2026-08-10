@@ -29,7 +29,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler
+use App\Integrations\Contracts\CredentialRevealer;
+use App\Integrations\Concerns\RevealsCredentials;
+
+class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MobileMarketplaceProvider, LayoutBannerContributor, MarketplaceSourceOptionsProvider, RootRouteHandler, CredentialRevealer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -573,5 +576,37 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
 
         return app(\Extensions\shopee\Controllers\ShopeeController::class)
             ->root($request, app(ShopeeClient::class));
+    }
+
+    use RevealsCredentials;
+
+    /**
+     * Readable back, and nothing else is.
+     *
+     * Public identifiers are deliberately absent: app keys, partner ids and
+     * shop ids are not secrets, so they are printed in the settings page and
+     * there is nothing to reveal. Only what is genuinely hidden appears here.
+     */
+    public function revealableCredentials(): array
+    {
+        return [
+            'partner_key' => 'Partner key',
+            'access_token' => 'Access token',
+            'refresh_token' => 'Refresh token',
+            'sandbox_partner_key' => 'Sandbox partner key',
+            'sandbox_access_token' => 'Sandbox access token',
+            'sandbox_refresh_token' => 'Sandbox refresh token',
+            'push_partner_key' => 'Push partner key',
+        ];
+    }
+
+    protected function credentialSettingsModel(): string
+    {
+        return \Extensions\shopee\Models\ShopeeSetting::class;
+    }
+
+    public function credentialManagePermission(): string
+    {
+        return 'manage_shopee';
     }
 }

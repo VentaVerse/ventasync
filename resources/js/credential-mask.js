@@ -43,6 +43,30 @@ document.addEventListener('DOMContentLoaded', function () {
     var masked = document.querySelectorAll('input[data-credential-mask]');
 
     masked.forEach(function (input) {
+        // A field driven by credentialField() owns its own submit rule. Two
+        // handlers blanking one field is how a saved credential gets wiped by
+        // a form the operator only opened to read.
+        if (input.dataset.credentialManaged === '1') {
+            return;
+        }
+
+        // A read-only mask cannot be typed into, so the focus and edit hooks
+        // below have nothing to do. Its form still needs the submit rule, so
+        // that is left to run.
+        if (input.readOnly) {
+            var roForm = input.closest('form');
+
+            if (roForm) {
+                roForm.addEventListener('submit', function () {
+                    if (input.dataset.credentialMask === '1') {
+                        input.value = '';
+                    }
+                });
+            }
+
+            return;
+        }
+
         input.addEventListener('focus', function () {
             if (input.dataset.credentialMask !== '1') {
                 return;

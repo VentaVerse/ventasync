@@ -30,7 +30,10 @@ use Illuminate\Support\Facades\Schema;
  * OpenCart is a multi-store integration. Each enabled OpenCartSetting is its
  * own card + tab; metrics are scoped via marketplace_source = "opencart:{id}".
  */
-class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider
+use App\Integrations\Contracts\CredentialRevealer;
+use App\Integrations\Concerns\RevealsCredentials;
+
+class OpencartExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
 {
     protected string $id = 'opencart';
 
@@ -416,5 +419,36 @@ class OpencartExtension extends ExtensionProvider implements IntegrationProvider
                 'badge_class' => 'badge-dark',
                 'chart_color' => $s->brand_color ?: $palette[($s->id - 1) % count($palette)],
             ])->all();
+    }
+
+    use RevealsCredentials;
+
+    /**
+     * Readable back, and nothing else is.
+     *
+     * Public identifiers are deliberately absent: app keys, partner ids and
+     * shop ids are not secrets, so they are printed in the settings page and
+     * there is nothing to reveal. Only what is genuinely hidden appears here.
+     */
+    public function revealableCredentials(): array
+    {
+        return [
+            'api_key' => 'API key',
+        ];
+    }
+
+    protected function credentialSettingsModel(): string
+    {
+        return \Extensions\opencart\Models\OpenCartSetting::class;
+    }
+
+    protected function credentialIsMultiStore(): bool
+    {
+        return true;
+    }
+
+    public function credentialManagePermission(): string
+    {
+        return 'manage_opencart';
     }
 }

@@ -192,12 +192,15 @@
                                     value="{{ $setting->app_key ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="App Secret" for="tt-app-secret" name="app_secret" wide
-                                hint="Stored encrypted. Leave it as it is to keep the saved secret.">
-                        <x-ui.input id="tt-app-secret" name="app_secret" type="password" autocomplete="off" :disabled="!$canManageTiktok"
-                                    value="{{ !empty($setting->app_secret) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->app_secret) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="app_secret"
+                        id="tt-app-secret"
+                        label="App Secret"
+                        channel="tiktok"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($setting->app_secret ?? null)"
+                        :can-reveal="$canManageTiktok"
+                        :disabled="!$canManageTiktok" />
 
                     {{-- No name attribute, deliberately: this is shown so it can
                          be copied into the TikTok Shop Partner Center, and it
@@ -331,12 +334,15 @@
                                     value="{{ $setting->sandbox_app_key ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Sandbox App Secret" for="tt-sb-app-secret" name="sandbox_app_secret" wide
-                                hint="Stored encrypted. Leave it as it is to keep the saved secret.">
-                        <x-ui.input id="tt-sb-app-secret" name="sandbox_app_secret" type="password" autocomplete="off" :disabled="!$canManageTiktok"
-                                    value="{{ !empty($setting->sandbox_app_secret) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->sandbox_app_secret) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="sandbox_app_secret"
+                        id="tt-sb-app-secret"
+                        label="Sandbox App Secret"
+                        channel="tiktok"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($setting->sandbox_app_secret ?? null)"
+                        :can-reveal="$canManageTiktok"
+                        :disabled="!$canManageTiktok" />
 
                     {{-- No name attribute, same as the production copy. --}}
                     <x-ui.field label="Redirect URI" for="tt-sb-redirect" wide

@@ -194,17 +194,16 @@
                                     placeholder="https://store.example.com" :disabled="!$canManageOpencart" />
                     </x-ui.field>
 
-                    <x-ui.field label="API key" for="oc-api-key" name="api_key" wide
-                                :hint="$canManageOpencart
-                                    ? 'Must match the key set in the ERP Sync module on the OpenCart side. Stored encrypted. Leave blank to keep the stored key, type a new one to replace it.'
-                                    : 'Stored encrypted, and not shown to the view tier.'">
-                        {{-- Always sent blank, both tiers. The stored key
-                             never reaches the page source: save() keeps the
-                             existing value when this field posts empty. --}}
-                        <x-ui.input id="oc-api-key" name="api_key" type="password" autocomplete="off"
-                                    placeholder="{{ $store->api_key ? '••••••••' : '' }}"
-                                    value="" :disabled="!$canManageOpencart" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="api_key"
+                        id="oc-api-key"
+                        label="API key"
+                        channel="opencart"
+                        :store="$store->id"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($store->api_key ?? null)"
+                        :can-reveal="$canManageOpencart"
+                        :disabled="!$canManageOpencart" />
 
                     <x-ui.field label="Colour" for="oc-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">

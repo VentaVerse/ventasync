@@ -28,7 +28,10 @@ use Illuminate\Support\Facades\Schema;
  * per enabled store, with metrics scoped to that store via the
  * marketplace_source = "venta:{id}" convention used elsewhere in the app.
  */
-class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider
+use App\Integrations\Contracts\CredentialRevealer;
+use App\Integrations\Concerns\RevealsCredentials;
+
+class VentaExtension extends ExtensionProvider implements IntegrationProvider, SkuSyncContributor, DashboardContributor, MarketplaceSourceOptionsProvider, CredentialRevealer
 {
     protected string $id = 'venta';
 
@@ -333,5 +336,36 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
                 'badge_class' => 'badge-green',
                 'chart_color' => $s->brand_color ?: '#059669',
             ])->all();
+    }
+
+    use RevealsCredentials;
+
+    /**
+     * Readable back, and nothing else is.
+     *
+     * Public identifiers are deliberately absent: app keys, partner ids and
+     * shop ids are not secrets, so they are printed in the settings page and
+     * there is nothing to reveal. Only what is genuinely hidden appears here.
+     */
+    public function revealableCredentials(): array
+    {
+        return [
+            'api_token' => 'API token',
+        ];
+    }
+
+    protected function credentialSettingsModel(): string
+    {
+        return \Extensions\venta\Models\VentaSetting::class;
+    }
+
+    protected function credentialIsMultiStore(): bool
+    {
+        return true;
+    }
+
+    public function credentialManagePermission(): string
+    {
+        return 'manage_venta';
     }
 }

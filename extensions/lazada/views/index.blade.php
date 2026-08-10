@@ -197,12 +197,15 @@
                                     value="{{ $setting->app_key ?? '' }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="App Secret" for="lz-app-secret" name="app_secret" wide
-                                hint="Stored encrypted. Leave it as it is to keep the saved secret.">
-                        <x-ui.input id="lz-app-secret" name="app_secret" type="password" autocomplete="off" :disabled="!$canManageLazada"
-                                    value="{{ !empty($setting->app_secret) ? '••••••••' : '' }}"
-                                    data-credential-mask="{{ !empty($setting->app_secret) ? '1' : '0' }}" />
-                    </x-ui.field>
+                    <x-ui.credential
+                        name="app_secret"
+                        id="lz-app-secret"
+                        label="App Secret"
+                        channel="lazada"
+                        hint="Stored encrypted. Read-only until you choose to edit it."
+                        :length="\App\Support\Credentials::length($setting->app_secret ?? null)"
+                        :can-reveal="$canManageLazada"
+                        :disabled="!$canManageLazada" />
 
                     {{-- No name attribute, deliberately: this is shown so it
                          can be copied into the Lazada console, and it must
@@ -336,7 +339,7 @@
                         label="Sandbox App Secret"
                         channel="lazada"
                         hint="Stored encrypted."
-                        :length="strlen((string) ($setting->sandbox_app_secret ?? ''))"
+                        :length="\App\Support\Credentials::length($setting->sandbox_app_secret ?? null)"
                         :can-reveal="$canManageLazada"
                         :disabled="!$canManageLazada" />
 
@@ -445,7 +448,7 @@
                         id="lz-sb-paste-token"
                         label="Sandbox access token"
                         channel="lazada"
-                        :length="strlen((string) ($setting->sandbox_access_token ?? ''))"
+                        :length="\App\Support\Credentials::length($setting->sandbox_access_token ?? null)"
                         :can-reveal="$canManageLazada"
                         placeholder="Paste the token from the Get Token button"
                         required />

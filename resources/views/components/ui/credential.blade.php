@@ -10,9 +10,9 @@
     'channel' => null,
     'store' => null,
     // How many characters are stored. 0 means nothing is stored yet, which is
-    // the one state that renders a genuinely empty field.
+    // the one state that renders a genuinely empty, immediately typeable field.
     'length' => 0,
-    // A read-tier operator sees the mask and no reveal button.
+    // A read-tier operator sees the mask and no button at all.
     'canReveal' => false,
     'disabled' => false,
     'required' => false,
@@ -38,6 +38,30 @@
     $dots = str_repeat('•', min((int) $length, 48));
 @endphp
 
+{{--
+    HOW THIS FIELD BEHAVES, AND WHY
+
+    A stored credential renders masked AND READ-ONLY. There is no way to type
+    into it by accident, and nothing about touching it destroys what is there.
+
+    "View and edit" fetches the real value, drops it into the field, and makes
+    the field editable in place. The operator can then correct one character of
+    a token rather than being made to re-paste the whole thing.
+
+    That last part is the point. The previous design cleared the field the
+    moment editing began, on the reasoning that a half-edited secret is a
+    corrupt secret. In practice nobody types a token by hand: they paste, and a
+    field that empties itself when touched reads as "I have just destroyed the
+    saved value" every single time. Keeping the value and letting it be edited
+    is both the calmer interaction and the honest one, because the value really
+    is still there.
+
+    Submitting without editing posts BLANK, not the revealed value. The
+    controllers treat blank as "keep what is stored", so looking at a secret
+    never rewrites it, and a revealed secret does not travel back over the wire
+    for no reason.
+--}}
+
 <x-ui.field :label="$label" :for="$id" :name="$name" :hint="$hint" :required="$required" wide>
     {{-- The x-data payload is built in PHP and emitted on ONE line.
 
@@ -53,7 +77,7 @@
     @endphp
 
     <div class="x-cred" @if($bind) x-data="credentialField({{ $bind }})" @endif>
-        {{-- type=password even while masked: a browser that offers to save or
+        {{-- type=password while masked: a browser that offers to save or
              autofill a text field would happily do it to a field full of
              dots, and the dots would be what it saved. --}}
         <x-ui.input
@@ -66,6 +90,7 @@
             :required="$required && ! $stored"
             :value="$stored ? $dots : ''"
             :placeholder="$stored ? null : $placeholder"
+            :readonly="$stored"
             data-credential-mask="{{ $stored ? '1' : '0' }}"
             {{-- x-ref unconditionally, never behind an @if. A Blade directive
                  inside a component tag's attribute list stops the tag being
@@ -81,23 +106,25 @@
             <button type="button" class="x-cred__eye"
                     @click="toggle()"
                     :aria-pressed="shown ? 'true' : 'false'"
-                    :aria-label="shown ? 'Hide {{ $label ?? $name }}' : 'View {{ $label ?? $name }}'"
+                    :aria-label="shown ? 'Hide {{ $label ?? $name }}' : 'View and edit {{ $label ?? $name }}'"
                     :disabled="busy">
                 <template x-if="! shown"><x-ui.icon name="eye" size="14" /></template>
                 <template x-if="shown"><x-ui.icon name="eye-off" size="14" /></template>
+                <span class="x-cred__eye-label" x-text="shown ? 'Hide' : 'View and edit'">View and edit</span>
             </button>
         @endif
     </div>
 
     @if($stored)
-        <p class="x-cred__meta">
+        <p class="x-cred__meta" @if($bind) x-data @endif>
             <span class="x-num">{{ number_format($length) }}</span> stored characters
             @if($canReveal)
                 <span class="x-cred__sep" aria-hidden="true">&middot;</span>
-                {{-- Says what typing does BEFORE the operator types. The old
-                     hint said "leave it as it is to keep the saved secret",
-                     which only makes sense to someone who already knew. --}}
-                <span>type to replace</span>
+                {{-- Says what the button does BEFORE it is pressed, and says
+                     what happens if it is not: the old hint, "type to
+                     replace", described a behaviour this field no longer has
+                     and never explained that leaving it alone was safe. --}}
+                <span>read-only until you choose to edit</span>
             @endif
         </p>
     @endif
