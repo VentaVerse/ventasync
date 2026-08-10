@@ -45,13 +45,6 @@
     $apiLogCount = $storeApiLogs->count();
     $apiLogging = (bool) $store->api_logging;
 
-    $artisan = '/usr/bin/php ' . base_path('artisan');
-    $cronJobs = [
-        ['id' => 'orders', 'label' => 'Pull orders', 'note' => 'Every five minutes is usual.', 'cmd' => $artisan . ' venta:sync orders --store=' . $store->id],
-        ['id' => 'stock',  'label' => 'Push stock',  'note' => 'Every fifteen minutes is usual.', 'cmd' => $artisan . ' venta:push-stock --store=' . $store->id],
-        ['id' => 'reviews','label' => 'Push reviews','note' => 'Once a day is usual.', 'cmd' => $artisan . ' venta:push-reviews --store=' . $store->id],
-    ];
-
     // The option list the fetch-statuses handler rebuilds its selects from.
     // Data, not behaviour: JSON_HEX_TAG encodes < and > so a status literally
     // named "</script>" cannot close the element.
@@ -108,7 +101,7 @@
     <div class="x-segment" role="tablist" aria-label="Settings sections">
         <button type="button" class="x-segment__item is-active" role="tab" aria-selected="true" id="vt-tab-connection-tab" aria-controls="vt-tab-connection" data-cs-tab="vt-tab-connection">Connection</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-status-tab" aria-controls="vt-tab-status" data-cs-tab="vt-tab-status">Status mapping</button>
-        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-schedule-tab" aria-controls="vt-tab-schedule" data-cs-tab="vt-tab-schedule">Scheduling</button>
+        <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-automations-tab" aria-controls="vt-tab-automations" data-cs-tab="vt-tab-automations">Automations</button>
         <button type="button" class="x-segment__item" role="tab" aria-selected="false" id="vt-tab-api-tab" aria-controls="vt-tab-api" data-cs-tab="vt-tab-api">
             <span>API log</span>
             @if($apiLogCount > 0)<span class="x-segment__count">{{ number_format($apiLogCount) }}</span>@endif
@@ -361,39 +354,28 @@
 {{-- ================================================================
      SCHEDULING
      ================================================================ --}}
-<div id="vt-tab-schedule" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-schedule-tab" hidden>
+<div id="vt-tab-automations" class="cs-panel" role="tabpanel" aria-labelledby="vt-tab-automations-tab" hidden>
     <section class="fm-section">
         <div class="fm-section__head">
-            <h2 class="fm-section__title">Scheduled commands</h2>
+            <h2 class="fm-section__title">Scheduled jobs</h2>
+            <x-ui.hint label="About the scheduled jobs">How often each Venta sync runs for {{ $storeName }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        <p class="fm-section__note">This server runs its jobs from the hosting panel's scheduler, not from a URL. Paste each command into a cron entry and give it an interval. Each one is already scoped to {{ $storeName }}.</p>
 
-        <div class="cs-crons">
-            @foreach($cronJobs as $job)
-                <div class="cs-cron">
-                    <div class="cs-cron__head">
-                        <span class="cs-cron__title">{{ $job['label'] }}</span>
-                        <span class="cs-cron__note">{{ $job['note'] }}</span>
-                    </div>
-                    <div class="cs-cron__row">
-                        <code class="cs-cron__cmd" id="vt-cron-{{ $job['id'] }}">{{ $job['cmd'] }}</code>
-                        <x-ui.button type="button" size="sm" data-copy-target="vt-cron-{{ $job['id'] }}">Copy</x-ui.button>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    </section>
+        {{-- The same control Shopee, Lazada and TikTok use.
 
-    <section class="fm-section">
-        <div class="fm-section__head">
-            <h2 class="fm-section__title">Where these go</h2>
-        </div>
-        <ol class="cs-guide">
-            <li>Open your hosting panel's Cron Jobs or Scheduled Tasks page.</li>
-            <li>Add an entry and set the interval, for example <span class="cs-code">*/5 * * * *</span> for every five minutes.</li>
-            <li>Paste one of the commands above as the command to run.</li>
-            <li>Save, and check the Sync log tab after the first interval has passed.</li>
-        </ol>
+             This tab used to print three artisan commands to copy into the
+             hosting panel by hand, which meant Venta's jobs ran only if the
+             operator had pasted each one, and the ERP knew nothing about
+             whether they existed, when they last ran, or whether they had
+             failed. Every other channel keeps its jobs as scheduled_jobs rows
+             that App\Console\Kernel registers with Laravel's scheduler, so one
+             OS cron entry drives all of them and this tab edits cadence and
+             on/off directly.
+
+             storeId is passed because Venta is multi-store: each store has its
+             own three jobs, carrying --store on the command line, so the page
+             shows the jobs for the store being looked at and no other. --}}
+        @include('partials._automations_tab', ['integration' => 'venta', 'storeId' => $store->id])
     </section>
 </div>
 

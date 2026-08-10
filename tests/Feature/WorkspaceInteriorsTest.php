@@ -2759,7 +2759,20 @@ class WorkspaceInteriorsTest extends TestCase
         $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
         $settings->assertSee('Awaiting pickup');
         $settings->assertSee('/api/orders');
-        $settings->assertSee('venta:sync orders --store='.$one);
+        // The Automations tab, not the copy-paste cron commands it replaced.
+        //
+        // This used to assert that the page printed `venta:sync orders
+        // --store=N` for the operator to paste into a hosting panel by hand.
+        // Venta's jobs are scheduled_jobs rows now, the same as every other
+        // channel's, so the page shows the job and its cadence and the ERP
+        // knows when it last ran.
+        $settings->assertSee('Sync Orders');
+        $settings->assertSee('Push Stock &amp; Price', false);
+        $settings->assertSee('Push Reviews');
+
+        // And the one requirement that lives outside the ERP is stated, or a
+        // row can read "enabled, every 5 minutes" and never run once.
+        $settings->assertSee('schedule:run');
     }
 
     public function test_venta_channel_sourced_names_are_escaped(): void

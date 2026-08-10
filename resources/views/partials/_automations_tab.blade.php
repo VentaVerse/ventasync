@@ -197,4 +197,24 @@
             </div>
         </form>
     @endif
+
+    {{-- The one thing every job on this page depends on, and the only thing
+         here that lives outside the ERP.
+
+         Laravel's scheduler decides WHICH job is due; something still has to
+         wake it up every minute. Nothing on this tab said so, so a row could
+         read "enabled, every 5 minutes" and never run once, with no way to
+         tell from this screen. Venta's old tab explained the cron setup and
+         the other three never did - this is that explanation, kept, and now
+         shown on all of them.
+
+         Stated as fact rather than as an instruction with a Copy button: on
+         most installs it is already in place, and the operator needs to
+         recognise it, not re-add it. --}}
+    <p class="automations-foot">
+        These run from the ERP's own scheduler. It needs one entry in your
+        hosting panel's Cron Jobs, set to every minute:
+        <code class="automations-foot__cmd">* * * * * php {{ base_path('artisan') }} schedule:run</code>
+        Without it nothing on this page runs, whatever it says here.
+    </p>
 </div>
