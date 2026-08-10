@@ -228,12 +228,7 @@
         color: var(--bl-ink);
     }
 
-    .fm-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 14px;
-    }
+    /* .fm-head is aliased onto .bl-head in blotter.css. */
 
     .fm-head__main {
         min-width: 0;
@@ -2195,13 +2190,7 @@
     /* ------------------------------------------------------------
        List page furniture
        ------------------------------------------------------------ */
-    .x-list-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 14px;
-        padding: 18px var(--bl-pad) 14px;
-    }
+    /* .x-list-head is aliased onto .bl-head in blotter.css. */
 
     .x-page-title {
         margin: 0;
@@ -3274,14 +3263,10 @@
        The horizontal padding stays var(--bl-pad), which .x-content declares
        as zero: the page gutter is the container's, and this head is not a
        card. */
-    .x-overview-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 14px;
-        padding: 18px var(--bl-pad) 14px;
-    }
+    /* Shape, inset and action edge all come from .bl-head in blotter.css.
+       The justify-content: space-between that used to live here is gone: it
+       was the reason this head placed its action differently from every other
+       head in the application. */
 
     /* .x-health / .x-waiting were the Overview's two full-bleed strips, one
        cell per figure across the page width. Both were replaced by the

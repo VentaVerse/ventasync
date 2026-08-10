@@ -1389,6 +1389,52 @@
     /* Anything trailing in a head is an action and belongs at the far edge. */
     .bl-sheet__head > .bl-sheet__action { margin-left: auto; }
 
+    /* A PAGE HEAD: the title block, and the page's one most-needed action.
+
+       Four implementations agreed on the shape and disagreed on the action.
+       .x-overview-head used justify-content: space-between and .x-list-head
+       used nothing, which is why a channel's Connect button sat at the right
+       edge while Warehousing's New transfer floated next to its own title.
+
+       The action is placed by pushing the TITLE BLOCK's right margin, not by
+       space-between and not by a rule on the last child:
+
+       - space-between distributes ALL children, so a head with a title and
+         two actions spreads the actions apart instead of grouping them.
+       - :last-child was tried before and is recorded in blotter-components.css
+         as a bug: a head with one child is both its first and its last, so a
+         lone element got treated as an action. Position cannot be inferred
+         from source order.
+
+       first-child is safe in the single-child case - an auto margin on the
+       only element just absorbs the free space - and correct with any number
+       of actions after it. */
+    .bl-head,
+    .x-list-head,
+    .x-overview-head,
+    .fm-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    /* The page-level heads carry the vertical inset. .fm-head does not: it
+       sits inside a form page's own wrapper, which already provides it. */
+    .bl-head,
+    .x-list-head,
+    .x-overview-head {
+        padding: 18px var(--bl-pad) 14px;
+    }
+
+    .bl-head > :first-child,
+    .x-list-head > :first-child,
+    .x-overview-head > :first-child,
+    .fm-head > :first-child {
+        margin-right: auto;
+    }
+
     /* A rail is context, so it speaks at the smaller size the order page's
        sections already use. Two columns read differently should not be
        typeset identically. */
