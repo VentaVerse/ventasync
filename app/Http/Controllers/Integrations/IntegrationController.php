@@ -373,18 +373,32 @@ class IntegrationController extends Controller
         // connected otherwise. $hasToken === null means token presence
         // itself isn't tracked for this channel, so only sync freshness
         // decides between attention and connected.
+        // Returns the state AND why, because the words shown for it depend on
+        // the reason: "Needs attention" was covering both an expiring sign-in
+        // and an overdue sync, which are different problems with different
+        // fixes. ChannelWorkspace::badge() turns the pair into the label, and
+        // the channel sidebar uses the same function, so the two screens
+        // cannot describe one channel differently again.
         $deriveState = function (?bool $hasToken, ?Carbon $tokenExpiresAt, ?Carbon $lastSyncAt) use ($staleAfter, $expiringWithin) {
             if ($hasToken === false) {
-                return 'setup';
+                return ['state' => 'setup', 'reason' => 'no_token'];
             }
             if ($tokenExpiresAt && $tokenExpiresAt->isPast()) {
-                return 'setup';
+                return ['state' => 'setup', 'reason' => 'expired'];
             }
 
-            $needsAttention = ($tokenExpiresAt && $tokenExpiresAt->lessThanOrEqualTo($expiringWithin))
-                || (!$lastSyncAt || $lastSyncAt->lessThan($staleAfter));
+            // The expiring sign-in wins when both are true: it is the more
+            // urgent, and a stale sync beside a dying token is usually its
+            // symptom.
+            if ($tokenExpiresAt && $tokenExpiresAt->lessThanOrEqualTo($expiringWithin)) {
+                return ['state' => 'attention', 'reason' => 'expiring'];
+            }
 
-            return $needsAttention ? 'attention' : 'connected';
+            if (!$lastSyncAt || $lastSyncAt->lessThan($staleAfter)) {
+                return ['state' => 'attention', 'reason' => 'stale'];
+            }
+
+            return ['state' => 'connected', 'reason' => null];
         };
 
         $channels = [];
@@ -504,9 +518,16 @@ class IntegrationController extends Controller
             }
 
             foreach ($entries as $entry) {
-                $state = (($entry['storeStatus'] ?? null) === 'setup_pending')
-                    ? 'setup'
+                // 'setup_pending' is how a DISABLED store arrives here: the
+                // extensions set it from $store->enabled. It was being shown
+                // as "Not connected" in the danger colour, which told the
+                // seller to set up a store that is configured, has a valid
+                // token and has synced orders - it is simply switched off.
+                $resolved = (($entry['storeStatus'] ?? null) === 'setup_pending')
+                    ? ['state' => 'setup', 'reason' => 'disabled']
                     : $deriveState($entry['hasToken'], $entry['tokenExpiresAt'], $entry['lastSyncAt']);
+
+                $state = $resolved['state'];
 
                 $ordersUrl = $menuUrl($entry['menu'], 'Orders');
 
@@ -515,6 +536,7 @@ class IntegrationController extends Controller
                     'label' => $entry['label'],
                     'store' => $entry['store'],
                     'state' => $state,
+                    'stateReason' => $resolved['reason'],
                     'lastSync' => $entry['lastSyncAt']?->diffForHumans(),
                     // An expiry belongs to a token. Shopee's row holds an
                     // expires_at left behind by an authorisation whose

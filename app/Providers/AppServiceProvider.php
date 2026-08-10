@@ -118,6 +118,9 @@ class AppServiceProvider extends ServiceProvider
                     abort(404);
                 }
 
+                // One reading, used for both the state and the words for it.
+                $channelState = $workspace->stateWithReason($card, $channel);
+
                 $payload = [
                     'channelCard' => $card,
                     // The full workspace key, so every link the chrome builds
@@ -129,7 +132,8 @@ class AppServiceProvider extends ServiceProvider
                     // channel name already answers the question.
                     'channelStoreLabel' => $workspace->store($card, $channel)?->label,
                     'channelGroups' => $workspace->groups($card, $user, $channel),
-                    'channelState' => $workspace->state($card, $channel),
+                    'channelState' => $channelState['state'],
+                    'channelStateReason' => $channelState['reason'],
                     // Whether this user may open /integrations/{channel},
                     // which ChannelWorkspaceController::show gates on the
                     // CARD permission via the gated card(). The sidebar's

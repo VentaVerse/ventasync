@@ -20,11 +20,12 @@
                      channel nav already words this state correctly; this card
                      was the last place still collapsing it into "Setup
                      needed". --}}
-                @php
-                    $tone = ['connected' => 'success', 'attention' => 'warning', 'setup' => 'danger'][$c['state']] ?? 'neutral';
-                    $stateLabel = ['connected' => 'Connected', 'attention' => 'Needs attention', 'setup' => 'Not connected'][$c['state']] ?? 'Not tracked';
-                @endphp
-                <x-ui.badge :tone="$tone">{{ $stateLabel }}</x-ui.badge>
+                {{-- Words and tone from ChannelWorkspace::badge(), the same
+                     function the channel sidebar calls. This card kept its own
+                     copy of both maps, which is how one channel could be
+                     "Not tracked" in the sidebar and something else here. --}}
+                @php($badge = \App\Support\ChannelWorkspace::badge($c['state'], $c['stateReason'] ?? null))
+                <x-ui.badge :tone="$badge['tone']">{{ $badge['label'] }}</x-ui.badge>
             </header>
 
             <dl class="x-board__health">

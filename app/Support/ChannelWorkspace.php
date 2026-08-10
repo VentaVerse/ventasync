@@ -308,12 +308,42 @@ class ChannelWorkspace
      */
     public function state(IntegrationCard $card, ?string $channel = null): string
     {
+        return $this->stateWithReason($card, $channel)['state'];
+    }
+
+    /**
+     * The state, and WHY it is that state.
+     *
+     * The reason exists because two labels were each covering two unrelated
+     * situations, and an operator could not tell which one they were looking
+     * at:
+     *
+     *   "Needs attention" meant the sign-in expires within seven days, OR the
+     *   last sync is over a day old. Different problem, different fix, one
+     *   word. The channel sidebar shows this label with no figures beside it,
+     *   so there was nothing to work it out from either.
+     *
+     *   "Not connected" meant no usable token, OR a store that is simply
+     *   switched off. StoreLink's status is 'setup_pending' whenever
+     *   $store->enabled is false, so a fully configured store with a valid
+     *   token and a sync history reads as though it was never set up. All
+     *   four Venta and OpenCart stores on this installation are in exactly
+     *   that state: tokens set, orders synced, enabled = 0.
+     *
+     * The state values are unchanged, so everything that branches on them
+     * still works. The reason only decides what the operator is told.
+     *
+     * @return array{state: string, reason: string|null}
+     */
+    public function stateWithReason(IntegrationCard $card, ?string $channel = null): array
+    {
         $store = $this->store($card, $channel);
 
-        // Same first test the board applies to a store row: a store created
-        // but not yet enabled needs setting up, whatever its columns hold.
+        // Not "setup pending" in any real sense: this is how a DISABLED store
+        // reaches here, because the extensions derive the status from
+        // $store->enabled. Reported as switched off, which is what it is.
         if ($store && $store->status === 'setup_pending') {
-            return 'setup';
+            return ['state' => 'setup', 'reason' => 'disabled'];
         }
 
         $figures = $this->tokenFigures($card->id, $this->storeIdOf($store));
@@ -335,20 +365,65 @@ class ChannelWorkspace
         // a real boolean hasToken for them even when their settings row is
         // missing, so Shopee's behaviour is unchanged.
         if ($figures['hasToken'] === null && $figures['lastSyncAt'] === null) {
-            return 'untracked';
+            return ['state' => 'untracked', 'reason' => null];
         }
 
         if ($figures['hasToken'] === false) {
-            return 'setup';
+            return ['state' => 'setup', 'reason' => 'no_token'];
         }
         if ($figures['tokenExpiresAt'] && $figures['tokenExpiresAt']->isPast()) {
-            return 'setup';
+            return ['state' => 'setup', 'reason' => 'expired'];
         }
 
-        $needsAttention = ($figures['tokenExpiresAt'] && $figures['tokenExpiresAt']->lessThanOrEqualTo($expiringWithin))
-            || (! $figures['lastSyncAt'] || $figures['lastSyncAt']->lessThan($staleAfter));
+        // Order matters: an expiring sign-in is the more urgent of the two and
+        // is what the operator must act on, so it wins the label when both are
+        // true. A stale sync on a channel whose token is about to die is
+        // usually a symptom of it.
+        if ($figures['tokenExpiresAt'] && $figures['tokenExpiresAt']->lessThanOrEqualTo($expiringWithin)) {
+            return ['state' => 'attention', 'reason' => 'expiring'];
+        }
 
-        return $needsAttention ? 'attention' : 'connected';
+        if (! $figures['lastSyncAt'] || $figures['lastSyncAt']->lessThan($staleAfter)) {
+            return ['state' => 'attention', 'reason' => 'stale'];
+        }
+
+        return ['state' => 'connected', 'reason' => null];
+    }
+
+    /**
+     * The words and the tone for a state, in ONE place.
+     *
+     * Both the channel sidebar and the status board carried their own copy of
+     * this map, which is how they came to disagree: the sidebar learned to say
+     * "Not tracked" and the board went on calling the same channel something
+     * else. A label an operator reads on two screens should be written once.
+     *
+     * Every label states a fact rather than a verdict. "Needs attention" told
+     * the operator that something was wrong and left them to find out what;
+     * "Sign-in expires soon" and "Sync overdue" name the thing and imply its
+     * fix.
+     *
+     * @return array{label: string, tone: string}
+     */
+    public static function badge(string $state, ?string $reason = null): array
+    {
+        return match (true) {
+            // Configured and working, just switched off. Not a fault, so not
+            // an alarm colour.
+            $state === 'setup' && $reason === 'disabled' => ['label' => 'Turned off', 'tone' => 'neutral'],
+            $state === 'setup' && $reason === 'expired' => ['label' => 'Sign-in expired', 'tone' => 'danger'],
+            $state === 'setup' => ['label' => 'Not connected', 'tone' => 'danger'],
+
+            $state === 'attention' && $reason === 'expiring' => ['label' => 'Sign-in expires soon', 'tone' => 'warning'],
+            $state === 'attention' && $reason === 'stale' => ['label' => 'Sync overdue', 'tone' => 'warning'],
+            $state === 'attention' => ['label' => 'Needs attention', 'tone' => 'warning'],
+
+            $state === 'connected' => ['label' => 'Connected', 'tone' => 'success'],
+
+            // Nothing measurable for this channel: a statement about
+            // instrumentation, not a verdict on the connection.
+            default => ['label' => 'Not tracked', 'tone' => 'neutral'],
+        };
     }
 
     /**

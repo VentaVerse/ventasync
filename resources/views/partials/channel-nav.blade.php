@@ -32,13 +32,17 @@
         @if($channelStoreLabel ?? null)
             <span class="x-cnav__store">{{ $channelStoreLabel }}</span>
         @endif
-        {{-- "Not tracked" is a statement about instrumentation, not a
-             verdict on the connection: this channel exposes no token state
-             and no last-sync figure, so there is nothing to call healthy or
-             unhealthy. Claiming "Needs attention" here contradicted the
-             status board, which calls the same channel Connected. --}}
+        {{-- The wording comes from ChannelWorkspace::badge(), which the
+             status board also uses. Two copies of this map is how the two
+             screens came to call the same channel different things.
+
+             The label names the actual condition rather than delivering a
+             verdict: "Needs attention" covered both an expiring sign-in and
+             an overdue sync, and this sidebar shows no figures beside it, so
+             there was nothing here to work out which. --}}
+        @php($channelBadge = \App\Support\ChannelWorkspace::badge($channelState, $channelStateReason ?? null))
         <span class="x-cnav__state x-cnav__state--{{ $channelState }}">
-            {{ ['connected' => 'Connected', 'attention' => 'Needs attention', 'setup' => 'Not connected', 'untracked' => 'Not tracked'][$channelState] ?? 'Not tracked' }}
+            {{ $channelBadge['label'] }}
         </span>
     </div>
 
