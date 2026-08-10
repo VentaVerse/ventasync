@@ -115,7 +115,7 @@
                             <div class="cc-thumb cc-thumb--sm">
                                 <span class="co-item__none">None</span>
                                 @if($ui->image_url)
-                                    <img src="{{ $ui->image_url }}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                                    <img src="{{ $ui->image_url }}" alt="" loading="lazy" decoding="async" data-thumb>
                                 @endif
                             </div>
                             <div class="co-item__body">
@@ -415,7 +415,7 @@
                     <div class="cc-thumb">
                         <span class="co-item__none">No image</span>
                         @if($thumbSrc)
-                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';">
+                            <img src="{{ $thumbSrc }}" alt="" loading="lazy" decoding="async" data-thumb>
                         @endif
                     </div>
                     <div class="co-item__body">

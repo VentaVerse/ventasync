@@ -175,6 +175,72 @@ class LazadaProductController extends Controller
      * - Otherwise, assume the stored path is already relative to the public web root
      *   (e.g. "catalog/...").
      */
+    /**
+     * A product image URL for the OPERATOR'S BROWSER, not for Lazada.
+     *
+     * toPublicImageUrl() below builds an ABSOLUTE url, deliberately: Lazada's
+     * servers fetch these over the internet, so they need a host, and that
+     * host comes from catalog.public_url. That is correct for the payload and
+     * wrong for this admin page, which is what emptied the listing grid.
+     *
+     * catalog.public_url was pointing at 192.168.122.8:8000, an address from
+     * an earlier network. Every thumbnail on the page was requested from a
+     * host the operator's browser cannot reach, so 2,074 products with images
+     * on disk rendered as empty frames. Correcting that value would have fixed
+     * it today and broken it again on the next address change, because the
+     * page was asking a config setting a question it already knew the answer
+     * to: the browser is already on the right host.
+     *
+     * So this returns a ROOT-RELATIVE path. It resolves against whatever
+     * address the operator actually used - LAN ip, hostname, localhost, or a
+     * tunnel - and cannot drift from it. An absolute url that is genuinely
+     * somebody else's (a CDN, a marketplace cdn) is kept as it is; only
+     * loopback is rewritten, because no browser but the server's own can
+     * follow it.
+     */
+    private function toDisplayImageUrl(?string $imagePath): ?string
+    {
+        $imagePath = trim((string) ($imagePath ?? ''));
+
+        if ($imagePath === '' || str_contains($imagePath, '..')) {
+            return null;
+        }
+
+        if (Str::startsWith($imagePath, ['http://', 'https://'])) {
+            $host = strtolower((string) parse_url($imagePath, PHP_URL_HOST));
+
+            if (! in_array($host, ['localhost', '127.0.0.1', '0.0.0.0'], true)) {
+                return $imagePath;
+            }
+
+            $path = ltrim((string) parse_url($imagePath, PHP_URL_PATH), '/');
+
+            return ($path === '' || str_contains($path, '..'))
+                ? null
+                : '/' . $this->encodeUrlPath($path);
+        }
+
+        $path = ltrim($imagePath, '/');
+
+        // Already carries a public prefix.
+        if (Str::startsWith($path, ['storage/', 'image/'])) {
+            return '/' . $this->encodeUrlPath($path);
+        }
+
+        // The Laravel public disk is where this install actually keeps them.
+        try {
+            if (file_exists(public_path('storage/' . $path))) {
+                return '/' . $this->encodeUrlPath('storage/' . $path);
+            }
+        } catch (\Throwable $e) {
+            // Fall through to the configured prefix.
+        }
+
+        $prefix = trim((string) config('catalog.image_prefix', 'image'), '/');
+
+        return '/' . $this->encodeUrlPath(($prefix === '' ? 'image' : $prefix) . '/' . $path);
+    }
+
     private function toPublicImageUrl(?string $imagePath): ?string
     {
         $imagePath = trim((string)($imagePath ?? ''));
@@ -901,9 +967,10 @@ private function persistProductSyncStatus(LazadaProduct $listing, string $action
 
             $productsById = $rows->keyBy('product_id');
 
-            // Precompute main thumbnail URLs for the listing grid
+            // Precompute main thumbnail URLs for the listing grid. Browser
+            // facing, so root-relative: see toDisplayImageUrl().
             $productThumbsById = $rows->mapWithKeys(function ($r) {
-                $url = $this->toPublicImageUrl($r->image ?? null);
+                $url = $this->toDisplayImageUrl($r->image ?? null);
                 return [(int)$r->product_id => $url];
             });
 
@@ -2739,8 +2806,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         // Resolve __map: values to actual product field values for display
         $suggested = $this->suggestForAttributes($attributes, $productRow, $saved);
 
-        // Product image URL for display
-        $productImageUrl = $this->toPublicImageUrl($productRow->image ?? null);
+        // For display, so browser facing rather than Lazada facing.
+        $productImageUrl = $this->toDisplayImageUrl($productRow->image ?? null);
 
         // Brand suggestions
         $brandSuggestion = $this->suggestBrandFromManufacturer($productRow->manufacturer_name ?? null);
