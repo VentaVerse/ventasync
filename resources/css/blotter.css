@@ -707,6 +707,11 @@
     .bl-panel-head {
         display: flex;
         align-items: baseline;
+        /* Wraps, so a head carrying a control wide enough to crowd its own
+           heading drops the control to a second line instead of pushing the
+           panel sideways. Nothing relies on the two staying on one line; the
+           min-height below is what keeps two heads level. */
+        flex-wrap: wrap;
         gap: 10px;
         /* A floor, so a heading carrying a trailing link is not half a pixel
            taller than one that does not. Two headings side by side must put
@@ -1222,6 +1227,79 @@
     .bl-rail-stack > .bl-panel-head { padding-block: 4px 8px; }
     .bl-rail-stack > .bl-panel-head + * { margin-top: 0; }
 
+    /* ------------------------------------------------------------
+       SEGMENTED CONTROL
+
+       One choice with N positions: the chart range on the dashboard today.
+       It reads as one object rather than N, which is the whole reason it
+       exists - seven separately bordered chips of seven different widths beside
+       a heading is a row of debris, and the same seven joined is a control.
+
+       The separator is a 1px inset shadow rather than a border, so no item
+       changes width when it becomes the selected one and the row never shifts
+       under the pointer. The container clips, so the first and last positions
+       take the outer radius without either of them being told which end it is
+       on - it stays correct when a range is added or removed.
+       ------------------------------------------------------------ */
+    .bl-seg {
+        display: flex;
+        margin-left: auto;
+        max-width: 100%;
+        /* Below the width where every position fits, the control scrolls
+           inside itself rather than the page scrolling sideways. Same rule the
+           tables follow: what you own has to stay reachable. */
+        overflow-x: auto;
+        scrollbar-width: none;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+    }
+
+    .bl-seg::-webkit-scrollbar { display: none; }
+
+    .bl-seg__item {
+        flex: none;
+        padding: 4px 10px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        white-space: nowrap;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+    }
+
+    .bl-seg__item + .bl-seg__item {
+        box-shadow: inset 1px 0 0 var(--bl-rule-2);
+    }
+
+    .bl-seg__item:hover { background: var(--bl-chrome); color: var(--bl-ink); }
+
+    /* The selected position, in the same ink the page uses for a primary
+       action. It keeps its separator suppressed on both sides so the fill
+       reads as one solid block rather than a block with a seam down its
+       edge. */
+    .bl-seg__item.is-on {
+        background: var(--bl-ink);
+        color: var(--bl-paper);
+        font-weight: 600;
+        box-shadow: none;
+    }
+
+    .bl-seg__item.is-on + .bl-seg__item { box-shadow: none; }
+
+    .bl-seg__item.is-on:hover { background: var(--bl-ink); color: var(--bl-paper); }
+
+    /* A range is a one-handed tap on the warehouse floor as often as a click
+       at a desk. Gated on the input device, matching how the rest of the
+       suite raises its targets. */
+    @media (pointer: coarse) {
+        .bl-seg__item {
+            padding-block: 11px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+    }
+
     .bl-panel {
         border: 1px solid var(--bl-rule-2);
         border-radius: var(--bl-r-panel);
@@ -1714,6 +1792,19 @@
     .bl-axis > span { white-space: nowrap; }
     .bl-axis > span:first-child { text-align: left; }
     .bl-axis > span:last-child { text-align: right; }
+
+    /* Eight ticks of "Sep 2023" need about 420px of label before any gap
+       between them, so on a phone the row ran past the card and the last one -
+       the tick that says where the series ENDS - was the one clipped off.
+
+       Thinned to every other tick instead, with the last always kept. The axis
+       cannot scroll the way a table does: it would slide independently of the
+       plot above it and put the labels under the wrong part of the line.
+       Dropping ticks costs a reader nothing, because the reading itself comes
+       from touching the plot. */
+    @media (max-width: 640px) {
+        .bl-axis > span:nth-child(even):not(:last-child) { display: none; }
+    }
     .bl-plot__hit:hover { fill: color-mix(in srgb, var(--bl-ink) 6%, transparent); }
 
     /* Money and count are the two series this dashboard plots, and they
@@ -2113,7 +2204,8 @@
 @layer components {
     @media (min-width: 1001px) {
         .od-col--side,
-        .fm-col--side {
+        .fm-col--side,
+        .cw-col--side {
             position: sticky;
             top: var(--bl-page-gutter);
             /* Its own scroll when the context is taller than the screen,
@@ -2128,10 +2220,11 @@
         }
 
         /* A sticky element inside a grid needs the track to start at the
-           top rather than stretch, which both of these grids already do
-           through align-items: start. Stated here so a later change to
-           either grid cannot silently break the rail. */
+           top rather than stretch, which all three of these grids already do
+           through align-items: start. Stated here so a later change to any
+           of them cannot silently break the rail. */
         .od-body,
-        .fm-body { align-items: start; }
+        .fm-body,
+        .cw-body { align-items: start; }
     }
 }

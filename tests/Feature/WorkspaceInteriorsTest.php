@@ -3279,4 +3279,61 @@ class WorkspaceInteriorsTest extends TestCase
         $this->actingAs($this->ventaManager())->post(route('ext.venta.save'), $payload)->assertRedirect();
         $this->assertSame('Renamed By Test', VentaSetting::findOrFail($one)->store_name);
     }
+
+    /* =================================================================
+       LAYOUT BANNERS ARE SCOPED TO THE CHANNEL YOU ARE STANDING IN
+       ================================================================= */
+
+    /**
+     * A channel that contributes no banners of its own must show none, not
+     * every other channel's.
+     *
+     * partials/legacy-page-contract.blade.php decides which banners belong on
+     * a page by asking which channel the page is in. It used to answer that
+     * from the map of banner CONTRIBUTORS, so a channel that contributes no
+     * banners - Venta, OpenCart, Shopify, Pedallion, and any integration
+     * added tomorrow, since the contributor interface is opt-in - looked
+     * exactly like "not in a channel at all" and fell through to showing
+     * everybody's. The owner found TikTok's expired-token alert sitting on top of
+     * Venta and OpenCart pages.
+     *
+     * This is pinned per channel rather than as one loop so a failure names
+     * the channel that regressed.
+     */
+    public function test_a_channel_that_contributes_no_banners_shows_no_other_channels_banners(): void
+    {
+        // An expired TikTok token, which is the one banner in play here.
+        $this->seedTiktokSetting(['expires_at' => now()->subWeeks(2)]);
+
+        [$ventaStore] = $this->seedVentaStores();
+        $ventaGroup = VentaProductGroup::create(['venta_setting_id' => $ventaStore, 'name' => 'Pedals']);
+
+        foreach ($this->ventaInteriorUrls($ventaStore, $ventaGroup->id) as $label => $url) {
+            $this->actingAs($this->ventaManager())->get($url)->assertOk()
+                ->assertDontSee('TikTok Shop: Access token expired.', false);
+        }
+
+        [$ocStore] = $this->seedOpencartStores();
+        $ocGroup = OpenCartProductGroup::create(['opencart_setting_id' => $ocStore, 'name' => 'Pedals']);
+
+        foreach ($this->opencartInteriorUrls($ocStore, $ocGroup->id) as $label => $url) {
+            $this->actingAs($this->opencartManager())->get($url)->assertOk()
+                ->assertDontSee('TikTok Shop: Access token expired.', false);
+        }
+    }
+
+    /**
+     * The other half of the same rule, so a fix cannot pass by suppressing
+     * every banner everywhere: the channel that OWNS the warning still shows
+     * it on its own pages.
+     */
+    public function test_a_channel_still_shows_its_own_banner(): void
+    {
+        $this->seedTiktokSetting(['expires_at' => now()->subWeeks(2)]);
+
+        $this->actingAs($this->tiktokManager())
+            ->get(route('ext.tiktok.index'))
+            ->assertOk()
+            ->assertSee('TikTok Shop: Access token expired.', false);
+    }
 }

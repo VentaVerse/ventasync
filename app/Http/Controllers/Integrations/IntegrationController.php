@@ -103,6 +103,232 @@ class IntegrationController extends Controller
     }
 
     /**
+     * The shape the Summary reads, with nothing in it.
+     *
+     * Returned when no marketplace is visible and when a channel panel is
+     * rendering instead. A single shape means the view never tests whether a
+     * key exists, only whether it is empty.
+     *
+     * @return array<string, mixed>
+     */
+    private function emptySummary(): array
+    {
+        return [
+            'channels' => [],
+            'waiting' => 0,
+            'waitingTracked' => 0,
+            'stalled' => [],
+            'todayOrders' => 0,
+            'todayRevenue' => 0.0,
+            'todayTracked' => 0,
+            'feed' => [],
+            'lastOrderAt' => null,
+            'topProducts' => [],
+        ];
+    }
+
+    /**
+     * Everything the Summary shows.
+     *
+     * The page holds exactly two kinds of figure and they are not the same
+     * kind of fact:
+     *
+     *   RIGHT NOW - orders waiting on a person, and whether the channel is
+     *               still talking to us. A backlog does not reset at midnight.
+     *   TODAY     - what has happened since midnight. Resets.
+     *
+     * Cards carry the first, the body carries the second. The old page mixed
+     * both inside one card ("0 to process / 0 today / P0.00") with nothing
+     * saying they answered different questions.
+     *
+     * Nothing here reads the core order table, so this page is not exposed to
+     * the two-sources seam recorded on board task #93: every figure comes from
+     * the same per-channel counters the cards are built from.
+     *
+     * $withBody is false while a channel panel is rendering: the cards are
+     * still needed, because they are how a reader switches channels, but the
+     * feed and the leaderboard are not on screen and cost a query per visible
+     * tab each. Building the cards unconditionally is not an optimisation
+     * detail - the first cut skipped the whole method behind a panel and the
+     * grid rendered empty, taking the channel switcher with it.
+     *
+     * @param  array<int, \App\Integrations\OrderTab>  $tabs
+     * @return array<string, mixed>
+     */
+    private function buildSummary(array $tabs, $user, IntegrationRegistry $registry, bool $withBody): array
+    {
+        $summary = $this->emptySummary();
+        $workspace = app(ChannelWorkspace::class);
+        $dayStart = Carbon::now()->startOfDay();
+
+        // Hoisted out of the loop: it walks every tab, so asking per tab made
+        // it quadratic on a seller with a dozen stores.
+        $inPlace = $this->panelChannelIds($tabs);
+
+        // Cards resolved once and keyed by id, rather than a registry walk per
+        // tab. A multi-store tab ("venta:2") belongs to its channel's card.
+        $cards = [];
+        foreach ($registry->cardsForAuthorisedRequest($user) as $card) {
+            $cards[$card->id] = $card;
+        }
+
+        $newest = null;
+
+        foreach ($tabs as $tab) {
+            // A null counter means the channel never implemented that figure,
+            // which is not the same statement as a measured zero. Printing a
+            // zero for it would claim nothing is waiting when the truth is
+            // that nobody counted.
+            $waiting = $tab->unprocessedCounter === null ? null : $tab->unprocessedCount();
+            $todayOrders = $tab->dailyOrdersCounter === null ? null : $tab->dailyOrdersCount();
+            $todayRevenue = $tab->dailyRevenueCounter === null ? null : $tab->dailyRevenue();
+
+            // Connection state, from the same method the status board and the
+            // channel sidebar read, so the three cannot describe one channel
+            // three ways. Null when this user can see the channel's orders but
+            // not its card - a real permission shape, and the honest reading
+            // is no dot rather than a guess.
+            $base = explode(':', $tab->id, 2)[0];
+            $card = $cards[$base] ?? null;
+            $state = $card ? $workspace->state($card, $tab->id) : null;
+
+            // Stale is a fact ABOUT the count, not a replacement for it.
+            //
+            // The first cut of this hid the number whenever a channel was
+            // stalled, and rendering it showed why that is wrong: Lazada had
+            // one order genuinely waiting AND had not synced in three weeks,
+            // and the page threw the order away to announce the staleness,
+            // then summarised the lot as "Nothing waiting". Both facts are
+            // real and the operator needs both - the order still has to be
+            // packed. The count is always shown when it is tracked; the stale
+            // marker rides alongside it.
+            $stalled = in_array($state, ['attention', 'setup'], true);
+            if ($stalled) {
+                $summary['stalled'][] = $tab->label;
+            }
+
+            if ($waiting !== null) {
+                $summary['waiting'] += $waiting;
+                $summary['waitingTracked']++;
+            }
+            if ($todayOrders !== null) {
+                $summary['todayOrders'] += $todayOrders;
+                $summary['todayTracked']++;
+            }
+            if ($todayRevenue !== null) {
+                $summary['todayRevenue'] += $todayRevenue;
+            }
+
+            $summary['channels'][] = [
+                'id' => $tab->id,
+                'label' => $tab->label,
+                'accent' => $tab->accent,
+                'url' => in_array($tab->id, $inPlace, true)
+                    ? route('integrations.orders', array_filter([
+                        'channel' => $tab->id,
+                        'tab' => $tab->routeParams['tab'] ?? null,
+                    ]))
+                    : route($tab->routeName, $tab->routeParams),
+                'waiting' => $waiting,
+                'todayOrders' => $todayOrders,
+                'todayRevenue' => $todayRevenue,
+                'state' => $state,
+                'stalled' => $stalled,
+            ];
+
+            // Today's orders only. The feed used to be "newest N whenever they
+            // happened", which is why a table headed Recent orders showed rows
+            // that all read "3 weeks ago". Each channel's newest few are
+            // fetched and anything before midnight is dropped; a channel with
+            // more than that today contributes its newest, which is what a
+            // capped feed should do anyway.
+            foreach ($withBody ? $tab->recentOrders(8) : [] as $order) {
+                if ($order->orderedAt !== null && ($newest === null || $order->orderedAt > $newest)) {
+                    $newest = $order->orderedAt;
+                }
+
+                if ($order->orderedAt !== null && $order->orderedAt >= $dayStart) {
+                    $summary['feed'][] = ['order' => $order, 'tab' => $tab];
+                }
+            }
+        }
+
+        usort(
+            $summary['feed'],
+            fn ($a, $b) => ($b['order']->orderedAt?->getTimestamp() ?? 0)
+                <=> ($a['order']->orderedAt?->getTimestamp() ?? 0)
+        );
+        $summary['feed'] = array_slice($summary['feed'], 0, 8);
+
+        // Only worth carrying when there is nothing today: it is what turns an
+        // empty feed from an ambiguous blank into "quiet morning" rather than
+        // "the sync is broken".
+        $summary['lastOrderAt'] = $summary['feed'] === [] ? $newest : null;
+
+        $summary['topProducts'] = $withBody ? $this->mergeTopProducts($tabs) : [];
+
+        return $summary;
+    }
+
+    /**
+     * Today's best sellers, every channel combined and merged by SKU.
+     *
+     * @param  array<int, \App\Integrations\OrderTab>  $tabs
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeTopProducts(array $tabs): array
+    {
+        $merged = [];
+
+        foreach ($tabs as $tab) {
+            foreach ($tab->topProductsToday(10) as $product) {
+                $key = $product->sku;
+
+                $merged[$key] ??= [
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'imageUrl' => $product->imageUrl,
+                    'qtySold' => 0,
+                    'revenue' => 0.0,
+                    'contributors' => [],
+                ];
+
+                $merged[$key]['qtySold'] += $product->qtySold;
+                $merged[$key]['revenue'] += $product->revenue;
+
+                if ($product->imageUrl && empty($merged[$key]['imageUrl'])) {
+                    $merged[$key]['imageUrl'] = $product->imageUrl;
+                }
+
+                $merged[$key]['contributors'][] = [
+                    'label' => $tab->label,
+                    'accent' => $tab->accent,
+                    'qty' => $product->qtySold,
+                ];
+            }
+        }
+
+        usort($merged, fn ($a, $b) => $b['qtySold'] <=> $a['qtySold']);
+
+        return array_slice(array_values($merged), 0, 5);
+    }
+
+    /**
+     * Tab ids whose orders render in place on this page rather than on the
+     * channel's own seller centre.
+     *
+     * @param  array<int, \App\Integrations\OrderTab>  $tabs
+     * @return array<int, string>
+     */
+    private function panelChannelIds(array $tabs): array
+    {
+        return array_values(array_filter(
+            array_map(fn ($tab) => $tab->id, $tabs),
+            fn (string $id) => $this->panelFor($id) !== null
+        ));
+    }
+
+    /**
      * Integrations status board. One card per channel, one card per store
      * for the multi-store channels (Venta, OpenCart, Shopify), answering
      * "is everything healthy, and where do I need to go" without a trip
@@ -382,8 +608,7 @@ class IntegrationController extends Controller
                 'orderTabs' => [],
                 'selectedChannel' => null,
                 'selectedChannelLabel' => null,
-                'topProducts' => [],
-                'recentOrders' => [],
+                'summary' => $this->emptySummary(),
             ]);
         }
 
@@ -405,55 +630,16 @@ class IntegrationController extends Controller
         $selectedPanel = $selectedTab !== null ? $this->panelFor($selectedTab->id) : null;
         $renderingPanel = $selectedPanel !== null;
 
-        // Combined top-products leaderboard. Each tab returns its own top
-        // products (scoped per store for multi-store marketplaces); we merge
-        // by SKU, sum qty + revenue, and remember which tabs contributed so
-        // the leaderboard row can show small per-tab dots next to the SKU.
-        $merged = [];
-        foreach ($renderingPanel ? [] : $tabs as $tab) {
-            foreach ($tab->topProductsToday(10) as $tp) {
-                $key = $tp->sku;
-                if (!isset($merged[$key])) {
-                    $merged[$key] = [
-                        'sku' => $tp->sku,
-                        'name' => $tp->name,
-                        'imageUrl' => $tp->imageUrl,
-                        'qtySold' => 0,
-                        'revenue' => 0.0,
-                        'contributors' => [],
-                    ];
-                }
-                $merged[$key]['qtySold'] += $tp->qtySold;
-                $merged[$key]['revenue'] += $tp->revenue;
-                if ($tp->imageUrl && empty($merged[$key]['imageUrl'])) {
-                    $merged[$key]['imageUrl'] = $tp->imageUrl;
-                }
-                $merged[$key]['contributors'][] = [
-                    'label' => $tab->label,
-                    'accent' => $tab->accent,
-                    'qty' => $tp->qtySold,
-                ];
-            }
-        }
-        usort($merged, fn ($a, $b) => $b['qtySold'] <=> $a['qtySold']);
-        $topProducts = array_slice(array_values($merged), 0, 10);
-
-        // Combined recent activity feed, newest first across all tabs.
-        $recent = [];
-        foreach ($renderingPanel ? [] : $tabs as $tab) {
-            foreach ($tab->recentOrders(5) as $ro) {
-                $recent[] = [
-                    'order' => $ro,
-                    'tab' => $tab,
-                ];
-            }
-        }
-        usort($recent, function ($a, $b) {
-            $aTs = $a['order']->orderedAt?->getTimestamp() ?? 0;
-            $bTs = $b['order']->orderedAt?->getTimestamp() ?? 0;
-            return $bTs <=> $aTs;
-        });
-        $recentOrders = array_slice($recent, 0, 15);
+        // Everything the Summary shows, assembled in one place. Skipped
+        // entirely while a panel is rendering: the Summary is not on screen
+        // then, and building it would be several queries per visible tab
+        // computed and thrown away on every filter click inside the panel.
+        // The cards are built either way: they are the control that switches
+        // between channels, so they stay on screen with a panel open. Only the
+        // Summary BODY is skipped then - the feed and the leaderboard are the
+        // expensive part, one query per visible tab each, and neither is on
+        // screen behind a panel.
+        $summary = $this->buildSummary($tabs, $user, $registry, ! $renderingPanel);
 
         $data = [
             'hasMarketplaces' => true,
@@ -461,8 +647,7 @@ class IntegrationController extends Controller
             'selectedChannel' => null,
             'selectedChannelBase' => null,
             'selectedChannelLabel' => null,
-            'topProducts' => $topProducts,
-            'recentOrders' => $recentOrders,
+            'summary' => $summary,
             // Every tab id in this list gets an in-place link on the card
             // strip (view keys off membership, not a per-channel literal);
             // every other tab still links out to its own orders page.
@@ -472,10 +657,7 @@ class IntegrationController extends Controller
             // suffix ("venta:2") and the map is keyed by base id. The strip
             // only ever iterates these same tabs, so nothing is lost by
             // narrowing the list to them.
-            'panelChannels' => array_values(array_filter(
-                array_map(fn ($tab) => $tab->id, $tabs),
-                fn (string $id) => $this->panelFor($id) !== null
-            )),
+            'panelChannels' => $this->panelChannelIds($tabs),
         ];
 
         // A converted channel's orders content is a shared panel (service +

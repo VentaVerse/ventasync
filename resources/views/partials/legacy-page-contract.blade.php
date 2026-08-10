@@ -59,63 +59,49 @@
     // Token expiry warnings, sync pauses, etc. each marketplace knows
     // its own state and contributes via LayoutBannerContributor.
     //
-    // SCOPED, since 2026-08-09. Every contributor's banners used to render on
-    // every page, so "TikTok Shop: Access token expired" greeted an operator
-    // on Lazada Brands, on Shopee Categories, and on every other channel's
-    // pages. Inside one marketplace, another marketplace's problem is noise.
+    // SCOPED: inside a channel you see that channel's banners and nothing
+    // else. Another marketplace's problem is noise while you are working in
+    // this one, and it was arriving as an alarm - "TikTok Shop: Access token
+    // expired" sat at the top of Venta and OpenCart pages.
     //
-    // The rule: while you are inside a channel workspace that has banners of
-    // its own, you see only that channel's. Everywhere else - the dashboard,
-    // the integrations hub, catalogue, settings - you see all of them, which
-    // is where a cross-channel warning belongs.
+    // WHICH channel comes from $channelCard, which the layouts.channel view
+    // composer has already resolved for this request through
+    // ChannelWorkspace, including the /integrations/venta/2 -> "venta:2"
+    // translation and the 404 when it resolves to nothing. The card's id is
+    // the bare integration ("venta"), which is what a contributor is keyed by.
+    //
+    // It used to be re-derived here from the route name and three candidate
+    // route parameters, matched against the CONTRIBUTOR map. That is the bug
+    // the owner reported, and the reason it is worth naming: a channel matched
+    // only if it contributed banners, so a channel that contributes none was
+    // indistinguishable from "not in a channel at all" and fell through to
+    // showing everybody's. LayoutBannerContributor is opt-in and most channels
+    // do not implement it, so that fallback was not an edge case - it was the
+    // default for Venta, OpenCart, Shopify, Pedallion and for every
+    // integration added afterwards. Asking the page which channel it is in,
+    // rather than asking the banner map whether it recognises the channel,
+    // is what stops the next integration inheriting it.
+    //
+    // $channelCard is null only if this partial is ever included outside
+    // layouts.channel, which nothing does today. Then no channel owns the
+    // page and every banner is shown, which is the right reading for a
+    // cross-channel surface like the dashboard.
     $__layoutBanners = [];
     try {
-        $__reg = app(\App\Integrations\IntegrationRegistry::class);
-        $__byId = $__reg->layoutBannerContributorsById();
+        $__here = ($channelCard ?? null)?->id;
 
-        // Which channel am I in? There are two answers and both are needed.
-        //
-        //   ext.tiktok.orders.index          -> the name carries it
-        //   /integrations/shopee             -> integrations.workspace, and
-        //   /integrations/lazada                the channel is a route
-        //                                       PARAMETER, not part of the name
-        //
-        // The first version of this checked only the name, so the workspace
-        // and module pages - which is exactly where the owner saw the stray
-        // TikTok banner - never matched and fell through to showing all.
-        //
-        // A multi-store id arrives as "venta:2"; the part before the colon is
-        // the integration.
-        $__here = null;
-        $__route = \Illuminate\Support\Facades\Route::current();
-        $__routeName = (string) ($__route?->getName() ?? '');
-        $__candidates = [];
-
-        if (str_starts_with($__routeName, 'ext.')) {
-            $__candidates[] = explode('.', $__routeName)[1] ?? null;
-        }
-
-        foreach (['channel', 'key', 'integration'] as $__param) {
-            $__value = $__route?->parameter($__param);
-            if (is_string($__value) && $__value !== '') {
-                $__candidates[] = explode(':', $__value)[0];
-            }
-        }
-
-        foreach ($__candidates as $__candidate) {
-            if ($__candidate !== null && array_key_exists($__candidate, $__byId)) {
-                $__here = $__candidate;
-                break;
-            }
-        }
-
-        foreach ($__byId as $__id => $__c) {
+        foreach (app(\App\Integrations\IntegrationRegistry::class)->layoutBannerContributorsById() as $__id => $__c) {
             if ($__here !== null && $__id !== $__here) {
                 continue;
             }
-            foreach ($__c->layoutBanners() as $__b) { $__layoutBanners[] = $__b; }
+            foreach ($__c->layoutBanners() as $__b) {
+                $__layoutBanners[] = $__b;
+            }
         }
-    } catch (\Throwable $e) {}
+    } catch (\Throwable $e) {
+        // A marketplace with a missing table or an expired credential must
+        // not take the page down to announce it.
+    }
 @endphp
 
 @foreach($__layoutBanners as $__banner)

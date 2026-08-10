@@ -416,14 +416,84 @@ class ChannelWorkspace
         ];
     }
 
+    /**
+     * Each row carries a tone as well as a reading, because the Overview
+     * printed the most time-critical fact on the page in the same grey as
+     * the least: an access token that expired a fortnight ago rendered
+     * identically to "Not tracked", while the red banner at the top of the
+     * same screen was already shouting about it. Tone is what lets the
+     * connection rail rank its three rows by urgency instead of listing
+     * them.
+     *
+     * 'bad' needs someone now, 'attn' needs someone this week, 'good' is
+     * settled, and null is a reading with nothing to say either way. The
+     * view pairs every tone with words, so the colour is never the only
+     * thing carrying it.
+     *
+     * Comparisons are made with isPast()/lessThan() rather than a diff:
+     * Carbon 3 returns a SIGNED difference, so `now()->diffInDays($past)`
+     * is negative, and reading it as a magnitude is what once made every
+     * stale channel on the dashboard report as healthy.
+     *
+     * @return array<int, array{label: string, value: ?string, tone: ?string, note: ?string}>
+     */
     public function health(IntegrationCard $card, ?string $channel = null): array
     {
         $figures = $this->tokenFigures($card->id, $this->storeIdOf($this->store($card, $channel)));
 
+        $now = Carbon::now();
+        $expiry = $figures['tokenExpiresAt'];
+        $lastSync = $figures['lastSyncAt'];
+        $errors = $figures['errors24h'];
+
+        // A sync is judged against the same 24 hours state() uses, so the
+        // rail and the sidebar badge cannot call the same channel two
+        // different things.
+        $syncTone = match (true) {
+            $lastSync === null => null,
+            $lastSync->lessThan($now->copy()->subHours(24)) => 'attn',
+            default => 'good',
+        };
+
+        $expiryTone = match (true) {
+            $expiry === null => null,
+            $expiry->isPast() => 'bad',
+            $expiry->lessThanOrEqualTo($now->copy()->addDays(7)) => 'attn',
+            default => 'good',
+        };
+
         return [
-            ['label' => 'Last sync', 'value' => $figures['lastSyncAt']?->diffForHumans()],
-            ['label' => 'Token expiry', 'value' => $figures['tokenExpiresAt']?->diffForHumans()],
-            ['label' => 'API errors in 24 hours', 'value' => $figures['errors24h'] === null ? null : (string) $figures['errors24h']],
+            [
+                'label' => 'Last sync',
+                'value' => $lastSync?->diffForHumans(),
+                'tone' => $syncTone,
+                // Names the problem, not the threshold that detected it. The
+                // date already says how long ago; what a seller needs added
+                // is that this is not normal.
+                'note' => $syncTone === 'attn' ? 'Overdue' : null,
+            ],
+            [
+                'label' => 'Token expiry',
+                'value' => $expiry?->diffForHumans(),
+                'tone' => $expiryTone,
+                // The date alone does not say what it means. "2 weeks ago"
+                // is a fact; "Expired" is the reading a seller acts on.
+                'note' => match ($expiryTone) {
+                    'bad' => 'Expired',
+                    'attn' => 'Expiring soon',
+                    default => null,
+                },
+            ],
+            [
+                'label' => 'API errors in 24 hours',
+                'value' => $errors === null ? null : (string) $errors,
+                'tone' => match (true) {
+                    $errors === null => null,
+                    $errors > 0 => 'bad',
+                    default => 'good',
+                },
+                'note' => null,
+            ],
         ];
     }
 

@@ -162,12 +162,12 @@
     // still counts.
     $pendingTotal = array_sum($pendingBySource);
 
-    $ranges = [
-        '30d' => ['label' => '30 days', 'heading' => 'the last 30 days'],
-        'monthly' => ['label' => '12 months', 'heading' => 'the last 12 months'],
-        'yearly' => ['label' => '5 years', 'heading' => 'the last 5 years'],
-    ];
+    // $ranges comes from DashboardController::RANGES, which is also the
+    // whitelist ?range= is checked against. It used to be declared here as a
+    // second list that had to agree with that one; it did not have to agree
+    // for long.
     $rangeHeading = $ranges[$range]['heading'] ?? $ranges['30d']['heading'];
+    $rangeTitle = $ranges[$range]['title'] ?? $ranges['30d']['title'];
 
     $canSeePurchasing = RouteFacade::has('ext.purchasing.purchase_orders.index')
         && $user?->hasPermission('manage_purchasing');
@@ -394,15 +394,42 @@
             {{-- Trend. One range control above both series, so the two charts
                  always show the same slice and their figures agree. --}}
             <div class="bl-panel-head">
-                <h2>Sales over {{ $rangeHeading }}</h2>
-                <div class="ml-auto flex gap-1" role="group" aria-label="Chart range">
+                <h2>{{ $rangeTitle }}</h2>
+
+                {{-- One segmented control, not seven floating chips.
+
+                     Three separate bordered pills were fine at three. At seven
+                     - and with "This Month" and "Last Month" among them, which
+                     are words rather than tokens - they became seven boxes of
+                     different widths competing with the heading beside them.
+                     Joined into one control with hairline separators they read
+                     as a single choice with seven positions, which is what
+                     they are, and the group gets one outline instead of seven.
+
+                     The control scrolls inside itself below the width where
+                     seven positions fit, on the same rule the tables follow:
+                     a range you own has to stay reachable. --}}
+                {{-- Below the width where all seven fit, the control scrolls,
+                     and a scroll container opens at zero: pick "All Time" and
+                     the page comes back with the selected position off the
+                     right-hand edge, so the one thing the control exists to
+                     tell you is the one thing you cannot see. This centres the
+                     selected position in its own scrollport on load.
+
+                     scrollLeft rather than scrollIntoView, which walks every
+                     scrollable ancestor and would move the page as well as the
+                     control. Above the breakpoint there is nothing to scroll
+                     and the assignment is a no-op. --}}
+                <div class="bl-seg" role="group" aria-label="Chart range"
+                     x-data
+                     x-init="$nextTick(() => {
+                         const on = $el.querySelector('.is-on');
+                         if (on) $el.scrollLeft = on.offsetLeft - ($el.clientWidth - on.offsetWidth) / 2;
+                     })">
                     @foreach($ranges as $key => $meta)
                         <a href="{{ route('dashboard', ['range' => $key]) }}"
-                           @if($range === $key) aria-current="true" @endif
-                           class="rounded-[2px] border px-2 py-0.5 text-[11.5px] no-underline
-                                  {{ $range === $key
-                                      ? 'border-ink bg-ink font-semibold text-paper'
-                                      : 'border-rule-2 text-ink-2 hover:border-ink hover:text-ink' }}">
+                           class="bl-seg__item {{ $range === $key ? 'is-on' : '' }}"
+                           @if($range === $key) aria-current="true" @endif>
                             {{ $meta['label'] }}
                         </a>
                     @endforeach

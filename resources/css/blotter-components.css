@@ -1414,6 +1414,334 @@
         font-weight: 600;
     }
 
+    /* ============================================================
+       THE SUMMARY  (`fh-`)
+
+       Rebuilt 2026-08-10 (board #92). The rule the whole page obeys: every
+       figure is either RIGHT NOW or TODAY, and nothing else. Anything that
+       needs a date range, a filter or a scroll belongs to the order page.
+
+       That rule is also why nothing here reads the core order table, which is
+       what keeps this page clear of the two-sources seam on board #93.
+
+       The `x-fh-` vocabulary above belongs to the channel PANELS, which still
+       render on this page when a card is opened. This block is the Summary
+       only, so the two can be told apart at a glance in a diff.
+       ============================================================ */
+
+    .fh-head { margin-bottom: var(--space-5); }
+
+    /* The page's whole answer, as a sentence rather than a row of figures. */
+    .fh-head__state {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 8px;
+        margin: 4px 0 0;
+        font-size: 13.5px;
+        color: var(--bl-ink-3);
+    }
+
+    .fh-head__work { font-weight: 600; color: var(--bl-ink-2); }
+
+    /* Work waiting is the one figure on this line worth a colour, and only when
+       there is some: an amber "Nothing waiting" would be an alarm about calm. */
+    .fh-head__work.is-live { color: var(--bl-attn); }
+
+    /* --bl-rule-2 is a HAIRLINE colour, and at #dfe5ee on white the middot
+       was invisible: the two clauses read as one sentence with an accidental
+       gap in it. A separator has to be seen to separate. */
+    .fh-head__sep { color: var(--bl-ink-3); }
+    .fh-head__link.is-bad { color: var(--bl-bad); font-weight: 600; }
+
+    /* ---- The card grid ----
+
+       One rule covers every behaviour asked for: cards stretch to fill the
+       width, shrink as channels are enabled, stop shrinking at 150px, and wrap
+       to the next row past that. No JS, no per-count breakpoints, and a channel
+       enabled tomorrow needs nothing changed.
+
+       Measured against the real content region: 4 surfaces are 322px each at a
+       1600px viewport, 6 are 208px, 8 are 152px, and 11 wrap to two rows. */
+    .fh-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-bottom: var(--space-5);
+    }
+
+    .fh-card {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        padding: 12px 14px 13px;
+        background: var(--bl-sheet);
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        box-shadow: var(--bl-lift);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color .12s ease, box-shadow .12s ease;
+    }
+
+    .fh-card:hover { border-color: var(--bl-rule-2); box-shadow: var(--bl-lift-2); }
+
+    /* Which card is OPEN is carried by weight and fill, never by hue: the hue
+       is already spoken for by the channel's own brand mark, and two signals
+       competing for one colour is how a strip stops being readable. */
+    .fh-card.is-open {
+        border-color: var(--bl-ink);
+        box-shadow: inset 0 0 0 1px var(--bl-ink);
+    }
+
+    .fh-card__top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .fh-card__mark { flex: none; display: block; }
+
+    .fh-card__name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--bl-ink-2);
+    }
+
+    .fh-card__lead {
+        margin-top: 6px;
+        font-size: 26px;
+        font-weight: 650;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-attn);
+    }
+
+    /* Nothing waiting is the good state, so it reads as settled rather than as
+       a figure demanding attention. It keeps the size, because a row of cards
+       whose numbers change size as work arrives is a row that jumps. */
+    .fh-card__lead.is-clear { color: var(--bl-ink-3); }
+
+    /* Not tracked and Not syncing are statements about instrumentation and
+       connection, not quantities, so both drop out of the numeric size
+       entirely. A solid ink-3, never a reduced opacity, which would fall under
+       the 4.5:1 floor over this surface. */
+    .fh-card__lead.is-untracked,
+    .fh-card__lead.is-stalled {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.3;
+        margin-top: 8px;
+        letter-spacing: 0;
+    }
+
+    .fh-card__lead.is-untracked { font-weight: 400; font-style: italic; color: var(--bl-ink-3); }
+    .fh-card__lead.is-stalled { color: var(--bl-bad); }
+
+    .fh-card__label { font-size: 11.5px; color: var(--bl-ink-3); }
+
+    /* The caveat under the count. It was inheriting plain ink-3, which made
+       "not syncing" read exactly like "clear" - the one comparison this card
+       exists to make impossible. Amber for a channel that has credentials and
+       has gone quiet, red for one that was never connected; the words say the
+       same thing, so the colour is never carrying it alone. */
+    .fh-card__label.is-attn { color: var(--bl-attn); font-weight: 600; }
+    .fh-card__label.is-bad { color: var(--bl-bad); font-weight: 600; }
+
+    .fh-card.is-stalled { border-color: color-mix(in srgb, var(--bl-bad) 35%, var(--bl-rule)); }
+
+    /* Today's contribution, shown only when the card is wide enough to hold it.
+       Gated on the CARD's width through a container query rather than on the
+       viewport, because what decides whether there is room is how many channels
+       are enabled, which no viewport breakpoint knows. */
+    .fh-card__today {
+        margin-top: 7px;
+        padding-top: 7px;
+        border-top: 1px solid var(--bl-rule);
+        font-size: 11.5px;
+        color: var(--bl-ink-3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .fh-card__sep { color: var(--bl-rule-2); }
+
+    @supports (container-type: inline-size) {
+        .fh-card { container-type: inline-size; }
+
+        @container (max-width: 175px) {
+            .fh-card__today { display: none; }
+        }
+    }
+
+    /* ---- Today, as one line ---- */
+    .fh-today {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 8px;
+        margin-bottom: var(--space-4);
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--bl-rule);
+        font-size: 13px;
+    }
+
+    .fh-today__k {
+        font-size: var(--bl-lab-size);
+        letter-spacing: var(--bl-lab-track);
+        color: var(--bl-ink-3);
+        margin-right: 4px;
+    }
+
+    .fh-today__v { font-weight: 600; color: var(--bl-ink); font-variant-numeric: tabular-nums; }
+    .fh-today__v.is-quiet { font-weight: 500; color: var(--bl-ink-3); }
+    .fh-today__sep { color: var(--bl-rule-2); }
+    .fh-today__note { color: var(--bl-ink-3); }
+
+    /* ---- Body: the feed beside the leaderboard ---- */
+    .fh-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-4);
+        align-items: start;
+    }
+
+    @media (min-width: 1000px) {
+        .fh-body { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+    }
+
+    .fh-sec {
+        padding: 15px 18px 17px;
+        background: var(--bl-sheet);
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        box-shadow: var(--bl-lift);
+    }
+
+    .fh-sec__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 12px;
+        padding-bottom: 9px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .fh-sec__title { margin: 0; font-size: 13px; font-weight: 650; color: var(--bl-ink); }
+
+    .fh-sec__more {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--bl-ink-2);
+        text-decoration: none;
+        border-bottom: 1px solid var(--bl-rule-2);
+    }
+
+    .fh-sec__more:hover { color: var(--bl-ink); border-color: var(--bl-ink); }
+
+    .fh-empty { margin: 6px 0; font-size: 13px; color: var(--bl-ink-3); }
+
+    /* ---- Today's orders ---- */
+    .fh-feed { margin: 0; padding: 0; list-style: none; }
+
+    .fh-feed__row {
+        display: grid;
+        grid-template-columns: 44px minmax(84px, auto) minmax(0, 1.2fr) minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 4px 12px;
+        padding: 8px 0;
+        border-top: 1px solid var(--bl-rule);
+        font-size: 13px;
+    }
+
+    .fh-feed__row:first-child { border-top: 0; padding-top: 2px; }
+
+    /* The time leads. On a feed that is today by definition, WHEN is what a
+       reader scans; the reference is what they click. */
+    .fh-feed__time { color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
+
+    .fh-feed__chan {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        color: var(--bl-ink-2);
+        font-size: 12.5px;
+    }
+
+    .fh-feed__mark { flex: none; display: block; }
+
+    .fh-feed__ref { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fh-feed__ref a { color: var(--bl-ink); text-decoration: none; border-bottom: 1px solid var(--bl-rule-2); }
+    .fh-feed__ref a:hover { border-color: var(--bl-ink); }
+
+    .fh-feed__who {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--bl-ink-3);
+        font-size: 12.5px;
+    }
+
+    .fh-feed__total { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* On a phone the row folds to two lines: time and channel lead, then the
+       reference and its total. The customer drops - it is the least useful of
+       the five when the screen is 390px and the order is one tap away. */
+    @media (max-width: 700px) {
+        .fh-feed__row {
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+            grid-template-areas:
+                "time chan  total"
+                "time ref   ref";
+        }
+
+        .fh-feed__time { grid-area: time; }
+        .fh-feed__chan { grid-area: chan; }
+        .fh-feed__ref { grid-area: ref; }
+        .fh-feed__total { grid-area: total; }
+        .fh-feed__who { display: none; }
+    }
+
+    /* ---- Top products today ---- */
+    .fh-top { margin: 0; padding: 0; list-style: none; }
+
+    .fh-top__row {
+        display: grid;
+        grid-template-columns: 16px minmax(0, 1fr) 40px auto;
+        align-items: baseline;
+        gap: 4px 10px;
+        padding: 8px 0;
+        border-top: 1px solid var(--bl-rule);
+        font-size: 13px;
+    }
+
+    .fh-top__row:first-child { border-top: 0; padding-top: 2px; }
+
+    .fh-top__rank { font-size: 11.5px; font-weight: 600; color: var(--bl-ink-3); }
+    .fh-top__name { min-width: 0; color: var(--bl-ink); }
+
+    .fh-top__sku {
+        display: block;
+        margin-top: 1px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--bl-ink-3);
+    }
+
+    .fh-top__qty { text-align: right; color: var(--bl-ink-2); font-variant-numeric: tabular-nums; }
+    .fh-top__rev { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
     .x-fh-sec {
         display: flex;
         flex-direction: column;
@@ -2344,7 +2672,18 @@
     }
 
     .x-search-trigger:hover { border-color: var(--bl-ink-2); }
-    .x-search-trigger__label { flex: 1; min-width: 0; }
+    /* Truncates rather than wraps. The global shell's label is the long one -
+       "Search products, orders, SKUs" - and at 390px it wrapped to three
+       lines and made the top bar taller than the page title under it. min-width
+       alone does not stop a flex child wrapping its own text. */
+    .x-search-trigger__label {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+    }
 
     .x-search-trigger__hint {
         flex: none;
@@ -2557,6 +2896,15 @@
         border-bottom: 1px solid var(--bl-rule-2);
     }
 
+    /* Where you are: the nav toggle and the trail, as one child of the bar so
+       space-between still has exactly two things to distribute. */
+    .x-topbar__left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
     .x-topbar__crumb {
         min-width: 0;
         overflow: hidden;
@@ -2613,6 +2961,91 @@
         min-width: 0;
     }
 
+    /* ------------------------------------------------------------
+       THE SHELL BELOW 1024px
+
+       .x-shell is a two-column flex row with a 216px sidebar, and it had no
+       responsive treatment at any width. On a 390px phone that left the
+       content region 174px to render into, so every page on this layout -
+       every marketplace's orders, listings, settings and logistics - scrolled
+       sideways. The rule that would have fixed it lived in layout/shell.css,
+       which this bundle deliberately does not import, so it never applied and
+       reading the source suggested otherwise.
+
+       The sidebar becomes an off-canvas drawer instead. 1024px is the same
+       breakpoint layouts/blotter.blade.php uses for the global shell, stated
+       as a literal here because it is a shell decision rather than a page
+       one, and the two shells have to switch together: a user moving between
+       them at 1010px must not meet a drawer on one and a column on the other.
+       ------------------------------------------------------------ */
+    @media (max-width: 1023px) {
+        .x-shell > .x-sidebar {
+            position: fixed;
+            inset-block: 0;
+            left: 0;
+            z-index: 40;
+            width: min(280px, 84vw);
+            /* Not translated off-screen: a hidden drawer must be out of the
+               tab order as well as out of sight, and a transformed element
+               keeps both. */
+            display: none;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            box-shadow: var(--bl-lift-2);
+        }
+
+        .x-shell > .x-sidebar.is-open { display: flex; }
+
+        .x-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 30;
+            background: color-mix(in srgb, var(--bl-ink) 45%, transparent);
+        }
+    }
+
+    /* The toggle is only ever seen on a small screen, so it is sized for a
+       thumb from the start rather than bumped later by the coarse-pointer
+       block. */
+    .x-navtoggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 40px;
+        height: 40px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-sheet);
+        color: var(--bl-ink-2);
+        cursor: pointer;
+    }
+
+    .x-navtoggle:hover { color: var(--bl-ink); border-color: var(--bl-ink-3); }
+
+    /* Above the breakpoint the drawer's furniture has nothing to do.
+
+       This block sits AFTER the base rules on purpose. It was written before
+       them, and inside one cascade layer at equal specificity the later rule
+       wins - so `display: inline-flex` on .x-navtoggle beat the media query
+       and a nav toggle for a drawer that does not exist sat in the top bar at
+       1440px. A media query carries no weight of its own; only its position
+       does.
+
+       The scrim is listed too. Alpine's x-show leaves the element in the DOM
+       and only toggles an inline display, so a window resized from phone to
+       desktop with the drawer open would otherwise keep a full-page dimmer
+       over a perfectly normal two-column page.
+
+       .x-cnav__close is hidden by the twin of this block further down, beside
+       its own base rule, for exactly the same reason: a hide has to come after
+       the declaration it is overriding, and these two rules live in different
+       parts of the file. */
+    @media (min-width: 1024px) {
+        .x-scrim,
+        .x-navtoggle { display: none; }
+    }
+
     /* Channel sidebar. */
     .x-cnav {
         display: flex;
@@ -2637,6 +3070,42 @@
     .x-cnav__store {
         font-size: 12px;
         color: var(--bl-side-ink);
+    }
+
+    /* The back link and the drawer's close button share one row, so closing
+       the drawer and leaving the channel sit at the two ends of the same line
+       rather than stacking two rows of chrome above the nav itself. Above
+       1024px the button is display:none and the row collapses to the link
+       alone, which is what the sidebar looked like before the drawer existed. */
+    .x-cnav__top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .x-cnav__top .x-cnav__back { flex: 1; min-width: 0; }
+
+    .x-cnav__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: var(--bl-r-ctrl);
+        background: none;
+        color: var(--bl-side-ink);
+        cursor: pointer;
+    }
+
+    .x-cnav__close:hover { background: var(--bl-side-hover); color: #fff; }
+
+    /* After the base rule, not with the shell's other desktop hides: same
+       layer and same specificity means the later declaration wins, and this
+       one is declared later in the file than that block is. */
+    @media (min-width: 1024px) {
+        .x-cnav__close { display: none; }
     }
 
     .x-cnav__back,
@@ -2815,52 +3284,31 @@
 
     .x-crumb__link:hover { color: var(--bl-ink); text-decoration: underline; }
 
-    /* Channel overview: is this connection healthy, and what is queued. */
+    /* Channel overview head: the channel or store on the left, its one
+       most-needed action pushed to the far right. It was packed left with a
+       14px gap, which left a lone Connect button hugging the tagline in the
+       middle of a 1160px page with no edge to belong to. Same shape as
+       .od-section__head and .fm-head, so all three heads on this shell agree.
+
+       The horizontal padding stays var(--bl-pad), which .x-content declares
+       as zero: the page gutter is the container's, and this head is not a
+       card. */
     .x-overview-head {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
+        justify-content: space-between;
         gap: 14px;
         padding: 18px var(--bl-pad) 14px;
     }
 
-    .x-health,
-    .x-waiting {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        border-block: 1px solid var(--bl-rule-2);
-        background: var(--bl-sheet);
-    }
-
-    /* Cells in a full-bleed row: their padding is internal spacing between
-       column dividers, never the page edge, so it is a literal. */
-    .x-health__cell,
-    .x-waiting__cell {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        padding: 13px 16px;
-        border-right: 1px solid var(--bl-rule);
-        min-width: 0;
-    }
-
-    .x-health__cell:last-child,
-    .x-waiting__cell:last-child { border-right: 0; }
-
-    .x-health__label {
-        font-size: var(--bl-lab-size);
-        font-stretch: var(--bl-lab-stretch);
-        font-weight: var(--bl-lab-weight);
-        letter-spacing: var(--bl-lab-track);
-        text-transform: var(--bl-lab-case);
-        color: var(--bl-ink-3);
-    }
-
-    .x-health__value {
-        font-size: 17px;
-        font-weight: 640;
-        font-variant-numeric: tabular-nums;
-    }
+    /* .x-health / .x-waiting were the Overview's two full-bleed strips, one
+       cell per figure across the page width. Both were replaced by the
+       connection and waiting panels in the workspace rail (see .cw-rows in
+       pages/integrations.css), which is where a figure you glance at belongs.
+       Their rules are deleted rather than left orphaned: they had a second,
+       conflicting definition in layout/channel.css, and a dead class with two
+       definitions is how the next person inherits a bug. */
 
     .x-cnav__state { font-size: 12px; color: var(--bl-side-ink); }
 

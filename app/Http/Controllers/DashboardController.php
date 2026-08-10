@@ -15,19 +15,84 @@ use Illuminate\Support\Facades\Schema;
 class DashboardController extends Controller
 {
     /**
-     * The three ranges the trend charts offer. Anything else in ?range=
-     * falls back to the first: the value reaches SQL through
-     * buildChartData()/buildPlatformData(), so it is whitelisted here
+     * The ranges the trend charts offer, in the order the control shows them.
+     * Anything else in ?range= falls back to the first: the value reaches SQL
+     * through buildChartData()/buildPlatformData(), so it is whitelisted here
      * rather than validated at each use.
+     *
+     * The labels live here rather than in the view, which is where they used
+     * to be. Two lists that had to agree - the keys the controller accepted
+     * and the buttons the page drew - meant a button could quietly point at a
+     * range the whitelist rejected and land the reader back on 30 days with
+     * no explanation. One list cannot disagree with itself.
+     *
+     * - label:   the button
+     * - title:   the section heading, written out because "Sales over this
+     *            month" is not English and "Sales this month" is
+     * - heading:  the period on its own, for the qualifier beside "Orders by
+     *            channel"
+     * - group:   day buckets or month buckets. Ninety days of daily points
+     *            still reads on a 1000-unit plot; a year of them would not.
      */
-    private const RANGES = ['30d', 'monthly', 'yearly'];
+    private const RANGES = [
+        '30d' => [
+            'label' => '30d',
+            'title' => 'Sales over the last 30 days',
+            'heading' => 'the last 30 days',
+            'group' => 'day',
+        ],
+        '90d' => [
+            'label' => '90d',
+            'title' => 'Sales over the last 90 days',
+            'heading' => 'the last 90 days',
+            'group' => 'day',
+        ],
+        'mtd' => [
+            'label' => 'This Month',
+            'title' => 'Sales this month',
+            'heading' => 'this month',
+            'group' => 'day',
+        ],
+        'lastmonth' => [
+            'label' => 'Last Month',
+            'title' => 'Sales last month',
+            'heading' => 'last month',
+            'group' => 'day',
+        ],
+        'ytd' => [
+            'label' => 'This Year',
+            'title' => 'Sales this year',
+            'heading' => 'this year',
+            'group' => 'month',
+        ],
+        '12m' => [
+            'label' => '12m',
+            'title' => 'Sales over the last 12 months',
+            'heading' => 'the last 12 months',
+            'group' => 'month',
+        ],
+        'all' => [
+            'label' => 'All Time',
+            'title' => 'Sales, all time',
+            'heading' => 'all time',
+            'group' => 'month',
+        ],
+    ];
+
+    /**
+     * MIN(date_added) is the same answer for every caller within one request,
+     * and only the All Time range asks for it. Memoised so the two builders
+     * that need it do not each scan for it, and left null when the table is
+     * empty rather than standing in a date.
+     */
+    private ?\Carbon\Carbon $firstOrderMonth = null;
 
     public function index(Request $request)
     {
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $range = in_array($request->query('range'), self::RANGES, true)
+        $range = array_key_exists((string) $request->query('range'), self::RANGES)
             ? (string) $request->query('range')
             : '30d';
 
@@ -188,6 +253,7 @@ class DashboardController extends Controller
             'chartOrders' => $chartOrders,
             'platformSlices' => $platformSlices,
             'range' => $range,
+            'ranges' => self::RANGES,
             'pendingBySource' => $pendingBySource,
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
@@ -223,8 +289,13 @@ class DashboardController extends Controller
         $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
 
+        // Both ends, not just the start: "Last Month" is a closed window, and
+        // reading it open-ended would rank this month's channels under last
+        // month's heading.
+        $window = $this->rangeWindow($range);
+
         $rows = DB::table($pfx . 'order')
-            ->where('date_added', '>=', $this->rangeStart($range))
+            ->whereBetween('date_added', [$window['start'], $window['end']])
             ->select(
                 'marketplace_source',
                 DB::raw('COUNT(*) as orders'),
@@ -273,88 +344,131 @@ class DashboardController extends Controller
         return $slices;
     }
 
-    /** First instant each range covers. One definition, three callers. */
-    private function rangeStart(string $range): \Carbon\Carbon
+    /**
+     * The window a range covers, both ends of it.
+     *
+     * A start alone was enough while every range ran up to now, and it stops
+     * being enough the moment one does not: "Last Month" bounded only at the
+     * bottom would have swept this month's orders in with it and reported a
+     * figure for a period that has not finished. Both builders read this, so
+     * the chart and the channel ring cannot describe different slices under
+     * one heading.
+     *
+     * @return array{start: \Carbon\Carbon, end: \Carbon\Carbon}
+     */
+    private function rangeWindow(string $range): array
     {
+        $now = now();
+
         return match ($range) {
-            'yearly'  => now()->subYears(4)->startOfYear(),
-            'monthly' => now()->subMonths(11)->startOfMonth(),
-            default   => now()->subDays(29)->startOfDay(),
+            '90d' => [
+                'start' => $now->copy()->subDays(89)->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            'mtd' => [
+                'start' => $now->copy()->startOfMonth(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            // The only closed window on the list, and the reason this method
+            // returns a pair at all.
+            'lastmonth' => [
+                'start' => $now->copy()->subMonth()->startOfMonth(),
+                'end' => $now->copy()->subMonth()->endOfMonth(),
+            ],
+            'ytd' => [
+                'start' => $now->copy()->startOfYear(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            '12m' => [
+                'start' => $now->copy()->subMonths(11)->startOfMonth(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            'all' => [
+                'start' => $this->firstOrderMonth(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            default => [
+                'start' => $now->copy()->subDays(29)->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+            ],
         };
     }
 
+    /**
+     * The month the first order landed in, which is where All Time starts.
+     * An empty order table has no first month, so it reports this one: the
+     * window is then a single empty bucket, the plot declines to draw itself,
+     * and the section shows its empty state rather than a line through
+     * nothing.
+     */
+    private function firstOrderMonth(): \Carbon\Carbon
+    {
+        if ($this->firstOrderMonth !== null) {
+            return $this->firstOrderMonth->copy();
+        }
+
+        $first = DB::table((string) config('catalog.prefix') . 'order')->min('date_added');
+
+        $this->firstOrderMonth = $first
+            ? \Carbon\Carbon::parse($first)->startOfMonth()
+            : now()->startOfMonth();
+
+        return $this->firstOrderMonth->copy();
+    }
+
+    /**
+     * One series builder for every range.
+     *
+     * This was three near-identical branches, one per range, each with its
+     * own loop and its own hardcoded count. Seven ranges would have made it
+     * seven. The only things that actually differ are the window and whether
+     * the bucket is a day or a month, so those are the only things this reads:
+     * SQL groups by the same expression the loop walks, which is what keeps a
+     * period with no orders drawn as a zero instead of dropped from the line.
+     */
     private function buildChartData(string $range): array
     {
         $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $revCase = 'SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue';
 
-        if ($range === 'yearly') {
-            // Last 5 years, grouped by year
-            $startDate = $this->rangeStart($range);
+        $window = $this->rangeWindow($range);
+        $byMonth = (self::RANGES[$range]['group'] ?? 'day') === 'month';
 
-            $rows = DB::table($pfx . 'order')
-                ->select(DB::raw('YEAR(date_added) as period'), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
-                ->where('date_added', '>=', $startDate)
-                ->groupBy(DB::raw('YEAR(date_added)'))
-                ->orderBy('period')
-                ->get()
-                ->keyBy('period');
+        // Fixed strings chosen by a boolean, never interpolated from input:
+        // $range is whitelisted against self::RANGES before it reaches here,
+        // and the window's two ends are bound parameters.
+        $periodSql = $byMonth
+            ? "DATE_FORMAT(date_added, '%Y-%m')"
+            : 'DATE(date_added)';
 
-            $labels = [];
-            $revenue = [];
-            $orders = [];
-            for ($i = 4; $i >= 0; $i--) {
-                $year = now()->subYears($i)->format('Y');
-                $labels[] = $year;
-                $revenue[] = round((float) ($rows->get($year)->revenue ?? 0), 2);
-                $orders[] = (int) ($rows->get($year)->orders ?? 0);
-            }
-        } elseif ($range === 'monthly') {
-            // Last 12 months, grouped by month
-            $startDate = $this->rangeStart($range);
+        $rows = DB::table($pfx . 'order')
+            ->select(DB::raw($periodSql . ' as period'), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
+            ->whereBetween('date_added', [$window['start'], $window['end']])
+            ->groupBy(DB::raw($periodSql))
+            ->orderBy('period')
+            ->get()
+            ->keyBy('period');
 
-            $rows = DB::table($pfx . 'order')
-                ->select(DB::raw("DATE_FORMAT(date_added, '%Y-%m') as period"), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
-                ->where('date_added', '>=', $startDate)
-                ->groupBy(DB::raw("DATE_FORMAT(date_added, '%Y-%m')"))
-                ->orderBy('period')
-                ->get()
-                ->keyBy('period');
+        $labels = [];
+        $revenue = [];
+        $orders = [];
 
-            $labels = [];
-            $revenue = [];
-            $orders = [];
-            for ($i = 11; $i >= 0; $i--) {
-                $date = now()->subMonths($i);
-                $key = $date->format('Y-m');
-                $labels[] = $date->format('M Y');
-                $revenue[] = round((float) ($rows->get($key)->revenue ?? 0), 2);
-                $orders[] = (int) ($rows->get($key)->orders ?? 0);
-            }
-        } else {
-            // Last 30 days, grouped by day
-            $chartDays = 30;
-            $startDate = $this->rangeStart($range);
+        // All Time is the one range whose length nobody chose, so it is the
+        // one that needs a ceiling: a shop trading since 2015 is about 130
+        // monthly buckets, and this stops a bad date_added in the table from
+        // turning into an unbounded loop. Every other range is far below it.
+        $maxBuckets = 400;
 
-            $rows = DB::table($pfx . 'order')
-                ->select(DB::raw('DATE(date_added) as period'), DB::raw($revCase), DB::raw('COUNT(*) as orders'))
-                ->where('date_added', '>=', $startDate)
-                ->groupBy(DB::raw('DATE(date_added)'))
-                ->orderBy('period')
-                ->get()
-                ->keyBy('period');
+        $cursor = $window['start']->copy();
+        while ($cursor->lessThanOrEqualTo($window['end']) && count($labels) < $maxBuckets) {
+            $labels[] = $byMonth ? $cursor->format('M Y') : $cursor->format('M d');
 
-            $labels = [];
-            $revenue = [];
-            $orders = [];
-            for ($i = 0; $i < $chartDays; $i++) {
-                $date = now()->subDays($chartDays - 1 - $i);
-                $key = $date->format('Y-m-d');
-                $labels[] = $date->format('M d');
-                $revenue[] = round((float) ($rows->get($key)->revenue ?? 0), 2);
-                $orders[] = (int) ($rows->get($key)->orders ?? 0);
-            }
+            $key = $byMonth ? $cursor->format('Y-m') : $cursor->format('Y-m-d');
+            $revenue[] = round((float) ($rows->get($key)->revenue ?? 0), 2);
+            $orders[] = (int) ($rows->get($key)->orders ?? 0);
+
+            $byMonth ? $cursor->addMonth() : $cursor->addDay();
         }
 
         return [

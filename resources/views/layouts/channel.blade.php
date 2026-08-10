@@ -26,14 +26,53 @@
     @stack('styles')
 </head>
 <body class="x-app bl-app">
-<div class="x-shell">
-    <aside class="x-sidebar x-sidebar--channel">
+{{-- The channel shell is off-canvas below 1024px and permanent above it, the
+     same arrangement layouts/blotter.blade.php already runs for the global
+     shell. It is a drawer rather than the horizontal strip the legacy
+     stylesheet reached for, because a channel's nav is a back link, a head
+     carrying the store and its state, and up to three labelled groups: a
+     single scrolling row cannot hold that without hiding most of it, and
+     mixing two shell behaviours in one application is worse than either.
+
+     Until this existed the sidebar held a hard 216px at every width, so a
+     390px phone gave the page 174px to render into and every channel page -
+     orders, listings, settings, logistics - scrolled sideways. --}}
+<div class="x-shell" x-data="{ nav: false }" @keydown.escape.window="nav = false">
+    <aside class="x-sidebar x-sidebar--channel" :class="nav && 'is-open'" id="channel-nav">
         @include('partials.channel-nav')
     </aside>
 
+    {{-- Scrim. Below the drawer in the stack and above everything else, so a
+         tap outside the nav closes it and nothing behind it is reachable
+         while it is open. aria-hidden because the drawer's own close button
+         and the escape key are what a keyboard uses. --}}
+    <div class="x-scrim" x-show="nav" x-cloak @click="nav = false" aria-hidden="true"></div>
+
     <div class="x-main">
         <header class="x-topbar">
-            {{-- Integrations / Channel [/ Store] / Leaf, same shape as ever,
+            {{-- The toggle and the trail are ONE flex child, not two.
+
+                 The bar distributes with space-between, so a third child sent
+                 the trail to the middle of the row and, once the controls
+                 wrapped to a second line on a phone, left it stranded above
+                 the account menu with the whole page width between it and the
+                 button it belongs beside. Grouped, the bar is back to the two
+                 children space-between was written for: where you are on the
+                 left, what you can do on the right. --}}
+            <div class="x-topbar__left">
+                {{-- Opens the channel nav below 1024px, where the sidebar is a
+                     drawer. aria-expanded and aria-controls are what make it a
+                     disclosure rather than a mystery button to a screen
+                     reader. --}}
+                <button type="button" class="x-navtoggle"
+                        @click="nav = true"
+                        :aria-expanded="nav ? 'true' : 'false'"
+                        aria-controls="channel-nav"
+                        aria-label="Open channel navigation">
+                    <x-ui.icon name="menu" size="16" />
+                </button>
+
+                {{-- Integrations / Channel [/ Store] / Leaf, same shape as ever,
                  now built by App\Support\Breadcrumbs from the workspace
                  payload the composer above already resolved rather than
                  assembled by hand here. The two decisions this markup used to
@@ -48,9 +87,11 @@
                    --current: the leaf when the page supplies one, else the
                    store, else the channel. Every crumb here is plain text, so
                    "last" and "last unlinked" are the same crumb. --}}
-            <div class="x-topbar__crumb">
-                @include('partials.breadcrumb', ['crumbClass' => 'x-crumb--channel'])
+                <div class="x-topbar__crumb">
+                    @include('partials.breadcrumb', ['crumbClass' => 'x-crumb--channel'])
+                </div>
             </div>
+
             <div class="x-topbar__right">
                 {{-- Command palette affordance. Cmd+K/Ctrl+K already opens
                      <x-ui.palette /> (bound at the bottom of this layout) via

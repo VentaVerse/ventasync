@@ -229,7 +229,11 @@ class MultistoreWorkspaceTest extends TestCase
      */
     private function visibleChrome(string $html): string
     {
-        preg_match('/<aside class="x-sidebar x-sidebar--channel">(.*?)<\/aside>/s', $html, $sidebar);
+        // [^>]* so the tag may carry attributes: the channel shell became an
+        // off-canvas drawer below 1024px and the <aside> now holds Alpine's
+        // :class and an id. The classes are still required; only the
+        // assumption that nothing else sits in the tag is relaxed.
+        preg_match('/<aside class="x-sidebar x-sidebar--channel"[^>]*>(.*?)<\/aside>/s', $html, $sidebar);
         preg_match('/<main class="x-content[^"]*">(.*?)<\/main>/s', $html, $content);
 
         $this->assertNotEmpty($sidebar[1] ?? '', 'No channel sidebar rendered.');

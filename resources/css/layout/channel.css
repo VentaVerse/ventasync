@@ -203,117 +203,20 @@
     .x-crumb--channel .x-crumb__sep { display: none; }
 }
 
-/* Overview page: title/tagline on the left, the channel's one most-needed
-   action on the right. Wraps to a stacked layout once there is no room for
-   both on one line, rather than letting the button push the page wide. */
-.x-overview-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-4);
-}
+/* The Overview page's own rules used to live here: .x-overview-head, and the
+   .x-waiting / .x-health strips. All three were also defined in
+   blotter-components.css, and that is the copy the page actually gets: this
+   file is deliberately NOT imported into the blotter bundle (see the note at
+   the top of blotter-bridge.css), so the version here never reached a channel
+   page at all. It still read as the authority to anyone opening this file,
+   which is how a head declared justify-content: space-between here could sit
+   packed-left on screen for as long as both copies existed.
 
-.x-overview-head .x-page-title,
-.x-overview-head .x-page-sub {
-    margin-bottom: var(--space-1);
-}
-
-/* Overview health strip: Last sync, Token expiry, API errors in 24h.
-   A null value means the figure genuinely is not tracked (no expiry column
-   for this channel, or api_logging switched off on its settings row) - it
-   renders "Not tracked" in .is-untracked rather than a fabricated zero,
-   which would read as "no errors" when it means "never measured".
-
-   var(--success) is never used here: it is undeclared on .x-app and falls
-   through to a legacy value with a light-theme contrast of about 2.03:1. */
-/* What is waiting for the operator, sitting above the connection health.
-   The figure leads and the label follows, the reverse of .x-health, because
-   here the number is the message and in the health strip it is the caption. */
-.x-waiting {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: var(--space-3);
-    margin: var(--space-5) 0 0;
-}
-
-.x-waiting__cell {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-4);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-}
-
-.x-waiting__value {
-    font-size: 26px;
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-}
-
-/* Not tracked is a statement about instrumentation, not a quantity, so it
-   drops out of the numeric size and weight entirely. Printing a zero here
-   would read as "nothing waiting" when it means "never measured". */
-.x-waiting__value.is-untracked {
-    font-size: 14px;
-    font-weight: 400;
-    font-style: italic;
-    color: var(--text-muted);
-}
-
-.x-waiting__label {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.x-health {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1px;
-    margin: var(--space-5) 0;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-
-.x-health__cell {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-4);
-    background: var(--surface);
-}
-
-.x-health__label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.x-health__value {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-}
-
-.x-health__value.is-untracked {
-    font-size: 13px;
-    font-weight: 500;
-    font-style: italic;
-    color: var(--text-muted);
-}
+   The head keeps its one live definition in blotter-components.css. The two
+   strips were replaced by the workspace rail's panels (.cw-rows, in
+   pages/integrations.css) and are gone from both files. */
 
 @media (max-width: 640px) {
     .x-overview-head { flex-direction: column; align-items: stretch; }
     .x-overview-head .x-btn { align-self: flex-start; }
-    .x-health { grid-template-columns: 1fr; }
 }

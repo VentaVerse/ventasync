@@ -3,10 +3,21 @@
      linkability check in ChannelWorkspace::allows(), so route() cannot throw
      here and no second gate is needed. --}}
 <nav class="x-cnav" aria-label="{{ $channelCard->name }} navigation">
-    <a class="x-cnav__back" href="{{ route('integrations.index') }}">
-        <x-ui.icon name="chevron-left" size="12" />
-        All channels
-    </a>
+    <div class="x-cnav__top">
+        <a class="x-cnav__back" href="{{ route('integrations.index') }}">
+            <x-ui.icon name="chevron-left" size="12" />
+            All channels
+        </a>
+
+        {{-- Only reachable while the sidebar is a drawer; above 1024px it is a
+             permanent column with nothing to close. The escape key does the
+             same job, but a control a pointer can reach has to exist too:
+             tapping the scrim is a convention, not an affordance. --}}
+        <button type="button" class="x-cnav__close" @click="nav = false"
+                aria-label="Close channel navigation">
+            <x-ui.icon name="x" size="15" />
+        </button>
+    </div>
 
     {{-- The modifier, rather than :has(), so the mobile strip can keep the
          store visible without depending on selector support. --}}
