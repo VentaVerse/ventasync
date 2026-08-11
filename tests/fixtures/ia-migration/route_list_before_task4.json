@@ -1461,6 +1461,11 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "integrations/shopee/product-groups/{id}/orphans",
+        "name": "ext.shopee.product-groups.orphans"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "integrations/shopee/product-groups/{id}/products",
         "name": "ext.shopee.product-groups.products"
     },
@@ -1468,6 +1473,11 @@
         "method": "POST",
         "uri": "integrations/shopee/product-groups/{id}/products/add",
         "name": "ext.shopee.product-groups.addProducts"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopee/product-groups/{id}/products/check",
+        "name": "ext.shopee.product-groups.check"
     },
     {
         "method": "POST",
@@ -1493,6 +1503,11 @@
         "method": "POST",
         "uri": "integrations/shopee/product-groups/{id}/products/push-stock",
         "name": "ext.shopee.product-groups.pushStock"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/shopee/product-groups/{id}/products/send",
+        "name": "ext.shopee.product-groups.send"
     },
     {
         "method": "POST",

@@ -79,6 +79,11 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::get('/shopee/product-groups/categories/lookup', [ShopeeProductGroupController::class, 'categoryLookup'])->name('ext.shopee.product-groups.categoryLookup');
         Route::get('/shopee/product-groups/{id}/edit', [ShopeeProductGroupController::class, 'edit'])->name('ext.shopee.product-groups.edit');
         Route::get('/shopee/product-groups/{id}/products', [ShopeeProductGroupController::class, 'products'])->name('ext.shopee.product-groups.products');
+        // Read tier, beside the products list it mirrors, NOT with the
+        // writes. It asks Shopee what it holds and prints the answer; it
+        // adopts nothing and deletes nothing. Noticing that the two sides
+        // have drifted is exactly what a view-only operator is for.
+        Route::get('/shopee/product-groups/{id}/orphans', [ShopeeProductGroupController::class, 'orphans'])->name('ext.shopee.product-groups.orphans');
 
         // Products — list, search-catalog, push-form RENDER
         Route::get('/shopee/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
@@ -124,6 +129,12 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::put('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('ext.shopee.product-groups.update');
         Route::delete('/shopee/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('ext.shopee.product-groups.destroy');
         Route::post('/shopee/product-groups/{id}/products/add', [ShopeeProductGroupController::class, 'addProducts'])->name('ext.shopee.product-groups.addProducts');
+        // Send reconciles against Shopee and then creates or updates
+        // accordingly. push and updateProduct stay because the bulk bar and
+        // the scheduler still address them directly; Send is what the row
+        // offers, so no state of the page can hide the action that works.
+        Route::post('/shopee/product-groups/{id}/products/send', [ShopeeProductGroupController::class, 'send'])->name('ext.shopee.product-groups.send');
+        Route::post('/shopee/product-groups/{id}/products/check', [ShopeeProductGroupController::class, 'checkAgainstShopee'])->name('ext.shopee.product-groups.check');
         Route::post('/shopee/product-groups/{id}/products/push', [ShopeeProductGroupController::class, 'push'])->name('ext.shopee.product-groups.push');
         Route::post('/shopee/product-groups/{id}/products/update-product', [ShopeeProductGroupController::class, 'updateProduct'])->name('ext.shopee.product-groups.updateProduct');
         Route::post('/shopee/product-groups/{id}/products/push-prices', [ShopeeProductGroupController::class, 'pushPrices'])->name('ext.shopee.product-groups.pushPrices');

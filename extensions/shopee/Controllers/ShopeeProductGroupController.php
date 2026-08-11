@@ -26,6 +26,9 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends Controller
 {
+    /** Memoised shop-wide SKU index; see shopeeSkuIndex(). */
+    private ?array $shopeeSkuIndex = null;
+
     private function productsRedirect(int $id)
     {
         $return = request()->input('_return');
@@ -322,7 +325,7 @@ class ShopeeProductGroupController extends Controller
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
                 'm.name as manufacturer_name',
-                'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.push_error'
+                'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.last_confirmed_at', 'gp.push_error'
             );
 
         if ($q !== '') {
@@ -1344,33 +1347,659 @@ class ShopeeProductGroupController extends Controller
             ->with($removed > 0 ? 'status' : 'warning', $summary);
     }
 
-    public function push(Request $request, int $id, ShopeeClient $client)
+    /**
+     * The SKUs this product could be known by on Shopee, lowercased.
+     *
+     * Includes variation SKUs, because Shopee stores a SKU on the item AND on
+     * every model under it, and a product is just as findable by one of its
+     * variations as by its own code.
+     */
+    private function shopeeCandidateSkus(int $productId, string $pfx): array
+    {
+        $product = DB::table($pfx.'product')->where('product_id', $productId)->first(['sku', 'model']);
+
+        if (! $product) {
+            return [];
+        }
+
+        $skus = [];
+        foreach ([$product->sku ?? '', $product->model ?? ''] as $candidate) {
+            $candidate = strtolower(trim((string) $candidate));
+            if ($candidate !== '') {
+                $skus[] = $candidate;
+            }
+        }
+
+        $optSkus = DB::table($pfx.'product_option_value')
+            ->where('product_id', $productId)
+            ->whereNotNull('sku')->where('sku', '!=', '')
+            ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
+
+        return array_values(array_unique(array_filter(array_merge($skus, $optSkus))));
+    }
+
+    /**
+     * Does Shopee still have this item?
+     *
+     * @return string 'yes' | 'no' | 'unknown'
+     */
+    private function shopeeItemStillExists(ShopeeClient $client, array $auth, int $itemId): string
+    {
+        try {
+            $res = $client->shopGet(
+                $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                (string) $auth['access_token'], (int) $auth['shop_id'],
+                '/api/v2/product/get_item_base_info',
+                ['item_id_list' => (string) $itemId]
+            );
+        } catch (\Throwable $e) {
+            // The client retries twice and then throws. A throw is the network
+            // failing, never Shopee answering, so it can prove nothing.
+            return 'unknown';
+        }
+
+        $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+        $err = strtolower((string) ($body['error'] ?? ''));
+
+        if ($err !== '') {
+            // Shopee replies 200 with an error field, so the HTTP status says
+            // nothing. Only an error that NAMES the item as missing counts as
+            // an answer; auth failures, rate limits and the rest are silence.
+            return str_contains($err, 'not_found') || str_contains($err, 'not_exist') ? 'no' : 'unknown';
+        }
+
+        if (! ($res['ok'] ?? false)) {
+            return 'unknown';
+        }
+
+        $items = $body['response']['item_list'] ?? [];
+
+        foreach ($items as $item) {
+            if ((int) ($item['item_id'] ?? 0) !== $itemId) {
+                continue;
+            }
+
+            // DELETED is the only status that means gone. UNLIST and BANNED
+            // items are still there - treating them as missing would delete a
+            // good link and then create a duplicate beside the original.
+            return strtoupper((string) ($item['item_status'] ?? '')) === 'DELETED' ? 'no' : 'yes';
+        }
+
+        return 'no';
+    }
+
+    /**
+     * Every SKU in the shop, mapped to the item that carries it.
+     *
+     * Built ONCE per request and reused. Shopee has no "get item by SKU"
+     * endpoint, so finding a product by its code means paging the whole shop
+     * and fetching details in batches of fifty - about forty calls. Per
+     * product that would be ruinous on a group of any size; shared across the
+     * batch it is a fixed cost paid only when something actually needs
+     * looking up.
+     *
+     * @return array{skus: array<string,int>, complete: bool}
+     */
+    private function shopeeSkuIndex(ShopeeClient $client, array $auth): array
+    {
+        if ($this->shopeeSkuIndex !== null) {
+            return $this->shopeeSkuIndex;
+        }
+
+        $map = [];
+        $complete = true;
+
+        // UNLIST and BANNED included deliberately. An item hidden from the
+        // storefront still occupies its SKU, and a search that ignored them
+        // would report "not on Shopee" and create a second listing.
+        foreach (['NORMAL', 'UNLIST', 'BANNED'] as $status) {
+            $offset = 0;
+
+            for ($page = 0; $page < 20; $page++) {
+                try {
+                    $res = $client->shopGet(
+                        $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                        (string) $auth['access_token'], (int) $auth['shop_id'],
+                        '/api/v2/product/get_item_list',
+                        ['offset' => $offset, 'page_size' => 50, 'item_status' => $status]
+                    );
+                } catch (\Throwable $e) {
+                    $complete = false;
+                    break;
+                }
+
+                $items = $res['body']['response']['item'] ?? [];
+                if (empty($items)) {
+                    break;
+                }
+
+                $itemIds = array_filter(array_map(fn ($i) => $i['item_id'] ?? null, $items));
+                if (empty($itemIds)) {
+                    break;
+                }
+
+                try {
+                    $detail = $client->shopGet(
+                        $auth['mode'], (int) $auth['partner_id'], (string) $auth['partner_key'],
+                        (string) $auth['access_token'], (int) $auth['shop_id'],
+                        '/api/v2/product/get_item_base_info',
+                        ['item_id_list' => implode(',', $itemIds)]
+                    );
+                } catch (\Throwable $e) {
+                    $complete = false;
+                    break;
+                }
+
+                foreach ($detail['body']['response']['item_list'] ?? [] as $item) {
+                    $itemId = (int) ($item['item_id'] ?? 0);
+                    if ($itemId <= 0) {
+                        continue;
+                    }
+
+                    $itemSku = strtolower(trim((string) ($item['item_sku'] ?? '')));
+                    if ($itemSku !== '' && ! isset($map[$itemSku])) {
+                        $map[$itemSku] = $itemId;
+                    }
+
+                    foreach ($item['model_list'] ?? [] as $model) {
+                        $modelSku = strtolower(trim((string) ($model['model_sku'] ?? '')));
+                        if ($modelSku !== '' && ! isset($map[$modelSku])) {
+                            $map[$modelSku] = $itemId;
+                        }
+                    }
+                }
+
+                if (! ($res['body']['response']['has_next_page'] ?? false)) {
+                    break;
+                }
+
+                $offset += 50;
+
+                if ($page === 19) {
+                    // Reported, never swallowed: a shop bigger than the ceiling
+                    // would otherwise have its tail read as "not on Shopee".
+                    $complete = false;
+                }
+            }
+        }
+
+        return $this->shopeeSkuIndex = ['skus' => $map, 'complete' => $complete];
+    }
+
+    /**
+     * Ask Shopee what is actually true, and make the local link agree.
+     *
+     * The same reconcile Venta got, for the same reason: every action on a row
+     * decided what to do from a link row, which is the ERP's own memory and
+     * can be wrong in both directions. Delete an item in Seller Centre and the
+     * ERP went on believing it was live, offering Update - which can only
+     * answer item_not_found - while Push was skipped because a link existed.
+     *
+     * The order here is chosen around what each question costs. Confirming an
+     * item we already know the id of is one call. Searching by SKU means
+     * paging the shop, so it only happens when the cheap question came back
+     * negative or there was no id to ask about.
+     *
+     * Returns confirmed, adopted, repointed, lost, new, taken or unreachable.
+     *
+     * @return array{state: string, item_id: int|null, message: string|null}
+     */
+    private function reconcileShopeeLink(ShopeeClient $client, array $auth, int $productId, string $pfx): array
+    {
+        $link = ShopeeProductLink::query()
+            ->where('product_id', $productId)
+            ->whereNotNull('shopee_item_id')
+            ->first();
+
+        $knownId = $link ? (int) $link->shopee_item_id : 0;
+
+        if ($knownId > 0) {
+            $verdict = $this->shopeeItemStillExists($client, $auth, $knownId);
+
+            if ($verdict === 'unknown') {
+                return [
+                    'state' => 'unreachable',
+                    'item_id' => $knownId,
+                    'message' => 'Shopee did not answer, so nothing was checked or changed.',
+                ];
+            }
+
+            if ($verdict === 'yes') {
+                return ['state' => 'confirmed', 'item_id' => $knownId, 'message' => null];
+            }
+        }
+
+        $skus = $this->shopeeCandidateSkus($productId, $pfx);
+
+        if (empty($skus)) {
+            // Nothing to search by. Say so rather than concluding absence: a
+            // product with no SKU is unfindable, not missing.
+            return [
+                'state' => 'unreachable',
+                'item_id' => null,
+                'message' => 'This product has no SKU, so it cannot be matched against Shopee.',
+            ];
+        }
+
+        $index = $this->shopeeSkuIndex($client, $auth);
+
+        $found = null;
+        foreach ($skus as $sku) {
+            if (isset($index['skus'][$sku])) {
+                $found = (int) $index['skus'][$sku];
+                break;
+            }
+        }
+
+        if ($found === null) {
+            if (! $index['complete']) {
+                return [
+                    'state' => 'unreachable',
+                    'item_id' => $knownId ?: null,
+                    'message' => 'The shop could not be read all the way through, so this product was left alone.',
+                ];
+            }
+
+            if ($knownId > 0) {
+                // Gone from Shopee. Dropping the link is what lets Send create
+                // instead of sending an update that can only answer
+                // item_not_found. This also clears the item cache, which is
+                // the other half of the same memory: a cached SKU to item_id
+                // row would otherwise hand the dead id straight back.
+                ShopeeProductLink::unlinkProduct($productId);
+
+                // unlinkProduct leaves the row saying 'unlinked', which is the
+                // word for a deliberate act by the operator. Nobody unlinked
+                // this - Shopee lost it - and the row needs to read as not
+                // pushed so that Send offers to create it again.
+                $this->writeProductStatus($productId, [
+                    'sync_status' => 'pending',
+                    'push_error' => null,
+                ]);
+
+                return ['state' => 'lost', 'item_id' => null, 'message' => null];
+            }
+
+            return ['state' => 'new', 'item_id' => null, 'message' => null];
+        }
+
+        $otherHolder = ShopeeProductLink::query()
+            ->where('shopee_item_id', $found)
+            ->where('product_id', '!=', $productId)
+            ->value('product_id');
+
+        if ($otherHolder) {
+            // Not taken over. That link may be perfectly good, and stealing it
+            // would leave the other product pointing at nothing.
+            return [
+                'state' => 'taken',
+                'item_id' => $found,
+                'message' => "Shopee item {$found} is already linked to catalogue product #{$otherHolder}. "
+                    .'Unlink that product first, then send this one again.',
+            ];
+        }
+
+        ShopeeProductLink::updateOrCreate(
+            ['product_id' => $productId, 'shopee_item_id' => $found, 'shopee_model_id' => null],
+            ['sku' => $skus[0] ?? null]
+        );
+
+        return [
+            'state' => $knownId > 0 ? 'repointed' : 'adopted',
+            'item_id' => $found,
+            'message' => null,
+        ];
+    }
+
+    /**
+     * Ask Shopee about these products and make the ERP agree. No writing to Shopee.
+     *
+     * The read half of the pair; Send is the write half. It replaces Match
+     * Shopee ID, which could only ever fill in blanks - its first act was to
+     * return early for any product that already had an item id, so the one
+     * thing worth knowing, whether the id it already had is still real, was
+     * the one thing it would not look at.
+     *
+     * A button rather than something the schedule does to everything on every
+     * run. Confirming a known item is one call, but finding an unlinked one
+     * means paging the whole shop, and doing that hourly for every group would
+     * spend the API budget re-answering a question that only changes when
+     * somebody edits Seller Centre directly.
+     *
+     * With rows ticked it checks those. With none ticked it checks the group.
+     */
+    public function checkAgainstShopee(Request $request, int $id, ShopeeClient $client)
+    {
+        $group = ShopeeProductGroup::findOrFail($id);
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+
+        if (! $setting || ! $auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $productIds = $this->parseIds($request);
+
+        if (empty($productIds)) {
+            $productIds = DB::table('shopee_product_group_products')
+                ->where('shopee_product_group_id', $id)
+                ->pluck('product_id')->map('intval')->all();
+        }
+
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'This group has no products to check.');
+        }
+
+        // A ceiling, reported rather than applied quietly: a check that looked
+        // at the first 200 of 500 and said nothing would leave the other 300
+        // appearing confirmed.
+        $limit = 200;
+        $skippedForSize = max(0, count($productIds) - $limit);
+        $productIds = array_slice($productIds, 0, $limit);
+
+        $pfx = (string) config('catalog.prefix');
+        $verdicts = [];
+        $problems = [];
+
+        foreach ($productIds as $productId) {
+            $verdict = $this->reconcileShopeeLink($client, $auth, (int) $productId, $pfx);
+            $state = $verdict['state'];
+            $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
+
+            if ($state === 'unreachable') {
+                // Nothing was learned, so nothing is written. The row keeps
+                // what it said before, which is honest: it was a belief then
+                // and it is still a belief now.
+                $problems[] = "#{$productId}: {$verdict['message']}";
+                continue;
+            }
+
+            if ($state === 'taken') {
+                $problems[] = "#{$productId}: {$verdict['message']}";
+                $this->writeProductStatus((int) $productId, [
+                    'sync_status' => 'error',
+                    'push_error' => Str::limit((string) $verdict['message'], 480),
+                    'last_confirmed_at' => now(),
+                ]);
+                continue;
+            }
+
+            if ($state === 'lost' || $state === 'new') {
+                // reconcileShopeeLink has already dropped a dead link and reset
+                // the row; this only stamps the time it was established.
+                $this->writeProductStatus((int) $productId, [
+                    'sync_status' => 'pending',
+                    'push_error' => null,
+                    'last_confirmed_at' => now(),
+                ]);
+                continue;
+            }
+
+            $this->writeProductStatus((int) $productId, [
+                'sync_status' => 'pushed',
+                'shopee_item_id' => $verdict['item_id'] ? (string) $verdict['item_id'] : null,
+                'push_error' => null,
+                'last_confirmed_at' => now(),
+            ]);
+        }
+
+        $checked = count($productIds) - ($verdicts['unreachable'] ?? 0);
+
+        // Findings, not outcomes. Nothing here wrote to Shopee, so nothing may
+        // suggest anything was fixed there.
+        $parts = [];
+        if (! empty($verdicts['confirmed'])) {
+            $parts[] = $verdicts['confirmed'].' still on Shopee';
+        }
+        if (! empty($verdicts['adopted'])) {
+            $parts[] = $verdicts['adopted'].' found and linked';
+        }
+        if (! empty($verdicts['repointed'])) {
+            $parts[] = $verdicts['repointed'].' pointed at the wrong item and corrected';
+        }
+        if (! empty($verdicts['lost'])) {
+            $parts[] = $verdicts['lost'].' no longer on Shopee, now marked not pushed';
+        }
+        if (! empty($verdicts['new'])) {
+            $parts[] = $verdicts['new'].' not pushed yet';
+        }
+        if (! empty($verdicts['taken'])) {
+            $parts[] = $verdicts['taken'].' blocked by another product holding the same item';
+        }
+        if (! empty($verdicts['unreachable'])) {
+            $parts[] = $verdicts['unreachable'].' could not be checked';
+        }
+
+        $summary = "Checked {$checked} against Shopee. ".($parts ? implode('. ', $parts).'.' : 'Nothing to report.');
+
+        if ($skippedForSize > 0) {
+            $summary .= " {$skippedForSize} further "
+                .($skippedForSize === 1 ? 'product was' : 'products were')
+                .' not checked this time. Run it again to continue.';
+        }
+
+        if ($problems) {
+            $summary .= ' '.implode('; ', array_slice($problems, 0, 2));
+            if (count($problems) > 2) {
+                $summary .= ' (and '.(count($problems) - 2).' more)';
+            }
+        }
+
+        $failed = count($problems);
+        $tone = $failed === 0 ? 'status' : ($checked > 0 ? 'warning' : 'error');
+
+        return $this->productsRedirect($id)->with($tone, $summary);
+    }
+
+    /**
+     * List items on Shopee that no catalogue product claims.
+     *
+     * The check answers "is what we have still there". This answers the mirror
+     * question, "is there something there we do not know about", and only the
+     * two together show the whole picture. Orphans come from ordinary events:
+     * an item created in Seller Centre, a link removed, a catalogue product
+     * deleted while its Shopee listing stayed live.
+     *
+     * Read-only on purpose. It reports; it never adopts, never deletes and
+     * never writes a link. Adopting by SKU without asking is how a catalogue
+     * product ends up pointed at a stranger, and only the operator knows
+     * whether a familiar-looking code is really the same product.
+     */
+    public function orphans(Request $request, int $id, ShopeeClient $client)
+    {
+        $group = ShopeeProductGroup::findOrFail($id);
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+
+        if (! $setting || ! $auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $index = $this->shopeeSkuIndex($client, $auth);
+
+        $known = ShopeeProductLink::query()
+            ->whereNotNull('shopee_item_id')
+            ->pluck('shopee_item_id')
+            ->map('intval')
+            ->flip();
+
+        // The index is keyed by SKU, so several SKUs can point at one item.
+        // Group them, or a product with four variations appears four times.
+        $byItem = [];
+        foreach ($index['skus'] as $sku => $itemId) {
+            $byItem[$itemId][] = $sku;
+        }
+
+        $orphans = [];
+        foreach ($byItem as $itemId => $skus) {
+            if ($known->has((int) $itemId)) {
+                continue;
+            }
+
+            sort($skus);
+            $orphans[] = ['id' => (int) $itemId, 'skus' => $skus];
+        }
+
+        return view('ext-shopee::product-groups.orphans', [
+            'group' => $group,
+            'orphans' => $orphans,
+            'scanned' => count($byItem),
+            'complete' => $index['complete'],
+        ]);
+    }
+
+    /**
+     * One action that works whatever state the row is in.
+     *
+     * It replaces Push to Shopee, Update on Shopee, Match Shopee ID and Link
+     * to Shopee again - four buttons that were really one question asked four
+     * ways, each visible only when the ERP's own link row happened to be in a
+     * particular shape. That shape was frequently wrong, and when it was, the
+     * row offered nothing that could work: Push hidden because a link existed,
+     * Update failing because the item did not.
+     *
+     * The order is the whole point. Reconcile first, so the link says what
+     * Shopee actually holds, THEN let each product take the branch its
+     * corrected link earns. createOnShopee and updateOnShopee still gate on
+     * that link exactly as they always did; the difference is that the link is
+     * now a checked fact rather than a memory.
+     */
+    public function send(Request $request, int $id, ShopeeClient $client)
     {
         $group = ShopeeProductGroup::findOrFail($id);
         $productIds = $this->parseIds($request);
+
         if (empty($productIds)) {
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
         $setting = ShopeeSetting::query()->first()?->decrypted();
         $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+
+        if (! $setting || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
-        }
-
-        if (!$group->shopee_category_id) {
-            return $this->productsRedirect($id)->with('error', 'Product Group has no Shopee category configured. Set a category first.');
-        }
-
-        $logisticIds = $group->logistic_ids ?? [];
-        if (empty($logisticIds)) {
-            return $this->productsRedirect($id)->with('error', 'Product Group has no logistics channels configured.');
         }
 
         $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
+        $verdicts = [];
+        $toCreate = [];
+        $toUpdate = [];
+        $blocked = [];
+
+        foreach ($productIds as $productId) {
+            $verdict = $this->reconcileShopeeLink($client, $auth, (int) $productId, $pfx);
+            $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
+
+            // Neither of these may be sent. 'taken' would tie two catalogue
+            // products to one Shopee item; 'unreachable' means we do not know
+            // what is on Shopee, and creating into that ignorance is how a
+            // duplicate listing appears next to the original.
+            if ($verdict['state'] === 'taken' || $verdict['state'] === 'unreachable') {
+                $blocked[] = "#{$productId}: {$verdict['message']}";
+                $this->writeProductStatus((int) $productId, [
+                    'sync_status' => 'error',
+                    'push_error' => Str::limit((string) $verdict['message'], 480),
+                    'last_pushed_at' => now(),
+                ]);
+                continue;
+            }
+
+            // Shopee answered about this product, so the row is now a checked
+            // fact rather than a belief.
+            $this->writeProductStatus((int) $productId, ['last_confirmed_at' => now()]);
+
+            if (in_array($verdict['state'], ['confirmed', 'adopted', 'repointed'], true)) {
+                $toUpdate[] = (int) $productId;
+            } else {
+                $toCreate[] = (int) $productId;
+            }
+        }
+
+        $created = ['ok' => 0, 'skip' => 0, 'err' => 0, 'errors' => []];
+        $updated = ['ok' => 0, 'skip' => 0, 'err' => 0, 'errors' => []];
+
+        if ($toCreate) {
+            if (! $group->shopee_category_id) {
+                $blocked[] = 'Nothing new could be created: this group has no Shopee category set.';
+            } elseif (empty($group->logistic_ids ?? [])) {
+                $blocked[] = 'Nothing new could be created: this group has no logistics channels set.';
+            } else {
+                $created = $this->createOnShopee($group, $toCreate, $client, $auth, $pfx, $langId);
+            }
+        }
+
+        if ($toUpdate) {
+            $updated = $this->updateOnShopee($group, $toUpdate, $client, $auth, $pfx, $langId);
+        }
+
+        // What reconciling FOUND, stated separately from what the send then
+        // did about it. Collapsing the two once produced "recreated" for a
+        // recreate that had failed a moment later.
+        $notes = [];
+        if (! empty($verdicts['lost'])) {
+            $notes[] = $verdicts['lost'].' had been removed from Shopee';
+        }
+        if (! empty($verdicts['adopted'])) {
+            $notes[] = $verdicts['adopted'].' already existed on Shopee and '
+                .($verdicts['adopted'] === 1 ? 'was linked' : 'were linked');
+        }
+        if (! empty($verdicts['repointed'])) {
+            $notes[] = $verdicts['repointed'].' had been linked to the wrong Shopee item';
+        }
+        if (! empty($verdicts['unreachable'])) {
+            $notes[] = $verdicts['unreachable'].' could not be checked';
+        }
+
+        $okCount = $created['ok'] + $updated['ok'];
+        $errCount = $created['err'] + $updated['err'] + count($blocked);
+        $skipCount = $created['skip'] + $updated['skip'];
+
+        $summary = "Send: {$created['ok']} created, {$updated['ok']} updated";
+        if ($skipCount > 0) {
+            $summary .= ", {$skipCount} skipped";
+        }
+        if ($errCount > 0) {
+            $summary .= ", {$errCount} failed";
+        }
+        if ($notes) {
+            $summary .= '. '.implode('. ', $notes).'.';
+        }
+
+        $errors = array_merge($blocked, $created['errors'], $updated['errors']);
+        if ($errors) {
+            $summary .= ' '.implode('; ', array_slice($errors, 0, 4));
+            if (count($errors) > 4) {
+                $summary .= ' (and '.(count($errors) - 4).' more)';
+            }
+        }
+
+        return $this->productsRedirect($id)->with($this->batchTone($okCount, $errCount), $summary);
+    }
+
+    /**
+     * Create these products on Shopee. The loop is unchanged; it was lifted
+     * out of push() so that Send can drive it too.
+     *
+     * Its first act is still to skip a product that already has a link, and
+     * that gate is only trustworthy because Send reconciles before calling
+     * this: the link either reflects what Shopee holds or it has been dropped.
+     * Called with a stale link it would do what it always did, which is skip a
+     * product forever because the ERP remembers creating it once.
+     *
+     * @return array{ok:int,skip:int,err:int,errors:array<int,string>}
+     */
+    private function createOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
+    {
         $okCount = 0;
         $skipCount = 0;
         $errCount = 0;
@@ -1641,36 +2270,18 @@ class ShopeeProductGroupController extends Controller
             usleep(300000); // 300ms rate limit between pushes
         }
 
-        $summary = "Push: {$okCount} pushed";
-        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (already linked or disabled)";
-        if ($errCount > 0) $summary .= ", {$errCount} failed";
-        if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
-
-        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
+        return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors];
     }
 
     /**
-     * Update existing Shopee listings with latest ERP data (name, description, images, weight, dimensions).
-     * Also syncs price and stock via their dedicated Shopee endpoints.
+     * Update these products on Shopee. Lifted out of updateProduct() for the
+     * same reason as createOnShopee, and carrying the mirror of its gate: it
+     * skips anything NOT linked.
+     *
+     * @return array{ok:int,skip:int,err:int,errors:array<int,string>}
      */
-    public function updateProduct(Request $request, int $id, ShopeeClient $client)
+    private function updateOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
     {
-        $group = ShopeeProductGroup::findOrFail($id);
-        $productIds = $this->parseIds($request);
-        if (empty($productIds)) {
-            return $this->productsRedirect($id)->with('error', 'No products selected.');
-        }
-
-        $setting = ShopeeSetting::query()->first()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
-        }
-
-        $pfx = (string) config('catalog.prefix');
-        $langId = (int) config('catalog.default_language_id');
-
         $okCount = 0;
         $skipCount = 0;
         $errCount = 0;
@@ -1806,6 +2417,72 @@ class ShopeeProductGroupController extends Controller
 
             usleep(300000);
         }
+
+        return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors];
+    }
+
+    public function push(Request $request, int $id, ShopeeClient $client)
+    {
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        if (!$group->shopee_category_id) {
+            return $this->productsRedirect($id)->with('error', 'Product Group has no Shopee category configured. Set a category first.');
+        }
+
+        $logisticIds = $group->logistic_ids ?? [];
+        if (empty($logisticIds)) {
+            return $this->productsRedirect($id)->with('error', 'Product Group has no logistics channels configured.');
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $r = $this->createOnShopee($group, $productIds, $client, $auth, $pfx, $langId);
+        $okCount = $r['ok']; $skipCount = $r['skip']; $errCount = $r['err']; $errors = $r['errors'];
+
+        $summary = "Push: {$okCount} pushed";
+        if ($skipCount > 0) $summary .= ", {$skipCount} skipped (already linked or disabled)";
+        if ($errCount > 0) $summary .= ", {$errCount} failed";
+        if (!empty($errors)) $summary .= '. Errors: ' . implode('; ', array_slice($errors, 0, 5));
+
+        return $this->productsRedirect($id)->with($okCount > 0 ? 'status' : 'error', $summary);
+    }
+
+    /**
+     * Update existing Shopee listings with latest ERP data (name, description, images, weight, dimensions).
+     * Also syncs price and stock via their dedicated Shopee endpoints.
+     */
+    public function updateProduct(Request $request, int $id, ShopeeClient $client)
+    {
+        $group = ShopeeProductGroup::findOrFail($id);
+        $productIds = $this->parseIds($request);
+        if (empty($productIds)) {
+            return $this->productsRedirect($id)->with('error', 'No products selected.');
+        }
+
+        $setting = ShopeeSetting::query()->first()?->decrypted();
+        $auth = ShopeeSetting::activeAuth($setting);
+        if (!$setting || !$auth['complete']) {
+            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
+            return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
+        }
+
+        $pfx = (string) config('catalog.prefix');
+        $langId = (int) config('catalog.default_language_id');
+
+        $r = $this->updateOnShopee($group, $productIds, $client, $auth, $pfx, $langId);
+        $okCount = $r['ok']; $skipCount = $r['skip']; $errCount = $r['err']; $errors = $r['errors'];
 
         $summary = "Update: {$okCount} updated";
         if ($skipCount > 0) $summary .= ", {$skipCount} skipped (not linked)";

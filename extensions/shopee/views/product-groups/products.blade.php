@@ -56,7 +56,23 @@
         </p>
     </div>
     @if($canManageShopee)
-        <x-ui.button :href="route('ext.shopee.product-groups.edit', $group->id)">Edit group</x-ui.button>
+        {{-- Both ask about the whole group, which is why they sit here and not
+             in the bulk bar: the bulk bar only appears once rows are ticked,
+             and "is anything out of step?" is what you ask before you know
+             which rows to tick. Check posts because it writes; Unlinked is a
+             GET because it only reads. --}}
+        <div class="cc-head-actions">
+            @if($canManageShopee)
+                <form method="POST" action="{{ route('ext.shopee.product-groups.check', $group->id) }}"
+                      data-confirm="Check every product in this group against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds.">
+                    @csrf
+                    <input type="hidden" name="_return" value="{{ $returnTo }}">
+                    <x-ui.button type="submit" variant="secondary">Check against Shopee</x-ui.button>
+                </form>
+            @endif
+            <x-ui.button variant="secondary" :href="route('ext.shopee.product-groups.orphans', $group->id)">Unlinked on Shopee</x-ui.button>
+            <x-ui.button :href="route('ext.shopee.product-groups.edit', $group->id)">Edit group</x-ui.button>
+        </div>
     @endif
 </div>
 
@@ -126,11 +142,17 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar>
     <span class="cc-bulkbar__count"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
-        <form method="POST" action="{{ route('ext.shopee.product-groups.push', $group->id) }}" data-bulk-form
-              data-bulk-confirm="Push the selected products to Shopee? Anything already pushed is skipped.">
+        {{-- Send, not Push. The old wording promised "anything already pushed
+             is skipped", which was true and was the defect: a product whose
+             listing had been deleted on Shopee kept its link row, so bulk push
+             skipped it forever and the operator had no way to notice. Send
+             checks each product against Shopee first and then creates or
+             updates it. --}}
+        <form method="POST" action="{{ route('ext.shopee.product-groups.send', $group->id) }}" data-bulk-form
+              data-bulk-confirm="Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalogue.">
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Push to Shopee</x-ui.button>
+            <x-ui.button type="submit" size="sm">Send to Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.product-groups.pushPrices', $group->id) }}" data-bulk-form>
             @csrf
@@ -141,6 +163,11 @@
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
+        </form>
+        <form method="POST" action="{{ route('ext.shopee.product-groups.check', $group->id) }}" data-bulk-form>
+            @csrf
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+            <x-ui.button type="submit" size="sm">Check against Shopee</x-ui.button>
         </form>
         <form method="POST" action="{{ route('ext.shopee.product-groups.massRemove', $group->id) }}" data-bulk-form
               data-bulk-confirm="Take the selected products out of this group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
@@ -206,6 +233,13 @@
             $hasShopeeId = $pivot && $pivot->shopee_item_id && !$isUnlinked;
             $failed = $syncState === 'error';
             $hasError = $failed && ($pivot->push_error ?? null);
+
+            // Parsed rather than cast: this comes off a query builder select,
+            // not an Eloquent model, so it arrives as a string with no
+            // diffForHumans on it.
+            $confirmedAt = ($pivot->last_confirmed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($pivot->last_confirmed_at)
+                : null;
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
@@ -320,6 +354,25 @@
                 @else
                     <span class="x-cell-muted">Not yet</span>
                 @endif
+
+                {{-- The badge states what the ERP BELIEVES. This says how that
+                     belief was arrived at, and the gap between the two is why
+                     this page could mislead: a green Pushed badge was written
+                     at push time and never revisited, so an item deleted in
+                     Seller Centre kept it indefinitely.
+
+                     "Not checked" is not a warning and is not styled as one. It
+                     is the ordinary state of a product nobody has asked about
+                     since it was pushed, and it is accurate far more often than
+                     not. It is here so a fact can be told from a memory at a
+                     glance, and so Check has a visible effect. --}}
+                @if(! $isUnlinked)
+                    @if($confirmedAt)
+                        <span class="cc-checked" title="Last asked {{ $confirmedAt->toDayDateTimeString() }}">Checked {{ $confirmedAt->diffForHumans() }}</span>
+                    @elseif($hasShopeeId)
+                        <span class="cc-checked cc-checked--never">Not checked since the push</span>
+                    @endif
+                @endif
             </td>
 
             <td class="cc-col-err" data-label="Last push">
@@ -371,32 +424,32 @@
             <td class="x-td-actions">
                 @if($canManageShopee)
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+                    {{-- SEND IS ALWAYS PRESENT AND NEVER GATED, and that is the
+                         whole change. This menu used to offer Match Shopee ID,
+                         Push to Shopee, Update on Shopee and Link to Shopee
+                         again - four buttons that were one question asked four
+                         ways, each visible only when the local link row was in
+                         a particular shape.
 
-                    {{-- && !$isUnlinked, matching Venta. Without it an unlinked
-                         row offered Push and "Link again" side by side, which are
-                         opposite answers to the same question. --}}
-                    @if(!$hasShopeeId && !$isUnlinked)
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.syncId', [$group->id, $p->product_id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item">Match Shopee ID</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.push', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push to Shopee</button>
-                        </form>
-                    @endif
+                         That shape was often wrong, and when it was, the row
+                         offered nothing that could work: delete an item in
+                         Seller Centre and Push stayed hidden because a link
+                         existed, while Update could only answer item_not_found.
+                         Unlink looked like the escape and led straight back to
+                         "Link again", which succeeded against a listing that
+                         was not there.
+
+                         Send asks Shopee first and then creates, updates or
+                         re-links according to the answer. Status is now
+                         informational; it decides nothing. --}}
+                    <form method="POST" action="{{ route('ext.shopee.product-groups.send', $group->id) }}" data-slow-action>
+                        @csrf
+                        <input type="hidden" name="_return" value="{{ $returnTo }}">
+                        <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                        <button type="submit" class="x-menu__item">Send to Shopee</button>
+                    </form>
 
                     @if($hasShopeeId)
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.updateProduct', $group->id) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Update on Shopee</button>
-                        </form>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.pushStock', $group->id) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -409,9 +462,25 @@
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item">Push price</button>
                         </form>
+                    @endif
+
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+
+                    @if($isManual)
+                        <div class="x-menu__sep"></div>
+                        <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
+                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
+                            @csrf
+                            @method('DELETE')
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
+                        </form>
+                    @endif
+
+                    @if($hasShopeeId)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink this product from Shopee? The product stays in the group but sync will stop.">
+                              data-confirm="Unlink this product from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it.">
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Shopee</button>
@@ -422,25 +491,6 @@
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Shopee</button>
-                        </form>
-                    @endif
-
-                    @if($isUnlinked)
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.linkProduct', [$group->id, $p->product_id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item">Link to Shopee again</button>
-                        </form>
-                    @endif
-
-                    @if($isManual)
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]) }}"
-                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already live on Shopee is touched.">
-                            @csrf
-                            @method('DELETE')
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
                         </form>
                     @endif
                 </x-ui.menu>
