@@ -43,9 +43,30 @@
             {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} in this group on {{ $storeName }}
         </p>
     </div>
-    @if($canManageVenta)
-        <x-ui.button :href="route('ext.venta.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
-    @endif
+    {{-- Both of these ask about the whole group, which is why they sit in the
+         header and not in the bulk bar: the bulk bar only exists once rows are
+         ticked, and "is anything out of step?" is a question you ask before
+         you know which rows to tick.
+
+         Check posts, because it writes. Unlinked is a GET, because it only
+         reads - it is the only way to see products Venta has that the ERP has
+         never heard of, which no per-product action can reach. --}}
+    <div class="cc-head-actions">
+        @if($canManageVenta)
+            <form method="POST" action="{{ route('ext.venta.product-groups.check', [$setting->id, $group->id]) }}"
+                  data-confirm="Check every product in this group against {{ $storeName }}? Nothing is sent or changed on {{ $storeName }}; the ERP updates its own records to match what it finds.">
+                @csrf
+                <input type="hidden" name="_return" value="{{ $returnTo }}">
+                <x-ui.button type="submit" variant="secondary">Check against {{ $storeName }}</x-ui.button>
+            </form>
+        @endif
+        <x-ui.button variant="secondary" :href="route('ext.venta.product-groups.orphans', [$setting->id, $group->id])">
+            Unlinked on {{ $storeName }}
+        </x-ui.button>
+        @if($canManageVenta)
+            <x-ui.button :href="route('ext.venta.product-groups.edit', [$setting->id, $group->id])">Edit group</x-ui.button>
+        @endif
+    </div>
 </div>
 
 {{-- One filter row. The old page put the same three controls in a card with a
@@ -107,10 +128,14 @@
             <input type="hidden" name="_return" value="{{ $returnTo }}">
             <x-ui.button type="submit" size="sm">Push stock</x-ui.button>
         </form>
-        <form method="POST" action="{{ route('ext.venta.product-groups.sync-ids', [$setting->id, $group->id]) }}" data-bulk-form>
+        {{-- Was "Match Venta IDs", which only filled in blanks: it skipped any
+             product that already had a link, so the case that matters - a link
+             that has gone stale - was the one thing it would not look at. It
+             now asks about every selected product and says what it found. --}}
+        <form method="POST" action="{{ route('ext.venta.product-groups.check', [$setting->id, $group->id]) }}" data-bulk-form>
             @csrf
             <input type="hidden" name="_return" value="{{ $returnTo }}">
-            <x-ui.button type="submit" size="sm">Match Venta IDs</x-ui.button>
+            <x-ui.button type="submit" size="sm">Check against {{ $storeName }}</x-ui.button>
         </form>
         {{-- Remove from group first, then Delete from Venta LAST and alone in
              the danger fill, matching Shopee, Lazada and TikTok.
@@ -182,6 +207,13 @@
             $hasVentaId = !empty($p->venta_product_id) && !$isUnlinked;
             $failed = in_array($syncState, ['error', 'failed'], true);
             $hasError = $failed && ($p->push_error ?? null);
+
+            // Parsed rather than cast: this comes off a query builder select,
+            // not an Eloquent model, so it arrives as a string and has no
+            // diffForHumans on it.
+            $confirmedAt = ($p->last_confirmed_at ?? null)
+                ? \Illuminate\Support\Carbon::parse($p->last_confirmed_at)
+                : null;
 
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
@@ -298,6 +330,25 @@
                     <x-ui.badge tone="success">Pushed</x-ui.badge>
                 @else
                     <span class="x-cell-muted">Not yet</span>
+                @endif
+
+                {{-- The badge above states what the ERP BELIEVES. This line says
+                     how that belief was arrived at, and the difference is the
+                     whole reason this page could mislead: a green Pushed badge
+                     was written at push time and then never revisited, so a
+                     product deleted in Venta's admin kept it indefinitely.
+
+                     "Not checked" is not a warning. It is the ordinary state of
+                     a product nobody has asked about since it was pushed, and
+                     it is accurate far more often than not. It is here so the
+                     operator can tell a fact from a memory at a glance, and so
+                     that Check against the store has a visible effect. --}}
+                @if(! $isUnlinked)
+                    @if($confirmedAt)
+                        <span class="cc-checked" title="Last asked {{ $confirmedAt->toDayDateTimeString() }}">Checked {{ $confirmedAt->diffForHumans() }}</span>
+                    @elseif($hasVentaId)
+                        <span class="cc-checked cc-checked--never">Not checked since the push</span>
+                    @endif
                 @endif
             </td>
 

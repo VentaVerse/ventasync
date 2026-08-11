@@ -31,7 +31,7 @@ class VentaDisabledStoreTest extends TestCase
 
     /** Every action that talks to Venta, and none of them may skip the guard. */
     private const WRITE_ACTIONS = [
-        'syncId', 'syncIds', 'pushProducts', 'pushStock', 'pushPrices', 'deleteFromVenta',
+        'syncId', 'checkAgainstVenta', 'pushProducts', 'pushStock', 'pushPrices', 'deleteFromVenta',
     ];
 
     private function source(string $file): string
@@ -86,11 +86,20 @@ class VentaDisabledStoreTest extends TestCase
     {
         $source = $this->source(self::CONTROLLER);
 
-        $this->assertSame(
-            count(self::WRITE_ACTIONS),
-            substr_count($source, 'That Venta store is turned off'),
-            'A write action refuses a disabled store without saying so, or one of them stopped refusing.'
-        );
+        // Checked per method rather than by counting the phrase across the
+        // file. The count was a proxy for "each write action says why", and it
+        // broke the moment a READ action legitimately refused a disabled store
+        // in the same words - a correct refusal failing a test about a
+        // different set of methods. Asking each write action directly says what
+        // was meant, and no longer cares what the rest of the file does.
+        foreach (self::WRITE_ACTIONS as $action) {
+            $body = $this->methodBody($source, $action);
+
+            $this->assertNotSame('', $body, "{$action} was not found; the guard list is stale.");
+
+            $this->assertStringContainsString('Venta store is turned off', $body,
+                "Venta::{$action} refuses a disabled store without telling the operator why.");
+        }
     }
 
     /**

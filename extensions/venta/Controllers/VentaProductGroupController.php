@@ -197,12 +197,20 @@ class VentaProductGroupController extends Controller
      * Nothing else in this controller may guess. Reconcile first, act second.
      *
      * Returns one of:
-     *   confirmed  the link was right and Venta still has it
-     *   adopted    Venta had it, we had no link, now we do
-     *   repointed  Venta had it under a different id than we recorded
-     *   lost       Venta no longer has it; the stale link has been dropped
-     *   new        neither side has it linked; nothing to reconcile
-     *   blocked    another catalogue product holds the id Venta gave us
+     *   confirmed    the link was right and Venta still has it
+     *   adopted      Venta had it, we had no link, now we do
+     *   repointed    Venta had it under a different id than we recorded
+     *   lost         Venta no longer has it; the stale link has been dropped
+     *   new          neither side has it linked; nothing to reconcile
+     *   blocked      another catalogue product holds the id Venta gave us
+     *   unreachable  Venta could not answer; nothing was concluded or changed
+     *
+     * The last one exists because the first draft did not have it, and that
+     * was dangerous. A 404 and a dead connection both left the search empty,
+     * so a store that was merely DOWN read as a store that had deleted
+     * everything, and the 'lost' branch below would have deleted every link in
+     * the group. Absence of an answer is not an answer. Only an explicit 404
+     * from a reachable store is allowed to mean the product is gone.
      *
      * @return array{state: string, venta_id: int|null, sku: string|null, message: string|null}
      */
@@ -214,9 +222,11 @@ class VentaProductGroupController extends Controller
 
         $found = null;
         $foundSku = null;
+        $denied = null;
 
         foreach ($this->candidateSkus($pfx, $productId) as $sku) {
             $result = $client->get("products/{$sku}");
+            $status = (int) ($result['status'] ?? 0);
 
             if ($result['ok'] ?? false) {
                 $body = $result['body']['data'] ?? $result['body'] ?? [];
@@ -227,7 +237,23 @@ class VentaProductGroupController extends Controller
                     $foundSku = $sku;
                     break;
                 }
+
+                continue;
             }
+
+            // 404 is Venta answering. Anything else is Venta not answering:
+            // status 0 is a transport failure, 5xx is the store falling over,
+            // 401/403 mean the credentials stopped working. None of those are
+            // evidence that the product is gone, so none may delete a link.
+            if ($status !== 404) {
+                $denied = $status === 0
+                    ? 'Venta could not be reached, so nothing was checked or changed.'
+                    : "Venta answered {$status} instead of saying whether the product exists, so nothing was changed.";
+            }
+        }
+
+        if ($found === null && $denied !== null) {
+            return ['state' => 'unreachable', 'venta_id' => null, 'sku' => null, 'message' => $denied];
         }
 
         // Venta does not have it under any of our SKUs.
@@ -580,6 +606,7 @@ class VentaProductGroupController extends Controller
                 'vpl.sku as venta_sku',
                 'vpgp.sync_status',
                 'vpgp.last_pushed_at',
+                'vpgp.last_confirmed_at',
                 'vpgp.push_error'
             );
 
@@ -810,115 +837,260 @@ class VentaProductGroupController extends Controller
     /**
      * Mass sync Venta IDs for selected products by SKU matching.
      */
-    public function syncIds(Request $request, int $store, int $group)
+    /**
+     * List products that exist on Venta but that no catalogue product claims.
+     *
+     * The check above answers "is what we have still there". This answers the
+     * mirror question, "is there something there we do not know about", and
+     * the two together are the only way to see the whole picture. Orphans are
+     * produced by ordinary events: a product created in Venta's admin, a link
+     * deleted, a catalogue product removed while its Venta twin stayed live.
+     *
+     * Read-only on purpose. It reports; it never adopts, never deletes, and
+     * never writes a link. An automatic adopt-by-SKU is exactly how a product
+     * ends up pointed at a stranger, and the operator is the one who knows
+     * whether a name that looks similar is actually the same product.
+     */
+    public function orphans(Request $request, int $store, int $group)
+    {
+        $setting = $this->store_($store);
+        $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
+
+        if (! $setting->enabled) {
+            return $this->productsRedirect($store, $group)->with('error',
+                'That Venta store is turned off, so its products could not be listed.');
+        }
+
+        $storeName = $setting->store_name ?: 'Unnamed store';
+        $client = new VentaClient($setting);
+
+        $known = VentaProductLink::where('venta_setting_id', $store)
+            ->whereNotNull('venta_product_id')
+            ->pluck('venta_product_id')
+            ->map('intval')
+            ->flip();
+
+        $orphans = [];
+        $scanned = 0;
+        $page = 1;
+        $maxPages = 20;
+        $perPage = 100;
+        $truncated = false;
+        $error = null;
+
+        while ($page <= $maxPages) {
+            $result = $client->get('products', ['per_page' => $perPage, 'page' => $page]);
+
+            if (! ($result['ok'] ?? false)) {
+                $status = (int) ($result['status'] ?? 0);
+                $error = $status === 0
+                    ? $storeName . ' could not be reached, so the list below may be incomplete.'
+                    : $storeName . ' answered ' . $status . ', so the list below may be incomplete.';
+                break;
+            }
+
+            $body = $result['body'] ?? [];
+            $rows = $body['data'] ?? (is_array($body) ? $body : []);
+
+            if (! is_array($rows) || $rows === []) {
+                break;
+            }
+
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $scanned++;
+                $id = (int) ($row['id'] ?? 0);
+
+                if ($id <= 0 || $known->has($id)) {
+                    continue;
+                }
+
+                $orphans[] = [
+                    'id' => $id,
+                    'sku' => (string) ($row['sku'] ?? ''),
+                    'name' => (string) ($row['name'] ?? ''),
+                ];
+            }
+
+            // Stop when the page came back short: that is the last page
+            // whether or not this Venta build sends pagination meta.
+            if (count($rows) < $perPage) {
+                break;
+            }
+
+            if ($page === $maxPages) {
+                $truncated = true;
+            }
+
+            $page++;
+        }
+
+        return view('ext-venta::product-groups.orphans', [
+            'setting' => $setting,
+            'group' => $g,
+            'storeName' => $storeName,
+            'orphans' => $orphans,
+            'scanned' => $scanned,
+            'truncated' => $truncated,
+            'error' => $error,
+        ]);
+    }
+
+    /**
+     * Ask Venta about these products and make the ERP agree. No writing to Venta.
+     *
+     * This replaces "Match Venta IDs", which could only ever fill in blanks:
+     * its first act was to skip any product that already had a link, so the
+     * one thing an operator actually needs to find out - whether the link it
+     * already has is still true - was the one thing it refused to look at. A
+     * product deleted in Venta's admin was invisible to it.
+     *
+     * It is deliberately a separate button from Send rather than something the
+     * schedule does to every product on every run. Checking is one or two GETs
+     * per product, so a group of 137 is up to 274 calls; doing that hourly for
+     * every group would spend thousands of calls a day re-answering a question
+     * that only changes when somebody edits Venta directly. The operator knows
+     * when that has happened, and this is the button for it.
+     *
+     * With rows ticked it checks those. With none ticked it checks the group.
+     */
+    public function checkAgainstVenta(Request $request, int $store, int $group)
     {
         $setting = $this->storeForWrite_($store);
 
         if (! $setting) {
             return redirect()->back()->with('error',
-                'That Venta store is turned off, so nothing was sent to it. Enable it in its settings first.');
+                'That Venta store is turned off, so nothing could be checked. Enable it in its settings first.');
         }
+
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
-        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
+        $ids = array_values(array_unique(array_map('intval', array_filter((array) $request->input('ids', [])))));
+
         if (empty($ids)) {
-            return $this->productsRedirect($store, $group)->with('error', 'No products selected.');
+            $ids = DB::table('venta_product_group_products')
+                ->where('venta_product_group_id', $group)
+                ->pluck('product_id')->map('intval')->all();
         }
 
+        if (empty($ids)) {
+            return $this->productsRedirect($store, $group)->with('error', 'This group has no products to check.');
+        }
+
+        // A ceiling, because this runs in a web request and each product costs
+        // a round trip. It is reported rather than applied quietly: a check
+        // that silently examined the first 200 of 500 would leave the operator
+        // believing the other 300 had been confirmed.
+        $limit = 200;
+        $skippedForSize = max(0, count($ids) - $limit);
+        $ids = array_slice($ids, 0, $limit);
+
+        $storeName = $setting->store_name ?: 'Unnamed store';
         $pfx = (string) config('catalog.prefix');
         $client = new VentaClient($setting);
 
-        $synced = 0;
-        $failed = 0;
+        $verdicts = [];
         $clashes = [];
-        $skipped = 0;
 
         foreach ($ids as $pid) {
-            $prod = DB::table($pfx . 'product')->where('product_id', $pid)->first(['sku', 'model']);
-            if (!$prod) { $failed++; continue; }
+            $verdict = $this->reconcileLink($client, $store, $pid, $pfx);
+            $state = $verdict['state'];
+            $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
 
-            $skus = [];
-            if ($prod->sku && trim($prod->sku) !== '') $skus[] = trim($prod->sku);
-            if ($prod->model && trim($prod->model) !== '' && !in_array(trim($prod->model), $skus)) $skus[] = trim($prod->model);
-
-            $optSkus = DB::table($pfx . 'product_option_value')
-                ->where('product_id', $pid)
-                ->whereNotNull('sku')->where('sku', '!=', '')
-                ->pluck('sku')->map(fn($s) => trim($s))->unique()->toArray();
-            $skus = array_unique(array_merge($skus, $optSkus));
-
-            if (empty($skus)) { $skipped++; continue; }
-
-            // Check if already linked
-            $existingLink = VentaProductLink::where('venta_setting_id', $store)
-                ->where('product_id', $pid)
-                ->whereNotNull('venta_product_id')
-                ->first();
-            if ($existingLink) { $skipped++; continue; }
-
-            $matchedVentaId = null;
-            $matchedSku = null;
-
-            foreach ($skus as $sku) {
-                $result = $client->getProducts(perPage: 50, sku: $sku);
-                if (!($result['ok'] ?? false)) continue;
-
-                $ventaProducts = $result['body']['data'] ?? $result['body'] ?? [];
-                foreach ($ventaProducts as $vp) {
-                    $vpId = $vp['id'] ?? null;
-                    $vpSku = $vp['sku'] ?? null;
-
-                    if ($vpId && $vpSku !== null && strcasecmp(trim((string) $vpSku), $sku) === 0) {
-                        $matchedVentaId = (int) $vpId;
-                        $matchedSku = $sku;
-                        break 2;
-                    }
-
-                    foreach ($vp['variants'] ?? [] as $variant) {
-                        $varSku = $variant['sku'] ?? null;
-                        if ($varSku !== null && strcasecmp(trim((string) $varSku), $sku) === 0) {
-                            $matchedVentaId = (int) $vpId;
-                            $matchedSku = $sku;
-                            break 3;
-                        }
-                    }
-                }
-            }
-
-            if (!$matchedVentaId) { $failed++; continue; }
-
-            if ($clash = $this->linkProductTo($store, $pid, $matchedVentaId, $matchedSku)) {
-                $failed++;
-                $clashes[] = "#{$pid}: {$clash}";
+            if ($state === 'unreachable') {
+                // Venta never answered, so nothing is known and nothing is
+                // written. The row keeps whatever it said before, which is
+                // honest: it was always a belief and it still is.
                 continue;
             }
 
-            $this->writeProductStatus($g, $pid, ['sync_status' => 'synced', 'venta_sku' => $matchedSku, 'push_error' => null]);
+            if ($state === 'blocked') {
+                $clashes[] = "#{$pid}: {$verdict['message']}";
+                $this->writeProductStatus($g, $pid, [
+                    'sync_status' => 'error',
+                    'push_error' => $verdict['message'],
+                    'last_confirmed_at' => now(),
+                ]);
+                continue;
+            }
 
-            $synced++;
-            usleep(200000); // rate limit
+            if ($state === 'lost') {
+                // reconcileLink has already dropped the dead link. The row goes
+                // back to not-pushed, which is what it truthfully is.
+                $this->writeProductStatus($g, $pid, [
+                    'sync_status' => 'pending',
+                    'push_error' => null,
+                    'venta_sku' => null,
+                    'last_pushed_at' => null,
+                    'last_confirmed_at' => now(),
+                ]);
+                continue;
+            }
+
+            if ($state === 'new') {
+                $this->writeProductStatus($g, $pid, [
+                    'sync_status' => 'pending',
+                    'push_error' => null,
+                    'last_confirmed_at' => now(),
+                ]);
+                continue;
+            }
+
+            // confirmed, adopted, repointed: Venta has it and the link is right.
+            $this->writeProductStatus($g, $pid, [
+                'sync_status' => 'pushed',
+                'venta_sku' => $verdict['sku'],
+                'push_error' => null,
+                'last_confirmed_at' => now(),
+            ]);
         }
 
-        $msg = "Sync complete. Linked: {$synced}";
-        if ($skipped > 0) $msg .= ", Skipped (already linked/no SKU): {$skipped}";
+        $checked = count($ids) - ($verdicts['unreachable'] ?? 0);
 
-        // "Not found on Venta" was covering two different outcomes. A product
-        // whose SKU matched nothing is not the same as one whose match is
-        // already claimed by another product: the first needs pushing, the
-        // second needs the other product unlinking, and only one of them is
-        // the operator's to fix here.
-        $notFound = $failed - count($clashes);
-        if ($notFound > 0) $msg .= ", Not found on Venta: {$notFound}";
+        // The message reports FINDINGS. Nothing here pushed anything, so it
+        // must not imply that anything was fixed on Venta's side.
+        $parts = [];
+        if (! empty($verdicts['confirmed'])) {
+            $parts[] = $verdicts['confirmed'] . ' still on ' . $storeName;
+        }
+        if (! empty($verdicts['adopted'])) {
+            $parts[] = $verdicts['adopted'] . ' found and linked';
+        }
+        if (! empty($verdicts['repointed'])) {
+            $parts[] = $verdicts['repointed'] . ' pointed at the wrong product and corrected';
+        }
+        if (! empty($verdicts['lost'])) {
+            $parts[] = $verdicts['lost'] . ' no longer on ' . $storeName . ', now marked not pushed';
+        }
+        if (! empty($verdicts['new'])) {
+            $parts[] = $verdicts['new'] . ' not pushed yet';
+        }
+        if ($clashes) {
+            $parts[] = count($clashes) . ' blocked by another product holding the same Venta id';
+        }
+        if (! empty($verdicts['unreachable'])) {
+            $parts[] = $verdicts['unreachable'] . ' could not be checked because ' . $storeName . ' did not answer';
+        }
+
+        $msg = "Checked {$checked} against {$storeName}. " . ($parts ? implode('. ', $parts) . '.' : 'Nothing to report.');
+
+        if ($skippedForSize > 0) {
+            $msg .= " {$skippedForSize} further " . ($skippedForSize === 1 ? 'product was' : 'products were')
+                . ' not checked this time. Run it again to continue.';
+        }
 
         if ($clashes) {
-            $msg .= ', ' . count($clashes) . ' already linked to another product. '
-                . implode('; ', array_slice($clashes, 0, 3));
-            if (count($clashes) > 3) {
-                $msg .= ' (and ' . (count($clashes) - 3) . ' more)';
+            $msg .= ' ' . implode('; ', array_slice($clashes, 0, 2));
+            if (count($clashes) > 2) {
+                $msg .= ' (and ' . (count($clashes) - 2) . ' more)';
             }
         }
 
-        $tone = $failed === 0 ? 'status' : ($synced > 0 ? 'warning' : 'error');
+        $problems = count($clashes) + ($verdicts['unreachable'] ?? 0);
+        $tone = $problems === 0 ? 'status' : ($checked > 0 ? 'warning' : 'error');
 
         return $this->productsRedirect($store, $group)->with($tone, $msg);
     }
@@ -1143,7 +1315,12 @@ class VentaProductGroupController extends Controller
             $verdict = $this->reconcileLink($client, $store, $pid, $pfx);
             $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
 
-            if ($verdict['state'] === 'blocked') {
+            // Neither of these may push. 'blocked' means another product holds
+            // the id, so writing would corrupt that product's link.
+            // 'unreachable' means we do not know what is on Venta, and pushing
+            // into that ignorance is how a create lands on top of something
+            // that already exists.
+            if ($verdict['state'] === 'blocked' || $verdict['state'] === 'unreachable') {
                 $failed++;
                 $errors[] = "#{$pid}: {$verdict['message']}";
                 $this->writeProductStatus($g, $pid, [
@@ -1153,6 +1330,10 @@ class VentaProductGroupController extends Controller
                 ]);
                 continue;
             }
+
+            // Venta answered about this product, so whatever the row now says
+            // is a checked fact rather than a remembered one.
+            $this->writeProductStatus($g, $pid, ['last_confirmed_at' => now()]);
 
             // Re-read: reconcileLink may have created, repointed or dropped it.
             $existingLink = VentaProductLink::where('venta_setting_id', $store)
@@ -1258,6 +1439,9 @@ class VentaProductGroupController extends Controller
         }
         if (! empty($verdicts['repointed'])) {
             $notes[] = $verdicts['repointed'] . ' had been linked to the wrong Venta product';
+        }
+        if (! empty($verdicts['unreachable'])) {
+            $notes[] = $verdicts['unreachable'] . ' could not be checked because Venta did not answer';
         }
         if ($notes) {
             $msg .= '. ' . ucfirst(implode('; ', $notes));

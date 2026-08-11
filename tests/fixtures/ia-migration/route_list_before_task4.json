@@ -2036,6 +2036,11 @@
     },
     {
         "method": "POST",
+        "uri": "integrations/venta/{store}/product-groups/{group}/check",
+        "name": "ext.venta.product-groups.check"
+    },
+    {
+        "method": "POST",
         "uri": "integrations/venta/{store}/product-groups/{group}/delete-from-venta",
         "name": "ext.venta.product-groups.bulk-delete-from-venta"
     },
@@ -2048,6 +2053,11 @@
         "method": "POST",
         "uri": "integrations/venta/{store}/product-groups/{group}/mass-remove",
         "name": "ext.venta.product-groups.mass-remove"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "integrations/venta/{store}/product-groups/{group}/orphans",
+        "name": "ext.venta.product-groups.orphans"
     },
     {
         "method": "GET|HEAD",
@@ -2093,11 +2103,6 @@
         "method": "POST",
         "uri": "integrations/venta/{store}/product-groups/{group}/push-stock",
         "name": "ext.venta.product-groups.push-stock"
-    },
-    {
-        "method": "POST",
-        "uri": "integrations/venta/{store}/product-groups/{group}/sync-ids",
-        "name": "ext.venta.product-groups.sync-ids"
     },
     {
         "method": "GET|HEAD",

@@ -337,6 +337,27 @@
     font-weight: 500;
 }
 
+/* ── Belief vs fact, under the push badge ─────────────────────────────
+
+   Deliberately quieter than the badge it sits beneath. The badge is the
+   answer; this is the footnote saying how fresh the answer is, and it must
+   never compete for the scan. 11px matches .cc-err so the two captions that
+   can appear in adjacent columns share a baseline. */
+.cc-checked {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--bl-ink-3);
+}
+
+/* Not a warning colour. A product nobody has re-checked since pushing it is
+   the normal case, not a problem, and painting it amber would cry wolf on
+   almost every row. */
+.cc-checked--never {
+    font-style: italic;
+}
+
 /* ── The full reason, on request ──────────────────────────────────────
    push_error is stored at 480 characters and the cell printed 120 of them
    with no title and no expansion, so up to 360 characters of what the
@@ -536,6 +557,22 @@
     align-items: center;
     gap: var(--space-2);
     flex-shrink: 0;
+    /* The parent .x-list-head wraps, so this block drops below the title on a
+       narrow screen - but only as a unit. Venta's head carries three controls
+       whose labels contain the store name ("Check against Shop A"),
+       which is wider than a phone on its own, so the group has to be able to
+       break internally as well.
+
+       max-width IS LOAD-BEARING. flex-wrap alone did nothing here and the page
+       still scrolled sideways at 390px: flex-shrink: 0 above means the box is
+       never squeezed to the line, so it sized to its content (542px inside a
+       390px viewport) and its children never reached a width that would make
+       them wrap. Capping it at the parent's width is what gives the wrap
+       something to happen against, while keeping the no-squash behaviour the
+       shrink rule is there for. */
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
 }
 
 .cc-unmatched .x-table tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }

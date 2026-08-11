@@ -2443,6 +2443,36 @@ class WorkspaceInteriorsTest extends TestCase
         $products->assertDontSee(route('ext.venta.product-groups.push', [$one, $group->id]), false);
         $products->assertDontSee(route('ext.venta.product-groups.addProducts', [$one, $group->id]), false);
 
+        // The orphan report: the mirror of the page above. That one lists what
+        // the ERP holds and asks whether Venta still has it; this lists what
+        // Venta holds and asks whether the ERP knows about it.
+        //
+        // Asserted on the READ tier deliberately, and it lives in the read
+        // route group for the same reason. It was written into the writes
+        // group first, which 302'd this operator away from it - wrong, because
+        // noticing that the two sides have drifted is precisely what a
+        // view-only operator does, and the report neither adopts nor deletes
+        // anything. A page that only reads belongs to whoever may read.
+        //
+        // Faked at the HTTP boundary rather than left to hit a real host. The
+        // seeded store has a placeholder base_url, so an unfaked run would
+        // spend the client's full timeout failing, and it would prove the
+        // error path only by accident.
+        \Illuminate\Support\Facades\Http::fake([
+            '*' => \Illuminate\Support\Facades\Http::response(['data' => [
+                ['id' => 901, 'sku' => 'ORPHAN-1', 'name' => 'Made in Venta directly'],
+                ['id' => 902, 'sku' => 'ORPHAN-2', 'name' => 'Left behind by a removed link'],
+            ]], 200),
+        ]);
+
+        $this->actingAs($user)->get(route('ext.venta.product-groups.orphans', [$one, $group->id]))
+            ->assertOk()
+            ->assertSee('ORPHAN-1')
+            ->assertSee('Made in Venta directly')
+            // Read-only: there is no control here that adopts or deletes.
+            ->assertDontSee('Adopt')
+            ->assertDontSee(route('ext.venta.product-groups.check', [$one, $group->id]), false);
+
         $settings = $this->actingAs($user)->get(route('ext.venta.settings.show', ['store' => $one]))->assertOk();
         foreach ([
             route('ext.venta.test'),
@@ -2503,7 +2533,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.venta.product-groups.push', [$one, $group->id]),
             route('ext.venta.product-groups.push-stock', [$one, $group->id]),
             route('ext.venta.product-groups.push-prices', [$one, $group->id]),
-            route('ext.venta.product-groups.sync-ids', [$one, $group->id]),
+            route('ext.venta.product-groups.check', [$one, $group->id]),
             route('ext.venta.product-groups.mass-remove', [$one, $group->id]),
             route('ext.venta.product-groups.addProducts', [$one, $group->id]),
         ] as $url) {

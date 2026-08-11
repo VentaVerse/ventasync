@@ -39,6 +39,13 @@ Route::middleware(['auth', 'perm:view_venta|manage_venta'])->prefix('integration
     Route::get('/venta/{store}/product-groups', [VentaProductGroupController::class, 'index'])->name('ext.venta.product-groups.index');
     Route::get('/venta/{store}/product-groups/{group}/edit', [VentaProductGroupController::class, 'edit'])->name('ext.venta.product-groups.edit');
     Route::get('/venta/{store}/product-groups/{group}/products', [VentaProductGroupController::class, 'products'])->name('ext.venta.product-groups.products');
+    // Read tier, beside the products list it mirrors, NOT with the writes.
+    // It only asks Venta what it holds and prints the answer; it adopts
+    // nothing and deletes nothing. Seeing that the two sides have drifted is
+    // exactly what a view-only operator is for - they are the ones who notice
+    // and escalate - and putting it behind manage_venta would have hidden the
+    // report from the people most likely to read it.
+    Route::get('/venta/{store}/product-groups/{group}/orphans', [VentaProductGroupController::class, 'orphans'])->name('ext.venta.product-groups.orphans');
 
     // Product search (JSON API) — read-only lookup
     Route::get('/venta/{store}/product-groups/search-products', [VentaProductGroupController::class, 'searchProducts'])->name('ext.venta.product-groups.searchProducts');
@@ -73,7 +80,11 @@ Route::middleware(['auth', 'perm:manage_venta'])->prefix('integrations')->group(
     Route::post('/venta/{store}/product-groups/{group}/push-prices', [VentaProductGroupController::class, 'pushPrices'])->name('ext.venta.product-groups.push-prices');
     Route::post('/venta/{store}/product-groups/{group}/add-products', [VentaProductGroupController::class, 'addProducts'])->name('ext.venta.product-groups.addProducts');
     Route::post('/venta/{store}/product-groups/{group}/mass-remove', [VentaProductGroupController::class, 'massRemove'])->name('ext.venta.product-groups.mass-remove');
-    Route::post('/venta/{store}/product-groups/{group}/sync-ids', [VentaProductGroupController::class, 'syncIds'])->name('ext.venta.product-groups.sync-ids');
+    // Renamed from sync-ids/syncIds. The old name described the mechanism
+    // (write ids into rows); this one describes what the operator is asking
+    // for, and the behaviour changed with it: it now examines products that
+    // are already linked, which is the only way a stale link can be found.
+    Route::post('/venta/{store}/product-groups/{group}/check', [VentaProductGroupController::class, 'checkAgainstVenta'])->name('ext.venta.product-groups.check');
     Route::delete('/venta/{store}/product-groups/{group}/products/{product}', [VentaProductGroupController::class, 'removeProduct'])->name('ext.venta.product-groups.removeProduct');
 
     // Per-product actions
