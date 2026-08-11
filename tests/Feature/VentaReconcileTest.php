@@ -125,14 +125,27 @@ class VentaReconcileTest extends TestCase
             'The summary claims an outcome the push may not have reached, so a failed recreate still reads as one.');
     }
 
-    /** Venta's refusal to create without images is explained, not dumped as JSON. */
+    /**
+     * Venta's refusal to create without images is explained, not dumped as JSON.
+     *
+     * And explained as a RULE rather than a fault. Venta declines to create a
+     * product whose images it cannot fetch on purpose, so that nothing reaches
+     * the storefront without pictures - a half-listed product is live, wrong,
+     * and silent, which is worse than an unlisted one. Wording that framed it
+     * as a breakage invited someone to route around it.
+     *
+     * The operator also has to be told not to go looking in the catalogue: the
+     * images are fine, the address they are served from is the problem.
+     */
     public function test_the_image_wall_is_explained(): void
     {
         $source = $this->source(self::CONTROLLER);
 
         $this->assertStringContainsString('images_unavailable', $source);
-        $this->assertStringContainsString('publicly reachable address', $source,
+        $this->assertStringContainsString('will not create a product it cannot fetch images for', $source,
             'Venta refusing to create a product without fetchable images is shown as a raw envelope.');
+        $this->assertStringContainsString('Nothing in the catalogue needs fixing', $source,
+            'The refusal does not tell the operator where the problem is not, so they will go hunting in the product.');
     }
 
     private function methodBody(string $method): string

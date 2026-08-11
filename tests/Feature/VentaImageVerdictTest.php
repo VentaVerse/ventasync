@@ -125,6 +125,16 @@ class VentaImageVerdictTest extends TestCase
      * action that worked, Match Venta ID, went unmentioned. The operator was
      * also reading Laravel's raw validation envelope rather than a sentence
      * about their product.
+     *
+     * The remedy has since changed and this test changed with it. Match Venta
+     * ID was DELETED: Send now reconciles before it decides, so it finds the
+     * existing product and links to it by itself. The message named the
+     * deleted button for a while, which is a worse dead end than the original
+     * - it sent the operator hunting for a control that is not in the menu.
+     *
+     * So the assertion no longer pins a phrase. It requires that whatever
+     * action the message names is an action the row actually offers, which is
+     * the thing that was ever really being tested.
      */
     public function test_a_taken_sku_tells_the_operator_how_to_get_out(): void
     {
@@ -138,8 +148,15 @@ class VentaImageVerdictTest extends TestCase
 
         $this->assertStringContainsString('m-vave-tank-pro', $message,
             'The message does not say which SKU Venta already has.');
-        $this->assertStringContainsString('Match Venta ID', $message,
-            'The message does not name the one action that resolves this, so the row is a dead end.');
+        $this->assertStringContainsString('Send', $message,
+            'The message does not name the action that resolves this, so the row is a dead end.');
+
+        // And that action is really there. A message naming a button nobody
+        // can find is the defect this test exists to prevent, whichever button
+        // it happens to name.
+        $view = file_get_contents(base_path('extensions/venta/views/product-groups/products.blade.php'));
+        $this->assertMatchesRegularExpression('/>\s*Send to /', $view,
+            'The message tells the operator to press Send, but the row menu has no Send action.');
         $this->assertStringNotContainsString('{"', $message,
             'The raw response envelope is still being shown to the operator.');
     }

@@ -63,17 +63,31 @@ class VentaProductGroupController extends Controller
          * in the catalogue.
          */
         if (stripos($raw, 'images_unavailable') !== false) {
-            return 'Venta would not create this product because it could not fetch its images. '
-                .'Venta only accepts images from a publicly reachable address, and this ERP is on a '
-                .'private one, so creating products there is not possible from this network.';
+            // Stated as a RULE, not a malfunction, because that is what it is:
+            // Venta refuses to create a product whose images it cannot fetch,
+            // deliberately, so that nothing lands on the storefront without
+            // pictures. A half-listed product is worse than an unlisted one -
+            // it is live, it is wrong, and nobody is told.
+            //
+            // The second sentence is the part the operator can act on. Venta
+            // reads images over HTTP from the address it is given, so an ERP
+            // on a private address cannot supply them at all.
+            return 'Venta will not create a product it cannot fetch images for, so nothing was listed. '
+                .'It reads images over the web from the address this ERP publishes, and that address is a '
+                .'private one, so the images never reach it. Nothing in the catalogue needs fixing.';
         }
 
         if (stripos($raw, 'sku has already been taken') === false) {
             return $raw;
         }
 
-        return "Venta already has a product with SKU {$sku}, but this catalogue product is not "
-            ."linked to it. Use Match Venta ID on this row to link them, then push again.";
+        // Named the button that was deleted in the same change that made this
+        // message reachable: "Use Match Venta ID on this row" sent the operator
+        // looking for a control that is no longer in the menu. Send now does
+        // the matching itself - it reconciles before it decides - so pressing
+        // it again is the whole instruction.
+        return "Venta already has a product with SKU {$sku} that this catalogue product is not linked to. "
+            .'Press Send again and it will find that product and link to it.';
     }
 
     /**
