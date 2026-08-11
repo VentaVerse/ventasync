@@ -65,8 +65,13 @@
                                font-medium text-side-ink hover:bg-side-hover hover:text-white">
                     <x-ui.icon :name="$entry['icon']" size="15" />
                     <span class="flex-1">{{ $entry['label'] }}</span>
-                    <span class="transition-transform duration-150"
-                          :class="group === '{{ $key }}' && 'rotate-90'">
+                    {{-- Rendered rotated by the server for the open group, for
+                         the same reason the panel below is rendered open: with
+                         the rotation applied only after Alpine boots, the
+                         chevron of the group you are already in span 90 degrees
+                         on every single page load. --}}
+                    <span class="transition-transform duration-150 {{ $blOpenGroup === $key ? 'rotate-90' : '' }}"
+                          :class="{ 'rotate-90': group === '{{ $key }}' }">
                         <x-ui.icon name="chevron-right" size="12" />
                     </span>
                 </button>
@@ -80,9 +85,21 @@
                      every page load closed and then transitioned open - which
                      is what made clicking a child look like the nav collapsed
                      and re-opened itself. Rendered open, there is nothing to
-                     animate; Alpine takes over from the same state. --}}
+                     animate; Alpine takes over from the same state.
+
+                     THE BINDING MUST BE THE OBJECT FORM, and the server class
+                     above is why. Alpine only removes classes IT added, so
+                     `group === 'x' && 'is-open'` could never take back a class
+                     the server had written: the expression simply evaluated
+                     false and added nothing. Opening a second group therefore
+                     left the first one - the one matching the current route -
+                     visibly open at full height while :inert, which IS removed
+                     correctly because it is an attribute binding, quietly
+                     disabled every link inside it. A menu that stays on screen
+                     and silently ignores clicks. The object form states the
+                     class both ways, so false removes it. --}}
                 <div class="bl-collapse {{ $blOpenGroup === $key ? 'is-open' : '' }}"
-                     :class="group === '{{ $key }}' && 'is-open'"
+                     :class="{ 'is-open': group === '{{ $key }}' }"
                      :inert="group !== '{{ $key }}'">
                     <div class="bl-collapse__inner flex flex-col gap-px">
                     @foreach($entry['items'] as $item)
