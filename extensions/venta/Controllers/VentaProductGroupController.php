@@ -53,6 +53,21 @@ class VentaProductGroupController extends Controller
     {
         $raw = json_encode($result['body'] ?? []);
 
+        /*
+         * Venta refuses to create a product at all when it cannot fetch the
+         * images, so the whole push is rejected rather than the product
+         * landing without pictures. On any installation reachable only at a
+         * private address that is permanent: its SafeUrlFetcher blocks private
+         * and reserved ranges outright. Worth saying in words, because the raw
+         * envelope reads as a validation error the operator might try to fix
+         * in the catalogue.
+         */
+        if (stripos($raw, 'images_unavailable') !== false) {
+            return 'Venta would not create this product because it could not fetch its images. '
+                .'Venta only accepts images from a publicly reachable address, and this ERP is on a '
+                .'private one, so creating products there is not possible from this network.';
+        }
+
         if (stripos($raw, 'sku has already been taken') === false) {
             return $raw;
         }
@@ -146,6 +161,105 @@ class VentaProductGroupController extends Controller
             $productId,
             $attributes
         );
+    }
+
+    /**
+     * The SKUs this product could be known by on Venta, best first.
+     */
+    private function candidateSkus(string $pfx, int $productId): array
+    {
+        $prod = DB::table($pfx.'product')->where('product_id', $productId)->first(['sku', 'model']);
+
+        if (! $prod) {
+            return [];
+        }
+
+        $skus = [];
+        foreach ([$prod->sku ?? '', $prod->model ?? ''] as $candidate) {
+            $candidate = trim((string) $candidate);
+            if ($candidate !== '' && ! in_array($candidate, $skus, true)) {
+                $skus[] = $candidate;
+            }
+        }
+
+        return $skus;
+    }
+
+    /**
+     * Ask Venta what is actually true, and make the local link agree.
+     *
+     * This is the piece the page never had. Every action on a row decided what
+     * to do from a link row - the ERP's own memory - which can be wrong in both
+     * directions, and was. A product deleted in Venta's admin left the ERP
+     * believing it was still there; a database restored from another
+     * environment left links pointing at ids that meant something else.
+     *
+     * Nothing else in this controller may guess. Reconcile first, act second.
+     *
+     * Returns one of:
+     *   confirmed  the link was right and Venta still has it
+     *   adopted    Venta had it, we had no link, now we do
+     *   repointed  Venta had it under a different id than we recorded
+     *   lost       Venta no longer has it; the stale link has been dropped
+     *   new        neither side has it linked; nothing to reconcile
+     *   blocked    another catalogue product holds the id Venta gave us
+     *
+     * @return array{state: string, venta_id: int|null, sku: string|null, message: string|null}
+     */
+    private function reconcileLink(VentaClient $client, int $store, int $productId, string $pfx): array
+    {
+        $link = VentaProductLink::where('venta_setting_id', $store)
+            ->where('product_id', $productId)
+            ->first();
+
+        $found = null;
+        $foundSku = null;
+
+        foreach ($this->candidateSkus($pfx, $productId) as $sku) {
+            $result = $client->get("products/{$sku}");
+
+            if ($result['ok'] ?? false) {
+                $body = $result['body']['data'] ?? $result['body'] ?? [];
+                $id = (int) ($body['id'] ?? 0);
+
+                if ($id > 0) {
+                    $found = $id;
+                    $foundSku = $sku;
+                    break;
+                }
+            }
+        }
+
+        // Venta does not have it under any of our SKUs.
+        if ($found === null) {
+            if ($link) {
+                // The link is a memory of something that is no longer there.
+                // Dropping it is what lets the push below create rather than
+                // send an update Venta can only answer 404 to.
+                $link->delete();
+
+                return ['state' => 'lost', 'venta_id' => null, 'sku' => null, 'message' => null];
+            }
+
+            return ['state' => 'new', 'venta_id' => null, 'sku' => null, 'message' => null];
+        }
+
+        if ($link && (int) $link->venta_product_id === $found) {
+            return ['state' => 'confirmed', 'venta_id' => $found, 'sku' => $foundSku, 'message' => null];
+        }
+
+        $wasPointingElsewhere = $link !== null;
+
+        if ($clash = $this->linkProductTo($store, $productId, $found, $foundSku)) {
+            return ['state' => 'blocked', 'venta_id' => $found, 'sku' => $foundSku, 'message' => $clash];
+        }
+
+        return [
+            'state' => $wasPointingElsewhere ? 'repointed' : 'adopted',
+            'venta_id' => $found,
+            'sku' => $foundSku,
+            'message' => null,
+        ];
     }
 
     /**
@@ -813,9 +927,6 @@ class VentaProductGroupController extends Controller
 
     public function pushProducts(Request $request, int $store, int $group)
     {
-        // Set by the row's "Push as new", which is offered only when Venta has
-        // told us the linked product is not there. See the branch below.
-        $relink = $request->boolean('relink');
 
         $setting = $this->storeForWrite_($store);
 
@@ -837,6 +948,7 @@ class VentaProductGroupController extends Controller
 
         $created = 0;
         $updated = 0;
+        $verdicts = [];
 
         // Venta answers every push with a per-image verdict. Nothing read it,
         // so a push whose product landed and whose images were all refused
@@ -1012,32 +1124,40 @@ class VentaProductGroupController extends Controller
                 }
             }
 
-            // Check for existing link
+            /*
+             * ASK VENTA FIRST. Everything below used to be decided from the
+             * local link row - the ERP's own memory - which is wrong in both
+             * directions often enough that it produced a closed trap: a
+             * product deleted in Venta's admin left the ERP offering only
+             * Update, which can answer nothing but 404, while Push was hidden
+             * because a link existed.
+             *
+             * Reconciling here rather than in a separate action means the row
+             * button and the bulk bar both get it, there is one code path, and
+             * no state of the page can hide the thing that works.
+             *
+             * The cost is one extra GET per product. That is what correctness
+             * costs, and it is cheaper than an operator unlinking and
+             * re-linking in a circle.
+             */
+            $verdict = $this->reconcileLink($client, $store, $pid, $pfx);
+            $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
+
+            if ($verdict['state'] === 'blocked') {
+                $failed++;
+                $errors[] = "#{$pid}: {$verdict['message']}";
+                $this->writeProductStatus($g, $pid, [
+                    'sync_status' => 'error',
+                    'push_error' => $verdict['message'],
+                    'last_pushed_at' => now(),
+                ]);
+                continue;
+            }
+
+            // Re-read: reconcileLink may have created, repointed or dropped it.
             $existingLink = VentaProductLink::where('venta_setting_id', $store)
                 ->where('product_id', $pid)
                 ->first();
-
-            /*
-             * "Push as new" drops the stale link first.
-             *
-             * A link row is the ERP's own record that a product exists on
-             * Venta. It can be wrong - a database copied from another
-             * environment carries links to products that environment had and
-             * this one never did - and when it is wrong this branch sends an
-             * update for a product Venta has never heard of, which can only
-             * ever answer 404. The operator was then offered Update, which
-             * cannot work, and NOT offered Push, which is the only thing that
-             * would, because the page reads that same link as proof.
-             *
-             * Deleting the link here is what turns the request into a create.
-             * It is deliberately opt-in per press, never automatic: silently
-             * dropping a link on any failed update would recreate products on
-             * Venta whenever it had a bad afternoon.
-             */
-            if ($relink && $existingLink) {
-                $existingLink->delete();
-                $existingLink = null;
-            }
 
             if ($existingLink && $existingLink->venta_product_id) {
                 // Update existing product on Venta
@@ -1116,6 +1236,32 @@ class VentaProductGroupController extends Controller
         }
 
         $msg = "Push complete — Created: {$created}, Updated: {$updated}, Failed: {$failed}";
+
+        /*
+         * What reconciling FOUND, in the operator's terms.
+         *
+         * Counts of created and updated describe what we did. They do not say
+         * that Venta had quietly lost two products, or that a link was
+         * pointing at the wrong one - which is the thing the operator came to
+         * find out and previously had no way to learn.
+         */
+        // States what reconciling FOUND, never what followed from it. Saying
+        // "was recreated" here claimed an outcome the push had not reached
+        // yet, so a recreate that then failed still read as a recreate.
+        $notes = [];
+        if (! empty($verdicts['lost'])) {
+            $notes[] = $verdicts['lost'] . ' had been removed on Venta';
+        }
+        if (! empty($verdicts['adopted'])) {
+            $notes[] = $verdicts['adopted'] . ' already existed on Venta and ' .
+                ($verdicts['adopted'] === 1 ? 'was linked' : 'were linked');
+        }
+        if (! empty($verdicts['repointed'])) {
+            $notes[] = $verdicts['repointed'] . ' had been linked to the wrong Venta product';
+        }
+        if ($notes) {
+            $msg .= '. ' . ucfirst(implode('; ', $notes));
+        }
 
         /*
          * The images, said out loud.
@@ -1396,10 +1542,31 @@ class VentaProductGroupController extends Controller
         $this->store_($store);
         $g = VentaProductGroup::where('venta_setting_id', $store)->findOrFail($group);
 
-        $this->writeProductStatus($g, $product, ['sync_status' => 'unlinked']);
+        /*
+         * Unlink means FORGET, and it never did.
+         *
+         * It set a status flag and left the link row in place, so the ERP went
+         * on believing the product was on Venta. The row then offered only
+         * "Link to Venta again", which read that surviving row, found it, and
+         * reported success without contacting Venta at all - a closed loop
+         * with no marketplace in it. Deleting the link is what makes the next
+         * send re-match or create.
+         */
+        $removed = VentaProductLink::where('venta_setting_id', $store)
+            ->where('product_id', $product)
+            ->delete();
 
-        return $this->productsRedirect($store, $group)
-            ->with('status', 'Product unlinked from Venta.');
+        $this->writeProductStatus($g, $product, [
+            'sync_status' => 'pending',
+            'push_error' => null,
+        ]);
+
+        return $this->productsRedirect($store, $group)->with(
+            'status',
+            $removed > 0
+                ? 'Unlinked. This product is no longer connected to anything on Venta; sending it again will re-match or create it.'
+                : 'That product was not linked to Venta, so there was nothing to unlink.'
+        );
     }
 
     /**

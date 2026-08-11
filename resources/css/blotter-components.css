@@ -1291,6 +1291,15 @@
         color: var(--bl-bad);
     }
 
+    /* The one action a row always offers. It carries weight because on this
+       menu everything else is either conditional or destructive, and the
+       operator should not have to read seven items to find the one that
+       always works. */
+    .x-menu__item--primary {
+        font-weight: 550;
+        color: var(--bl-ink);
+    }
+
     .x-menu__sep {
         height: 1px;
         margin: 4px 0;

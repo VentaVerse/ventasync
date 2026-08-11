@@ -183,17 +183,6 @@
             $failed = in_array($syncState, ['error', 'failed'], true);
             $hasError = $failed && ($p->push_error ?? null);
 
-            /*
-             * The link says this product is on Venta and Venta says it is not.
-             *
-             * The row's whole action set turns on $hasVentaId, which reads a
-             * local link row. When that link is stale - a database copied from
-             * another environment carries links to products this one never had
-             * - the row offers Update, which can only answer 404, and hides
-             * Push, which is the only thing that would fix it. Reading the
-             * recorded failure is what tells the two apart.
-             */
-            $linkBroken = $hasVentaId && \App\Support\MarketplaceLink::looksMissingRemotely($p->push_error ?? null);
 
             $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
@@ -361,48 +350,33 @@
                      branching, same routes, same confirm messages; the popup is
                      <x-ui.menu> now, which Alpine drives. --}}
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
+                    {{-- ONE primary action, never gated.
 
-                    {{-- First, because it is the only action that can resolve
-                         this state, and because every other item in this menu
-                         acts on a link Venta has already said is dead. Push and
-                         Match are hidden by $hasVentaId; Update, Push stock and
-                         Push price will each answer 404. Without this the menu
-                         offers nothing that works. --}}
-                    @if($linkBroken)
-                        <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <input type="hidden" name="relink" value="1">
-                            <button type="submit" class="x-menu__item"
-                                    data-confirm="Venta does not have this product. Create it there as a new product and point the link at it?"
-                                    data-confirm-tone="primary">Push as new</button>
-                        </form>
-                        <div class="x-menu__sep" role="separator"></div>
-                    @endif
+                         It replaced Push, Update on Venta, Match Venta ID,
+                         Link to Venta again and Push as new - five buttons
+                         that existed only to describe which local state the
+                         row happened to be in, shown in mutually exclusive
+                         sets. A product deleted in Venta's admin landed in the
+                         one state that offered none of the useful ones, and
+                         the two it did offer never contacted Venta at all.
 
-                    @if(!$hasVentaId && !$isUnlinked)
-                        <form method="POST" action="{{ route('ext.venta.product-groups.sync-id', [$setting->id, $group->id, $p->product_id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item">Match Venta ID</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Push to Venta</button>
-                        </form>
-                    @endif
+                         This asks Venta what is true, then creates, updates,
+                         re-links or recreates accordingly, and says which it
+                         did. There is no state of this page in which the
+                         right action is missing. --}}
+                    <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-slow-action>
+                        @csrf
+                        <input type="hidden" name="_return" value="{{ $returnTo }}">
+                        <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
+                        <button type="submit" class="x-menu__item x-menu__item--primary">Send to {{ $storeName }}</button>
+                    </form>
 
+                    <div class="x-menu__sep" role="separator"></div>
+
+                    {{-- Only meaningful once something is linked. Sending
+                         establishes that, so these follow it rather than
+                         competing with it. --}}
                     @if($hasVentaId)
-                        <form method="POST" action="{{ route('ext.venta.product-groups.push', [$setting->id, $group->id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
-                            <button type="submit" class="x-menu__item">Update on Venta</button>
-                        </form>
                         <form method="POST" action="{{ route('ext.venta.product-groups.push-stock', [$setting->id, $group->id]) }}" data-slow-action>
                             @csrf
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
@@ -415,37 +389,35 @@
                             <input type="hidden" name="ids[]" value="{{ $p->product_id }}">
                             <button type="submit" class="x-menu__item">Push price</button>
                         </form>
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.unlink', [$setting->id, $group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Unlink this product from Venta? The product stays in the group but sync will stop.">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Unlink from Venta</button>
-                        </form>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]) }}" data-slow-action
-                              data-confirm="Delete this product from {{ $storeName }}? It is removed at the store and this cannot be undone.">
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Delete from Venta</button>
-                        </form>
+                        <div class="x-menu__sep" role="separator"></div>
                     @endif
 
-                    @if($isUnlinked)
-                        <form method="POST" action="{{ route('ext.venta.product-groups.link', [$setting->id, $group->id, $p->product_id]) }}" data-slow-action>
-                            @csrf
-                            <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item">Link to Venta again</button>
-                        </form>
-                    @endif
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalogue</a>
 
                     @if($isManual)
-                        <div class="x-menu__sep"></div>
-                        <form method="POST" action="{{ route('ext.venta.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}"
-                              data-confirm="Take this product out of the group? Nothing is deleted from the catalogue, and nothing already live on {{ $storeName }} is touched.">
+                        <form method="POST" action="{{ route('ext.venta.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}">
                             @csrf
-                            @method('DELETE')
                             <input type="hidden" name="_return" value="{{ $returnTo }}">
-                            <button type="submit" class="x-menu__item x-menu__item--danger">Remove from group</button>
+                            <button type="submit" class="x-menu__item"
+                                    data-confirm="Take {{ $pName ?: 'this product' }} out of this group? Nothing is deleted from the catalogue, and nothing on {{ $storeName }} is touched."
+                                    data-confirm-tone="primary">Remove from group</button>
+                        </form>
+                    @endif
+
+                    @if($hasVentaId)
+                        <div class="x-menu__sep" role="separator"></div>
+                        <form method="POST" action="{{ route('ext.venta.product-groups.unlink', [$setting->id, $group->id, $p->product_id]) }}">
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item"
+                                    data-confirm="Forget the connection between this product and {{ $storeName }}? Nothing is deleted there. Sending it again will re-match or create it."
+                                    data-confirm-tone="primary">Unlink</button>
+                        </form>
+                        <form method="POST" action="{{ route('ext.venta.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]) }}">
+                            @csrf
+                            <input type="hidden" name="_return" value="{{ $returnTo }}">
+                            <button type="submit" class="x-menu__item x-menu__item--danger"
+                                    data-confirm="Delete {{ $pName ?: 'this product' }} from {{ $storeName }}? It is removed at the storefront and this cannot be undone.">Delete from {{ $storeName }}</button>
                         </form>
                     @endif
                 </x-ui.menu>
