@@ -272,6 +272,14 @@
 
     --bl-page-gutter: 30px;
 
+    /* The content region's ceiling. On an ultrawide the columns drift
+       apart until the eye travels further than the data deserves; capped
+       and centered, the page reads the same at 1600px and at 3440px.
+       1440 matches Venta's .v-content exactly - the two products are a
+       family and should hold the same line. The chrome (sidebar, topbar)
+       still spans the window; only the work surface is capped. */
+    --bl-content-max: 1440px;
+
     /* Sections used to carry the gutter themselves, which meant every new
        section was a fresh chance to forget it, and bridged pages that this
        project never wrote could not carry it at all. The content region
@@ -1203,6 +1211,12 @@
        one and nothing is inset twice.
        ============================================================ */
     .x-content {
+        /* Centered under the ceiling; auto margins absorb the ultrawide
+           surplus equally on a flex item, exactly as Venta's .v-content
+           does. Sticky bars (.fm-bar) are laid out inside the region, so
+           they cap and center with it for free. */
+        max-width: var(--bl-content-max);
+        margin-inline: auto;
         padding-inline: var(--bl-page-gutter);
         --bl-gutter: 0px;
         --bl-pad: 0px;
