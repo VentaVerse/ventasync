@@ -75,7 +75,11 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 name: 'TikTok Shop',
                 tagline: 'TikTok Shop integration. OAuth, product sync, orders.',
                 icon: 'video',
-                accent: '#fe2c55',
+                // Black, not the pink. TikTok's mark is black-first and the
+                // legacy build used #1e1e1e here; the pink also measured
+                // deltaE 19 from this world's danger red, so a filled TikTok
+                // button read as a destructive one.
+                accent: '#1e1e1e',
                 // Card + menu use the VIEW tier so read-only operators still see
                 // TikTok in the Integrations hub and contextual sidebar. The
                 // 'manage implies view' cascade in PermissionHierarchy means
@@ -98,7 +102,7 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
                 id: $this->id,
                 label: 'TikTok',
                 icon: 'video',
-                accent: '#fe2c55',
+                accent: '#1e1e1e',
                 routeName: 'ext.tiktok.orders.index',
                 // OrderTab visibility uses view tier so a TikTok Orders Viewer
                 // still sees the marketplace's orders tab on the unified Orders

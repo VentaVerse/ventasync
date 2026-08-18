@@ -30,7 +30,16 @@
     @vite(['resources/css/blotter.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-<body class="x-app bl-app">
+@php
+    // The channel's own colour, published to CSS once here so every surface
+    // below can ask for it without a per-channel stylesheet. --ch is the
+    // brand hex for marks nothing is read against; --ch-deep is the same
+    // colour darkened until white text clears 4.5:1, for the fills that
+    // carry a label. See App\Support\ChannelAccent for why both exist.
+    $__chAccent = $channelCard->accent ?? null;
+@endphp
+<body class="x-app bl-app x-app--channel"
+      style="--ch: {{ \App\Support\ChannelAccent::raw($__chAccent) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($__chAccent) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($__chAccent) }};">
 {{-- The channel shell is off-canvas below 1024px and permanent above it, the
      same arrangement layouts/blotter.blade.php already runs for the global
      shell. It is a drawer rather than the horizontal strip the legacy

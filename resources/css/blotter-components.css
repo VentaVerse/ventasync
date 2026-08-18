@@ -1508,22 +1508,124 @@
 
     .fh-card:hover { border-color: var(--bl-rule-2); box-shadow: var(--bl-lift-2); }
 
-    /* Which card is OPEN is carried by weight and fill, never by hue: the hue
-       is already spoken for by the channel's own brand mark, and two signals
-       competing for one colour is how a strip stops being readable. */
+    /* WHICH CHANNEL is now carried by the cap, and which card is OPEN by the
+       ring around it. Those are two different questions and they get two
+       different devices, which is why the open state does not tint: the
+       colour is already saying "Shopee", and a second meaning on the same
+       colour is how a strip stops being readable.
+
+       The 8px square this replaces told you the channel only once you were
+       already reading that card. Four cards in a row have to be separable
+       from across the room. */
     .fh-card.is-open {
-        border-color: var(--bl-ink);
-        box-shadow: inset 0 0 0 1px var(--bl-ink);
+        border-color: var(--ch, var(--bl-ink));
+        box-shadow: inset 0 0 0 1px var(--ch, var(--bl-ink));
     }
 
+    /* The cap bleeds to the card's edges, so it undoes the card's own padding
+       and re-applies it horizontally. --ch-deep, not --ch: the name is
+       reversed out in white, and most marketplace brand colours cannot hold
+       white text (Shopee's orange measures 3.66:1). */
     .fh-card__top {
         display: flex;
         align-items: center;
         gap: 6px;
         min-width: 0;
+        margin: -12px -14px 10px;
+        padding: 7px 14px;
+        background: var(--ch-deep, var(--bl-chrome));
+        border-radius: var(--bl-r-panel) var(--bl-r-panel) 0 0;
     }
 
-    .fh-card__mark { flex: none; display: block; }
+    .fh-card__top .fh-card__name { color: #fff; }
+
+    /* ------------------------------------------------------------
+       CHANNEL IDENTITY
+
+       A marketplace page used to look exactly like every other
+       marketplace page: you read the breadcrumb to find out whose orders
+       you were packing. The channel's own colour now drives the surfaces
+       that belong to it.
+
+       Two scopes, one rule. .x-app--channel is a seller-centre page,
+       which is always about one channel. .fh-scope is the fulfilment hub,
+       which is about one channel only while a panel is open and stays
+       neutral otherwise - so both publish --ch / --ch-deep and everything
+       below just asks for them, with the neutral as the fallback.
+
+       WHAT DOES NOT MOVE: state colour. Amber still means needs-a-person,
+       red still means trouble, and Ship by OVERDUE is still the loudest
+       thing on the page. Identity is spent on chrome and on the primary
+       action; it is never spent on a status.
+       ------------------------------------------------------------ */
+
+    /* The rule under the top bar is the first thing on screen and the
+       cheapest place to say where you are. */
+    .x-app--channel .x-topbar { border-bottom: 2px solid var(--ch, var(--bl-rule)); }
+
+    /* The sidebar name deliberately does NOT take the channel colour. That
+       was the first cut and it was wrong: the channel sidebar is near-black
+       (--bl-side-bg #0b1228) and three of the seven brand colours are dark
+       too, so measured against that ground TikTok's black came out at
+       1.11:1, Lazada's navy at 1.19:1 and Venta's violet at 3.26:1 - a name
+       you cannot read is worse than a name with no colour on it. Every
+       surface below sits on a light ground instead, where all seven work.
+       The sidebar already says which channel this is, in words. */
+
+    /* Which view of the list you are in. The underline is the channel's,
+       the lift is the control's own. */
+    .x-app--channel .x-segment__item.is-active,
+    .fh-scope .x-segment__item.is-active {
+        box-shadow: inset 0 -2px 0 0 var(--ch, transparent),
+                    0 0 0 1px var(--bl-rule-2),
+                    0 1px 2px rgba(0, 0, 0, .05);
+    }
+
+    /* The way into an order. --ch-deep because this is text on a sheet. */
+    .x-app--channel .co-sn,
+    .x-app--channel .co-ref,
+    .x-app--channel .x-row-link,
+    .fh-scope .co-sn,
+    .fh-scope .co-ref,
+    .fh-scope .x-row-link { color: var(--ch-deep, var(--bl-brand-deep)); }
+
+    /* The page's primary action. Deepened, because it carries white text. */
+    .x-app--channel .x-btn--primary,
+    .fh-scope .x-btn--primary {
+        background: var(--ch-deep, var(--bl-ink));
+        border-color: var(--ch-deep, var(--bl-ink));
+    }
+
+    .x-app--channel :focus-visible,
+    .fh-scope :focus-visible { outline-color: var(--ch, var(--bl-brand)); }
+
+    /* DARK THEME. --ch-deep is computed against white, so it only answers
+       the light theme's question; on a near-black sheet the same colour can
+       vanish. Lazada is the proof: its navy clears white at 15.66:1 and sits
+       at about 1.3:1 on the dark sheet, so every order reference on a Lazada
+       page disappeared the moment the theme switched. --ch-lift is the same
+       hue walked toward white until it clears the dark sheet instead.
+
+       The primary button inverts here the way --bl-ink already does in this
+       theme: a light fill carrying dark text, rather than a dark fill
+       carrying light text. */
+    [data-theme='dark'] .x-app--channel .co-sn,
+    [data-theme='dark'] .x-app--channel .co-ref,
+    [data-theme='dark'] .x-app--channel .x-row-link,
+    [data-theme='dark'] .fh-scope .co-sn,
+    [data-theme='dark'] .fh-scope .co-ref,
+    [data-theme='dark'] .fh-scope .x-row-link { color: var(--ch-lift, var(--bl-brand)); }
+
+    [data-theme='dark'] .x-app--channel .x-btn--primary,
+    [data-theme='dark'] .fh-scope .x-btn--primary {
+        background: var(--ch-lift, var(--bl-ink));
+        border-color: var(--ch-lift, var(--bl-ink));
+        color: var(--bl-paper);
+    }
+
+    /* The card cap keeps the brand fill in both themes - it is a filled
+       block on a sheet, not text on the page, so the white name on it is
+       the only thing that has to clear, and --ch-deep already does. */
 
     .fh-card__name {
         min-width: 0;
@@ -2136,12 +2238,22 @@
         gap: 4px;
     }
 
+    /* The row's actions. Buttons wrap as whole buttons and their labels
+       never break: without this, a row that gains a third control (an
+       order with an Invoice beside Print waybill and Tracking) broke
+       "Print waybill" onto two lines and the column's width jumped
+       mid-list, so the eye lost the alignment it had been following down
+       the page. Wrapping a button is fine; hyphenating a label is not. */
     .co-actions {
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        flex-wrap: wrap;
         gap: 5px;
+        row-gap: 4px;
     }
+
+    .co-actions > * { white-space: nowrap; }
 
     .co-actions--wrap {
         flex-wrap: wrap;
@@ -2293,12 +2405,18 @@
         max-width: 190px;
     }
 
+    /* --bl-pad is deliberately 0 inside .x-content, so asking for it here
+       gave this row no horizontal padding at all and left the Next button
+       sitting exactly on the page's alignment line with nothing after it.
+       A bordered surface can meet that line and read as deliberate; a
+       control meeting it reads as falling off the edge. Its own value,
+       then, rather than a token that means "the page already inset me". */
     .x-pager {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 12px;
-        padding: 12px var(--bl-pad);
+        padding: 12px 6px;
         border-top: 1px solid var(--bl-rule-2);
     }
 
@@ -2735,7 +2853,15 @@
         color: var(--bl-ink-3);
     }
 
-    .x-btn--sm {
+    /* .x-btn.x-btn--sm, not .x-btn--sm. Both this and the .x-btn base sit in
+       @layer components at the same specificity, and blotter.css's own rules
+       are emitted AFTER the files it imports - so the base won on source
+       order and this modifier did nothing at all. Every "small" button in
+       the application has been rendering at the medium geometry: 6px 13px
+       at 13px, 33px tall, which is why a row's secondary actions have been
+       as loud as the page's primary one. One class more, and the modifier
+       outranks the base wherever it lands. */
+    .x-btn.x-btn--sm {
         padding: 3px 9px;
         font-size: 12px;
     }

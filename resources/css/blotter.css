@@ -176,6 +176,28 @@
     --bl-brand-deep: #1c7f9b;
     --bl-lime: #c2ec42;
 
+    /* THE CHANNEL'S OWN COLOUR.
+    
+       Declared here as the neutral and overridden per channel by an inline
+       style: layouts/channel.blade.php publishes the channel a page belongs
+       to, and each .fh-card on the fulfilment hub publishes its own. The
+       values come from the accent every integration already declares on its
+       IntegrationCard, computed into three forms by App\Support\ChannelAccent.
+    
+         --ch       the brand hex, for marks nothing is read against
+         --ch-deep  darkened until white text clears 4.5:1, for filled
+                    surfaces carrying a label
+         --ch-lift  lightened until it clears the DARK theme's sheet, because
+                    a colour dark enough to hold white text disappears there
+    
+       Stated in CSS rather than left to the markup so this file carries the
+       contract, and so a surface that asks for one outside a channel gets a
+       deliberate neutral rather than nothing. Every rule that reads them also
+       names its own fallback; this is the belt to that pair of braces. */
+    --ch: var(--bl-brand-deep);
+    --ch-deep: var(--bl-ink);
+    --ch-lift: var(--bl-ink);
+
     /* ACCENTS. New in v2.3.
 
        The v2.2 rule was that colour means state and nothing else, which is
@@ -1655,7 +1677,11 @@
     .x-fh-panel,
     .x-health,
     .x-waiting,
-    .x-table-wrap,
+    /* .x-table-wrap is NOT here. An order list is already made of blocks -
+       each order is a banded group - so wrapping the set in a raised sheet
+       put a card around a stack of cards and pooled a shadow under the
+       whole thing just above a pager that sits outside it. It keeps the
+       hairline and the corner; it gives up the elevation. */
     .x-hub__card,
     .fm-card,
     .od-card,
@@ -1675,7 +1701,13 @@
         box-shadow: var(--bl-lift);
     }
 
-    /* A table inside a raised sheet must not draw its own outer rules, or
+    .x-table-wrap {
+        border: 1px solid var(--bl-rule);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-sheet);
+    }
+
+    /* A table inside a bounded sheet must not draw its own outer rules, or
        the card gets a double edge at top and bottom. */
     .x-table-wrap > .x-table > thead > tr > th,
     .bl-scroll > .bl-table > thead > tr > th { border-top: 0; }

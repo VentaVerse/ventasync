@@ -43,7 +43,18 @@
     $fhLink = $fhStalled === []
         ? 'all ' . count($fhChannels) . ' ' . (count($fhChannels) === 1 ? 'channel' : 'channels') . ' syncing'
         : $fhList . (count($fhStalled) === 1 ? ' is not syncing' : ' are not syncing');
+
+    // With a channel open, this page IS that channel's orders page and takes
+    // its colour, the same as the seller centre does. With no channel open it
+    // is the hub over all of them and stays neutral, because there is no one
+    // channel for it to belong to.
+    $fhOpen = $selectedChannel
+        ? collect($fhChannels)->firstWhere('id', $selectedChannel)
+        : null;
 @endphp
+
+<div class="fh-scope"
+     @if($fhOpen) style="--ch: {{ \App\Support\ChannelAccent::raw($fhOpen['accent']) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($fhOpen['accent']) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($fhOpen['accent']) }};" @endif>
 
 <div class="fh-head">
     {{-- The way back to every channel.
@@ -111,18 +122,20 @@
         @foreach($fhChannels as $fhCard)
             <a href="{{ $fhCard['url'] }}"
                class="fh-card {{ $selectedChannel === $fhCard['id'] ? 'is-open' : '' }} {{ $fhCard['stalled'] ? 'is-stalled' : '' }}"
+               style="--ch: {{ \App\Support\ChannelAccent::raw($fhCard['accent']) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($fhCard['accent']) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($fhCard['accent']) }};"
                @if($selectedChannel === $fhCard['id']) aria-current="page" @endif>
 
+                {{-- The channel's own colour, filled rather than dotted. An
+                     8px square said which channel this was only to someone
+                     already looking at it; four cards in a row have to be
+                     told apart from across the room, which is the whole job
+                     of this grid. Two stores of one channel share a colour,
+                     so the cap carries the channel and the name carries the
+                     store. The fill is --ch-deep rather than the brand hex
+                     because the name is reversed out of it in white: Shopee's
+                     orange holds white at 3.66:1, which is a label you cannot
+                     read at 12.5px. --}}
                 <span class="fh-card__top">
-                    {{-- The channel's own brand hue, drawn rather than set by
-                         an inline style, the same route the dashboard's chips
-                         take. Two stores of one channel share a hue, so the
-                         name carries the store and the mark carries the
-                         channel. --}}
-                    <svg class="fh-card__mark" width="8" height="8" viewBox="0 0 8 8"
-                         aria-hidden="true" focusable="false">
-                        <rect width="8" height="8" rx="2" fill="{{ $fhCard['accent'] }}"></rect>
-                    </svg>
                     <span class="fh-card__name">{{ $fhCard['label'] }}</span>
                 </span>
 
@@ -407,4 +420,6 @@
         </div>
     @endif
 @endif
+
+</div>{{-- /.fh-scope --}}
 @endsection
