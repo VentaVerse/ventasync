@@ -47,6 +47,12 @@
    this page; every control that writes is absent for them, so the page
    says why once at the top rather than leaving them to wonder where
    the Save button went.
+
+   Drawn as the .fm-note idiom draws every notice: tinted ground inside
+   a tinted hairline, never a coloured left bar (blotter-components.css
+   states that rule where the idiom lives). Cool, not amber: nothing
+   here needs a person - it is a statement of fact about permissions,
+   and attn is reserved for things waiting on one.
    ------------------------------------------------------------------ */
 
 .cs-readonly {
@@ -54,10 +60,9 @@
     align-items: flex-start;
     gap: var(--bl-space-2);
     padding: var(--bl-space-3) var(--bl-space-4);
-    background: var(--bl-sheet);
-    border: 1px solid var(--bl-rule);
-    border-left: 3px solid var(--bl-attn-fill);
-    border-radius: 0 var(--bl-r-ctrl) var(--bl-r-ctrl) 0;
+    background: color-mix(in srgb, var(--bl-cool) 8%, var(--bl-sheet));
+    border: 1px solid color-mix(in srgb, var(--bl-cool) 40%, var(--bl-rule-2));
+    border-radius: var(--bl-r-ctrl);
     font-size: 13px;
     color: var(--bl-ink);
 }
