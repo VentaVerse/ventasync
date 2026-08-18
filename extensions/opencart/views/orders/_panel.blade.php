@@ -239,7 +239,7 @@
                         <x-money :php="(float) $ocItem->price" :foreign="$ocItem->foreign_price" :foreign-code="$o->currency_code" />
                     </span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -255,7 +255,7 @@
                     @if($ocStatusName !== '')
                         <x-ui.badge :tone="$ocTone">{{ $ocStatusName }}</x-ui.badge>
                     @else
-                        <span class="co-empty-mark">&mdash;</span>
+                        <span class="co-empty-mark">-</span>
                     @endif
                 </div>
             </td>
@@ -270,7 +270,7 @@
                          in the band above and has nothing else to do to it,
                          so the column prints a dash rather than an empty
                          control. --}}
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @else
                 <div class="co-actions">
                     {{-- Fifty rows used to carry a View, an Edit and a solid

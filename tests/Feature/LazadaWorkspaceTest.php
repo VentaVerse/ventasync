@@ -564,14 +564,19 @@ class LazadaWorkspaceTest extends TestCase
         // test, not the sequence.
         ksort($toneOf);
 
+        // REVISED 2026-08-19 with the tone philosophy. The seller's own three
+        // steps carry the needs-a-person mark (warning), which is what a
+        // fulfilment page exists to surface; the terminal states carry
+        // success, because settled is the good outcome rather than something
+        // to recede into grey. See ChannelStatusTone's class docblock.
         $expected = [
             'Unpaid' => 'warning',
-            'To pack' => 'success',
-            'To pack again' => 'success',
-            'To arrange shipment' => 'success',
+            'To pack' => 'warning',
+            'To pack again' => 'warning',
+            'To arrange shipment' => 'warning',
             'To hand over' => 'info',
             'Shipped' => 'info',
-            'Delivered' => 'neutral',
+            'Delivered' => 'success',
             'Cancelled' => 'danger',
             'Delivery failed' => 'danger',
         ];

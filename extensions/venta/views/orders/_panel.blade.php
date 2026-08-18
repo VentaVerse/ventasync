@@ -69,7 +69,12 @@
      row is bottom aligned, so the date inputs and the button share a
      baseline and a top edge. --}}
 <div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.venta.orders.fetch', $storeId) }}" id="formFetchVentaOrders" class="x-cmdbar__row">
+    {{-- See the note on Shopee's bar: a fetch writes unseen orders and
+         writing an order adjusts stock, so the action names its own
+         consequence before it runs. --}}
+    <form method="POST" action="{{ route('ext.venta.orders.fetch', $storeId) }}" id="formFetchVentaOrders" class="x-cmdbar__row"
+          data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock, unless Skip stock adjust is ticked."
+          data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="vtDateFrom">From</label>
@@ -320,7 +325,7 @@
                 @if($vtItem && (float) $vtItem->price > 0)
                     <span class="co-price">{{ \App\Support\Money::base((float) $vtItem->price) }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -333,7 +338,7 @@
                 @if($vtPayment !== '')
                     <span class="vt-pay">{{ $vtPayment }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -341,7 +346,7 @@
                 @if($vtTracking !== '')
                     <span class="co-ship__no">{{ $vtTracking }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -355,7 +360,7 @@
                 @if($vtCreated)
                     <span class="co-date">{{ $vtCreated }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -365,7 +370,7 @@
                          reference in the band above and has nothing else to
                          do to the row, so the column prints a dash rather
                          than an empty control. --}}
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @else
                 <div class="co-actions">
                     {{-- Delete is the only write this page offers a row, and

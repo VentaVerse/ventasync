@@ -100,6 +100,15 @@ class ShopeeOrdersPanel
             'FAILED_DELIVERY'     => ['RETRY_SHIP'],
         ];
 
+        // Every status the map above does not name is reachable only by
+        // paging through All, which on this channel is 191 pages. Shopee
+        // sends TO_RETURN today and will send something else the next time
+        // it extends its own list, so the gap is found rather than
+        // enumerated: anything unmapped falls into Other, and Other only
+        // appears when it has something in it. The tabs now always sum to
+        // All, which is the property that was quietly untrue.
+        $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
+
         $tabs = [
             'ALL'                 => 'All',
             'UNPAID'              => 'Unpaid',
@@ -124,6 +133,8 @@ class ShopeeOrdersPanel
                 ];
                 $statuses = $pendingMap[$pendingSubtab] ?? ['READY_TO_SHIP'];
                 $query->whereIn('status', $statuses);
+            } elseif ($tab === 'OTHER') {
+                $query->whereNotIn('status', $mappedStatuses);
             } else {
                 $statuses = $tabStatusMap[$tab] ?? [];
                 if (!empty($statuses)) {
@@ -152,15 +163,20 @@ class ShopeeOrdersPanel
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
-            if (!empty($statuses)) {
-                if ($k === 'PENDING') {
-                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['READY_TO_SHIP'])->count();
-                } else {
-                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
-                }
-            } else {
-                $tab_counts[$k] = 0;
-            }
+            // To Ship counts BOTH of its steps. It used to count only
+            // READY_TO_SHIP, the To Pack sub-step, so a parcel sitting in To
+            // Handover made the page say "To Ship 0" directly above a
+            // sub-tab reading "To Handover 1" - the screen contradicting
+            // itself about whether there was work.
+            $tab_counts[$k] = !empty($statuses)
+                ? (clone $baseCountQuery)->whereIn('status', $statuses)->count()
+                : 0;
+        }
+
+        $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
+        if ($otherCount > 0) {
+            $tabs['OTHER'] = 'Other';
+            $tab_counts['OTHER'] = $otherCount;
         }
 
         if ($sortBy === 'confirmed_pay') {

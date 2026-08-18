@@ -1661,7 +1661,11 @@
     .od-card,
     .rp-band,
     .op-band,
-    .co-band,
+    /* .co-band is NOT here: it is a <tr>, and a table row renders neither
+       a radius nor a shadow. It sat in this list carrying a sheet's border,
+       background and elevation, of which only the background ever reached
+       the screen - white on white. The order band is styled where the rest
+       of the order vocabulary lives, in blotter-components. */
     .x-board__card,
     .fm-vars__card,
     .auth__card {

@@ -81,7 +81,12 @@
      control heights, which is what left the buttons off the baseline of
      their own date inputs. --}}
 <div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" id="formFetchTiktokOrders" class="x-cmdbar__row">
+    {{-- See the note on Shopee's bar: a fetch writes unseen orders and
+         writing an order adjusts stock, so the action names its own
+         consequence before it runs. --}}
+    <form method="POST" action="{{ route('ext.tiktok.orders.fetch') }}" id="formFetchTiktokOrders" class="x-cmdbar__row"
+          data-confirm="Fetch TikTok Shop orders for the chosen dates? Any order that has not been seen before will adjust stock, unless Skip stock adjust is ticked."
+          data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="ttDateFrom">From</label>
@@ -429,7 +434,7 @@
                         ? \App\Support\Money::foreign((float) $unitPrice, $currencyCode)
                         : \App\Support\Money::base((float) $unitPrice) }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -457,7 +462,7 @@
                 @elseif($trackingNo !== '')
                     <span class="co-ship__no">{{ $trackingNo }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -475,7 +480,7 @@
                          offers a viewer nothing either, which is why the
                          legacy page printed a dash here rather than a
                          control. --}}
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @else
                 <div class="co-actions co-actions--wrap">
                     {{-- Every action a row's status allows is a visible

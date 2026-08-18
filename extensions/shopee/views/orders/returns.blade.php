@@ -254,11 +254,21 @@
             <td class="sp-col-status" data-label="Status">
                 <div class="co-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+                    {{-- Both lines used to print Shopee's own constants at
+                         the operator - CHANGE_MIND under a badge that said
+                         "Requested" - and neither said which was the
+                         buyer's reason and which was the parcel's
+                         whereabouts. Named, and translated through the
+                         class whose whole job is that no marketplace
+                         constant reaches a screen raw. --}}
                     @if($ret->reason)
-                        <span class="text-xs text-muted">{{ \Illuminate\Support\Str::limit($ret->reason, 40) }}</span>
+                        <span class="co-band__muted text-xs">Reason: {{ \App\Support\ChannelStatusTone::labelFor('shopee.return_reason', $ret->reason) }}</span>
                     @endif
-                    @if($ret->reverse_logistics_status)
-                        <span class="text-xs text-muted">{{ str_replace('_', ' ', $ret->reverse_logistics_status) }}</span>
+                    {{-- Some rows carry a literal "-" where Shopee sent
+                         nothing, which is a value the truthy check let
+                         through and which says less than an absent line. --}}
+                    @if($ret->reverse_logistics_status && trim($ret->reverse_logistics_status) !== '-')
+                        <span class="co-band__muted text-xs">Parcel: {{ \App\Support\ChannelStatusTone::labelFor('shopee.reverse_logistics', $ret->reverse_logistics_status) }}</span>
                     @endif
                 </div>
             </td>

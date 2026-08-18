@@ -74,17 +74,29 @@
      and the row is bottom aligned, so the controls share a baseline and,
      being the same height, a top edge too. --}}
 <div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="x-cmdbar__row">
+    {{-- This form moves stock. A fetch writes any order it has not seen
+         before, and writing an order adjusts inventory unless Skip stock
+         adjust is ticked, which is opt-OUT. It had no confirmation at all,
+         while it was also the only primary button on the page and, on a
+         phone, the widest tap target on the screen a packer uses. Tone is
+         primary rather than danger: this is consequential, not destructive. --}}
+    <form method="POST" action="{{ route('ext.shopee.orders.fetch') }}" id="formFetchShopeeOrders" class="x-cmdbar__row"
+          data-confirm="Fetch Shopee orders for the chosen dates? Any order that has not been seen before will adjust stock, unless Skip stock adjust is ticked."
+          data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="spDateFrom">From</label>
+            {{-- Pre-filled, as TikTok's bar already was. Both dates are
+                 required, so a blank pair meant the page's only primary
+                 button could not succeed in its default state and said so
+                 only inside a hint bubble. --}}
             <x-ui.input type="date" id="spDateFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from')) }}" />
+                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="spDateTo">To</label>
             <x-ui.input type="date" id="spDateTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to')) }}" />
+                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
         <label class="x-cmdbar__check">
             <input type="checkbox" name="no_stock" value="1">
@@ -223,7 +235,17 @@
         } elseif ($active_tab !== 'ALL') {
             // Keep the tab's own capitalisation: lowercasing it produced
             // "no to ship orders", which reads broken.
-            $spEmptyDesc = 'No orders in ' . ($tabs[$active_tab] ?? $active_tab) . ' right now.';
+            //
+            // Name the queue actually being listed, not the tab above it.
+            // Standing on To Pack, this said "No orders in To Ship right
+            // now" - naming a parent that may well have orders in its other
+            // step, and contradicting the sub-tab just clicked. TikTok's
+            // panel already derives its label this way.
+            $spScopeLabel = $tabs[$active_tab] ?? $active_tab;
+            if ($active_tab === 'PENDING') {
+                $spScopeLabel = ['to_pack' => 'To Pack', 'to_handover' => 'To Handover'][$pendingSub] ?? $spScopeLabel;
+            }
+            $spEmptyDesc = 'No orders in ' . $spScopeLabel . ' right now.';
         } else {
             $spEmptyDesc = 'Nothing has been synced yet. Pick a date range above and fetch orders from Shopee.';
         }
@@ -400,7 +422,7 @@
                 @elseif($unitPrice !== null && $unitPrice !== '')
                     <span class="co-price">{{ $unitPrice }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -429,7 +451,7 @@
                         <span class="co-ship__no">{{ $trackingNo }}</span>
                     @endif
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 

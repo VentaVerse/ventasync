@@ -99,6 +99,12 @@ class LazadaOrdersPanel
             'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl', 'shipped_back', 'shipped_back_success'],
         ];
 
+        // See ShopeeOrdersPanel for the reasoning. Lazada sends `returned`
+        // and `package_scrapped`, which no tab above names, so they were
+        // reachable only by paging through All. Found rather than
+        // enumerated, so the next status Lazada invents surfaces by itself.
+        $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
+
         $tabs = [
             'ALL'             => 'All',
             'UNPAID'          => 'Unpaid',
@@ -134,6 +140,8 @@ class LazadaOrdersPanel
                 ];
                 $statuses = $fdMap[$fdSub] ?? ['failed_delivery'];
                 $query->whereIn('status', $statuses);
+            } elseif ($tab === 'OTHER') {
+                $query->whereNotIn('status', $mappedStatuses);
             } else {
                 $statuses = $tabStatusMap[$tab] ?? [];
                 if (!empty($statuses)) {
@@ -174,17 +182,22 @@ class LazadaOrdersPanel
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
-            if (!empty($statuses)) {
-                if ($k === 'TO_SHIP') {
-                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['pending', 'repacked'])->count();
-                } elseif ($k === 'FAILED_DELIVERY') {
-                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', ['failed_delivery', 'shipped_back', 'shipped_back_success'])->count();
-                } else {
-                    $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
-                }
-            } else {
-                $tab_counts[$k] = 0;
-            }
+            // Each tab counts EVERY status it filters on. To Ship used to
+            // count only pending and repacked - its first sub-step - while
+            // its own filter also covered packed and ready_to_ship, and
+            // Failed Delivery left out lost_by_3pl and damaged_by_3pl the
+            // same way. 33 of this channel's orders were sitting inside a
+            // tab whose number said they were not there, which is why the
+            // strip summed to 592 against an All of 628.
+            $tab_counts[$k] = !empty($statuses)
+                ? (clone $baseCountQuery)->whereIn('status', $statuses)->count()
+                : 0;
+        }
+
+        $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
+        if ($otherCount > 0) {
+            $tabs['OTHER'] = 'Other';
+            $tab_counts['OTHER'] = $otherCount;
         }
 
         if ($sortBy === 'confirmed_created') {

@@ -22,22 +22,29 @@ namespace App\Support;
  * fourth copies, so the maps come here instead and later channels add
  * entries rather than files.
  *
- * TONE PHILOSOPHY, one rule, applied per channel:
+ * TONE PHILOSOPHY, one rule, applied per channel. REVISED 2026-08-19.
  *
- *   success  the operator's move, right now. This is the only tone that
- *            resolves to the accent colour, so it is the one thing the eye
- *            lands on when a hundred rows are on screen. Spend it nowhere
- *            else.
- *   warning  waiting on someone the seller can chase (an unpaid buyer, a
- *            parcel coming back).
+ * The rule below used to be inverted here and nowhere else: success meant
+ * "your move" and settled orders were neutral. That was internally coherent
+ * and it disagreed with every other authority in the codebase. DESIGN.md
+ * defines --bl-good as SETTLED and --bl-attn as NEEDS A PERSON; OrderStatusTone,
+ * which dresses the core order list and Venta, maps delivered to success and
+ * "ready to ship" to warning; and pedallion.orders below had already been
+ * written the DESIGN.md way. So one green meant "act now" on a Lazada row and
+ * "nothing to do" on the Venta row beside it, in the same product, on the same
+ * day. Four maps were the outlier and they are the ones that moved.
+ *
+ *   warning  the operator's move, right now, and anything else waiting on a
+ *            person the seller can chase (an unpaid buyer, a parcel coming
+ *            back). This is what a fulfilment page exists to surface, so it
+ *            is what the eye should land on across a hundred rows.
  *   info     waiting on someone the seller cannot chase (a courier in
  *            transit, a marketplace running its own review).
- *   neutral  settled. A finished order should recede, which is why
- *            COMPLETED / delivered are neutral and not the success tone:
- *            x-badge--success and the accent are the same token, and a page
- *            where "pack this now" and "done weeks ago" are the same colour
- *            has no signal left.
+ *   success  settled, and settled WELL. A finished order is the good outcome
+ *            and reads as one.
  *   danger   ended badly. Cancellations, failed deliveries, losses.
+ *   neutral  nothing to say. Reserved for statuses no map has heard of, which
+ *            should read as unremarkable rather than reassuring or alarming.
  *
  * LABELS say the plain thing. No marketplace constant reaches a screen raw,
  * and no invented vocabulary replaces it: "To pack", not "PENDING", and not
@@ -55,20 +62,26 @@ class ChannelStatusTone
         // extensions/shopee/views/orders/_panel.blade.php.
         'shopee.orders' => [
             'UNPAID'             => 'warning',
-            'READY_TO_SHIP'      => 'success',
-            'PROCESSED'          => 'info',
+            'READY_TO_SHIP'      => 'warning',
+            // Shopee's "To handover": the seller still physically holds the
+            // parcel and has to give it to the courier, and it is the second
+            // step of the To Ship queue rather than something in flight. It
+            // read as informational blue while carrying a Ship by OVERDUE
+            // badge in the same cell.
+            'PROCESSED'          => 'warning',
             'SHIPPED'            => 'info',
             'TO_CONFIRM_RECEIVE' => 'info',
-            'COMPLETED'          => 'neutral',
+            'COMPLETED'          => 'success',
             'CANCELLED'          => 'danger',
             'IN_CANCEL'          => 'danger',
             'RETRY_SHIP'         => 'warning',
         ],
 
         // Shopee returns. Moved verbatim from
-        // extensions/shopee/views/orders/returns.blade.php. No status here
-        // takes the success tone: the page has no mutating row action, so
-        // there is nothing on it that is the operator's move.
+        // extensions/shopee/views/orders/returns.blade.php. Nothing here is
+        // settled-and-well, because a return that reached its end is not a
+        // good outcome; the page's own states run from "needs looking at" to
+        // "closed", and none of them is the seller's win.
         'shopee.returns' => [
             'REQUESTED'           => 'warning',
             'PROCESSING'          => 'warning',
@@ -88,18 +101,20 @@ class ChannelStatusTone
         // Lazada's fulfilment has two seller steps where Shopee has one:
         // pack the parcel, then arrange the shipment. Both are genuinely
         // "your move", so all three of pending / repacked / packed take the
-        // success tone. Picking one of the two steps to be the accent one
-        // and demoting the other would be arbitrary, and the sub-tabs
-        // already separate them for anyone working a single step.
+        // warning tone. Picking one of the two steps to carry it and
+        // demoting the other would be arbitrary, and the sub-tabs already
+        // separate them for anyone working a single step. READY_TO_SHIP is
+        // the state AFTER the seller has arranged it, so it waits on a
+        // courier and takes info with the rest of the in-flight states.
         'lazada.orders' => [
             'UNPAID'               => 'warning',
-            'PENDING'              => 'success',
-            'REPACKED'             => 'success',
-            'PACKED'               => 'success',
+            'PENDING'              => 'warning',
+            'REPACKED'             => 'warning',
+            'PACKED'               => 'warning',
             'READY_TO_SHIP'        => 'info',
             'SHIPPED'              => 'info',
-            'DELIVERED'            => 'neutral',
-            'CONFIRMED'            => 'neutral',
+            'DELIVERED'            => 'success',
+            'CONFIRMED'            => 'success',
             'CANCELED'             => 'danger',
             'CANCELLED'            => 'danger',
             'FAILED_DELIVERY'      => 'danger',
@@ -114,20 +129,20 @@ class ChannelStatusTone
         // groups into tabs, plus nothing invented: anything TikTok adds later
         // falls through to neutral and prints itself legibly.
         //
-        // One status takes the accent, AWAITING_SHIPMENT, because it is the
-        // only one with a marketplace write behind it (Ship). Once an order
-        // is AWAITING_COLLECTION the seller has done their part and is
+        // One status is the seller's move, AWAITING_SHIPMENT, because it is
+        // the only one with a marketplace write behind it (Ship). Once an
+        // order is AWAITING_COLLECTION the seller has done their part and is
         // waiting on a courier to arrive, which is the same kind of waiting
-        // as IN_TRANSIT and takes the same tone. That is a narrower spend
-        // than Lazada's three success statuses, and correctly so: Lazada
-        // genuinely has two seller steps before handover, TikTok has one.
+        // as IN_TRANSIT and takes the same tone. That is narrower than
+        // Lazada's three, and correctly so: Lazada genuinely has two seller
+        // steps before handover, TikTok has one.
         'tiktok.orders' => [
             'UNPAID'               => 'warning',
-            'AWAITING_SHIPMENT'    => 'success',
+            'AWAITING_SHIPMENT'    => 'warning',
             'AWAITING_COLLECTION'  => 'info',
             'IN_TRANSIT'           => 'info',
-            'DELIVERED'            => 'neutral',
-            'COMPLETED'            => 'neutral',
+            'DELIVERED'            => 'success',
+            'COMPLETED'            => 'success',
             'CANCELLED'            => 'danger',
         ],
 
@@ -140,12 +155,10 @@ class ChannelStatusTone
         // to neutral and prints itself legibly, which is the deliberate
         // behaviour rather than a gap.
         //
-        // NO status here takes the accent, and that is a fact about the page
-        // rather than an oversight: extensions/pedallion/routes/web.php
-        // declares no order write route at all (its own comment says so), so
-        // there is nothing on this surface that is the operator's move and
-        // spending the accent would be spending it on nothing. Same call
-        // shopee.returns and reports.payouts already made.
+        // This map was already written the way the class-level rule now
+        // states for every channel: the seller's own steps carry warning and
+        // the finished states are the good outcome. It needed no revision in
+        // 2026-08, which is part of why the other four moved to meet it.
         //
         // The four seller-side stages take warning rather than info because
         // the party holding the order up is the seller's own desk, which is
@@ -156,9 +169,9 @@ class ChannelStatusTone
             'AWAITING_SHIPMENT'  => 'warning',
             'READY_TO_SHIP'      => 'warning',
             'SHIPPED'            => 'info',
-            'DELIVERED'          => 'neutral',
-            'COMPLETED'          => 'neutral',
-            'PAID'               => 'neutral',
+            'DELIVERED'          => 'success',
+            'COMPLETED'          => 'success',
+            'PAID'               => 'success',
             'CANCELLED'          => 'danger',
             'REFUNDED'           => 'danger',
             'FAILED'             => 'danger',
@@ -174,15 +187,19 @@ class ChannelStatusTone
         // offers as a financial filter, which are Shopify's own documented
         // financial_status set.
         //
-        // NO accent here. This is the record of what the buyer's money has
-        // done; the page's own accent belongs to the fulfilment column below,
-        // which is the column a packer actually reads, and one page spends
-        // the accent once.
+        // The needs-a-person mark is NOT spent here, and that survived the
+        // 2026-08-19 revision deliberately. This column is the record of what
+        // the buyer's money has done and the packer cannot act on it from
+        // this page; the fulfilment column beside it is the packing list. A
+        // pending payment is therefore informational here, where on Shopee
+        // "Unpaid" is a queue of its own and correctly carries the mark. Two
+        // amber columns on one row would leave the packer nothing to read
+        // first, which is the failure the original rule was written against.
         'shopify.payment' => [
-            'PAID'               => 'neutral',
-            'AUTHORIZED'         => 'warning',
-            'PENDING'            => 'warning',
-            'PARTIALLY_PAID'     => 'warning',
+            'PAID'               => 'success',
+            'AUTHORIZED'         => 'info',
+            'PENDING'            => 'info',
+            'PARTIALLY_PAID'     => 'info',
             'REFUNDED'           => 'danger',
             'PARTIALLY_REFUNDED' => 'danger',
             'VOIDED'             => 'danger',
@@ -193,22 +210,22 @@ class ChannelStatusTone
         // null as the string "unfulfilled", so that is the key here too and
         // the view normalises a null to it before asking.
         //
-        // The accent is spent on the two states with goods still to go out.
-        // This list is the seller's packing list: it is why a fulfilment
-        // operator opens the page, and it is what the channel's own
-        // unprocessed counter on the fulfilment hub is counting.
+        // The two states with goods still to go out are the seller's move
+        // and carry warning. This list is the packing list: it is why a
+        // fulfilment operator opens the page, and it is what the channel's
+        // own unprocessed counter on the fulfilment hub is counting.
         'shopify.fulfilment' => [
-            'UNFULFILLED' => 'success',
-            'PARTIAL'     => 'success',
-            'FULFILLED'   => 'neutral',
+            'UNFULFILLED' => 'warning',
+            'PARTIAL'     => 'warning',
+            'FULFILLED'   => 'success',
         ],
 
         // Lazada returns. Keys cover every string
         // LazadaOrderController::returns()'s own $tabStatusMap matches on,
         // including the spaced spellings Lazada sends ("return initiated"),
         // which normalise to the underscored key. Same rule as Shopee's
-        // returns: no success tone, because the page has no row action that
-        // changes anything.
+        // returns: nothing here is settled-and-well, because a return
+        // reaching its end is not the seller's win.
         'lazada.returns' => [
             'RETURN_INITIATED'   => 'warning',
             'REQUESTED'          => 'warning',
@@ -364,6 +381,37 @@ class ChannelStatusTone
             'SELLER_COMPENSATION' => 'Compensated',
             'CLOSED'              => 'Closed',
             'CANCELLED'           => 'Cancelled',
+        ],
+
+        // Why the buyer sent it back. This is the one field on the returns
+        // page that never passed through here, so CHANGE_MIND and
+        // SUSPICIOUS_PARCEL printed raw next to a properly translated
+        // status badge - on the screen customer service opens while a
+        // buyer is already unhappy. Shopee ships two spellings of the same
+        // reason, which is exactly the kind of channel difference this
+        // class exists to absorb rather than leak.
+        'shopee.return_reason' => [
+            'CHANGE_MIND'       => 'Changed mind',
+            'CHANGE_OF_MIND'    => 'Changed mind',
+            'WRONG_ITEM'        => 'Wrong item sent',
+            'ITEM_MISSING'      => 'Item missing',
+            'FUNCTIONAL_DMG'    => 'Item not working',
+            'DAMAGED_OTHERS'    => 'Item damaged',
+            'NOT_RECEIPT'       => 'Never arrived',
+            'SUSPICIOUS_PARCEL' => 'Parcel looked tampered with',
+        ],
+
+        // Where the returned parcel physically is. Same leak, same page.
+        'shopee.reverse_logistics' => [
+            'LOGISTICS_NOT_STARTED'       => 'Not shipped back yet',
+            'LOGISTICS_PENDING_ARRANGE'   => 'Pickup being arranged',
+            'LOGISTICS_REQUEST_CREATED'   => 'Pickup booked',
+            'LOGISTICS_PICKUP_DONE'       => 'Picked up',
+            'LOGISTICS_DELIVERY_DONE'     => 'Back with us',
+            'LOGISTICS_REQUEST_CANCELED'  => 'Return cancelled',
+            // Some rows hold Shopee's human wording rather than its
+            // constant, so the same state arrives spelled two ways.
+            'DELIVERED'                   => 'Back with us',
         ],
 
         // Each label names the step in the words the packing desk already

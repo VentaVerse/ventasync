@@ -2013,10 +2013,37 @@
         color: var(--bl-ink-3);
     }
 
-    /* The band under each order: shipping on the left, money on the right. */
-    .co-band {
-        padding: 8px 0 0;
-        border-top: 1px solid var(--bl-rule);
+    /* The band that caps each order: buyer and reference on the left,
+       created on the right.
+
+       Every boundary in this table used to be the same hairline - the one
+       between two ORDERS and the one between two ITEMS of the same order.
+       Measured, the gap between orders was 0px and the rule carrying the
+       distinction sat at 1.16:1 against the sheet, so tracing an amount
+       back to the order it belongs to meant counting rows. The two
+       boundaries now differ in KIND rather than in weight: a band of page
+       between orders, the existing hairline within one.
+
+       This is v1's separator, restored. It was written as
+       .order-header-row > td { border-top: 16px solid ... } and was lost
+       when the class was renamed to .co-band, where it sat in
+       marketplace-common.css matching nothing for two rebuilds.
+
+       Drawn as a thick border on the CELL because a table row cannot take
+       a margin and its own padding does not render; a border on the cell
+       is the one technique that survives border-collapse. The tint makes
+       the band read as a header rather than as one more data row, which
+       is what it looked like when it carried no treatment at all. */
+    .co-band > td {
+        border-top: 14px solid var(--bl-paper);
+        padding-top: 12px;
+        background: var(--bl-chrome);
+    }
+
+    /* The first order sits directly under the column headers, which
+       already separate it from everything above. */
+    .x-table > tbody > tr.co-band:first-child > td {
+        border-top-width: 0;
     }
 
     .co-band__row {
@@ -2606,6 +2633,7 @@
     .co-itemrow--last {
         border-bottom: 0;
     }
+
 
     .co-item__var {
         padding: 1px 7px;

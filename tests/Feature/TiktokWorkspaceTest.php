@@ -525,19 +525,26 @@ class TiktokWorkspaceTest extends TestCase
 
     /**
      * Every status the panel's own tab map groups on has a tone and a label
-     * in App\Support\ChannelStatusTone, and the accent (the success tone,
-     * which is the same token the primary button uses) is spent on exactly
-     * one of them: the only status with a marketplace write behind it.
+     * in App\Support\ChannelStatusTone.
+     *
+     * REVISED 2026-08-19 with the tone philosophy itself. The mark that says
+     * "a person has to do something" is the warning tone, not success, and
+     * it is spent on exactly one status here: the only one with a
+     * marketplace write behind it. Success now means settled and settled
+     * well, so the two terminal states carry it instead of receding into
+     * neutral. See the class docblock on ChannelStatusTone for why four maps
+     * moved: DESIGN.md defines --bl-good as settled and --bl-attn as needs a
+     * person, and this map used to say the opposite of both.
      */
     public function test_every_real_status_pairs_a_tone_with_a_plain_label(): void
     {
         $expected = [
             'UNPAID'              => ['warning', 'Unpaid'],
-            'AWAITING_SHIPMENT'   => ['success', 'To pack'],
+            'AWAITING_SHIPMENT'   => ['warning', 'To pack'],
             'AWAITING_COLLECTION' => ['info', 'To hand over'],
             'IN_TRANSIT'          => ['info', 'Shipped'],
-            'DELIVERED'           => ['neutral', 'Delivered'],
-            'COMPLETED'           => ['neutral', 'Completed'],
+            'DELIVERED'           => ['success', 'Delivered'],
+            'COMPLETED'           => ['success', 'Completed'],
             'CANCELLED'           => ['danger', 'Cancelled'],
         ];
 
@@ -557,15 +564,31 @@ class TiktokWorkspaceTest extends TestCase
         }
 
         // Read back off the class itself, not off $expected: the loop above
-        // already proved the two agree, so this is the statement that the
-        // accent is spent exactly once across every status this channel has.
-        $accented = [];
+        // already proved the two agree, so this is the statement about how
+        // the tones partition this channel's statuses.
+        //
+        // REVISED 2026-08-19. This used to assert the success tone was spent
+        // exactly once, on AWAITING_SHIPMENT, because success was being used
+        // as an "act now" accent. That was the inversion this revision
+        // removed: DESIGN.md gives four state colours and none of them means
+        // "the operator's move" separately from "needs a person", so unpaid
+        // and to-pack legitimately share one mark and the label tells them
+        // apart. What is worth pinning is that the two groups never overlap:
+        // nothing that still needs a person may read as settled.
+        $needsAPerson = [];
+        $settled = [];
         foreach (array_keys($expected) as $status) {
-            if (\App\Support\ChannelStatusTone::toneFor('tiktok.orders', $status) === 'success') {
-                $accented[] = $status;
+            $tone = \App\Support\ChannelStatusTone::toneFor('tiktok.orders', $status);
+            if ($tone === 'warning') {
+                $needsAPerson[] = $status;
+            }
+            if ($tone === 'success') {
+                $settled[] = $status;
             }
         }
-        $this->assertSame(['AWAITING_SHIPMENT'], $accented);
+
+        $this->assertSame(['UNPAID', 'AWAITING_SHIPMENT'], $needsAPerson);
+        $this->assertSame(['DELIVERED', 'COMPLETED'], $settled);
     }
 
     /**

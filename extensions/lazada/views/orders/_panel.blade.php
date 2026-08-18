@@ -104,17 +104,23 @@
      control heights, which is what left the buttons off the baseline of
      their own date inputs. --}}
 <div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="x-cmdbar__row">
+    {{-- See the note on Shopee's bar: a fetch writes unseen orders and
+         writing an order adjusts stock, so the action names its own
+         consequence before it runs. --}}
+    <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="x-cmdbar__row"
+          data-confirm="Fetch Lazada orders for the chosen dates? Any order that has not been seen before will adjust stock, unless Skip stock adjust is ticked."
+          data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="lzDateFrom">From</label>
+            {{-- Pre-filled, matching TikTok's bar. --}}
             <x-ui.input type="date" id="lzDateFrom" name="date_from" class="x-cmdbar__date"
-                        value="{{ old('date_from', request('date_from')) }}" />
+                        value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
             <label class="x-cmdbar__label" for="lzDateTo">To</label>
             <x-ui.input type="date" id="lzDateTo" name="date_to" class="x-cmdbar__date"
-                        value="{{ old('date_to', request('date_to')) }}" />
+                        value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
         <label class="x-cmdbar__check">
             <input type="checkbox" name="no_stock" value="1">
@@ -545,7 +551,7 @@
                 @elseif($unitPrice !== null && $unitPrice !== '')
                     <span class="co-price">{{ $unitPrice }}</span>
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -577,7 +583,7 @@
                         <span class="co-ship__note">{{ $deliveryMethod }}</span>
                     @endif
                 @else
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @endif
             </td>
 
@@ -595,7 +601,7 @@
                     {{-- Nothing can be done to an order the buyer has not
                          paid for, which is why the legacy page printed a dash
                          here rather than a control. --}}
-                    <span class="co-empty-mark">&mdash;</span>
+                    <span class="co-empty-mark">-</span>
                 @else
                 <div class="co-actions co-actions--wrap">
                     {{-- Every action a row's status allows is a visible

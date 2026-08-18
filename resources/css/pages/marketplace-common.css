@@ -55,14 +55,12 @@
     border-radius: 999px; padding: 2px 10px;
 }
 
-/* Order group separator — adds visible gap between orders */
-.order-header-row > td {
-    border-top: 16px solid var(--bl-chrome, #f1f5f9);
-    padding-top: 14px;
-}
-.table tbody tr:first-child.order-header-row > td {
-    border-top: none;
-}
+/* The order group separator that used to live here matched
+   .order-header-row, a class this application stopped emitting when the
+   order band was renamed to .co-band. It sat here styling nothing while
+   the lists it was written for rendered with no separation at all. It now
+   lives with the rest of the order vocabulary, in blotter-components.css,
+   under the class the views actually use. */
 
 /* Action dropdown items (product tables) */
 .action-item {
@@ -180,5 +178,105 @@
     div[style*="grid-template-columns: 1fr auto auto auto"],
     div[style*="grid-template-columns:1fr auto auto auto"] {
         grid-template-columns: 1fr !important;
+    }
+}
+
+/* ------------------------------------------------------------------
+   ORDER LISTS ON A PHONE
+
+   Measured at 390px, the orders table was 901px inside a 328px
+   scroller, so 64% of every row sat behind a second scroll axis - and
+   the hidden 64% held Amount, Shipping, Status and every action. What
+   stayed visible was a photograph, a truncated title and a quantity. On
+   Lazada, where every buyer masks to J******e, that made ten rows
+   visually identical. The warehouse floor is the scene PRODUCT.md calls
+   first-class, and it could not answer "which of these needs packing"
+   without dragging each row sideways.
+
+   Below 700px the table stops being a table. Every cell already carries
+   a data-label naming its column, because these views were written for
+   a restack that comments elsewhere refer to and that never existed in
+   the bundle. It exists now.
+
+   THIS FILE, not blotter-components.css, because the per-channel column
+   widths (.sp-col-products { width: 31% } and its Lazada and TikTok
+   twins) are unlayered page vocabulary, and unlayered rules beat
+   anything inside @layer components no matter how specific it is. The
+   first cut of this block lived in the layer and lost: every product
+   cell rendered 102px wide, which is 31% of a phone, with the product
+   title squeezed out entirely.
+
+   Order-level cells (Amount, Shipping, Status) carry rowspan, so they
+   render once, after the first item of their order. That reads
+   correctly for the one and two-item orders that are nearly all of
+   them, and in every case beats being off-screen.
+   ------------------------------------------------------------------ */
+@media (max-width: 700px) {
+    /* Column headers describe columns, and there are none now. */
+    .x-table:has(.co-band) > thead { display: none; }
+
+    .x-table:has(.co-band),
+    .x-table:has(.co-band) > tbody,
+    .x-table:has(.co-band) > tbody > tr,
+    .x-table:has(.co-band) > tbody > tr > td {
+        display: block;
+        width: auto;
+    }
+
+    /* The gap between orders does more work here than on a desktop,
+       because there are no column edges left to line the eye up. */
+    .x-table:has(.co-band) > tbody > tr.co-band > td {
+        border-top-width: 12px;
+        padding: 10px 12px;
+    }
+
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td {
+        padding: 5px 12px;
+        border-bottom: 0;
+        text-align: left;
+    }
+
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td:last-child {
+        padding-bottom: 11px;
+    }
+
+    /* Each figure says which figure it is, since the header that used to
+       say so is gone. The product cell names itself. */
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td[data-label]:not([data-label='Products'])::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 1px;
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        color: var(--bl-ink-3);
+    }
+
+    /* The product keeps its thumbnail beside its name rather than
+       stacking under it: the name is what identifies the row and it
+       needs the width. */
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .co-item {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .co-item > .order-img-wrap {
+        flex: 0 0 56px;
+        width: 56px;
+        min-height: 0;
+    }
+
+    /* Everything beside the image takes the rest of the row and wraps
+       like prose instead of one word per line. */
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .co-item > :not(.order-img-wrap) {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    /* A row action is a thumb target here, not a column. */
+    .x-table:has(.co-band) > tbody > tr.co-itemrow > td .x-btn {
+        min-height: 40px;
     }
 }
