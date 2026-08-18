@@ -275,10 +275,11 @@
     /* The content region's ceiling. On an ultrawide the columns drift
        apart until the eye travels further than the data deserves; capped
        and centered, the page reads the same at 1600px and at 3440px.
-       1440 matches Venta's .v-content exactly - the two products are a
-       family and should hold the same line. The chrome (sidebar, topbar)
-       still spans the window; only the work surface is capped. */
-    --bl-content-max: 1440px;
+       1600 is v1's own line (.content-inner, layout/content.css before
+       the rebuild) - the owner ran the business at that width for years and
+       chose it over Venta's 1440. The chrome (sidebar, topbar) still
+       spans the window; only the work surface is capped. */
+    --bl-content-max: 1600px;
 
     /* Sections used to carry the gutter themselves, which meant every new
        section was a fresh chance to forget it, and bridged pages that this
