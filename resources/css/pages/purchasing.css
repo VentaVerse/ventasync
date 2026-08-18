@@ -29,8 +29,8 @@
    pages all redirect back to themselves with a session message. Same
    grammar as fm-flash / od-flash; declared here because the purchasing
    list pages use neither of those anatomies wholesale. */
-.po-flash { display: grid; gap: var(--space-2); }
-.po-flash:not(:empty) { margin-bottom: var(--space-4); }
+.po-flash { display: grid; gap: var(--bl-space-2); }
+.po-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
 
 /* ── Product thumbnail ────────────────────────────────────────
    Shared by the edit, show and receive line lists. */
@@ -38,9 +38,9 @@
     width: 36px;
     height: 36px;
     flex: 0 0 36px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface-sunken);
+    border-radius: var(--bl-r-dot);
+    border: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
     overflow: hidden;
     display: grid;
     place-items: center;
@@ -50,7 +50,7 @@
 
 /* The empty state is a flat sunken tile, not a diagonal-stripe pattern.
    A hatch reads as "broken" next to a real photo; absence should be quiet. */
-.po-thumb--empty { background: var(--surface-sunken); }
+.po-thumb--empty { background: var(--bl-chrome); }
 
 /* ── Index columns ────────────────────────────────────────────
    .x-table is table-layout: fixed, so these widths are the layout. */
@@ -66,7 +66,7 @@
 .po-col-phone { width: 132px; }
 .po-col-mail  { width: 200px; }
 
-.po-check { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+.po-check { width: 14px; height: 14px; accent-color: var(--bl-brand-deep); cursor: pointer; }
 
 /* A mailto in a table cell is still a link, but it is not an action worth
    colouring: on these pages colour means the purchase order's lifecycle and
@@ -76,10 +76,10 @@
     color: inherit;
     text-decoration: none;
     border-bottom: 1px solid transparent;
-    transition: border-color var(--motion-fast);
+    transition: border-color var(--bl-motion-fast);
 }
 
-.po-link:hover { border-bottom-color: var(--border-strong); }
+.po-link:hover { border-bottom-color: var(--bl-rule-2); }
 
 /* .x-table is table-layout: fixed, so a column that is too narrow clips
    rather than widening the table. Without an explicit overflow rule the
@@ -91,48 +91,48 @@
    why no vendor row carries a standing Delete. Mirrors .cat-bulkbar. */
 .po-bulkbar {
     position: sticky;
-    top: var(--space-2);
+    top: var(--bl-space-2);
     z-index: 3;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-menu);
+    gap: var(--bl-space-3);
+    margin-bottom: var(--bl-space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    box-shadow: var(--bl-lift);
 }
 
-.po-bulkbar__count { font-size: 13px; color: var(--text-secondary); }
-.po-bulkbar__actions { display: flex; gap: var(--space-2); }
+.po-bulkbar__count { font-size: 13px; color: var(--bl-ink-2); }
+.po-bulkbar__actions { display: flex; gap: var(--bl-space-2); }
 
 /* ── Two-line cell (name over a muted second line) ────────────
    The vendor cell on the PO list and the vendor list both carry a nickname
    under the name. `co-item__name` / `co-item__meta` already say this, but
    without the media slot those bring. */
 .po-idty { display: grid; gap: 1px; min-width: 0; }
-.po-idty__name { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.po-idty__sub { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.po-idty__name { font-weight: 500; color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.po-idty__sub { font-size: 12px; color: var(--bl-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Numeric inputs inside line editors ───────────────────────
    fm-input--num exists for the form pages; these are the compact variants
    the line grids need. */
 .po-in {
     width: 100%;
-    height: var(--control-h-sm);
-    padding: 0 var(--space-2);
+    height: var(--bl-control-h-sm);
+    padding: 0 var(--bl-space-2);
     font: inherit;
     font-size: 13px;
-    color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
+    color: var(--bl-ink);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-dot);
 }
 
-.po-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
-.po-in::placeholder { color: var(--text-muted); }
+.po-in:focus { outline: 2px solid var(--bl-brand-deep); outline-offset: -1px; border-color: var(--bl-brand-deep); }
+.po-in::placeholder { color: var(--bl-ink-3); }
 
 .po-in--num {
     font-family: var(--font-mono);
@@ -152,9 +152,9 @@
    ============================================================ */
 
 .po-lines {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
     overflow: hidden;
 }
 
@@ -173,28 +173,28 @@
         124px           /* discount + type */
         104px           /* line total */
         28px;           /* remove */
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     align-items: center;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
 }
 
 .po-lines__head {
-    background: var(--canvas);
-    border-bottom: 1px solid var(--border);
+    background: var(--bl-paper);
+    border-bottom: 1px solid var(--bl-rule);
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .po-lines__head span:nth-child(6),
 .po-lines__head span:nth-child(7),
 .po-lines__head span:nth-child(9) { text-align: right; }
 
-.po-line + .po-line { border-top: 1px solid var(--border); }
+.po-line + .po-line { border-top: 1px solid var(--bl-rule); }
 
 .po-line__grip {
     cursor: grab;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     font-size: 13px;
     line-height: 1;
     user-select: none;
@@ -209,13 +209,13 @@
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     text-align: right;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* Discount amount and its unit are one control, so they read as one. */
-.po-line__disc { display: flex; gap: var(--space-1); align-items: center; }
+.po-line__disc { display: flex; gap: var(--bl-space-1); align-items: center; }
 .po-line__disc .po-in--num { flex: 1 1 auto; min-width: 0; }
-.po-line__disc .po-in--unit { flex: 0 0 52px; padding: 0 var(--space-1); text-align: center; font-size: 12px; }
+.po-line__disc .po-in--unit { flex: 0 0 52px; padding: 0 var(--bl-space-1); text-align: center; font-size: 12px; }
 
 /* Remove is an icon, neutral until hovered. A red X on every one of fifty
    lines is fifty destructive controls competing with the save button. */
@@ -226,62 +226,62 @@
     height: 24px;
     padding: 0;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--bl-r-dot);
     background: none;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     cursor: pointer;
-    transition: color var(--motion-fast), background var(--motion-fast);
+    transition: color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
 
-.po-line__x:hover { color: var(--danger); background: var(--surface-hover); }
+.po-line__x:hover { color: var(--bl-bad); background: var(--bl-chrome-2); }
 
 .po-lines__empty {
-    padding: var(--space-5) var(--space-3);
+    padding: var(--bl-space-5) var(--bl-space-3);
     text-align: center;
     font-size: 13px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* Ledger under the lines. Right-aligned pair rows, same grammar as
    od-ledger but scoped to the editor's own width. */
 .po-lines__foot {
-    border-top: 1px solid var(--border);
-    background: var(--canvas);
-    padding: var(--space-3);
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-paper);
+    padding: var(--bl-space-3);
     display: grid;
-    gap: var(--space-1);
+    gap: var(--bl-space-1);
     justify-content: end;
 }
 
-.po-sum { display: grid; grid-template-columns: auto 132px; gap: var(--space-4); align-items: baseline; }
+.po-sum { display: grid; grid-template-columns: auto 132px; gap: var(--bl-space-4); align-items: baseline; }
 
 /* The `hidden` attribute is only a UA `display: none` rule, and a class
    selector setting `display: grid` out-specifies it. Every element in this
    file that a script toggles with `hidden` needs its own opt-out, or it
    stays on screen with the attribute set. */
 .po-sum[hidden] { display: none; }
-.po-sum__k { font-size: 13px; color: var(--text-secondary); text-align: right; }
+.po-sum__k { font-size: 13px; color: var(--bl-ink-2); text-align: right; }
 .po-sum__v {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
     text-align: right;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
-.po-sum--total .po-sum__k { color: var(--text); font-weight: 500; }
+.po-sum--total .po-sum__k { color: var(--bl-ink); font-weight: 500; }
 .po-sum--total .po-sum__v { font-size: 15px; font-weight: 600; }
 .po-sum--base .po-sum__k,
-.po-sum--base .po-sum__v { color: var(--text-muted); font-size: 12px; }
+.po-sum--base .po-sum__v { color: var(--bl-ink-3); font-size: 12px; }
 
 /* ── Add-a-line row ───────────────────────────────────────────
    The product search and the free-text button sit above the lines. */
 .po-add {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     align-items: flex-end;
     flex-wrap: wrap;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--bl-space-3);
 }
 
 .po-add__search { position: relative; flex: 1 1 320px; max-width: 420px; }
@@ -296,10 +296,10 @@
     z-index: 30;
     max-height: 280px;
     overflow-y: auto;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-menu);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    box-shadow: var(--bl-lift);
     display: none;
 }
 
@@ -309,24 +309,24 @@
     display: block;
     width: 100%;
     text-align: left;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
     border: none;
     background: none;
     font: inherit;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     cursor: pointer;
 }
 
 .po-ac__item:hover,
-.po-ac__item:focus-visible { background: var(--surface-hover); }
+.po-ac__item:focus-visible { background: var(--bl-chrome-2); }
 
 /* An option value belonging to a product group is indented under the
    group's "add all" line so the hierarchy is visible without a rule. */
-.po-ac__item--child { padding-left: var(--space-5); font-size: 12px; color: var(--text-secondary); }
-.po-ac__item--all { font-weight: 500; color: var(--accent); border-bottom: 1px solid var(--border); }
-.po-ac__sku { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
-.po-ac__empty { padding: var(--space-2) var(--space-3); font-size: 13px; color: var(--text-muted); }
+.po-ac__item--child { padding-left: var(--bl-space-5); font-size: 12px; color: var(--bl-ink-2); }
+.po-ac__item--all { font-weight: 500; color: var(--bl-brand-deep); border-bottom: 1px solid var(--bl-rule); }
+.po-ac__sku { color: var(--bl-ink-3); font-family: var(--font-mono); font-size: 11px; }
+.po-ac__empty { padding: var(--bl-space-2) var(--bl-space-3); font-size: 13px; color: var(--bl-ink-3); }
 
 /* ── Vendor typeahead (create/edit header, matrix add form) ───
    layouts.shell has no window.setupTypeahead (that lives inside the
@@ -342,10 +342,10 @@
     z-index: 30;
     max-height: 240px;
     overflow-y: auto;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-menu);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
+    box-shadow: var(--bl-lift);
     display: none;
 }
 
@@ -355,18 +355,18 @@
     display: block;
     width: 100%;
     text-align: left;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
     border: none;
     background: none;
     font: inherit;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     cursor: pointer;
 }
 
 .po-ta__item:hover,
-.po-ta__item:focus-visible { background: var(--surface-hover); }
-.po-ta__empty { padding: var(--space-2) var(--space-3); font-size: 13px; color: var(--text-muted); }
+.po-ta__item:focus-visible { background: var(--bl-chrome-2); }
+.po-ta__empty { padding: var(--bl-space-2) var(--bl-space-3); font-size: 13px; color: var(--bl-ink-3); }
 
 /* ============================================================
    RECEIVE
@@ -376,21 +376,21 @@
    into the catalog, so it states what it is about to do rather than
    presenting a bare grid of inputs. */
 .po-rcv__note {
-    margin: 0 0 var(--space-4);
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-left: 2px solid var(--info);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
+    margin: 0 0 var(--bl-space-4);
+    padding: var(--bl-space-3);
+    border: 1px solid var(--bl-rule);
+    border-left: 2px solid var(--bl-cool);
+    border-radius: var(--bl-r-dot);
+    background: var(--bl-sheet);
     font-size: 13px;
     line-height: 1.5;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 .po-rcv {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
     overflow: hidden;
 }
 
@@ -405,17 +405,17 @@
         88px            /* remaining */
         158px           /* receive now */
         92px;           /* update cost */
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: center;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
 }
 
 .po-rcv__head {
-    background: var(--canvas);
-    border-bottom: 1px solid var(--border);
+    background: var(--bl-paper);
+    border-bottom: 1px solid var(--bl-rule);
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .po-rcv__head span:nth-child(3),
@@ -423,39 +423,39 @@
 .po-rcv__head span:nth-child(5) { text-align: right; }
 .po-rcv__head span:nth-child(7) { text-align: center; }
 
-.po-rcv-line + .po-rcv-line { border-top: 1px solid var(--border); }
+.po-rcv-line + .po-rcv-line { border-top: 1px solid var(--bl-rule); }
 
 /* A line with nothing left to receive is not an error and not a success,
    it is simply finished, so it recedes rather than turning green. */
-.po-rcv-line.is-done { color: var(--text-muted); }
-.po-rcv-line.is-done .po-idty__name { color: var(--text-muted); font-weight: 400; }
+.po-rcv-line.is-done { color: var(--bl-ink-3); }
+.po-rcv-line.is-done .po-idty__name { color: var(--bl-ink-3); font-weight: 400; }
 
 .po-rcv__fig {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     text-align: right;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
-.po-rcv-line.is-done .po-rcv__fig { color: var(--text-muted); }
+.po-rcv-line.is-done .po-rcv__fig { color: var(--bl-ink-3); }
 
 /* Remaining is the number the operator is actually reading off the desk. */
 .po-rcv__fig--rem { font-weight: 600; }
 
-.po-rcv__in { display: flex; gap: var(--space-1); align-items: center; }
+.po-rcv__in { display: flex; gap: var(--bl-space-1); align-items: center; }
 .po-rcv__in .po-in--num { flex: 1 1 auto; min-width: 0; }
 
-.po-rcv__done { font-size: 12px; color: var(--text-muted); }
+.po-rcv__done { font-size: 12px; color: var(--bl-ink-3); }
 
 .po-rcv__cost { display: grid; place-items: center; }
 
 .po-rcv__bar {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     align-items: center;
     flex-wrap: wrap;
-    margin-top: var(--space-4);
+    margin-top: var(--bl-space-4);
 }
 
 .po-rcv__spacer { flex: 1 1 auto; }
@@ -478,16 +478,16 @@
         112px           /* unit price */
         88px            /* discount */
         112px;          /* total */
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     align-items: center;
-    padding: var(--space-2) 0;
+    padding: var(--bl-space-2) 0;
 }
 
 .po-det__head {
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--bl-rule);
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .po-det__head span:nth-child(3),
@@ -496,7 +496,7 @@
 .po-det__head span:nth-child(6),
 .po-det__head span:nth-child(7) { text-align: right; }
 
-.po-det-line + .po-det-line { border-top: 1px solid var(--border); }
+.po-det-line + .po-det-line { border-top: 1px solid var(--bl-rule); }
 
 /* On a read-only detail page the item name is the content, not a column to
    be trimmed to fit: it wraps rather than ellipsing the way the same element
@@ -511,7 +511,7 @@
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     text-align: right;
-    color: var(--text);
+    color: var(--bl-ink);
     display: grid;
     gap: 1px;
     justify-items: end;
@@ -519,24 +519,24 @@
 
 /* The default-currency equivalent under a foreign unit price. Muted and
    smaller: it is a reference figure, not the transacted one. */
-.po-det__fig-sub { font-size: 11px; color: var(--text-muted); }
+.po-det__fig-sub { font-size: 11px; color: var(--bl-ink-3); }
 
 /* Received count on a line. Full is stated in words, not a green tick. */
-.po-det__got { color: var(--text-secondary); }
-.po-det__got--full { color: var(--text); }
+.po-det__got { color: var(--bl-ink-2); }
+.po-det__got--full { color: var(--bl-ink); }
 
 /* Attachments and payments both list a few rows with one overflow action. */
 .po-rows { display: grid; }
 .po-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: center;
-    padding: var(--space-2) 0;
+    padding: var(--bl-space-2) 0;
     font-size: 13px;
 }
 
-.po-row + .po-row { border-top: 1px solid var(--border); }
+.po-row + .po-row { border-top: 1px solid var(--bl-rule); }
 
 /* .x-menu__trigger is invisible until revealed, and its own reveal rule is
    written against `.x-table tbody tr:hover` (ui-table.css). Every anatomy
@@ -545,13 +545,13 @@
    this file's equivalents. */
 .po-row:hover .x-menu__trigger { opacity: 1; }
 .po-row__main { display: grid; gap: 1px; min-width: 0; }
-.po-row__name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.po-row__meta { font-size: 12px; color: var(--text-muted); }
+.po-row__name { color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.po-row__meta { font-size: 12px; color: var(--bl-ink-3); }
 .po-row__fig {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* Upload control. A bare <input type="file"> renders the OS button, which is
@@ -559,25 +559,25 @@
    chosen", a different face on every platform. ::file-selector-button lets
    the real input keep its semantics while its button wears the same face as
    every other secondary button here. */
-.po-upload { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; margin-top: var(--space-3); }
-.po-upload__field { flex: 1 1 240px; min-width: 0; height: auto; padding: var(--space-1); font-size: 12px; }
-.po-upload__hint { margin: var(--space-2) 0 0; font-size: 12px; color: var(--text-muted); }
+.po-upload { display: flex; gap: var(--bl-space-2); align-items: center; flex-wrap: wrap; margin-top: var(--bl-space-3); }
+.po-upload__field { flex: 1 1 240px; min-width: 0; height: auto; padding: var(--bl-space-1); font-size: 12px; }
+.po-upload__hint { margin: var(--bl-space-2) 0 0; font-size: 12px; color: var(--bl-ink-3); }
 
 .po-upload__field::file-selector-button {
-    margin-right: var(--space-2);
-    padding: 0 var(--space-3);
-    height: var(--control-h-sm);
+    margin-right: var(--bl-space-2);
+    padding: 0 var(--bl-space-3);
+    height: var(--bl-control-h-sm);
     font: inherit;
     font-size: 12px;
-    color: var(--text);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
+    color: var(--bl-ink);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-dot);
     cursor: pointer;
-    transition: background var(--motion-fast);
+    transition: background var(--bl-motion-fast);
 }
 
-.po-upload__field::file-selector-button:hover { background: var(--surface-hover); }
+.po-upload__field::file-selector-button:hover { background: var(--bl-chrome-2); }
 
 /* ── Timeline icon ────────────────────────────────────────────
    The old page drew six coloured SVG paths inline, one hue per action, all
@@ -588,21 +588,21 @@
 .po-time__row {
     display: grid;
     grid-template-columns: 8px minmax(0, 1fr);
-    gap: var(--space-3);
-    padding: var(--space-2) 0 var(--space-2) var(--space-1);
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-2) 0 var(--bl-space-2) var(--bl-space-1);
     position: relative;
 }
 
-/* Fix round, Minor 14: was --border-strong on --surface, 1.54:1 light /
-   1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. --text-muted clears it
-   at 5.13:1 light / 4.87:1 dark against --surface (base/tokens.css's
+/* Fix round, Minor 14: was --bl-rule-2 on --bl-sheet, 1.54:1 light /
+   1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. --bl-ink-3 clears it
+   at 5.13:1 light / 4.87:1 dark against --bl-sheet (base/tokens.css's
    own audited matrix). */
 .po-time__dot {
     width: 7px;
     height: 7px;
     margin-top: 5px;
     border-radius: 50%;
-    background: var(--text-muted);
+    background: var(--bl-ink-3);
 }
 
 /* The rail is drawn on the row, not between rows, so the last entry's tail
@@ -610,16 +610,16 @@
 .po-time__row:not(:last-child)::before {
     content: '';
     position: absolute;
-    left: calc(var(--space-1) + 3px);
+    left: calc(var(--bl-space-1) + 3px);
     top: 16px;
     bottom: -4px;
     width: 1px;
-    background: var(--border);
+    background: var(--bl-rule);
 }
 
 .po-time__what { display: grid; gap: 2px; min-width: 0; }
-.po-time__text { font-size: 13px; color: var(--text); }
-.po-time__meta { font-size: 12px; color: var(--text-muted); }
+.po-time__text { font-size: 13px; color: var(--bl-ink); }
+.po-time__meta { font-size: 12px; color: var(--bl-ink-3); }
 
 /* ============================================================
    REORDER SUGGESTIONS
@@ -630,10 +630,10 @@
 /* Deficit is the one figure on that page worth colour: it is the reason the
    row is there at all. Warning, not danger, because being below a reorder
    level is a thing to act on rather than a failure. */
-.po-sug__deficit { color: var(--warning); font-weight: 600; }
+.po-sug__deficit { color: var(--bl-attn-fill); font-weight: 600; }
 
 /* Stock at or below zero has already cost a sale. */
-.po-sug__stock--out { color: var(--danger); font-weight: 600; }
+.po-sug__stock--out { color: var(--bl-bad); font-weight: 600; }
 
 /* ============================================================
    RESPONSIVE
@@ -652,8 +652,8 @@
     .po-rcv-line,
     .po-det-line {
         grid-template-columns: 36px minmax(0, 1fr);
-        row-gap: var(--space-2);
-        padding: var(--space-3);
+        row-gap: var(--bl-space-2);
+        padding: var(--bl-space-3);
         align-items: start;
     }
 
@@ -674,7 +674,7 @@
     .po-rcv__fig,
     .po-det__fig { text-align: left; justify-items: start; }
 
-    .po-det__fig { grid-auto-flow: column; gap: var(--space-2); align-items: baseline; }
+    .po-det__fig { grid-auto-flow: column; gap: var(--bl-space-2); align-items: baseline; }
 
     /* A label is generated from the field's own data-label so the stacked
        card is readable without the header strip. */
@@ -685,7 +685,7 @@
         display: block;
         margin-bottom: 2px;
         font-size: 11px;
-        color: var(--text-muted);
+        color: var(--bl-ink-3);
     }
 
     .po-rcv__cost { place-items: start; }

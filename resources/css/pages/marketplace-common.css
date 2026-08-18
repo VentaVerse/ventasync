@@ -19,11 +19,11 @@
     width: 86px; min-height: 56px; flex-shrink: 0;
     align-self: stretch; border-radius: 8px; overflow: hidden;
     /* The empty state behind a product thumbnail that has not loaded, or has
-       no image at all. Was --surface-alt, defined only by base/variables.css
-       (deleted in Round F Task 4) and light-only; --surface-sunken is the
+       no image at all. Was --bl-chrome, defined only by base/variables.css
+       (deleted in Round F Task 4) and light-only; --bl-chrome is the
        token equivalent and follows the theme, so the placeholder stops being
        a pale slab on a dark order panel. */
-    background: var(--surface-sunken);
+    background: var(--bl-chrome);
 }
 .order-img-wrap img.order-img {
     width: 100%; height: 100%; object-fit: cover; display: block;
@@ -57,7 +57,7 @@
 
 /* Order group separator — adds visible gap between orders */
 .order-header-row > td {
-    border-top: 16px solid var(--surface-alt, #f1f5f9);
+    border-top: 16px solid var(--bl-chrome, #f1f5f9);
     padding-top: 14px;
 }
 .table tbody tr:first-child.order-header-row > td {
@@ -70,11 +70,11 @@
     width: 100%; padding: 8px 14px;
     border: none; background: none; cursor: pointer;
     font-family: inherit; font-size: 13px; font-weight: 500;
-    color: var(--text-primary); text-decoration: none;
-    text-align: left; transition: background var(--transition-fast);
+    color: var(--bl-ink); text-decoration: none;
+    text-align: left; transition: background var(--bl-motion-fast);
     white-space: nowrap;
 }
-.action-item:hover { background: var(--surface-hover); }
+.action-item:hover { background: var(--bl-chrome-2); }
 .action-item svg { flex-shrink: 0; opacity: .6; }
 .table-wrap.menu-open { overflow: visible; }
 
@@ -96,9 +96,9 @@
     left: 0;
     z-index: 50;
     min-width: 230px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     box-shadow: var(--shadow-lg);
     padding: 4px 0;
     margin-top: 4px;
@@ -115,18 +115,18 @@
 }
 .bulk-loading-overlay.active { display: flex; }
 .bulk-loading-box {
-    background: var(--surface); border-radius: var(--radius-lg);
+    background: var(--bl-sheet); border-radius: var(--bl-r-panel);
     padding: 28px 36px; box-shadow: var(--shadow-lg);
     text-align: center; max-width: 320px;
 }
 .bulk-loading-box .spinner {
     display: inline-block; width: 28px; height: 28px;
-    border: 3px solid var(--border); border-top-color: var(--accent);
+    border: 3px solid var(--bl-rule); border-top-color: var(--bl-brand-deep);
     border-radius: 50%; animation: spin .7s linear infinite;
 }
 .bulk-loading-box .msg {
     margin-top: 12px; font-size: 14px;
-    font-weight: 600; color: var(--text-primary);
+    font-weight: 600; color: var(--bl-ink);
 }
 
 /* Unmatched product link rows */
@@ -137,14 +137,14 @@
     padding: 6px 10px; cursor: pointer; font-size: 12px;
     transition: background 0.1s;
 }
-.unmatched-result-item:hover { background: var(--surface-hover); }
+.unmatched-result-item:hover { background: var(--bl-chrome-2); }
 .unmatched-result-item img { width: 28px; height: 28px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
 .unmatched-result-item .result-info { flex: 1; min-width: 0; }
 .unmatched-result-item .result-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.unmatched-result-item .result-sku { color: var(--text-muted); font-size: 11px; }
+.unmatched-result-item .result-sku { color: var(--bl-ink-3); font-size: 11px; }
 
 /* Lazada-specific result item (products table) */
-.laz-result-item:hover { background: var(--surface-hover); }
+.laz-result-item:hover { background: var(--bl-chrome-2); }
 
 /* Filter grid responsive */
 @media (max-width: 768px) {

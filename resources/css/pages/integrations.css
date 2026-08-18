@@ -8,18 +8,18 @@
 }
 
 .int-empty {
-    background: var(--surface, #fff);
-    border: 1px dashed var(--border, #e5e7eb);
+    background: var(--bl-sheet, #fff);
+    border: 1px dashed var(--bl-rule, #e5e7eb);
     border-radius: 12px;
     padding: 64px 24px;
     text-align: center;
-    color: var(--muted, #6b7280);
+    color: var(--bl-ink-3, #6b7280);
 }
 
 .int-empty h3 {
     margin: 0 0 6px;
     font-size: 18px;
-    color: var(--ink, #111827);
+    color: var(--bl-ink, #111827);
 }
 
 .int-empty p {
@@ -28,7 +28,7 @@
 }
 
 .int-empty a {
-    color: var(--accent, #2563eb);
+    color: var(--bl-brand-deep, #2563eb);
     text-decoration: underline;
 }
 
@@ -39,8 +39,8 @@
 }
 
 .int-card {
-    background: var(--surface, #fff);
-    border: 1px solid var(--border, #e5e7eb);
+    background: var(--bl-sheet, #fff);
+    border: 1px solid var(--bl-rule, #e5e7eb);
     border-radius: 12px;
     overflow: hidden;
     display: flex;
@@ -49,7 +49,7 @@
 }
 
 .int-card:hover {
-    border-color: var(--accent-soft, #c7d2fe);
+    border-color: var(--bl-brand, #c7d2fe);
     box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
     transform: translateY(-1px);
 }
@@ -59,7 +59,7 @@
     display: flex;
     gap: 12px;
     align-items: flex-start;
-    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+    border-bottom: 1px solid var(--bl-rule, #f1f5f9);
 }
 
 .int-card-icon {
@@ -95,7 +95,7 @@
 .int-card-title h3 {
     margin: 0;
     font-size: 16px;
-    color: var(--ink, #111827);
+    color: var(--bl-ink, #111827);
     line-height: 1.3;
     display: flex;
     align-items: center;
@@ -111,19 +111,19 @@
     font-size: 11px;
     font-weight: 600;
     line-height: 1.6;
-    background: var(--success-soft, #d1fae5);
-    color: var(--success-ink, #065f46);
+    background: var(--bl-good-wash, #d1fae5);
+    color: var(--bl-good, #065f46);
 }
 
 .int-card-pill.muted {
-    background: var(--surface-muted, #f1f5f9);
-    color: var(--muted, #64748b);
+    background: var(--bl-chrome, #f1f5f9);
+    color: var(--bl-ink-3, #64748b);
 }
 
 .int-card-tagline {
     margin: 4px 0 0;
     font-size: 13px;
-    color: var(--muted, #6b7280);
+    color: var(--bl-ink-3, #6b7280);
     line-height: 1.45;
 }
 
@@ -158,7 +158,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 18px;
-    color: var(--ink, #1f2937);
+    color: var(--bl-ink, #1f2937);
     text-decoration: none;
     font-size: 14px;
     border-left: 3px solid transparent;
@@ -166,20 +166,20 @@
 }
 
 .int-card-menu a:hover {
-    background: var(--surface-muted, #f8fafc);
-    color: var(--accent, #2563eb);
-    border-left-color: var(--accent, #2563eb);
+    background: var(--bl-chrome, #f8fafc);
+    color: var(--bl-brand-deep, #2563eb);
+    border-left-color: var(--bl-brand-deep, #2563eb);
 }
 
 .int-card-menu a::after {
     content: "›";
-    color: var(--muted, #9ca3af);
+    color: var(--bl-ink-3, #9ca3af);
     font-size: 18px;
     line-height: 1;
 }
 
 .int-card-menu li + li a {
-    border-top: 1px solid var(--border-soft, #f1f5f9);
+    border-top: 1px solid var(--bl-rule, #f1f5f9);
 }
 
 /* "Manage all N stores →" link inside a multi-store module's card.
@@ -194,10 +194,10 @@
     gap: 6px;
     margin: 0 18px 16px;
     padding: 10px 14px;
-    background: var(--surface-muted, #f8fafc);
-    border: 1px solid var(--border, #e5e7eb);
+    background: var(--bl-chrome, #f8fafc);
+    border: 1px solid var(--bl-rule, #e5e7eb);
     border-radius: 8px;
-    color: var(--ink, #1f2937);
+    color: var(--bl-ink, #1f2937);
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
@@ -205,9 +205,9 @@
 }
 
 .int-card-stores-link:hover {
-    border-color: var(--accent, #2563eb);
-    color: var(--accent, #2563eb);
-    background: var(--surface, #fff);
+    border-color: var(--bl-brand-deep, #2563eb);
+    color: var(--bl-brand-deep, #2563eb);
+    background: var(--bl-sheet, #fff);
 }
 
 .int-card-stores-arrow {
@@ -268,58 +268,58 @@
 .int-mod__nav {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1) var(--space-4);
-    margin-bottom: var(--space-4);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-1) var(--bl-space-4);
+    margin-bottom: var(--bl-space-4);
+    padding-bottom: var(--bl-space-3);
+    border-bottom: 1px solid var(--bl-rule);
 }
 .int-mod__navlink {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: var(--bl-space-1);
     font-size: 13px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     text-decoration: none;
-    transition: color var(--motion-fast);
+    transition: color var(--bl-motion-fast);
 }
-.int-mod__navlink:hover { color: var(--text); }
+.int-mod__navlink:hover { color: var(--bl-ink); }
 
 /* The add-store panel. Hidden until the head's primary action opens
    it, so the resting page is the store list and nothing else. It
    replaced a .modal-backdrop driven by two inline onclick handlers. */
 .int-mod__add {
-    padding: var(--space-4);
-    margin-bottom: var(--space-4);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
+    padding: var(--bl-space-4);
+    margin-bottom: var(--bl-space-4);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-ctrl);
 }
 .int-mod__add-title {
-    margin: 0 0 var(--space-1);
+    margin: 0 0 var(--bl-space-1);
     font-size: 13px;
     font-weight: 600;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 .int-mod__add-note {
-    margin: 0 0 var(--space-4);
+    margin: 0 0 var(--bl-space-4);
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     max-width: 72ch;
 }
 .int-mod__add-fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: var(--space-4);
+    gap: var(--bl-space-4);
 }
 .int-mod__add-bar {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: var(--space-4);
-    margin-top: var(--space-4);
+    gap: var(--bl-space-4);
+    margin-top: var(--bl-space-4);
 }
 
-.int-mod__count { margin-top: calc(var(--space-2) * -1); }
+.int-mod__count { margin-top: calc(var(--bl-space-2) * -1); }
 
 /* ============================================================
    Orders summary page: leaderboard + activity feed grid
@@ -339,8 +339,8 @@
 }
 
 .ord-block {
-    background: var(--surface, #fff);
-    border: 1px solid var(--border, #e5e7eb);
+    background: var(--bl-sheet, #fff);
+    border: 1px solid var(--bl-rule, #e5e7eb);
     border-radius: 12px;
     padding: 16px 18px;
 }
@@ -351,25 +351,25 @@
     justify-content: space-between;
     margin: 0 0 12px;
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+    border-bottom: 1px solid var(--bl-rule, #f1f5f9);
 }
 
 .ord-block-head h3 {
     margin: 0;
     font-size: 15px;
     font-weight: 700;
-    color: var(--ink, #111827);
+    color: var(--bl-ink, #111827);
 }
 
 .ord-block-meta {
     font-size: 12px;
-    color: var(--muted, #6b7280);
+    color: var(--bl-ink-3, #6b7280);
 }
 
 .ord-block-empty {
     padding: 24px 8px;
     text-align: center;
-    color: var(--muted, #6b7280);
+    color: var(--bl-ink-3, #6b7280);
     font-size: 13px;
 }
 
@@ -389,7 +389,7 @@
     gap: 12px;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+    border-bottom: 1px solid var(--bl-rule, #f1f5f9);
 }
 
 .ord-leaderboard li:last-child {
@@ -399,7 +399,7 @@
 .ord-rank {
     font-size: 14px;
     font-weight: 800;
-    color: var(--muted, #94a3b8);
+    color: var(--bl-ink-3, #94a3b8);
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
@@ -413,7 +413,7 @@
     height: 44px;
     border-radius: 8px;
     overflow: hidden;
-    background: var(--surface-muted, #f1f5f9);
+    background: var(--bl-chrome, #f1f5f9);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -438,7 +438,7 @@
 .ord-prod-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--ink, #1f2937);
+    color: var(--bl-ink, #1f2937);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -446,7 +446,7 @@
 
 .ord-prod-sku {
     font-size: 11px;
-    color: var(--muted, #94a3b8);
+    color: var(--bl-ink-3, #94a3b8);
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     margin-top: 2px;
 }
@@ -488,14 +488,14 @@
 .ord-prod-qty {
     font-size: 18px;
     font-weight: 800;
-    color: var(--ink, #111827);
+    color: var(--bl-ink, #111827);
     line-height: 1;
     font-variant-numeric: tabular-nums;
 }
 
 .ord-prod-rev {
     font-size: 11px;
-    color: var(--muted, #6b7280);
+    color: var(--bl-ink-3, #6b7280);
     margin-top: 4px;
     font-variant-numeric: tabular-nums;
 }
@@ -516,7 +516,7 @@
     gap: 12px;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+    border-bottom: 1px solid var(--bl-rule, #f1f5f9);
     text-decoration: none;
     color: inherit;
     transition: background-color .12s ease;
@@ -525,7 +525,7 @@
 .ord-feed li:last-child .ord-feed-row { border-bottom: none; }
 
 .ord-feed-row:hover {
-    background: var(--surface-muted, #f8fafc);
+    background: var(--bl-chrome, #f8fafc);
 }
 
 .ord-feed-dot {
@@ -558,7 +558,7 @@
 .ord-feed-ref {
     font-size: 13px;
     font-weight: 600;
-    color: var(--ink, #1f2937);
+    color: var(--bl-ink, #1f2937);
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
@@ -568,12 +568,12 @@
     align-items: center;
     margin-top: 2px;
     font-size: 12px;
-    color: var(--muted, #6b7280);
+    color: var(--bl-ink-3, #6b7280);
     flex-wrap: wrap;
 }
 
 .ord-feed-sep {
-    color: var(--muted, #cbd5e1);
+    color: var(--bl-ink-3, #cbd5e1);
 }
 
 .ord-feed-stats {
@@ -583,67 +583,67 @@
 .ord-feed-total {
     font-size: 14px;
     font-weight: 700;
-    color: var(--ink, #111827);
+    color: var(--bl-ink, #111827);
     font-variant-numeric: tabular-nums;
 }
 
 .ord-feed-age {
     font-size: 11px;
-    color: var(--muted, #94a3b8);
+    color: var(--bl-ink-3, #94a3b8);
     margin-top: 2px;
 }
 
 /* ============================================================
    Integrations status board (/integrations). One card per
    channel, one card per store for multi-store channels. Uses the
-   shell design tokens (base/tokens.css), not the legacy --ink/
-   --muted variables the rest of this file predates.
+   shell design tokens (base/tokens.css), not the legacy --bl-ink/
+   --bl-ink-3 variables the rest of this file predates.
    ============================================================ */
 
-.x-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3); }
+.x-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--bl-space-3); }
 
 /* A top-level page card, so it takes the foundation's sheet: 16px and a lift,
-   not the 11px flat box --radius-md gives. This is the hub's primary content
+   not the 11px flat box --bl-r-ctrl gives. This is the hub's primary content
    and it was the one place where a page-level container still wore the INSET
    treatment - measured at 11px against every sheet's 16px on the same
    screen. */
 .x-board__card {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-4);
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-4);
     background: var(--bl-sheet);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-panel);
     box-shadow: var(--bl-lift);
 }
-.x-board__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
-.x-board__name { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
-.x-board__store { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+.x-board__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--bl-space-2); }
+.x-board__name { margin: 0; font-size: 14px; font-weight: 600; color: var(--bl-ink); }
+.x-board__store { margin: 2px 0 0; font-size: 12px; color: var(--bl-ink-3); }
 
-.x-board__health { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; }
-.x-board__health > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
-.x-board__health dt { font-size: 12px; color: var(--text-muted); }
-.x-board__health dd { margin: 0; font-size: 12px; color: var(--text-secondary); }
+.x-board__health { display: flex; flex-direction: column; gap: var(--bl-space-1); margin: 0; }
+.x-board__health > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--bl-space-2); }
+.x-board__health dt { font-size: 12px; color: var(--bl-ink-3); }
+.x-board__health dd { margin: 0; font-size: 12px; color: var(--bl-ink-2); }
 
 /* "not tracked" (token expiry with no OAuth on this channel, error counts
    with api_logging off) must not read as a value at a glance the way a
-   real reading does. Italic plus the dimmer --text-muted token marks it as
+   real reading does. Italic plus the dimmer --bl-ink-3 token marks it as
    an absent measurement rather than data - a solid token, not opacity:
-   --text-muted at reduced opacity over a card surface drops well under
-   the 4.5:1 floor (see the --text-muted note in base/tokens.css), while
+   --bl-ink-3 at reduced opacity over a card surface drops well under
+   the 4.5:1 floor (see the --bl-ink-3 note in base/tokens.css), while
    used solid it already clears 4.5:1 in both themes (4.58 light / 4.56
    dark, worst case surface-hover, per the I3 matrix there). A genuine 0
    (errors24h logged and clean) is never null, so it always keeps the
-   solid --text-secondary treatment real values get. */
-.x-board__health-value--empty { color: var(--text-muted); font-style: italic; }
+   solid --bl-ink-2 treatment real values get. */
+.x-board__health-value--empty { color: var(--bl-ink-3); font-style: italic; }
 
 /* The grid stretches every card in a row to the tallest, but the footer sat
    directly after the health list - so a card carrying a store name pushed its
    buttons 16px lower than the card beside it and the row of buttons stepped
    down mid-row. Pinning the footer to the bottom of the card makes the button
    row a straight line whatever each card holds above it. */
-.x-board__foot { display: flex; gap: var(--space-2); margin-top: auto; }
+.x-board__foot { display: flex; gap: var(--bl-space-2); margin-top: auto; }
 
 @media (max-width: 640px) { .x-board { grid-template-columns: 1fr; } }
 

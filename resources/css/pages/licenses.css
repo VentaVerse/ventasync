@@ -32,18 +32,18 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
     margin: 4px 0 2px;
 }
 
 .lic-list { display: flex; flex-direction: column; gap: 12px; }
 
 .lic-row {
-    background: var(--surface, #ffffff);
-    border: 1px solid var(--border-light, #e2e8f0);
+    background: var(--bl-sheet, #ffffff);
+    border: 1px solid var(--bl-rule, #e2e8f0);
     border-radius: 14px;
     padding: 18px 20px;
-    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.04));
+    box-shadow: none;
 }
 .lic-row-head {
     display: flex;
@@ -56,12 +56,12 @@
 .lic-row-title {
     font-size: 16px;
     font-weight: 700;
-    color: var(--text, #0f172a);
+    color: var(--bl-ink, #0f172a);
     margin: 0 0 3px;
 }
 .lic-row-sub {
     font-size: 12px;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
     margin: 0;
 }
 
@@ -121,18 +121,18 @@
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
     margin-bottom: 2px;
 }
 .lic-kv-val {
     font-size: 13px;
-    color: var(--text, #0f172a);
+    color: var(--bl-ink, #0f172a);
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     word-break: break-all;
 }
 .lic-kv-val.soft {
     font-family: inherit;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
 }
 
 .lic-actions {
@@ -152,27 +152,27 @@
     flex: 1;
     min-width: 260px;
     padding: 8px 12px;
-    border: 1px solid var(--border-light, #e2e8f0);
+    border: 1px solid var(--bl-rule, #e2e8f0);
     border-radius: 8px;
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     font-size: 13px;
-    background: var(--surface, #ffffff);
-    color: var(--text, #0f172a);
+    background: var(--bl-sheet, #ffffff);
+    color: var(--bl-ink, #0f172a);
 }
 
 .lic-empty {
     text-align: center;
     padding: 32px 16px;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
     font-size: 13px;
 }
 
 .lic-extension-note {
     margin-top: 12px;
     font-size: 12px;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
     padding-top: 12px;
-    border-top: 1px dashed var(--border-light, #e2e8f0);
+    border-top: 1px dashed var(--bl-rule, #e2e8f0);
 }
 
 /* Extensions list (merged page) */
@@ -181,7 +181,7 @@
 .ext-version {
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-secondary, #64748b);
+    color: var(--bl-ink-2, #64748b);
     background: rgba(148, 163, 184, 0.12);
     padding: 2px 7px;
     border-radius: 999px;
@@ -193,7 +193,7 @@
 .ext-controls {
     margin-top: 14px;
     padding-top: 14px;
-    border-top: 1px solid var(--border-light, #e2e8f0);
+    border-top: 1px solid var(--bl-rule, #e2e8f0);
     display: flex;
     gap: 8px;
     flex-wrap: wrap;

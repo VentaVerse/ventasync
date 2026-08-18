@@ -49,7 +49,7 @@
 .cl-images {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
 }
 
 /* The whole tile is the control. A checkbox alone is a 16px target for
@@ -57,36 +57,36 @@
 .cl-image {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-2);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-2);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     cursor: pointer;
     transition: border-color .12s ease;
 }
 
-.cl-image:hover { border-color: var(--border-strong); }
+.cl-image:hover { border-color: var(--bl-rule-2); }
 
 /* Chosen is said by the border weight and by the checkbox, not by a
    colour wash: on this page colour belongs to the Push button. :has()
    is what lets the tile know its own checkbox is ticked without a
    script keeping a class in sync. */
-.cl-image:has(input:checked) { border-color: var(--text); }
+.cl-image:has(input:checked) { border-color: var(--bl-ink); }
 
 .cl-image__thumb {
     display: block;
     width: 100%;
     height: 100px;
     object-fit: cover;
-    border-radius: var(--radius-sm);
-    background: var(--surface-sunken);
+    border-radius: var(--bl-r-dot);
+    background: var(--bl-chrome);
 }
 
 .cl-image__foot {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     min-width: 0;
 }
 
@@ -97,7 +97,7 @@
     white-space: nowrap;
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ==================================================================
@@ -113,13 +113,13 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: var(--space-3);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    padding: var(--bl-space-3);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
 
-.cl-total__k { font-size: 11px; color: var(--text-muted); }
+.cl-total__k { font-size: 11px; color: var(--bl-ink-3); }
 
 .cl-total__v {
     font-family: var(--font-mono);
@@ -127,14 +127,14 @@
     font-size: 22px;
     font-weight: 500;
     line-height: 1.2;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 .cl-total__note {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ==================================================================
@@ -149,13 +149,13 @@
 .cl-json {
     max-height: 320px;
     margin: 0;
-    padding: var(--space-3);
+    padding: var(--bl-space-3);
     overflow: auto;
     overscroll-behavior: contain;
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    color: var(--bl-ink);
     font-family: var(--font-mono);
     font-size: 12px;
     line-height: 1.6;
@@ -178,7 +178,7 @@
 .cl-summary {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     min-width: 0;
 }
 
@@ -187,9 +187,9 @@
     width: 56px;
     height: 56px;
     object-fit: cover;
-    border-radius: var(--radius-sm);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
+    border-radius: var(--bl-r-dot);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
 }
 
 .cl-summary__none {
@@ -199,10 +199,10 @@
     justify-content: center;
     width: 56px;
     height: 56px;
-    border-radius: var(--radius-sm);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
+    border-radius: var(--bl-r-dot);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    color: var(--bl-ink-3);
     font-size: 10px;
     text-align: center;
 }
@@ -213,7 +213,7 @@
     display: block;
     font-size: 14px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--bl-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -225,7 +225,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

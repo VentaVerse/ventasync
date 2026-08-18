@@ -25,7 +25,7 @@
 
    1. Colour has one job. Accent marks the primary action and the one
       status that means "this is live on the marketplace". A sync error
-      is --danger. Nothing else on these pages is coloured, and there is
+      is --bl-bad. Nothing else on these pages is coloured, and there is
       no channel identity colour anywhere - the sidebar and the
       breadcrumb say which channel you are standing in.
 
@@ -56,8 +56,8 @@
    ------------------------------------------------------------------ */
 
 .cc-page .x-table tbody td {
-    padding-top: var(--space-3);
-    padding-bottom: var(--space-3);
+    padding-top: var(--bl-space-3);
+    padding-bottom: var(--bl-space-3);
     vertical-align: top;
     white-space: normal;
 }
@@ -179,13 +179,13 @@
 
 .cc-tree { display: block; min-width: 0; }
 
-.cc-tree[data-level="1"] { padding-left: var(--space-4); }
-.cc-tree[data-level="2"] { padding-left: var(--space-6); }
-.cc-tree[data-level="3"] { padding-left: calc(var(--space-6) + var(--space-4)); }
-.cc-tree[data-level="4"] { padding-left: calc(var(--space-6) * 2); }
+.cc-tree[data-level="1"] { padding-left: var(--bl-space-4); }
+.cc-tree[data-level="2"] { padding-left: var(--bl-space-6); }
+.cc-tree[data-level="3"] { padding-left: calc(var(--bl-space-6) + var(--bl-space-4)); }
+.cc-tree[data-level="4"] { padding-left: calc(var(--bl-space-6) * 2); }
 /* Shopee's tree is four deep in practice; anything deeper stops
    indenting rather than pushing the name off the row. */
-.cc-tree[data-level="5"] { padding-left: calc(var(--space-6) * 2 + var(--space-4)); }
+.cc-tree[data-level="5"] { padding-left: calc(var(--bl-space-6) * 2 + var(--bl-space-4)); }
 
 /* <x-money> is shared with the legacy order pages, so its own file
    (components/currency-dual.css) cannot assume the mono face. Here every
@@ -202,7 +202,7 @@
 .cc-page .money-secondary {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* A price markup expressed as a share of the selling price rather than a
@@ -214,7 +214,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 /* A parent's own line, under a name that has children. */
@@ -222,7 +222,7 @@
     display: block;
     margin-top: 2px;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .cc-sub--mono {
@@ -252,9 +252,9 @@
     align-self: flex-start;
     width: 96px;
     height: 96px;
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-dot);
     overflow: hidden;
 }
 
@@ -281,9 +281,9 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--border);
+    margin-top: var(--bl-space-2);
+    padding-top: var(--bl-space-2);
+    border-top: 1px solid var(--bl-rule);
 }
 
 .cc-var {
@@ -295,9 +295,9 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto auto;
     align-items: baseline;
-    gap: var(--space-1) var(--space-3);
+    gap: var(--bl-space-1) var(--bl-space-3);
     font-size: 11px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 .cc-var__name {
@@ -311,7 +311,7 @@
 .cc-var__price {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     white-space: nowrap;
 }
 
@@ -319,7 +319,7 @@
 .cc-var__price { text-align: right; }
 
 /* ------------------------------------------------------------------
-   Sync error cell. The one place on these pages where --danger is
+   Sync error cell. The one place on these pages where --bl-bad is
    spent, because a failed push is the only thing on the row an
    operator has to act on.
    ------------------------------------------------------------------ */
@@ -328,7 +328,7 @@
     display: block;
     font-size: 11px;
     line-height: 1.45;
-    color: var(--danger);
+    color: var(--bl-bad);
     overflow-wrap: anywhere;
 }
 
@@ -475,7 +475,7 @@
     display: block;
     margin-top: 2px;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ------------------------------------------------------------------
@@ -492,7 +492,7 @@
     width: 14px;
     height: 14px;
     margin: 0;
-    accent-color: var(--accent);
+    accent-color: var(--bl-brand-deep);
     cursor: pointer;
 }
 
@@ -513,21 +513,21 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-    padding: var(--space-2) var(--space-4);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--bl-space-3);
+    margin-bottom: var(--bl-space-4);
+    padding: var(--bl-space-2) var(--bl-space-4);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
 
-.cc-bulkbar__count { font-size: 13px; color: var(--text-secondary); }
+.cc-bulkbar__count { font-size: 13px; color: var(--bl-ink-2); }
 
 .cc-bulkbar__actions {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
 }
 
 /* ------------------------------------------------------------------
@@ -543,7 +543,7 @@
    The top margin was added in Round C Task 3: on the two product-group
    Products pages this section follows the pager directly, and without it the
    heading sat on the pager's baseline. */
-.cc-unmatched { margin-top: var(--space-6); margin-bottom: var(--space-5); }
+.cc-unmatched { margin-top: var(--bl-space-6); margin-bottom: var(--bl-space-5); }
 
 /* Except where it is the first thing after the list head, which is where the
    listings pages put it. */
@@ -555,7 +555,7 @@
 .cc-head-actions {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     flex-shrink: 0;
     /* The parent .x-list-head wraps, so this block drops below the title on a
        narrow screen - but only as a unit. Venta's head carries three controls
@@ -575,7 +575,7 @@
     max-width: 100%;
 }
 
-.cc-unmatched .x-table tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.cc-unmatched .x-table tbody td { padding-top: var(--bl-space-2); padding-bottom: var(--bl-space-2); }
 
 .cc-col-link { width: 340px; }
 
@@ -589,7 +589,7 @@
 .cc-link {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     min-width: 0;
 }
 
@@ -602,7 +602,7 @@
 .cc-ta__row {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     min-width: 0;
 }
 
@@ -611,7 +611,7 @@
 .cc-ta__name {
     display: block;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -623,7 +623,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -634,7 +634,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 10px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ------------------------------------------------------------------
@@ -648,13 +648,13 @@
 .cc-progress {
     display: flex;
     align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-5);
+    gap: var(--bl-space-4);
+    padding: var(--bl-space-5);
 }
 
-.cc-progress__title { font-size: 14px; font-weight: 500; color: var(--text); }
+.cc-progress__title { font-size: 14px; font-weight: 500; color: var(--bl-ink); }
 
-.cc-progress__note { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+.cc-progress__note { margin-top: 2px; font-size: 12px; color: var(--bl-ink-3); }
 
 /* ------------------------------------------------------------------
    Phones. The generic 640px restack in components/ui-table.css puts
@@ -667,8 +667,8 @@
 @media (max-width: 640px) {
     .cc-page .x-table tbody tr { grid-template-columns: 1fr; }
     .cc-page .x-table tbody td { width: auto; padding-top: 3px; padding-bottom: 3px; }
-    .cc-page .x-table tbody td:first-child { padding-top: var(--space-2); }
-    .cc-page .x-table tbody td:last-child  { padding-bottom: var(--space-2); }
+    .cc-page .x-table tbody td:first-child { padding-top: var(--bl-space-2); }
+    .cc-page .x-table tbody td:last-child  { padding-bottom: var(--bl-space-2); }
 
     /* The single-action bar stacks: the sentence above, the button below
        it, both full width. */

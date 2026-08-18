@@ -31,10 +31,50 @@
 
 @import 'tailwindcss';
 
-/* The shared component layer, dressed in this world. Imported here rather
-   than inlined so the adapter can be deleted in one move once the last view
-   has left the legacy class names behind. */
-@import './blotter-bridge.css';
+/* Page and component vocabularies. Their structure predates the Blotter
+   shell (it was designed against real content, and keeping it was cheaper
+   and more faithful than re-guessing it), but as of 2026-08-18 they speak
+   Blotter tokens natively: the v2.2 alias bridge that used to translate for
+   them is deleted, and no stylesheet may reference a token outside this
+   file's vocabulary. FoundationTest's undeclared-property check enforces it.
+
+   Imported BEFORE blotter-components / pages / extensions on purpose: at
+   equal specificity the later rule wins, so anything this project has
+   deliberately restyled keeps its Blotter version and only the untouched
+   remainder comes through here. Every vocabulary that gets re-authored
+   properly should be deleted from this list. */
+@import './pages/channel-settings.css';
+@import './pages/channel-catalog.css';
+@import './pages/purchasing.css';
+@import './pages/group-form.css';
+@import './pages/automations.css';
+@import './pages/warehousing.css';
+@import './pages/reviews.css';
+@import './pages/lazada-orders.css';
+@import './pages/shopee-orders.css';
+@import './pages/product-vendors.css';
+@import './pages/petty-cash.css';
+@import './pages/reports.css';
+@import './pages/channel-listing.css';
+@import './pages/api-explorer.css';
+@import './pages/integrations.css';
+@import './pages/tiktok-orders.css';
+@import './pages/marketplace-returns.css';
+@import './pages/venta-orders.css';
+@import './pages/shopify-orders.css';
+@import './pages/marketplace-common.css';
+@import './pages/licenses.css';
+@import './pages/order-form.css';
+@import './components/invoice-request.css';
+@import './components/inline-input.css';
+@import './components/currency-dual.css';
+@import './components/currency-rate.css';
+@import './components/typeahead.css';
+@import './components/permission-pill.css';
+@import './components/sla-chip.css';
+@import './components/tabs.css';
+@import './components/toolbar.css';
+@import './components/segment.css';
 @import './blotter-components.css';
 @import './blotter-pages.css';
 @import './blotter-extensions.css';
@@ -192,6 +232,27 @@
     --bl-r-pill: 999px;
     --bl-lift: 0 1px 2px rgba(19, 26, 43, .04), 0 10px 28px -14px rgba(19, 26, 43, .22);
     --bl-lift-2: 0 2px 6px rgba(19, 26, 43, .06), 0 22px 44px -22px rgba(19, 26, 43, .34);
+
+    /* Washes the state set above was missing. Mixed from the sheet so they
+       track the theme without needing a dark override. */
+    --bl-brand-wash: color-mix(in srgb, var(--bl-brand) 12%, var(--bl-sheet));
+    --bl-good-wash: color-mix(in srgb, var(--bl-good) 12%, var(--bl-sheet));
+
+    /* Rhythm and control metrics, promoted from the retired bridge with the
+       same values. The spacing scale is a system: 7 is kept even while no
+       rule asks for it, because a scale with a hole invites ad-hoc pixels. */
+    --bl-motion-fast: .12s ease;
+    --bl-motion-base: .18s ease;
+    --bl-space-1: 4px;
+    --bl-space-2: 8px;
+    --bl-space-3: 12px;
+    --bl-space-4: 16px;
+    --bl-space-5: 20px;
+    --bl-space-6: 24px;
+    --bl-space-7: 32px;
+    --bl-space-8: 40px;
+    --bl-control-h: 32px;
+    --bl-control-h-sm: 26px;
 
     /* The page gutter.
 

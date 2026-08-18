@@ -44,21 +44,21 @@
    so the actions cell has one control grammar and one control height,
    rather than an amber pill of its own size sitting beside a button. */
 #shopee-orders-page .btn-invoice-req {
-    height: var(--control-h-sm);
-    padding: 0 var(--space-2);
-    gap: var(--space-1);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
+    height: var(--bl-control-h-sm);
+    padding: 0 var(--bl-space-2);
+    gap: var(--bl-space-1);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-dot);
+    color: var(--bl-ink-2);
     font-size: 12px;
     font-weight: 500;
-    transition: background var(--motion-fast), color var(--motion-fast);
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
 }
 
 #shopee-orders-page .btn-invoice-req:hover {
-    background: var(--surface-hover);
-    color: var(--text);
+    background: var(--bl-chrome-2);
+    color: var(--bl-ink);
     transform: none;
 }
 
@@ -83,33 +83,33 @@
    token set and can no longer carry anything the API response contains. */
 
 .sp-ship-addr-label {
-    margin-bottom: var(--space-2);
+    margin-bottom: var(--bl-space-2);
     font-size: 13px;
     font-weight: 700;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* The pickup address is auto-selected on the buyer's behalf, so its card
    takes the accent tone the rest of the page reserves for the one thing an
    operator has to act on: this is that thing, just already decided. */
 .sp-ship-addr {
-    padding: var(--space-3) var(--space-4);
-    border: 2px solid var(--accent);
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    padding: var(--bl-space-3) var(--bl-space-4);
+    border: 2px solid var(--bl-brand-deep);
+    border-radius: var(--bl-r-ctrl);
+    background: color-mix(in srgb, var(--bl-brand-deep) 5%, transparent);
 }
 
 .sp-ship-addr__flags {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1);
-    margin-top: var(--space-1);
+    gap: var(--bl-space-1);
+    margin-top: var(--bl-space-1);
 }
 
 .sp-ship-flag {
     display: inline-block;
-    padding: 1px var(--space-2);
-    border-radius: var(--radius-sm);
+    padding: 1px var(--bl-space-2);
+    border-radius: var(--bl-r-dot);
     font-size: 11px;
 }
 
@@ -117,30 +117,30 @@
    driving this card (accent), return_address is informational (info), and
    anything else Shopee ever adds recedes to muted rather than defaulting to
    an undefined colour. */
-.sp-ship-flag--pickup { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
-.sp-ship-flag--return { background: color-mix(in srgb, var(--info) 15%, transparent); color: var(--info); }
-.sp-ship-flag--other  { background: color-mix(in srgb, var(--text-muted) 15%, transparent); color: var(--text-muted); }
+.sp-ship-flag--pickup { background: color-mix(in srgb, var(--bl-brand-deep) 15%, transparent); color: var(--bl-brand-deep); }
+.sp-ship-flag--return { background: color-mix(in srgb, var(--bl-cool) 15%, transparent); color: var(--bl-cool); }
+.sp-ship-flag--other  { background: color-mix(in srgb, var(--bl-ink-3) 15%, transparent); color: var(--bl-ink-3); }
 
 .sp-ship-branch {
     display: block;
-    margin-bottom: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    border: 2px solid var(--border);
-    border-radius: var(--radius-md);
+    margin-bottom: var(--bl-space-2);
+    padding: var(--bl-space-3) var(--bl-space-4);
+    border: 2px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     cursor: pointer;
-    transition: border-color var(--motion-fast);
+    transition: border-color var(--bl-motion-fast);
 }
 
-.sp-ship-branch:hover { border-color: var(--border-strong); }
+.sp-ship-branch:hover { border-color: var(--bl-rule-2); }
 
-.sp-ship-branch__radio { margin-top: 3px; accent-color: var(--accent); }
+.sp-ship-branch__radio { margin-top: 3px; accent-color: var(--bl-brand-deep); }
 .sp-ship-branch__text { flex: 1; min-width: 0; }
 
 /* One tracking event in the tracking modal's timeline. */
 .sp-track-event {
-    margin-bottom: var(--space-3);
-    padding-left: var(--space-3);
-    border-left: 2px solid var(--accent);
+    margin-bottom: var(--bl-space-3);
+    padding-left: var(--bl-space-3);
+    border-left: 2px solid var(--bl-brand-deep);
 }
 
 /* ==================================================================
@@ -173,7 +173,7 @@
 }
 
 /* Escrow rows. Nineteen possible lines in a 340px column: the card body's
-   own --space-3 rhythm is meant for three or four facts and turns this
+   own --bl-space-3 rhythm is meant for three or four facts and turns this
    block into a scroll. The rows keep their own vertical padding and the
    gap goes. */
 .spd-fees { gap: 0; }
@@ -182,7 +182,7 @@
    sentence that belongs to a card rather than to a row. */
 .spd-note {
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 /* Waybill and tracking sit in the shipping card's foot. Two controls of
@@ -191,7 +191,7 @@
 .spd-parcel {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
 }
 
 /* The buyer's invoice request. Six short facts, so they read as a row of
@@ -201,8 +201,8 @@
 .spd-invoice {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--space-3) var(--space-5);
-    padding: var(--space-1) 0;
+    gap: var(--bl-space-3) var(--bl-space-5);
+    padding: var(--bl-space-1) 0;
 }
 
 .spd-invoice__wide { grid-column: 1 / -1; }
@@ -216,31 +216,31 @@
 .spd-return {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-4);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-4);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
 
-.spd-return + .spd-return { margin-top: var(--space-3); }
+.spd-return + .spd-return { margin-top: var(--bl-space-3); }
 
 .spd-return__head {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: var(--space-3) var(--space-4);
+    gap: var(--bl-space-3) var(--bl-space-4);
 }
 
-.spd-return__reason { padding-top: var(--space-1); border-top: 1px solid var(--border); }
+.spd-return__reason { padding-top: var(--bl-space-1); border-top: 1px solid var(--bl-rule); }
 
 .spd-return__note {
     margin-top: 2px;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     overflow-wrap: anywhere;
 }
 
-.spd-return__nego { margin-top: var(--space-1); }
+.spd-return__nego { margin-top: var(--bl-space-1); }
 
 /* A return's item lines. Horizontal hairlines only, mono figures right
    aligned: the same reading rules as every other list of numbers here,
@@ -251,13 +251,13 @@
 .spd-lines__row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 3.5rem 7rem;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: baseline;
 }
 
 .spd-lines__head {
-    padding-bottom: var(--space-1);
-    color: var(--text-muted);
+    padding-bottom: var(--bl-space-1);
+    color: var(--bl-ink-3);
     font-size: 11px;
     letter-spacing: .02em;
 }
@@ -265,18 +265,18 @@
 .spd-lines__head span:nth-child(n + 2) { text-align: right; }
 
 .spd-lines__row {
-    padding: var(--space-2) 0;
-    border-top: 1px solid var(--border);
+    padding: var(--bl-space-2) 0;
+    border-top: 1px solid var(--bl-rule);
 }
 
-.spd-lines__name { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.spd-lines__name { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
 .spd-lines__num {
     text-align: right;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* ------------------------------------------------------------------
@@ -287,16 +287,16 @@
 
 .spd-raw {
     max-height: 420px;
-    margin: var(--space-3) 0 0;
-    padding: var(--space-3);
+    margin: var(--bl-space-3) 0 0;
+    padding: var(--bl-space-3);
     overflow: auto;
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     font-family: var(--font-mono);
     font-size: 11px;
     line-height: 1.6;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
@@ -310,7 +310,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
-    column-gap: var(--space-2);
+    column-gap: var(--bl-space-2);
 }
 
 .spd-copyable .od-fact__k { grid-column: 1 / -1; }
@@ -324,12 +324,12 @@
     padding: 0;
     background: none;
     border: 0;
-    color: var(--accent);
-    font-family: var(--font-ui);
+    color: var(--bl-brand-deep);
+    font-family: var(--font-sans);
     font-size: 11px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity var(--motion-fast), color var(--motion-fast);
+    transition: opacity var(--bl-motion-fast), color var(--bl-motion-fast);
 }
 
 .spd-copyable:hover .spd-copy,
@@ -337,7 +337,7 @@
 
 .spd-copy:hover { text-decoration: underline; }
 
-.spd-copy.is-copied { opacity: 1; color: var(--text-muted); }
+.spd-copy.is-copied { opacity: 1; color: var(--bl-ink-3); }
 
 /* ------------------------------------------------------------------
    Responsive

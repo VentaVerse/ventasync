@@ -14,7 +14,7 @@
     display: block;
     font-variant-numeric: tabular-nums;
     font-size: 0.82rem;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 /* Foreign order whose exchange rate has not been recorded yet - the primary
@@ -28,7 +28,7 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    color: var(--warning);
+    color: var(--bl-attn-fill);
 }
 
 /* Exchange-rate banner shown above the line-items table on a foreign-currency order. */
@@ -39,9 +39,9 @@
     gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.65rem 0.9rem;
-    border-left: 3px solid var(--accent);
+    border-left: 3px solid var(--bl-brand-deep);
     border-radius: 0 6px 6px 0;
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    background: color-mix(in srgb, var(--bl-brand-deep) 8%, transparent);
     font-size: 0.88rem;
 }
 
@@ -49,12 +49,12 @@
    been recorded (foreign_total IS NULL) gets a warning tone instead of the
    normal accent, and no rate figure - see OrderController@show. */
 .currency-banner--pending {
-    border-left-color: var(--warning);
-    background: color-mix(in srgb, var(--warning) 10%, transparent);
+    border-left-color: var(--bl-attn-fill);
+    background: color-mix(in srgb, var(--bl-attn-fill) 10%, transparent);
 }
 
 .currency-banner__date {
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     font-size: 0.8rem;
 }
 

@@ -47,7 +47,7 @@
 /* The rows carry inputs, so they need more room than a read-only
    table row and must not be clipped to one line. */
 .of-lines tbody tr { height: auto; }
-.of-lines tbody td { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.of-lines tbody td { padding-top: var(--bl-space-2); padding-bottom: var(--bl-space-2); }
 
 .of-line__name {
     display: table-cell;
@@ -57,7 +57,7 @@
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--bl-ink);
     white-space: normal;
     overflow-wrap: anywhere;
 }
@@ -65,12 +65,12 @@
     display: block;
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .of-line__price,
 .of-line__qty {
-    height: var(--control-h-sm);
+    height: var(--bl-control-h-sm);
     width: 100%;
     text-align: right;
 }
@@ -78,8 +78,8 @@
 /* The pair. The typed figure leads; the stored default-currency
    figure sits under it, muted, and is simply absent when the order is
    in the default currency. */
-.of-line__total { display: block; font-size: 13px; color: var(--text); }
-.of-line__base { display: block; font-size: 11px; color: var(--text-muted); }
+.of-line__total { display: block; font-size: 13px; color: var(--bl-ink); }
+.of-line__base { display: block; font-size: 11px; color: var(--bl-ink-3); }
 
 /* Remove. An icon button at text weight, not a red control: on an
    order with twenty lines, twenty red buttons is twenty destructive
@@ -95,17 +95,17 @@
     padding: 0;
     background: transparent;
     border: 0;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
+    border-radius: var(--bl-r-dot);
+    color: var(--bl-ink-3);
     cursor: pointer;
-    transition: color var(--motion-fast), background var(--motion-fast);
+    transition: color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
-.of-line__x:hover { background: var(--surface-hover); color: var(--danger); }
-.of-line__x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.of-line__x:hover { background: var(--bl-chrome-2); color: var(--bl-bad); }
+.of-line__x:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: 1px; }
 
 .of-lines__empty {
-    padding: var(--space-5) var(--space-3);
-    color: var(--text-muted);
+    padding: var(--bl-space-5) var(--bl-space-3);
+    color: var(--bl-ink-3);
     font-size: 13px;
     white-space: normal;
 }
@@ -119,31 +119,31 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--bl-space-4);
     flex-wrap: wrap;
-    margin-top: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    margin-top: var(--bl-space-3);
+    padding: var(--bl-space-3) var(--bl-space-4);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
-.of-sum__count { font-size: 12px; color: var(--text-muted); }
+.of-sum__count { font-size: 12px; color: var(--bl-ink-3); }
 .of-sum__totals {
     display: flex;
     align-items: baseline;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     flex-wrap: wrap;
 }
-.of-sum__k { font-size: 12px; color: var(--text-muted); }
-.of-sum__v { font-size: 18px; font-weight: 600; color: var(--text); }
-.of-sum__base { font-size: 12px; color: var(--text-muted); }
+.of-sum__k { font-size: 12px; color: var(--bl-ink-3); }
+.of-sum__v { font-size: 18px; font-weight: 600; color: var(--bl-ink); }
+.of-sum__base { font-size: 12px; color: var(--bl-ink-3); }
 
 /* The rate sentence under the currency card's two fields. */
 .of-rate__hint {
-    margin: var(--space-2) 0 0;
+    margin: var(--bl-space-2) 0 0;
     font-size: 11px;
     line-height: 1.5;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* The payment block, hidden while Same as shipping is on. */
@@ -160,63 +160,63 @@
     width: 100%;
     max-width: 720px;
     max-height: 82vh;
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-modal);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule-2);
+    border-radius: var(--bl-r-panel);
+    box-shadow: var(--bl-lift);
     overflow: hidden;
 }
 .of-pick__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-4);
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-4);
+    padding: var(--bl-space-4);
+    border-bottom: 1px solid var(--bl-rule);
 }
-.of-pick__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
-.of-pick__head-right { display: flex; align-items: center; gap: var(--space-3); }
-.of-pick__msg { font-size: 12px; color: var(--text-muted); }
+.of-pick__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--bl-ink); }
+.of-pick__head-right { display: flex; align-items: center; gap: var(--bl-space-3); }
+.of-pick__msg { font-size: 12px; color: var(--bl-ink-3); }
 .of-pick__body {
-    padding: var(--space-4);
+    padding: var(--bl-space-4);
     overflow-y: auto;
 }
 .of-pick__added {
-    margin: var(--space-3) 0 0;
+    margin: var(--bl-space-3) 0 0;
     font-size: 12px;
-    color: var(--accent);
+    color: var(--bl-brand-deep);
 }
 
 /* Results. A list of hairline-separated rows, not a bordered grid:
    two columns of rules read as a spreadsheet export. */
 .of-res__list {
-    margin-top: var(--space-3);
+    margin-top: var(--bl-space-3);
     max-height: 260px;
     overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
 .of-res {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 96px 96px 92px;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     width: 100%;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
     background: transparent;
     border: 0;
     text-align: left;
     cursor: pointer;
-    transition: background var(--motion-fast);
+    transition: background var(--bl-motion-fast);
 }
-.of-res + .of-res { border-top: 1px solid var(--border); }
-.of-res:hover { background: var(--surface-hover); }
-.of-res:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.of-res + .of-res { border-top: 1px solid var(--bl-rule); }
+.of-res:hover { background: var(--bl-chrome-2); }
+.of-res:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: -2px; }
 .of-res__main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .of-res__name {
     font-size: 13px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--bl-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -224,83 +224,83 @@
 .of-res__sku {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 .of-res__price {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text);
+    color: var(--bl-ink);
     text-align: right;
 }
 .of-res__stock,
 .of-res__opts {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     text-align: right;
 }
-.of-res__none { margin: 0; padding: var(--space-4); font-size: 13px; color: var(--text-muted); }
+.of-res__none { margin: 0; padding: var(--bl-space-4); font-size: 13px; color: var(--bl-ink-3); }
 
 /* The chosen product. */
 .of-detail {
-    margin-top: var(--space-4);
-    padding: var(--space-4);
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    margin-top: var(--bl-space-4);
+    padding: var(--bl-space-4);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
-.of-detail__id { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
-.of-detail__name { font-size: 14px; font-weight: 600; color: var(--text); }
-.of-detail__sku { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.of-detail__id { display: flex; align-items: baseline; gap: var(--bl-space-3); flex-wrap: wrap; }
+.of-detail__name { font-size: 14px; font-weight: 600; color: var(--bl-ink); }
+.of-detail__sku { font-family: var(--font-mono); font-size: 12px; color: var(--bl-ink-3); }
 .of-detail__price {
-    margin: var(--space-1) 0 0;
+    margin: var(--bl-space-1) 0 0;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 .of-detail__label {
-    margin: var(--space-4) 0 var(--space-2);
+    margin: var(--bl-space-4) 0 var(--bl-space-2);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: .04em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 .of-detail__options { max-height: 200px; overflow-y: auto; }
 .of-detail__foot {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--bl-space-4);
     flex-wrap: wrap;
-    margin-top: var(--space-4);
+    margin-top: var(--bl-space-4);
 }
 .of-detail__qty {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
-.of-detail__qty .x-input { width: 80px; height: var(--control-h-sm); text-align: right; }
+.of-detail__qty .x-input { width: 80px; height: var(--bl-control-h-sm); text-align: right; }
 
 .of-opt {
     display: flex;
     align-items: flex-start;
-    gap: var(--space-2);
-    padding: var(--space-2) 0;
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-2) 0;
     cursor: pointer;
 }
-.of-opt + .of-opt { border-top: 1px solid var(--border); }
-.of-opt__radio { margin: 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+.of-opt + .of-opt { border-top: 1px solid var(--bl-rule); }
+.of-opt__radio { margin: 3px 0 0; accent-color: var(--bl-brand-deep); cursor: pointer; }
 .of-opt__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.of-opt__name { font-size: 13px; color: var(--text); }
+.of-opt__name { font-size: 13px; color: var(--bl-ink); }
 .of-opt__meta {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ------------------------------------------------------------------
@@ -311,17 +311,17 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-4);
+    padding: var(--bl-space-2) 0;
+    border-bottom: 1px solid var(--bl-rule);
 }
-.of-totals__row dt { font-size: 13px; color: var(--text-secondary); }
+.of-totals__row dt { font-size: 13px; color: var(--bl-ink-2); }
 .of-totals__row dd {
     margin: 0;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* History. A list, not a four-column table: three of those columns
@@ -331,30 +331,30 @@
 .of-hist__item {
     display: grid;
     grid-template-columns: 152px minmax(0, 1fr);
-    gap: var(--space-1) var(--space-4);
-    padding: var(--space-3) 0;
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-1) var(--bl-space-4);
+    padding: var(--bl-space-3) 0;
+    border-bottom: 1px solid var(--bl-rule);
 }
 .of-hist__when {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
-.of-hist__what { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
-.of-hist__status { font-size: 13px; font-weight: 500; color: var(--text); }
-.of-hist__who { font-size: 12px; color: var(--text-muted); }
+.of-hist__what { display: flex; align-items: baseline; gap: var(--bl-space-3); flex-wrap: wrap; }
+.of-hist__status { font-size: 13px; font-weight: 500; color: var(--bl-ink); }
+.of-hist__who { font-size: 12px; color: var(--bl-ink-3); }
 .of-hist__note {
     grid-column: 2;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {
     .of-hist__item { grid-template-columns: minmax(0, 1fr); }
     .of-hist__note { grid-column: 1; }
-    .of-res { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--space-1); }
+    .of-res { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--bl-space-1); }
     .of-res__stock, .of-res__opts { text-align: left; }
     /* A restacked row is a grid cell with no width to truncate
        against, so the product name has to wrap rather than push the
@@ -370,10 +370,10 @@
 .op-col-count { width: 92px; }
 /* A balance still owed. The only coloured figure on that page, and it
    is the one the page exists to surface. */
-.op-owing { color: var(--warning); }
+.op-owing { color: var(--bl-attn-fill); }
 /* The lead figure on the payments report is money OWED. `rp-lead__v` takes
    the accent because on the payouts report that figure is money arriving;
    here the accent would read as good news about a debt. It takes the same
    warning token the balance column uses, and drops to neutral at zero. */
-.op-band .rp-lead__v.op-owing { color: var(--warning); }
-.op-band .rp-lead__v.op-clear { color: var(--text); }
+.op-band .rp-lead__v.op-owing { color: var(--bl-attn-fill); }
+.op-band .rp-lead__v.op-clear { color: var(--bl-ink); }

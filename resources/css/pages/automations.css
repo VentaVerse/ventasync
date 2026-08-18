@@ -16,7 +16,7 @@
    ============================================================ */
 
 .automations-tab {
-    --auto-surface: var(--surface, #ffffff);
+    --auto-surface: var(--bl-sheet, #ffffff);
     --auto-surface-2: #f8fafc;
     --auto-surface-hover: #f1f5f9;
     --auto-border: rgba(15, 23, 42, .08);
@@ -523,7 +523,7 @@
     justify-content: flex-end;
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px solid var(--auto-border-subtle, rgba(0, 0, 0, 0.06));
+    border-top: 1px solid var(--bl-rule, rgba(0, 0, 0, 0.06));
 }
 
 .automation-btn-save-all {

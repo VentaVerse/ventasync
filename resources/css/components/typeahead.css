@@ -5,9 +5,9 @@
 .typeahead-list {
     position: absolute;
     top: 100%; left: 0; right: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     box-shadow: var(--shadow-lg);
     max-height: 240px;
     overflow: auto;
@@ -23,10 +23,10 @@
     cursor: pointer;
     font-family: inherit;
     font-size: 13.5px;
-    color: var(--text-primary);
-    transition: background var(--transition-fast);
+    color: var(--bl-ink);
+    transition: background var(--bl-motion-fast);
 }
-.typeahead-list button:hover { background: var(--surface-hover); }
+.typeahead-list button:hover { background: var(--bl-chrome-2); }
 
 /* Multi-select tag chips */
 .tag-container {
@@ -53,7 +53,7 @@
     margin-top: 6px;
     background: #111827;
     border: 1px solid rgba(255,255,255,.12);
-    border-radius: var(--radius-md);
+    border-radius: var(--bl-r-ctrl);
     box-shadow: 0 12px 30px rgba(0,0,0,.35);
     z-index: 50;
     max-height: 260px;
@@ -62,10 +62,10 @@
 .ac-dd ul { list-style: none; margin: 0; padding: 6px; }
 .ac-dd li {
     padding: 8px 10px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--bl-r-dot);
     cursor: pointer;
     color: #e5e7eb;
     font-size: 14px;
-    transition: background var(--transition-fast);
+    transition: background var(--bl-motion-fast);
 }
 .ac-dd li:hover { background: rgba(255,255,255,.08); }

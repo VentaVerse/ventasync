@@ -13,7 +13,7 @@
    already described by shared rules, so there is nothing else to write.
 
    Nothing here carries a colour of its own. TikTok's pink lived on the old
-   .marketplace-tiktok wrapper, where it repainted --accent for every control
+   .marketplace-tiktok wrapper, where it repainted --bl-brand-deep for every control
    on the page; channel identity is carried by the sidebar and the
    breadcrumb, which already say TikTok Shop, and the accent is spent on the
    one thing that needs a human.
@@ -52,7 +52,7 @@
    ================================================================== */
 
 /* Two settlement blocks in a 340px column, up to seven lines each: the
-   card body's own --space-3 rhythm is meant for three or four facts and
+   card body's own --bl-space-3 rhythm is meant for three or four facts and
    turns these into a scroll. The rows keep their own vertical padding
    and the gap goes. Same handling Shopee's escrow block takes. */
 .ttd-fees { gap: 0; }
@@ -61,15 +61,15 @@
    pays out. A hairline rather than the ledger's own --total rule,
    because the figure below it is the one that closes the block. */
 .ttd-total-fees {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--border);
+    margin-top: var(--bl-space-2);
+    padding-top: var(--bl-space-2);
+    border-top: 1px solid var(--bl-rule);
 }
 
 /* The payout date under the settlement block. */
 .ttd-note {
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 /* Waybill and tracking sit in the shipping card's foot. Two controls of
@@ -78,7 +78,7 @@
 .ttd-parcel {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
 }
 
 /* Raw payload. Kept from the previous version of this page: when
@@ -87,16 +87,16 @@
    sideways. */
 .ttd-raw {
     max-height: 420px;
-    margin: var(--space-3) 0 0;
-    padding: var(--space-3);
+    margin: var(--bl-space-3) 0 0;
+    padding: var(--bl-space-3);
     overflow: auto;
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     font-family: var(--font-mono);
     font-size: 11px;
     line-height: 1.6;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }

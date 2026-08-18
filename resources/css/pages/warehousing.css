@@ -20,9 +20,9 @@
 
    Colour has one job across the whole section: the transfer's
    lifecycle, through its status badge. The only other tinted things
-   are a quantity that has gone negative (--danger, which is a real
+   are a quantity that has gone negative (--bl-bad, which is a real
    fault, not a state) and a line whose transfer quantity exceeds what
-   is on the shelf (--danger, because the server will refuse it).
+   is on the shelf (--bl-bad, because the server will refuse it).
    Zero stock is NOT tinted: an empty shelf is ordinary.
    ============================================================ */
 
@@ -31,8 +31,8 @@
    flash region and every mutating action here redirects back with
    `status` or `error`.
    ------------------------------------------------------------------ */
-.wh-flash { display: grid; gap: var(--space-2); }
-.wh-flash:not(:empty) { margin-bottom: var(--space-4); }
+.wh-flash { display: grid; gap: var(--bl-space-2); }
+.wh-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
 
 /* ------------------------------------------------------------------
    Transfers list
@@ -44,12 +44,12 @@
 .wh-route {
     display: inline-flex;
     align-items: baseline;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     min-width: 0;
 }
 
 .wh-route__arrow {
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     font-size: 12px;
     flex: 0 0 auto;
 }
@@ -65,7 +65,7 @@
     display: block;
     margin-top: 2px;
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -83,27 +83,27 @@
 .wh-dates {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
-    height: var(--control-h);
-    padding: 0 var(--space-3);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--bl-space-1);
+    height: var(--bl-control-h);
+    padding: 0 var(--bl-space-3);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
 
 .wh-dates:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-weak);
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 3px var(--bl-brand-wash);
 }
 
 .wh-dates__k {
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     flex: 0 0 auto;
 }
 
 .wh-dates__in {
-    height: calc(var(--control-h) - 2px);
+    height: calc(var(--bl-control-h) - 2px);
     padding: 0;
     border: 0;
     background: transparent;
@@ -111,7 +111,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 .wh-dates__in:focus { outline: none; }
@@ -155,20 +155,20 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0;
-    padding: var(--space-4) var(--space-5) var(--space-3);
+    padding: var(--bl-space-4) var(--bl-space-5) var(--bl-space-3);
     background: var(--bl-sheet);
     border: 1px solid var(--bl-rule);
     border-radius: var(--bl-r-panel);
     box-shadow: var(--bl-lift);
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--bl-space-5);
 }
 
 .wh-step {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    padding-right: var(--space-4);
+    gap: var(--bl-space-2);
+    padding-right: var(--bl-space-4);
     min-width: 0;
 }
 
@@ -181,32 +181,32 @@
     left: 14px;
     right: 0;
     height: 1px;
-    background: var(--border);
+    background: var(--bl-rule);
 }
 
 .wh-step:last-child::before { display: none; }
-.wh-step.is-past::before { background: var(--accent); }
+.wh-step.is-past::before { background: var(--bl-brand-deep); }
 
-/* Fix round, Minor 14: the idle ring was --border-strong on --surface,
+/* Fix round, Minor 14: the idle ring was --bl-rule-2 on --bl-sheet,
    1.54:1 light / 1.50:1 dark, under the 3:1 WCAG 1.4.11 floor. Every
    other state (past/now/stopped, below) already carries a token that
-   clears it (--accent or --danger); only the untouched-yet state was
-   under the line. --text-muted clears it at 5.13:1 light / 4.87:1 dark
-   against --surface (base/tokens.css's own audited matrix). */
+   clears it (--bl-brand-deep or --bl-bad); only the untouched-yet state was
+   under the line. --bl-ink-3 clears it at 5.13:1 light / 4.87:1 dark
+   against --bl-sheet (base/tokens.css's own audited matrix). */
 .wh-step__dot {
     width: 9px;
     height: 9px;
     margin-left: 1px;
     border-radius: 50%;
-    background: var(--surface);
-    border: 1px solid var(--text-muted);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-ink-3);
     position: relative;
     z-index: 1;
 }
 
 .wh-step.is-past .wh-step__dot {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--bl-brand-deep);
+    border-color: var(--bl-brand-deep);
 }
 
 /* The state the transfer is standing in right now. A ring rather
@@ -214,35 +214,35 @@
    colour, and repeating it here would make two things compete to say
    the same thing. */
 .wh-step.is-now .wh-step__dot {
-    background: var(--accent);
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-weak);
+    background: var(--bl-brand-deep);
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 3px var(--bl-brand-wash);
 }
 
 .wh-step.is-stopped .wh-step__dot {
-    background: var(--surface);
-    border-color: var(--danger);
+    background: var(--bl-sheet);
+    border-color: var(--bl-bad);
 }
 
 .wh-step__label {
     font-size: 13px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .wh-step.is-past .wh-step__label,
-.wh-step.is-now .wh-step__label { color: var(--text); }
+.wh-step.is-now .wh-step__label { color: var(--bl-ink); }
 
 .wh-step__when {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .wh-step__hint {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     max-width: 30ch;
 }
 
@@ -252,19 +252,19 @@
    moved and was put back) is the only thing worth reading. */
 .wh-ended {
     display: flex;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: flex-start;
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-5);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 2px solid var(--danger);
-    border-radius: var(--radius-md);
+    padding: var(--bl-space-3) var(--bl-space-4);
+    margin-bottom: var(--bl-space-5);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-left: 2px solid var(--bl-bad);
+    border-radius: var(--bl-r-ctrl);
     font-size: 13px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
-.wh-ended strong { color: var(--text); font-weight: 500; }
+.wh-ended strong { color: var(--bl-ink); font-weight: 500; }
 
 /* ------------------------------------------------------------------
    Transfer record: item rows
@@ -280,74 +280,74 @@
         minmax(0, 1fr)  /* product */
         140px           /* sku */
         88px;           /* qty */
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: center;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
 }
 
 /* One box, three bands: header strip, lines, total. The border and
    the radius belong to the box so no band has to fake a corner. */
 .wh-det {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
     overflow: hidden;
 }
 
 .wh-det__head {
-    background: var(--canvas);
-    border-bottom: 1px solid var(--border);
+    background: var(--bl-paper);
+    border-bottom: 1px solid var(--bl-rule);
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .wh-det__head span:last-child,
 .wh-det-line__qty { text-align: right; }
 
-.wh-det-line + .wh-det-line { border-top: 1px solid var(--border); }
+.wh-det-line + .wh-det-line { border-top: 1px solid var(--bl-rule); }
 
 .wh-det-line__n {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .wh-det-line__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.wh-det-line__name b { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
-.wh-det-line__opt { font-size: 11px; color: var(--text-muted); }
+.wh-det-line__name b { font-weight: 500; color: var(--bl-ink); overflow-wrap: anywhere; }
+.wh-det-line__opt { font-size: 11px; color: var(--bl-ink-3); }
 
 .wh-det-line__sku,
 .wh-det-line__qty {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
-.wh-det-line__qty { color: var(--text); }
+.wh-det-line__qty { color: var(--bl-ink); }
 
 /* Total sits under the lines on the same right edge as the quantity
    column, so the figures stack. */
 .wh-det-foot {
     display: grid;
     grid-template-columns: auto 88px;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     justify-content: end;
     align-items: baseline;
-    padding: var(--space-3);
-    border-top: 1px solid var(--border);
-    background: var(--canvas);
+    padding: var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-paper);
 }
 
-.wh-det-foot__k { font-size: 13px; color: var(--text-secondary); text-align: right; }
+.wh-det-foot__k { font-size: 13px; color: var(--bl-ink-2); text-align: right; }
 .wh-det-foot__v {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 15px;
     font-weight: 600;
     text-align: right;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* ------------------------------------------------------------------
@@ -358,18 +358,18 @@
    rows added in the browser; the two must stay in step.
    ------------------------------------------------------------------ */
 .wh-lines {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    background: var(--bl-sheet);
     overflow: visible;
 }
 
 .wh-lines__head,
 .wh-line {
     display: grid;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: center;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
 }
 
 /* Transfer: product / sku / on hand / move */
@@ -385,28 +385,28 @@
 }
 
 .wh-lines__head {
-    background: var(--canvas);
-    border-bottom: 1px solid var(--border);
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: var(--bl-paper);
+    border-bottom: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl) var(--bl-r-ctrl) 0 0;
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .wh-lines__head span:nth-child(3),
 .wh-lines__head span:nth-child(4) { text-align: right; }
 
-.wh-line + .wh-line { border-top: 1px solid var(--border); }
+.wh-line + .wh-line { border-top: 1px solid var(--bl-rule); }
 
 .wh-line__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.wh-line__name b { font-size: 13px; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.wh-line__name b { font-size: 13px; font-weight: 500; color: var(--bl-ink); overflow-wrap: anywhere; }
 
 .wh-line__sku,
 .wh-line__have {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 .wh-line__have { text-align: right; }
@@ -426,20 +426,20 @@
     height: 24px;
     padding: 0;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--bl-r-dot);
     background: none;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     cursor: pointer;
-    transition: color var(--motion-fast), background var(--motion-fast);
+    transition: color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
 
-.wh-line__x:hover { color: var(--danger); background: var(--surface-hover); }
+.wh-line__x:hover { color: var(--bl-bad); background: var(--bl-chrome-2); }
 
 .wh-lines__empty {
-    padding: var(--space-6) var(--space-3);
+    padding: var(--bl-space-6) var(--bl-space-3);
     text-align: center;
     font-size: 13px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* The empty notice is toggled with the `hidden` attribute, and the
@@ -452,24 +452,24 @@
 .wh-lines__foot {
     display: grid;
     grid-template-columns: auto 100px;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     justify-content: end;
     align-items: baseline;
-    padding: var(--space-3);
-    border-top: 1px solid var(--border);
-    background: var(--canvas);
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    padding: var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-paper);
+    border-radius: 0 0 var(--bl-r-ctrl) var(--bl-r-ctrl);
 }
 
 .wh-lines__foot[hidden] { display: none; }
-.wh-lines__foot-k { font-size: 13px; color: var(--text-secondary); text-align: right; }
+.wh-lines__foot-k { font-size: 13px; color: var(--bl-ink-2); text-align: right; }
 .wh-lines__foot-v {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 14px;
     font-weight: 600;
     text-align: right;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* ------------------------------------------------------------------
@@ -477,10 +477,10 @@
    ------------------------------------------------------------------ */
 .wh-add {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     align-items: flex-end;
     flex-wrap: wrap;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--bl-space-3);
 }
 
 .wh-add__search { position: relative; flex: 1 1 320px; max-width: 420px; }
@@ -494,11 +494,11 @@
     display: none;
     max-height: 320px;
     overflow-y: auto;
-    padding: var(--space-1);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-menu);
+    padding: var(--bl-space-1);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    box-shadow: var(--bl-lift);
 }
 
 .wh-ac.is-open { display: block; }
@@ -506,36 +506,36 @@
 .wh-ac__item {
     display: flex;
     align-items: baseline;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     width: 100%;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
     text-align: left;
     background: none;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--bl-r-dot);
     font: inherit;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     cursor: pointer;
 }
 
 .wh-ac__item:hover,
-.wh-ac__item:focus-visible { background: var(--surface-hover); outline: none; }
+.wh-ac__item:focus-visible { background: var(--bl-chrome-2); outline: none; }
 
-.wh-ac__item--child { padding-left: var(--space-5); font-size: 12px; color: var(--text-secondary); }
-.wh-ac__item--all { font-weight: 500; color: var(--accent); border-bottom: 1px solid var(--border); border-radius: 0; }
+.wh-ac__item--child { padding-left: var(--bl-space-5); font-size: 12px; color: var(--bl-ink-2); }
+.wh-ac__item--all { font-weight: 500; color: var(--bl-brand-deep); border-bottom: 1px solid var(--bl-rule); border-radius: 0; }
 
 .wh-ac__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wh-ac__sku { flex: 0 0 auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.wh-ac__sku { flex: 0 0 auto; font-family: var(--font-mono); font-size: 11px; color: var(--bl-ink-3); }
 .wh-ac__have {
     flex: 0 0 auto;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
-.wh-ac__empty { padding: var(--space-2) var(--space-3); font-size: 13px; color: var(--text-muted); }
+.wh-ac__empty { padding: var(--bl-space-2) var(--bl-space-3); font-size: 13px; color: var(--bl-ink-3); }
 
 /* ------------------------------------------------------------------
    Stock by location
@@ -545,17 +545,17 @@
    shelf is the ordinary case on a multi-location table and colouring
    it would tint most of the page. Negative is a genuine fault (the
    schema permits it for option arithmetic) and is the one thing here
-   that carries --danger.
+   that carries --bl-bad.
    ------------------------------------------------------------------ */
 .wh-qty {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
-.wh-qty--zero { color: var(--text-muted); }
-.wh-qty--neg  { color: var(--danger); }
+.wh-qty--zero { color: var(--bl-ink-3); }
+.wh-qty--neg  { color: var(--bl-bad); }
 .wh-qty--total { font-weight: 600; }
 
 /* One column per location, and a location is named by a person, so the
@@ -565,15 +565,15 @@
 .x-table th.wh-col-qty { white-space: normal; }
 
 .wh-idty { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.wh-idty__name { font-weight: 500; color: var(--text); }
-.wh-idty__sub { font-size: 12px; color: var(--text-muted); }
+.wh-idty__name { font-weight: 500; color: var(--bl-ink); }
+.wh-idty__sub { font-size: 12px; color: var(--bl-ink-3); }
 
 /* The sellable rule is a property of the location, not of the row, so
    it is stated once above the table rather than repeated per column. */
 .wh-legend {
-    margin: 0 0 var(--space-4);
+    margin: 0 0 var(--bl-space-4);
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ------------------------------------------------------------------
@@ -583,7 +583,7 @@
 .wh-col-flags  { width: 200px; }
 .wh-col-sort   { width: 88px; }
 
-.wh-flags { display: inline-flex; gap: var(--space-2); flex-wrap: wrap; }
+.wh-flags { display: inline-flex; gap: var(--bl-space-2); flex-wrap: wrap; }
 
 /* ------------------------------------------------------------------
    Menu triggers outside a table
@@ -607,8 +607,8 @@
     .wh-lines--transfer .wh-line,
     .wh-lines--adjust .wh-line {
         grid-template-columns: minmax(0, 1fr) 28px;
-        row-gap: var(--space-3);
-        padding: var(--space-3);
+        row-gap: var(--bl-space-3);
+        padding: var(--bl-space-3);
         align-items: start;
     }
 
@@ -624,8 +624,8 @@
 
     .wh-det-line {
         grid-template-columns: minmax(0, 1fr);
-        row-gap: var(--space-2);
-        padding: var(--space-3);
+        row-gap: var(--bl-space-2);
+        padding: var(--bl-space-3);
         align-items: start;
     }
 
@@ -647,10 +647,10 @@
         display: block;
         margin-bottom: 2px;
         font-size: 11px;
-        color: var(--text-muted);
+        color: var(--bl-ink-3);
     }
 
-    .wh-rail { grid-template-columns: 1fr; gap: var(--space-4); }
+    .wh-rail { grid-template-columns: 1fr; gap: var(--bl-space-4); }
     .wh-step { padding-right: 0; }
     .wh-step::before { display: none; }
     .wh-step__hint { max-width: none; }

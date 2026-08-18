@@ -11,15 +11,15 @@
    out of App\Support\Money, never a bare number_format.
 
    Colour has one job here: the sign of money. A balance that has
-   gone negative is --danger and nothing else on the page is. Credit
+   gone negative is --bl-bad and nothing else on the page is. Credit
    and expense are told apart by a leading + or - and by where the
    entry sits, not by two competing hues, because on a page where
    half the rows are one type and half the other, colouring both
    leaves the eye nothing to land on.
    ============================================================ */
 
-.pc-flash { display: grid; gap: var(--space-2); }
-.pc-flash:not(:empty) { margin-bottom: var(--space-4); }
+.pc-flash { display: grid; gap: var(--bl-space-2); }
+.pc-flash:not(:empty) { margin-bottom: var(--bl-space-4); }
 
 /* ------------------------------------------------------------------
    Balances
@@ -32,26 +32,26 @@
 .pc-top {
     display: grid;
     grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
-    gap: var(--space-6);
+    gap: var(--bl-space-6);
     align-items: start;
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--bl-space-5);
 }
 
 .pc-hero {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: var(--space-1);
-    padding: var(--space-5);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    gap: var(--bl-space-1);
+    padding: var(--bl-space-5);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
 }
 
 .pc-hero__k {
     font-size: 12px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .pc-hero__v {
@@ -60,17 +60,17 @@
     font-size: 30px;
     font-weight: 600;
     letter-spacing: -0.02em;
-    color: var(--text);
+    color: var(--bl-ink);
     overflow-wrap: anywhere;
 }
 
-.pc-hero__v.is-neg { color: var(--danger); }
+.pc-hero__v.is-neg { color: var(--bl-bad); }
 
 .pc-hero__sub {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* Per-person balances.
@@ -83,9 +83,9 @@
 .pc-people {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, max-content));
-    gap: var(--space-4) var(--space-6);
+    gap: var(--bl-space-4) var(--bl-space-6);
     align-content: start;
-    padding: var(--space-5) 0 var(--space-5) var(--space-1);
+    padding: var(--bl-space-5) 0 var(--bl-space-5) var(--bl-space-1);
 }
 
 .pc-person {
@@ -97,7 +97,7 @@
 
 .pc-person__who {
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -107,10 +107,10 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 16px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
-.pc-person__v.is-neg { color: var(--danger); }
+.pc-person__v.is-neg { color: var(--bl-bad); }
 
 /* ------------------------------------------------------------------
    The entry editor
@@ -122,27 +122,27 @@
    the one you were just reading.
    ------------------------------------------------------------------ */
 .pc-editor {
-    padding: var(--space-5);
-    margin-bottom: var(--space-5);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 2px solid var(--accent);
-    border-radius: var(--radius-md);
+    padding: var(--bl-space-5);
+    margin-bottom: var(--bl-space-5);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-left: 2px solid var(--bl-brand-deep);
+    border-radius: var(--bl-r-ctrl);
 }
 
 .pc-editor__head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--space-4);
-    margin-bottom: var(--space-4);
+    gap: var(--bl-space-4);
+    margin-bottom: var(--bl-space-4);
 }
 
 .pc-editor__title {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 .pc-editor__close {
@@ -151,11 +151,11 @@
     padding: 0;
     font: inherit;
     font-size: 13px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     cursor: pointer;
 }
 
-.pc-editor__close:hover { color: var(--text); }
+.pc-editor__close:hover { color: var(--bl-ink); }
 
 /* Cancel is a <button> here, not a link, because it closes a panel
    rather than navigating. .fm-cancel only styles colour and size, so on
@@ -179,7 +179,7 @@ button.fm-cancel {
 .pc-fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--space-4);
+    gap: var(--bl-space-4);
 }
 
 .pc-field--wide { grid-column: 1 / -1; }
@@ -187,15 +187,15 @@ button.fm-cancel {
 .pc-editor__actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: center;
-    margin-top: var(--space-4);
+    margin-top: var(--bl-space-4);
 }
 
 /* Credit or expense. A segmented pair rather than two radios: there
    are exactly two, they are mutually exclusive, and which one is
    chosen changes the rest of the form. */
-.pc-kind { display: inline-flex; padding: 2px; background: var(--surface-sunken); border-radius: var(--radius-md); }
+.pc-kind { display: inline-flex; padding: 2px; background: var(--bl-chrome); border-radius: var(--bl-r-ctrl); }
 
 .pc-kind__opt { position: relative; }
 
@@ -210,24 +210,24 @@ button.fm-cancel {
 
 .pc-kind__face {
     display: block;
-    padding: 0 var(--space-4);
-    line-height: calc(var(--control-h-sm) - 2px);
+    padding: 0 var(--bl-space-4);
+    line-height: calc(var(--bl-control-h-sm) - 2px);
     font-size: 13px;
-    color: var(--text-secondary);
-    border-radius: var(--radius-sm);
+    color: var(--bl-ink-2);
+    border-radius: var(--bl-r-dot);
     cursor: pointer;
-    transition: background var(--motion-fast), color var(--motion-fast);
+    transition: background var(--bl-motion-fast), color var(--bl-motion-fast);
 }
 
 .pc-kind__opt input:checked + .pc-kind__face {
-    background: var(--surface);
-    color: var(--text);
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
     font-weight: 500;
-    box-shadow: var(--shadow-menu);
+    box-shadow: var(--bl-lift);
 }
 
 .pc-kind__opt input:focus-visible + .pc-kind__face {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--bl-brand-deep);
     outline-offset: 1px;
 }
 
@@ -238,23 +238,23 @@ button.fm-cancel {
 .pc-dates {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
-    height: var(--control-h);
-    padding: 0 var(--space-3);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--bl-space-1);
+    height: var(--bl-control-h);
+    padding: 0 var(--bl-space-3);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
 
 .pc-dates:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-weak);
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 3px var(--bl-brand-wash);
 }
 
-.pc-dates__k { font-size: 12px; color: var(--text-muted); flex: 0 0 auto; }
+.pc-dates__k { font-size: 12px; color: var(--bl-ink-3); flex: 0 0 auto; }
 
 .pc-dates__in {
-    height: calc(var(--control-h) - 2px);
+    height: calc(var(--bl-control-h) - 2px);
     padding: 0;
     border: 0;
     background: transparent;
@@ -262,7 +262,7 @@ button.fm-cancel {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 .pc-dates__in:focus { outline: none; }
@@ -291,23 +291,23 @@ button.fm-cancel {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     white-space: nowrap;
 }
 
 /* The sign is the whole story on an amount column, so it is carried
    by the figure itself rather than by a second badge. */
-.pc-amt__sign { color: var(--text-muted); }
+.pc-amt__sign { color: var(--bl-ink-3); }
 
 .pc-bal {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     white-space: nowrap;
 }
 
-.pc-bal.is-neg { color: var(--danger); }
+.pc-bal.is-neg { color: var(--bl-bad); }
 
 /* Fix round, Minor 6: this cell used to render &mdash;, an em dash the
    suite's own guard could not see because it only matched the raw
@@ -315,7 +315,7 @@ button.fm-cancel {
    show here" elsewhere (reports fees/inventory tables, rp-dash) is a
    muted en dash, not an em dash; matched here rather than reusing pc-bal's
    own colour so an empty balance never reads like a real figure. */
-.pc-dash { color: var(--text-muted); }
+.pc-dash { color: var(--bl-ink-3); }
 
 .pc-desc {
     display: block;
@@ -323,10 +323,10 @@ button.fm-cancel {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
-.pc-desc--none { color: var(--text-muted); }
+.pc-desc--none { color: var(--bl-ink-3); }
 
 /* Row-level edit disclosure lives outside the table (see the ledger
    markup): a <details> inside a <td> would restack badly and a form
@@ -338,13 +338,13 @@ button.fm-cancel {
 .pc-settings {
     display: flex;
     flex-direction: column;
-    gap: var(--space-6);
+    gap: var(--bl-space-6);
 }
 
 .pc-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
     overflow: hidden;
 }
 
@@ -352,24 +352,24 @@ button.fm-cancel {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-4) var(--space-5);
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-4);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    border-bottom: 1px solid var(--bl-rule);
 }
 
-.pc-panel__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
-.pc-panel__note { margin: var(--space-1) 0 0; font-size: 12px; color: var(--text-muted); max-width: 68ch; }
+.pc-panel__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--bl-ink); }
+.pc-panel__note { margin: var(--bl-space-1) 0 0; font-size: 12px; color: var(--bl-ink-3); max-width: 68ch; }
 
 .pc-panel__foot {
     display: flex;
     justify-content: flex-end;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-5);
-    border-top: 1px solid var(--border);
-    background: var(--canvas);
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-paper);
 }
 
-.pc-panel__body { padding: var(--space-5); }
+.pc-panel__body { padding: var(--bl-space-5); }
 
 /* A role is one choice out of two per person, so the list is rows of
    name plus control, not a table with a header that says "User". */
@@ -378,13 +378,13 @@ button.fm-cancel {
 .pc-role {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 176px;
-    gap: var(--space-4);
+    gap: var(--bl-space-4);
     align-items: center;
-    padding: var(--space-2) var(--space-5);
+    padding: var(--bl-space-2) var(--bl-space-5);
 }
 
-.pc-role + .pc-role { border-top: 1px solid var(--border); }
-.pc-role__who { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.pc-role + .pc-role { border-top: 1px solid var(--bl-rule); }
+.pc-role__who { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
 /* Categories: name, order, status, save. Each row is its own form,
    attached with the form= attribute because a <form> cannot be a
@@ -393,22 +393,22 @@ button.fm-cancel {
 .pc-cat {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 96px 120px 92px 28px;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: center;
-    padding: var(--space-2) var(--space-5);
+    padding: var(--bl-space-2) var(--bl-space-5);
 }
 
 .pc-cats__head {
-    background: var(--canvas);
-    border-bottom: 1px solid var(--border);
+    background: var(--bl-paper);
+    border-bottom: 1px solid var(--bl-rule);
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
-.pc-cat + .pc-cat { border-top: 1px solid var(--border); }
+.pc-cat + .pc-cat { border-top: 1px solid var(--bl-rule); }
 
-.pc-cat__name { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.pc-cat__name { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
 /* The `hidden` attribute is only a UA display rule and .x-btn sets
    display: inline-flex, which out-specifies it. Without this opt-out
@@ -418,18 +418,18 @@ button.fm-cancel {
 
 .pc-add {
     display: flex;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: flex-end;
     flex-wrap: wrap;
-    padding: var(--space-4) var(--space-5);
-    border-top: 1px solid var(--border);
-    background: var(--canvas);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    border-top: 1px solid var(--bl-rule);
+    background: var(--bl-paper);
 }
 
-.pc-add__field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.pc-add__field { display: flex; flex-direction: column; gap: var(--bl-space-1); min-width: 0; }
 .pc-add__field--grow { flex: 1 1 220px; }
 .pc-add__field--num { flex: 0 0 108px; }
-.pc-add__label { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.pc-add__label { font-size: 11px; font-weight: 500; color: var(--bl-ink-3); }
 
 .pc-cat:hover .x-menu__trigger,
 .pc-cat:focus-within .x-menu__trigger,
@@ -446,8 +446,8 @@ button.fm-cancel {
 
     .pc-cat {
         grid-template-columns: minmax(0, 1fr) 28px;
-        row-gap: var(--space-2);
-        padding: var(--space-3) var(--space-4);
+        row-gap: var(--bl-space-2);
+        padding: var(--bl-space-3) var(--bl-space-4);
         align-items: start;
     }
 
@@ -458,10 +458,10 @@ button.fm-cancel {
         display: block;
         margin-bottom: 2px;
         font-size: 11px;
-        color: var(--text-muted);
+        color: var(--bl-ink-3);
     }
 
-    .pc-role { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+    .pc-role { grid-template-columns: minmax(0, 1fr); gap: var(--bl-space-2); }
 
     .pc-desc { max-width: none; white-space: normal; }
 }

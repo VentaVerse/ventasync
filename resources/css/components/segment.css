@@ -6,7 +6,7 @@
    Why a segment and not the old .tabs strip: tabs imply separate pages, and
    these are seven filters over one page. A segment reads as "pick one",
    which is what the control actually does. The active item is lifted onto
-   --surface inside a --surface-sunken trough, so the selected state is
+   --bl-sheet inside a --bl-chrome trough, so the selected state is
    carried by elevation and a hairline ring, not by a brand colour. That
    matters because colour on these pages has exactly one job, telling the
    operator which orders need them, and a coloured tab would compete with
@@ -19,8 +19,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
+    gap: var(--bl-space-3);
+    margin-bottom: var(--bl-space-3);
     min-width: 0;
 }
 
@@ -30,9 +30,9 @@
     gap: 2px;
     min-width: 0;
     padding: 3px;
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 
     /* Setting one axis to a non-visible value forces the other to auto per
        the CSS Overflow spec. Declaring it keeps the clipping deliberate:
@@ -53,7 +53,7 @@
 .x-segment__item {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     flex: none;
     background: transparent;
     border: 0;
@@ -64,26 +64,26 @@
        clicked all day, so they earn control-scale hit targets. */
     height: 36px;
     padding: 0 14px;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
+    border-radius: var(--bl-r-dot);
+    color: var(--bl-ink-2);
     font-size: 14px;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
     text-decoration: none;
-    transition: color var(--motion-fast), background var(--motion-fast);
+    transition: color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
 
-.x-segment__item:hover { color: var(--text); }
+.x-segment__item:hover { color: var(--bl-ink); }
 
 .x-segment__item.is-active {
-    background: var(--surface);
-    color: var(--text);
+    background: var(--bl-sheet);
+    color: var(--bl-ink);
     /* A ring plus the faintest possible drop, not a shadow stack. In dark
        theme the drop is invisible and the lift is carried by the surface
        step alone, which is the correct behaviour: dark surfaces read
        elevation as lightness, not as shadow. */
-    box-shadow: 0 0 0 1px var(--border-strong), 0 1px 2px rgba(0, 0, 0, .05);
+    box-shadow: 0 0 0 1px var(--bl-rule-2), 0 1px 2px rgba(0, 0, 0, .05);
 }
 
 /* Counts are reference information, not emphasis, so they take the muted
@@ -93,19 +93,20 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
-.x-segment__item.is-active .x-segment__count { color: var(--text-secondary); }
+.x-segment__item.is-active .x-segment__count { color: var(--bl-ink-2); }
 
 /* The sub level. A second, quieter row that only appears under the one
    segment that has sub steps (Shopee's To Ship splits into To Pack and To
    Handover). It drops the trough entirely so it cannot be mistaken for a
    peer of the row above it, and marks its active item with the same
-   accent-weak tint the shell nav uses for its own active child, which is
-   already measured at 4.59:1 light and 6.94:1 dark against --surface-sunken
-   (see the composited-rule note in base/tokens.css). Here it composites
-   over --canvas, which is lighter than sunken in light theme and darker in
+   brand-wash tint the shell nav uses for its own active child, which is
+   already measured at 4.59:1 light and 6.94:1 dark against --bl-chrome
+   (measured when the tint was introduced, in the retired v2.2 token
+   file's composited-rule note). Here it composites
+   over --bl-paper, which is lighter than sunken in light theme and darker in
    dark theme, so both directions clear that measured floor rather than
    fall below it. */
 /* A sub-tab strip is still a strip.
@@ -116,31 +117,31 @@
  * of thing. It keeps its own scale, a step smaller and quieter, which is
  * what says "second level" rather than "different control".
  *
- * This file is a LEGACY page stylesheet imported through blotter-bridge.css,
- * so it lands after the component layer and wins on source order. The rule
- * had to change here; setting it in blotter-components.css alone did nothing
- * and measured as if the edit had not happened. */
+ * This file is a page vocabulary imported unlayered from blotter.css, so it
+ * beats the @layer'd component sheet regardless of order. The rule had to
+ * change here; setting it in blotter-components.css alone did nothing and
+ * measured as if the edit had not happened. */
 .x-segment--sub {
     background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
     padding: 2px;
     gap: 2px;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--bl-space-4);
 }
 
 .x-segment--sub .x-segment__item {
     height: 30px;
-    padding: 0 var(--space-3);
+    padding: 0 var(--bl-space-3);
     font-size: 12.5px;
 }
 
 .x-segment--sub .x-segment__item.is-active {
-    background: var(--accent-weak);
-    color: var(--accent);
+    background: var(--bl-brand-wash);
+    color: var(--bl-brand-deep);
     box-shadow: none;
 }
 
-.x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--accent); }
+.x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-brand-deep); }
 
 /* A sibling destination that is not one of the segment's own views. It sits
    on the far side of the bar and takes plain-link weight so it never reads
@@ -148,16 +149,16 @@
 .x-segment-bar__aside {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: var(--bl-space-1);
     flex: none;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     font-size: 12px;
     text-decoration: none;
     white-space: nowrap;
-    transition: color var(--motion-fast);
+    transition: color var(--bl-motion-fast);
 }
 
-.x-segment-bar__aside:hover { color: var(--text); }
+.x-segment-bar__aside:hover { color: var(--bl-ink); }
 
 @media (max-width: 640px) {
     /* The aside would otherwise squeeze the trough it sits beside on a
@@ -166,7 +167,7 @@
     .x-segment-bar {
         flex-direction: column;
         align-items: stretch;
-        gap: var(--space-2);
+        gap: var(--bl-space-2);
     }
 
     .x-segment-bar__aside { align-self: flex-start; }

@@ -11,7 +11,7 @@
    its picking-document links, and the tracking timeline its module builds.
 
    Nothing here carries a colour of its own. Lazada's blue lived on the old
-   .marketplace-lazada wrapper, where it repainted --accent for every control
+   .marketplace-lazada wrapper, where it repainted --bl-brand-deep for every control
    on the page; channel identity is carried by the sidebar and the
    breadcrumb, which already say Lazada, and the accent is spent on the one
    thing that needs a human.
@@ -60,15 +60,15 @@
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: var(--space-1) var(--space-3);
-    margin-top: var(--space-2);
+    gap: var(--bl-space-1) var(--bl-space-3);
+    margin-top: var(--bl-space-2);
 }
 
 .lz-docs__label {
     font-size: 11px;
     font-weight: 500;
     letter-spacing: .02em;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .lz-doc {
@@ -78,13 +78,13 @@
     position: relative;
     z-index: 1;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     text-decoration: none;
-    transition: color var(--motion-fast);
+    transition: color var(--bl-motion-fast);
 }
 
 .lz-doc:hover {
-    color: var(--text);
+    color: var(--bl-ink);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
@@ -100,38 +100,38 @@
 .lz-trace {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--bl-space-4);
     max-height: 52vh;
     overflow-y: auto;
 }
 
 .lz-trace__event {
-    padding-left: var(--space-3);
-    border-left: 2px solid var(--border-strong);
+    padding-left: var(--bl-space-3);
+    border-left: 2px solid var(--bl-rule-2);
 }
 
 /* The most recent event is the answer to the question the operator opened
    this modal with, so it is the one the rule marks. */
-.lz-trace__event:first-child { border-left-color: var(--accent); }
+.lz-trace__event:first-child { border-left-color: var(--bl-brand-deep); }
 
 .lz-trace__time {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .lz-trace__status {
     margin-top: 2px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 .lz-trace__detail {
     margin-top: 2px;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 /* ------------------------------------------------------------------
@@ -143,15 +143,15 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text);
+    color: var(--bl-ink);
     overflow-wrap: anywhere;
 }
 
 .lz-reason {
     display: block;
-    margin-top: var(--space-1);
+    margin-top: var(--bl-space-1);
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ==================================================================
@@ -177,17 +177,17 @@
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: var(--space-1) var(--space-2);
-    margin-top: var(--space-1);
+    gap: var(--bl-space-1) var(--bl-space-2);
+    margin-top: var(--bl-space-1);
 }
 
-.lzd-ids__k { font-size: 11px; color: var(--text-muted); }
+.lzd-ids__k { font-size: 11px; color: var(--bl-ink-3); }
 
 .lzd-ids__v {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     overflow-wrap: anywhere;
 }
 
@@ -198,11 +198,11 @@
    cells that wrap, the same numbers fit any column width.
    ------------------------------------------------------------------ */
 
-.lzd-breakdown { margin-top: var(--space-2); }
+.lzd-breakdown { margin-top: var(--bl-space-2); }
 
 .lzd-break {
-    padding: var(--space-3) 0;
-    border-top: 1px solid var(--border);
+    padding: var(--bl-space-3) 0;
+    border-top: 1px solid var(--bl-rule);
 }
 
 .lzd-break:first-of-type { border-top: 0; }
@@ -211,16 +211,16 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2) var(--space-3);
+    gap: var(--bl-space-2) var(--bl-space-3);
 }
 
-.lzd-break__name { font-size: 13px; font-weight: 500; color: var(--text); }
+.lzd-break__name { font-size: 13px; font-weight: 500; color: var(--bl-ink); }
 
 .lzd-break__figs {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1) var(--space-4);
-    margin-top: var(--space-2);
+    gap: var(--bl-space-1) var(--bl-space-4);
+    margin-top: var(--bl-space-2);
 }
 
 /* ------------------------------------------------------------------
@@ -236,13 +236,13 @@
 .lzd-trx__row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 9rem 8rem 7rem;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: baseline;
 }
 
 .lzd-trx__head {
-    padding-bottom: var(--space-2);
-    color: var(--text-muted);
+    padding-bottom: var(--bl-space-2);
+    color: var(--bl-ink-3);
     font-size: 11px;
     letter-spacing: .02em;
 }
@@ -250,21 +250,21 @@
 .lzd-trx__head span:nth-child(3) { text-align: right; }
 
 .lzd-trx__row {
-    padding: var(--space-3) 0;
-    border-top: 1px solid var(--border);
+    padding: var(--bl-space-3) 0;
+    border-top: 1px solid var(--bl-rule);
 }
 
-.lzd-trx__name { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.lzd-trx__name { font-size: 13px; color: var(--bl-ink); overflow-wrap: anywhere; }
 
 /* Lazada's own fee_type code. Useful when the fee name is empty or when
    two names collide, but it is a code, so it rides quietly beside the
    name rather than taking a column of its own. */
 .lzd-trx__type {
-    margin-left: var(--space-2);
+    margin-left: var(--bl-space-2);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .lzd-trx__sku,
@@ -272,7 +272,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     overflow-wrap: anywhere;
 }
 
@@ -281,7 +281,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* ------------------------------------------------------------------
@@ -289,7 +289,7 @@
    ------------------------------------------------------------------ */
 
 /* Up to sixteen fee lines in a 340px column: the card body's own
-   --space-3 rhythm is meant for three or four facts and turns this block
+   --bl-space-3 rhythm is meant for three or four facts and turns this block
    into a scroll. The rows keep their own vertical padding and the gap
    goes. Same handling Shopee's escrow block takes. */
 .lzd-fees { gap: 0; }
@@ -297,7 +297,7 @@
 /* The settlement note under the fee block. */
 .lzd-note {
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 
 /* Waybill and tracking sit in the shipping card's foot. Two controls of
@@ -306,7 +306,7 @@
 .lzd-parcel {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
 }
 
 /* ------------------------------------------------------------------
@@ -318,16 +318,16 @@
 
 .lzd-raw {
     max-height: 420px;
-    margin: var(--space-3) 0 0;
-    padding: var(--space-3);
+    margin: var(--bl-space-3) 0 0;
+    padding: var(--bl-space-3);
     overflow: auto;
-    background: var(--surface-sunken);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     font-family: var(--font-mono);
     font-size: 11px;
     line-height: 1.6;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
@@ -346,7 +346,7 @@
 
     .lzd-trx__row {
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: var(--space-1) var(--space-3);
+        gap: var(--bl-space-1) var(--bl-space-3);
     }
 
     .lzd-trx__name { grid-column: 1 / -1; }

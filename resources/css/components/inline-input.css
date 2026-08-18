@@ -21,24 +21,24 @@
 
 .x-inline-input {
     width: 100%;
-    height: var(--control-h-sm);
-    padding: 0 var(--space-2);
+    height: var(--bl-control-h-sm);
+    padding: 0 var(--bl-space-2);
     font: inherit;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     background: transparent;
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    transition: border-color var(--motion-fast), background var(--motion-fast);
+    border-radius: var(--bl-r-dot);
+    transition: border-color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
 
-.x-inline-input:hover { border-color: var(--border); }
+.x-inline-input:hover { border-color: var(--bl-rule); }
 
 .x-inline-input:focus {
     outline: none;
-    background: var(--surface);
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-weak);
+    background: var(--bl-sheet);
+    border-color: var(--bl-brand-deep);
+    box-shadow: 0 0 0 3px var(--bl-brand-wash);
 }
 
 /* Money, quantities and identifiers align on their last digit, same
@@ -52,11 +52,11 @@
 /* Same state name `.x-input` uses in components/form-page.css, so a
    page script does not have to know which of the two it is marking. */
 .x-inline-input.is-invalid {
-    border-color: var(--danger);
-    background: color-mix(in srgb, var(--danger) 8%, transparent);
+    border-color: var(--bl-bad);
+    background: color-mix(in srgb, var(--bl-bad) 8%, transparent);
 }
 
 .x-inline-input.is-invalid:focus {
-    border-color: var(--danger);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent);
+    border-color: var(--bl-bad);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bl-bad) 20%, transparent);
 }

@@ -50,58 +50,22 @@ class FoundationTest extends TestCase
     ];
 
     /**
-     * Legacy design tokens still referenced per stylesheet, as of the
-     * foundation commit.
+     * The v2.2 token vocabulary, retired 2026-08-18.
      *
-     * Was 60 files and 2,550 references. Retiring app.css took 34 stylesheets
-     * with it - they were duplicates of the live vocabulary that only the
-     * legacy bundle loaded - so most of that debt turned out to be dead code
-     * rather than migration work.
-     *
-     * Most of these reach the live bundle through blotter-bridge.css, which
-     * aliases 35 v2.2 tokens onto v2.3 values. They therefore inherit the
-     * colours and none of the decisions: not the spacing rhythm, not the 16px
-     * sheet radius, not the two-step elevation. The bridge's own header calls
-     * itself "a staging post, not a destination".
-     *
-     * Every number here must go to zero, at which point the bridge is deleted
-     * and this whole constant with it.
+     * The ratchet that used to live here (LEGACY_TOKEN_DEBT) went from
+     * 60 files and 2,550 references to zero, at which point the alias
+     * bridge (blotter-bridge.css) was deleted, exactly as its header
+     * promised. What remains is the terminal form of that ratchet: none
+     * of these names may be declared or referenced again. Tokens live in
+     * the --bl-* namespace, next to Tailwind's own --color-* / --font-*
+     * theme keys; a component may still declare its own scoped parameter
+     * (--pill-*, --bl-pad overrides), which no stem below collides with.
      */
-    private const LEGACY_TOKEN_DEBT = [
-        'blotter-components.css' => 4,
-        'components/currency-dual.css' => 4,
-        'components/currency-rate.css' => 1,
-        'components/inline-input.css' => 6,
-        'components/invoice-request.css' => 8,
-        'components/permission-pill.css' => 129,
-        'components/segment.css' => 20,
-        'components/tabs.css' => 12,
-        'components/typeahead.css' => 7,
-        'pages/api-explorer.css' => 13,
-        'pages/automations.css' => 1,
-        'pages/channel-catalog.css' => 47,
-        'pages/channel-listing.css' => 30,
-        'pages/channel-settings.css' => 164,
-        'pages/group-form.css' => 58,
-        'pages/integrations.css' => 75,
-        'pages/lazada-orders.css' => 44,
-        'pages/licenses.css' => 13,
-        'pages/marketplace-common.css' => 15,
-        'pages/marketplace-returns.css' => 9,
-        'pages/order-form.css' => 82,
-        'pages/petty-cash.css' => 85,
-        'pages/product-vendors.css' => 43,
-        'pages/purchasing.css' => 131,
-        'pages/reports.css' => 124,
-        'pages/reviews.css' => 66,
-        'pages/shopee-orders.css' => 62,
-        'pages/tiktok-orders.css' => 11,
-        'pages/venta-orders.css' => 13,
-        'pages/warehousing.css' => 111,
-    ];
-
-    private const LEGACY_TOKEN_PATTERN =
-        '/var\(--(space-|surface|border\b|border-|text-|radius-|muted|ink\b|accent)/';
+    private const RETIRED_TOKEN_PATTERN =
+        '/(?<![\w-])--(?:canvas|surface(?:-[a-z]+)?|border(?:-[a-z-]+)?|text(?:-[a-z]+)?|ink|muted'
+        .'|accent(?:-[a-z]+)?|danger(?:-hover)?|warning|info|success-(?:ink|soft)|chart-(?:money|count)'
+        .'|radius-(?:sm|md|lg)|shadow-(?:sm|menu|modal)|transition-fast|font-ui|control-h(?:-sm)?|row-h'
+        .'|sidebar-w-new|motion-(?:fast|base)|space-[1-8])(?![\w-])/';
 
     /**
      * A section, a card and a page head are the foundation's job. A page that
@@ -179,53 +143,30 @@ class FoundationTest extends TestCase
     }
 
     /**
-     * Legacy token usage may fall. It may not rise, and no stylesheet outside
-     * the recorded debt may start using them at all.
+     * The retired vocabulary stays retired.
+     *
+     * The undeclared-property check below cannot catch a revival on its
+     * own: re-declare --surface somewhere and every use of it is
+     * "declared" again. This is the assertion that keeps the door shut.
      */
-    public function test_legacy_token_debt_only_shrinks(): void
+    public function test_the_retired_v22_token_vocabulary_stays_retired(): void
     {
-        $regressions = [];
-        $paid = [];
+        $revived = [];
 
         foreach ($this->stylesheets() as $path) {
             $key = str_replace(resource_path('css').'/', '', $path);
 
-            // blotter-bridge.css is where the aliases are DECLARED. It is the
-            // thing being retired, not a consumer of it.
-            if ($key === 'blotter-bridge.css') {
-                continue;
-            }
-
-            $count = preg_match_all(self::LEGACY_TOKEN_PATTERN, File::get($path));
-            $allowed = self::LEGACY_TOKEN_DEBT[$key] ?? 0;
-
-            if ($count > $allowed) {
-                $regressions[] = "{$key}: {$count} legacy tokens, {$allowed} allowed";
-            }
-
-            if ($count < $allowed) {
-                $paid[] = "{$key}: down to {$count} from {$allowed}";
+            if (preg_match_all(self::RETIRED_TOKEN_PATTERN, File::get($path), $m)) {
+                $revived[] = "{$key}: ".implode(', ', array_unique($m[0]));
             }
         }
 
         $this->assertSame(
             [],
-            $regressions,
-            "Legacy design tokens were added to a stylesheet.\n"
-            ."Use the --bl-* tokens: --bl-sheet, --bl-rule, --bl-ink, --bl-r-panel,\n"
-            ."--bl-lift and the rest, listed at the top of blotter.css.\n\n"
-            .implode("\n", $regressions)
-        );
-
-        // Not a failure, but the baseline must be lowered when debt is paid,
-        // or the ratchet stops ratcheting.
-        $this->assertSame(
-            [],
-            $paid,
-            "Legacy token debt was paid down. Lower these entries in\n"
-            ."FoundationTest::LEGACY_TOKEN_DEBT so the ratchet holds the new floor\n"
-            ."(delete the entry entirely when it reaches zero):\n\n"
-            .implode("\n", $paid)
+            $revived,
+            "A stylesheet speaks the retired v2.2 token vocabulary.\n"
+            ."Use the --bl-* tokens listed at the top of blotter.css:\n\n"
+            .implode("\n", $revived)
         );
     }
 

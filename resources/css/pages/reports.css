@@ -25,9 +25,9 @@
 
    COLOUR HAS ONE JOB HERE, the same job it has on the order detail page
    (see the tone block at the end of components/order-detail.css): it
-   marks money that needs attention. --accent is spent on exactly one
-   figure per page, the lead net figure. --danger marks a negative result.
-   --warning marks a margin thin enough to look at (the 20/10 thresholds
+   marks money that needs attention. --bl-brand-deep is spent on exactly one
+   figure per page, the lead net figure. --bl-bad marks a negative result.
+   --bl-attn-fill marks a margin thin enough to look at (the 20/10 thresholds
    the order pages already use). Revenue, COGS, shipping and fees are
    PLAIN TEXT: they are facts, not judgements, and tinting all of them red
    because "cost is bad" is what left the old pages with no signal at all.
@@ -55,10 +55,10 @@
    leaving it to a symbol the reader has to infer.
    ------------------------------------------------------------------ */
 .rp-basis {
-    margin: 0 0 var(--space-4);
+    margin: 0 0 var(--bl-space-4);
     font-size: 12px;
     line-height: 18px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     max-width: 78ch;
 }
 
@@ -68,7 +68,7 @@
 .rp-basis__caveat {
     display: block;
     margin-top: 2px;
-    color: var(--warning);
+    color: var(--bl-attn-fill);
 }
 
 /* ------------------------------------------------------------------
@@ -77,13 +77,13 @@
 .rp-band {
     display: flex;
     align-items: stretch;
-    gap: var(--space-5);
+    gap: var(--bl-space-5);
     flex-wrap: wrap;
-    padding: var(--space-4) var(--space-5);
-    margin-bottom: var(--space-5);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    padding: var(--bl-space-4) var(--bl-space-5);
+    margin-bottom: var(--bl-space-5);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
 }
 
 .rp-lead { flex: 0 0 auto; min-width: 200px; }
@@ -91,7 +91,7 @@
     display: block;
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     letter-spacing: .02em;
 }
 .rp-lead__v {
@@ -102,19 +102,19 @@
     font-size: 30px;
     line-height: 36px;
     font-weight: 500;
-    color: var(--accent);
+    color: var(--bl-brand-deep);
     letter-spacing: -.01em;
 }
-.rp-lead__v.rp-neg { color: var(--danger); }
+.rp-lead__v.rp-neg { color: var(--bl-bad); }
 .rp-lead__sub {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1) var(--space-3);
-    margin-top: var(--space-1);
+    gap: var(--bl-space-1) var(--bl-space-3);
+    margin-top: var(--bl-space-1);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* The supporting figures. No card chrome, no boxes: one vertical hairline
@@ -123,18 +123,18 @@
     flex: 1 1 340px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-    gap: var(--space-3) 0;
+    gap: var(--bl-space-3) 0;
     align-content: center;
 }
 .rp-fact {
-    padding: 0 var(--space-4);
-    border-left: 1px solid var(--border);
+    padding: 0 var(--bl-space-4);
+    border-left: 1px solid var(--bl-rule);
     min-width: 0;
 }
 .rp-fact__k {
     display: block;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -146,15 +146,15 @@
     font-variant-numeric: tabular-nums;
     font-size: 15px;
     line-height: 22px;
-    color: var(--text);
+    color: var(--bl-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.rp-fact__note { display: block; font-size: 11px; color: var(--text-muted); }
+.rp-fact__note { display: block; font-size: 11px; color: var(--bl-ink-3); }
 
 @media (max-width: 720px) {
-    .rp-band { padding: var(--space-4); gap: var(--space-4); }
+    .rp-band { padding: var(--bl-space-4); gap: var(--bl-space-4); }
     .rp-lead { flex: 1 1 100%; }
     .rp-lead__v { font-size: 26px; line-height: 32px; }
     .rp-facts { flex: 1 1 100%; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
@@ -166,7 +166,7 @@
    worse than showing fewer of them per row. */
 @media (max-width: 480px) {
     .rp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rp-fact { padding: 0 var(--space-3); }
+    .rp-fact { padding: 0 var(--bl-space-3); }
     .rp-fact__v { font-size: 14px; }
     .rp-fact:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
@@ -187,26 +187,26 @@
 .rp-range {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
-    height: var(--control-h);
-    padding: 0 var(--space-2);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--bl-space-1);
+    height: var(--bl-control-h);
+    padding: 0 var(--bl-space-2);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
 }
-.rp-range__sep { font-size: 12px; color: var(--text-muted); }
+.rp-range__sep { font-size: 12px; color: var(--bl-ink-3); }
 .rp-range input[type="date"] {
     height: 26px;
     padding: 0 2px;
     background: transparent;
     border: 0;
-    color: var(--text);
+    color: var(--bl-ink);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
 }
 .rp-range input[type="date"]:focus { outline: none; }
-.rp-range:focus-within { border-color: var(--border-strong); }
+.rp-range:focus-within { border-color: var(--bl-rule-2); }
 /* The native calendar glyph is near-black and vanishes on the dark
    theme; invert it there and tone it down in both. */
 .rp-range input[type="date"]::-webkit-calendar-picker-indicator {
@@ -224,47 +224,47 @@
    filter row, and it gives no hint that more than one value is allowed.
    Checkboxes say all three things by existing. */
 .rp-more__field--wide { grid-column: span 2; }
-.rp-choices { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+.rp-choices { display: flex; flex-wrap: wrap; gap: var(--bl-space-1) var(--bl-space-4); }
 .rp-choice {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
     cursor: pointer;
 }
-.rp-choice:hover { color: var(--text); }
-.rp-choice input { width: 13px; height: 13px; accent-color: var(--accent); cursor: pointer; }
+.rp-choice:hover { color: var(--bl-ink); }
+.rp-choice input { width: 13px; height: 13px; accent-color: var(--bl-brand-deep); cursor: pointer; }
 
 /* A text control, not a button. One solid fill (Run report) and two
    quiet text links beside it, rather than a solid fill flanked by two
    outlined buttons of equal size all saying different kinds of thing. */
 .rp-more-toggle {
     align-self: center;
-    margin-left: var(--space-2);
+    margin-left: var(--bl-space-2);
     padding: 0;
     background: none;
     border: 0;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
 }
-.rp-more-toggle:hover { color: var(--text); text-decoration: underline; }
-.rp-more-toggle[aria-expanded="true"] { color: var(--text); }
+.rp-more-toggle:hover { color: var(--bl-ink); text-decoration: underline; }
+.rp-more-toggle[aria-expanded="true"] { color: var(--bl-ink); }
 
 .rp-more {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     width: 100%;
-    margin-top: var(--space-1);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--border);
+    margin-top: var(--bl-space-1);
+    padding-top: var(--bl-space-3);
+    border-top: 1px solid var(--bl-rule);
 }
 .rp-more[hidden] { display: none; }
-.rp-more__field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.rp-more__label { font-size: 11px; color: var(--text-muted); }
+.rp-more__field { display: flex; flex-direction: column; gap: var(--bl-space-1); min-width: 0; }
+.rp-more__label { font-size: 11px; color: var(--bl-ink-3); }
 .rp-more__field .x-input,
 .rp-more__field .x-select-wrap { width: 100%; }
 
@@ -283,7 +283,7 @@
 .rp-scroll {
     overflow: auto;
     max-height: calc(100vh - 220px);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--bl-rule);
     overscroll-behavior-x: contain;
 }
 .rp-scroll .x-table {
@@ -291,7 +291,7 @@
     width: max-content;
     min-width: 100%;
 }
-.rp-scroll .x-table thead th { background: var(--canvas); }
+.rp-scroll .x-table thead th { background: var(--bl-paper); }
 
 /* Toggling a group open/shut sets the `hidden` attribute on its rows.
    The mobile restack further down turns every row into a grid, and
@@ -309,21 +309,21 @@
     font-variant-numeric: tabular-nums;
     font-size: 12px;
 }
-.rp-dash { color: var(--text-muted); }
+.rp-dash { color: var(--bl-ink-3); }
 
 /* A group header row (month on the orders report, period on fees). The
    whole first cell is the button, so the hit target is the row's width
    rather than a 10px glyph. */
 .rp-grp > td {
-    background: var(--surface-sunken);
-    border-bottom: 1px solid var(--border);
+    background: var(--bl-chrome);
+    border-bottom: 1px solid var(--bl-rule);
     font-weight: 500;
 }
-.rp-grp:hover > td { background: var(--surface-hover); }
+.rp-grp:hover > td { background: var(--bl-chrome-2); }
 .rp-grp__btn {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     padding: 0;
     background: none;
     border: 0;
@@ -335,12 +335,12 @@
 }
 .rp-grp__caret {
     display: inline-flex;
-    color: var(--text-muted);
-    transition: transform var(--motion-fast);
+    color: var(--bl-ink-3);
+    transition: transform var(--bl-motion-fast);
 }
 .rp-grp__btn[aria-expanded="true"] .rp-grp__caret { transform: rotate(90deg); }
-.rp-grp__count { color: var(--text-muted); font-weight: 400; }
-.rp-child > td:first-child { padding-left: var(--space-6); }
+.rp-grp__count { color: var(--bl-ink-3); font-weight: 400; }
+.rp-child > td:first-child { padding-left: var(--bl-space-6); }
 
 /* Totals. Distinct without being loud: a heavier rule above it, the
    sunken surface, and it stays put at the bottom of the scroll box so a
@@ -349,10 +349,10 @@
     position: sticky;
     bottom: 0;
     z-index: 2;
-    background: var(--surface-sunken);
-    border-top: 1px solid var(--border-strong);
+    background: var(--bl-chrome);
+    border-top: 1px solid var(--bl-rule-2);
     font-weight: 500;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* ------------------------------------------------------------------
@@ -361,14 +361,14 @@
    table that looks like "no results".
    ------------------------------------------------------------------ */
 .rp-gate {
-    padding: var(--space-8) var(--space-4);
+    padding: var(--bl-space-8) var(--bl-space-4);
     text-align: center;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--surface-sunken);
+    border: 1px dashed var(--bl-rule);
+    border-radius: var(--bl-r-panel);
+    background: var(--bl-chrome);
 }
-.rp-gate__title { margin: 0 0 var(--space-1); font-size: 14px; font-weight: 500; color: var(--text); }
-.rp-gate__text { margin: 0 auto; max-width: 52ch; font-size: 13px; color: var(--text-muted); }
+.rp-gate__title { margin: 0 0 var(--bl-space-1); font-size: 14px; font-weight: 500; color: var(--bl-ink); }
+.rp-gate__text { margin: 0 auto; max-width: 52ch; font-size: 13px; color: var(--bl-ink-3); }
 
 /* ------------------------------------------------------------------
    Charts, drawn in HTML and CSS rather than a canvas.
@@ -388,35 +388,35 @@
    revenue, which is exactly what happened.
    ------------------------------------------------------------------ */
 .rp-chart {
-    padding: var(--space-4) var(--space-5) var(--space-3);
-    margin-bottom: var(--space-5);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    padding: var(--bl-space-4) var(--bl-space-5) var(--bl-space-3);
+    margin-bottom: var(--bl-space-5);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-panel);
 }
 .rp-chart__head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     flex-wrap: wrap;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--bl-space-4);
 }
-.rp-chart__title { margin: 0; font-size: 13px; font-weight: 500; color: var(--text); }
-.rp-chart__note { font-size: 11px; color: var(--text-muted); }
-.rp-key { display: flex; gap: var(--space-3); font-size: 11px; color: var(--text-muted); }
-.rp-key__item { display: inline-flex; align-items: center; gap: var(--space-1); }
-.rp-key__swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--text-muted); }
-/* Fix round, Important 3: was --border-strong (1.54:1 light, 1.50:1 dark
-   against --surface), well under the 3:1 WCAG 1.4.11 floor for a
+.rp-chart__title { margin: 0; font-size: 13px; font-weight: 500; color: var(--bl-ink); }
+.rp-chart__note { font-size: 11px; color: var(--bl-ink-3); }
+.rp-key { display: flex; gap: var(--bl-space-3); font-size: 11px; color: var(--bl-ink-3); }
+.rp-key__item { display: inline-flex; align-items: center; gap: var(--bl-space-1); }
+.rp-key__swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--bl-ink-3); }
+/* Fix round, Important 3: was --bl-rule-2 (1.54:1 light, 1.50:1 dark
+   against --bl-sheet), well under the 3:1 WCAG 1.4.11 floor for a
    graphic that carries meaning on its own (the whole point of this chart
-   is the revenue/cost split). --text-muted clears it comfortably: 5.13:1
-   light, 4.87:1 dark against --surface (base/tokens.css's own audited
+   is the revenue/cost split). --bl-ink-3 clears it comfortably: 5.13:1
+   light, 4.87:1 dark against --bl-sheet (base/tokens.css's own audited
    matrix, the "surface" column). Matches .rp-trend__cost below, so the
    legend swatch and the bar segment it explains are the same colour. */
-.rp-key__swatch--cost   { background: var(--text-muted); }
-.rp-key__swatch--profit { background: var(--accent); }
-.rp-key__swatch--loss   { background: var(--danger); }
+.rp-key__swatch--cost   { background: var(--bl-ink-3); }
+.rp-key__swatch--profit { background: var(--bl-brand-deep); }
+.rp-key__swatch--loss   { background: var(--bl-bad); }
 
 /* One <svg> per period rather than one for the whole series. That is what
    lets CSS cap how wide a single column may draw (max-width below): a
@@ -434,7 +434,7 @@
     justify-content: space-between;
     gap: 3px;
     height: 168px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--bl-rule);
 }
 .rp-trend__col {
     display: block;
@@ -443,40 +443,40 @@
     max-width: 44px;
     height: 100%;
 }
-/* Fix round, Important 3: resting fill was --border-strong, a border
+/* Fix round, Important 3: resting fill was --bl-rule-2, a border
    token doing a fill's job at 1.54:1 light / 1.50:1 dark against
-   --surface, under the 3:1 WCAG 1.4.11 floor for an information-bearing
+   --bl-sheet, under the 3:1 WCAG 1.4.11 floor for an information-bearing
    graphic (this segment IS the cost half of the revenue/cost split the
    chart exists to show; the figures live in the table below too, but the
-   resting bar itself has to clear the bar on its own). --text-muted
-   clears it at 5.13:1 light / 4.87:1 dark against --surface
+   resting bar itself has to clear the bar on its own). --bl-ink-3
+   clears it at 5.13:1 light / 4.87:1 dark against --bl-sheet
    (base/tokens.css's own audited matrix). Hover moves one step further,
-   to --text-secondary (5.55 light / 6.64 dark against --surface), so the
+   to --bl-ink-2 (5.55 light / 6.64 dark against --bl-sheet), so the
    segment still visibly darkens on hover rather than going flat now that
    the resting state already passes on its own. */
-.rp-trend__cost   { fill: var(--text-muted); }
-.rp-trend__profit { fill: var(--accent); }
-.rp-trend__loss   { fill: var(--danger); }
-.rp-trend__col:hover .rp-trend__cost { fill: var(--text-secondary); }
+.rp-trend__cost   { fill: var(--bl-ink-3); }
+.rp-trend__profit { fill: var(--bl-brand-deep); }
+.rp-trend__loss   { fill: var(--bl-bad); }
+.rp-trend__col:hover .rp-trend__cost { fill: var(--bl-ink-2); }
 
 .rp-trend__ticks {
     display: flex;
     justify-content: space-between;
-    margin-top: var(--space-2);
+    margin-top: var(--bl-space-2);
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* A ranked horizontal bar list. Used for the products report's two top-10
    panels. The label sits above its own bar rather than in a fixed-width
    gutter, so a long product name is never truncated to two characters. */
-.rp-rank { display: flex; flex-direction: column; gap: var(--space-3); }
-.rp-rank__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-3); align-items: baseline; }
+.rp-rank { display: flex; flex-direction: column; gap: var(--bl-space-3); }
+.rp-rank__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--bl-space-3); align-items: baseline; }
 .rp-rank__name {
     grid-column: 1;
     font-size: 12px;
-    color: var(--text);
+    color: var(--bl-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -486,28 +486,28 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--bl-ink-2);
 }
 .rp-rank__track {
     grid-column: 1 / -1;
     display: block;
     width: 100%;
     height: 6px;
-    background: var(--surface-sunken);
+    background: var(--bl-chrome);
     border-radius: 3px;
     overflow: hidden;
 }
-.rp-rank__bar { fill: var(--accent); }
-.rp-rank__bar--loss { fill: var(--danger); }
+.rp-rank__bar { fill: var(--bl-brand-deep); }
+.rp-rank__bar--loss { fill: var(--bl-bad); }
 
-.rp-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-5); }
+.rp-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--bl-space-4); margin-bottom: var(--bl-space-5); }
 .rp-panels .rp-chart { margin-bottom: 0; }
 
 /* ------------------------------------------------------------------
    Product drill-down (products report). The child row holds a panel with
    two small tables built by resources/js/pages/reports.js.
    ------------------------------------------------------------------ */
-.rp-drill-col { width: 34px; padding-left: var(--space-2); padding-right: 0; }
+.rp-drill-col { width: 34px; padding-left: var(--bl-space-2); padding-right: 0; }
 .rp-drill-toggle {
     display: inline-flex;
     align-items: center;
@@ -516,48 +516,48 @@
     padding: 0;
     background: none;
     border: 0;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
+    border-radius: var(--bl-r-dot);
+    color: var(--bl-ink-3);
     cursor: pointer;
-    transition: transform var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
+    transition: transform var(--bl-motion-fast), color var(--bl-motion-fast), background var(--bl-motion-fast);
 }
-.rp-drill-toggle:hover { background: var(--surface-hover); color: var(--text); }
-.rp-drill-toggle[aria-expanded="true"] { transform: rotate(90deg); color: var(--text); }
+.rp-drill-toggle:hover { background: var(--bl-chrome-2); color: var(--bl-ink); }
+.rp-drill-toggle[aria-expanded="true"] { transform: rotate(90deg); color: var(--bl-ink); }
 
-.rp-open > td { background: var(--surface-sunken); }
-.rp-drill-row > td { padding: 0; background: var(--surface-sunken); }
+.rp-open > td { background: var(--bl-chrome); }
+.rp-drill-row > td { padding: 0; background: var(--bl-chrome); }
 .rp-drill {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-4) var(--space-5) var(--space-5);
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-4) var(--bl-space-5) var(--bl-space-5);
 }
 .rp-drill__heading {
     display: flex;
     align-items: baseline;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
+    gap: var(--bl-space-2);
+    margin-top: var(--bl-space-3);
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 .rp-drill__heading:first-child { margin-top: 0; }
-.rp-drill__note { font-weight: 400; color: var(--text-muted); cursor: help; }
+.rp-drill__note { font-weight: 400; color: var(--bl-ink-3); cursor: help; }
 
 .rp-sub {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     overflow: hidden;
 }
 .rp-sub thead th {
-    padding: 6px var(--space-3);
-    background: var(--surface-sunken);
-    border-bottom: 1px solid var(--border);
-    color: var(--text-muted);
+    padding: 6px var(--bl-space-3);
+    background: var(--bl-chrome);
+    border-bottom: 1px solid var(--bl-rule);
+    color: var(--bl-ink-3);
     font-size: 11px;
     font-weight: 500;
     text-align: left;
@@ -566,8 +566,8 @@
     border-right: 0;
 }
 .rp-sub tbody td {
-    padding: 5px var(--space-3);
-    border-bottom: 1px solid var(--border);
+    padding: 5px var(--bl-space-3);
+    border-bottom: 1px solid var(--bl-rule);
     border-right: 0;
     white-space: nowrap;
 }
@@ -577,18 +577,18 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
 }
-.rp-sub__link { color: var(--accent); text-decoration: none; }
+.rp-sub__link { color: var(--bl-brand-deep); text-decoration: none; }
 .rp-sub__link:hover { text-decoration: underline; }
-.rp-drill__msg { padding: var(--space-3) 0; font-size: 12px; color: var(--text-muted); }
-.rp-drill__msg--error { color: var(--danger); }
+.rp-drill__msg { padding: var(--bl-space-3) 0; font-size: 12px; color: var(--bl-ink-3); }
+.rp-drill__msg--error { color: var(--bl-bad); }
 
 /* ------------------------------------------------------------------
    Source / status chips inside a table cell.
    ------------------------------------------------------------------ */
 .rp-idty { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.rp-idty__name { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
-.rp-idty__sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
-.rp-link { color: var(--accent); text-decoration: none; font-weight: 500; }
+.rp-idty__name { color: var(--bl-ink); overflow: hidden; text-overflow: ellipsis; }
+.rp-idty__sub { font-size: 11px; color: var(--bl-ink-3); font-family: var(--font-mono); }
+.rp-link { color: var(--bl-brand-deep); text-decoration: none; font-weight: 500; }
 .rp-link:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------------
@@ -612,10 +612,10 @@
     .rp-total > td { position: static; }
     .rp-grp > td:first-child,
     .rp-total > td:first-child { grid-column: 1 / -1; }
-    .rp-child > td:first-child { padding-left: var(--space-3); }
+    .rp-child > td:first-child { padding-left: var(--bl-space-3); }
 
     .rp-drill-col { display: none; }
-    .rp-drill { padding: var(--space-3); }
+    .rp-drill { padding: var(--bl-space-3); }
     .rp-sub { display: block; overflow-x: auto; white-space: nowrap; }
 
     .rp-more-toggle { margin-left: 0; }
@@ -631,18 +631,18 @@
 
 /* Its own thumbnail rather than components/detail.css's `.thumb-sm`: that
    one is 42px (taller than a 32px report row) and paints itself with
-   --surface-alt, a legacy variable the .x-app token set does not define,
+   --bl-chrome, a legacy variable the .x-app token set does not define,
    so it would render on an undefined background inside the shell. */
 .rp-thumb {
     display: block;
     width: 26px;
     height: 26px;
     object-fit: cover;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface-sunken);
+    border-radius: var(--bl-r-dot);
+    border: 1px solid var(--bl-rule);
+    background: var(--bl-chrome);
 }
-.rp-thumb--none { background: var(--surface-sunken); }
+.rp-thumb--none { background: var(--bl-chrome); }
 .rp-col-sku    { width: 132px; }
 .rp-col-mkt    { width: 148px; }
 .rp-col-mstat  { width: 146px; }
@@ -650,6 +650,6 @@
 
 /* Tone. See the header of this file: one job, and only when a figure
    needs a human to look at it. */
-.rp-pos  { color: var(--accent); }
-.rp-neg  { color: var(--danger); }
-.rp-warn { color: var(--warning); }
+.rp-pos  { color: var(--bl-brand-deep); }
+.rp-neg  { color: var(--bl-bad); }
+.rp-warn { color: var(--bl-attn-fill); }

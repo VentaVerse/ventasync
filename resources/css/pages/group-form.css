@@ -59,7 +59,7 @@
     font-size: 28px;
     font-weight: 500;
     line-height: 1.1;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* ==================================================================
@@ -72,7 +72,7 @@
    answer.
    ================================================================== */
 
-.gf-dual { display: flex; flex-direction: column; gap: var(--space-4); }
+.gf-dual { display: flex; flex-direction: column; gap: var(--bl-space-4); }
 
 /* ------------------------------------------------------------------
    The search row above both panes. It searches the catalogue, not the
@@ -83,7 +83,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
 }
 
 .gf-filters__search { flex: 1 1 220px; min-width: 0; }
@@ -99,7 +99,7 @@
 .gf-panes {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-3);
+    gap: var(--bl-space-3);
     align-items: start;
 }
 
@@ -111,9 +111,9 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
     overflow: hidden;
 }
 
@@ -121,15 +121,15 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    background: var(--surface-sunken);
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
+    background: var(--bl-chrome);
+    border-bottom: 1px solid var(--bl-rule);
 }
 
-.gf-pane__title { font-size: 12px; font-weight: 500; color: var(--text); }
+.gf-pane__title { font-size: 12px; font-weight: 500; color: var(--bl-ink); }
 
-.gf-pane__count { font-size: 12px; color: var(--text-muted); }
+.gf-pane__count { font-size: 12px; color: var(--bl-ink-3); }
 
 /* A fixed height, not a growing list: the two panes have to stay the
    same height as each other for the move buttons between them to keep
@@ -151,14 +151,14 @@
     display: flex;
     flex-direction: row;
     justify-content: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
 }
 
 @media (min-width: 901px) {
     .gf-move {
         flex-direction: column;
         /* Level with the first rows rather than with the pane heads. */
-        padding-top: var(--space-8);
+        padding-top: var(--bl-space-8);
     }
 }
 
@@ -196,17 +196,17 @@
    deleting that file took the only hover feedback these rows had with it.
    The picker is a list you point at before you click, so the feedback is
    restored here on the theme's own token. */
-.gf-list tbody tr { transition: background var(--motion-fast); }
-.gf-list tbody tr:hover { background: var(--surface-hover); }
+.gf-list tbody tr { transition: background var(--bl-motion-fast); }
+.gf-list tbody tr:hover { background: var(--bl-chrome-2); }
 
 .gf-list thead th {
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: var(--space-2) var(--space-2);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    color: var(--text-muted);
+    padding: var(--bl-space-2) var(--bl-space-2);
+    background: var(--bl-sheet);
+    border-bottom: 1px solid var(--bl-rule);
+    color: var(--bl-ink-3);
     font-size: 11px;
     font-weight: 500;
     letter-spacing: normal;
@@ -216,10 +216,10 @@
 }
 
 .gf-list tbody td {
-    padding: var(--space-2);
-    border-bottom: 1px solid var(--border);
+    padding: var(--bl-space-2);
+    border-bottom: 1px solid var(--bl-rule);
     vertical-align: middle;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 .gf-list tbody tr:last-child td { border-bottom: 0; }
@@ -253,7 +253,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -263,8 +263,8 @@
    searched for yet, everything found already added, or nothing in the
    group. The message is the JS's; this is only how it sits. */
 .gf-empty {
-    padding: var(--space-6) var(--space-3);
-    color: var(--text-muted);
+    padding: var(--bl-space-6) var(--bl-space-3);
+    color: var(--bl-ink-3);
     font-size: 12px;
     text-align: center;
 }
@@ -284,7 +284,7 @@
    cannot tell what is on top of what.
    ================================================================== */
 
-.gf-combo { display: flex; align-items: flex-start; gap: var(--space-2); }
+.gf-combo { display: flex; align-items: flex-start; gap: var(--bl-space-2); }
 
 .gf-combo__field { position: relative; flex: 1 1 auto; min-width: 0; }
 
@@ -297,14 +297,14 @@
     max-height: 280px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    /* --shadow-menu, not the legacy --shadow-lg: the latter is defined in
+    background: var(--bl-sheet);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+    /* --bl-lift, not the legacy --shadow-lg: the latter is defined in
        base/variables.css, which is the legacy sheet Round F Task 4 deletes.
        This is the same elevation <x-ui.menu> uses, which is what a popover
        over the page should read as. */
-    box-shadow: var(--shadow-menu);
+    box-shadow: var(--bl-lift);
 }
 
 /* [hidden] is only a user-agent display:none rule and loses to any
@@ -315,11 +315,11 @@
 .gf-combo__opt {
     display: block;
     width: 100%;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--bl-space-2) var(--bl-space-3);
     background: none;
     border: 0;
-    border-bottom: 1px solid var(--border);
-    color: var(--text);
+    border-bottom: 1px solid var(--bl-rule);
+    color: var(--bl-ink);
     font-family: inherit;
     font-size: 13px;
     text-align: left;
@@ -329,21 +329,21 @@
 .gf-combo__opt:last-child { border-bottom: 0; }
 
 .gf-combo__opt:hover,
-.gf-combo__opt:focus-visible { background: var(--surface-hover); }
+.gf-combo__opt:focus-visible { background: var(--bl-chrome-2); }
 
 /* The marketplace's own id for the category, read down the list and
    compared against what the marketplace's back office shows. */
 .gf-combo__id {
-    margin-left: var(--space-2);
+    margin-left: var(--bl-space-2);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 .gf-combo__empty {
-    padding: var(--space-4) var(--space-3);
-    color: var(--text-muted);
+    padding: var(--bl-space-4) var(--bl-space-3);
+    color: var(--bl-ink-3);
     font-size: 12px;
     text-align: center;
 }
@@ -360,7 +360,7 @@
 .gf-checks {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 2px var(--space-4);
+    gap: 2px var(--bl-space-4);
 }
 
 @media (min-width: 641px) {
@@ -370,11 +370,11 @@
 .gf-check {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     min-width: 0;
-    padding: var(--space-2) 0;
+    padding: var(--bl-space-2) 0;
     font-size: 13px;
-    color: var(--text);
+    color: var(--bl-ink);
     cursor: pointer;
 }
 
@@ -391,7 +391,7 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
 }
 
 /* ==================================================================
@@ -412,13 +412,13 @@
 .gf-attr {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-2);
-    padding: var(--space-3) 0;
-    border-bottom: 1px solid var(--border);
+    gap: var(--bl-space-2);
+    padding: var(--bl-space-3) 0;
+    border-bottom: 1px solid var(--bl-rule);
 }
 
 @media (min-width: 769px) {
-    .gf-attr { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: var(--space-4); }
+    .gf-attr { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: var(--bl-space-4); }
 }
 
 .gf-attr:last-child { border-bottom: 0; }
@@ -429,7 +429,7 @@
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--bl-ink);
 }
 
 /* The marketplace's own key for this attribute. It is what appears in
@@ -440,7 +440,7 @@
     margin-top: 2px;
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--bl-ink-3);
     word-break: break-all;
 }
 
@@ -450,8 +450,8 @@
    every other required field in this system carries: the same fact
    should not be shouted here and murmured there. */
 .gf-attr__req {
-    margin-left: var(--space-2);
-    color: var(--text-muted);
+    margin-left: var(--bl-space-2);
+    color: var(--bl-ink-3);
     font-size: 11px;
     font-weight: 400;
 }
@@ -477,7 +477,7 @@
 .gf-attr__mode {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-2);
+    gap: var(--bl-space-2);
     align-items: start;
 }
 
@@ -501,10 +501,10 @@
 /* What the chosen product field currently resolves to. A quiet line
    under the pair, not a tinted callout: it is a preview, not a state. */
 .gf-attr__resolved {
-    margin-top: var(--space-2);
-    padding-left: var(--space-3);
-    border-left: 2px solid var(--border);
-    color: var(--text-muted);
+    margin-top: var(--bl-space-2);
+    padding-left: var(--bl-space-3);
+    border-left: 2px solid var(--bl-rule);
+    color: var(--bl-ink-3);
     font-size: 12px;
     line-height: 1.5;
     word-break: break-word;
@@ -512,17 +512,17 @@
 
 .gf-attr__resolved[hidden] { display: none; }
 
-.gf-attr__resolved strong { color: var(--text); font-weight: 500; }
+.gf-attr__resolved strong { color: var(--bl-ink); font-weight: 500; }
 
 .gf-attr__note {
-    margin: var(--space-2) 0 0;
-    color: var(--text-muted);
+    margin: var(--bl-space-2) 0 0;
+    color: var(--bl-ink-3);
     font-size: 12px;
 }
 
 .gf-attr__error {
-    margin-top: var(--space-2);
-    color: var(--danger);
+    margin-top: var(--bl-space-2);
+    color: var(--bl-bad);
     font-size: 12px;
 }
 
