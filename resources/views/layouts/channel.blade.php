@@ -17,7 +17,12 @@
          used to live in layouts/app.blade.php, where the tab read as the
          company's own product. The page's own leaf leads, because that is what
          distinguishes one open tab from another. --}}
-    <title>@yield('title', 'Xenon') - {{ $__companyName }}</title>
+    {{-- The product is VentaSync. "Xenon" is residue from an earlier naming
+         pass and was reaching the browser tab on every seller-centre page,
+         because these pages do not set their own title. Not config('app.name'):
+         that reads "Laravel" in a fresh environment and "VentaSync" in
+         .env.example, which are the two names PRODUCT.md calls stale. --}}
+    <title>@yield('title', 'VentaSync') - {{ $__companyName }}</title>
     <link rel="icon" type="image/png" href="{{ $__faviconUrl }}">
     <link rel="shortcut icon" href="{{ $__faviconUrl }}">
     <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">

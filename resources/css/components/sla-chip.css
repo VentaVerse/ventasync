@@ -28,9 +28,17 @@
     opacity: .85;
 }
 
+/* No opacity here. This label reads "Ship by" in front of the countdown,
+   and it was being dimmed TWICE: blotter-components sets it to 75% white on
+   the filled overdue chip, and this rule then multiplied that by .72, for an
+   effective alpha of .54 and a measured 3.36:1 against the red fill -
+   under the 4.5:1 floor, on the one mark this whole surface exists to make
+   unmissable. The label is already quieter than the figure beside it by
+   weight (500 against 700) and by face (sans against mono), which is the
+   hierarchy the dimming was reaching for. Without the multiply it measures
+   5.24:1. */
 .sla-chip__label {
     font-weight: 500;
-    opacity: .72;
     margin-right: 1px;
 }
 

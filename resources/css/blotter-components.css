@@ -1385,7 +1385,7 @@
     }
 
     .x-fh-card__sep {
-        color: var(--bl-rule-2);
+        color: var(--bl-ink-3);
     }
 
     .x-fh-panel {
@@ -1467,6 +1467,11 @@
     /* --bl-rule-2 is a HAIRLINE colour, and at #dfe5ee on white the middot
        was invisible: the two clauses read as one sentence with an accidental
        gap in it. A separator has to be seen to separate. */
+    /* Separators take --bl-ink-3, the muted TEXT token, not --bl-rule-2.
+       A dot between two facts is something a person reads; --bl-rule-2 is a
+       hairline colour and measured 1.13-1.27:1 as type, which is not quiet,
+       it is absent. fh-head__sep was already right and is why the rest of
+       the family now matches it. */
     .fh-head__sep { color: var(--bl-ink-3); }
     .fh-head__link.is-bad { color: var(--bl-bad); font-weight: 600; }
 
@@ -1588,7 +1593,7 @@
         text-overflow: ellipsis;
     }
 
-    .fh-card__sep { color: var(--bl-rule-2); }
+    .fh-card__sep { color: var(--bl-ink-3); }
 
     @supports (container-type: inline-size) {
         .fh-card { container-type: inline-size; }
@@ -1619,7 +1624,7 @@
 
     .fh-today__v { font-weight: 600; color: var(--bl-ink); font-variant-numeric: tabular-nums; }
     .fh-today__v.is-quiet { font-weight: 500; color: var(--bl-ink-3); }
-    .fh-today__sep { color: var(--bl-rule-2); }
+    .fh-today__sep { color: var(--bl-ink-3); }
     .fh-today__note { color: var(--bl-ink-3); }
 
     /* ---- Body: the feed beside the leaderboard ---- */
@@ -2854,7 +2859,7 @@
         color: var(--bl-ink-3);
     }
 
-    .x-cred__sep { color: var(--bl-rule-2); }
+    .x-cred__sep { color: var(--bl-ink-3); }
 
     /* The control is a one-handed tap on a tablet as often as a click. */
     @media (pointer: coarse) {
@@ -3488,7 +3493,7 @@
 
     .x-crumb__part { color: var(--bl-ink-3); }
     .x-crumb__part:last-child { color: var(--bl-ink); font-weight: 550; }
-    .x-crumb__sep { color: var(--bl-rule-2); }
+    .x-crumb__sep { color: var(--bl-ink-3); }
 
     .x-crumb__link {
         color: var(--bl-ink-2);
