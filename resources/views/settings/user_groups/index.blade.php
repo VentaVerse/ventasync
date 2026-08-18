@@ -44,9 +44,9 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="st-col-id">ID</th>
-            <th>Name</th>
-            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="st-col-id">ID</th>
+            <th scope="col">Name</th>
+            <th scope="col" class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

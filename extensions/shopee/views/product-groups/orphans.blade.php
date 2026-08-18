@@ -62,8 +62,8 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th class="cc-col-id">Shopee item</th>
-                <th>SKUs on Shopee</th>
+                <th scope="col" class="cc-col-id">Shopee item</th>
+                <th scope="col">SKUs on Shopee</th>
             </tr>
         </x-slot:head>
 

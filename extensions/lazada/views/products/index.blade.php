@@ -100,11 +100,11 @@
         <x-ui.table>
             <x-slot:head>
                 <tr>
-                    <th>Lazada item</th>
-                    <th class="cc-col-sku">SKU</th>
-                    <th class="cc-col-chanid">Item ID</th>
-                    <th class="cc-col-link">Catalogue product</th>
-                    <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+                    <th scope="col">Lazada item</th>
+                    <th scope="col" class="cc-col-sku">SKU</th>
+                    <th scope="col" class="cc-col-chanid">Item ID</th>
+                    <th scope="col" class="cc-col-link">Catalogue product</th>
+                    <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
                 </tr>
             </x-slot:head>
 
@@ -317,7 +317,7 @@
     <x-slot:head>
         <tr>
             @if($canManageLazada)
-            <th class="cc-col-check">
+            <th scope="col" class="cc-col-check">
                 <input type="checkbox" class="cc-check"
                        :checked="ids.length > 0 && selected.length === ids.length"
                        x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
@@ -325,45 +325,45 @@
                        aria-label="Select every listing on this page">
             </th>
             @endif
-            <th class="cc-col-id">
+            <th scope="col" class="cc-col-id">
                 <a class="x-th-sort" href="{{ $sortUrl('id') }}">
                     ID
                     @if($sort === 'id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th>
+            <th scope="col">
                 <a class="x-th-sort" href="{{ $sortUrl('product') }}">
                     Product
                     @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="cc-col-qty x-td-num">
+            <th scope="col" class="cc-col-qty x-td-num">
                 <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">
                     Stock
                     @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="cc-col-price x-td-num">Price</th>
-            <th class="cc-col-chanid">
+            <th scope="col" class="cc-col-price x-td-num">Price</th>
+            <th scope="col" class="cc-col-chanid">
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_item_id') }}">
                     Lazada ID
                     @if($sort === 'lazada_item_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="cc-col-stat">
+            <th scope="col" class="cc-col-stat">
                 <a class="x-th-sort" href="{{ $sortUrl('product_status') }}">
                     Catalogue
                     @if($sort === 'product_status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="cc-col-sync">
+            <th scope="col" class="cc-col-sync">
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
                     Listing
                     @if($sort === 'lazada_status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="cc-col-err">Last sync</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="cc-col-err">Last sync</th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

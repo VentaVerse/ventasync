@@ -69,9 +69,9 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th class="cc-col-id">Venta ID</th>
-                <th>SKU</th>
-                <th>Name</th>
+                <th scope="col" class="cc-col-id">Venta ID</th>
+                <th scope="col">SKU</th>
+                <th scope="col">Name</th>
             </tr>
         </x-slot:head>
 

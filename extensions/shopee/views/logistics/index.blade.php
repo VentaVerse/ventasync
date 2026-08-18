@@ -50,13 +50,13 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="cc-col-chanid">Channel ID</th>
-            <th>Courier</th>
-            <th class="cc-col-stat">Status</th>
-            <th class="cc-col-flag">Cash on delivery</th>
-            <th class="cc-col-limit">Weight limit</th>
-            <th class="cc-col-limit">Size limit</th>
-            <th class="cc-col-flag cc-col-flag--sm">Pre-order</th>
+            <th scope="col" class="cc-col-chanid">Channel ID</th>
+            <th scope="col">Courier</th>
+            <th scope="col" class="cc-col-stat">Status</th>
+            <th scope="col" class="cc-col-flag">Cash on delivery</th>
+            <th scope="col" class="cc-col-limit">Weight limit</th>
+            <th scope="col" class="cc-col-limit">Size limit</th>
+            <th scope="col" class="cc-col-flag cc-col-flag--sm">Pre-order</th>
         </tr>
     </x-slot:head>
 

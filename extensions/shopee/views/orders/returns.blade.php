@@ -84,7 +84,13 @@
      To Ship tab has Pack/Handover, so x-segment--sub is not pressed into
      service just to use it. --}}
 <div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Return status">
+    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
+     filtered page, and role="tablist" promises children with role="tab"
+     controlling panels that switch in place - so a screen reader
+     announced a tab list containing no tabs, on the control a
+     fulfilment worker uses most. A nav landmark with aria-current is
+     what a set of filter links actually is. --}}
+    <nav class="x-segment" aria-label="Return status">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = $active_tab === strtoupper((string) $key);
@@ -100,7 +106,7 @@
                 @endif
             </a>
         @endforeach
-    </div>
+    </nav>
     <a class="x-segment-bar__aside" href="{{ route('ext.shopee.orders.index') }}">
         <x-ui.icon name="chevron-left" size="12" />
         All orders
@@ -150,12 +156,12 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="sp-col-order">Return</th>
-            <th>Items</th>
-            <th class="sp-col-buyer">Buyer</th>
-            <th class="sp-col-total x-td-num">Refund</th>
-            <th class="sp-col-status">Status</th>
-            <th class="sp-col-act"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="sp-col-order">Return</th>
+            <th scope="col">Items</th>
+            <th scope="col" class="sp-col-buyer">Buyer</th>
+            <th scope="col" class="sp-col-total x-td-num">Refund</th>
+            <th scope="col" class="sp-col-status">Status</th>
+            <th scope="col" class="sp-col-act"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

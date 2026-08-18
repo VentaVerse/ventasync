@@ -102,7 +102,13 @@
      that appears on some tabs and not others reads as an alert rather than
      a figure. --}}
 <div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Order status">
+    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
+     filtered page, and role="tablist" promises children with role="tab"
+     controlling panels that switch in place - so a screen reader
+     announced a tab list containing no tabs, on the control a
+     fulfilment worker uses most. A nav landmark with aria-current is
+     what a set of filter links actually is. --}}
+    <nav class="x-segment" aria-label="Order status">
         <a href="{{ $panelSelfUrl([], ['page', 'status']) }}"
            class="x-segment__item {{ $vtStatus === '' ? 'is-active' : '' }}"
            @if($vtStatus === '') aria-current="page" @endif>
@@ -118,7 +124,7 @@
                 <span class="x-segment__count">{{ number_format($vtCount) }}</span>
             </a>
         @endforeach
-    </div>
+    </nav>
 </div>
 
 {{-- One filter row. Search was its own card form on the legacy page, sitting
@@ -198,40 +204,40 @@
              fulfilment list by; the controller still accepts every value it
              ever did. --}}
         <tr>
-            <th class="vt-col-products">Products</th>
-            <th class="vt-col-qty">Qty</th>
-            <th class="vt-col-price x-td-num">Price</th>
-            <th class="vt-col-total x-td-num">
+            <th scope="col" class="vt-col-products">Products</th>
+            <th scope="col" class="vt-col-qty">Qty</th>
+            <th scope="col" class="vt-col-price x-td-num">Price</th>
+            <th scope="col" class="vt-col-total x-td-num">
                 <a class="x-th-sort x-th-sort--num" href="{{ $vtSortUrl('total') }}">
                     Amount
                     @if($sort === 'total')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="vt-col-pay">
+            <th scope="col" class="vt-col-pay">
                 <a class="x-th-sort" href="{{ $vtSortUrl('payment_method') }}">
                     Payment
                     @if($sort === 'payment_method')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="vt-col-track">
+            <th scope="col" class="vt-col-track">
                 <a class="x-th-sort" href="{{ $vtSortUrl('tracking_number') }}">
                     Tracking
                     @if($sort === 'tracking_number')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="vt-col-status">
+            <th scope="col" class="vt-col-status">
                 <a class="x-th-sort" href="{{ $vtSortUrl('status') }}">
                     Status
                     @if($sort === 'status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="vt-col-date">
+            <th scope="col" class="vt-col-date">
                 <a class="x-th-sort" href="{{ $vtSortUrl('order_created_at') }}">
                     Date
                     @if($sort === 'order_created_at')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="vt-col-act"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="vt-col-act"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

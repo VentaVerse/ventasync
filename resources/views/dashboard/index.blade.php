@@ -340,12 +340,12 @@
                 <table class="bl-table">
                     <thead>
                         <tr>
-                            <th>Order</th>
-                            <th>Channel</th>
-                            <th>Buyer</th>
-                            <th>Placed</th>
-                            <th class="num">Total</th>
-                            <th>State</th>
+                            <th scope="col">Order</th>
+                            <th scope="col">Channel</th>
+                            <th scope="col">Buyer</th>
+                            <th scope="col">Placed</th>
+                            <th scope="col" class="num">Total</th>
+                            <th scope="col">State</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -666,10 +666,10 @@
                     <table class="bl-table">
                         <thead>
                             <tr>
-                                <th>Channel</th>
-                                <th class="num">Orders</th>
-                                <th class="num">Revenue</th>
-                                <th class="num">Share</th>
+                                <th scope="col">Channel</th>
+                                <th scope="col" class="num">Orders</th>
+                                <th scope="col" class="num">Revenue</th>
+                                <th scope="col" class="num">Share</th>
                             </tr>
                         </thead>
                         <tbody>

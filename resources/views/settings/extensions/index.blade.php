@@ -83,11 +83,11 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th>Extension</th>
-                <th class="st-col-ver">Version</th>
-                <th class="st-col-author">Author</th>
-                <th class="st-col-stat">State</th>
-                <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+                <th scope="col">Extension</th>
+                <th scope="col" class="st-col-ver">Version</th>
+                <th scope="col" class="st-col-author">Author</th>
+                <th scope="col" class="st-col-stat">State</th>
+                <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
         </x-slot:head>
 

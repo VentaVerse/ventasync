@@ -84,11 +84,11 @@
         <x-ui.table>
             <x-slot:head>
                 <tr>
-                    <th>Shopee item</th>
-                    <th class="cc-col-sku">SKU</th>
-                    <th class="cc-col-chanid">Item ID</th>
-                    <th class="cc-col-link">Catalogue product</th>
-                    <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+                    <th scope="col">Shopee item</th>
+                    <th scope="col" class="cc-col-sku">SKU</th>
+                    <th scope="col" class="cc-col-chanid">Item ID</th>
+                    <th scope="col" class="cc-col-link">Catalogue product</th>
+                    <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
                 </tr>
             </x-slot:head>
 
@@ -272,7 +272,7 @@
     <x-slot:head>
         <tr>
             @if($canManageShopee)
-            <th class="cc-col-check">
+            <th scope="col" class="cc-col-check">
                 <input type="checkbox" class="cc-check"
                        :checked="ids.length > 0 && selected.length === ids.length"
                        x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
@@ -280,15 +280,15 @@
                        aria-label="Select every product on this page">
             </th>
             @endif
-            <th class="cc-col-id">ID</th>
-            <th>Product</th>
-            <th class="cc-col-qty x-td-num">Stock</th>
-            <th class="cc-col-price x-td-num">Price</th>
-            <th class="cc-col-chanid">Shopee ID</th>
-            <th class="cc-col-stat">Catalogue</th>
-            <th class="cc-col-sync">Listing</th>
-            <th class="cc-col-err">Last sync</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="cc-col-id">ID</th>
+            <th scope="col">Product</th>
+            <th scope="col" class="cc-col-qty x-td-num">Stock</th>
+            <th scope="col" class="cc-col-price x-td-num">Price</th>
+            <th scope="col" class="cc-col-chanid">Shopee ID</th>
+            <th scope="col" class="cc-col-stat">Catalogue</th>
+            <th scope="col" class="cc-col-sync">Listing</th>
+            <th scope="col" class="cc-col-err">Last sync</th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

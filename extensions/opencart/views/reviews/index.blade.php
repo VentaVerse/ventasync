@@ -182,18 +182,18 @@
             <x-slot:head>
                 <tr>
                     @if($canManage)
-                        <th class="rv-col-check">
+                        <th scope="col" class="rv-col-check">
                             <input type="checkbox" class="rv-check" data-select-all aria-label="Select every pushable review on this page">
                         </th>
                     @endif
-                    <th class="rv-col-date">Reviewed</th>
-                    <th class="rv-col-plat">Channel</th>
-                    <th>Product</th>
-                    <th class="rv-col-rate">Rating</th>
-                    <th>Comment</th>
-                    <th class="rv-col-media">Media</th>
-                    <th class="rv-col-stat">OpenCart</th>
-                    <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+                    <th scope="col" class="rv-col-date">Reviewed</th>
+                    <th scope="col" class="rv-col-plat">Channel</th>
+                    <th scope="col">Product</th>
+                    <th scope="col" class="rv-col-rate">Rating</th>
+                    <th scope="col">Comment</th>
+                    <th scope="col" class="rv-col-media">Media</th>
+                    <th scope="col" class="rv-col-stat">OpenCart</th>
+                    <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
                 </tr>
             </x-slot:head>
 

@@ -488,8 +488,8 @@
             <x-ui.table>
                 <x-slot:head>
                     <tr>
-                        <th class="cs-col-src">Lazada status</th>
-                        <th>Sales order status</th>
+                        <th scope="col" class="cs-col-src">Lazada status</th>
+                        <th scope="col">Sales order status</th>
                     </tr>
                 </x-slot:head>
                 @foreach($lazadaStatuses as $key => $label)
@@ -531,8 +531,8 @@
             <x-ui.table>
                 <x-slot:head>
                     <tr>
-                        <th class="cs-col-src">Lazada return status</th>
-                        <th>Sales order status</th>
+                        <th scope="col" class="cs-col-src">Lazada return status</th>
+                        <th scope="col">Sales order status</th>
                     </tr>
                 </x-slot:head>
                 @foreach($reverseStatuses as $key => $label)
@@ -680,9 +680,9 @@
                             <table class="api-kv">
                                 <thead>
                                     <tr>
-                                        <th class="cs-kv-name">Name</th>
-                                        <th>Value</th>
-                                        <th class="cs-kv-act"><span class="x-sr">Remove</span></th>
+                                        <th scope="col" class="cs-kv-name">Name</th>
+                                        <th scope="col">Value</th>
+                                        <th scope="col" class="cs-kv-act"><span class="x-sr">Remove</span></th>
                                     </tr>
                                 </thead>
                                 <tbody data-lz-ex-kv></tbody>
@@ -785,11 +785,11 @@
             <x-ui.table>
                 <x-slot:head>
                     <tr>
-                        <th class="cs-col-when">When</th>
-                        <th class="cs-col-method">Method</th>
-                        <th>Path</th>
-                        <th class="cs-col-auth">Signed</th>
-                        <th class="cs-col-status x-td-num">Status</th>
+                        <th scope="col" class="cs-col-when">When</th>
+                        <th scope="col" class="cs-col-method">Method</th>
+                        <th scope="col">Path</th>
+                        <th scope="col" class="cs-col-auth">Signed</th>
+                        <th scope="col" class="cs-col-status x-td-num">Status</th>
                     </tr>
                 </x-slot:head>
 

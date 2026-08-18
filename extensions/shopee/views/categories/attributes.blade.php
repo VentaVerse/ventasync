@@ -84,10 +84,10 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th>Attribute</th>
-                <th class="cc-col-flag">Required</th>
-                <th class="cc-col-stat">Type</th>
-                <th class="cc-col-count x-td-num">Choices</th>
+                <th scope="col">Attribute</th>
+                <th scope="col" class="cc-col-flag">Required</th>
+                <th scope="col" class="cc-col-stat">Type</th>
+                <th scope="col" class="cc-col-count x-td-num">Choices</th>
             </tr>
         </x-slot:head>
         @foreach($attributes as $attribute)
@@ -143,10 +143,10 @@
             <x-ui.table>
                 <x-slot:head>
                     <tr>
-                        <th class="cc-col-when">When</th>
-                        <th class="cc-col-flag--sm">Result</th>
-                        <th class="cc-col-stat">Status</th>
-                        <th>What we asked for</th>
+                        <th scope="col" class="cc-col-when">When</th>
+                        <th scope="col" class="cc-col-flag--sm">Result</th>
+                        <th scope="col" class="cc-col-stat">Status</th>
+                        <th scope="col">What we asked for</th>
                     </tr>
                 </x-slot:head>
                 @foreach($logs as $log)

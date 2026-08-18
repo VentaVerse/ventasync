@@ -119,23 +119,23 @@
              to be sortable columns and are now band facts; nothing rejects
              them, they simply have no header to click. --}}
         <tr>
-            <th class="oc-col-products">Products</th>
-            <th class="oc-col-qty">Qty</th>
-            <th class="oc-col-price x-td-num">Price</th>
-            <th class="oc-col-total x-td-num">
+            <th scope="col" class="oc-col-products">Products</th>
+            <th scope="col" class="oc-col-qty">Qty</th>
+            <th scope="col" class="oc-col-price x-td-num">Price</th>
+            <th scope="col" class="oc-col-total x-td-num">
                 <a class="x-th-sort x-th-sort--num" href="{{ $ocSortUrl('total') }}">
                     Total
                     @if($sort === 'total')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="oc-col-status">Status</th>
-            <th class="oc-col-date">
+            <th scope="col" class="oc-col-status">Status</th>
+            <th scope="col" class="oc-col-date">
                 <a class="x-th-sort" href="{{ $ocSortUrl('date_added') }}">
                     Date
                     @if($sort === 'date_added')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="oc-col-act"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="oc-col-act"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

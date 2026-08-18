@@ -63,7 +63,7 @@
     <x-slot:head>
         <tr>
             @if($canManageCategories)
-            <th class="cat-col-check">
+            <th scope="col" class="cat-col-check">
                 <input type="checkbox" class="cat-check"
                        :checked="ids.length > 0 && selected.length === ids.length"
                        x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
@@ -71,12 +71,12 @@
                        aria-label="Select all categories on this page">
             </th>
             @endif
-            <th class="cat-col-id">ID</th>
-            <th>Name</th>
-            <th>Parent</th>
-            <th class="cat-col-sort x-td-num">Sort</th>
-            <th class="cat-col-stat">Status</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="cat-col-id">ID</th>
+            <th scope="col">Name</th>
+            <th scope="col">Parent</th>
+            <th scope="col" class="cat-col-sort x-td-num">Sort</th>
+            <th scope="col" class="cat-col-stat">Status</th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

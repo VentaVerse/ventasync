@@ -95,9 +95,9 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th>Store</th>
-                <th class="x-col-stat">State</th>
-                <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+                <th scope="col">Store</th>
+                <th scope="col" class="x-col-stat">State</th>
+                <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
         </x-slot:head>
 

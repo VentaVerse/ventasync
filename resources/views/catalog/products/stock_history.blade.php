@@ -78,16 +78,16 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th class="fm-vcol-opt">When</th>
-                <th class="fm-vcol-qty">Type</th>
-                <th class="fm-vcol-name">Variation</th>
-                <th class="x-td-num fm-vcol-qty">Before</th>
-                <th class="x-td-num fm-vcol-qty">Change</th>
-                <th class="x-td-num fm-vcol-qty">After</th>
-                <th class="fm-vcol-qty">Order</th>
-                <th class="fm-vcol-sku">Source</th>
-                <th>Note</th>
-                <th class="fm-col-who">By</th>
+                <th scope="col" class="fm-vcol-opt">When</th>
+                <th scope="col" class="fm-vcol-qty">Type</th>
+                <th scope="col" class="fm-vcol-name">Variation</th>
+                <th scope="col" class="x-td-num fm-vcol-qty">Before</th>
+                <th scope="col" class="x-td-num fm-vcol-qty">Change</th>
+                <th scope="col" class="x-td-num fm-vcol-qty">After</th>
+                <th scope="col" class="fm-vcol-qty">Order</th>
+                <th scope="col" class="fm-vcol-sku">Source</th>
+                <th scope="col">Note</th>
+                <th scope="col" class="fm-col-who">By</th>
             </tr>
         </x-slot:head>
 

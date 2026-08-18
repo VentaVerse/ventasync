@@ -70,7 +70,7 @@
     <x-slot:head>
         <tr>
             @if($canManageOrderStatuses)
-            <th class="st-col-check">
+            <th scope="col" class="st-col-check">
                 <input type="checkbox" class="st-check"
                        :checked="ids.length > 0 && selected.length === ids.length"
                        x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
@@ -78,11 +78,11 @@
                        aria-label="Select every order status on this page">
             </th>
             @endif
-            <th class="st-col-id">ID</th>
-            <th>Name</th>
-            <th class="st-col-flag">Takes stock</th>
-            <th class="st-col-flag">Counts as revenue</th>
-            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="st-col-id">ID</th>
+            <th scope="col">Name</th>
+            <th scope="col" class="st-col-flag">Takes stock</th>
+            <th scope="col" class="st-col-flag">Counts as revenue</th>
+            <th scope="col" class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

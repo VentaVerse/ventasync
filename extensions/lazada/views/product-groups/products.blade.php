@@ -153,7 +153,7 @@
     <x-slot:head>
         <tr>
             @if($canManageLazada)
-            <th class="cc-col-check">
+            <th scope="col" class="cc-col-check">
                 <input type="checkbox" class="cc-check"
                        :checked="ids.length > 0 && selected.length === ids.length"
                        x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
@@ -161,15 +161,15 @@
                        aria-label="Select every product on this page">
             </th>
             @endif
-            <th class="cc-col-id">ID</th>
-            <th>Product</th>
-            <th class="cc-col-qty x-td-num">Stock</th>
-            <th class="cc-col-price x-td-num">Price</th>
-            <th class="cc-col-chanid">Lazada ID</th>
-            <th class="cc-col-stat">Catalogue</th>
-            <th class="cc-col-sync">Push</th>
-            <th class="cc-col-err">Last push</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="cc-col-id">ID</th>
+            <th scope="col">Product</th>
+            <th scope="col" class="cc-col-qty x-td-num">Stock</th>
+            <th scope="col" class="cc-col-price x-td-num">Price</th>
+            <th scope="col" class="cc-col-chanid">Lazada ID</th>
+            <th scope="col" class="cc-col-stat">Catalogue</th>
+            <th scope="col" class="cc-col-sync">Push</th>
+            <th scope="col" class="cc-col-err">Last push</th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

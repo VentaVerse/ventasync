@@ -39,12 +39,12 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="cc-col-id">ID</th>
-            <th>Group</th>
-            <th class="cc-col-count x-td-num">Products</th>
-            <th>Lazada category</th>
-            <th class="cc-col-markup">Markup</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="cc-col-id">ID</th>
+            <th scope="col">Group</th>
+            <th scope="col" class="cc-col-count x-td-num">Products</th>
+            <th scope="col">Lazada category</th>
+            <th scope="col" class="cc-col-markup">Markup</th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

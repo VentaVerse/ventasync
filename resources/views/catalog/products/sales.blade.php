@@ -79,15 +79,15 @@
     <x-ui.table>
         <x-slot:head>
             <tr>
-                <th class="fm-vcol-qty">Order</th>
-                <th class="fm-vcol-price">Date</th>
-                <th>Product</th>
-                <th class="x-td-num fm-vcol-qty">Qty</th>
-                <th class="x-td-num fm-vcol-price">Sales</th>
-                <th class="x-td-num fm-vcol-cost">Cost</th>
-                <th class="x-td-num fm-vcol-price">Profit</th>
-                <th class="x-td-num fm-vcol-num">Margin</th>
-                <th class="x-td-num fm-vcol-num">Markup</th>
+                <th scope="col" class="fm-vcol-qty">Order</th>
+                <th scope="col" class="fm-vcol-price">Date</th>
+                <th scope="col">Product</th>
+                <th scope="col" class="x-td-num fm-vcol-qty">Qty</th>
+                <th scope="col" class="x-td-num fm-vcol-price">Sales</th>
+                <th scope="col" class="x-td-num fm-vcol-cost">Cost</th>
+                <th scope="col" class="x-td-num fm-vcol-price">Profit</th>
+                <th scope="col" class="x-td-num fm-vcol-num">Margin</th>
+                <th scope="col" class="x-td-num fm-vcol-num">Markup</th>
             </tr>
         </x-slot:head>
 

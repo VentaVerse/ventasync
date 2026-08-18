@@ -121,7 +121,7 @@
                     <thead>
                         <tr>
                             @if($canManageProducts)
-                                <th class="w-9">
+                                <th scope="col" class="w-9">
                                     <input type="checkbox" class="bl-check"
                                            :checked="ids.length > 0 && selected.length === ids.length"
                                            x-effect="$el.indeterminate = selected.length > 0 && selected.length < ids.length"
@@ -129,37 +129,37 @@
                                            aria-label="Select all products on this page">
                                 </th>
                             @endif
-                            <th class="w-16">
+                            <th scope="col" class="w-16">
                                 <a class="bl-sort" href="{{ $sortUrl('product_id') }}">
                                     ID
                                     @if($sortArrow('product_id'))<x-ui.icon :name="$sortArrow('product_id')" size="12" />@endif
                                 </a>
                             </th>
-                            <th>
+                            <th scope="col">
                                 <a class="bl-sort" href="{{ $sortUrl('name') }}">
                                     Product
                                     @if($sortArrow('name'))<x-ui.icon :name="$sortArrow('name')" size="12" />@endif
                                 </a>
                             </th>
-                            <th class="num">
+                            <th scope="col" class="num">
                                 <a class="bl-sort" href="{{ $sortUrl('quantity') }}">
                                     On hand
                                     @if($sortArrow('quantity'))<x-ui.icon :name="$sortArrow('quantity')" size="12" />@endif
                                 </a>
                             </th>
-                            <th class="num">
+                            <th scope="col" class="num">
                                 <a class="bl-sort" href="{{ $sortUrl('price') }}">
                                     Price
                                     @if($sortArrow('price'))<x-ui.icon :name="$sortArrow('price')" size="12" />@endif
                                 </a>
                             </th>
-                            <th>
+                            <th scope="col">
                                 <a class="bl-sort" href="{{ $sortUrl('status') }}">
                                     Status
                                     @if($sortArrow('status'))<x-ui.icon :name="$sortArrow('status')" size="12" />@endif
                                 </a>
                             </th>
-                            <th class="w-10"><span class="sr-only">Actions</span></th>
+                            <th scope="col" class="w-10"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>

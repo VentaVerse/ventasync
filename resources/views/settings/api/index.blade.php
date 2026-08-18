@@ -63,12 +63,12 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th>Name</th>
-            <th class="st-col-tiers x-td-num">Permissions</th>
-            <th class="st-col-when">Expires</th>
-            <th class="st-col-when">Created</th>
-            <th class="st-col-when">Last used</th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col">Name</th>
+            <th scope="col" class="st-col-tiers x-td-num">Permissions</th>
+            <th scope="col" class="st-col-when">Expires</th>
+            <th scope="col" class="st-col-when">Created</th>
+            <th scope="col" class="st-col-when">Last used</th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

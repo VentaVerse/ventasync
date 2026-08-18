@@ -58,12 +58,12 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="st-col-code">Code</th>
-            <th>Name</th>
-            <th class="st-col-symbol">Symbol</th>
-            <th class="st-col-rate x-td-num">Rate</th>
-            <th class="st-col-stat">Status</th>
-            <th class="bl-col-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="st-col-code">Code</th>
+            <th scope="col">Name</th>
+            <th scope="col" class="st-col-symbol">Symbol</th>
+            <th scope="col" class="st-col-rate x-td-num">Rate</th>
+            <th scope="col" class="st-col-stat">Status</th>
+            <th scope="col" class="bl-col-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

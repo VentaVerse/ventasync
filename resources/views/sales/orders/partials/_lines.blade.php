@@ -25,13 +25,13 @@
     <x-ui.table class="of-lines">
         <x-slot:head>
             <tr>
-                <th>Product</th>
-                <th class="of-col-var">Variation</th>
-                <th class="of-col-sku">SKU</th>
-                <th class="of-col-price">Unit price</th>
-                <th class="of-col-qty">Qty</th>
-                <th class="of-col-total x-td-num">Line total</th>
-                <th class="x-td-actions"><span class="x-sr">Remove</span></th>
+                <th scope="col">Product</th>
+                <th scope="col" class="of-col-var">Variation</th>
+                <th scope="col" class="of-col-sku">SKU</th>
+                <th scope="col" class="of-col-price">Unit price</th>
+                <th scope="col" class="of-col-qty">Qty</th>
+                <th scope="col" class="of-col-total x-td-num">Line total</th>
+                <th scope="col" class="x-td-actions"><span class="x-sr">Remove</span></th>
             </tr>
         </x-slot:head>
 

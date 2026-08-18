@@ -201,10 +201,10 @@
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalogue result"></th>
-                                            <th class="gf-col-id">ID</th>
-                                            <th>Product</th>
-                                            <th class="gf-col-qty">Stock</th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-left-all aria-label="Select every catalogue result"></th>
+                                            <th scope="col" class="gf-col-id">ID</th>
+                                            <th scope="col">Product</th>
+                                            <th scope="col" class="gf-col-qty">Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody data-gf-left></tbody>
@@ -230,10 +230,10 @@
                                 <table class="gf-list">
                                     <thead>
                                         <tr>
-                                            <th class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the group"></th>
-                                            <th class="gf-col-id">ID</th>
-                                            <th>Product</th>
-                                            <th class="gf-col-qty">Stock</th>
+                                            <th scope="col" class="gf-col-check"><input type="checkbox" class="cc-check" data-gf-right-all aria-label="Select every product in the group"></th>
+                                            <th scope="col" class="gf-col-id">ID</th>
+                                            <th scope="col">Product</th>
+                                            <th scope="col" class="gf-col-qty">Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody data-gf-right></tbody>
@@ -256,9 +256,9 @@
                     <x-ui.table>
                         <x-slot:head>
                             <tr>
-                                <th class="cc-col-id">ID</th>
-                                <th>Product</th>
-                                <th class="cc-col-qty x-td-num">Stock</th>
+                                <th scope="col" class="cc-col-id">ID</th>
+                                <th scope="col">Product</th>
+                                <th scope="col" class="cc-col-qty x-td-num">Stock</th>
                             </tr>
                         </x-slot:head>
                         @foreach($rightItems as $item)

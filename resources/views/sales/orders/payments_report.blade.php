@@ -106,14 +106,14 @@
         <x-ui.table>
             <x-slot:head>
                 <tr>
-                    <th class="x-col-id">Order</th>
-                    <th>Customer</th>
-                    <th class="x-col-date">Placed</th>
-                    <th class="x-td-num">Invoiced</th>
-                    <th class="x-td-num">Received</th>
-                    <th class="x-td-num">Balance</th>
-                    <th class="op-col-count x-td-num">Payments</th>
-                    <th class="x-col-stat">State</th>
+                    <th scope="col" class="x-col-id">Order</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col" class="x-col-date">Placed</th>
+                    <th scope="col" class="x-td-num">Invoiced</th>
+                    <th scope="col" class="x-td-num">Received</th>
+                    <th scope="col" class="x-td-num">Balance</th>
+                    <th scope="col" class="op-col-count x-td-num">Payments</th>
+                    <th scope="col" class="x-col-stat">State</th>
                 </tr>
             </x-slot:head>
 

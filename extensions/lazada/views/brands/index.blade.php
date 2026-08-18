@@ -72,9 +72,9 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="cc-col-chanid">Brand ID</th>
-            <th>Name</th>
-            <th class="lz-col-region">Region</th>
+            <th scope="col" class="cc-col-chanid">Brand ID</th>
+            <th scope="col">Name</th>
+            <th scope="col" class="lz-col-region">Region</th>
         </tr>
     </x-slot:head>
 

@@ -67,33 +67,33 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="x-col-id">
+            <th scope="col" class="x-col-id">
                 <a class="x-th-sort" href="{{ $sortUrl('order_id') }}">
                     Order
                     @if($sort === 'order_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th>
+            <th scope="col">
                 <a class="x-th-sort" href="{{ $sortUrl('firstname') }}">
                     Customer
                     @if($sort === 'firstname')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="x-col-chan">Channel</th>
-            <th class="x-col-stat">Status</th>
-            <th class="x-td-num x-col-total">
+            <th scope="col" class="x-col-chan">Channel</th>
+            <th scope="col" class="x-col-stat">Status</th>
+            <th scope="col" class="x-td-num x-col-total">
                 <a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('total') }}">
                     Total
                     @if($sort === 'total')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="x-col-date">
+            <th scope="col" class="x-col-date">
                 <a class="x-th-sort" href="{{ $sortUrl('date_added') }}">
                     Date
                     @if($sort === 'date_added')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th class="x-td-actions"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

@@ -406,8 +406,8 @@
                 <x-ui.table>
                     <x-slot:head>
                         <tr>
-                            <th class="cs-col-src">OpenCart status</th>
-                            <th>Sales order status</th>
+                            <th scope="col" class="cs-col-src">OpenCart status</th>
+                            <th scope="col">Sales order status</th>
                         </tr>
                     </x-slot:head>
                     @foreach($statusMap as $map)
@@ -558,15 +558,15 @@
             <x-ui.table>
                 <x-slot:head>
                     <tr>
-                        <th class="cs-col-when">When</th>
-                        <th class="cs-col-entity">What</th>
-                        <th class="cs-col-dir">Direction</th>
-                        <th class="cs-col-status">Result</th>
-                        <th class="cs-col-count x-td-num">Seen</th>
-                        <th class="cs-col-count x-td-num">Added</th>
-                        <th class="cs-col-count x-td-num">Changed</th>
-                        <th class="cs-col-count x-td-num">Failed</th>
-                        <th>Error</th>
+                        <th scope="col" class="cs-col-when">When</th>
+                        <th scope="col" class="cs-col-entity">What</th>
+                        <th scope="col" class="cs-col-dir">Direction</th>
+                        <th scope="col" class="cs-col-status">Result</th>
+                        <th scope="col" class="cs-col-count x-td-num">Seen</th>
+                        <th scope="col" class="cs-col-count x-td-num">Added</th>
+                        <th scope="col" class="cs-col-count x-td-num">Changed</th>
+                        <th scope="col" class="cs-col-count x-td-num">Failed</th>
+                        <th scope="col">Error</th>
                     </tr>
                 </x-slot:head>
 

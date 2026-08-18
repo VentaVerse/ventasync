@@ -60,11 +60,11 @@
     <table>
         <thead>
             <tr>
-                <th style="width:120px;">Order Item ID</th>
-                <th style="width:150px;">SKU</th>
-                <th>Product</th>
-                <th style="width:80px;">Qty</th>
-                <th style="width:140px;">Packed (tick)</th>
+                <th scope="col" style="width:120px;">Order Item ID</th>
+                <th scope="col" style="width:150px;">SKU</th>
+                <th scope="col">Product</th>
+                <th scope="col" style="width:80px;">Qty</th>
+                <th scope="col" style="width:140px;">Packed (tick)</th>
             </tr>
         </thead>
         <tbody>

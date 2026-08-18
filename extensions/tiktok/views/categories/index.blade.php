@@ -68,11 +68,11 @@
 <x-ui.table>
     <x-slot:head>
         <tr>
-            <th class="cc-col-chanid">Category ID</th>
-            <th>Name</th>
-            <th class="cc-col-leaf">Can list here</th>
-            <th class="cc-col-chanid">Parent ID</th>
-            <th class="tt-col-perms">Selling permissions</th>
+            <th scope="col" class="cc-col-chanid">Category ID</th>
+            <th scope="col">Name</th>
+            <th scope="col" class="cc-col-leaf">Can list here</th>
+            <th scope="col" class="cc-col-chanid">Parent ID</th>
+            <th scope="col" class="tt-col-perms">Selling permissions</th>
         </tr>
     </x-slot:head>
 

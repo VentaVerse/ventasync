@@ -83,7 +83,13 @@
      treatment the Orders page uses for the trip here. The second row, the
      actual filter, becomes the segment. --}}
 <div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Return status">
+    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
+     filtered page, and role="tablist" promises children with role="tab"
+     controlling panels that switch in place - so a screen reader
+     announced a tab list containing no tabs, on the control a
+     fulfilment worker uses most. A nav landmark with aria-current is
+     what a set of filter links actually is. --}}
+    <nav class="x-segment" aria-label="Return status">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = $active_tab === strtoupper((string) $key);
@@ -99,7 +105,7 @@
                 @endif
             </a>
         @endforeach
-    </div>
+    </nav>
     <a class="x-segment-bar__aside" href="{{ route('ext.lazada.orders.index', ['tab' => 'TO_SHIP']) }}">
         <x-ui.icon name="chevron-left" size="12" />
         All orders
@@ -160,13 +166,13 @@
              column, where the old markup printed the order total underneath
              a button. --}}
         <tr>
-            <th class="lz-col-rproducts">Returned products</th>
-            <th class="lz-col-rqty">Qty</th>
-            <th class="lz-col-refund x-td-num">Refund</th>
-            <th class="lz-col-rtotal x-td-num">Total</th>
-            <th class="lz-col-rtrack">Return tracking</th>
-            <th class="lz-col-rstatus">Status</th>
-            <th class="lz-col-ract"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="lz-col-rproducts">Returned products</th>
+            <th scope="col" class="lz-col-rqty">Qty</th>
+            <th scope="col" class="lz-col-refund x-td-num">Refund</th>
+            <th scope="col" class="lz-col-rtotal x-td-num">Total</th>
+            <th scope="col" class="lz-col-rtrack">Return tracking</th>
+            <th scope="col" class="lz-col-rstatus">Status</th>
+            <th scope="col" class="lz-col-ract"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

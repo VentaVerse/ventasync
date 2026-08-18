@@ -131,7 +131,13 @@
      the two the old strip decorated with a black pill: a count that appears
      on some tabs and not others reads as an alert rather than a figure. --}}
 <div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Order status">
+    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
+     filtered page, and role="tablist" promises children with role="tab"
+     controlling panels that switch in place - so a screen reader
+     announced a tab list containing no tabs, on the control a
+     fulfilment worker uses most. A nav landmark with aria-current is
+     what a set of filter links actually is. --}}
+    <nav class="x-segment" aria-label="Order status">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = $active_tab === strtoupper((string) $key);
@@ -146,7 +152,7 @@
                 @endif
             </a>
         @endforeach
-    </div>
+    </nav>
 </div>
 
 @if($active_tab === 'TO_SHIP')
@@ -260,13 +266,13 @@
              time ride in a band above each order, exactly where the legacy
              page carried them. --}}
         <tr>
-            <th class="tt-col-products">Products</th>
-            <th class="tt-col-qty">Qty</th>
-            <th class="tt-col-price x-td-num">Price</th>
-            <th class="tt-col-total x-td-num">Amount</th>
-            <th class="tt-col-ship">Shipping</th>
-            <th class="tt-col-status">Status</th>
-            <th class="tt-col-act"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="tt-col-products">Products</th>
+            <th scope="col" class="tt-col-qty">Qty</th>
+            <th scope="col" class="tt-col-price x-td-num">Price</th>
+            <th scope="col" class="tt-col-total x-td-num">Amount</th>
+            <th scope="col" class="tt-col-ship">Shipping</th>
+            <th scope="col" class="tt-col-status">Status</th>
+            <th scope="col" class="tt-col-act"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 

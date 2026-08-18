@@ -508,13 +508,13 @@
                         <table class="fm-vars__table">
                             <thead>
                                 <tr>
-                                    <th class="fm-vcol-name">Variation</th>
-                                    <th class="fm-vcol-sku">Catalogue SKU</th>
-                                    <th class="fm-vcol-price fm-vcol-num">Catalogue price</th>
-                                    <th class="fm-vcol-qty fm-vcol-num">Catalogue stock</th>
-                                    <th class="fm-vcol-sku">Lazada SKU</th>
-                                    <th class="fm-vcol-price fm-vcol-num">Lazada price</th>
-                                    <th class="fm-vcol-qty fm-vcol-num">Lazada stock</th>
+                                    <th scope="col" class="fm-vcol-name">Variation</th>
+                                    <th scope="col" class="fm-vcol-sku">Catalogue SKU</th>
+                                    <th scope="col" class="fm-vcol-price fm-vcol-num">Catalogue price</th>
+                                    <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalogue stock</th>
+                                    <th scope="col" class="fm-vcol-sku">Lazada SKU</th>
+                                    <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
+                                    <th scope="col" class="fm-vcol-qty fm-vcol-num">Lazada stock</th>
                                 </tr>
                             </thead>
                             <tbody>

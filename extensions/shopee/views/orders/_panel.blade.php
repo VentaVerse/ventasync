@@ -128,7 +128,13 @@
      page rather than an eighth filter, so it sits outside the trough as a
      plain link (the channel sidebar lists it too). --}}
 <div class="x-segment-bar">
-    <div class="x-segment" role="tablist" aria-label="Order status">
+    {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
+     filtered page, and role="tablist" promises children with role="tab"
+     controlling panels that switch in place - so a screen reader
+     announced a tab list containing no tabs, on the control a
+     fulfilment worker uses most. A nav landmark with aria-current is
+     what a set of filter links actually is. --}}
+    <nav class="x-segment" aria-label="Order status">
         @foreach($tabs as $key => $label)
             @php
                 $isActive = $active_tab === strtoupper((string) $key);
@@ -143,7 +149,7 @@
                 @endif
             </a>
         @endforeach
-    </div>
+    </nav>
     <a class="x-segment-bar__aside" href="{{ route('ext.shopee.orders.returns') }}">
         Returns and refunds
         <x-ui.icon name="chevron-right" size="12" />
@@ -261,13 +267,13 @@
              ride in a band above each order, exactly where the legacy page
              carried them. --}}
         <tr>
-            <th class="sp-col-products">Products</th>
-            <th class="sp-col-qty">Qty</th>
-            <th class="sp-col-price x-td-num">Price</th>
-            <th class="sp-col-total x-td-num">Amount</th>
-            <th class="sp-col-ship">Shipping</th>
-            <th class="sp-col-status">Status</th>
-            <th class="sp-col-act"><span class="x-sr">Actions</span></th>
+            <th scope="col" class="sp-col-products">Products</th>
+            <th scope="col" class="sp-col-qty">Qty</th>
+            <th scope="col" class="sp-col-price x-td-num">Price</th>
+            <th scope="col" class="sp-col-total x-td-num">Amount</th>
+            <th scope="col" class="sp-col-ship">Shipping</th>
+            <th scope="col" class="sp-col-status">Status</th>
+            <th scope="col" class="sp-col-act"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
 
