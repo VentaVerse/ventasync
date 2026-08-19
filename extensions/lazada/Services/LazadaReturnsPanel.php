@@ -253,11 +253,51 @@ class LazadaReturnsPanel
             $imgMap = $catImgMap->merge($imgMap); // order-product image wins; catalog fills gaps
         }
 
+        /* THE PRODUCT'S NAME, resolved the same way its picture is.
+         *
+         * A Lazada reverse order names its product only as a SKU, so this
+         * list printed 18296038918 in the slot every other list in the
+         * product fills with a title. The one person this page exists for -
+         * an agent with a buyer on the phone saying "the patch cable" - had
+         * a number to match it against.
+         *
+         * Same two sources and the same precedence as the thumbnail above:
+         * the synced order products first, the ERP catalog behind them. A
+         * return whose order was never synced still resolves, because the
+         * catalog knows the SKU even when no order does. */
+        $nameMap = collect();
+
+        if ($skus->isNotEmpty()) {
+            $pfx = (string) config('catalog.prefix');
+
+            $catName = \DB::table($pfx . 'product as p')
+                ->join($pfx . 'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+                ->whereIn('p.sku', $skus->all())
+                ->whereNotNull('pd.name')->where('pd.name', '!=', '')
+                ->pluck('pd.name', 'p.sku');
+
+            $ovName = \DB::table($pfx . 'product_option_value as pov')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
+                ->join($pfx . 'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+                ->whereIn('pov.sku', $skus->all())
+                ->whereNotNull('pd.name')->where('pd.name', '!=', '')
+                ->pluck('pd.name', 'pov.sku');
+
+            $orderName = \DB::table('lazada_order_products')
+                ->whereIn('sku', $skus->all())
+                ->whereNotNull('name')->where('name', '!=', '')
+                ->pluck('name', 'sku');
+
+            // Order products win: that is the title the buyer saw on Lazada.
+            $nameMap = $catName->merge($ovName)->merge($orderName);
+        }
+
         return [
             'setting' => $setting,
             'orders' => $orders,
             'erpMap' => $erpMap,
             'imgMap' => $imgMap,
+            'nameMap' => $nameMap,
             'per_page' => $perPage,
             'last_result' => session('lazada_orders_last_result'),
             'tabs' => $tabs,

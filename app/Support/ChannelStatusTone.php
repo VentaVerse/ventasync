@@ -411,6 +411,42 @@ class ChannelStatusTone
            wherever the two channels mean the same thing, because an operator
            reading both lists should not have to learn that "Back with us"
            and "Return delivered" are one state. */
+        /* THE STOREFRONT'S OWN WORDS.
+         *
+         * Venta was the last channel bypassing this class entirely: its
+         * panel ran ucwords(str_replace('_', ' ', $status)) over whatever
+         * string the storefront sent, so the filter strip advertised
+         * "In Transit to Manila" and "Canceled" - one a courier's internal
+         * leg description, the other American. PRODUCT.md's third principle
+         * says the system translates rather than leaking the channel's
+         * difference, and four channels honoured it while this one title-
+         * cased the raw feed.
+         *
+         * "Canceled" to "Cancelled" is the whole point of the exercise in
+         * miniature: every other list in this product spells it with two
+         * l's, and an operator scanning two channels should not have to
+         * notice which spelling belongs to which. */
+        'venta.orders' => [
+            'PENDING'              => 'Unpaid',
+            'FOR_VERIFICATION'     => 'Checking payment',
+            'PROCESSING'           => 'To pack',
+            'START_PICKUP'         => 'Ready for pickup',
+            'SHIPPED'              => 'Shipped',
+            'IN_TRANSIT_TO_MANILA' => 'In transit',
+            'DELIVERED'            => 'Delivered',
+            'COMPLETE'             => 'Completed',
+            'COMPLETED'            => 'Completed',
+            'TO_CONFIRM_RECEIVE'   => 'Awaiting confirmation',
+            'CANCELED'             => 'Cancelled',
+            'CANCELLED'            => 'Cancelled',
+            'DENIED'               => 'Refused',
+            'FAILED'               => 'Failed',
+            'REVERSED'             => 'Reversed',
+            'RETURN_IN_PROGRESS'   => 'Return in progress',
+            'RETURNED'             => 'Returned',
+            'REFUNDED'             => 'Refunded',
+        ],
+
         'lazada.reverse_type' => [
             'RETURN' => 'Return',
             'CANCEL' => 'Cancellation',

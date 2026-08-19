@@ -204,23 +204,58 @@
  * beats the @layer'd component sheet regardless of order. The rule had to
  * change here; setting it in blotter-components.css alone did nothing and
  * measured as if the edit had not happened. */
+/* THE SUB STEP IS THE WORK, so it stops being drawn as a footnote.
+ *
+ * This was deliberately a step smaller and quieter than the strip above it -
+ * 30px against 36px, 12.5px text against 14px - on the reasoning that
+ * smaller reads as "second level". The reasoning is sound in general and
+ * wrong here. To Pack, To Arrange and To Handover are the packing bench:
+ * they are what an operator moves between all day, while the parent tab
+ * above them is picked once and left. The most-used control on the page was
+ * the smallest thing on it.
+ *
+ * It is now the larger of the two. What still says "second level" is
+ * position and treatment, not scale: it sits beneath its parent, and its
+ * active item takes the brand tint rather than the lifted white pill, so the
+ * two levels remain tellable apart without the working one having to
+ * whisper. */
 .x-segment--sub {
     background: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
-    padding: 2px;
-    gap: 2px;
+    padding: 3px;
+    gap: 3px;
     margin-bottom: var(--bl-space-4);
 }
 
 .x-segment--sub .x-segment__item {
-    height: 30px;
-    padding: 0 var(--bl-space-3);
-    font-size: 12.5px;
+    height: 42px;
+    padding: 0 22px;
+    font-size: 14.5px;
+    font-weight: 600;
 }
 
+/* The count carries the same promotion. On this strip it is not reference
+   information sitting beside a label - it is the number of parcels on the
+   bench, which is the reason the operator is looking. */
+.x-segment--sub .x-segment__count {
+    font-size: 13px;
+}
+
+/* The selected step. No box-shadow declared here on purpose: the channel
+   block in blotter-components.css already gives every active segment item
+   the channel's own underline, and it sits in a later cascade layer, so a
+   ring written here would be overridden and the comment describing it would
+   be a lie. Measured on the built page, the active step carries the brand
+   tint, that channel underline and a hairline ring - enough marking that a
+   fourth would be noise. */
 .x-segment--sub .x-segment__item.is-active {
     background: var(--bl-brand-wash);
     color: var(--bl-ink);
+    /* The tint is the mark at this level, not the lifted pill the parent
+       strip uses. Inside a channel scope the accent rule adds its own
+       underline on top of this, which is what the two levels look like in
+       practice; this keeps the bare case honest for anywhere a sub strip
+       renders outside one. */
     box-shadow: none;
 }
 

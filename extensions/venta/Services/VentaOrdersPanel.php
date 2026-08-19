@@ -45,7 +45,25 @@ class VentaOrdersPanel
         $sort = in_array($request->input('sort'), $this->sortable, true)
             ? (string) $request->input('sort')
             : 'order_created_at';
-        $dir = $request->input('dir') === 'asc' ? 'asc' : 'desc';
+        /* FIRST IN, FIRST OUT ON THE WORK QUEUE.
+         *
+         * This always defaulted to newest first, so the oldest unshipped
+         * order - the one closest to breaching - sat at the bottom of the
+         * list behind everything that arrived after it. The marketplace
+         * panels already flip to oldest-first on their work tab and keep
+         * newest-first elsewhere; this now does the same.
+         *
+         * Filtered to a status nobody acts on (Delivered, Cancelled), newest
+         * first is still right: that is a record being consulted, not a
+         * queue being worked. */
+        $status = $request->filled('status') ? (string) $request->input('status') : '';
+
+        $vtWorkStatuses = ['Pending', 'For Verification', 'Processing', 'Start Pickup'];
+        $defaultDir = in_array($status, $vtWorkStatuses, true) ? 'asc' : 'desc';
+
+        $dir = in_array($request->input('dir'), ['asc', 'desc'], true)
+            ? (string) $request->input('dir')
+            : $defaultDir;
 
         // Line items are rendered per order (one table row each, with the
         // order-level facts rowspanned beside them), so they are loaded with
@@ -55,8 +73,9 @@ class VentaOrdersPanel
             ->orderBy($sort, $dir);
 
         // filled() is false for both a missing param and an empty one, so
-        // neither narrows the list. Same guard the page has always used.
-        $status = $request->filled('status') ? (string) $request->input('status') : '';
+        // neither narrows the list. Same guard the page has always used;
+        // $status itself is resolved above, because the default sort
+        // direction depends on it.
         if ($status !== '') {
             $query->where('status', $status);
         }

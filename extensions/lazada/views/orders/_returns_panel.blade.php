@@ -34,6 +34,7 @@
     $tab_counts = $tab_counts ?? [];
     $erpMap = $erpMap ?? collect();
     $imgMap = $imgMap ?? collect();
+    $nameMap = $nameMap ?? collect();
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
     $findFilter = (string) ($filters['q'] ?? '');
     $openedFromFilter = (string) ($filters['opened_from'] ?? '');
@@ -243,7 +244,7 @@
 @if($orders->count() === 0)
     @php
         if ($hasSearch) {
-            $lzEmptyDesc = 'Nothing matches that return or order number. Clear the search to see the full list.';
+            $lzEmptyDesc = 'Nothing matches that search. Clear it to see the full list.';
         } elseif ($active_tab !== 'ALL') {
             // Keep the tab's own capitalisation: lowercasing produced
             // unreadable copy on the Orders page and would here too.
@@ -388,6 +389,9 @@
                 $itRefund = isset($it['_refund_sum']) ? ((float) $it['_refund_sum'] / 100) : null;
                 $itPrice = isset($it['item_unit_price']) ? ((float) $it['item_unit_price'] / 100) : null;
                 $img = (string) ($imgMap[$sSku] ?? ($imgMap[$pSku] ?? ''));
+                // The title, resolved by SKU the same way the picture is.
+                // Lazada's reverse payload carries no product name at all.
+                $pName = (string) ($nameMap[$sSku] ?? ($nameMap[$pSku] ?? ''));
                 // Lazada records a reason on the reverse order and again on
                 // each of its lines, and for a single-line return they are
                 // usually the same sentence. The Status cell already prints
@@ -409,7 +413,13 @@
                         @endif
                     </div>
                     <div class="co-item__body">
-                        <span class="co-item__name">{{ $pSku !== '' ? $pSku : ($sSku !== '' ? $sSku : 'Unnamed product') }}</span>
+                        {{-- The name where every other list puts a name. This
+                             printed the marketplace item id, so the one page a
+                             caller's question lands on showed a number where
+                             they had said a product. The SKU keeps its place
+                             in the meta line below; when no name resolves, the
+                             SKU steps up rather than leaving the row blank. --}}
+                        <span class="co-item__name">{{ $pName !== '' ? $pName : ($sSku !== '' ? $sSku : ($pSku !== '' ? $pSku : 'Unnamed product')) }}</span>
                         <div class="co-item__meta">
                             @if($sSku !== '')
                                 <span class="co-item__sku">{{ $sSku }}</span>

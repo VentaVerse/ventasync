@@ -293,7 +293,7 @@
 @if($orders->count() === 0)
     @php
         if ($hasSearch) {
-            $spEmptyDesc = 'Nothing matches that order number or buyer. Clear the search to see the full list.';
+            $spEmptyDesc = 'Nothing matches that search. Clear it to see the full list.';
         } elseif ($active_tab !== 'ALL') {
             // Keep the tab's own capitalisation: lowercasing it produced
             // "no to ship orders", which reads broken.

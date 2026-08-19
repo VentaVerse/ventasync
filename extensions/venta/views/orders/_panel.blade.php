@@ -54,7 +54,14 @@
 
     // A status name is a word, not a constant, on this channel: see the
     // OrderStatusTone note in the table below.
-    $vtStatusLabel = fn (string $s) => $s !== '' ? ucwords(str_replace('_', ' ', $s)) : 'No status';
+    /* Through the shared label class, like every other channel. This ran
+       ucwords() over the storefront's raw string, which is how "In Transit
+       to Manila" and the American "Canceled" reached the filter strip. An
+       unmapped status still degrades to sentence case rather than shouting,
+       so a status the storefront invents tomorrow reads as words. */
+    $vtStatusLabel = fn (string $s) => $s !== ''
+        ? \App\Support\ChannelStatusTone::labelFor('venta.orders', $s)
+        : 'No status';
 
     // Sort links flip the direction of the column already sorted and start
     // ascending on any other, which is what the legacy header links did.
