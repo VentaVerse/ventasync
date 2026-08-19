@@ -162,10 +162,16 @@
                  tab order, not announced as a link, no pointer cursor. The
                  active tab keeps its href even at 0, because that URL is
                  where the operator already is. --}}
-            @php $segEmpty = ($count !== null && (int) $count === 0 && ! $isActive); @endphp
-            <a @if(! $segEmpty) href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}" @endif
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}{{ $segEmpty ? ' is-empty' : '' }}"
-               @if($segEmpty) aria-disabled="true" @endif
+            {{-- A tab with nothing in it stays clickable.
+                 It was briefly rendered without an href, on the reasoning that
+                 spending a click to be told what the tab already told you is
+                 waste. The owner asked for it back, and the reasoning was thinner
+                 than it looked: a count is a number the last sync produced,
+                 and going to the tab is how an operator checks whether that is
+                 still true. A control that refuses the check is arguing with
+                 the person using it. --}}
+            <a href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="page" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)

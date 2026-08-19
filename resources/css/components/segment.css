@@ -146,20 +146,6 @@
     }
 }
 
-/* A filter with nothing in it. Rendered without an href, so it is already
-   out of the tab order and off the pointer; this is what says so on the
-   screen. Quieter than a resting tab but not so quiet it stops being
-   readable - the operator still needs to know the queue exists and is
-   empty, which is a fact about the day's work, not chrome. */
-.x-segment__item.is-empty {
-    color: var(--bl-ink-3);
-    cursor: default;
-}
-
-.x-segment__item.is-empty:hover { color: var(--bl-ink-3); }
-
-.x-segment__item.is-empty .x-segment__count { opacity: .65; }
-
 .x-segment__item.is-active {
     background: var(--bl-sheet);
     color: var(--bl-ink);

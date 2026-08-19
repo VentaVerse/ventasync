@@ -153,24 +153,16 @@
                 $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
             @endphp
-            {{-- A filter with no members is shown but not offered.
-                 Four of Lazada's seven return tabs read 0, and each was a full
-                 target onto an empty list - the operator spends a click to be
-                 told what the tab already told them. It stays visible, because
-                 a tab that disappears when its queue empties makes the strip
-                 change shape as the day goes on; it just stops being a target.
-
-                 An anchor without an href is the whole mechanism: not in the
-                 tab order, not announced as a link, no pointer cursor. The
-                 active tab keeps its href even at 0, because that URL is where
-                 the operator already is.
-
-                 Top level only. The sub step strip below keeps its hrefs - see
-                 the note there. --}}
-            @php $segEmpty = ($count !== null && (int) $count === 0 && ! $isActive); @endphp
-            <a @if(! $segEmpty) href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub']) }}" @endif
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}{{ $segEmpty ? ' is-empty' : '' }}"
-               @if($segEmpty) aria-disabled="true" @endif
+            {{-- A tab with nothing in it stays clickable.
+                 It was briefly rendered without an href, on the reasoning that
+                 spending a click to be told what the tab already told you is
+                 waste. The owner asked for it back, and the reasoning was thinner
+                 than it looked: a count is a number the last sync produced,
+                 and going to the tab is how an operator checks whether that is
+                 still true. A control that refuses the check is arguing with
+                 the person using it. --}}
+            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub']) }}"
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="page" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)
