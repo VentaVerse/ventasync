@@ -337,7 +337,12 @@
             // inventing a fixed list for something an admin renames from
             // Settings. Anything unrecognised reads neutral, which is
             // OrderStatusTone's deliberate behaviour rather than a gap.
-            $vtTone = \App\Support\OrderStatusTone::for($vtStatusRaw);
+            /* The tone from the same class as the label. This called
+               OrderStatusTone, whose warning list knows "ready to ship" but
+               not this storefront's "Start Pickup" or "In Transit to
+               Manila", so the two statuses that most need a colour rendered
+               neutral grey. */
+            $vtTone = \App\Support\ChannelStatusTone::toneFor('venta.orders', $vtStatusRaw);
         @endphp
         <tr class="co-band">
             <td colspan="9">

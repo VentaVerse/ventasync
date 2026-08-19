@@ -110,7 +110,6 @@
 @import './components/currency-rate.css' layer(vocabulary);
 @import './components/typeahead.css' layer(vocabulary);
 @import './components/permission-pill.css' layer(vocabulary);
-@import './components/sla-chip.css' layer(vocabulary);
 @import './components/tabs.css' layer(vocabulary);
 @import './components/toolbar.css' layer(vocabulary);
 @import './components/selectbar.css' layer(vocabulary);

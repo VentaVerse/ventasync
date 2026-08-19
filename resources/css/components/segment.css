@@ -85,9 +85,34 @@
         linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
 }
 
-/* The sub level never overflows - it carries two items - and its own ground
-   is set separately below, so it opts out of the whole mechanism. */
-.x-segment--sub { background-image: none; }
+/* THE SUB LEVEL KEEPS THE AFFORDANCE, because it can now overflow.
+ *
+ * It used to opt out, on the stated reasoning that it "never overflows - it
+ * carries two items". That was true when its items were 30px tall and 12.5px,
+ * and stopped being true the moment they were promoted to 42px and 14.5px
+ * with wider padding: Lazada carries THREE sub steps, and at 390px they
+ * measure 485px inside a 328px trough, hiding To Handover almost entirely.
+ *
+ * The promotion was right and the opt-out was a leftover from before it. The
+ * strip that matters most on the smallest screen was the one strip with no
+ * way to say it had more to the right. It uses the same four-layer mechanism
+ * as its parent, redeclared here because .x-segment--sub sets its own ground
+ * below and the shorthand would otherwise wipe the layers. */
+.x-segment--sub {
+    background-image:
+        linear-gradient(to right, rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
+        linear-gradient(to left,  rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
+        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
+        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
+}
+
+[data-theme='dark'] .x-segment--sub {
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
+        linear-gradient(to left,  rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
+        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
+        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
+}
 
 /* An item is an <a> when it navigates and a <button> when it switches a
    view in place (the error log's severity filter, which narrows lines
@@ -220,7 +245,13 @@
  * two levels remain tellable apart without the working one having to
  * whisper. */
 .x-segment--sub {
-    background: var(--bl-chrome);
+    /* background-COLOR, not the shorthand. The shorthand resets
+       background-image and background-attachment, which is where the
+       scroll-edge affordance lives - so declaring it here silently undid the
+       four layers set above and left this strip unable to say it had more to
+       the right. The one strip that most needed the mark was the one strip
+       that lost it, to a property nobody would think to look at. */
+    background-color: var(--bl-chrome);
     border: 1px solid var(--bl-rule);
     padding: 3px;
     gap: 3px;
@@ -239,6 +270,18 @@
    bench, which is the reason the operator is looking. */
 .x-segment--sub .x-segment__count {
     font-size: 13px;
+}
+
+@media (max-width: 640px) {
+    /* Promoted, not padded. The extra height and weight are what make this
+       the working control and they stay; the generous side padding was
+       bought with width the phone does not have, and it is what pushed a
+       three-step strip past the trough. Trimming it recovers 60px across
+       three items without shrinking a single target below the parent's. */
+    .x-segment--sub .x-segment__item {
+        padding: 0 12px;
+        font-size: 14px;
+    }
 }
 
 /* The selected step. No box-shadow declared here on purpose: the channel

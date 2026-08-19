@@ -284,7 +284,13 @@
                      rather than by a viewport breakpoint: it is the card's own
                      width that decides whether there is room, and the grid is
                      what sets that. --}}
-                @if($fhCard['todayOrders'] !== null)
+                {{-- Orders today, so it is withheld on the returns view. The
+                     lead figure and its label were scoped to returns when the
+                     cards learned to count them; this line was not, and went
+                     on printing "19 today - P2,092.00" beneath a heading
+                     reading "76 returns", where every reader takes it for
+                     nineteen returns today. --}}
+                @if(! $fhIsReturnsView && $fhCard['todayOrders'] !== null)
                     <span class="fh-card__today">
                         <span class="x-num">{{ number_format($fhCard['todayOrders']) }}</span> today
                         @if($fhCard['todayRevenue'] !== null)

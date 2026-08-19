@@ -2863,7 +2863,28 @@
     }
 
     /* Time left to ship. A countdown is only useful if lateness is visible
-       across the room, so this is the one mark that fills with colour. */
+       across the room, so this is the one mark that fills with colour.
+     *
+     * THIS BLOCK NEVER RENDERED A PIXEL UNTIL NOW. A second, complete copy of
+     * the same component lived in components/sla-chip.css, imported
+     * layer(vocabulary) - and vocabulary outranks components in the order
+     * declared at the top of blotter.css, so the copy won every cascade and
+     * this tokenised version was dead code. Nothing failed: the class sweep
+     * saw the classes defined, the token guard saw only declared properties,
+     * and the page rendered chips. They were simply the wrong chips.
+     *
+     * What shipped instead was nine raw Tailwind hex values with no theme
+     * awareness, so in dark mode the critical chip painted a near-white cream
+     * pill on a near-black sheet - glare exactly where the operator needed
+     * signal - and DESIGN.md's rule that colour comes only from --bl-* was
+     * bypassed on the one mark it calls unmissable.
+     *
+     * The duplicate also carried an infinite slaPulse animation with no
+     * prefers-reduced-motion guard, in a codebase that guards motion
+     * everywhere else. It is gone with the file rather than reproduced here:
+     * on a bench where most orders are late, a pulse that never stops is not
+     * a signal, and the filled overdue tier already says the thing across
+     * the room that the pulse was reaching for. */
     .sla-chip-wrap {
         display: block;
         margin-top: 6px;
@@ -2916,7 +2937,13 @@
         color: var(--bl-bad);
     }
 
-    /* Already late. Filled, because by this point the row is costing money. */
+    /* Already late. Filled, because by this point the row is costing money.
+     *
+     * The text is not simply white. --bl-bad is a dark red in light theme and
+     * a LIGHT one in dark (#cb3327 vs #f0705f), so a fill that holds white at
+     * 5.20:1 by day holds it at 2.92:1 at night - the chip that shouts loudest
+     * becoming the one you cannot read. The ink follows the fill: white on
+     * the dark red, --bl-paper on the light one, which measures 6.55:1. */
     .sla-chip--overdue {
         border-color: var(--bl-bad);
         background: var(--bl-bad);
@@ -2925,6 +2952,14 @@
 
     .sla-chip--overdue .sla-chip__label {
         color: color-mix(in srgb, #fff 75%, transparent);
+    }
+
+    [data-theme='dark'] .sla-chip--overdue {
+        color: var(--bl-paper);
+    }
+
+    [data-theme='dark'] .sla-chip--overdue .sla-chip__label {
+        color: color-mix(in srgb, var(--bl-paper) 78%, transparent);
     }
 
     .x-badge--neutral {

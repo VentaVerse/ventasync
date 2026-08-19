@@ -231,6 +231,40 @@ class ChannelStatusTone
         // which normalise to the underscored key. Same rule as Shopee's
         // returns: nothing here is settled-and-well, because a return
         // reaching its end is not the seller's win.
+        /* THE STOREFRONT'S TONES, which it never had.
+         *
+         * Its labels were routed through this class and its tones were not,
+         * so the panel still called OrderStatusTone - a class whose own
+         * docblock claims to dress Venta and whose warning list contains
+         * "ready to ship" but neither "start pickup" nor "in transit". The
+         * result: the two statuses that mean "a courier is coming, have the
+         * parcel ready" and "it is moving" rendered neutral grey, on the one
+         * channel where the seller controls fulfilment end to end.
+         *
+         * Same philosophy as every other surface here: warning is the
+         * operator's move, info is waiting on somebody they cannot chase,
+         * success is settled well, danger ended badly. */
+        'venta.orders' => [
+            'PENDING'              => 'info',      // waiting on the buyer to pay
+            'FOR_VERIFICATION'     => 'warning',   // somebody here has to check it
+            'PROCESSING'           => 'warning',   // to pack
+            'START_PICKUP'         => 'warning',   // the courier is coming for it
+            'SHIPPED'              => 'info',
+            'IN_TRANSIT_TO_MANILA' => 'info',
+            'TO_CONFIRM_RECEIVE'   => 'info',      // waiting on the buyer
+            'DELIVERED'            => 'success',
+            'COMPLETE'             => 'success',
+            'COMPLETED'            => 'success',
+            'REFUNDED'             => 'success',   // settled, if not happily
+            'RETURN_IN_PROGRESS'   => 'warning',
+            'RETURNED'             => 'info',
+            'CANCELED'             => 'danger',
+            'CANCELLED'            => 'danger',
+            'DENIED'               => 'danger',
+            'FAILED'               => 'danger',
+            'REVERSED'             => 'danger',
+        ],
+
         'lazada.returns' => [
             'RETURN_INITIATED'   => 'warning',
             'REQUESTED'          => 'warning',
