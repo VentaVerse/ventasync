@@ -603,6 +603,324 @@ class LazadaOrderController extends Controller
     }
 
     /**
+     * Pack a selection, then hand back one combined waybill.
+     *
+     * A To Pack queue of 34 orders was 34 round trips through a modal, and
+     * the selection that already existed on every row could only print a
+     * pick list. This is the queue's own verb applied to a selection.
+     *
+     * PACKED ONE AT A TIME, DELIBERATELY. Lazada's /order/fulfill/pack takes
+     * a pack_order_list and would accept the whole selection in one call,
+     * which is faster and which I am not doing: the failure semantics of a
+     * partially-bad batch are not documented, and a rejected batch would
+     * leave the operator unable to tell which order was the problem. One
+     * call per order reuses the exact payload the single-order path already
+     * proves, and every outcome is attributable to its own order.
+     *
+     * An order that already has packages is NOT packed again. Re-submitting
+     * the same selection - a double click, a back button, a retry after a
+     * timeout - must not create duplicate packages, and Lazada will happily
+     * make them.
+     */
+    public function bulkPackPrint(Request $request, LazadaClient $client)
+    {
+        // Sixteen live calls in a row outlast the default limit. The fetch
+        // loops on this controller already do this; see index().
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['required', 'integer'],
+        ], [
+            'ids.max' => 'Pack at most 50 orders at a time. Select fewer and run it again.',
+            'ids.required' => 'Pick the orders to pack first.',
+        ]);
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+            return redirect()->back()->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.',
+            ]);
+        }
+
+        $orders = LazadaOrder::query()
+            ->where('region', $setting->region)
+            ->whereIn('id', $data['ids'])
+            ->orderBy('id')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return redirect()->back()->with('lazada_orders_last_result', [
+                'ok' => false,
+                'message' => 'None of those orders are still here. Reload the list and pick again.',
+            ]);
+        }
+
+        $outcomes = [];
+        foreach ($orders as $order) {
+            $outcomes[] = $this->packOneForBulk($client, $setting, $order);
+        }
+
+        // An id that resolved to nothing is reported, not dropped. A silent
+        // skip reads as "all 12 packed" when 11 did.
+        $found = $orders->pluck('id')->all();
+        foreach (array_diff($data['ids'], $found) as $missingId) {
+            $outcomes[] = [
+                'local_id' => (int) $missingId,
+                'order_id' => '',
+                'ok' => false,
+                'state' => 'gone',
+                'message' => 'No longer in this list. It may have been removed by a sync.',
+            ];
+        }
+
+        $packed = array_values(array_filter($outcomes, fn ($o) => $o['ok']));
+
+        // Signature is (action, subjectType, subjectId, subjectLabel, changes).
+        // The label is the 4th argument, not the 2nd, and changes must be an
+        // array - passing a sentence as subjectType is how this call gets
+        // written wrong.
+        ActivityLogger::log(
+            'lazada.orders.bulk_pack',
+            null,
+            null,
+            'Bulk packed ' . count($packed) . ' of ' . count($outcomes) . ' Lazada orders',
+            ['outcomes' => $outcomes]
+        );
+
+        return redirect()->back()->with('lazada_bulk_pack', [
+            'outcomes' => $outcomes,
+            'packed_ids' => array_column($packed, 'local_id'),
+            'packed' => count($packed),
+            'total' => count($outcomes),
+        ]);
+    }
+
+    /**
+     * One order's share of a bulk pack. Never throws: a single bad order must
+     * not abandon the rest of the selection half done.
+     *
+     * @return array{local_id: int, order_id: string, ok: bool, state: string, message: string}
+     */
+    private function packOneForBulk(LazadaClient $client, $setting, LazadaOrder $order): array
+    {
+        $orderId = (string) $order->order_id;
+
+        $out = function (bool $ok, string $state, string $message) use ($order, $orderId) {
+            return [
+                'local_id' => (int) $order->id,
+                'order_id' => $orderId,
+                'ok' => $ok,
+                'state' => $state,
+                'message' => $message,
+            ];
+        };
+
+        try {
+            $items = $this->getOrderItems($client, $setting, $orderId);
+
+            if (!($items['ok'] ?? false)) {
+                return $out(false, 'failed', 'Could not read the order items.');
+            }
+
+            if ($items['is_sof'] ?? false) {
+                return $out(false, 'sof', 'An SOF or DBS order. Lazada does not support packing it through this API.');
+            }
+
+            // Already packed. Skipping the write is the whole idempotency
+            // guard: it is still printable, so it counts as a success.
+            if (count($items['package_ids'] ?? []) > 0) {
+                return $out(true, 'already', 'Already packed. Its waybill is included.');
+            }
+
+            $orderItemList = [];
+            foreach (array_values($items['order_item_ids'] ?? []) as $oid) {
+                $orderItemList[] = (string) $oid;
+            }
+
+            if ($orderItemList === []) {
+                return $out(false, 'failed', 'Lazada returned no items for this order.');
+            }
+
+            $creds = LazadaSetting::activeCredentials($setting);
+
+            $packRes = $this->runSignedApiCall(
+                $client,
+                $setting->region,
+                $creds['app_key'],
+                $creds['app_secret'],
+                $creds['access_token'],
+                'POST',
+                '/order/fulfill/pack',
+                true,
+                [
+                    'packReq' => json_encode([
+                        'delivery_type' => 'dropship',
+                        'shipping_allocate_type' => 'TFS',
+                        'pack_order_list' => [[
+                            'order_id' => $orderId,
+                            'order_item_list' => $orderItemList,
+                        ]],
+                    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                ],
+                'lazada.order.fulfill.pack'
+            );
+
+            if (!($packRes['ok'] ?? false)) {
+                return $out(false, 'failed', 'Lazada did not answer the pack request.');
+            }
+
+            $body = $packRes['body'] ?? [];
+            if (is_array($body) && isset($body['code'], $body['message'])) {
+                return $out(false, 'failed', 'Lazada error: ' . $body['code'] . ' - ' . $body['message']);
+            }
+
+            // Best effort, exactly as the single-order path does it: a failed
+            // status refresh does not make a successful pack a failure.
+            try {
+                $st = $this->fetchOrderStatusFromApi($client, $setting, $orderId);
+                if ($st !== null) {
+                    LazadaOrder::query()
+                        ->where('region', $setting->region)
+                        ->where('order_id', $orderId)
+                        ->update(['status' => $st]);
+                }
+                $fresh = LazadaOrder::query()
+                    ->where('region', $setting->region)
+                    ->where('order_id', $orderId)
+                    ->first();
+                if ($fresh) {
+                    (new LazadaCatalogOrderSync)->sync($fresh);
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+
+            return $out(true, 'packed', 'Packed.');
+        } catch (\Throwable $e) {
+            return $out(false, 'failed', 'Unexpected error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * One PDF for a selection's waybills.
+     *
+     * Lazada's /order/package/document/get takes a list of packages, so this
+     * is a single call however many orders were picked - the packer gets one
+     * document to send to the printer rather than one tab per parcel.
+     *
+     * Unlike the single-order AWB this does not serve or write the local
+     * cache: a combined document cannot be filed under one order id, and
+     * splitting it back apart is not something this can do.
+     */
+    public function bulkAwb(Request $request, LazadaClient $client)
+    {
+        try { @set_time_limit(0); } catch (\Throwable $e) {}
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['required', 'integer'],
+        ]);
+
+        $setting = LazadaSetting::query()->first()?->decrypted();
+        $creds = LazadaSetting::activeCredentials($setting);
+        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
+            return $this->awbError('Missing Lazada credentials/token. Please configure Lazada settings and generate access token first.');
+        }
+
+        $orders = LazadaOrder::query()
+            ->where('region', $setting->region)
+            ->whereIn('id', $data['ids'])
+            ->orderBy('id')
+            ->get();
+
+        $packages = [];
+        $skipped = [];
+        foreach ($orders as $order) {
+            $items = $this->getOrderItems($client, $setting, (string) $order->order_id);
+            if (!($items['ok'] ?? false) || ($items['is_sof'] ?? false)) {
+                $skipped[] = (string) $order->order_id;
+                continue;
+            }
+            foreach ($items['package_ids'] ?? [] as $pid) {
+                $packages[] = ['package_id' => $pid];
+            }
+        }
+
+        if ($packages === []) {
+            return $this->awbError('None of those orders have a printable package yet. Pack them first.');
+        }
+
+        $awbRes = $this->runSignedApiCall(
+            $client,
+            $setting->region,
+            $creds['app_key'],
+            $creds['app_secret'],
+            $creds['access_token'],
+            'POST',
+            '/order/package/document/get',
+            true,
+            [
+                'getDocumentReq' => json_encode([
+                    'doc_type' => 'PDF',
+                    'packages' => $packages,
+                ], JSON_UNESCAPED_SLASHES),
+            ],
+            'lazada.order.package.document.get'
+        );
+
+        if (!($awbRes['ok'] ?? false)) {
+            return $this->awbError('Failed to retrieve the combined waybill PDF.');
+        }
+
+        $awbBody = $awbRes['body'] ?? [];
+        if (is_array($awbBody) && isset($awbBody['code'], $awbBody['message'])) {
+            return $this->awbError('Lazada error: ' . $awbBody['code'] . ' - ' . $awbBody['message']);
+        }
+
+        $dataNode = is_array($awbBody) ? ($awbBody['data'] ?? $awbBody) : $awbBody;
+        if (is_array($dataNode) && isset($dataNode['code'], $dataNode['message'])) {
+            return $this->awbError('Lazada error: ' . $dataNode['code'] . ' - ' . $dataNode['message']);
+        }
+
+        $doc = $this->findDocument($dataNode);
+        if (!$doc) {
+            return $this->awbError('The waybill response did not contain a document.');
+        }
+
+        if (($doc['type'] ?? '') === 'url') {
+            $url = (string) ($doc['value'] ?? '');
+            if ($url !== '' && preg_match('#^https?://#i', $url)) {
+                return redirect()->away($url);
+            }
+
+            return $this->awbError('The waybill response contained an unusable link.');
+        }
+
+        $bin = base64_decode((string) $doc['value'], true);
+        if ($bin === false || $bin === '') {
+            return $this->awbError('Invalid document returned from Lazada.');
+        }
+
+        // Same shape the single AWB handles: sometimes the base64 is an HTML
+        // wrapper around the real PDF's address rather than the PDF itself.
+        if (!str_starts_with($bin, '%PDF')) {
+            if (preg_match('/<iframe[^>]+src="([^"]+)"/i', $bin, $m) && str_starts_with($m[1], 'http')) {
+                return redirect()->away($m[1]);
+            }
+
+            return $this->awbError('Lazada returned a document that is not a PDF.');
+        }
+
+        return response($bin, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="waybills_' . count($packages) . '.pdf"',
+        ]);
+    }
+
+    /**
      * Packing List (printable HTML) for a single order.
      * Uses DB products when available, otherwise falls back to Lazada /order/items/get.
      */

@@ -275,6 +275,7 @@ class LazadaOrdersPanel
             'live_statuses' => $live_statuses,
             'savedAwbs' => $savedAwbs,
             'pack_print_parcel' => $this->resolvePackedParcel($setting),
+            'bulk_pack' => session('lazada_bulk_pack'),
             'sort' => $sortKey,
             'filters' => [
                 'q' => $find,

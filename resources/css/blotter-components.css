@@ -2364,6 +2364,61 @@
         color: var(--bl-ink);
     }
 
+    /* ------------------------------------------------------------------
+       WHAT HAPPENED TO EACH ORDER IN A BULK PACK
+
+       Scrolls rather than growing: fifty outcomes must not push the print
+       button off the bottom of the screen, since the button is the reason
+       the operator is reading this at all.
+       ------------------------------------------------------------------ */
+    .co-outcomes {
+        margin: 10px 0 2px;
+        padding: 0;
+        list-style: none;
+        max-height: 46vh;
+        overflow-y: auto;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+    }
+
+    .co-outcome {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 7px 11px;
+        font-size: 13px;
+    }
+
+    .co-outcome + .co-outcome {
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .co-outcome__id {
+        flex: none;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--bl-ink);
+    }
+
+    .co-outcome__what {
+        color: var(--bl-ink-2);
+        line-height: 1.35;
+    }
+
+    /* The state is written in the message, and carried again by a rule down
+       the left edge - never by the colour alone. */
+    .co-outcome--ok {
+        border-left: 3px solid var(--bl-good);
+    }
+
+    .co-outcome--bad {
+        border-left: 3px solid var(--bl-bad);
+    }
+
+    .co-outcome--bad .co-outcome__what {
+        color: var(--bl-ink);
+    }
+
     .co-modal__foot {
         display: flex;
         gap: 8px;

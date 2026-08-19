@@ -536,6 +536,16 @@
     },
     {
         "method": "POST",
+        "uri": "integrations/lazada/orders/bulk-awb",
+        "name": "ext.lazada.orders.bulk_awb"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/lazada/orders/bulk-pack-print",
+        "name": "ext.lazada.orders.bulk_pack_print"
+    },
+    {
+        "method": "POST",
         "uri": "integrations/lazada/orders/fetch",
         "name": "ext.lazada.orders.fetch"
     },

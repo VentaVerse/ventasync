@@ -445,6 +445,27 @@
             <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
                          formaction="{{ route('fulfilment.print.packing', ['channel' => 'lazada']) }}">Print packing lists</x-ui.button>
+
+            {{-- The queue's own verb, applied to the selection.
+                 A To Pack queue of 34 orders was 34 round trips through a
+                 modal, while the selection that already existed on every row
+                 could only print a pick list.
+
+                 It rides the SAME form as the print actions because a
+                 checkbox can belong to exactly one form, and the ticked
+                 boxes name this one. formaction sends it elsewhere and
+                 formtarget overrides the form's _blank, since this one
+                 redirects back with a result rather than opening a document.
+
+                 Only on To Pack: on any other step "pack" is either done
+                 already or not yet the next thing, and a standing button for
+                 an irreversible marketplace write is an invitation. --}}
+            @if($canManageLazadaOrders && $pendingSub === 'to_pack' && ($active_tab ?? '') === 'TO_SHIP')
+                <x-ui.button type="submit" variant="primary" size="sm"
+                             formaction="{{ route('ext.lazada.orders.bulk_pack_print') }}"
+                             formtarget="_self"
+                             data-confirm="Pack the selected orders on Lazada? This creates a package for each one and cannot be undone from here.">Pack and print selected</x-ui.button>
+            @endif
         </form>
     </x-ui.selectbar>
 
@@ -925,6 +946,55 @@
         </div>
     </div>
 </div>
+@endif
+
+{{-- Bulk pack result.
+     Every order the operator selected appears here with what happened to
+     it, including the ones that did nothing. A summary that reports only
+     successes reads as "all 12 packed" when 11 did, and the packer finds
+     out at the shelf. --}}
+@if(!empty($bulk_pack))
+    @php($lzBulk = $bulk_pack)
+    <div id="lzBulkPackModal" class="modal-backdrop">
+        <div class="modal co-modal">
+            <div class="modal-header co-modal__head">
+                <h3 class="co-modal__title">{{ $lzBulk['packed'] }} of {{ $lzBulk['total'] }} packed</h3>
+                <button type="button" id="btnCloseBulkPack" class="modal-close co-modal__close" aria-label="Close">&times;</button>
+            </div>
+
+            <ul class="co-outcomes">
+                @foreach($lzBulk['outcomes'] as $lzOut)
+                    <li class="co-outcome co-outcome--{{ $lzOut['ok'] ? 'ok' : 'bad' }}">
+                        <span class="co-outcome__id">
+                            @if($lzOut['order_id'] !== '')
+                                {{ $lzOut['order_id'] }}
+                            @else
+                                <span class="co-empty-mark">Order {{ $lzOut['local_id'] }}</span>
+                            @endif
+                        </span>
+                        <span class="co-outcome__what">{{ $lzOut['message'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+
+            <div class="co-modal__foot co-modal__foot--end">
+                <x-ui.button type="button" id="btnBulkPackDone" variant="secondary">Close</x-ui.button>
+                @if(!empty($lzBulk['packed_ids']))
+                    {{-- One document for the whole selection: Lazada's
+                         package document endpoint takes a list, so this is a
+                         single call and a single thing to send to the
+                         printer, not one tab per parcel. --}}
+                    <form method="POST" action="{{ route('ext.lazada.orders.bulk_awb') }}" target="_blank">
+                        @csrf
+                        @foreach($lzBulk['packed_ids'] as $lzPackedId)
+                            <input type="hidden" name="ids[]" value="{{ $lzPackedId }}">
+                        @endforeach
+                        <x-ui.button type="submit" variant="primary">Print {{ count($lzBulk['packed_ids']) }} {{ count($lzBulk['packed_ids']) === 1 ? 'waybill' : 'waybills' }}</x-ui.button>
+                    </form>
+                @endif
+            </div>
+        </div>
+    </div>
 @endif
 
 {{-- Tracking modal, filled by the page module from the logistics trace

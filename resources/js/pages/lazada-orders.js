@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
         openPendingAwb(page);
         initFetchUpdateOverlay();
         initPackPrintModal(page);
+        initBulkPackModal();
         initLogisticsModal();
         initImagePreview();
     }
@@ -222,6 +223,24 @@ document.addEventListener('DOMContentLoaded', function () {
         fill(formRecreate, 'action', root.getAttribute('data-recreate-template'));
 
         if (orderEl) orderEl.textContent = orderId;
+        showModal(modal);
+    }
+
+    /* ------------------------------------------------------------------
+       Bulk pack result. Rendered by the server when a selection was packed,
+       so its presence in the document IS the signal - there is no data
+       attribute to read and nothing to fetch. Every outcome is already in
+       the markup; this only opens it and wires the dismiss.
+       ------------------------------------------------------------------ */
+    function initBulkPackModal() {
+        var modal = document.getElementById('lzBulkPackModal');
+        if (!modal) return;
+
+        bindModalDismiss(modal, [
+            document.getElementById('btnCloseBulkPack'),
+            document.getElementById('btnBulkPackDone')
+        ]);
+
         showModal(modal);
     }
 

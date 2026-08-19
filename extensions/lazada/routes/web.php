@@ -193,6 +193,10 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::get('/lazada/orders/returns', [LazadaOrderController::class, 'returns'])->name('ext.lazada.orders.returns');
         Route::get('/lazada/orders/{orderId}', [LazadaOrderController::class, 'show'])->name('ext.lazada.orders.show');
         Route::get('/lazada/orders/{orderId}/awb', [LazadaOrderController::class, 'awbPdf'])->name('ext.lazada.orders.awb');
+        // POST because it carries a list of ids, not because it writes. Same
+        // read tier as the single AWB above: printing a waybill for orders
+        // already on file is not a marketplace push.
+        Route::post('/lazada/orders/bulk-awb', [LazadaOrderController::class, 'bulkAwb'])->name('ext.lazada.orders.bulk_awb');
         Route::get('/lazada/orders/{orderId}/packing-list', [LazadaOrderController::class, 'packingList'])->name('ext.lazada.orders.packing_list');
         Route::get('/lazada/orders/{orderId}/pick-list', [LazadaOrderController::class, 'pickList'])->name('ext.lazada.orders.pick_list');
         Route::get('/lazada/orders/{orderId}/logistics-trace', [LazadaOrderController::class, 'logisticsTrace'])->name('ext.lazada.orders.logistics_trace');
@@ -208,6 +212,7 @@ Route::middleware(['auth'])->prefix('integrations')->group(function () {
         Route::post('/lazada/orders/reset', [LazadaOrderController::class, 'reset'])->name('ext.lazada.orders.reset');
         Route::post('/lazada/orders/{orderId}/pack', [LazadaOrderController::class, 'pack'])->name('ext.lazada.orders.pack');
         Route::post('/lazada/orders/{orderId}/pack-print', [LazadaOrderController::class, 'packAndPrint'])->name('ext.lazada.orders.pack_print');
+        Route::post('/lazada/orders/bulk-pack-print', [LazadaOrderController::class, 'bulkPackPrint'])->name('ext.lazada.orders.bulk_pack_print');
         Route::post('/lazada/orders/{orderId}/recreate-package', [LazadaOrderController::class, 'recreatePackage'])->name('ext.lazada.orders.recreate_package');
         Route::post('/lazada/orders/{orderId}/rts', [LazadaOrderController::class, 'rts'])->name('ext.lazada.orders.rts');
         Route::post('/lazada/orders/{orderId}/ship-print', [LazadaOrderController::class, 'shipAndPrintPost'])->name('ext.lazada.orders.ship_print_post');
