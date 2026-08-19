@@ -98,6 +98,8 @@
 @import './pages/marketplace-returns.css' layer(vocabulary);
 @import './pages/venta-orders.css' layer(vocabulary);
 @import './pages/shopify-orders.css' layer(vocabulary);
+@import './pages/opencart-orders.css' layer(vocabulary);
+@import './pages/pedallion-orders.css' layer(vocabulary);
 @import './pages/marketplace-common.css' layer(vocabulary);
 @import './pages/licenses.css' layer(vocabulary);
 @import './pages/order-form.css' layer(vocabulary);

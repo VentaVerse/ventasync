@@ -29,10 +29,24 @@ class LazadaReturnsPanel
         $filters = $request->validate([
             'reverse_order_id' => ['nullable', 'string', 'max:80'],
             'trade_order_id' => ['nullable', 'string', 'max:80'],
+            'opened_from' => ['nullable', 'date'],
+            'opened_to' => ['nullable', 'date', 'after_or_equal:opened_from'],
         ]);
 
         $reverseOrderId = trim((string)($filters['reverse_order_id'] ?? ''));
         $tradeOrderId = trim((string)($filters['trade_order_id'] ?? ''));
+        $openedFrom = trim((string)($filters['opened_from'] ?? ''));
+        $openedTo = trim((string)($filters['opened_to'] ?? ''));
+
+        /* The same four orderings the Shopee returns list offers, over the
+           same two ideas: when the return was opened, and when it last moved.
+           There is no buyer search here to match Shopee's, because Lazada's
+           reverse order payload carries only a buyer_id - a number the
+           operator has never seen and could not type. A search box over it
+           would be worse than its absence. */
+        $sortKey = strtolower((string)$request->query('sort', ''));
+        $allowedSort = ['opened_desc', 'opened_asc', 'updated_desc', 'updated_asc'];
+        if (!in_array($sortKey, $allowedSort, true)) { $sortKey = 'updated_desc'; }
 
         $perPage = (int)$request->query('per_page', 10);
         if (!in_array($perPage, [10,20,50], true)) { $perPage = 10; }
@@ -100,6 +114,17 @@ class LazadaReturnsPanel
             $query->where('trade_order_id', 'like', '%' . $tradeOrderId . '%');
         }
 
+        /* return_created_at is when Lazada opened the return, lifted out of
+           the raw payload by the migration that added the column. Rows whose
+           raw never carried it are null and fall outside any range, which is
+           the honest answer to "opened between these dates". */
+        if ($openedFrom !== '') {
+            $query->whereDate('return_created_at', '>=', $openedFrom);
+        }
+        if ($openedTo !== '') {
+            $query->whereDate('return_created_at', '<=', $openedTo);
+        }
+
         // Tab counts
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
@@ -120,8 +145,15 @@ class LazadaReturnsPanel
             $tab_counts['OTHER'] = $otherCount;
         }
 
+        match ($sortKey) {
+            'opened_asc'  => $query->orderBy('return_created_at'),
+            'opened_desc' => $query->orderByDesc('return_created_at'),
+            'updated_asc' => $query->orderBy('updated_at'),
+            default       => $query->orderByDesc('updated_at'),
+        };
+
         $orders = $query
-            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -173,9 +205,12 @@ class LazadaReturnsPanel
             'tabs' => $tabs,
             'active_tab' => $tab,
             'tab_counts' => $tab_counts,
+            'sort' => $sortKey,
             'filters' => [
                 'reverse_order_id' => $reverseOrderId,
                 'trade_order_id' => $tradeOrderId,
+                'opened_from' => $openedFrom,
+                'opened_to' => $openedTo,
             ],
         ];
     }

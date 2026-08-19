@@ -131,6 +131,23 @@ class LazadaOrderController extends Controller
             $currency = (string)($o['currency'] ?? '');
             $items = $o['items'] ?? $o['reverse_order_items'] ?? $o['reverseOrderItems'] ?? null;
 
+            // When Lazada opened the return. It arrives per line as a Unix
+            // timestamp and a reverse order can carry several lines, so the
+            // earliest one is the moment the return was opened. Stored in its
+            // own column because created_at is a row timestamp and moves
+            // whenever a sync touches the row, which makes it useless as the
+            // thing a From and To filter reads.
+            $openedStamps = [];
+            foreach ((array) ($o['reverse_order_lines'] ?? []) as $reverseLine) {
+                $lineStamp = $reverseLine['return_order_line_gmt_create'] ?? null;
+                if (is_numeric($lineStamp) && (int) $lineStamp > 0) {
+                    $openedStamps[] = (int) $lineStamp;
+                }
+            }
+            $returnCreatedAt = $openedStamps === []
+                ? null
+                : \Illuminate\Support\Carbon::createFromTimestamp(min($openedStamps));
+
             $payload = [
                 'region' => $setting->region,
                 'reverse_order_id' => $reverseOrderId,
@@ -140,6 +157,7 @@ class LazadaOrderController extends Controller
                 'reason' => $reason !== '' ? $reason : null,
                 'refund_amount' => is_numeric($refundAmount) ? $refundAmount : null,
                 'currency' => $currency !== '' ? $currency : null,
+                'return_created_at' => $returnCreatedAt,
                 'items' => is_array($items) ? $items : null,
                 'raw' => $o,
             ];

@@ -48,7 +48,20 @@
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
     $returnSnFilter = (string) ($filters['return_sn'] ?? '');
     $orderSnFilter = (string) ($filters['order_sn'] ?? '');
-    $hasSearch = $returnSnFilter !== '' || $orderSnFilter !== '';
+    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
+    $openedFromFilter = (string) ($filters['opened_from'] ?? '');
+    $openedToFilter = (string) ($filters['opened_to'] ?? '');
+    $hasSearch = $returnSnFilter !== '' || $orderSnFilter !== '' || $buyerNameFilter !== ''
+        || $openedFromFilter !== '' || $openedToFilter !== '';
+    /* Four orderings over the two dates a return actually has. The same
+       "field, direction" phrasing the orders list uses, so the two controls
+       read as one idea. */
+    $rtSortLabels = [
+        'updated_desc' => 'Last update, newest first',
+        'updated_asc'  => 'Last update, oldest first',
+        'opened_desc'  => 'Opened, newest first',
+        'opened_asc'   => 'Opened, oldest first',
+    ];
 
     // The return status tone and label maps that used to sit here now live
     // in App\Support\ChannelStatusTone under the 'shopee.returns' surface.
@@ -163,6 +176,33 @@
                 value="{{ $returnSnFilter }}" placeholder="Return number" aria-label="Search by return number" />
     <x-ui.input type="search" name="order_sn" class="x-filters__search"
                 value="{{ $orderSnFilter }}" placeholder="Order number" aria-label="Search by order number" />
+    {{-- The buyer is on the order, not the return, so the panel reaches
+         through the relation for it. Lazada's list has no counterpart: its
+         reverse order payload carries only a buyer_id. --}}
+    <x-ui.input type="search" name="buyer_name" class="x-filters__search"
+                value="{{ $buyerNameFilter }}" placeholder="Buyer" aria-label="Search by buyer name" />
+
+    <div class="x-filters__break" aria-hidden="true"></div>
+
+    {{-- Opened from / to, not the fetch range. On Lazada the command bar
+         above carries its own From and To that tell the API which returns to
+         pull; these two narrow the list already on the page. Named "Opened"
+         rather than "Date" so the two pairs cannot be read as the same
+         control, and reading return_created_at, which is when the marketplace
+         opened the return rather than when a sync last touched the row. --}}
+    <x-ui.input type="date" name="opened_from" class="x-filters__date"
+                value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
+    <x-ui.input type="date" name="opened_to" class="x-filters__date"
+                value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
+
+    <div class="x-select-wrap x-filters__select x-filters__select--wide">
+        <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
+            @foreach($rtSortLabels as $value => $label)
+                <option value="{{ $value }}" @selected(($sort ?? 'updated_desc') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="per_page" class="x-input" data-autosubmit aria-label="Returns per page">

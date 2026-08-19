@@ -17,6 +17,7 @@ class LazadaReverseOrder extends Model
         'reason',
         'refund_amount',
         'currency',
+        'return_created_at',
         'items',
         'raw',
     ];
@@ -24,6 +25,7 @@ class LazadaReverseOrder extends Model
     protected $hidden = ['raw'];
 
     protected $casts = [
+        'return_created_at' => 'datetime',
         'items' => 'array',
         'raw' => 'array',
         'refund_amount' => 'decimal:2',

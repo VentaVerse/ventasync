@@ -29,12 +29,29 @@ class ShopeeReturnsPanel
         $auth = ShopeeSetting::activeAuth($setting);
 
         $filters = $request->validate([
-            'return_sn' => ['nullable', 'string', 'max:80'],
-            'order_sn'  => ['nullable', 'string', 'max:80'],
+            'return_sn'  => ['nullable', 'string', 'max:80'],
+            'order_sn'   => ['nullable', 'string', 'max:80'],
+            'buyer_name' => ['nullable', 'string', 'max:120'],
+            'opened_from' => ['nullable', 'date'],
+            'opened_to'   => ['nullable', 'date', 'after_or_equal:opened_from'],
         ]);
 
-        $returnSn = trim((string) ($filters['return_sn'] ?? ''));
-        $orderSn  = trim((string) ($filters['order_sn'] ?? ''));
+        $returnSn  = trim((string) ($filters['return_sn'] ?? ''));
+        $orderSn   = trim((string) ($filters['order_sn'] ?? ''));
+        $buyerName = trim((string) ($filters['buyer_name'] ?? ''));
+        $openedFrom  = trim((string) ($filters['opened_from'] ?? ''));
+        $openedTo    = trim((string) ($filters['opened_to'] ?? ''));
+
+        /* Which end of the list you are looking at. The orders panel has had
+           this and returns had not, so a returns list could only ever be read
+           newest-touched-first - and "touched" moves every time a sync writes
+           the row, which is not an order anyone asked for. Opened is the
+           column an operator actually thinks in. */
+        $sortKey = strtolower((string) $request->query('sort', ''));
+        $allowedSort = ['opened_desc', 'opened_asc', 'updated_desc', 'updated_asc'];
+        if (!in_array($sortKey, $allowedSort, true)) {
+            $sortKey = 'updated_desc';
+        }
 
         $perPage = (int) $request->query('per_page', 10);
         if (!in_array($perPage, [10, 20, 50], true)) {
@@ -82,16 +99,45 @@ class ShopeeReturnsPanel
             $query->where('order_sn', 'like', '%' . $orderSn . '%');
         }
 
+        /* The buyer lives on the order, not on the return, so this reaches
+           through the relation. Same two raw keys the orders panel searches,
+           because Shopee has used both spellings. */
+        if ($buyerName !== '') {
+            $query->whereHas('order', function ($q) use ($buyerName) {
+                $like = '%' . $buyerName . '%';
+                $q->where('raw->buyer_username', 'like', $like)
+                    ->orWhere('raw->buyer_user_name', 'like', $like);
+            });
+        }
+
+        /* Opened, not synced. whereDate so the operator's To date includes
+           the whole of that day rather than stopping at midnight. */
+        if ($openedFrom !== '') {
+            $query->whereDate('return_created_at', '>=', $openedFrom);
+        }
+        if ($openedTo !== '') {
+            $query->whereDate('return_created_at', '<=', $openedTo);
+        }
+
         $tab_counts = [];
         $tab_counts['ALL'] = (clone $baseCountQuery)->count();
         foreach ($tabStatusMap as $k => $statuses) {
             $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
         }
 
-        $returns = $query
-            ->with('order.products')
-            ->orderByDesc('return_updated_at')
-            ->orderByDesc('created_at')
+        $returns = $query->with('order.products');
+
+        match ($sortKey) {
+            'opened_asc'   => $returns->orderBy('return_created_at'),
+            'opened_desc'  => $returns->orderByDesc('return_created_at'),
+            'updated_asc'  => $returns->orderBy('return_updated_at'),
+            default        => $returns->orderByDesc('return_updated_at'),
+        };
+
+        // A stable tiebreak, so two returns sharing a timestamp do not swap
+        // places between pages.
+        $returns = $returns
+            ->orderByDesc('id')
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -103,9 +149,13 @@ class ShopeeReturnsPanel
             'tabs'        => $tabs,
             'active_tab'  => $tab,
             'tab_counts'  => $tab_counts,
+            'sort'        => $sortKey,
             'filters'     => [
-                'return_sn' => $returnSn,
-                'order_sn'  => $orderSn,
+                'return_sn'  => $returnSn,
+                'order_sn'   => $orderSn,
+                'buyer_name' => $buyerName,
+                'opened_from' => $openedFrom,
+                'opened_to'   => $openedTo,
             ],
         ];
     }

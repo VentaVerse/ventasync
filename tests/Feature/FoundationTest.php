@@ -302,6 +302,111 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * Every channel-private class a fulfilment panel emits has a rule.
+     *
+     * The regression this exists for: pages/opencart-orders.css and
+     * pages/pedallion-orders.css were imported through app.css rather than
+     * blotter.css, so when the legacy bundle was retired both files went out
+     * with it while every other channel's page vocabulary was carried across.
+     * Their panels kept emitting oc-col-products, pd-col-date and thirteen
+     * more, and those classes matched nothing, so both channels rendered
+     * their order tables with no column widths at all - one column taking
+     * whatever the browser felt like giving it.
+     *
+     * Nothing caught it. The undeclared-custom-property guard reads
+     * stylesheets and cannot see a class that no stylesheet mentions, and the
+     * focus-ring guard that named pedallion-orders.css by path passed on a
+     * file that was not there. This checks the other direction: start from
+     * what the views actually emit, and require the stylesheets to answer.
+     *
+     * Scoped to the channel prefixes, because a shared class (x-, co-) is
+     * covered by every page that uses it noticing at once, whereas a
+     * channel-private one is only ever seen on the one screen.
+     */
+    public function test_every_channel_class_a_fulfilment_panel_emits_has_a_rule(): void
+    {
+        $css = '';
+        foreach ($this->stylesheets() as $path) {
+            $css .= File::get($path);
+        }
+
+        $panels = array_merge(
+            glob(base_path('extensions/*/views/orders/_panel.blade.php')) ?: [],
+            glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: [],
+        );
+
+        $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
+
+        // Prefixes that belong to the shared vocabularies rather than to one
+        // channel, plus the state prefixes the JS toggles.
+        $shared = ['x', 'co', 'is', 'js', 'has', 'no', 'sr'];
+
+        $orphans = [];
+
+        foreach ($panels as $panel) {
+            $channel = basename(dirname($panel, 3));
+            preg_match_all('/class="([^"{}]*)"/', File::get($panel), $m);
+
+            foreach ($m[1] as $attr) {
+                foreach (preg_split('/\s+/', trim($attr)) as $class) {
+                    if ($class === '' || ! preg_match('/^([a-z]{2,3})-/', $class, $p)) {
+                        continue;
+                    }
+                    if (in_array($p[1], $shared, true)) {
+                        continue;
+                    }
+                    if (str_contains($css, '.'.$class)) {
+                        continue;
+                    }
+                    $orphans[] = "{$class} (emitted by {$channel})";
+                }
+            }
+        }
+
+        $orphans = array_values(array_unique($orphans));
+        sort($orphans);
+
+        $this->assertSame(
+            [],
+            $orphans,
+            "A fulfilment panel emits a channel class that no stylesheet defines.\n"
+            ."These render unstyled - a column with no width, a control with no box:\n\n"
+            .implode("\n", $orphans)
+        );
+    }
+
+    /**
+     * Every page stylesheet on disk is in the bundle.
+     *
+     * The companion to the guard above, for the opposite failure: a file that
+     * still exists and still reads correctly, but that nothing imports, so
+     * none of it reaches a page. The undeclared-property guard walks the
+     * filesystem rather than the import list on purpose, which means an
+     * unimported file passes every check here while being dead.
+     */
+    public function test_every_page_stylesheet_is_imported_by_the_bundle(): void
+    {
+        $bundle = File::get(resource_path('css/blotter.css'));
+
+        $unimported = [];
+        foreach (glob(resource_path('css/pages/*.css')) ?: [] as $path) {
+            $name = basename($path);
+            if (! str_contains($bundle, 'pages/'.$name)) {
+                $unimported[] = 'pages/'.$name;
+            }
+        }
+
+        sort($unimported);
+
+        $this->assertSame(
+            [],
+            $unimported,
+            "A page stylesheet exists but nothing imports it, so none of it reaches a page:\n\n"
+            .implode("\n", $unimported)
+        );
+    }
+
+    /**
      * Every stylesheet that reaches a served page.
      *
      * Read off the filesystem rather than off the @import lists, so a file

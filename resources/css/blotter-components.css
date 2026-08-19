@@ -2341,6 +2341,59 @@
         max-width: 190px;
     }
 
+    /* A deliberate wrap point.
+     *
+     * Eight controls do not fit 1324px, so this row wraps whatever happens.
+     * Left to the browser the break landed between the opened-from date and
+     * the sort that belongs with it, splitting one idea across two lines
+     * while the second line sat two-thirds empty. Placed by hand the two
+     * lines each say something: find a particular return on the first,
+     * narrow and order the whole list on the second.
+     *
+     * Zero height, so it costs nothing on the widths where the row does fit
+     * on one line - it simply ends a line that was going to end anyway. */
+    .x-filters__break {
+        flex-basis: 100%;
+        height: 0;
+        margin: 0;
+    }
+
+    /* A date input carries its own picker glyph and a fixed-width value, so
+       it needs a sized box rather than the search field's 300px. The pair
+       reads as one range: they sit adjacent, and the second is nudged tight
+       to the first so "opened between these two" is legible as a shape and
+       not as two unrelated fields that happen to be next to each other. */
+    .x-filters__date {
+        width: 160px;
+        flex: none;
+    }
+
+    .x-filters__date + .x-filters__date {
+        margin-left: -4px;
+    }
+
+    /* The native calendar glyph is drawn near-black by the browser and does
+       not follow a colour property, so on the dark sheet it is a black mark
+       on a near-black field. Inverted there, and toned down in both, because
+       at full strength it is the loudest thing on a filter row that is
+       otherwise all quiet text. */
+    .x-filters__date::-webkit-calendar-picker-indicator {
+        opacity: .45;
+        cursor: pointer;
+    }
+
+    [data-theme='dark'] .x-filters__date::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        opacity: .55;
+    }
+
+    @media (max-width: 560px) {
+        /* Two 160px boxes plus the row's gap no longer fit beside anything
+           else, so the range takes a line of its own and splits it. */
+        .x-filters__date { width: calc(50% - 6px); }
+        .x-filters__date + .x-filters__date { margin-left: 0; }
+    }
+
     /* --bl-pad is deliberately 0 inside .x-content, so asking for it here
        gave this row no horizontal padding at all and left the Next button
        sitting exactly on the page's alignment line with nothing after it.
