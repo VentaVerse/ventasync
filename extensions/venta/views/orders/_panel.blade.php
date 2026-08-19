@@ -47,8 +47,10 @@
         || auth()->user()?->hasPermission('manage_orders'));
 
     $vtQ = (string) ($filters['q'] ?? '');
+    $vtPlacedFrom = (string) ($filters['placed_from'] ?? '');
+    $vtPlacedTo = (string) ($filters['placed_to'] ?? '');
     $vtStatus = (string) ($filters['status'] ?? '');
-    $vtHasFilters = $vtQ !== '' || $vtStatus !== '';
+    $vtHasFilters = $vtQ !== '' || $vtStatus !== '' || $vtPlacedFrom !== '' || $vtPlacedTo !== '';
 
     // A status name is a word, not a constant, on this channel: see the
     // OrderStatusTone note in the table below.
@@ -142,8 +144,32 @@
     <input type="hidden" name="sort" value="{{ $sort }}">
     <input type="hidden" name="dir" value="{{ $dir }}">
 
-    <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $vtQ }}" placeholder="Customer, order number or tracking" aria-label="Search orders" />
+    {{-- The same shape every other fulfilment list carries. "Customer"
+         rather than "buyer" because that is what this person is on your own
+         storefront, but the field does the same job and matches the same
+         four things. Tracking stays in the list: on a storefront the courier
+         reference is often all a caller has. --}}
+    <x-ui.input type="search" name="q" class="x-filters__find"
+                value="{{ $vtQ }}"
+                placeholder="Order no, customer, product or tracking"
+                aria-label="Find an order by order number, customer, product or tracking" />
+
+    <span class="x-filters__group">
+        <span class="x-filters__group-label">Placed</span>
+        <x-ui.input type="date" name="placed_from" class="x-filters__date"
+                    value="{{ $vtPlacedFrom }}" aria-label="Placed on or after" title="Placed on or after" />
+        <x-ui.input type="date" name="placed_to" class="x-filters__date"
+                    value="{{ $vtPlacedTo }}" aria-label="Placed on or before" title="Placed on or before" />
+    </span>
+
+    <div class="x-select-wrap x-filters__select x-filters__select--narrow">
+        <select name="per_page" class="x-input" data-autosubmit aria-label="Orders per page">
+            @foreach([10, 20, 50] as $n)
+                <option value="{{ $n }}" @selected(($perPage ?? 10) === $n)>{{ $n }} per page</option>
+            @endforeach
+        </select>
+        <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
+    </div>
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
 

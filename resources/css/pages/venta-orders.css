@@ -108,6 +108,36 @@
     cursor: pointer;
 }
 
+/* A 14px square is the primary control of the only bulk workflow in this
+   product, and on a phone it was the smallest target on the whole fulfilment
+   surface - 51 of them to a page, at under a third of the 44px a finger
+   needs. Every other control here is raised by a pointer: coarse rule; this
+   one was missed because it is a native input rather than one of the x-*
+   families those rules name.
+   
+   The box grows a little and its hit area grows a lot: an outset pseudo
+   element carries the target out to 44x44 without a 44px checkbox sitting in
+   the middle of an order band, which would push every band taller and cost
+   the operator rows per screen. The band is position: relative already, so
+   the outset is clipped to nothing visible. */
+@media (pointer: coarse) {
+    .vt-pick {
+        width: 20px;
+        height: 20px;
+        position: relative;
+    }
+
+    .vt-pick::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+    }
+}
+
 /* ------------------------------------------------------------------
    Responsive
    ------------------------------------------------------------------ */

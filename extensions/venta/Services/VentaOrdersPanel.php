@@ -67,11 +67,42 @@ class VentaOrdersPanel
                 $w->where('customer_name', 'like', "%{$q}%")
                     ->orWhere('venta_order_id', $q)
                     ->orWhere('venta_order_number', $q)
-                    ->orWhere('tracking_number', 'like', "%{$q}%");
+                    ->orWhere('tracking_number', 'like', "%{$q}%")
+
+                    /* Product, which this search has never covered. Every
+                       marketplace list matches it and this one did not, so
+                       the one question a caller actually asks - "the patch
+                       cable, sometime last week" - worked on four channels
+                       and failed on this one. */
+                    ->orWhereHas('products', function ($p) use ($q) {
+                        $p->where('name', 'like', "%{$q}%")
+                            ->orWhere('sku', 'like', "%{$q}%");
+                    });
             });
         }
 
-        $orders = $query->paginate(50)->withQueryString();
+        /* When the order was placed. The marketplace lists carry this pair
+           and this one did not, so a storefront order could be found by name
+           but never narrowed by date. Same column the list sorts by. */
+        $placedFrom = trim((string) $request->input('placed_from', ''));
+        $placedTo = trim((string) $request->input('placed_to', ''));
+        if ($placedFrom !== '') {
+            $query->whereDate('order_created_at', '>=', $placedFrom);
+        }
+        if ($placedTo !== '') {
+            $query->whereDate('order_created_at', '<=', $placedTo);
+        }
+
+        /* Page size was fixed at 50 while every other channel offers 10, 20
+           or 50 and defaults to 10. On a phone that made this the tallest
+           page in the product by a factor of five - 138 orders in one scroll,
+           about 32,000px - and the operator had no way to shorten it. */
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $orders = $query->paginate($perPage)->withQueryString();
 
         // Counts for the segment bar, over the whole store rather than the
         // filtered list: a count that moved when you clicked it would be
@@ -95,7 +126,13 @@ class VentaOrdersPanel
             'dir'          => $dir,
             'storeId'      => $storeId,
             'storeLabel'   => $storeLabel,
-            'filters'      => ['q' => $q, 'status' => $status],
+            'per_page'     => $perPage,
+            'filters'      => [
+                'q' => $q,
+                'status' => $status,
+                'placed_from' => $placedFrom,
+                'placed_to' => $placedTo,
+            ],
         ];
     }
 }
