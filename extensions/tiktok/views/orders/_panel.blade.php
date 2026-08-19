@@ -201,7 +201,13 @@
         @endforeach
     </div>
 
-    @if(!empty($courier_counts))
+    {{-- THE TALLY BELONGS TO THE QUEUE IT COUNTS.
+         This rendered on every To Ship sub-step while the count behind it is
+         scoped to the handover statuses alone, so a packer standing on To
+         Pack read "Parcels waiting for handover" for parcels they are not
+         holding - a courier split for somebody else's queue, under a heading
+         naming a queue they are not in. It shows on the step it describes. --}}
+    @if($pendingSub === 'to_handover' && !empty($courier_counts))
         <div class="co-couriers">
             <span class="co-couriers__label">Parcels waiting for handover</span>
             @foreach($courier_counts as $cc)

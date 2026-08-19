@@ -2688,6 +2688,27 @@
     /* The status strip is a control, not a full-bleed rule, so its box takes
        the page gutter like every other painted thing. Without it the active
        segment's filled pill pressed straight against the sidebar. */
+    /* ⚠ MOSTLY SHADOWED — EDIT components/segment.css INSTEAD.
+     *
+     * These rules are in @layer components. The same control is declared
+     * again in components/segment.css under layer(vocabulary), and this
+     * bundle declares vocabulary AFTER components, so for any property the
+     * two both set, that file wins - regardless of specificity. Measured:
+     * `.x-segment__item.is-active { font-weight: 640 }` below computes as
+     * 500, because a LESS specific rule in the higher layer beats it.
+     *
+     * A handful of declarations here are still live, precisely because
+     * segment.css never mentions them: the bar's padding, the item's hover
+     * background, and the two rules in the max-width: 900px block at the end
+     * of this layer. Everything else is inert.
+     *
+     * The right end state is one file. That is a deliberate consolidation -
+     * port the live handful across, then delete the rest, and re-measure the
+     * strip against a captured baseline - not something to fold into an
+     * unrelated change, which is why it has not been done here. What HAS been
+     * done is remove the trap: nothing in this block uses a background
+     * shorthand any more, and this note stops the next person editing here
+     * and watching nothing happen. */
     .x-segment-bar {
         display: flex;
         align-items: center;
@@ -2760,7 +2781,11 @@
         padding: 2px;
         gap: 2px;
         border: 1px solid var(--bl-rule);
-        background: var(--bl-chrome);
+        /* background-COLOR, never the shorthand. The shorthand resets
+           background-image and background-attachment, and the scroll-edge
+           affordance lives entirely in those two. It has already cost this
+           control its overflow cue once. */
+        background-color: var(--bl-chrome);
     }
 
     .x-segment--sub .x-segment__item {

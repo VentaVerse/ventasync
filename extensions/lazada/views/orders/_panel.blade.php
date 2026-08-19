@@ -242,7 +242,13 @@
         @endforeach
     </div>
 
-    @if(!empty($to_ship_courier_counts))
+    {{-- THE TALLY BELONGS TO THE QUEUE IT COUNTS.
+         This rendered on every To Ship sub-step while the count behind it is
+         scoped to the handover statuses alone, so a packer standing on To
+         Pack read "Parcels waiting for handover" for parcels they are not
+         holding - a courier split for somebody else's queue, under a heading
+         naming a queue they are not in. It shows on the step it describes. --}}
+    @if($pendingSub === 'to_handover' && !empty($to_ship_courier_counts))
         <div class="co-couriers">
             <span class="co-couriers__label">Parcels waiting for handover</span>
             @foreach($to_ship_courier_counts as $courier => $count)
@@ -309,6 +315,19 @@
                 value="{{ $findFilter }}"
                 placeholder="Order no, buyer or product"
                 aria-label="Find an order by order number, buyer or product" />
+
+    {{-- WHY A BUYER SEARCH COMES BACK EMPTY HERE.
+         Lazada masks the name in the payload itself - it arrives as
+         "G****************************a", already starred, before this
+         application sees it. So the rows show what the channel gave us,
+         which is the policy across every channel, and a name typed into the
+         box above will not match. Stated at the search rather than on each
+         row, because the search is where the expectation breaks: twenty
+         starred names read as a display quirk, one empty result reads as a
+         bug in the search. --}}
+    <x-ui.hint label="About searching Lazada buyers">Lazada sends buyer names already masked, so the rows show
+        "J*******e" and a name typed here will not match. Order number, product and the date range all
+        search normally.</x-ui.hint>
 
     {{-- When the order was placed. This list has never had a date filter of
          any kind - the only dates on the page were the command bar's, which
