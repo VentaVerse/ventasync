@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Fulfilment\OrderPrintController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Integrations\IntegrationController;
 use App\Http\Controllers\Integrations\ChannelWorkspaceController;
@@ -27,6 +28,24 @@ Route::prefix('integrations')->group(function () {
     // first available marketplace tab; otherwise shows empty state)
     Route::get('/', [IntegrationController::class, 'index'])->name('integrations.index');
     Route::get('/orders', [IntegrationController::class, 'orders'])->name('integrations.orders');
+
+    // Pick and packing lists over a selection of orders, for every channel.
+    //
+    // POST despite being a read: a selection is a list of ids that routinely
+    // runs past what belongs in a URL, and the operator arrives by submitting
+    // the boxes they ticked. Nothing is written, no marketplace is called,
+    // and the controller gates each channel on its own VIEW tier - the same
+    // reasoning the Shopee routes file records for tracking and waybill
+    // downloads, which are also server-rendered from already-fetched data.
+    //
+    // Registered before the /{channel} wildcard below, which is the rule this
+    // file already keeps for every non-wildcard route.
+    Route::post('/orders/print/{channel}/pick', [OrderPrintController::class, 'pick'])
+        ->where('channel', '[a-z]+')
+        ->name('fulfilment.print.pick');
+    Route::post('/orders/print/{channel}/packing', [OrderPrintController::class, 'packing'])
+        ->where('channel', '[a-z]+')
+        ->name('fulfilment.print.packing');
 
     Route::get('/module/{module}', [IntegrationController::class, 'module'])
         ->where('module', '[A-Za-z0-9_:-]+')

@@ -7,6 +7,7 @@ import './confirm-modal';
 import './thumb-fallback';
 import './plot-readout';
 import './list-filters';
+import './order-selection';
 import './legacy-flash';
 import './pages/shopee-orders';
 import './pages/lazada-orders';

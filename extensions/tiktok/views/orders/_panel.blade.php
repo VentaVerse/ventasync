@@ -320,6 +320,31 @@
         @endif
     </x-ui.empty>
 @else
+
+{{-- SELECTION, and the two things a warehouse does with one.
+     The critique measured what a packer does with a To Ship queue of
+     fifty-one orders at ten to a page: open one, print, go back, open the
+     next. These two sheets replace that with one submission.
+
+     Both are reads. Neither contacts TikTok - the sync already stored these
+     orders' products - so a selection of forty costs forty rows of SQL and
+     no rate limit. That is also why the bar renders for the view tier and
+     not only for manage: printing a pick list reveals nothing the operator
+     cannot already read on the row.
+
+     data-order-selection scopes the module to this list; the two forms both
+     take the ticked boxes because a checkbox names its form by id. --}}
+<div data-order-selection>
+    <x-ui.selectbar>
+        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'tiktok']) }}"
+              id="tiktok-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
+            @csrf
+            <x-ui.button type="submit" variant="secondary" size="sm">Pick list</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" size="sm"
+                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'tiktok']) }}">Packing lists</x-ui.button>
+        </form>
+    </x-ui.selectbar>
+
 <x-ui.table caption="{{ 'TikTok orders' . ($active_tab !== 'ALL' && isset($tabs[$active_tab]) ? ' in ' . $tabs[$active_tab] : '') }}" class="x-table--stack">
     <x-slot:head>
         {{-- The legacy column format, the same one Shopee and Lazada settled
@@ -430,6 +455,11 @@
             <td colspan="7">
                 <div class="co-band__row">
                     <div class="co-band__left">
+                        {{-- Selecting the order, in the order's own band rather than in a
+                             column of its own. See components/selectbar.css. --}}
+                        <input type="checkbox" class="x-pick" data-selection-item
+                               name="ids[]" value="{{ $o->id }}" form="tiktok-print-pick"
+                               aria-label="Select order {{ $orderId }}">
                         <span class="co-band__label">Buyer</span>
                         @if($buyer !== '')
                             <span class="co-band__value">{{ $buyer }}</span>
@@ -594,6 +624,7 @@
         @endforeach
     @endforeach
 </x-ui.table>
+</div>{{-- /selection --}}
 
 <x-ui.pager :paginator="$orders" />
 @endif

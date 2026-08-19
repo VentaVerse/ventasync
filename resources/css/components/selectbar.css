@@ -1,0 +1,104 @@
+/* Selection bar.
+   -------------------------------------------------------------------
+   One row of orders picked, and the things that can be done with them.
+
+   Generalised out of the Venta orders page, which was the only surface in
+   the product with a selection model at all - and which the fulfilment
+   critique kept catching as an inconsistency rather than as the good idea it
+   was. The marketplace lists carry real volume (Lazada's To Ship queue runs
+   to fifty-one orders at ten to a page) and had no way to act on more than
+   one order at a time.
+
+   THE BAR IS NOT A TOOLBAR AT REST. It offers the select-all box and nothing
+   else until something is picked; the actions only exist once the operator
+   has said what they would act on. That ordering matters where an action
+   prints or ships: a standing button invites a click before the sentence is
+   finished.
+
+   Its height never changes. The count is one line of text that rewrites
+   itself rather than a line that appears, and the action form is [hidden]
+   rather than absent, so nothing below the bar moves when a box is ticked.
+   ------------------------------------------------------------------- */
+
+.x-selectbar {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    min-height: var(--bl-control-h);
+    padding: 0 var(--bl-space-3);
+    margin-bottom: var(--bl-space-3);
+    background: var(--bl-chrome);
+    border: 1px solid var(--bl-rule);
+    border-radius: var(--bl-r-ctrl);
+}
+
+.x-selectbar__pick {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    font-size: 12px;
+    color: var(--bl-ink-2);
+    cursor: pointer;
+}
+
+.x-selectbar__pick:hover { color: var(--bl-ink); }
+
+/* The bar's live region: empty at rest, "N orders selected" once anything is
+   picked, announced rather than only drawn. */
+.x-selectbar__count { font-size: 12px; color: var(--bl-ink-2); }
+
+.x-selectbar__spacer { flex: 1 1 var(--bl-space-4); min-width: 0; }
+
+.x-selectbar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--bl-space-2);
+    margin: 0;
+}
+
+.x-selectbar__actions[hidden] { display: none; }
+
+/* The per-order checkbox lives in the order's own band rather than in a
+   column of its own, because the thing being selected is the order and the
+   band is the order's row. It also spares every one of these tables a column
+   whose entire content is a small square. */
+.x-pick {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    accent-color: var(--bl-brand-deep);
+    cursor: pointer;
+}
+
+/* On a phone a 14px square is under a third of what a finger needs, and
+   there is one per order. The box grows a little and its hit area grows to
+   the full 44px through an outset pseudo element, so the target is real
+   without a 44px square inside every band pushing rows off the screen. */
+@media (pointer: coarse) {
+    .x-pick {
+        width: 20px;
+        height: 20px;
+        position: relative;
+    }
+
+    .x-pick::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+    }
+}
+
+@media (max-width: 640px) {
+    .x-selectbar {
+        flex-wrap: wrap;
+        padding: var(--bl-space-2);
+    }
+
+    .x-selectbar__spacer { display: none; }
+    .x-selectbar__actions { flex: 1 1 100%; }
+    .x-selectbar__actions .x-btn { flex: 1; }
+}

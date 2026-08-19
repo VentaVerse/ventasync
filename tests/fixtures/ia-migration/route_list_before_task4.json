@@ -1085,6 +1085,16 @@
         "name": "integrations.orders"
     },
     {
+        "method": "POST",
+        "uri": "integrations/orders/print/{channel}/packing",
+        "name": "fulfilment.print.packing"
+    },
+    {
+        "method": "POST",
+        "uri": "integrations/orders/print/{channel}/pick",
+        "name": "fulfilment.print.pick"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "integrations/pedallion/categories",
         "name": "ext.pedallion.categories.index"
