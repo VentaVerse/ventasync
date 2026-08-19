@@ -323,6 +323,53 @@ class FoundationTest extends TestCase
      * covered by every page that uses it noticing at once, whereas a
      * channel-private one is only ever seen on the one screen.
      */
+    /**
+     * The phone card reorders itself by data-label, because column counts
+     * differ per channel and :nth-child would reorder a different cell on
+     * every marketplace. That makes a renamed column header a silent
+     * regression: the cell falls back to the default order, the ship-by
+     * deadline quietly stops leading the card, and nothing fails. This is
+     * the guard that fails instead.
+     */
+    public function test_every_label_the_phone_card_reorders_is_emitted_by_a_panel(): void
+    {
+        $path = resource_path('css/pages/marketplace-common.css');
+        $this->assertFileExists($path, 'the stylesheet carrying the phone card order is gone');
+
+        preg_match_all(
+            "/td\[data-label='([^']+)'\]/",
+            File::get($path),
+            $m
+        );
+
+        $targeted = array_unique($m[1]);
+        $this->assertNotEmpty($targeted, 'the phone card no longer orders anything by label');
+
+        $panels = array_merge(
+            glob(base_path('extensions/*/views/orders/_panel.blade.php')) ?: [],
+            glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: [],
+        );
+        $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
+
+        $emitted = [];
+        foreach ($panels as $panel) {
+            preg_match_all('/data-label="([^"]+)"/', File::get($panel), $p);
+            foreach ($p[1] as $label) {
+                $emitted[$label] = true;
+            }
+        }
+
+        $stale = array_values(array_diff($targeted, array_keys($emitted)));
+
+        $this->assertSame([], $stale, sprintf(
+            "The phone card orders cells no panel emits, so they sit at the default position:\n  %s\n"
+            ."Either a column was renamed and marketplace-common.css was not, or the rule is dead.\n"
+            .'Labels the panels do emit: %s',
+            implode("\n  ", $stale),
+            implode(', ', array_keys($emitted))
+        ));
+    }
+
     public function test_every_channel_class_a_fulfilment_panel_emits_has_a_rule(): void
     {
         $css = '';

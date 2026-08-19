@@ -295,4 +295,91 @@
     .x-table--stack > tbody > tr:not(.co-band) > td .x-btn {
         min-height: 40px;
     }
+
+    /* ------------------------------------------------------------------
+       THE CARD ANSWERS THE PACKER'S QUESTIONS IN THE ORDER THEY ASK THEM.
+
+       Measured on the Lazada bench, one order is 578px on a 390px screen and
+       the reading order was: masked buyer, eighteen-digit order number,
+       product, quantity, price, amount, payment method, courier, THEN the
+       ship-by deadline, then the action. A packer asks four things - is it
+       late, what is it, how many, what do I do - and the first complete
+       answer arrived 458px down, after two currency figures.
+
+       The deadline now leads, then the product, the quantity and the action.
+       Courier, then money, follow for the bench rather than the shelf.
+
+       WHAT THIS CANNOT DO, and it is worth knowing before someone tries: an
+       order is TWO table rows - a band carrying the identifiers and an item
+       row carrying everything else - and `order` cannot move a cell out of
+       its own flex container. So the identifier band stays at the top of the
+       card no matter what this block says. It is compressed instead, below.
+       Moving it would mean restructuring the markup for both hosts and every
+       channel, which is a different job from this one.
+       ------------------------------------------------------------------ */
+    .x-table--stack > tbody > tr:not(.co-band) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Anything unlisted lands between the work and the reference, which is
+       the right default for a cell this file has not been told about. */
+    .x-table--stack > tbody > tr:not(.co-band) > td { order: 5; }
+
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Status'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Fulfilment'] { order: 1; }
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Products'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Returned products'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Items'] { order: 2; }
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Qty'] { order: 3; }
+
+    /* The actions cell is the only one with no data-label, and it is what the
+       packer came to press. */
+    .x-table--stack > tbody > tr:not(.co-band) > td:not([data-label]) { order: 4; }
+
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Shipping'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Tracking'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return tracking'] { order: 6; }
+
+    /* Money last, and quieter. It is not nothing - a cash-on-delivery order is
+       one where the person holding the parcel needs the amount, and a phone is
+       where they are holding it - so it stays on the card and merely stops
+       taking a labelled block each. */
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Price'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Amount'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Payment'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Refund'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Total'] {
+        order: 7;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        font-size: 12px;
+        color: var(--bl-ink-2);
+    }
+
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Price']::before,
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Amount']::before,
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Payment']::before,
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Refund']::before,
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Total']::before {
+        display: inline;
+        margin-right: 6px;
+    }
+
+    /* Whose it is and when it arrived are what you check against a waybill
+       after the decision, not before it. Venta and the storefronts carry a
+       date column and Shopee's returns carry a buyer; both belong here. */
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Buyer'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Date'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return'] { order: 8; }
+
+    /* The identifier band cannot be moved, so it stops costing 105px. A
+       masked buyer name and an eighteen-digit order number are what a packer
+       checks against the waybill AFTER deciding to pick the order up, not
+       what they read to decide. */
+    .x-table--stack > tbody > tr.co-band > td {
+        padding-top: 7px;
+        padding-bottom: 7px;
+        font-size: 12px;
+    }
 }
