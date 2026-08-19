@@ -1710,7 +1710,11 @@
     .bl-charts,
     .bl-panel,
     .x-fh-strip,
-    .x-fh-panel,
+    /* .x-fh-panel is NOT a sheet. The fulfilment hub's list is the page
+       continuing, not a card sitting on it - see the note in
+       blotter-components. Leaving it here gave it a border and a background
+       whose gutter then had to be paid for twice by the children that ask
+       for --bl-pad. */
     .x-health,
     .x-waiting,
     /* .x-table-wrap is NOT here. An order list is already made of blocks -

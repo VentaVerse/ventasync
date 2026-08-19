@@ -99,8 +99,32 @@
         $ocEmptyDesc = $ocHasFilters
             ? 'Nothing matches those filters. Clear them to see the full list.'
             : 'Nothing has synced from this storefront yet. Orders appear here as soon as the OpenCart sync brings them in.';
+
+        /* A way out of the empty state.
+         *
+         * Every one of these messages already named the escape - "Clear the
+         * search", "Clear them to see the full list" - and then left the
+         * operator to find the filter themselves and empty it by hand. The
+         * message is where the dead end is noticed, so the way out belongs
+         * there too.
+         *
+         * Read off the request rather than off each branch's own condition,
+         * because those conditions differ per channel and this does not:
+         * anything the operator narrowed by is a query parameter. page is
+         * excluded because paging is not narrowing, tab=ALL because that is
+         * the unnarrowed state, and the hidden params because they identify
+         * the panel rather than filter it. */
+        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+            ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
+            ->isNotEmpty();
     @endphp
-    <x-ui.empty title="No orders here" :description="$ocEmptyDesc" />
+    <x-ui.empty title="No orders here" :description="$ocEmptyDesc">
+        @if($emptyFiltered)
+            <x-slot:action>
+                <x-ui.button variant="secondary" :href="$panelUrl()">Show all orders</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
 @else
 <x-ui.table class="x-table--stack">
     <x-slot:head>

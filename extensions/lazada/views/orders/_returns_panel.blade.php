@@ -40,7 +40,6 @@
     $hasSearch = $reverseIdFilter !== '' || $tradeIdFilter !== '';
 @endphp
 
-<div id="lazada-returns-page" class="co-page">
 
 {{-- The head is the HOST's, not the panel's. The orders panels are
      headless for exactly this reason: on the fulfilment hub the page
@@ -52,7 +51,7 @@
 @if($panelOwnsHead ?? false)
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Returns</h1>
+        <h1 class="x-page-title">Returns and refunds</h1>
         <p class="x-page-sub">
             {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'return' : 'returns' }}@if($active_tab !== 'ALL' && isset($tabs[$active_tab])) in {{ $tabs[$active_tab] }}@endif
         </p>
@@ -90,8 +89,24 @@
         <div class="x-cmdbar__spacer"></div>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary" id="btnFetchLazadaReturns">Fetch returns</x-ui.button>
-            <x-ui.hint>Leave both dates empty to pull every return Lazada has on file. That can take a moment on a large history.</x-ui.hint>
+            <x-ui.hint>Fetching pulls the returns opened between those two dates. Updating statuses re-reads every return Lazada has on file and ignores the dates.</x-ui.hint>
         </div>
+    </form>
+
+    {{-- Update statuses, the same pair the orders bar carries and for the
+         same reason. A buyer can cancel a return at any time, and this
+         channel's fetch is date-scoped - so a return opened outside the
+         chosen window never gets re-read and a cancellation on an older one
+         sits stale indefinitely. This posts to the same endpoint with no
+         range, which that controller already treats as "walk everything".
+
+         Shopee needs no equivalent: its get_return_list takes no range, so
+         its Fetch already re-reads the full history every time. --}}
+    <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formUpdateLazadaReturns"
+          data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have cancelled."
+          data-confirm-tone="primary">
+        @csrf
+        <x-ui.button type="submit" variant="secondary" id="btnUpdateLazadaReturns">Update statuses</x-ui.button>
     </form>
 </div>
 @endif
@@ -184,8 +199,32 @@
                 ? 'Nothing has been synced yet. Use the button above to pull returns from Lazada.'
                 : 'Nothing has been synced yet. Someone with permission to sync returns needs to pull them from Lazada first.';
         }
+
+        /* A way out of the empty state.
+         *
+         * Every one of these messages already named the escape - "Clear the
+         * search", "Clear them to see the full list" - and then left the
+         * operator to find the filter themselves and empty it by hand. The
+         * message is where the dead end is noticed, so the way out belongs
+         * there too.
+         *
+         * Read off the request rather than off each branch's own condition,
+         * because those conditions differ per channel and this does not:
+         * anything the operator narrowed by is a query parameter. page is
+         * excluded because paging is not narrowing, tab=ALL because that is
+         * the unnarrowed state, and the hidden params because they identify
+         * the panel rather than filter it. */
+        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+            ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
+            ->isNotEmpty();
     @endphp
-    <x-ui.empty title="No returns here" :description="$lzEmptyDesc" />
+    <x-ui.empty title="No returns here" :description="$lzEmptyDesc">
+        @if($emptyFiltered)
+            <x-slot:action>
+                <x-ui.button variant="secondary" :href="$panelUrl()">Show all returns</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
 @else
 <x-ui.table class="x-table--stack">
     <x-slot:head>
@@ -408,4 +447,3 @@
     </div>
 </div>
 
-</div>{{-- /#lazada-returns-page --}}

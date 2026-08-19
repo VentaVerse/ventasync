@@ -1,5 +1,12 @@
 @extends('layouts.blotter')
-@section('title', 'Fulfilment')
+{{-- The tab and the history entry name the screen, not the section. Both
+     views live at the same route, so a static title left every returns tab
+     in the browser saying "Fulfilment" - and with several channels open at
+     once, that is several identical tabs. --}}
+@section('title', trim(($selectedChannelLabel ? $selectedChannelLabel . ' ' : '')
+    . (($selectedView ?? 'orders') === 'returns'
+        ? ($selectedChannelLabel ? 'returns and refunds' : 'Returns and refunds')
+        : ($selectedChannelLabel ? 'fulfilment' : 'Fulfilment'))))
 
 {{-- The trail's first segment comes from the nav tree automatically (the
      top-level Fulfilment entry in App\Support\Navigation). This adds the

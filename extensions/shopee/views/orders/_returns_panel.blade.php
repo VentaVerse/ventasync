@@ -59,7 +59,6 @@
     // without a payout.
 @endphp
 
-<div id="shopee-returns-page" class="co-page">
 
 {{-- The head is the HOST's, not the panel's. The orders panels are
      headless for exactly this reason: on the fulfilment hub the page
@@ -71,7 +70,7 @@
 @if($panelOwnsHead ?? false)
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Returns</h1>
+        <h1 class="x-page-title">Returns and refunds</h1>
         <p class="x-page-sub">
             {{ number_format($returns->total()) }} {{ $returns->total() === 1 ? 'return' : 'returns' }}@if($active_tab !== 'ALL' && isset($tabs[$active_tab])) in {{ $tabs[$active_tab] }}@endif
         </p>
@@ -79,27 +78,14 @@
 </div>
 @endif
 
-@if($canManageShopeeOrders)
-{{-- One command bar, same grammar as the Orders page's fetch/update bar:
-     every control ends on one baseline because every control is
-     --control-h tall. There are no date inputs here - Shopee's
-     get_return_list endpoint takes no date range, it always walks its full
-     history, so a From/To pair would promise filtering the fetch does not
-     do. Per D3 (no backend changes), the fix is not to invent a param the
-     controller would ignore; it is to say plainly what the button does. --}}
-<div class="x-cmdbar">
-    <form method="POST" action="{{ route('ext.shopee.orders.fetch_returns') }}" id="formFetchReturns" class="x-cmdbar__row"
-          data-confirm="Fetch every return and refund Shopee has on file? This walks the channel's full history and can take a while."
-          data-confirm-tone="primary">
-        @csrf
-        <div class="x-cmdbar__spacer"></div>
-        <div class="x-cmdbar__actions">
-            <x-ui.button type="submit" variant="primary" id="btnFetchReturns">Fetch returns</x-ui.button>
-            <x-ui.hint>Pulls every return and refund request Shopee has on file. This can take a moment on a large history.</x-ui.hint>
-        </div>
-    </form>
-</div>
-@endif
+{{-- No command bar on this page.
+
+     Shopee's get_return_list takes no date range, so the bar had nothing in
+     it but a button: measured 1282x63 with 1150px of white, a card holding
+     one control, and on an empty tab it was most of the screen. A bar whose
+     only job is to hold one action is not a bar. The action moved to the
+     tab strip's aside slot below, beside the way back to Orders, which is
+     where this page's other standing link already lives. --}}
 
 @if($last_result)
     <div class="co-notice {{ $last_result['ok'] ? 'co-notice--ok' : 'co-notice--fail' }}">
@@ -147,10 +133,24 @@
             </a>
         @endforeach
     </nav>
-    <a class="x-segment-bar__aside" href="{{ $panelOrdersUrl }}">
-        <x-ui.icon name="chevron-left" size="12" />
-        All orders
-    </a>
+    <div class="x-segment-bar__aside-group">
+        <a class="x-segment-bar__aside" href="{{ $panelOrdersUrl }}">
+            <x-ui.icon name="chevron-left" size="12" />
+            All orders
+        </a>
+        @if($canManageShopeeOrders)
+            {{-- Fetch is a standing action, not a filter, so it sits outside
+                 the trough with the other standing link rather than in a bar
+                 of its own. It still names its cost before it runs: this
+                 endpoint always walks the full history. --}}
+            <form method="POST" action="{{ route('ext.shopee.orders.fetch_returns') }}" id="formFetchReturns"
+                  data-confirm="Fetch every return and refund Shopee has on file? This walks the channel's full history and can take a while."
+                  data-confirm-tone="primary">
+                @csrf
+                <x-ui.button type="submit" variant="secondary" size="sm" id="btnFetchReturns">Fetch returns</x-ui.button>
+            </form>
+        @endif
+    </div>
 </div>
 
 {{-- One filter row, replacing the old search card and the old separate
@@ -191,8 +191,32 @@
         } else {
             $rtEmptyDesc = 'Nothing has been synced yet. Click Fetch returns to pull data from Shopee.';
         }
+
+        /* A way out of the empty state.
+         *
+         * Every one of these messages already named the escape - "Clear the
+         * search", "Clear them to see the full list" - and then left the
+         * operator to find the filter themselves and empty it by hand. The
+         * message is where the dead end is noticed, so the way out belongs
+         * there too.
+         *
+         * Read off the request rather than off each branch's own condition,
+         * because those conditions differ per channel and this does not:
+         * anything the operator narrowed by is a query parameter. page is
+         * excluded because paging is not narrowing, tab=ALL because that is
+         * the unnarrowed state, and the hidden params because they identify
+         * the panel rather than filter it. */
+        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+            ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
+            ->isNotEmpty();
     @endphp
-    <x-ui.empty title="No returns here" :description="$rtEmptyDesc" />
+    <x-ui.empty title="No returns here" :description="$rtEmptyDesc">
+        @if($emptyFiltered)
+            <x-slot:action>
+                <x-ui.button variant="secondary" :href="$panelUrl()">Show all returns</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
 @else
 <x-ui.table class="x-table--stack">
     <x-slot:head>
@@ -355,4 +379,3 @@
     </div>
 </div>
 
-</div>{{-- /#shopee-returns-page --}}

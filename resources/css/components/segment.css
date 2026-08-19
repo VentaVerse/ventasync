@@ -45,6 +45,50 @@
 
 .x-segment::-webkit-scrollbar { display: none; }
 
+/* THE STRIP SAYS WHEN IT HAS MORE.
+ *
+ * Seven filters do not fit a 390px phone, and the trough hides its scrollbar
+ * on purpose, so the four tabs past the right edge were reachable but
+ * unadvertised - an operator on the floor saw All / To Ship / Shipped and had
+ * no reason to believe Cancelled or Returns were anywhere on the screen.
+ *
+ * The two shadows scroll with the viewport; the two covers scroll with the
+ * content (background-attachment: local). At rest the left cover sits exactly
+ * over the left shadow and hides it, and once the content scrolls the cover
+ * travels away and the shadow appears. The right pair does the same in
+ * reverse. The result is an edge that darkens only in the direction there is
+ * something left to reach, worked out by the browser's own scroll position
+ * rather than by a resize listener.
+ *
+ * The covers must be opaque and must match the trough, hence painting
+ * --bl-chrome as both the colour and the two cover gradients. */
+.x-segment {
+    background-color: var(--bl-chrome);
+    background-image:
+        linear-gradient(to right, rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
+        linear-gradient(to left,  rgba(15, 23, 42, .16), rgba(15, 23, 42, 0)),
+        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
+        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
+    background-position: left center, right center, left center, right center;
+    background-repeat: no-repeat;
+    background-size: 16px 100%, 16px 100%, 20px 100%, 20px 100%;
+    background-attachment: scroll, scroll, local, local;
+}
+
+/* On a dark sheet a black shadow is invisible, so the edge lightens instead.
+   Same four layers, same mechanism, inverted ink. */
+[data-theme='dark'] .x-segment {
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
+        linear-gradient(to left,  rgba(255, 255, 255, .14), rgba(255, 255, 255, 0)),
+        linear-gradient(to right, var(--bl-chrome), var(--bl-chrome)),
+        linear-gradient(to left,  var(--bl-chrome), var(--bl-chrome));
+}
+
+/* The sub level never overflows - it carries two items - and its own ground
+   is set separately below, so it opts out of the whole mechanism. */
+.x-segment--sub { background-image: none; }
+
 /* An item is an <a> when it navigates and a <button> when it switches a
    view in place (the error log's severity filter, which narrows lines
    already in the document). The four resets below are inert on an anchor
@@ -149,6 +193,19 @@
 
 .x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-brand-deep); }
 
+/* The far side of the bar can carry more than one standing item (Returns
+   pairs "All orders" with its own Fetch, because that channel's endpoint
+   takes no parameters and so earns no command bar of its own). They share
+   one baseline and wrap together below the breakpoint. */
+.x-segment-bar__aside-group {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bl-space-3);
+    flex: none;
+}
+
+.x-segment-bar__aside-group form { display: inline-flex; }
+
 /* A sibling destination that is not one of the segment's own views. It sits
    on the far side of the bar and takes plain-link weight so it never reads
    as an eighth filter. */
@@ -176,5 +233,6 @@
         gap: var(--bl-space-2);
     }
 
-    .x-segment-bar__aside { align-self: flex-start; }
+    .x-segment-bar__aside,
+    .x-segment-bar__aside-group { align-self: flex-start; }
 }

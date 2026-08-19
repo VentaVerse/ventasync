@@ -1,4 +1,7 @@
 @extends('layouts.channel')
+{{-- The channel belongs in the title because these tabs are kept open
+     side by side. 'Orders' alone gave three identical browser tabs. --}}
+@section('title', 'TikTok orders')
 @section('breadcrumb', 'Orders')
 
 {{-- Leaves the .x-legacy content boundary, the same exit Shopee's and

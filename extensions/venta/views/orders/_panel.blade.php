@@ -73,7 +73,7 @@
          writing an order adjusts stock, so the action names its own
          consequence before it runs. --}}
     <form method="POST" action="{{ route('ext.venta.orders.fetch', $storeId) }}" id="formFetchVentaOrders" class="x-cmdbar__row"
-          data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock, unless Skip stock adjust is ticked."
+          data-confirm="Fetch orders from this Venta store for the chosen dates? Any order that has not been seen before will adjust stock."
           data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
@@ -165,8 +165,32 @@
                 ? 'Nothing has been synced yet. Pick a date range above and fetch orders from this store.'
                 : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from this store first.';
         }
+
+        /* A way out of the empty state.
+         *
+         * Every one of these messages already named the escape - "Clear the
+         * search", "Clear them to see the full list" - and then left the
+         * operator to find the filter themselves and empty it by hand. The
+         * message is where the dead end is noticed, so the way out belongs
+         * there too.
+         *
+         * Read off the request rather than off each branch's own condition,
+         * because those conditions differ per channel and this does not:
+         * anything the operator narrowed by is a query parameter. page is
+         * excluded because paging is not narrowing, tab=ALL because that is
+         * the unnarrowed state, and the hidden params because they identify
+         * the panel rather than filter it. */
+        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+            ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
+            ->isNotEmpty();
     @endphp
-    <x-ui.empty title="No orders here" :description="$vtEmptyDesc" />
+    <x-ui.empty title="No orders here" :description="$vtEmptyDesc">
+        @if($emptyFiltered)
+            <x-slot:action>
+                <x-ui.button variant="secondary" :href="$panelUrl()">Show all orders</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
 @else
 @if($canManageVentaOrders)
 {{-- Selection bar. Delete is never a standing control on a row here: at rest

@@ -108,7 +108,7 @@
          writing an order adjusts stock, so the action names its own
          consequence before it runs. --}}
     <form method="POST" action="{{ route('ext.lazada.orders.fetch') }}" id="formFetchLazadaOrders" class="x-cmdbar__row"
-          data-confirm="Fetch Lazada orders for the chosen dates? Any order that has not been seen before will adjust stock, unless Skip stock adjust is ticked."
+          data-confirm="Fetch Lazada orders for the chosen dates? Any order that has not been seen before will adjust stock."
           data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
@@ -122,10 +122,22 @@
             <x-ui.input type="date" id="lzDateTo" name="date_to" class="x-cmdbar__date"
                         value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
-        <label class="x-cmdbar__check">
-            <input type="checkbox" name="no_stock" value="1">
-            <span>Skip stock adjust</span>
-        </label>
+        {{-- "Skip stock adjust" was here, and it is retired 2026-08-19.
+
+             It was opt-OUT, so the default behaviour of this page's primary
+             button was to move inventory, and the control that stopped it
+             read as "do less" while meaning "let the stock ledger diverge,
+             permanently, with no audit line and no undo". Nobody had
+             documented why it existed; the reason turned out to be a
+             development-era double-decrement that the sync's own dedupe
+             (marketplace_source + marketplace_order_id) and the
+             status-change guard in adjustStock have since closed. The owner
+             confirmed he has never used it on live.
+
+             The one legitimate use survives where it belongs: OpenCart's
+             historical import, behind the --no-stock flag on its sync
+             command, where skipping stock for years of already-fulfilled
+             orders is the correct behaviour rather than a trap. --}}
         <div class="x-cmdbar__spacer"></div>
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
@@ -302,8 +314,32 @@
                 ? 'Nothing has been synced yet. Pick a date range above and fetch orders from Lazada.'
                 : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from Lazada first.';
         }
+
+        /* A way out of the empty state.
+         *
+         * Every one of these messages already named the escape - "Clear the
+         * search", "Clear them to see the full list" - and then left the
+         * operator to find the filter themselves and empty it by hand. The
+         * message is where the dead end is noticed, so the way out belongs
+         * there too.
+         *
+         * Read off the request rather than off each branch's own condition,
+         * because those conditions differ per channel and this does not:
+         * anything the operator narrowed by is a query parameter. page is
+         * excluded because paging is not narrowing, tab=ALL because that is
+         * the unnarrowed state, and the hidden params because they identify
+         * the panel rather than filter it. */
+        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+            ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
+            ->isNotEmpty();
     @endphp
-    <x-ui.empty title="No orders here" :description="$lzEmptyDesc" />
+    <x-ui.empty title="No orders here" :description="$lzEmptyDesc">
+        @if($emptyFiltered)
+            <x-slot:action>
+                <x-ui.button variant="secondary" :href="$panelUrl()">Show all orders</x-ui.button>
+            </x-slot:action>
+        @endif
+    </x-ui.empty>
 @else
 <x-ui.table class="x-table--stack">
     <x-slot:head>
