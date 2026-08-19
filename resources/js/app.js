@@ -12,7 +12,6 @@ import './legacy-flash';
 import './pages/shopee-orders';
 import './pages/lazada-orders';
 import './pages/tiktok-orders';
-import './pages/venta-orders';
 import './pages/shopify-orders';
 import './pages/pedallion';
 import './pages/pedallion-listings';

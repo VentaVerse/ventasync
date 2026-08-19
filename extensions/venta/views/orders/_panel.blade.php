@@ -221,26 +221,36 @@
     </x-ui.empty>
 @else
 @if($canManageVentaOrders)
-{{-- Selection bar. Delete is never a standing control on a row here: at rest
-     this bar offers the select-all box and nothing else, and the destructive
-     button only exists once the operator has said what it would act on. The
-     count sits beside the button, so the number of orders about to go is
-     never off screen from the control that removes them. --}}
-<div class="vt-selectbar">
-    <label class="vt-selectbar__pick" for="venta-select-all">
-        <input type="checkbox" id="venta-select-all" class="vt-pick">
-        <span>Select all on this page</span>
-    </label>
-    <span class="vt-selectbar__count" id="venta-bulk-count" role="status"></span>
-    <div class="vt-selectbar__spacer"></div>
-    <form id="venta-bulk-delete-form" class="vt-selectbar__form" method="POST"
-          action="{{ route('ext.venta.orders.bulk_delete', $storeId) }}"
-          data-confirm="Delete the selected orders from this store? The sales orders they created are not affected."
-          hidden>
-        @csrf
-        <x-ui.button type="submit" variant="danger" size="sm">Delete selected</x-ui.button>
-    </form>
-</div>
+{{-- SELECTION, on the shared bar every other channel now uses.
+     This page invented the selection model and then kept its own copy of it
+     while the pattern was generalised, so the storefront - the one channel
+     where the seller controls fulfilment end to end - had checkboxes whose
+     only destination was Delete. It gets the same two print sheets as the
+     marketplaces, and keeps the delete it already had.
+
+     ONE FORM, THREE BUTTONS, because a checkbox can only belong to one form.
+     The form posts the pick list; the other two carry formaction. The delete
+     keeps its own confirmation and the prints need none - which works because
+     the dialog now follows the button that was pressed rather than the form
+     it sits in.
+
+     At rest the bar offers the select-all box and nothing else: the
+     destructive button only exists once the operator has said what it would
+     act on, and the count sits beside it so the number about to go is never
+     off screen from the control that removes them. --}}
+<div data-order-selection>
+    <x-ui.selectbar>
+        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'venta']) }}"
+              id="venta-bulk-form" class="x-selectbar__actions" data-selection-actions hidden>
+            @csrf
+            <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank">Print pick list</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank"
+                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'venta']) }}">Print packing lists</x-ui.button>
+            <x-ui.button type="submit" variant="danger" size="sm"
+                         formaction="{{ route('ext.venta.orders.bulk_delete', $storeId) }}"
+                         data-confirm="Delete the selected orders from this store? The sales orders they created are not affected.">Delete selected</x-ui.button>
+        </form>
+    </x-ui.selectbar>
 @endif
 <x-ui.table caption="Storefront orders" class="x-table--stack">
     <x-slot:head>
@@ -327,8 +337,8 @@
                 <div class="co-band__row">
                     <div class="co-band__left">
                         @if($canManageVentaOrders)
-                            <input type="checkbox" class="vt-pick venta-order-check" name="ids[]"
-                                   value="{{ $o->id }}" form="venta-bulk-delete-form"
+                            <input type="checkbox" class="x-pick" data-selection-item name="ids[]"
+                                   value="{{ $o->id }}" form="venta-bulk-form"
                                    aria-label="Select order {{ $vtNumber }}">
                         @endif
                         <span class="co-band__label">Customer</span>
@@ -454,6 +464,7 @@
         @endforeach
     @endforeach
 </x-ui.table>
+</div>{{-- /selection --}}
 
 <x-ui.pager :paginator="$orders" />
 @endif

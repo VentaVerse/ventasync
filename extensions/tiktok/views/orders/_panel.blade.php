@@ -103,6 +103,8 @@
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
             <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                         data-confirm="Re-read order statuses from TikTok? This refreshes the last 30 days and ignores the dates above."
+                         data-confirm-tone="primary"
                          formaction="{{ route('ext.tiktok.orders.updateStatuses') }}">Update statuses</x-ui.button>
             <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses ignores them and refreshes the last 30 days.</x-ui.hint>
         </div>
@@ -339,9 +341,9 @@
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'tiktok']) }}"
               id="tiktok-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
             @csrf
-            <x-ui.button type="submit" variant="secondary" size="sm">Pick list</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'tiktok']) }}">Packing lists</x-ui.button>
+                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'tiktok']) }}">Print packing lists</x-ui.button>
         </form>
     </x-ui.selectbar>
 

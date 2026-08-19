@@ -145,14 +145,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('submit', function (e) {
         var form = e.target;
-        var msg = form.getAttribute && form.getAttribute('data-confirm');
+
+        // THE BUTTON THAT WAS PRESSED, not just the form.
+        //
+        // A command bar is one form with several submit buttons, each
+        // pointing somewhere else through formaction - Fetch orders and
+        // Update statuses are the same form and two different endpoints.
+        // This read the form's message and then re-submitted with
+        // requestSubmit() and NO submitter, which drops the pressed button
+        // entirely: the confirmation described Fetch whichever button you
+        // pressed, and then performed Fetch whichever button you pressed.
+        // Update statuses asked the wrong question and did the wrong thing.
+        //
+        // The submitter now supplies the message when it has one, and is
+        // handed back to requestSubmit so its formaction survives the
+        // round trip through the dialog.
+        var submitter = e.submitter || null;
+        var msg = (submitter && submitter.getAttribute('data-confirm'))
+            || (form.getAttribute && form.getAttribute('data-confirm'));
+
         if (!msg) return;
         if (form._confirmed) { form._confirmed = false; return; }
         e.preventDefault();
-        confirmModal(msg, form).then(function (ok) {
+        confirmModal(msg, submitter || form).then(function (ok) {
             if (ok) {
                 form._confirmed = true;
-                form.requestSubmit ? form.requestSubmit() : form.submit();
+                if (form.requestSubmit) {
+                    form.requestSubmit(submitter);
+                } else {
+                    form.submit();
+                }
             }
         });
     }, true);
@@ -160,6 +182,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-confirm]');
         if (!btn || btn.tagName === 'FORM') return;
+
+        // A submit button inside its own form is the submit handler's job,
+        // not this one's. Intercepting it here would preventDefault the
+        // click and then never submit anything, because this path only
+        // submits when data-confirm-submit names a form to submit. Leaving
+        // it alone is what lets a per-button message reach the handler above
+        // with its formaction intact.
+        if (btn.form && btn.type === 'submit' && !btn.getAttribute('data-confirm-submit')) return;
+
         var msg = btn.getAttribute('data-confirm');
         var submitId = btn.getAttribute('data-confirm-submit');
         e.preventDefault();

@@ -1588,11 +1588,27 @@
        whose numbers change size as work arrives is a row that jumps. */
     .fh-card__lead.is-clear { color: var(--bl-ink-3); }
 
-    /* A figure no fetch can move. Not hidden - it is the last true
-       count and an operator reconnecting the channel will want it -
-       but stepped back so it does not read as today's queue. */
+    /* A figure no fetch can move.
+     *
+     * THIS USED TO TAKE --bl-ink-3, THE SAME TOKEN AS is-clear, and the two
+     * mean opposite things. Lazada sitting on 51 unshipped orders rendered in
+     * exactly the grey TikTok's 0 rendered in, so the largest backlog on the
+     * hub was its quietest number and read as "nothing to do here" at a
+     * glance. Stepping the number back was meant to say the figure is not
+     * live; what it actually said was that the work is not there.
+     *
+     * The staleness already has a voice - the label directly beneath reads
+     * "not connected - last known" - so the number does not need to whisper
+     * as well. It keeps the attention colour it earns by being work, and the
+     * caveat stays a caveat rather than becoming the headline.
+     *
+     * A dotted underline marks it as a figure with a footnote: visible on a
+     * monitor across the room, and it survives being read in greyscale, which
+     * a colour difference alone would not. */
     .fh-card__lead.is-stale {
-        color: var(--bl-ink-3);
+        text-decoration: underline dotted var(--bl-ink-3);
+        text-underline-offset: 4px;
+        text-decoration-thickness: 1.5px;
     }
 
     /* Not tracked and Not syncing are statements about instrumentation and

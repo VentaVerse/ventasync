@@ -49,94 +49,12 @@
    ordinary text one step quieter than the product name beside it. */
 .vt-pay { font-size: 13px; color: var(--bl-ink-2); }
 
-/* ------------------------------------------------------------------
-   Selection bar. Venta is the only channel whose order list carries a bulk
-   action, and that action is a delete.
-
-   It is drawn as one bar in two states rather than as a standing red button
-   per row: at rest it offers the select-all box and nothing else, and the
-   destructive control only exists once the operator has said what it would
-   act on. The count and the button appear together, so the number of things
-   about to be deleted is never off screen from the button that deletes them.
+/* The selection bar and its checkbox used to live here. Both are shared
+   vocabulary now - components/selectbar.css - because this page invented the
+   pattern and then kept a private copy of it while every other channel
+   adopted the general one. The fork is what left the storefront's checkboxes
+   wired only to Delete while the marketplaces gained the print sheets.
    ------------------------------------------------------------------ */
-
-.vt-selectbar {
-    display: flex;
-    align-items: center;
-    gap: var(--bl-space-3);
-    min-height: var(--bl-control-h);
-    padding: 0 var(--bl-space-3);
-    margin-bottom: var(--bl-space-3);
-    background: var(--bl-chrome);
-    border: 1px solid var(--bl-rule);
-    border-radius: var(--bl-r-ctrl);
-}
-
-.vt-selectbar__pick {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--bl-space-2);
-    font-size: 12px;
-    color: var(--bl-ink-2);
-    cursor: pointer;
-}
-
-.vt-selectbar__pick:hover { color: var(--bl-ink); }
-
-/* The bar's own live region: "Select all on this page" at rest, "N selected"
-   once anything is picked. One line of text that changes rather than two
-   lines that appear and disappear, so the bar never changes height. */
-.vt-selectbar__count { font-size: 12px; color: var(--bl-ink-2); }
-
-.vt-selectbar__spacer { flex: 1 1 var(--bl-space-4); min-width: 0; }
-
-/* The bulk form is inert markup until a row is picked; the page module
-   removes [hidden] when the selection is non-empty. Nothing about the bar's
-   resting height depends on it. */
-.vt-selectbar__form { display: flex; align-items: center; margin: 0; }
-.vt-selectbar__form[hidden] { display: none; }
-
-/* Per-order checkbox, in the band rather than in a column of its own: the
-   thing being selected is the order, and the band is the order's own row.
-   That also spares the table a tenth column whose whole content is a 14px
-   square. */
-.vt-pick {
-    width: 14px;
-    height: 14px;
-    flex: none;
-    accent-color: var(--bl-brand-deep);
-    cursor: pointer;
-}
-
-/* A 14px square is the primary control of the only bulk workflow in this
-   product, and on a phone it was the smallest target on the whole fulfilment
-   surface - 51 of them to a page, at under a third of the 44px a finger
-   needs. Every other control here is raised by a pointer: coarse rule; this
-   one was missed because it is a native input rather than one of the x-*
-   families those rules name.
-   
-   The box grows a little and its hit area grows a lot: an outset pseudo
-   element carries the target out to 44x44 without a 44px checkbox sitting in
-   the middle of an order band, which would push every band taller and cost
-   the operator rows per screen. The band is position: relative already, so
-   the outset is clipped to nothing visible. */
-@media (pointer: coarse) {
-    .vt-pick {
-        width: 20px;
-        height: 20px;
-        position: relative;
-    }
-
-    .vt-pick::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 44px;
-        height: 44px;
-        transform: translate(-50%, -50%);
-    }
-}
 
 /* ------------------------------------------------------------------
    Responsive
@@ -166,9 +84,4 @@
    four belongs to the review round that can verify every channel at once. */
 @media (max-width: 640px) {
     #venta-orders-page .x-table tbody td.x-td-num { text-align: left; }
-
-    /* The bar's own controls stay on one line at 390px: the label is short
-       and the button is the only other thing in it. Only the padding needs
-       to come in, matching what .x-cmdbar does at the same width. */
-    .vt-selectbar { padding: var(--bl-space-2); }
 }

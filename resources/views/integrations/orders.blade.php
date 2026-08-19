@@ -90,6 +90,17 @@
 <div class="fh-scope"
      @if($fhOpen) style="--ch: {{ \App\Support\ChannelAccent::raw($fhOpen['accent']) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($fhOpen['accent']) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($fhOpen['accent']) }};" @endif>
 
+{{-- WHY A CHANNEL STOPPED, on the page where you would notice it had.
+     The card says "not syncing", which tells you to go looking; this says
+     what broke and links to the fix. It was only ever rendered by the
+     channel's own layout, so the one surface showing every channel at once
+     was the one that could not act on any of them.
+
+     Scoped to the open channel when there is one, because with Shopee open a
+     Lazada fault is somebody else's news; on the bare hub every contributing
+     channel speaks, which is the whole point of the bare hub. --}}
+@include('partials.integration-banners', ['bannerOnly' => $selectedChannel ?? null])
+
 <div class="fh-head">
     {{-- The way back to every channel.
 

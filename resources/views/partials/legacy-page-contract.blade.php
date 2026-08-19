@@ -100,34 +100,8 @@
     // layouts.channel, which nothing does today. Then no channel owns the
     // page and every banner is shown, which is the right reading for a
     // cross-channel surface like the dashboard.
-    $__layoutBanners = [];
-    try {
-        $__here = ($channelCard ?? null)?->id;
-
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->layoutBannerContributorsById() as $__id => $__c) {
-            if ($__here !== null && $__id !== $__here) {
-                continue;
-            }
-            foreach ($__c->layoutBanners() as $__b) {
-                $__layoutBanners[] = $__b;
-            }
-        }
-    } catch (\Throwable $e) {
-        // A marketplace with a missing table or an expired credential must
-        // not take the page down to announce it.
-    }
 @endphp
 
-@foreach($__layoutBanners as $__banner)
-    <div class="alert {{ ($__banner['severity'] ?? 'info') === 'error' ? 'danger' : (($__banner['severity'] ?? 'info') === 'warning' ? 'warning' : 'info') }}">
-        <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        <span>
-            {{ $__banner['label'] ?? '' }}
-            @if(!empty($__banner['href']))
-                <a href="{{ $__banner['href'] }}">Open settings</a>
-            @endif
-        </span>
-    </div>
-@endforeach
+@include('partials.integration-banners', ['bannerOnly' => ($channelCard ?? null)?->id])
 
 <div id="js-flash-container"></div>

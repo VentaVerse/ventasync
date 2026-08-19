@@ -119,6 +119,8 @@
         <div class="x-cmdbar__actions">
             <x-ui.button type="submit" variant="primary" id="btnFetchOrders">Fetch orders</x-ui.button>
             <x-ui.button type="submit" variant="secondary" id="btnUpdateOrders"
+                         data-confirm="Re-read the statuses of Shopee orders in the chosen dates? Existing orders are updated in place; no new orders are pulled."
+                         data-confirm-tone="primary"
                          formaction="{{ route('ext.shopee.orders.update_statuses') }}">Update statuses</x-ui.button>
             <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
         </div>
@@ -357,9 +359,9 @@
         <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'shopee']) }}"
               id="shopee-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
             @csrf
-            <x-ui.button type="submit" variant="secondary" size="sm">Pick list</x-ui.button>
+            <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'shopee']) }}">Packing lists</x-ui.button>
+                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'shopee']) }}">Print packing lists</x-ui.button>
         </form>
     </x-ui.selectbar>
 
