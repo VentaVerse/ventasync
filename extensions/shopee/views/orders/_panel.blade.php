@@ -42,9 +42,10 @@
     $tab_counts = $tab_counts ?? [];
     $pending_sub_counts = $pending_sub_counts ?? [];
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
-    $orderNumberFilter = (string) ($filters['order_number'] ?? '');
-    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
-    $hasSearch = $orderNumberFilter !== '' || $buyerNameFilter !== '';
+    $findFilter = (string) ($filters['q'] ?? '');
+    $placedFromFilter = (string) ($filters['placed_from'] ?? '');
+    $placedToFilter = (string) ($filters['placed_to'] ?? '');
+    $hasSearch = $findFilter !== '' || $placedFromFilter !== '' || $placedToFilter !== '';
     $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
 
     // The status tone and label maps that used to sit here now live in
@@ -249,10 +250,26 @@
         <input type="hidden" name="pending_sub" value="{{ $pendingSub }}">
     @endif
 
-    <x-ui.input type="search" name="order_number" class="x-filters__search"
-                value="{{ $orderNumberFilter }}" placeholder="Order number" aria-label="Search by order number" />
-    <x-ui.input type="search" name="buyer_name" class="x-filters__search"
-                value="{{ $buyerNameFilter }}" placeholder="Buyer" aria-label="Search by buyer name" />
+    {{-- One box, matching whatever the caller just said. See the note in
+         the panel service for why this replaced an order-number field beside
+         a buyer field. --}}
+    <x-ui.input type="search" name="q" class="x-filters__find"
+                value="{{ $findFilter }}"
+                placeholder="Order no, buyer or product"
+                aria-label="Find an order by order number, buyer or product" />
+
+    {{-- When the order was placed. This list has never had a date filter of
+         any kind - the only dates on the page were the command bar's, which
+         tell the marketplace what to send and do not touch the rows below
+         them. A caller with "sometime last week" and a product name could not
+         narrow this list at all. --}}
+    <span class="x-filters__group">
+        <span class="x-filters__group-label">Placed</span>
+        <x-ui.input type="date" name="placed_from" class="x-filters__date"
+                    value="{{ $placedFromFilter }}" aria-label="Placed on or after" title="Placed on or after" />
+        <x-ui.input type="date" name="placed_to" class="x-filters__date"
+                    value="{{ $placedToFilter }}" aria-label="Placed on or before" title="Placed on or before" />
+    </span>
 
     <div class="x-select-wrap x-filters__select x-filters__select--wide">
         <select name="sort" class="x-input" data-autosubmit aria-label="Sort orders">

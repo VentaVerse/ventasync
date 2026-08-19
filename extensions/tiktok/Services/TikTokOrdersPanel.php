@@ -32,12 +32,18 @@ class TikTokOrdersPanel
     public function build(Request $request): array
     {
         $filters = $request->validate([
-            'order_number' => ['nullable', 'string', 'max:80'],
-            'buyer_name'   => ['nullable', 'string', 'max:120'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'placed_from' => ['nullable', 'date'],
+            'placed_to' => ['nullable', 'date', 'after_or_equal:placed_from'],
         ]);
 
-        $orderNumber = trim((string) ($filters['order_number'] ?? ''));
-        $buyerName = trim((string) ($filters['buyer_name'] ?? ''));
+        /* One field matching order number, buyer and product, plus a range
+         * over when the order was placed - the same pair every other
+         * fulfilment list carries. See the note on the Shopee orders panel
+         * for why this replaced two labelled boxes. */
+        $find = trim((string) ($filters['q'] ?? ''));
+        $placedFrom = trim((string) ($filters['placed_from'] ?? ''));
+        $placedTo = trim((string) ($filters['placed_to'] ?? ''));
 
         $perPage = (int) $request->query('per_page', 10);
         if (!in_array($perPage, [10, 20, 50], true)) {
@@ -101,11 +107,25 @@ class TikTokOrdersPanel
         }
 
         // Search
-        if ($orderNumber !== '') {
-            $query->where('order_id', 'like', '%' . $orderNumber . '%');
+        if ($find !== '') {
+            $like = '%' . $find . '%';
+
+            $query->where(function ($w) use ($like) {
+                $w->where('order_id', 'like', $like)
+                    ->orWhere('buyer_name', 'like', $like)
+                    ->orWhereHas('products', function ($p) use ($like) {
+                        $p->where('name', 'like', $like)
+                            ->orWhere('sku', 'like', $like)
+                            ->orWhere('variation', 'like', $like);
+                    });
+            });
         }
-        if ($buyerName !== '') {
-            $query->where('buyer_name', 'like', '%' . $buyerName . '%');
+
+        if ($placedFrom !== '') {
+            $query->whereDate('order_created_at', '>=', $placedFrom);
+        }
+        if ($placedTo !== '') {
+            $query->whereDate('order_created_at', '<=', $placedTo);
         }
 
         // Badge counts
@@ -153,8 +173,9 @@ class TikTokOrdersPanel
             'last_result'   => session('tiktok_orders_last_result'),
             'courier_counts' => $courierCounts,
             'filters'       => [
-                'order_number' => $orderNumber,
-                'buyer_name'   => $buyerName,
+                'q' => $find,
+                'placed_from' => $placedFrom,
+                'placed_to' => $placedTo,
             ],
         ];
     }

@@ -23,12 +23,25 @@ class ShopeeOrdersPanel
         $auth = ShopeeSetting::activeAuth($setting);
 
         $filters = $request->validate([
-            'order_number' => ['nullable', 'string', 'max:80'],
-            'buyer_name' => ['nullable', 'string', 'max:120'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'placed_from' => ['nullable', 'date'],
+            'placed_to' => ['nullable', 'date', 'after_or_equal:placed_from'],
         ]);
 
-        $orderNumber = trim((string) ($filters['order_number'] ?? ''));
-        $buyerName = trim((string) ($filters['buyer_name'] ?? ''));
+        /* ONE FIELD, THE SAME ONE THE RETURNS LISTS CARRY.
+         *
+         * This was an order-number box beside a buyer box, and the critique's
+         * standing red flag was that neither answers the call it was built
+         * for: a buyer on the phone has a product and a rough date, not an
+         * order number, and on Lazada every buyer name renders masked as
+         * J******e, so that box was a dead control on the channel that needed
+         * it most. Product was not searchable here at all.
+         *
+         * One box matching order number, buyer and product, and a date range
+         * over when the order was placed - which this list has never had. */
+        $find = trim((string) ($filters['q'] ?? ''));
+        $placedFrom = trim((string) ($filters['placed_from'] ?? ''));
+        $placedTo = trim((string) ($filters['placed_to'] ?? ''));
 
         $perPage = (int) $request->query('per_page', 10);
         if (!in_array($perPage, [10, 20, 50], true)) {
@@ -155,16 +168,31 @@ class ShopeeOrdersPanel
             'to_handover' => (clone $baseCountQuery)->whereIn('status', ['PROCESSED'])->count(),
         ];
 
-        if ($orderNumber !== '') {
-            $query->where('order_sn', 'like', '%' . $orderNumber . '%');
+        if ($find !== '') {
+            $like = '%' . $find . '%';
+
+            $query->where(function ($w) use ($like) {
+                $w->where('order_sn', 'like', $like)
+                    ->orWhere('raw->buyer_username', 'like', $like)
+                    ->orWhere('raw->buyer_user_name', 'like', $like)
+
+                    /* The products are on the order, so this reaches through
+                       the relation - the same shape the returns lists use. */
+                    ->orWhereHas('products', function ($p) use ($like) {
+                        $p->where('name', 'like', $like)
+                            ->orWhere('sku', 'like', $like)
+                            ->orWhere('variation', 'like', $like);
+                    });
+            });
         }
 
-        if ($buyerName !== '') {
-            $query->where(function ($q) use ($buyerName) {
-                $like = '%' . $buyerName . '%';
-                $q->where('raw->buyer_username', 'like', $like)
-                    ->orWhere('raw->buyer_user_name', 'like', $like);
-            });
+        /* When the order was placed on the marketplace, not when a sync last
+           wrote the row. whereDate so a To date includes the whole of it. */
+        if ($placedFrom !== '') {
+            $query->whereDate('order_created_at', '>=', $placedFrom);
+        }
+        if ($placedTo !== '') {
+            $query->whereDate('order_created_at', '<=', $placedTo);
         }
 
         $tab_counts = [];
@@ -223,8 +251,9 @@ class ShopeeOrdersPanel
             'savedAwbs' => $savedAwbs,
             'sort' => $sortKey,
             'filters' => [
-                'order_number' => $orderNumber,
-                'buyer_name' => $buyerName,
+                'q' => $find,
+                'placed_from' => $placedFrom,
+                'placed_to' => $placedTo,
             ],
         ];
     }
