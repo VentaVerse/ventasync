@@ -50,6 +50,13 @@ class ShopeeOrdersPanel
             'DELIVERED_COMPLETED',
             'CANCELLED',
             'FAILED_DELIVERY',
+            // Anything this channel's tab map does not name. The tab only
+            // RENDERS when it has contents (see $otherCount below), but it
+            // has to be accepted here unconditionally: this guard runs long
+            // before the counts exist, and leaving it out silently bounced
+            // the tab back to All, so the one control that reaches those
+            // orders did nothing.
+            'OTHER',
         ];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';

@@ -54,6 +54,9 @@ class LazadaOrdersPanel
             'DELIVERED',
             'CANCELLATION',
             'FAILED_DELIVERY',
+            // See ShopeeOrdersPanel: accepted here whether or not it renders,
+            // because this guard runs before the counts that decide that.
+            'OTHER',
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
