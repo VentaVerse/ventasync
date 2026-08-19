@@ -502,46 +502,12 @@
                 if (!is_array($items)) $items = [];
             }
 
-            // Group identical products (same SKU + name + variation) and sum
-            // quantities. Lazada emits one line per unit on some payloads.
-            $grouped = [];
-            foreach ($items as $row) {
-                $rowRaw = $row['raw'] ?? $row;
-
-                $gName = $row['name'] ?? $rowRaw['name'] ?? $rowRaw['item_name'] ?? $rowRaw['product_name'] ?? '';
-                $gSku = $row['sku'] ?? $rowRaw['sku'] ?? $rowRaw['seller_sku'] ?? $rowRaw['SellerSku'] ?? $rowRaw['SellerSKU'] ?? $rowRaw['Sku'] ?? '';
-                $gVariation = (string) ($row['variation'] ?? $rowRaw['variation'] ?? $rowRaw['Variation'] ?? $rowRaw['variant'] ?? '');
-                $gVariationNorm = mb_strtolower(trim($gVariation));
-                if (in_array($gVariationNorm, ['', 'blank', 'null', 'n/a', 'na', 'none', '-', '--'], true)) {
-                    $gVariation = '';
-                }
-
-                $gQty = (int) ($row['quantity'] ?? $rowRaw['quantity'] ?? $rowRaw['qty'] ?? 1);
-                if ($gQty < 1) { $gQty = 1; }
-
-                $gImg = $row['image'] ?? $rowRaw['image'] ?? $rowRaw['product_main_image'] ?? $rowRaw['product_image'] ?? '';
-                $gItemPrice = $row['item_price'] ?? $row['paid_price'] ?? $rowRaw['item_price'] ?? $rowRaw['paid_price'] ?? null;
-                $gCurrency = (string) ($rowRaw['currency'] ?? '');
-
-                $key = mb_strtolower(trim((string) $gSku)) . '|' . mb_strtolower(trim((string) $gName)) . '|' . mb_strtolower(trim((string) $gVariation));
-                if (!isset($grouped[$key])) {
-                    $grouped[$key] = [
-                        'name' => $gName,
-                        'sku' => $gSku,
-                        'variation' => $gVariation,
-                        'quantity' => $gQty,
-                        'image' => $gImg,
-                        'item_price' => $gItemPrice,
-                        'currency' => $gCurrency,
-                    ];
-                } else {
-                    $grouped[$key]['quantity'] += $gQty;
-                    if (($grouped[$key]['image'] ?? '') === '' && $gImg !== '') {
-                        $grouped[$key]['image'] = $gImg;
-                    }
-                }
-            }
-            $groupedItems = array_values($grouped);
+            // One line per product, not one line per unit - Lazada emits one
+            // row per unit on several payload shapes. The grouping moved to a
+            // service when the packed-parcel modal needed the same answer;
+            // see App\Support\Fulfilment\OrderItemGrouper for the field
+            // aliases and why an empty variation is a literal string.
+            $groupedItems = \App\Support\Fulfilment\OrderItemGrouper::group($items);
 
             // Legacy shape: an order with no recorded items still renders one
             // empty item row under its band, rather than a band with nothing
@@ -881,6 +847,70 @@
             <button type="button" id="btnClosePackPrint" class="modal-close co-modal__close" aria-label="Close">&times;</button>
         </div>
         <div class="co-modal__meta">Order <strong id="lzPackPrintOrder"></strong></div>
+
+        {{-- The parcel, not just its number.
+             This modal is the last checkpoint before a waybill prints, and it
+             used to restate nothing a packer could check against the box in
+             their hand - so clicking the row above yours produced the same
+             screen as clicking yours. The parcel is resolved on the server
+             because packing moves the order out of the To Pack tab, and the
+             row is often no longer on the page by the time this opens. --}}
+        @if(!empty($pack_print_parcel))
+            @php($lzParcel = $pack_print_parcel)
+            <div class="co-parcel">
+                <ul class="co-parcel__items">
+                    @foreach($lzParcel['items'] as $lzItem)
+                        <li class="co-parcel__item">
+                            <div class="order-img-wrap">
+                                @if(!empty($lzItem['image']))
+                                    <img class="order-img" src="{{ $lzItem['image'] }}" alt="">
+                                @else
+                                    <span class="co-item__none">No image</span>
+                                @endif
+                            </div>
+                            <div class="co-parcel__body">
+                                <span class="co-parcel__name">{{ ($lzItem['name'] ?? '') !== '' ? $lzItem['name'] : 'Unnamed product' }}</span>
+                                <div class="co-item__meta">
+                                    @if(trim((string) ($lzItem['sku'] ?? '')) !== '')
+                                        <span class="co-item__sku">{{ $lzItem['sku'] }}</span>
+                                    @endif
+                                    @if(trim((string) ($lzItem['variation'] ?? '')) !== '')
+                                        <span class="co-item__var">{{ $lzItem['variation'] }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            {{-- The count is the error a packer makes, so it
+                                 is the loudest figure here, not the quietest. --}}
+                            <span class="co-parcel__qty">&times;{{ (int) ($lzItem['quantity'] ?? 1) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <dl class="co-parcel__facts">
+                    <div class="co-parcel__fact">
+                        <dt>Units</dt>
+                        <dd>{{ $lzParcel['unit_count'] }} in {{ $lzParcel['line_count'] }} {{ $lzParcel['line_count'] === 1 ? 'line' : 'lines' }}</dd>
+                    </div>
+                    <div class="co-parcel__fact">
+                        <dt>Courier</dt>
+                        <dd>
+                            @if($lzParcel['courier'])
+                                {{ $lzParcel['courier'] }}
+                            @else
+                                <span class="co-empty-mark">Not assigned yet</span>
+                            @endif
+                        </dd>
+                    </div>
+                    @if($lzParcel['destination'])
+                        <div class="co-parcel__fact">
+                            <dt>To</dt>
+                            <dd>{{ $lzParcel['destination'] }}</dd>
+                        </div>
+                    @endif
+                </dl>
+            </div>
+        @endif
+
         <p class="co-modal__prompt">Close this and the order waits in To Arrange Shipment.</p>
         <div class="co-modal__foot co-modal__foot--end">
             <form method="POST" id="formRecreatePackage" action="#">

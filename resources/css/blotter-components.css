@@ -2277,6 +2277,93 @@
         flex: 1;
     }
 
+    /* ------------------------------------------------------------------
+       THE PARCEL INSIDE THE PACKED CONFIRMATION
+
+       A packer holding a box needs to see what the system thinks is in it,
+       one click before a waybill prints. The count leads the line rather
+       than trailing it, because miscounting is the error people actually
+       make here - the price is not on this screen at all, since nothing
+       about it changes what goes in the box.
+       ------------------------------------------------------------------ */
+    .co-parcel {
+        margin: 12px 0 4px;
+        border: 1px solid var(--bl-rule-2);
+        border-radius: var(--bl-r-ctrl);
+        background: var(--bl-chrome);
+        overflow: hidden;
+    }
+
+    .co-parcel__items {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .co-parcel__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 11px;
+    }
+
+    .co-parcel__item + .co-parcel__item {
+        border-top: 1px solid var(--bl-rule);
+    }
+
+    .co-parcel__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .co-parcel__name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--bl-ink);
+        line-height: 1.3;
+    }
+
+    /* The one figure on this screen that decides whether the parcel is
+       right. Tabular so a column of them compares. */
+    .co-parcel__qty {
+        flex: none;
+        font-size: 17px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--bl-ink);
+    }
+
+    .co-parcel__facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 20px;
+        margin: 0;
+        padding: 9px 11px;
+        border-top: 1px solid var(--bl-rule-2);
+        background: var(--bl-sheet);
+    }
+
+    .co-parcel__fact {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+
+    .co-parcel__fact dt {
+        font-size: var(--bl-lab-size);
+        letter-spacing: var(--bl-lab-track);
+        color: var(--bl-ink-3);
+    }
+
+    .co-parcel__fact dd {
+        margin: 0;
+        font-size: 13px;
+        color: var(--bl-ink);
+    }
+
     .co-modal__foot {
         display: flex;
         gap: 8px;

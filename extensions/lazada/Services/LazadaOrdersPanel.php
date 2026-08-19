@@ -274,6 +274,7 @@ class LazadaOrdersPanel
             'to_ship_courier_counts' => $this->buildToShipCourierCounts($setting->region ?? 'ph'),
             'live_statuses' => $live_statuses,
             'savedAwbs' => $savedAwbs,
+            'pack_print_parcel' => $this->resolvePackedParcel($setting),
             'sort' => $sortKey,
             'filters' => [
                 'q' => $find,
@@ -281,6 +282,31 @@ class LazadaOrdersPanel
                 'placed_to' => $placedTo,
             ],
         ];
+    }
+
+    /**
+     * The order the packer just packed, for the confirmation that follows.
+     *
+     * Read from the session key the controller sets on redirect rather than
+     * from the listed orders, because packing moves the order out of the To
+     * Pack tab: the row a packer was looking at is frequently not on the page
+     * that renders the modal.
+     */
+    private function resolvePackedParcel(?LazadaSetting $setting): ?array
+    {
+        $orderId = (string) session('open_pack_print_modal_order_id', '');
+
+        if ($orderId === '' || $setting === null) {
+            return null;
+        }
+
+        $order = LazadaOrder::query()
+            ->where('region', $setting->region)
+            ->where('order_id', $orderId)
+            ->with('products')
+            ->first();
+
+        return \App\Support\Fulfilment\PackedParcel::fromOrder($order, $orderId);
     }
 
     private function buildToShipCourierCounts(string $region): array
