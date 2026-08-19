@@ -413,14 +413,28 @@
             </td>
 
             <td class="sp-col-act">
+                {{-- Visible buttons, not an overflow menu.
+                     The same call was already made for the Shopee ORDERS
+                     panel and written into its comment - the packing desk is
+                     a working surface, and a kebab made the column read as
+                     empty. Returns never got the same treatment, so the same
+                     job was a button on Lazada and hidden behind a menu here:
+                     12 visible buttons against 3, on two pages doing one
+                     thing. Neither action is destructive, which is the only
+                     reason this surface hides anything (see Venta's Delete).
+
+                     Nothing else about this panel changes. The columns and
+                     the tab words stay as they are, because Lazada and
+                     Shopee genuinely model returns differently and matching
+                     those would mean inventing a state one of them does not
+                     have. --}}
                 <div class="co-actions">
-                    <x-ui.menu label="Return {{ $ret->return_sn }} actions">
-                        <a class="x-menu__item" href="{{ $detailUrl }}">Open return</a>
-                        @if($ret->order_sn)
-                            <a class="x-menu__item" href="{{ route('ext.shopee.orders.awb', ['orderSn' => $ret->order_sn]) }}"
-                               target="_blank" rel="noopener">Print waybill</a>
-                        @endif
-                    </x-ui.menu>
+                    <x-ui.button size="sm" :href="$detailUrl">Open return</x-ui.button>
+                    @if($ret->order_sn)
+                        <x-ui.button size="sm"
+                                     :href="route('ext.shopee.orders.awb', ['orderSn' => $ret->order_sn])"
+                                     target="_blank" rel="noopener">Print waybill</x-ui.button>
+                    @endif
                 </div>
             </td>
         </tr>

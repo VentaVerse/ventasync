@@ -370,6 +370,73 @@ class FoundationTest extends TestCase
         ));
     }
 
+    /**
+     * A returns row does not hide what it can do.
+     *
+     * The same job read two ways: Lazada's returns put "Open order" on the
+     * row as a button while Shopee's hid "Open return" and "Print waybill"
+     * behind a kebab - 12 visible buttons against 3, on two pages doing one
+     * thing, for the operator with the least screen time and the narrowest
+     * permission slice. The call had already been made for the Shopee ORDERS
+     * panel and written into its comment; returns never got it.
+     *
+     * The exception is deliberate and narrow: a DESTRUCTIVE action still
+     * belongs behind an overflow trigger, which is why Venta's Delete lives
+     * in one. If a returns panel grows a menu, it should be for that reason.
+     */
+    public function test_no_returns_panel_hides_a_row_action_behind_a_menu(): void
+    {
+        $panels = glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: [];
+
+        $this->assertNotEmpty($panels, 'no returns panels found to check');
+
+        $hiding = [];
+
+        foreach ($panels as $panel) {
+            $channel = basename(dirname($panel, 3));
+            $markup = File::get($panel);
+
+            if (str_contains($markup, '<x-ui.menu')) {
+                $hiding[] = $channel;
+            }
+        }
+
+        $this->assertSame([], $hiding, sprintf(
+            "These returns panels put row actions behind an overflow menu: %s\n\n"
+            ."Returns actions are not destructive, and the sibling panel shows them as buttons.\n"
+            ."If you are adding a menu for a DESTRUCTIVE action, that is the sanctioned case -\n"
+            ."say so here and allow that channel.",
+            implode(', ', $hiding)
+        ));
+    }
+
+    /**
+     * Both returns panels reach their return, and by the same kind of
+     * control. This is the half of consistency that IS achievable: the
+     * columns and the tab words cannot match, because Lazada and Shopee
+     * model returns differently, but where the action lives can.
+     */
+    public function test_both_returns_panels_open_a_return_from_the_row(): void
+    {
+        foreach (['lazada' => 'Open order', 'shopee' => 'Open return'] as $channel => $label) {
+            $path = base_path("extensions/{$channel}/views/orders/_returns_panel.blade.php");
+            $this->assertFileExists($path);
+
+            $markup = File::get($path);
+
+            $this->assertStringContainsString(
+                $label,
+                $markup,
+                "{$channel} returns no longer offers \"{$label}\""
+            );
+            $this->assertStringContainsString(
+                '<x-ui.button size="sm"',
+                $markup,
+                "{$channel} returns does not use the shared small button for its row action"
+            );
+        }
+    }
+
     public function test_every_channel_class_a_fulfilment_panel_emits_has_a_rule(): void
     {
         $css = '';
