@@ -29,16 +29,25 @@ class ShopeeReturnsPanel
         $auth = ShopeeSetting::activeAuth($setting);
 
         $filters = $request->validate([
-            'return_sn'  => ['nullable', 'string', 'max:80'],
-            'order_sn'   => ['nullable', 'string', 'max:80'],
-            'buyer_name' => ['nullable', 'string', 'max:120'],
+            'q'           => ['nullable', 'string', 'max:120'],
             'opened_from' => ['nullable', 'date'],
             'opened_to'   => ['nullable', 'date', 'after_or_equal:opened_from'],
         ]);
 
-        $returnSn  = trim((string) ($filters['return_sn'] ?? ''));
-        $orderSn   = trim((string) ($filters['order_sn'] ?? ''));
-        $buyerName = trim((string) ($filters['buyer_name'] ?? ''));
+        /* ONE FIELD, NOT FOUR.
+         *
+         * This row carried a box each for return number, order number and
+         * buyer, and product search would have made a fourth. The scene that
+         * decides it is the one in the critique: a customer is on the phone,
+         * and the agent has whatever the customer just said - a return
+         * number, an order number, their own name, or "the flat patch cable".
+         * Four labelled boxes ask the agent to classify that before they can
+         * type it, and classifying it is the part they cannot do.
+         *
+         * So one box matches any of them. The cost is that the field no
+         * longer names what it searches, which the placeholder carries
+         * instead. */
+        $find = trim((string) ($filters['q'] ?? ''));
         $openedFrom  = trim((string) ($filters['opened_from'] ?? ''));
         $openedTo    = trim((string) ($filters['opened_to'] ?? ''));
 
@@ -92,21 +101,35 @@ class ShopeeReturnsPanel
             }
         }
 
-        if ($returnSn !== '') {
-            $query->where('return_sn', 'like', '%' . $returnSn . '%');
-        }
-        if ($orderSn !== '') {
-            $query->where('order_sn', 'like', '%' . $orderSn . '%');
-        }
+        if ($find !== '') {
+            $like = '%' . $find . '%';
 
-        /* The buyer lives on the order, not on the return, so this reaches
-           through the relation. Same two raw keys the orders panel searches,
-           because Shopee has used both spellings. */
-        if ($buyerName !== '') {
-            $query->whereHas('order', function ($q) use ($buyerName) {
-                $like = '%' . $buyerName . '%';
-                $q->where('raw->buyer_username', 'like', $like)
-                    ->orWhere('raw->buyer_user_name', 'like', $like);
+            $query->where(function ($w) use ($like) {
+                $w->where('return_sn', 'like', $like)
+                    ->orWhere('order_sn', 'like', $like)
+
+                    /* The buyer and the products live on the order, not on
+                       the return, so these reach through the relation. Both
+                       raw spellings, because Shopee has used each. */
+                    ->orWhereHas('order', function ($o) use ($like) {
+                        $o->where('raw->buyer_username', 'like', $like)
+                            ->orWhere('raw->buyer_user_name', 'like', $like);
+                    })
+                    ->orWhereHas('order.products', function ($p) use ($like) {
+                        $p->where('name', 'like', $like)
+                            ->orWhere('sku', 'like', $like)
+                            ->orWhere('variation', 'like', $like);
+                    })
+
+                    /* And the return's own items, which is the only path for
+                       a return whose order was never synced - there the
+                       relation is null and the two whereHas above match
+                       nothing. The trade-off is that this searches a JSON
+                       blob, so a very short numeric term can hit an id or a
+                       price rather than a product. A term worth typing at a
+                       phone desk is a name or a code, and those do not
+                       collide. */
+                    ->orWhere('items', 'like', $like);
             });
         }
 
@@ -151,9 +174,7 @@ class ShopeeReturnsPanel
             'tab_counts'  => $tab_counts,
             'sort'        => $sortKey,
             'filters'     => [
-                'return_sn'  => $returnSn,
-                'order_sn'   => $orderSn,
-                'buyer_name' => $buyerName,
+                'q'           => $find,
                 'opened_from' => $openedFrom,
                 'opened_to'   => $openedTo,
             ],

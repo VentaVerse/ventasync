@@ -1588,6 +1588,13 @@
        whose numbers change size as work arrives is a row that jumps. */
     .fh-card__lead.is-clear { color: var(--bl-ink-3); }
 
+    /* A figure no fetch can move. Not hidden - it is the last true
+       count and an operator reconnecting the channel will want it -
+       but stepped back so it does not read as today's queue. */
+    .fh-card__lead.is-stale {
+        color: var(--bl-ink-3);
+    }
+
     /* Not tracked and Not syncing are statements about instrumentation and
        connection, not quantities, so both drop out of the numeric size
        entirely. A solid ink-3, never a reduced opacity, which would fall under
@@ -2356,6 +2363,18 @@
         flex-basis: 100%;
         height: 0;
         margin: 0;
+    }
+
+    /* The one field that replaced four.
+     *
+     * Wider than a labelled search box because it has more to say: its
+     * placeholder is carrying the job the four labels used to do, and a
+     * placeholder that ellipsises has stopped doing it. It also grows into
+     * whatever the row leaves over, so the filter row's spare width pools in
+     * the control that benefits from it rather than in the per-page select. */
+    .x-filters__find {
+        flex: 1 1 320px;
+        max-width: 440px;
     }
 
     /* A date input carries its own picker glyph and a fixed-width value, so

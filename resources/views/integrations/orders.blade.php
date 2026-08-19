@@ -164,10 +164,26 @@
                      channel can still have real orders waiting on a person,
                      and the staleness is a caveat on the number rather than a
                      reason to withhold it. --}}
+                @php
+                    /* A count that nothing can move. "not syncing" means the
+                       credentials work and the sync has gone quiet, so the
+                       number is real and merely late - the note above is
+                       right that withholding it would be worse. "not
+                       connected" is the other case: there are no credentials
+                       at all, so the figure is whatever was true when the
+                       channel was last linked and no fetch will ever change
+                       it. The critique caught a card reading 24 above "not
+                       connected" with nothing saying which of those two the
+                       reader was looking at. */
+                    $fhOrphanCount = $fhCard['stalled']
+                        && $fhCard['state'] === 'setup'
+                        && $fhCard['waiting'] !== null
+                        && (int) $fhCard['waiting'] > 0;
+                @endphp
                 @if($fhCard['waiting'] === null)
                     <span class="fh-card__lead is-untracked">Not tracked</span>
                 @else
-                    <span class="fh-card__lead x-num {{ $fhCard['waiting'] === 0 ? 'is-clear' : '' }}">{{ number_format($fhCard['waiting']) }}</span>
+                    <span class="fh-card__lead x-num {{ $fhCard['waiting'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhCard['waiting']) }}</span>
                 @endif
 
                 {{-- and the caveat under it, which is what stops a zero from
@@ -177,7 +193,11 @@
                          credentials at all, the other has them and has gone
                          quiet. The words carry it as well as the colour. --}}
                     <span class="fh-card__label {{ $fhCard['state'] === 'setup' ? 'is-bad' : 'is-attn' }}">
-                        {{ $fhCard['state'] === 'setup' ? 'not connected' : 'not syncing' }}
+                        @if($fhOrphanCount)
+                            not connected &middot; last known
+                        @else
+                            {{ $fhCard['state'] === 'setup' ? 'not connected' : 'not syncing' }}
+                        @endif
                     </span>
                 @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__label">orders waiting</span>

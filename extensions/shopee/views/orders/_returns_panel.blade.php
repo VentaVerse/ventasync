@@ -46,13 +46,10 @@
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
     $tab_counts = $tab_counts ?? [];
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
-    $returnSnFilter = (string) ($filters['return_sn'] ?? '');
-    $orderSnFilter = (string) ($filters['order_sn'] ?? '');
-    $buyerNameFilter = (string) ($filters['buyer_name'] ?? '');
+    $findFilter = (string) ($filters['q'] ?? '');
     $openedFromFilter = (string) ($filters['opened_from'] ?? '');
     $openedToFilter = (string) ($filters['opened_to'] ?? '');
-    $hasSearch = $returnSnFilter !== '' || $orderSnFilter !== '' || $buyerNameFilter !== ''
-        || $openedFromFilter !== '' || $openedToFilter !== '';
+    $hasSearch = $findFilter !== '' || $openedFromFilter !== '' || $openedToFilter !== '';
     /* Four orderings over the two dates a return actually has. The same
        "field, direction" phrasing the orders list uses, so the two controls
        read as one idea. */
@@ -136,8 +133,22 @@
                 $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
             @endphp
-            <a href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}"
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+            {{-- A filter with no members is shown but not offered.
+                 Four of Lazada's seven return tabs read 0, and each was a
+                 full target onto an empty list - the operator spends a click
+                 to be told what the tab already told them. It stays visible,
+                 because a tab that disappears when its queue empties makes
+                 the strip change shape as the day goes on and the operator
+                 re-learn where things are; it just stops being a target.
+
+                 An anchor without an href is the whole mechanism: not in the
+                 tab order, not announced as a link, no pointer cursor. The
+                 active tab keeps its href even at 0, because that URL is
+                 where the operator already is. --}}
+            @php $segEmpty = ($count !== null && (int) $count === 0 && ! $isActive); @endphp
+            <a @if(! $segEmpty) href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}" @endif
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}{{ $segEmpty ? ' is-empty' : '' }}"
+               @if($segEmpty) aria-disabled="true" @endif
                @if($isActive) aria-current="page" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)
@@ -172,17 +183,12 @@
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
 
-    <x-ui.input type="search" name="return_sn" class="x-filters__search"
-                value="{{ $returnSnFilter }}" placeholder="Return number" aria-label="Search by return number" />
-    <x-ui.input type="search" name="order_sn" class="x-filters__search"
-                value="{{ $orderSnFilter }}" placeholder="Order number" aria-label="Search by order number" />
-    {{-- The buyer is on the order, not the return, so the panel reaches
-         through the relation for it. Lazada's list has no counterpart: its
-         reverse order payload carries only a buyer_id. --}}
-    <x-ui.input type="search" name="buyer_name" class="x-filters__search"
-                value="{{ $buyerNameFilter }}" placeholder="Buyer" aria-label="Search by buyer name" />
-
-    <div class="x-filters__break" aria-hidden="true"></div>
+    {{-- One box, matching whatever the caller just said. See the note in
+         the panel service for why this is not four labelled fields. --}}
+    <x-ui.input type="search" name="q" class="x-filters__find"
+                value="{{ $findFilter }}"
+                placeholder="Return no, order no, buyer or product"
+                aria-label="Find a return by return number, order number, buyer or product" />
 
     {{-- Opened from / to, not the fetch range. On Lazada the command bar
          above carries its own From and To that tell the API which returns to
@@ -223,7 +229,7 @@
 @if($returns->count() === 0)
     @php
         if ($hasSearch) {
-            $rtEmptyDesc = 'Nothing matches that return or order number. Clear the search to see the full list.';
+            $rtEmptyDesc = 'Nothing matches that search. Clear it to see the full list.';
         } elseif ($active_tab !== 'ALL') {
             // Keep the tab's own capitalisation, same fix as the orders
             // page: lowercasing produced unreadable copy.

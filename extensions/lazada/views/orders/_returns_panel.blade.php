@@ -35,12 +35,10 @@
     $erpMap = $erpMap ?? collect();
     $imgMap = $imgMap ?? collect();
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
-    $reverseIdFilter = (string) ($filters['reverse_order_id'] ?? '');
-    $tradeIdFilter = (string) ($filters['trade_order_id'] ?? '');
+    $findFilter = (string) ($filters['q'] ?? '');
     $openedFromFilter = (string) ($filters['opened_from'] ?? '');
     $openedToFilter = (string) ($filters['opened_to'] ?? '');
-    $hasSearch = $reverseIdFilter !== '' || $tradeIdFilter !== ''
-        || $openedFromFilter !== '' || $openedToFilter !== '';
+    $hasSearch = $findFilter !== '' || $openedFromFilter !== '' || $openedToFilter !== '';
     /* Four orderings over the two dates a return actually has. The same
        "field, direction" phrasing the orders list uses, so the two controls
        read as one idea. */
@@ -152,8 +150,22 @@
                 $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
             @endphp
-            <a href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}"
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+            {{-- A filter with no members is shown but not offered.
+                 Four of Lazada's seven return tabs read 0, and each was a
+                 full target onto an empty list - the operator spends a click
+                 to be told what the tab already told them. It stays visible,
+                 because a tab that disappears when its queue empties makes
+                 the strip change shape as the day goes on and the operator
+                 re-learn where things are; it just stops being a target.
+
+                 An anchor without an href is the whole mechanism: not in the
+                 tab order, not announced as a link, no pointer cursor. The
+                 active tab keeps its href even at 0, because that URL is
+                 where the operator already is. --}}
+            @php $segEmpty = ($count !== null && (int) $count === 0 && ! $isActive); @endphp
+            <a @if(! $segEmpty) href="{{ $panelSelfUrl(['tab' => $key], ['page']) }}" @endif
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}{{ $segEmpty ? ' is-empty' : '' }}"
+               @if($segEmpty) aria-disabled="true" @endif
                @if($isActive) aria-current="page" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)
@@ -175,12 +187,12 @@
 @endforeach
     <input type="hidden" name="tab" value="{{ $active_tab }}">
 
-    <x-ui.input type="search" name="reverse_order_id" class="x-filters__search"
-                value="{{ $reverseIdFilter }}" placeholder="Return number" aria-label="Search by return number" />
-    <x-ui.input type="search" name="trade_order_id" class="x-filters__search"
-                value="{{ $tradeIdFilter }}" placeholder="Order number" aria-label="Search by original order number" />
-
-    <div class="x-filters__break" aria-hidden="true"></div>
+    {{-- One box, matching whatever the caller just said. See the note in
+         the panel service for why this is not four labelled fields. --}}
+    <x-ui.input type="search" name="q" class="x-filters__find"
+                value="{{ $findFilter }}"
+                placeholder="Return no, order no or product"
+                aria-label="Find a return by return number, order number or product" />
 
     {{-- Opened from / to, not the fetch range. The command bar above carries
          its own From and To that tell Lazada which returns to pull; these two
@@ -340,7 +352,7 @@
                             <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
                         @if($order->reverse_type)
-                            <span class="co-band__muted">{{ str_replace('_', ' ', $order->reverse_type) }}</span>
+                            <span class="co-band__muted">{{ \App\Support\ChannelStatusTone::labelFor('lazada.reverse_type', $order->reverse_type) }}</span>
                         @endif
                         @if($erpId)
                             <a class="co-ref" href="{{ url('/sales/orders/'.$erpId) }}">Sales order {{ $erpId }}</a>
@@ -436,16 +448,35 @@
                 @else
                     <span class="co-empty-mark">-</span>
                 @endif
+                {{-- Was the raw constant with its underscores swapped for
+                     spaces, so RETURN_DELIVERED reached the operator as
+                     "RETURN DELIVERED". Through the label class it is the
+                     same plain wording Shopee's list uses for the same
+                     state. --}}
                 @if($ofc)
-                    <span class="co-ship__note">{{ str_replace('_', ' ', $ofc) }}</span>
+                    <span class="co-ship__note">{{ \App\Support\ChannelStatusTone::labelFor('lazada.reverse_logistics', $ofc) }}</span>
                 @endif
             </td>
 
             <td class="lz-col-rstatus" rowspan="{{ $lineCount }}" data-label="Status">
                 <div class="co-status">
                     <x-ui.badge :tone="$tone">{{ $statusLabel }}</x-ui.badge>
+                    {{-- Named, not floating. This printed the reason as a
+                         bare phrase under the badge, so "Change of mind" read
+                         as a second status rather than as the answer to why.
+                         The critique called Shopee's version of this cell the
+                         best thing on the page for exactly that reason: each
+                         fact says which fact it is, in the order a person
+                         asks them.
+
+                         Lazada keeps its own tracking column rather than
+                         folding it in the way Shopee's does - Shopee's API
+                         returns no return tracking number, so its cell has
+                         nothing to fold. Copying the layout here would have
+                         deleted a real number off the page. What carries
+                         across is the treatment. --}}
                     @if($order->reason)
-                        <span class="co-status__note">{{ \Illuminate\Support\Str::limit($order->reason, 40) }}</span>
+                        <span class="co-status__note">Reason: {{ \Illuminate\Support\Str::limit($order->reason, 40) }}</span>
                     @endif
                 </div>
             </td>

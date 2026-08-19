@@ -178,8 +178,24 @@
                 $isActive = $active_tab === strtoupper((string) $key);
                 $count = $tab_counts[$key] ?? null;
             @endphp
-            <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'fd_sub']) }}"
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+            {{-- A filter with no members is shown but not offered.
+                 Four of Lazada's seven return tabs read 0, and each was a full
+                 target onto an empty list - the operator spends a click to be
+                 told what the tab already told them. It stays visible, because
+                 a tab that disappears when its queue empties makes the strip
+                 change shape as the day goes on; it just stops being a target.
+
+                 An anchor without an href is the whole mechanism: not in the
+                 tab order, not announced as a link, no pointer cursor. The
+                 active tab keeps its href even at 0, because that URL is where
+                 the operator already is.
+
+                 Top level only. The sub step strip below keeps its hrefs - see
+                 the note there. --}}
+            @php $segEmpty = ($count !== null && (int) $count === 0 && ! $isActive); @endphp
+            <a @if(! $segEmpty) href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'fd_sub']) }}" @endif
+               class="x-segment__item {{ $isActive ? 'is-active' : '' }}{{ $segEmpty ? ' is-empty' : '' }}"
+               @if($segEmpty) aria-disabled="true" @endif
                @if($isActive) aria-current="page" @endif>
                 <span>{{ $label }}</span>
                 @if($count !== null)
@@ -208,6 +224,13 @@
                 $isActive = ($pendingSub === $k) || ($pendingSub === '' && $k === 'to_pack');
                 $count = $pending_sub_counts[$k] ?? null;
             @endphp
+            {{-- A sub step keeps its href at zero, unlike the top level tabs
+                 above. These split one queue between them, and the split
+                 empties one side into the other as the work gets done - To
+                 Pack drains into To Handover over a morning. A zero here is a
+                 moment in that loop rather than a settled state, so making the
+                 control inert would have it flicker in and out of being
+                 clickable while someone is working through it. --}}
             <a href="{{ $panelSelfUrl(['tab' => 'TO_SHIP', 'pending_sub' => $k], ['page']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="page" @endif>
@@ -239,6 +262,13 @@
                 $isActive = ($fdSub === $k) || ($fdSub === '' && $k === 'failed_delivery');
                 $count = $fd_sub_counts[$k] ?? null;
             @endphp
+            {{-- A sub step keeps its href at zero, unlike the top level tabs
+                 above. These split one queue between them, and the split
+                 empties one side into the other as the work gets done - To
+                 Pack drains into To Handover over a morning. A zero here is a
+                 moment in that loop rather than a settled state, so making the
+                 control inert would have it flicker in and out of being
+                 clickable while someone is working through it. --}}
             <a href="{{ $panelSelfUrl(['tab' => 'FAILED_DELIVERY', 'fd_sub' => $k], ['page']) }}"
                class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="page" @endif>

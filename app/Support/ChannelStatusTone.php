@@ -403,6 +403,27 @@ class ChannelStatusTone
         // buyer is already unhappy. Shopee ships two spellings of the same
         // reason, which is exactly the kind of channel difference this
         // class exists to absorb rather than leak.
+        /* Lazada calls a reverse order's kind a reverse_type and its parcel
+           state an ofc_status, and both were reaching the returns list as
+           the constants themselves - RETURN, RETURN_DELIVERED - through a
+           str_replace that turned an underscore into a space and left the
+           shouting intact. The wording matches the Shopee surfaces below
+           wherever the two channels mean the same thing, because an operator
+           reading both lists should not have to learn that "Back with us"
+           and "Return delivered" are one state. */
+        'lazada.reverse_type' => [
+            'RETURN' => 'Return',
+            'CANCEL' => 'Cancellation',
+        ],
+
+        'lazada.reverse_logistics' => [
+            'RETURN_DELIVERED' => 'Back with us',
+            'RETURN_CANCELED'  => 'Return cancelled',
+            // Lazada disposed of the item at its own warehouse rather than
+            // shipping it back, so no parcel is coming.
+            'RETURN_SCRAPPED'  => 'Disposed by Lazada',
+        ],
+
         'shopee.return_reason' => [
             'CHANGE_MIND'       => 'Changed mind',
             'CHANGE_OF_MIND'    => 'Changed mind',

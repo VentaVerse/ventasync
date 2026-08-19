@@ -27,14 +27,16 @@ class LazadaReturnsPanel
         $region = $setting->region ?? 'ph';
 
         $filters = $request->validate([
-            'reverse_order_id' => ['nullable', 'string', 'max:80'],
-            'trade_order_id' => ['nullable', 'string', 'max:80'],
+            'q' => ['nullable', 'string', 'max:120'],
             'opened_from' => ['nullable', 'date'],
             'opened_to' => ['nullable', 'date', 'after_or_equal:opened_from'],
         ]);
 
-        $reverseOrderId = trim((string)($filters['reverse_order_id'] ?? ''));
-        $tradeOrderId = trim((string)($filters['trade_order_id'] ?? ''));
+        // One field matching return number, order number or product - the
+        // same box the Shopee returns list carries, and for the reason set
+        // out there. No buyer term, because this channel's payload carries
+        // only a buyer_id.
+        $find = trim((string)($filters['q'] ?? ''));
         $openedFrom = trim((string)($filters['opened_from'] ?? ''));
         $openedTo = trim((string)($filters['opened_to'] ?? ''));
 
@@ -107,11 +109,63 @@ class LazadaReturnsPanel
             }
         }
 
-        if ($reverseOrderId !== '') {
-            $query->where('reverse_order_id', 'like', '%' . $reverseOrderId . '%');
-        }
-        if ($tradeOrderId !== '') {
-            $query->where('trade_order_id', 'like', '%' . $tradeOrderId . '%');
+        if ($find !== '') {
+            $like = '%' . $find . '%';
+
+            /* PRODUCT SEARCH ON A CHANNEL THAT SENDS NO PRODUCT NAME.
+             *
+             * A Lazada reverse order line names its product only as
+             * product_sku and seller_sku_id. There is no title anywhere in
+             * the payload, so "flat patch cable" cannot be matched against
+             * the return itself at all.
+             *
+             * It can be matched one step out. The same two sources this
+             * panel already reads to put a thumbnail on the row - the synced
+             * order products, and the ERP catalog by SKU - both carry names,
+             * so the search runs there first and comes back with the SKUs
+             * those names belong to. Those SKUs are what the returns are
+             * then matched on.
+             *
+             * Capped, because a one-letter term would otherwise resolve to
+             * every SKU in the catalog and build a WHERE clause the length of
+             * the product table. A term matching more than 200 products is
+             * not a search anyone meant to run. */
+            $skus = collect(\DB::table('lazada_order_products')
+                ->where('name', 'like', $like)
+                ->limit(400)
+                ->pluck('sku'));
+
+            $pfx = (string) config('catalog.prefix');
+
+            $skus = $skus->merge(\DB::table($pfx . 'product_description as pd')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'pd.product_id')
+                ->where('pd.name', 'like', $like)
+                ->limit(400)
+                ->pluck('p.sku'));
+
+            $skus = $skus->merge(\DB::table($pfx . 'product_description as pd')
+                ->join($pfx . 'product as p', 'p.product_id', '=', 'pd.product_id')
+                ->join($pfx . 'product_option_value as pov', 'pov.product_id', '=', 'p.product_id')
+                ->where('pd.name', 'like', $like)
+                ->limit(400)
+                ->pluck('pov.sku'));
+
+            $skus = $skus->filter()->unique()->take(200)->values();
+
+            $query->where(function ($w) use ($like, $skus) {
+                $w->where('reverse_order_id', 'like', $like)
+                    ->orWhere('trade_order_id', 'like', $like)
+                    // A SKU or a reason typed straight in, and the only path
+                    // for a return whose order was never synced.
+                    ->orWhere('items', 'like', $like);
+
+                // The SKUs the name search resolved to. Quoted, so a SKU
+                // matches as a whole JSON value rather than as a fragment of
+                // a longer one.
+                foreach ($skus as $sku) {
+                    $w->orWhere('items', 'like', '%"' . $sku . '"%');
+                }
+            });
         }
 
         /* return_created_at is when Lazada opened the return, lifted out of
@@ -207,8 +261,7 @@ class LazadaReturnsPanel
             'tab_counts' => $tab_counts,
             'sort' => $sortKey,
             'filters' => [
-                'reverse_order_id' => $reverseOrderId,
-                'trade_order_id' => $tradeOrderId,
+                'q' => $find,
                 'opened_from' => $openedFrom,
                 'opened_to' => $openedTo,
             ],
