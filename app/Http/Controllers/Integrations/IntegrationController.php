@@ -51,6 +51,22 @@ class IntegrationController extends Controller
     private const ORDER_PANEL_STORE_SCOPED = ['venta', 'opencart', 'shopify'];
 
     /**
+     * Channels whose RETURNS list can also render in place here, keyed the
+     * same way as the orders panels above.
+     *
+     * Only the two channels that have a returns list at all. Returns used to
+     * exist solely as a seller-centre page, so the "Returns and refunds" link
+     * inside the orders panel navigated out of the hub and into the channel
+     * workspace - a different shell reached from a link that sat among
+     * ordinary filters. A channel absent from this map simply does not offer
+     * the link here.
+     */
+    private const RETURNS_PANEL_SERVICES = [
+        'shopee' => \Extensions\shopee\Services\ShopeeReturnsPanel::class,
+        'lazada' => \Extensions\lazada\Services\LazadaReturnsPanel::class,
+    ];
+
+    /**
      * The panel class and store id for an order-tab id, or null when that
      * tab has no panel and therefore still navigates to its own seller
      * center.
@@ -704,6 +720,23 @@ class IntegrationController extends Controller
         if ($renderingPanel) {
             [$panelClass, $panelStoreId] = $selectedPanel;
 
+            // ?view=returns swaps the orders list for that channel's returns
+            // list on this same page. Only offered where a returns panel
+            // exists, and a request for one anywhere else falls back to
+            // orders rather than erroring: a stale bookmark should land on a
+            // working page, which is the same rule ?channel= already follows.
+            $selectedView = $request->query('view') === 'returns'
+                && isset(self::RETURNS_PANEL_SERVICES[$selectedBase = explode(':', $selectedTab->id, 2)[0]])
+                    ? 'returns'
+                    : 'orders';
+
+            if ($selectedView === 'returns') {
+                $panelClass = self::RETURNS_PANEL_SERVICES[$selectedBase];
+                // No returns list is store-scoped: both channels that have
+                // one are single-store.
+                $panelStoreId = null;
+            }
+
             $panel = app($panelClass);
 
             $data = array_merge(
@@ -712,6 +745,11 @@ class IntegrationController extends Controller
                     ? $panel->build($request)
                     : $panel->build($request, $panelStoreId),
                 [
+                    'selectedView' => $selectedView,
+                    // Whether this channel has a returns list to offer at
+                    // all, so the panel can show or hide the link rather
+                    // than the view guessing per channel.
+                    'hasReturnsPanel' => isset(self::RETURNS_PANEL_SERVICES[explode(':', $selectedTab->id, 2)[0]]),
                     'selectedChannel' => $selectedTab->id,
                     // The base id is what the view branches on to pick a
                     // wrapper, because "venta:2" and "venta:7" are the same

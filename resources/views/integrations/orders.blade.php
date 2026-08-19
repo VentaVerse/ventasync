@@ -207,11 +207,20 @@
              reaches the page. All spacing above the panel comes from
              .x-fh-panel's own margin in pages/fulfilment.css instead, which
              is where it belongs. --}}
-        <div class="x-fh-panel co-page" id="shopee-orders-page">
-            @include('ext-shopee::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
-                'panelHiddenParams' => ['channel' => 'shopee'],
-            ])
+        <div class="x-fh-panel co-page" id="{{ ($selectedView ?? 'orders') === 'returns' ? 'shopee-returns-page' : 'shopee-orders-page' }}">
+            @if(($selectedView ?? 'orders') === 'returns')
+                @include('ext-shopee::orders._returns_panel', [
+                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelHiddenParams' => ['channel' => 'shopee', 'view' => 'returns'],
+                    'panelOrdersUrl' => route('integrations.orders', ['channel' => 'shopee']),
+                ])
+            @else
+                @include('ext-shopee::orders._panel', [
+                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelHiddenParams' => ['channel' => 'shopee'],
+                    'panelReturnsUrl' => route('integrations.orders', ['channel' => 'shopee', 'view' => 'returns']),
+                ])
+            @endif
         </div>
     @elseif($selectedChannelBase === 'lazada')
         {{-- Same id and the same page-level data attributes Lazada's own
@@ -225,10 +234,19 @@
              data-awb-template="{{ route('ext.lazada.orders.awb', ['orderId' => '__OID__']) }}"
              data-ship-print-template="{{ route('ext.lazada.orders.ship_print_post', ['orderId' => '__OID__']) }}"
              data-recreate-template="{{ route('ext.lazada.orders.recreate_package', ['orderId' => '__OID__']) }}">
-            @include('ext-lazada::orders._panel', [
-                'panelBaseUrl' => route('integrations.orders'),
-                'panelHiddenParams' => ['channel' => 'lazada'],
-            ])
+            @if(($selectedView ?? 'orders') === 'returns')
+                @include('ext-lazada::orders._returns_panel', [
+                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelHiddenParams' => ['channel' => 'lazada', 'view' => 'returns'],
+                    'panelOrdersUrl' => route('integrations.orders', ['channel' => 'lazada']),
+                ])
+            @else
+                @include('ext-lazada::orders._panel', [
+                    'panelBaseUrl' => route('integrations.orders'),
+                    'panelHiddenParams' => ['channel' => 'lazada'],
+                    'panelReturnsUrl' => route('integrations.orders', ['channel' => 'lazada', 'view' => 'returns']),
+                ])
+            @endif
         </div>
     @elseif($selectedChannelBase === 'tiktok')
         {{-- Same id and the same data-awb-url TikTok's own

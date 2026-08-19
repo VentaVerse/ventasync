@@ -176,7 +176,9 @@
             </a>
         @endforeach
     </nav>
-    <a class="x-segment-bar__aside" href="{{ route('ext.lazada.orders.returns') }}">
+    {{-- See the Shopee panel: the caller decides where Returns lives, so
+         opening it from the hub stays on the hub. --}}
+    <a class="x-segment-bar__aside" href="{{ $panelReturnsUrl ?? route('ext.lazada.orders.returns') }}">
         Returns and refunds
         <x-ui.icon name="chevron-right" size="12" />
     </a>

@@ -150,7 +150,12 @@
             </a>
         @endforeach
     </nav>
-    <a class="x-segment-bar__aside" href="{{ route('ext.shopee.orders.returns') }}">
+    {{-- Returns lives wherever this panel lives. On the hub the caller
+         hands in its own URL so the list swaps in place; in the seller
+         centre it is this channel's returns route. It used to be that route
+         unconditionally, which is why opening it from the hub threw the
+         operator into the channel shell. --}}
+    <a class="x-segment-bar__aside" href="{{ $panelReturnsUrl ?? route('ext.shopee.orders.returns') }}">
         Returns and refunds
         <x-ui.icon name="chevron-right" size="12" />
     </a>
