@@ -31,9 +31,9 @@ function formatRemaining(diffSec) {
         const ld = Math.floor(late / 86400);
         const lh = Math.floor((late % 86400) / 3600);
         const lm = Math.floor((late % 3600) / 60);
-        if (ld > 0) return `${ld}d ${lh}h late`;
-        if (lh > 0) return `${lh}h ${lm}m late`;
-        return `${lm}m late`;
+        if (ld > 0) return `${ld}d ${lh}h`;
+        if (lh > 0) return `${lh}h ${lm}m`;
+        return `${lm}m`;
     }
 
     const d = Math.floor(diffSec / 86400);
@@ -62,6 +62,16 @@ function refreshAll() {
         const timeNode = el.querySelector('.sla-chip__time');
         if (timeNode) {
             timeNode.textContent = formatRemaining(diff);
+        }
+
+        // The word carries the state, not just the colour. A chip that
+        // crosses zero with the page open has to stop saying "Ship by", or
+        // the ticker prints the very sentence the component was fixed for.
+        const labelNode = el.querySelector('.sla-chip__label');
+        if (labelNode) {
+            labelNode.textContent = diff < 0
+                ? 'Overdue'
+                : (el.dataset.slaLabel || 'Ship by');
         }
     });
 }

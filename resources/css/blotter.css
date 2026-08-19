@@ -490,8 +490,13 @@
     /* Cyan, because focus is the clearest case of "you can act on this".
        Amber stays reserved for "this needs you", which is a different
        sentence and must not be said by the same colour. */
+    /* --bl-brand-deep, not --bl-brand. #4fb9d4 measures 2.03:1 on the light
+       ground - a ring nobody can see is not a ring. The pair member is
+       redefined per theme (#1c7f9b light, #8fd9ea dark) and clears 4:1 in
+       both. This was fixed once inside .fh-scope and left broken everywhere
+       else, which is why the guard now reads THIS rule too. */
     :focus-visible {
-        outline: 2px solid var(--bl-brand);
+        outline: 2px solid var(--bl-brand-deep);
         outline-offset: 1px;
     }
 
@@ -2389,7 +2394,7 @@
     }
 
     a.bl-share__row:hover { background: var(--bl-chrome); }
-    a.bl-share__row:focus-visible { outline: 2px solid var(--bl-brand); outline-offset: -2px; }
+    a.bl-share__row:focus-visible { outline: 2px solid var(--bl-brand-deep); outline-offset: -2px; }
 
     .bl-share__sw { flex: none; }
     .bl-share__n { color: var(--bl-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -306,8 +306,11 @@
        late, what is it, how many, what do I do - and the first complete
        answer arrived 458px down, after two currency figures.
 
-       The deadline now leads, then the product, the quantity and the action.
-       Courier, then money, follow for the bench rather than the shelf.
+       The deadline leads, then the product, the quantity, THEN THE COURIER,
+       then the action. The courier sits above the button on purpose: it is
+       what decides whether the parcel joins the LEX pile or the Flash pile,
+       and it was below the control that commits the shipment. Money follows,
+       for the bench rather than the shelf.
 
        WHAT THIS CANNOT DO, and it is worth knowing before someone tries: an
        order is TWO table rows - a band carrying the identifiers and an item
@@ -324,7 +327,7 @@
 
     /* Anything unlisted lands between the work and the reference, which is
        the right default for a cell this file has not been told about. */
-    .x-table--stack > tbody > tr:not(.co-band) > td { order: 5; }
+    .x-table--stack > tbody > tr:not(.co-band) > td { order: 6; }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Status'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Fulfilment'] { order: 1; }
@@ -334,12 +337,12 @@
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Qty'] { order: 3; }
 
     /* The actions cell is the only one with no data-label, and it is what the
-       packer came to press. */
-    .x-table--stack > tbody > tr:not(.co-band) > td:not([data-label]) { order: 4; }
+       packer came to press - after they have seen who is carrying it. */
+    .x-table--stack > tbody > tr:not(.co-band) > td:not([data-label]) { order: 5; }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Shipping'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Tracking'],
-    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return tracking'] { order: 6; }
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return tracking'] { order: 4; }
 
     /* Money last, and quieter. It is not nothing - a cash-on-delivery order is
        one where the person holding the parcel needs the amount, and a phone is

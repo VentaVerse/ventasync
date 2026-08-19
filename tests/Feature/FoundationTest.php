@@ -613,20 +613,99 @@ class FoundationTest extends TestCase
      * resolves whatever token the channel-scoped rule actually names, in each
      * theme's own declaration, and measures it against that theme's ground.
      */
+    /**
+     * An overdue chip reads as a sentence.
+     *
+     * The label was a fixed prop and the countdown carried the word "late",
+     * so the busiest queue in the product printed "Ship by 33d 2h late" on
+     * nine of ten rows - through six critique runs, none of which caught it.
+     * The chip exists to drive triage under time pressure and it did not
+     * parse, which teaches staff to read the colour and skip the words.
+     *
+     * Renders the real component rather than matching the source, because
+     * what matters is the sentence that reaches the page.
+     */
+    public function test_an_overdue_sla_chip_does_not_print_a_broken_sentence(): void
+    {
+        $overdue = $this->blade(
+            '<x-sla-chip :deadline="$d" />',
+            ['d' => time() - ((33 * 86400) + (2 * 3600))]
+        )->__toString();
+
+        $this->assertStringContainsString('Overdue', $overdue);
+        $this->assertStringContainsString('33d 2h', $overdue);
+
+        // "Ship by" survives in title= and the screen-reader span, where it
+        // prefixes an actual date and reads correctly. It must not survive in
+        // the visible label.
+        preg_match('/<span class="sla-chip__label">([^<]*)<\/span>/', $overdue, $m);
+        $this->assertNotEmpty($m, 'the chip no longer renders a label span');
+        $this->assertSame('Overdue', trim($m[1]));
+
+        $this->assertStringNotContainsString(
+            'late',
+            strip_tags($overdue),
+            'the countdown still carries the word "late" alongside its label'
+        );
+
+        // The other side of zero still says what it means.
+        $upcoming = $this->blade(
+            '<x-sla-chip :deadline="$d" />',
+            ['d' => time() + (8 * 86400)]
+        )->__toString();
+        preg_match('/<span class="sla-chip__label">([^<]*)<\/span>/', $upcoming, $u);
+        $this->assertSame('Ship by', trim($u[1]));
+
+        /* The 30s ticker is the other half. It rewrites the chip in place, so
+         * a chip that crosses zero with the page open prints whatever the JS
+         * says - and it used to update only the time node, which is the same
+         * broken sentence arriving live. */
+        $ticker = File::get(resource_path('js/sla-countdown.js'));
+        $this->assertFileExists(resource_path('js/sla-countdown.js'));
+        $this->assertStringContainsString(
+            'sla-chip__label',
+            $ticker,
+            'the countdown ticker refreshes the time but never the label, so a chip that '
+            .'crosses its deadline with the page open keeps saying "Ship by"'
+        );
+        $this->assertStringNotContainsString(
+            'late`',
+            $ticker,
+            'the ticker still appends "late" to the countdown'
+        );
+    }
+
     public function test_the_focus_ring_clears_three_to_one_in_both_themes(): void
     {
         $components = File::get(resource_path('css/blotter-components.css'));
+
+        $root = File::get(resource_path('css/blotter.css'));
+
+        /* BOTH rules that paint a ring, not just the scoped one.
+         *
+         * This guard read only the .fh-scope override and passed while the
+         * BASE rule in blotter.css still painted var(--bl-brand) at 2.03:1 on
+         * the light ground - so the ring was fixed on the fulfilment surface
+         * and broken on every other page in the product, including the top
+         * bar of the fulfilment page itself. A guard scoped more narrowly
+         * than the defect reports success at the moment it should fail. */
+        $rules = [];
 
         preg_match(
             '/\.fh-scope :focus-visible\s*\{[^}]*outline-color:\s*var\(\s*(--[a-z0-9-]+)/i',
             $components,
             $m
         );
-
         $this->assertNotEmpty($m, 'the channel-scoped focus ring rule was not found');
-        $token = $m[1];
+        $rules['the channel-scoped ring'] = $m[1];
 
-        $root = File::get(resource_path('css/blotter.css'));
+        preg_match(
+            '/\n\s*:focus-visible\s*\{[^}]*outline:\s*[^;]*var\(\s*(--[a-z0-9-]+)/i',
+            $root,
+            $b
+        );
+        $this->assertNotEmpty($b, 'the base focus ring rule was not found in blotter.css');
+        $rules['the base ring'] = $b[1];
 
         // Each theme declares its own value for the same token; the ring is
         // only as good as the weaker of the two.
@@ -637,17 +716,19 @@ class FoundationTest extends TestCase
 
         $failures = [];
 
-        foreach ($themes as $name => $spec) {
-            $ring = $this->cssHex($spec['block'], $token);
-            $ground = $this->cssHex($spec['block'], $spec['ground']);
+        foreach ($rules as $where => $token) {
+            foreach ($themes as $name => $spec) {
+                $ring = $this->cssHex($spec['block'], $token);
+                $ground = $this->cssHex($spec['block'], $spec['ground']);
 
-            $this->assertNotNull($ring, "{$token} is not declared as a hex in the {$name} theme");
-            $this->assertNotNull($ground, "{$spec['ground']} is not declared as a hex in the {$name} theme");
+                $this->assertNotNull($ring, "{$token} is not declared as a hex in the {$name} theme");
+                $this->assertNotNull($ground, "{$spec['ground']} is not declared as a hex in the {$name} theme");
 
-            $ratio = $this->contrastRatio($ring, $ground);
+                $ratio = $this->contrastRatio($ring, $ground);
 
-            if ($ratio < 3.0) {
-                $failures[] = sprintf('%s: %s on the ground measures %.2f', $name, $token, $ratio);
+                if ($ratio < 3.0) {
+                    $failures[] = sprintf('%s, %s: %s measures %.2f', $where, $name, $token, $ratio);
+                }
             }
         }
 
