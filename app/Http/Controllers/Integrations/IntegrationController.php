@@ -67,6 +67,68 @@ class IntegrationController extends Controller
     ];
 
     /**
+     * How many returns each channel holds, for the card strip on the returns
+     * view.
+     *
+     * The strip is the channel switcher, so it stays on the returns view -
+     * but its numbers were orders. A heading reading "76 returns" above a
+     * highlighted card reading "51" invites the reader to make 51 a part of
+     * 76, and it is not: 76 is every Lazada return, 51 is Lazada orders
+     * waiting to ship. Both figures are correct and they are answers to
+     * different questions, which is precisely why they must not sit adjacent
+     * unlabelled.
+     *
+     * Region-scoped the same way each returns panel scopes its own list, so
+     * the card and the list it leads to count the same rows.
+     *
+     * @var array<string, array{model: class-string, setting: class-string}>
+     */
+    private const RETURNS_COUNTERS = [
+        'shopee' => [
+            'model' => \Extensions\shopee\Models\ShopeeReturn::class,
+            'setting' => \Extensions\shopee\Models\ShopeeSetting::class,
+        ],
+        'lazada' => [
+            'model' => \Extensions\lazada\Models\LazadaReverseOrder::class,
+            'setting' => \Extensions\lazada\Models\LazadaSetting::class,
+        ],
+    ];
+
+    /**
+     * Returns held per channel id, or null for a channel that has no returns
+     * list at all - which the card then says in words rather than printing a
+     * zero that would read as "none outstanding".
+     *
+     * @param  array<int, array<string, mixed>>  $channels
+     * @return array<string, int|null>
+     */
+    private function returnsCounts(array $channels): array
+    {
+        $counts = [];
+
+        foreach ($channels as $card) {
+            $base = explode(':', (string) ($card['id'] ?? ''), 2)[0];
+            $spec = self::RETURNS_COUNTERS[$base] ?? null;
+
+            if ($spec === null) {
+                $counts[$card['id']] = null;
+                continue;
+            }
+
+            try {
+                $region = $spec['setting']::query()->value('region') ?? 'ph';
+                $counts[$card['id']] = $spec['model']::query()->where('region', $region)->count();
+            } catch (\Throwable $e) {
+                // A channel whose table is missing must not take the hub
+                // down; it simply has nothing to report.
+                $counts[$card['id']] = null;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
      * The panel class and store id for an order-tab id, or null when that
      * tab has no panel and therefore still navigates to its own seller
      * center.
@@ -748,6 +810,11 @@ class IntegrationController extends Controller
                 $panelData,
                 [
                     'selectedView' => $selectedView,
+                    // Only built for the returns view; the orders view has no
+                    // use for it and it costs two queries per channel.
+                    'fhReturnsCounts' => $selectedView === 'returns'
+                        ? $this->returnsCounts($data['summary']['channels'] ?? [])
+                        : [],
                     // Shopee's returns panel paginates as $returns and
                     // Lazada's as $orders; the head needs one name.
                     'fhReturnsTotal' => $selectedView === 'returns'

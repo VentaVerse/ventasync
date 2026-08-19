@@ -177,9 +177,19 @@
          page whose whole job is "is anything waiting", that is the one thing
          it must not do. The staleness is a caveat printed under the count,
          never a substitute for it. --}}
+    @php $fhIsReturnsViewNav = ($selectedView ?? 'orders') === 'returns'; @endphp
     <nav class="fh-grid" aria-label="Fulfilment surfaces">
         @foreach($fhChannels as $fhCard)
-            <a href="{{ $fhCard['url'] }}"
+            {{-- The view rides with the link. Switching channel from a
+                 returns list used to land on that channel's ORDERS, so the
+                 strip that exists to move between channels quietly changed
+                 the subject as well. --}}
+            @php
+                $fhCardUrl = $fhIsReturnsViewNav && str_contains($fhCard['url'], '/integrations/orders')
+                    ? $fhCard['url'] . (str_contains($fhCard['url'], '?') ? '&' : '?') . 'view=returns'
+                    : $fhCard['url'];
+            @endphp
+            <a href="{{ $fhCardUrl }}"
                class="fh-card {{ $selectedChannel === $fhCard['id'] ? 'is-open' : '' }} {{ $fhCard['stalled'] ? 'is-stalled' : '' }}"
                style="--ch: {{ \App\Support\ChannelAccent::raw($fhCard['accent']) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($fhCard['accent']) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($fhCard['accent']) }};"
                @if($selectedChannel === $fhCard['id']) aria-current="page" @endif>
@@ -218,7 +228,32 @@
                         && $fhCard['waiting'] !== null
                         && (int) $fhCard['waiting'] > 0;
                 @endphp
-                @if($fhCard['waiting'] === null)
+                @php
+                    /* ON THE RETURNS VIEW THE CARD COUNTS RETURNS.
+                     *
+                     * It used to count orders here, whatever the page was
+                     * about, so "Lazada returns / 76 returns" sat above a
+                     * highlighted card reading 51 and every reader made the
+                     * 51 a part of the 76. It is not - 76 is every Lazada
+                     * return and 51 is Lazada orders waiting to ship. Two
+                     * correct answers to two different questions, printed
+                     * adjacent with nothing naming either.
+                     *
+                     * A channel with no returns list says so rather than
+                     * printing 0, which would read as "none outstanding"
+                     * when the truth is "this channel does not do this". */
+                    $fhIsReturnsView = ($selectedView ?? 'orders') === 'returns';
+                    $fhCardReturns = $fhIsReturnsView
+                        ? ($fhReturnsCounts[$fhCard['id']] ?? null)
+                        : null;
+                @endphp
+                @if($fhIsReturnsView)
+                    @if($fhCardReturns === null)
+                        <span class="fh-card__lead is-untracked">No returns list</span>
+                    @else
+                        <span class="fh-card__lead x-num {{ $fhCardReturns === 0 ? 'is-clear' : '' }}">{{ number_format($fhCardReturns) }}</span>
+                    @endif
+                @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__lead is-untracked">Not tracked</span>
                 @else
                     <span class="fh-card__lead x-num {{ $fhCard['waiting'] === 0 ? 'is-clear' : '' }}{{ $fhOrphanCount ? ' is-stale' : '' }}">{{ number_format($fhCard['waiting']) }}</span>
@@ -237,6 +272,8 @@
                             {{ $fhCard['state'] === 'setup' ? 'not connected' : 'not syncing' }}
                         @endif
                     </span>
+                @elseif($fhIsReturnsView)
+                    <span class="fh-card__label">{{ $fhCardReturns === null ? 'not offered here' : ($fhCardReturns === 1 ? 'return' : 'returns') }}</span>
                 @elseif($fhCard['waiting'] === null)
                     <span class="fh-card__label">orders waiting</span>
                 @else
