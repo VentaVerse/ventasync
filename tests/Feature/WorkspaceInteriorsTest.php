@@ -3384,7 +3384,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         foreach ($this->ventaInteriorUrls($ventaStore, $ventaGroup->id) as $label => $url) {
             $this->actingAs($this->ventaManager())->get($url)->assertOk()
-                ->assertDontSee('TikTok Shop: Access token expired.', false);
+                ->assertDontSee('TikTok Shop: Sign-in expired.', false);
         }
 
         [$ocStore] = $this->seedOpencartStores();
@@ -3392,7 +3392,7 @@ class WorkspaceInteriorsTest extends TestCase
 
         foreach ($this->opencartInteriorUrls($ocStore, $ocGroup->id) as $label => $url) {
             $this->actingAs($this->opencartManager())->get($url)->assertOk()
-                ->assertDontSee('TikTok Shop: Access token expired.', false);
+                ->assertDontSee('TikTok Shop: Sign-in expired.', false);
         }
     }
 
@@ -3408,6 +3408,6 @@ class WorkspaceInteriorsTest extends TestCase
         $this->actingAs($this->tiktokManager())
             ->get(route('ext.tiktok.index'))
             ->assertOk()
-            ->assertSee('TikTok Shop: Access token expired.', false);
+            ->assertSee('TikTok Shop: Sign-in expired.', false);
     }
 }

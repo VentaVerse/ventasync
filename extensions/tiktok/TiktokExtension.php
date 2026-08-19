@@ -473,18 +473,15 @@ class TiktokExtension extends ExtensionProvider implements IntegrationProvider, 
 
     public function layoutBanners(): array
     {
-        if (!Schema::hasTable('tiktok_settings')) {
-            return [];
-        }
-        $setting = TikTokSetting::query()->first();
-        if (!$setting || !$setting->expires_at || strtotime($setting->expires_at) > time()) {
-            return [];
-        }
-        return [[
-            'label'    => 'TikTok Shop: Access token expired.',
-            'severity' => 'error',
-            'href'     => route('ext.tiktok.index'),
-        ]];
+        /* Credential state is NOT answered here any more. It read
+           settings.expires_at directly - the LIVE column - while these
+           installs select their credential by `mode`, so a sandbox channel
+           with a healthy token was announced as expired from a leftover live
+           date. partials/integration-banners.blade.php asks ChannelWorkspace
+           instead, which is the same object the card, the head and the
+           channel sidebar read, so the four cannot disagree. This method
+           keeps operational notices only. */
+        return [];
     }
 
     public function resolveSourceLabel(string $source): ?string
