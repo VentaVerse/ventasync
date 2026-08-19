@@ -33,7 +33,7 @@
     // page confirmed.
 @endphp
 
-<div id="shopee-orders-page" class="co-page">
+<div id="shopee-orders-page" class="co-page" data-desk-scope>
 
 <div class="x-list-head">
     <div>

@@ -30,7 +30,7 @@
     $vtScopeLabel = $vtStatus !== '' ? ucwords(str_replace('_', ' ', $vtStatus)) : null;
 @endphp
 
-<div id="venta-orders-page" class="co-page">
+<div id="venta-orders-page" class="co-page" data-desk-scope>
 
 <div class="x-list-head">
     <div>

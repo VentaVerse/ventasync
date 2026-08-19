@@ -329,7 +329,7 @@
              reaches the page. All spacing above the panel comes from
              .x-fh-panel's own margin in pages/fulfilment.css instead, which
              is where it belongs. --}}
-        <div class="x-fh-panel co-page" id="{{ ($selectedView ?? 'orders') === 'returns' ? 'shopee-returns-page' : 'shopee-orders-page' }}">
+        <div class="x-fh-panel co-page" data-desk-scope id="{{ ($selectedView ?? 'orders') === 'returns' ? 'shopee-returns-page' : 'shopee-orders-page' }}">
             @if(($selectedView ?? 'orders') === 'returns')
                 @include('ext-shopee::orders._returns_panel', [
                     'panelBaseUrl' => route('integrations.orders'),
@@ -350,7 +350,7 @@
              lazada-orders.js (which reads them off the root element, not
              through the panel service) binds here unchanged whether this
              renders on the seller center or the hub. --}}
-        <div class="x-fh-panel co-page" id="lazada-orders-page"
+        <div class="x-fh-panel co-page" data-desk-scope id="lazada-orders-page"
              data-awb-url="{{ session('lazada_awb_url') }}"
              data-pack-print-order="{{ session('open_pack_print_modal_order_id') }}"
              data-awb-template="{{ route('ext.lazada.orders.awb', ['orderId' => '__OID__']) }}"
@@ -379,7 +379,7 @@
              the panel service's own last_result, so a ship performed from
              this page hands its waybill back here rather than only on the
              seller center. --}}
-        <div class="x-fh-panel co-page" id="tiktok-orders-page"
+        <div class="x-fh-panel co-page" data-desk-scope id="tiktok-orders-page"
              data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
             @include('ext-tiktok::orders._panel', [
                 'panelBaseUrl' => route('integrations.orders'),
@@ -398,7 +398,7 @@
              to delete orders should not have to work it out from a
              highlighted card. One line, written once for every multi-store
              channel rather than copied into each channel's partial. --}}
-        <div class="x-fh-panel co-page" id="venta-orders-page">
+        <div class="x-fh-panel co-page" data-desk-scope id="venta-orders-page">
             <div class="x-fh-panel__scope">
                 <span class="x-fh-panel__scope-label">Store</span>
                 <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
@@ -413,7 +413,7 @@
              its own, but the id is here for the same reason every other
              panel wrapper has one: it is what the page CSS scopes its two
              responsive rules to. --}}
-        <div class="x-fh-panel co-page" id="opencart-orders-page">
+        <div class="x-fh-panel co-page" data-desk-scope id="opencart-orders-page">
             <div class="x-fh-panel__scope">
                 <span class="x-fh-panel__scope-label">Store</span>
                 <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
@@ -427,7 +427,7 @@
         {{-- Same shape as Venta's, and the same id the store's own seller
              center carries so resources/js/pages/shopify-orders.js (the raw
              payload dialog) binds here unchanged. --}}
-        <div class="x-fh-panel co-page" id="shopify-orders-page">
+        <div class="x-fh-panel co-page" data-desk-scope id="shopify-orders-page">
             <div class="x-fh-panel__scope">
                 <span class="x-fh-panel__scope-label">Store</span>
                 <span class="x-fh-panel__scope-value">{{ $storeLabel }}</span>
@@ -442,7 +442,7 @@
              card that was clicked is the whole of the scope. Same id its own
              seller center carries, which is what the page CSS scopes its
              responsive rules to. --}}
-        <div class="x-fh-panel co-page" id="pedallion-orders-page">
+        <div class="x-fh-panel co-page" data-desk-scope id="pedallion-orders-page">
             @include('ext-pedallion::orders._panel', [
                 'panelBaseUrl' => route('integrations.orders'),
                 'panelHiddenParams' => ['channel' => 'pedallion'],

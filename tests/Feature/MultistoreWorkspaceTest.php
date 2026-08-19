@@ -884,7 +884,7 @@ class MultistoreWorkspaceTest extends TestCase
             // The one filter form the panel owns, posting back to this
             // store's own route rather than to the channel's first store.
             $response->assertSee(
-                '<form method="GET" action="'.e(route('ext.'.$channel.'.orders.index', ['store' => $storeId])).'" class="x-filters" id="orders-filter">',
+                '<form method="GET" action="'.e(route('ext.'.$channel.'.orders.index', ['store' => $storeId])).'" class="x-filters" data-desk-tool id="orders-filter">',
                 false
             );
             // The seller center passes no hidden context params, so the panel

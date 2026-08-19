@@ -112,6 +112,7 @@
 @import './components/permission-pill.css' layer(vocabulary);
 @import './components/tabs.css' layer(vocabulary);
 @import './components/toolbar.css' layer(vocabulary);
+@import './components/desk-tools.css' layer(vocabulary);
 @import './components/selectbar.css' layer(vocabulary);
 @import './components/segment.css' layer(vocabulary);
 @import './blotter-components.css';

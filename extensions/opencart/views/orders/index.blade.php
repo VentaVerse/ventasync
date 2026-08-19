@@ -34,7 +34,7 @@
     }
 @endphp
 
-<div id="opencart-orders-page" class="co-page">
+<div id="opencart-orders-page" class="co-page" data-desk-scope>
 
 <div class="x-list-head">
     <div>

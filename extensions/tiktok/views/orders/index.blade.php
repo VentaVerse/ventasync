@@ -52,7 +52,7 @@
      attribute, escaped by Blade, rather than as a <script> block calling
      window.open with an interpolated URL. A new-UX page owns no inline
      script, the same way it owns no inline style. --}}
-<div id="tiktok-orders-page" class="co-page"
+<div id="tiktok-orders-page" class="co-page" data-desk-scope
      data-awb-url="{{ $last_result['awb_url'] ?? '' }}">
 
 <div class="x-list-head">

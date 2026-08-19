@@ -77,7 +77,7 @@
      every child of the row ends in a box exactly --control-h tall and the
      row is bottom aligned, so the date inputs and the button share a
      baseline and a top edge. --}}
-<div class="x-cmdbar">
+<div class="x-cmdbar" data-desk-tool>
     {{-- See the note on Shopee's bar: a fetch writes unseen orders and
          writing an order adjusts stock, so the action names its own
          consequence before it runs. --}}
@@ -110,6 +110,16 @@
      as muted mono numbers on every item rather than only on some: a count
      that appears on some tabs and not others reads as an alert rather than
      a figure. --}}
+{{-- Phone only. The fetch bar and the filter row are a desk's tools, not
+     a bench's - measured at 443px of the 887px a packer scrolled past before
+     the first order - so below the table's restack width they start folded
+     behind this and one tap brings them back. Nothing is removed and nothing
+     moves; above that width this button does not exist. --}}
+<button type="button" class="x-desk-toggle" data-desk-toggle aria-expanded="true">
+    <span data-desk-label>Find, dates and sync</span>
+    <span class="x-desk-toggle__mark" aria-hidden="true">&#9662;</span>
+</button>
+
 <div class="x-segment-bar">
     {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
      filtered page, and role="tablist" promises children with role="tab"
@@ -138,7 +148,7 @@
 
 {{-- One filter row. Search was its own card form on the legacy page, sitting
      under a second card holding the status badges; both are one job. --}}
-<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
+<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
      is written tight against its own lines because Blade eats the newline
      after @endforeach: laid out conventionally, a caller passing no params
      (the seller center) still moved the next input onto the form's own

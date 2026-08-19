@@ -8,6 +8,7 @@ import './thumb-fallback';
 import './plot-readout';
 import './list-filters';
 import './order-selection';
+import './desk-tools';
 import './legacy-flash';
 import './pages/shopee-orders';
 import './pages/lazada-orders';

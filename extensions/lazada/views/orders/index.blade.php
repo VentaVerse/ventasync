@@ -69,7 +69,7 @@
      root element as data attributes, escaped by Blade, rather than as a
      <script> block of interpolated PHP. A new-UX page owns no inline script,
      the same way it owns no inline style. --}}
-<div id="lazada-orders-page" class="co-page"
+<div id="lazada-orders-page" class="co-page" data-desk-scope
      data-awb-url="{{ session('lazada_awb_url') }}"
      data-pack-print-order="{{ session('open_pack_print_modal_order_id') }}"
      data-awb-template="{{ route('ext.lazada.orders.awb', ['orderId' => '__OID__']) }}"

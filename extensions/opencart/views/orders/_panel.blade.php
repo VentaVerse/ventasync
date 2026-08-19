@@ -64,7 +64,17 @@
      statuses come from the ERP's own order_status table, which an admin adds
      to and renames from Settings; a segment built on a list of fifteen
      admin-defined names is a wall, not a choice. --}}
-<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
+{{-- Phone only. The fetch bar and the filter row are a desk's tools, not
+     a bench's - measured at 443px of the 887px a packer scrolled past before
+     the first order - so below the table's restack width they start folded
+     behind this and one tap brings them back. Nothing is removed and nothing
+     moves; above that width this button does not exist. --}}
+<button type="button" class="x-desk-toggle" data-desk-toggle aria-expanded="true">
+    <span data-desk-label>Find, dates and sync</span>
+    <span class="x-desk-toggle__mark" aria-hidden="true">&#9662;</span>
+</button>
+
+<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">{{-- The caller's context params, kept across every filter change. The loop
      is written tight against its own lines because Blade eats the newline
      after @endforeach: laid out conventionally, a caller passing no params
      (the seller center) still moved the next input onto the form's own

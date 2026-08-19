@@ -120,6 +120,16 @@
      segment; there is no second data axis on this page the way Orders'
      To Ship tab has Pack/Handover, so x-segment--sub is not pressed into
      service just to use it. --}}
+{{-- Phone only. The fetch bar and the filter row are a desk's tools, not
+     a bench's - measured at 443px of the 887px a packer scrolled past before
+     the first order - so below the table's restack width they start folded
+     behind this and one tap brings them back. Nothing is removed and nothing
+     moves; above that width this button does not exist. --}}
+<button type="button" class="x-desk-toggle" data-desk-toggle aria-expanded="true">
+    <span data-desk-label>Find, dates and sync</span>
+    <span class="x-desk-toggle__mark" aria-hidden="true">&#9662;</span>
+</button>
+
 <div class="x-segment-bar">
     {{-- Navigation, not an ARIA tablist. Each item is a link that loads a
      filtered page, and role="tablist" promises children with role="tab"
@@ -185,7 +195,7 @@
 
 {{-- One filter row, replacing the old search card and the old separate
      per-page form. --}}
-<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" id="orders-filter">
+<form method="GET" action="{{ $panelBaseUrl }}" class="x-filters" data-desk-tool id="orders-filter">
 @foreach($panelHiddenParams as $panelHiddenKey => $panelHiddenValue)    <input type="hidden" name="{{ $panelHiddenKey }}" value="{{ $panelHiddenValue }}">
 @endforeach    <input type="hidden" name="tab" value="{{ $active_tab }}">
 
