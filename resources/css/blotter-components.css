@@ -4204,8 +4204,27 @@
         border-color: var(--ch-deep, var(--bl-ink));
     }
 
+    /* THE FOCUS RING IS NOT THE CHANNEL'S TO COLOUR.
+     *
+     * This took var(--ch) - the channel's raw brand hue, unadjusted - and on
+     * the dark ground that is not a ring, it is nothing: Lazada's navy
+     * measures 1.22:1 and TikTok's near-black 1.15:1, against the 3:1 WCAG
+     * 1.4.11 requires of a focus indicator. A keyboard operator on either
+     * channel in the evening could not see where they were. Shopee (5.22) and
+     * Venta (3.36) happened to pass, which is what kept it invisible: half the
+     * channels worked, and the theme it failed in was not the one it was
+     * reviewed in.
+     *
+     * DESIGN.md had already settled this and the repaint overrode it -
+     * --bl-brand "means 'you can act here': focus rings, active rows". It
+     * measures 8.40:1 on the dark ground and clears the light one too, which
+     * is the entire reason a single token owns this job rather than seven
+     * brand hues taking turns.
+     *
+     * The channel keeps the card cap, the segment underline and the primary
+     * button. It does not get the one mark whose only purpose is to be seen. */
     .x-app--channel :focus-visible,
-    .fh-scope :focus-visible { outline-color: var(--ch, var(--bl-brand)); }
+    .fh-scope :focus-visible { outline-color: var(--bl-brand); }
 
     /* DARK THEME. --ch-deep is computed against white, so it only answers
        the light theme's question; on a near-black sheet the same colour can

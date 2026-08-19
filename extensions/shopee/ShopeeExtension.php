@@ -123,7 +123,20 @@ class ShopeeExtension extends ExtensionProvider implements IntegrationProvider, 
                     }
                     return ShopeeOrder::query()
                         ->where('region', $region)
-                        ->whereIn('status', ['READY_TO_SHIP'])
+                    /* THE SAME STATUSES THE "To Ship" TAB GROUPS.
+                     *
+                     * This counted only the first sub-step, so the head
+                     * sentence and the tab strip 40px below it disagreed on
+                     * every channel: "Nothing waiting" over "To Ship 1",
+                     * because the one order sat at the second step. An order
+                     * awaiting collection is still an order the seller is
+                     * holding - it is waiting on them, which is the only
+                     * question this figure exists to answer.
+                     *
+                     * Kept identical to the tab map in the orders panel. If
+                     * one moves the other has to, and FoundationTest asserts
+                     * they still agree. */
+                        ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
                         ->count();
                 },
                 dailyOrdersCounter: function () {

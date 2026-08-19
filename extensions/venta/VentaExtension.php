@@ -15,6 +15,7 @@ use App\Integrations\MenuItem;
 use App\Integrations\OrderTab;
 use App\Integrations\StoreLink;
 use App\Models\Catalog\OrderStatus;
+use Extensions\venta\Models\VentaOrder;
 use Extensions\venta\Models\VentaProductLink;
 use Extensions\venta\Models\VentaSetting;
 use Extensions\venta\Services\Venta\VentaClient;
@@ -151,17 +152,30 @@ class VentaExtension extends ExtensionProvider implements IntegrationProvider, S
             // still sees the per-store tab on the unified Orders workspace.
             permission: 'view_venta_orders',
             routeParams: ['store' => $storeId],
-            unprocessedCounter: function () use ($marketplaceSource, $orderTable) {
-                if (!Schema::hasTable($orderTable)) {
+            /* COUNT THE TABLE THE TABS COUNT.
+             *
+             * This read the ERP catalog order table's order_status_id and
+             * matched it against Pending/Processing, while the orders list
+             * beside it groups venta_orders.status - two different tables
+             * holding two different taxonomies. The head therefore said
+             * "Nothing waiting" above a tab reading "Start Pickup 1", and
+             * neither number was wrong; they were answers to different
+             * questions.
+             *
+             * Waiting means the seller still has the parcel. Start Pickup is
+             * the storefront asking them to hand it over, so it counts;
+             * Shipped, In Transit and Delivered have left and do not. Kept as
+             * an explicit list rather than "everything except the finished
+             * ones", so a new status the storefront invents is not silently
+             * counted as work nobody has to do. */
+            unprocessedCounter: function () use ($storeId) {
+                if (!Schema::hasTable('venta_orders')) {
                     return 0;
                 }
-                $pendingStatusIds = OrderStatus::whereIn('name', ['Pending', 'Processing'])->pluck('order_status_id');
-                if ($pendingStatusIds->isEmpty()) {
-                    return 0;
-                }
-                return DB::table($orderTable)
-                    ->whereIn('order_status_id', $pendingStatusIds)
-                    ->where('marketplace_source', $marketplaceSource)
+
+                return VentaOrder::query()
+                    ->where('venta_setting_id', $storeId)
+                    ->whereIn('status', ['Start Pickup', 'Pending', 'Processing', 'For Verification'])
                     ->count();
             },
             dailyOrdersCounter: function () use ($marketplaceSource, $orderTable) {

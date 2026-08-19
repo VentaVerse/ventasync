@@ -509,6 +509,50 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * A focus ring is never painted in a channel's own colour.
+     *
+     * The channel repaint gave `:focus-visible` inside `.fh-scope` the raw
+     * `--ch` hue. Half the channels happened to pass and half did not: on the
+     * dark ground Lazada's navy measures 1.22:1 and TikTok's near-black
+     * 1.15:1, against the 3:1 WCAG 1.4.11 asks of a focus indicator. It
+     * survived review because the theme it failed in was not the theme it was
+     * reviewed in.
+     *
+     * `--bl-brand` owns this job precisely so it does not depend on which
+     * channel is open - DESIGN.md assigns it to "focus rings, active rows",
+     * and it clears both grounds. This asserts no stylesheet hands the ring
+     * back to a per-channel property.
+     */
+    public function test_no_focus_ring_takes_a_channel_colour(): void
+    {
+        $offenders = [];
+
+        foreach ($this->stylesheets() as $path) {
+            $source = File::get($path);
+            $key = str_replace(resource_path('css').'/', '', $path);
+
+            foreach (explode('}', $source) as $block) {
+                if (! str_contains($block, ':focus-visible') && ! str_contains($block, ':focus')) {
+                    continue;
+                }
+                if (preg_match('/outline(-color)?\s*:[^;]*var\(\s*--ch\b/', $block)) {
+                    $offenders[] = $key.' :: '.trim(explode('{', $block)[0]);
+                }
+            }
+        }
+
+        sort($offenders);
+
+        $this->assertSame(
+            [],
+            $offenders,
+            "A focus ring is painted in a channel accent. On the dark ground the darker\n"
+            ."channels resolve to about 1.2:1, well under the 3:1 WCAG 1.4.11 requires.\n"
+            ."Use --bl-brand, which clears both grounds:\n\n".implode("\n", $offenders)
+        );
+    }
+
+    /**
      * Every stylesheet that reaches a served page.
      *
      * Read off the filesystem rather than off the @import lists, so a file
