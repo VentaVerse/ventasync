@@ -190,16 +190,20 @@
                 placeholder="Return no, order no, buyer or product"
                 aria-label="Find a return by return number, order number, buyer or product" />
 
-    {{-- Opened from / to, not the fetch range. On Lazada the command bar
-         above carries its own From and To that tell the API which returns to
-         pull; these two narrow the list already on the page. Named "Opened"
-         rather than "Date" so the two pairs cannot be read as the same
-         control, and reading return_created_at, which is when the marketplace
-         opened the return rather than when a sync last touched the row. --}}
-    <x-ui.input type="date" name="opened_from" class="x-filters__date"
-                value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
-    <x-ui.input type="date" name="opened_to" class="x-filters__date"
-                value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
+    {{-- The list range, labelled on screen and not only in an aria-label.
+         This pair filters the rows already on the page; the pair up in the
+         command bar tells the marketplace which returns to send. Both are
+         about when a return was opened, both are date boxes, and until this
+         label existed the only thing separating them was a word screen
+         readers could hear and nobody else could see. On Lazada that put
+         four identical boxes on one screen, two of which write orders. --}}
+    <span class="x-filters__group">
+        <span class="x-filters__group-label" id="sp-opened-label">Opened</span>
+        <x-ui.input type="date" name="opened_from" class="x-filters__date"
+                    value="{{ $openedFromFilter }}" aria-label="Opened on or after" title="Opened on or after" />
+        <x-ui.input type="date" name="opened_to" class="x-filters__date"
+                    value="{{ $openedToFilter }}" aria-label="Opened on or before" title="Opened on or before" />
+    </span>
 
     <div class="x-select-wrap x-filters__select x-filters__select--wide">
         <select name="sort" class="x-input" data-autosubmit aria-label="Sort returns">
@@ -238,33 +242,35 @@
             $rtEmptyDesc = 'Nothing has been synced yet. Click Fetch returns to pull data from Shopee.';
         }
 
-        /* A way out of the empty state.
+        /* Whether the list the operator is looking at is narrowed - read off
+         * the panel's STATE, not off the URL.
          *
-         * Every one of these messages already named the escape - "Clear the
-         * search", "Clear them to see the full list" - and then left the
-         * operator to find the filter themselves and empty it by hand. The
-         * message is where the dead end is noticed, so the way out belongs
-         * there too.
+         * This used to be derived from the query string alone, which is only
+         * true for a panel whose unfiltered view is also its default. Shopee
+         * orders defaults its tab to PENDING and TikTok to TO_SHIP, so
+         * landing on either carries no query parameters at all: the check
+         * said "not filtered", the way out was suppressed, and the operator
+         * stood on "No orders in To Pack right now" with one order sitting in
+         * To Handover and nothing pointing at it. The one case where they are
+         * most stuck was the one case with no exit.
          *
-         * Read off the request rather than off each branch's own condition,
-         * because those conditions differ per channel and this does not:
-         * anything the operator narrowed by is a query parameter. page is
-         * excluded because paging is not narrowing, tab=ALL because that is
-         * the unnarrowed state, and the hidden params because they identify
-         * the panel rather than filter it. */
-        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+         * page is excluded because paging is not narrowing, tab=ALL because
+         * that is the unnarrowed state, and the hidden params because they
+         * identify the panel rather than filter it. */
+        $emptyFiltered = (isset($active_tab) && strtoupper((string) $active_tab) !== 'ALL')
+            || collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
             ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
             ->isNotEmpty();
     @endphp
     <x-ui.empty title="No returns here" :description="$rtEmptyDesc">
         @if($emptyFiltered)
             <x-slot:action>
-                <x-ui.button variant="secondary" :href="$panelUrl()">Show all returns</x-ui.button>
+                <x-ui.button variant="secondary" :href="isset($active_tab) ? $panelUrl(['tab' => 'ALL']) : $panelUrl()">Show all returns</x-ui.button>
             </x-slot:action>
         @endif
     </x-ui.empty>
 @else
-<x-ui.table class="x-table--stack">
+<x-ui.table caption="{{ 'Shopee returns and refunds' . ($active_tab !== 'ALL' && isset($tabs[$active_tab]) ? ' in ' . $tabs[$active_tab] : '') }}" class="x-table--stack">
     <x-slot:head>
         <tr>
             <th scope="col" class="sp-col-order">Return</th>

@@ -23,7 +23,18 @@ function tierFor(diffSec) {
 }
 
 function formatRemaining(diffSec) {
-    if (diffSec < 0) return 'OVERDUE';
+    // Past the deadline the chip keeps counting, in the same units, so a row
+    // an hour late and a row three weeks late are tellable apart. Mirrors the
+    // Blade component's first paint; if one changes the other has to.
+    if (diffSec < 0) {
+        const late = -diffSec;
+        const ld = Math.floor(late / 86400);
+        const lh = Math.floor((late % 86400) / 3600);
+        const lm = Math.floor((late % 3600) / 60);
+        if (ld > 0) return `${ld}d ${lh}h late`;
+        if (lh > 0) return `${lh}h ${lm}m late`;
+        return `${lm}m late`;
+    }
 
     const d = Math.floor(diffSec / 86400);
     const h = Math.floor((diffSec % 86400) / 3600);

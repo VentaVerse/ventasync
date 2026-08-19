@@ -77,13 +77,24 @@ class ShopeeReturnsPanel
             'CLOSED'    => ['CLOSED', 'CANCELLED'],
         ];
 
+        /* A TAB NAMES WHAT ITS ROWS SAY.
+         *
+         * These were written independently of the row labels in
+         * ChannelStatusTone, and the two drifted: the tab "Rejected /
+         * Cancelled" held rows reading "Closed", and "Under review" held rows
+         * reading "Requested" while the rows that DO say "Under review"
+         * (JUDGING) sat under "Disputed". Filtering by a word returned rows
+         * that never used it.
+         *
+         * Each tab now takes the wording of the states it groups. Keys are
+         * untouched - they are the wire, and no URL changes. */
         $tabs = [
             'ALL'       => 'All',
-            'REQUESTED' => 'Under Review',
-            'ACCEPTED'  => 'Returning',
+            'REQUESTED' => 'Requested',
+            'ACCEPTED'  => 'Accepted',
             'REFUND'    => 'Refunded',
             'DISPUTE'   => 'Disputed',
-            'CLOSED'    => 'Rejected / Cancelled',
+            'CLOSED'    => 'Closed or cancelled',
         ];
 
         if (!array_key_exists($tab, $tabs)) {

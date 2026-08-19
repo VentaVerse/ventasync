@@ -38,8 +38,21 @@
 <div class="x-list-head">
     <div>
         <h1 class="x-page-title">Orders</h1>
+        {{-- The count and the name have to describe the same list.
+             $orders->total() is the paginator AFTER the sub-step filter, and
+             $tabs[$active_tab] is the PARENT tab, so standing on To Pack this
+             read "0 orders in To Ship" directly under a segment pill reading
+             "To Ship 1". The empty state twelve lines into the panel already
+             derives the narrower label for exactly this reason; its comment
+             explains why, and this sibling was left on the parent. --}}
+        @php
+            $spHeadScope = $tabs[$active_tab] ?? $active_tab;
+            if ($active_tab === 'PENDING') {
+                $spHeadScope = ['to_pack' => 'To Pack', 'to_handover' => 'To Handover'][$pendingSub ?? ''] ?? $spHeadScope;
+            }
+        @endphp
         <p class="x-page-sub">
-            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($active_tab !== 'ALL' && isset($tabs[$active_tab])) in {{ $tabs[$active_tab] }}@endif
+            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($active_tab !== 'ALL' && isset($tabs[$active_tab])) in {{ $spHeadScope }}@endif
         </p>
     </div>
 </div>

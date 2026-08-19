@@ -407,6 +407,108 @@ class FoundationTest extends TestCase
     }
 
     /**
+     * The accent generator measures against the ink the UI actually paints.
+     *
+     * ChannelAccent::deep() walks a channel's colour down until it clears
+     * 4.5:1 against LIGHT_INK_ON_ACCENT, and the primary button it produces
+     * carries --bl-paper. Those two have to be the same colour or the
+     * guarantee is computed against something nobody sees: they were not, and
+     * the walk stopped at Shopee's #d14428 because that clears 4.597 against
+     * pure white, while the button it made measured 4.09 against the paper it
+     * was really printed in.
+     *
+     * A comment claimed this test existed before this test existed. It does
+     * now, because the same class of drift - a stated ratio nobody re-measured
+     * - had also left segment.css asserting 4.59:1 for a pairing that shipped
+     * at 4.21.
+     */
+    public function test_the_accent_floor_is_measured_against_the_ink_it_carries(): void
+    {
+        $css = File::get(resource_path('css/blotter.css'));
+
+        preg_match('/--bl-paper:\s*(#[0-9a-f]{6})/i', $css, $m);
+        $this->assertNotEmpty($m, '--bl-paper is not declared as a plain hex in blotter.css');
+
+        $paper = array_map('hexdec', str_split(ltrim($m[1], '#'), 2));
+
+        $reflected = new \ReflectionClass(\App\Support\ChannelAccent::class);
+        $ink = $reflected->getConstant('LIGHT_INK_ON_ACCENT');
+
+        $this->assertSame(
+            $paper,
+            $ink,
+            'ChannelAccent::LIGHT_INK_ON_ACCENT and --bl-paper have drifted apart. '
+            ."deep() would then guarantee contrast against a colour the UI never paints.\n"
+            .'--bl-paper is '.$m[1].'; the constant is rgb('.implode(', ', $ink).').'
+        );
+    }
+
+    /**
+     * Every channel's deep accent actually clears the floor it claims.
+     *
+     * The generator is only as good as its reference colour, and the previous
+     * reference was wrong, so this asserts the outcome rather than the method:
+     * every accent the shipped extensions declare, deepened, must hold
+     * --bl-paper at 4.5:1.
+     */
+    public function test_every_channel_accent_holds_its_text_at_the_floor(): void
+    {
+        $accents = [];
+        foreach (glob(base_path('extensions/*/extension.json')) ?: [] as $manifest) {
+            $json = json_decode(File::get($manifest), true);
+            $accent = $json['accent'] ?? ($json['nav']['accent'] ?? null);
+            if (is_string($accent) && preg_match('/^#[0-9a-f]{6}$/i', $accent)) {
+                $accents[basename(dirname($manifest))] = $accent;
+            }
+        }
+
+        // Plus the ones the critique measured directly, so the guard still
+        // bites if a manifest stops declaring its colour.
+        $accents += [
+            'shopee' => '#ee4d2d',
+            'lazada' => '#0f146d',
+            'tiktok' => '#1e1e1e',
+            'venta'  => '#7c3aed',
+        ];
+
+        $failures = [];
+        foreach ($accents as $channel => $hex) {
+            $deep = \App\Support\ChannelAccent::deep($hex);
+            $ratio = $this->contrastRatio(
+                array_map('hexdec', str_split(ltrim($deep, '#'), 2)),
+                [238, 242, 248]
+            );
+            if ($ratio < 4.5) {
+                $failures[] = sprintf('%s: %s -> %s measures %.2f', $channel, $hex, $deep, $ratio);
+            }
+        }
+
+        $this->assertSame([], $failures, "A channel's deepened accent cannot hold its own button text:\n".implode("\n", $failures));
+    }
+
+    /**
+     * @param  array<int, int>  $a
+     * @param  array<int, int>  $b
+     */
+    private function contrastRatio(array $a, array $b): float
+    {
+        $luminance = static function (array $rgb): float {
+            $channel = static function (int $value): float {
+                $v = $value / 255;
+
+                return $v <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4;
+            };
+
+            return 0.2126 * $channel($rgb[0]) + 0.7152 * $channel($rgb[1]) + 0.0722 * $channel($rgb[2]);
+        };
+
+        $l1 = $luminance($a);
+        $l2 = $luminance($b);
+
+        return (max($l1, $l2) + 0.05) / (min($l1, $l2) + 0.05);
+    }
+
+    /**
      * Every stylesheet that reaches a served page.
      *
      * Read off the filesystem rather than off the @import lists, so a file

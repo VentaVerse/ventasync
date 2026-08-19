@@ -77,12 +77,12 @@
           data-confirm-tone="primary">
         @csrf
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="vtDateFrom">From</label>
+            <label class="x-cmdbar__label" for="vtDateFrom">Fetch from</label>
             <x-ui.input type="date" id="vtDateFrom" name="date_from" class="x-cmdbar__date"
                         value="{{ old('date_from', request('date_from', now()->subDays(15)->format('Y-m-d'))) }}" />
         </div>
         <div class="x-cmdbar__field">
-            <label class="x-cmdbar__label" for="vtDateTo">To</label>
+            <label class="x-cmdbar__label" for="vtDateTo">Fetch to</label>
             <x-ui.input type="date" id="vtDateTo" name="date_to" class="x-cmdbar__date"
                         value="{{ old('date_to', request('date_to', now()->format('Y-m-d'))) }}" />
         </div>
@@ -166,28 +166,30 @@
                 : 'Nothing has been synced yet. Someone with permission to sync orders needs to pull them from this store first.';
         }
 
-        /* A way out of the empty state.
+        /* Whether the list the operator is looking at is narrowed - read off
+         * the panel's STATE, not off the URL.
          *
-         * Every one of these messages already named the escape - "Clear the
-         * search", "Clear them to see the full list" - and then left the
-         * operator to find the filter themselves and empty it by hand. The
-         * message is where the dead end is noticed, so the way out belongs
-         * there too.
+         * This used to be derived from the query string alone, which is only
+         * true for a panel whose unfiltered view is also its default. Shopee
+         * orders defaults its tab to PENDING and TikTok to TO_SHIP, so
+         * landing on either carries no query parameters at all: the check
+         * said "not filtered", the way out was suppressed, and the operator
+         * stood on "No orders in To Pack right now" with one order sitting in
+         * To Handover and nothing pointing at it. The one case where they are
+         * most stuck was the one case with no exit.
          *
-         * Read off the request rather than off each branch's own condition,
-         * because those conditions differ per channel and this does not:
-         * anything the operator narrowed by is a query parameter. page is
-         * excluded because paging is not narrowing, tab=ALL because that is
-         * the unnarrowed state, and the hidden params because they identify
-         * the panel rather than filter it. */
-        $emptyFiltered = collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
+         * page is excluded because paging is not narrowing, tab=ALL because
+         * that is the unnarrowed state, and the hidden params because they
+         * identify the panel rather than filter it. */
+        $emptyFiltered = (isset($active_tab) && strtoupper((string) $active_tab) !== 'ALL')
+            || collect(request()->except(array_merge(array_keys($panelHiddenParams ?? []), ['page'])))
             ->filter(fn ($v, $k) => $v !== null && $v !== '' && !($k === 'tab' && $v === 'ALL'))
             ->isNotEmpty();
     @endphp
     <x-ui.empty title="No orders here" :description="$vtEmptyDesc">
         @if($emptyFiltered)
             <x-slot:action>
-                <x-ui.button variant="secondary" :href="$panelUrl()">Show all orders</x-ui.button>
+                <x-ui.button variant="secondary" :href="isset($active_tab) ? $panelUrl(['tab' => 'ALL']) : $panelUrl()">Show all orders</x-ui.button>
             </x-slot:action>
         @endif
     </x-ui.empty>
@@ -214,7 +216,7 @@
     </form>
 </div>
 @endif
-<x-ui.table class="x-table--stack">
+<x-ui.table caption="Storefront orders" class="x-table--stack">
     <x-slot:head>
         {{-- The legacy column format the other three channels settled on: one
              row per item so Qty and Price align in their own columns, and the

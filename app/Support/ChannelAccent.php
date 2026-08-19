@@ -45,6 +45,20 @@ class ChannelAccent
     /** The dark theme's sheet, which onDark() has to clear. */
     private const DARK_SHEET = [17, 24, 40];
 
+    /* THE TEXT THAT ACTUALLY SITS ON THESE COLOURS.
+     *
+     * deep() used to measure against pure white, and the UI never paints
+     * pure white on an accent - the primary button carries --bl-paper
+     * (#eef2f8), which is a shade darker. The difference decides the answer:
+     * Shopee's #d14428 clears 4.597 against #ffffff, so the walk stopped
+     * there and called it compliant, while the button it produces measures
+     * 4.09 against the paper it is really printed in. The guarantee was
+     * computed against a colour that never reaches the screen.
+     *
+     * Kept in sync with --bl-paper in blotter.css; FoundationTest asserts
+     * the two agree. */
+    private const LIGHT_INK_ON_ACCENT = [238, 242, 248];
+
     /**
      * The channel's own colour, for marks that carry no text.
      */
@@ -54,7 +68,7 @@ class ChannelAccent
     }
 
     /**
-     * The darkest step of the channel's colour that still holds white text.
+     * The darkest step of the channel's colour that still holds the light ink.
      *
      * Returns the colour unchanged when it already clears the floor.
      */
@@ -74,7 +88,7 @@ class ChannelAccent
                 (int) round($rgb[2] * $factor),
             ];
 
-            if (self::contrastWithWhite($candidate) >= self::FLOOR) {
+            if (self::contrastWithPaper($candidate) >= self::FLOOR) {
                 return sprintf('#%02x%02x%02x', ...$candidate);
             }
         }
@@ -150,9 +164,9 @@ class ChannelAccent
     /**
      * @param  array{0:int,1:int,2:int}  $rgb
      */
-    private static function contrastWithWhite(array $rgb): float
+    private static function contrastWithPaper(array $rgb): float
     {
-        return self::contrast($rgb, [255, 255, 255]);
+        return self::contrast($rgb, self::LIGHT_INK_ON_ACCENT);
     }
 
     /**

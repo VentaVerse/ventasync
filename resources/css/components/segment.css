@@ -120,6 +120,32 @@
 
 .x-segment__item:hover { color: var(--bl-ink); }
 
+/* THE ONE CONTROL THE TOUCH UPLIFT MISSED.
+ *
+ * blotter.css raises .bl-seg__item to 44px under pointer: coarse, and every
+ * other target on these pages is covered by that block or its neighbours -
+ * the row kebab goes 14px to 44, the pager likewise. The fulfilment status
+ * tabs are .x-segment__item, a different class family that was never aliased
+ * to it, so the primary mode switch on the busiest screen in the product -
+ * the thing a packer taps all day to move between To Ship and Shipped - kept
+ * a hard 36px height on a phone while smaller, rarer controls were lifted.
+ *
+ * Gated on the input device rather than on width, the same as every other
+ * uplift here: a 36px target is fine under a mouse and the desk should not
+ * pay for the warehouse. The sub strip rises too, from 30px. */
+@media (pointer: coarse) {
+    .x-segment__item {
+        min-height: 44px;
+        height: auto;
+        padding-block: 10px;
+    }
+
+    .x-segment--sub .x-segment__item {
+        min-height: 44px;
+        height: auto;
+    }
+}
+
 /* A filter with nothing in it. Rendered without an href, so it is already
    out of the tab order and off the pointer; this is what says so on the
    screen. Quieter than a resting tab but not so quiet it stops being
@@ -166,13 +192,20 @@
    segment that has sub steps (Shopee's To Ship splits into To Pack and To
    Handover). It drops the trough entirely so it cannot be mistaken for a
    peer of the row above it, and marks its active item with the same
-   brand-wash tint the shell nav uses for its own active child, which is
-   already measured at 4.59:1 light and 6.94:1 dark against --bl-chrome
-   (measured when the tint was introduced, in the retired v2.2 token
-   file's composited-rule note). Here it composites
-   over --bl-paper, which is lighter than sunken in light theme and darker in
-   dark theme, so both directions clear that measured floor rather than
-   fall below it. */
+   brand-wash tint the shell nav uses for its own active child.
+
+   THE RATIO THIS COMMENT CLAIMED WAS NOT THE ONE IT SHIPPED. It said 4.59:1,
+   carried over from where the tint was introduced against a different
+   ground. Measured on the built page, --bl-brand-deep on --bl-brand-wash is
+   4.21:1 - under the 4.5 a 12.5px label needs, and under it the whole time
+   the comment said otherwise.
+
+   The tint stays, because it is what says "second level"; the label takes
+   --bl-ink instead, which measures 16.96:1 on the same ground. Identity moves
+   to the background and legibility to the text, rather than asking one colour
+   to do both and missing. --bl-brand-deep is left alone: darkening it to
+   clear this one pairing would move a token used across the app to fix a
+   control that is two items wide. */
 /* A sub-tab strip is still a strip.
  *
  * This stripped the border and ground entirely, so the To Pack / To Handover
@@ -201,11 +234,11 @@
 
 .x-segment--sub .x-segment__item.is-active {
     background: var(--bl-brand-wash);
-    color: var(--bl-brand-deep);
+    color: var(--bl-ink);
     box-shadow: none;
 }
 
-.x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-brand-deep); }
+.x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-ink-2); }
 
 /* The far side of the bar can carry more than one standing item (Returns
    pairs "All orders" with its own Fetch, because that channel's endpoint

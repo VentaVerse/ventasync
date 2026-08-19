@@ -50,8 +50,15 @@
                      comes from a composer, so this stays a lookup: the partial
                      never learns which entry is special. Zero prints nothing,
                      because an empty badge is a thing to check. --}}
+                {{-- bg-attn, not bg-attn-fill. White on --bl-attn-fill
+                     (#c77a0a) measures 3.38:1, and this is 11px text, which
+                     needs 4.5. --bl-attn (#9e5c05) is the same state one step
+                     down and measures 5.27, so the badge borrows the token
+                     already used for attn-coloured TEXT rather than earning a
+                     new one. The fill token keeps its job: dots and bars,
+                     where nothing is printed on top. --}}
                 @if(($blBadge = $navBadges[$entry['route']] ?? 0) > 0)
-                    <span class="ml-auto min-w-[20px] rounded-full bg-attn-fill px-1.5 text-center
+                    <span class="ml-auto min-w-[20px] rounded-full bg-attn px-1.5 text-center
                                  text-[11px] font-semibold tabular-nums text-white">{{ number_format($blBadge) }}</span>
                 @endif
             </a>

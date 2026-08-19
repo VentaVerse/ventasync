@@ -2365,6 +2365,39 @@
         margin: 0;
     }
 
+    /* A labelled pair inside the filter row.
+     *
+     * The two date boxes here filter the list; the two in the command bar
+     * above tell the marketplace what to send. Both pairs are about when a
+     * return was opened and both are date inputs, so the only thing telling
+     * them apart used to be an aria-label - audible to a screen reader,
+     * invisible to everyone else. The word sits on the screen now.
+     *
+     * The label reads as a prefix to the pair rather than as a field label,
+     * because it names both boxes at once: "Opened [from] [to]". */
+    .x-filters__group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex: none;
+    }
+
+    .x-filters__group-label {
+        font-size: var(--bl-lab-size);
+        font-stretch: var(--bl-lab-stretch);
+        font-weight: var(--bl-lab-weight);
+        letter-spacing: var(--bl-lab-track);
+        color: var(--bl-ink-3);
+        white-space: nowrap;
+    }
+
+    @media (max-width: 560px) {
+        /* Stacked, the label takes the line above its pair rather than
+           stealing width from two boxes that are already sharing one row. */
+        .x-filters__group { flex-wrap: wrap; width: 100%; }
+        .x-filters__group-label { flex: 1 1 100%; }
+    }
+
     /* The one field that replaced four.
      *
      * Wider than a labelled search box because it has more to say: its

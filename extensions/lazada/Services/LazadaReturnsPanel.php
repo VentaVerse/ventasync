@@ -75,12 +75,16 @@ class LazadaReturnsPanel
             'REJECTED'         => ['rejected', 'cancelled', 'canceled', 'request_cancel', 'refund_reject'],
         ];
 
+        /* Sentence case, and the wording the rows use - see the note on the
+         * Shopee panel's tab map. "Return Initiated" and "Dispute in
+         * Progress" were title-cased mid-phrase, which no other label in this
+         * product does, and named states the rows spell differently. */
         $tabs = [
             'ALL'              => 'All',
-            'RETURN_INITIATED' => 'Return Initiated',
-            'IN_PROGRESS'      => 'Return in Progress',
-            'DISPUTE'          => 'Dispute in Progress',
-            'REFUND_ISSUED'    => 'Refund Issued',
+            'RETURN_INITIATED' => 'Return started',
+            'IN_PROGRESS'      => 'Package returning',
+            'DISPUTE'          => 'Disputed',
+            'REFUND_ISSUED'    => 'Refunded',
             'CLOSED'           => 'Closed',
             'REJECTED'         => 'Rejected',
         ];

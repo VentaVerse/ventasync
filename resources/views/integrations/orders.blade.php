@@ -22,7 +22,28 @@
     $fh = $summary ?? [];
     $fhChannels = $fh['channels'] ?? [];
     $fhStalled = $fh['stalled'] ?? [];
-    $fhWaiting = $fh['waiting'] ?? 0;
+
+    /* WHOSE FIGURE IS THIS?
+     *
+     * $fh['waiting'] is the total across every channel. Printed under an h1
+     * that names one channel it is simply false: the Shopee panel read
+     * "Shopee" over "24 orders waiting" while Shopee's own card two inches
+     * below read 0, because the 24 was Lazada's. The returns branch of this
+     * same sentence was scoped when the returns view was added - its comment
+     * is nine lines down and says why - and the orders branch was left on the
+     * cross-channel total.
+     *
+     * With a channel open this page IS that channel's orders page, so the
+     * sentence belongs to it: its count, and its own sync state rather than
+     * a roll-call of every channel's. With no channel open the totals are
+     * the point and nothing changes. */
+    $fhOpen = $selectedChannel
+        ? collect($fhChannels)->firstWhere('id', $selectedChannel)
+        : null;
+
+    $fhWaiting = $fhOpen !== null
+        ? (int) ($fhOpen['waiting'] ?? 0)
+        : ($fh['waiting'] ?? 0);
 
     // The one sentence the page exists to say, assembled so the head reads as
     // a statement rather than as a row of figures. Work first, because that is
@@ -47,17 +68,23 @@
         ? implode(', ', array_slice($fhNamed, 0, -1)) . ' and ' . end($fhNamed)
         : ($fhNamed[0] ?? '');
 
-    $fhLink = $fhStalled === []
-        ? 'all ' . count($fhChannels) . ' ' . (count($fhChannels) === 1 ? 'channel' : 'channels') . ' syncing'
-        : $fhList . (count($fhStalled) === 1 ? ' is not syncing' : ' are not syncing');
+    if ($fhOpen !== null) {
+        // One channel open: the clause is about that channel, not a
+        // roll-call. "Lazada and Shopee are not syncing" under a Shopee
+        // heading made the reader work out which half applied to them.
+        $fhLink = ($fhOpen['stalled'] ?? false)
+            ? (($fhOpen['state'] ?? '') === 'setup' ? 'not connected' : 'not syncing')
+            : 'syncing';
+    } else {
+        $fhLink = $fhStalled === []
+            ? 'all ' . count($fhChannels) . ' ' . (count($fhChannels) === 1 ? 'channel' : 'channels') . ' syncing'
+            : $fhList . (count($fhStalled) === 1 ? ' is not syncing' : ' are not syncing');
+    }
 
     // With a channel open, this page IS that channel's orders page and takes
     // its colour, the same as the seller centre does. With no channel open it
     // is the hub over all of them and stays neutral, because there is no one
     // channel for it to belong to.
-    $fhOpen = $selectedChannel
-        ? collect($fhChannels)->firstWhere('id', $selectedChannel)
-        : null;
 @endphp
 
 <div class="fh-scope"
@@ -104,7 +131,7 @@
         <p class="fh-head__state">
             <span class="{{ $fhWaiting > 0 ? 'fh-head__work is-live' : 'fh-head__work' }}">{{ $fhWork }}</span>
             <span class="fh-head__sep" aria-hidden="true">&middot;</span>
-            <span class="{{ $fhStalled === [] ? 'fh-head__link' : 'fh-head__link is-bad' }}">{{ $fhLink }}</span>
+            <span class="{{ ($fhOpen !== null ? !($fhOpen['stalled'] ?? false) : $fhStalled === []) ? 'fh-head__link' : 'fh-head__link is-bad' }}">{{ $fhLink }}</span>
         </p>
     @else
         <p class="x-page-sub">Work orders across every marketplace</p>

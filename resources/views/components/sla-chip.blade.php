@@ -15,8 +15,24 @@
         elseif ($diff < 24 * 3600)  $tier = 'sla-chip--warn';
         else                        $tier = 'sla-chip--ok';
 
+        /* HOW overdue, not just THAT it is overdue.
+         *
+         * This printed the literal string OVERDUE, so an order one hour late
+         * and an order three weeks late rendered the same chip. The whole
+         * point of a countdown is triage, and it stopped working at exactly
+         * the moment triage starts mattering - on a To Ship queue where four
+         * rows all read OVERDUE there is nothing to sort by.
+         *
+         * Same units as the countdown above it, so the two read as one scale
+         * running past zero rather than as two different displays. */
         if ($diff < 0) {
-            $initial = 'OVERDUE';
+            $late = -$diff;
+            $ld = intdiv($late, 86400);
+            $lh = intdiv($late % 86400, 3600);
+            $lm = intdiv($late % 3600, 60);
+            if ($ld > 0)      $initial = "{$ld}d {$lh}h late";
+            elseif ($lh > 0)  $initial = "{$lh}h {$lm}m late";
+            else              $initial = "{$lm}m late";
         } else {
             $d = intdiv($diff, 86400);
             $h = intdiv($diff % 86400, 3600);
@@ -41,6 +57,12 @@
             </svg>
             <span class="sla-chip__label">{{ $label }}</span>
             <span class="sla-chip__time">{{ $initial }}</span>
+            {{-- The actual deadline reached a reader only through title=,
+                 which has no keyboard path and no touch path at all - the
+                 same objection DESIGN.md already raises against title as a
+                 sole reading path. The attribute stays for the mouse; this
+                 gives everyone else the date. --}}
+            <span class="x-sr">(ship by {{ $deadlineLabel }})</span>
         </span>
     </span>
 @endif
