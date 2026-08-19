@@ -877,7 +877,7 @@
              because packing moves the order out of the To Pack tab, and the
              row is often no longer on the page by the time this opens. --}}
         @if(!empty($pack_print_parcel))
-            @php($lzParcel = $pack_print_parcel)
+            @php $lzParcel = $pack_print_parcel; @endphp
             <div class="co-parcel">
                 <ul class="co-parcel__items">
                     @foreach($lzParcel['items'] as $lzItem)
@@ -954,7 +954,7 @@
      successes reads as "all 12 packed" when 11 did, and the packer finds
      out at the shelf. --}}
 @if(!empty($bulk_pack))
-    @php($lzBulk = $bulk_pack)
+    @php $lzBulk = $bulk_pack; @endphp
     <div id="lzBulkPackModal" class="modal-backdrop">
         <div class="modal co-modal">
             <div class="modal-header co-modal__head">
@@ -964,7 +964,26 @@
 
             <ul class="co-outcomes">
                 @foreach($lzBulk['outcomes'] as $lzOut)
-                    <li class="co-outcome co-outcome--{{ $lzOut['ok'] ? 'ok' : 'bad' }}">
+                    @php
+                        // The same badge the rows behind this modal use for a
+                        // status, so an outcome reads the way every other
+                        // state on this surface reads.
+                        $lzOutTone = match ($lzOut['state']) {
+                            'packed' => 'success',
+                            'already' => 'info',
+                            'sof' => 'warning',
+                            default => 'danger',
+                        };
+                        $lzOutWord = match ($lzOut['state']) {
+                            'packed' => 'Packed',
+                            'already' => 'Was packed',
+                            'sof' => 'Skipped',
+                            'gone' => 'Gone',
+                            default => 'Failed',
+                        };
+                    @endphp
+                    <li class="co-outcome">
+                        <x-ui.badge :tone="$lzOutTone">{{ $lzOutWord }}</x-ui.badge>
                         <span class="co-outcome__id">
                             @if($lzOut['order_id'] !== '')
                                 {{ $lzOut['order_id'] }}

@@ -2383,8 +2383,9 @@
 
     .co-outcome {
         display: flex;
-        align-items: baseline;
-        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px 10px;
         padding: 7px 11px;
         font-size: 13px;
     }
@@ -2405,19 +2406,10 @@
         line-height: 1.35;
     }
 
-    /* The state is written in the message, and carried again by a rule down
-       the left edge - never by the colour alone. */
-    .co-outcome--ok {
-        border-left: 3px solid var(--bl-good);
-    }
-
-    .co-outcome--bad {
-        border-left: 3px solid var(--bl-bad);
-    }
-
-    .co-outcome--bad .co-outcome__what {
-        color: var(--bl-ink);
-    }
+    /* State is carried by the same badge the rows behind this modal use, not
+       by a coloured bar down the edge of each line. The bar was an invention
+       - this product already had a way to say what something is, and a
+       second one on the same surface is how a vocabulary stops being one. */
 
     .co-modal__foot {
         display: flex;
